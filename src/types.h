@@ -17,5 +17,8 @@ typedef u32 size_t;
 #define VISIBLE __attribute__((externally_visible))
 
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+
+#define NULL ((void *)0)
 
 #endif // types.h

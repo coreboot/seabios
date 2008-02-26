@@ -250,7 +250,7 @@ handle_1a(struct bregs *regs)
 void VISIBLE
 handle_1c(struct bregs *regs)
 {
-    debug_enter(regs);
+    //debug_enter(regs);
 }
 
 // INT 08h System Timer ISR Entry Point
@@ -271,7 +271,12 @@ handle_08(struct bregs *regs)
     }
 
     SET_BDA(timer_counter, counter);
-    // XXX - int #0x1c
+
+    // chain to user timer tick INT #0x1c
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x1c, &br);
+
     eoi_master_pic();
 }
 
@@ -280,4 +285,47 @@ void VISIBLE
 handle_70(struct bregs *regs)
 {
     debug_enter(regs);
+
+    // Check which modes are enabled and have occurred.
+    u8 registerB = inb_cmos(CMOS_STATUS_B);
+    u8 registerC = inb_cmos(CMOS_STATUS_C);
+
+    if (!(registerB & 0x60))
+        goto done;
+    if (registerC & 0x20) {
+        // Handle Alarm Interrupt.
+        struct bregs br;
+        memset(&br, 0, sizeof(br));
+        call16_int(0x4a, &br);
+    }
+    if (!(registerC & 0x40))
+        goto done;
+
+    // Handle Periodic Interrupt.
+
+    if (!GET_BDA(rtc_wait_flag))
+        goto done;
+
+    // Wait Interval (Int 15, AH=83) active.
+    u32 time = GET_BDA(user_wait_timeout);  // Time left in microseconds.
+    if (time < 0x3D1) {
+        // Done waiting.
+        u32 segoff = GET_BDA(ptr_user_wait_complete_flag);
+        u16 segment = segoff >> 16;
+        u16 offset = segoff & 0xffff;
+        // Turn off status byte.
+        SET_BDA(rtc_wait_flag, 0);
+        // Clear the Periodic Interrupt.
+        outb_cmos(registerB & 0x37, CMOS_STATUS_B);
+        // Write to specified flag byte.
+        u8 oldval = GET_FARVAR(segment, *(u8*)(offset+0));
+        SET_FARVAR(segment, *(u8*)(offset+0), oldval | 0x80);
+    } else {
+        // Continue waiting.
+        time -= 0x3D1;
+        SET_BDA(user_wait_timeout, time);
+    }
+
+done:
+    eoi_both_pics();
 }

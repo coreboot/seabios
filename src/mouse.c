@@ -11,11 +11,13 @@
 void
 handle_15c2(struct bregs *regs)
 {
+    // XXX
 }
 
 static u8
 int74_function()
 {
+    // XXX
     return 0;
 }
 

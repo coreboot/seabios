@@ -33,6 +33,7 @@
 #define PORT_DMA2_MASK_REG     0x00d4
 #define PORT_DMA2_MODE_REG     0x00d6
 #define PORT_DMA2_MASTER_CLEAR 0x00da
+#define PORT_MATH_CLEAR        0x00f0
 #define PORT_FD_DOR            0x03f2
 #define PORT_FD_STATUS         0x03f4
 #define PORT_FD_DATA           0x03f5

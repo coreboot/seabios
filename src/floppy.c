@@ -14,7 +14,8 @@
 
 #define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
 
-////.org 0xefc7
+// XXX - //.org 0xefc7
+
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M
 // floppy here

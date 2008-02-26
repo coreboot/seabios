@@ -5,114 +5,178 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "types.h" // VISIBLE
 #include "util.h" // irq_enable
 #include "biosvar.h" // struct bregs
-#include "farptr.h" // SET_SEG
+#include "config.h" // CONFIG_*
+#include "cmos.h" // inb_cmos
 
-static inline void
-__call_irq(u8 nr)
+//--------------------------------------------------------------------------
+// print_boot_device
+//   displays the boot device
+//--------------------------------------------------------------------------
+
+static const char drivetypes[][10]={
+    "", "Floppy","Hard Disk","CD-Rom", "Network"
+};
+
+static void
+print_boot_device(u16 type)
 {
-    asm volatile("int %0" : : "N" (nr));
+    /* NIC appears as type 0x80 */
+    if (type == IPL_TYPE_BEV)
+        type = 0x4;
+    if (type == 0 || type > 0x4)
+        BX_PANIC("Bad drive type\n");
+    printf("Booting from %s...\n", drivetypes[type]);
 }
 
-static inline u32
-call_irq(u8 nr, struct bregs *callregs)
+//--------------------------------------------------------------------------
+// print_boot_failure
+//   displays the reason why boot failed
+//--------------------------------------------------------------------------
+static void
+print_boot_failure(u16 type, u8 reason)
 {
-    u32 flags;
-    asm volatile(
-        // Save current registers
-        "pushal\n"
-        // Pull in calling registers.
-        "movl 0x04(%%eax), %%edi\n"
-        "movl 0x08(%%eax), %%esi\n"
-        "movl 0x0c(%%eax), %%ebp\n"
-        "movl 0x14(%%eax), %%ebx\n"
-        "movl 0x18(%%eax), %%edx\n"
-        "movl 0x1c(%%eax), %%ecx\n"
-        "movl 0x20(%%eax), %%eax\n"
-        // Invoke interrupt
-        "int %1\n"
-        // Restore registers
-        "popal\n"
-        // Exract flags
-        "pushfw\n"
-        "popl %%eax\n"
-        : "=a" (flags): "N" (nr), "a" (callregs), "m" (*callregs));
-    return flags;
+    if (type == 0 || type > 0x3)
+        BX_PANIC("Bad drive type\n");
+
+    printf("Boot from %s failed", drivetypes[type]);
+    if (type < 4) {
+        /* Report the reason too */
+        if (reason==0)
+            printf(": not a bootable disk");
+        else
+            printf(": could not read the boot disk");
+    }
+    printf("\n");
 }
 
 static void
-print_boot_failure()
+try_boot(u16 seq_nr)
 {
-    bprintf(0, "Boot failed\n");
-}
-
-static void
-try_boot()
-{
-    // XXX - assume floppy
-    u16 bootseg = 0x07c0;
+    SET_IPL(sequence, seq_nr);
+    u16 bootseg;
     u8 bootdrv = 0;
+    u16 bootdev, bootip;
 
-    // Read sector
+    if (CONFIG_ELTORITO_BOOT) {
+        bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
+        bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);
+        bootdev >>= 4 * seq_nr;
+        bootdev &= 0xf;
+        if (bootdev == 0)
+            BX_PANIC("No bootable device.\n");
+
+        /* Translate from CMOS runes to an IPL table offset by subtracting 1 */
+        bootdev -= 1;
+    } else {
+        if (seq_nr ==2)
+            BX_PANIC("No more boot devices.");
+        if (!!(inb_cmos(CMOS_BIOS_CONFIG) & 0x20) ^ (seq_nr == 1))
+            /* Boot from floppy if the bit is set or it's the second boot */
+            bootdev = 0x00;
+        else
+            bootdev = 0x01;
+    }
+
+    if (bootdev >= GET_IPL(count)) {
+        BX_INFO("Invalid boot device (0x%x)\n", bootdev);
+        return;
+    }
+    u16 type = GET_IPL(table[bootdev].type);
+
+    /* Do the loading, and set up vector as a far pointer to the boot
+     * address, and bootdrv as the boot drive */
+    print_boot_device(type);
+
     struct bregs cr;
-    memset(&cr, 0, sizeof(cr));
-    cr.dl = bootdrv;
-    SET_SEG(ES, bootseg);
-    cr.bx = 0;
-    cr.ah = 2;
-    cr.al = 1;
-    cr.ch = 0;
-    cr.cl = 1;
-    cr.dh = 0;
-    u32 status = call_irq(0x13, &cr);
+    switch(type) {
+    case IPL_TYPE_FLOPPY: /* FDD */
+    case IPL_TYPE_HARDDISK: /* HDD */
 
-    if (status & F_CF) {
-        print_boot_failure();
+        bootdrv = (type == IPL_TYPE_HARDDISK) ? 0x80 : 0x00;
+        bootseg = 0x07c0;
+
+        // Read sector
+        memset(&cr, 0, sizeof(cr));
+        cr.dl = bootdrv;
+        cr.es = bootseg;
+        cr.ah = 2;
+        cr.al = 1;
+        cr.cl = 1;
+        call16_int(0x13, &cr);
+
+        if (cr.flags & F_CF) {
+            print_boot_failure(type, 1);
+            return;
+        }
+
+        /* Always check the signature on a HDD boot sector; on FDD,
+         * only do the check if the CMOS doesn't tell us to skip it */
+        if ((type != IPL_TYPE_FLOPPY)
+            || !((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0x01))) {
+            if (GET_FARVAR(bootseg, *(u16*)0x1fe) != 0xaa55) {
+                print_boot_failure(type, 0);
+                return;
+            }
+        }
+
+        /* Canonicalize bootseg:bootip */
+        bootip = (bootseg & 0x0fff) << 4;
+        bootseg &= 0xf000;
+        break;
+    case IPL_TYPE_CDROM: /* CD-ROM */
+        // XXX
+        return;
+        break;
+    case IPL_TYPE_BEV: {
+        /* Expansion ROM with a Bootstrap Entry Vector (a far
+         * pointer) */
+        u32 vector = GET_IPL(table[bootdev].vector);
+        bootseg = vector >> 16;
+        bootip = vector & 0xffff;
+        break;
+    }
+    default:
         return;
     }
 
-    u16 bootip = (bootseg & 0x0fff) << 4;
-    bootseg &= 0xf000;
+    memset(&cr, 0, sizeof(cr));
+    cr.ip = bootip;
+    cr.cs = bootseg;
+    // Set the magic number in ax and the boot drive in dl.
+    cr.dl = bootdrv;
+    cr.ax = 0xaa55;
+    call16(&cr);
 
-    u32 segoff = (bootseg << 16) | bootip;
-    asm volatile (
-        "pushf\n"
-        "pushl %0\n"
-        "movb %b1, %%dl\n"
-        // Set the magic number in ax and the boot drive in dl.
-        "movw $0xaa55, %%ax\n"
-        // Zero some of the other registers.
-        "xorw %%bx, %%bx\n"
-        "movw %%bx, %%ds\n"
-        "movw %%bx, %%es\n"
-        "movw %%bx, %%bp\n"
-        // Go!
-        "iretw\n"
-        : : "r" (segoff), "ri" (bootdrv));
+    // Boot failed: invoke the boot recovery function
+    memset(&cr, 0, sizeof(cr));
+    call16_int(0x18, &cr);
 }
 
 // Boot Failure recovery: try the next device.
 void VISIBLE
-handle_18(struct bregs *regs)
+handle_18()
 {
-    debug_enter(regs);
-    try_boot();
+    debug_enter(NULL);
+    u16 seq = GET_IPL(sequence) + 1;
+    try_boot(seq);
 }
 
 // INT 19h Boot Load Service Entry Point
 void VISIBLE
-handle_19(struct bregs *regs)
+handle_19()
 {
-    debug_enter(regs);
-    try_boot();
+    debug_enter(NULL);
+    try_boot(0);
 }
 
-// Callback from 32bit entry - start boot process
+// Called from 32bit code - start boot process
 void VISIBLE
 begin_boot()
 {
     irq_enable();
-    __call_irq(0x19);
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x19, &br);
 }

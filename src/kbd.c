@@ -7,6 +7,7 @@
 
 #include "biosvar.h" // struct bregs
 #include "util.h" // debug_enter
+#include "config.h" // CONFIG_*
 
 static u8
 enqueue_key(u8 scan_code, u8 ascii_code)
@@ -44,6 +45,7 @@ dequeue_key(u8 *scan_code, u8 *ascii_code, u8 incr)
             break;
         if (!incr)
             return 0;
+        nop();
     }
 
     *ascii_code = GET_FARVAR(0x0000, *(u8*)(buffer_head+0x400+0));
@@ -554,16 +556,24 @@ handle_09(struct bregs *regs)
     // read key from keyboard controller
     u8 key = inb(PORT_KBD_DATA);
     irq_enable();
-#if 0
     if (CONFIG_KBD_CALL_INT15_4F) {
-        // XXX
+        // allow for keyboard intercept
+        struct bregs tr;
+        memset(&tr, 0, sizeof(tr));
+        tr.al = key;
+        tr.ah = 0x4f;
+        tr.flags = F_CF;
+        call16_int(0x15, &tr);
+        if (!tr.flags & F_CF)
+            goto done;
+        key = tr.al;
     }
-#endif
     process_key(key);
 
     irq_disable();
     eoi_master_pic();
 
+done:
     // enable keyboard
     outb(0xae, PORT_KBD_STATUS);
 }

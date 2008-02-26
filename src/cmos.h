@@ -25,11 +25,14 @@
 #define CMOS_RESET_CODE          0x0f
 #define CMOS_FLOPPY_DRIVE_TYPE   0x10
 #define CMOS_EQUIPMENT_INFO      0x14
+#define CMOS_BIOS_CONFIG         0x2d
 #define CMOS_EXTMEM_LOW          0x30
 #define CMOS_EXTMEM_HIGH         0x31
 #define CMOS_CENTURY             0x32
 #define CMOS_EXTMEM2_LOW         0x34
 #define CMOS_EXTMEM2_HIGH        0x35
+#define CMOS_BIOS_BOOTFLAG1      0x38
+#define CMOS_BIOS_BOOTFLAG2      0x3d
 
 // CMOS_STATUS_B bitdefs
 #define CSB_EN_ALARM_IRQ (1<<5)

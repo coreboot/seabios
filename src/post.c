@@ -14,6 +14,7 @@
 
 #define bda ((struct bios_data_area_s *)0)
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
+#define ipl ((struct ipl_s *)(IPL_SEG<<4))
 
 static void
 init_bda()
@@ -62,12 +63,13 @@ init_handlers()
 static void
 init_ebda()
 {
+    memset(ebda, 0, sizeof(*ebda));
     ebda->size = EBDA_SIZE;
     bda->ebda_seg = EBDA_SEG;
     bda->ivecs[0x41].seg = EBDA_SEG;
-    bda->ivecs[0x41].offset = 0x3d; // XXX
+    bda->ivecs[0x41].offset = offsetof(struct extended_bios_data_area_s, fdpt0);
     bda->ivecs[0x46].seg = EBDA_SEG;
-    bda->ivecs[0x46].offset = 0x4d; // XXX
+    bda->ivecs[0x41].offset = offsetof(struct extended_bios_data_area_s, fdpt1);
 }
 
 static void
@@ -222,22 +224,64 @@ kbd_setup()
            - 0x400);
     keyboard_init();
 
-    // XXX
+    // mov CMOS Equipment Byte to BDA Equipment Word
     u16 eqb = bda->equipment_list_flags;
-    eqb = (eqb & 0xff00) | inb_cmos(CMOS_EQUIPMENT_INFO);
-    bda->equipment_list_flags = eqb;
+    bda->equipment_list_flags = (eqb & 0xff00) | inb_cmos(CMOS_EQUIPMENT_INFO);
+}
+
+static u16
+detect_parport(u16 port, u8 timeout, u8 count)
+{
+    // clear input mode
+    outb(inb(port+2) & 0xdf, port+2);
+
+    outb(0xaa, port);
+    if (inb(port) != 0xaa)
+        // Not present
+        return 0;
+    bda->port_lpt[count] = port;
+    bda->lpt_timeout[count] = timeout;
+    return 1;
 }
 
 static void
 lpt_setup()
 {
-    // XXX
+    u16 count = 0;
+    count += detect_parport(0x378, 0x14, count);
+    count += detect_parport(0x278, 0x14, count);
+
+    // Equipment word bits 14..15 determing # parallel ports
+    u16 eqb = bda->equipment_list_flags;
+    bda->equipment_list_flags = (eqb & 0x3fff) | (count << 14);
+}
+
+static u16
+detect_serial(u16 port, u8 timeout, u8 count)
+{
+    outb(0x02, port+1);
+    if (inb(port+1) != 0x02)
+        return 0;
+    if (inb(port+2) != 0x02)
+        return 0;
+    outb(0x00, port+1);
+    bda->port_com[count] = port;
+    bda->com_timeout[count] = timeout;
+    return 1;
 }
 
 static void
 serial_setup()
 {
-    // XXX
+    u16 count = 0;
+    count += detect_serial(0x3f8, 0x0a, count);
+    count += detect_serial(0x2f8, 0x0a, count);
+    count += detect_serial(0x3e8, 0x0a, count);
+    count += detect_serial(0x2e8, 0x0a, count);
+
+    // Equipment word bits 9..11 determing # serial ports
+    u16 eqb = bda->equipment_list_flags;
+    bda->equipment_list_flags = (eqb & 0xf1ff) | (count << 9);
 }
 
 static u32
@@ -295,40 +339,64 @@ floppy_drive_post()
 static void
 cdemu_init()
 {
+    // XXX
     //ebda->cdemu.active = 0;
 }
 
 static void
 ata_init()
 {
+    // XXX
 }
 
 static void
 ata_detect()
 {
+    // XXX
 }
 
 static void
 hard_drive_post()
 {
+    // XXX
 }
+
 
 static void
 init_boot_vectors()
 {
+    // Clear out the IPL table.
+    memset(ipl, 0, sizeof(*ipl));
+
+    // Floppy drive
+    struct ipl_entry_s *ip = &ipl->table[0];
+    ip->type = IPL_TYPE_FLOPPY;
+    ip++;
+
+    // First HDD
+    ip->type = IPL_TYPE_HARDDISK;
+    ip++;
+
+    // CDROM
+    if (CONFIG_ELTORITO_BOOT) {
+        ip->type = IPL_TYPE_CDROM;
+        ip++;
+    }
+
+    ipl->count = ip - ipl->table;
+    ipl->sequence = 0xffff;
 }
 
-static void __attribute__((noinline))
-call16(u16 seg, u16 offset)
+static void
+callrom(u16 seg, u16 offset)
 {
-    u32 segoff = (seg << 16) | offset;
-    asm volatile(
-        "pushal\n"  // Save registers
-        "ljmp $0x20, %0\n" // Jump to 16bit transition code
-        ".globl call16_resume\n"
-        "call16_resume:\n"  // point of return
-        "popal\n"   // restore registers
-        : : "Z" (OFFSET_call16), "b" (segoff));
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.es = 0xf000;
+    br.di = OFFSET_pnp_string;
+    br.cs = seg;
+    br.ip = offset;
+    call16(&br);
 }
 
 static int
@@ -340,9 +408,6 @@ checksum(u8 *p, u32 len)
         sum += p[i];
     return sum;
 }
-
-#define PTR_TO_SEG(p) ((((u32)(p)) >> 4) & 0xf000)
-#define PTR_TO_OFFSET(p) (((u32)(p)) & 0xffff)
 
 static void
 rom_scan()
@@ -356,7 +421,7 @@ rom_scan()
         if (checksum(rom, len) != 0)
             continue;
         p = (u8*)(((u32)p + len) / 2048 * 2048);
-        call16(PTR_TO_SEG(rom), PTR_TO_OFFSET(rom + 3));
+        callrom(PTR_TO_SEG(rom), PTR_TO_OFFSET(rom + 3));
 
         // Look at the ROM's PnP Expansion header.  Properly, we're supposed
         // to init all the ROMs and then go back and build an IPL table of
@@ -372,13 +437,25 @@ rom_scan()
         // Found a device that thinks it can boot the system.  Record
         // its BEV and product name string.
 
-        // XXX
+        if (ipl->count >= ARRAY_SIZE(ipl->table))
+            continue;
+
+        struct ipl_entry_s *ip = &ipl->table[ipl->count];
+        ip->type = IPL_TYPE_BEV;
+        ip->vector = (PTR_TO_SEG(rom) << 16) | entry;
+
+        u16 desc = *(u16*)&rom[0x1a+0x10];
+        if (desc)
+            ip->description = (PTR_TO_SEG(rom) << 16) | desc;
+
+        ipl->count++;
     }
 }
 
 static void
 status_restart(u8 status)
 {
+    // XXX
 #if 0
     if (status == 0x05)
         eoi_jmp_post();
@@ -417,6 +494,7 @@ post()
     serial_setup();
     timer_setup();
     pic_setup();
+    // XXX - need to do pci stuff
     //pci_setup();
     init_boot_vectors();
     rom_scan();
@@ -430,7 +508,7 @@ post()
         ata_detect();
     }
     cdemu_init();
-    call16(0xf000, OFFSET_begin_boot);
+    callrom(0xf000, OFFSET_begin_boot);
 }
 
 void VISIBLE

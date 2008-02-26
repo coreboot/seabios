@@ -8,7 +8,12 @@
 #include "config.h"
 
         .code16gcc
-        .text
+
+
+/****************************************************************
+ * Include of 16bit C code
+ ****************************************************************/
+
         .globl bios16c_start, bios16c_end
 bios16c_start:
 .include "out/blob.proc.16.s"
@@ -16,21 +21,35 @@ bios16c_start:
 bios16c_end:
 
 
+/****************************************************************
+ * POST handler
+ ****************************************************************/
+
         .org 0xe05b
         .globl _start
 _start:
         .globl post16
 post16:
+        // init the stack pointer
+        xorw %ax, %ax
+        movw %ax, %ss
+        movl $ CONFIG_STACK_OFFSET , %esp
 
-        // Set entry point of rombios32 code - the actual instruction
+        // Set entry point of rombios32 code - the actual address
 	// is altered later in the build process.
         .globl set_entry32
 set_entry32:
-        mov $0xf0000000, %ebx
+        pushl $0xf0000000
 
-        // init the stack pointer
-        movl $ CONFIG_STACK32_OFFSET , %esp
+        // Fall through to transition32 function below
 
+
+/****************************************************************
+ * Call trampolines
+ ****************************************************************/
+
+// Place CPU into 32bit mode from 16bit mode.
+// Clobbers: %eax, flags, stack registers, cr0, idt/gdt
 transition32:
         // Disable irqs
         cli
@@ -65,23 +84,20 @@ transition32:
 
         cld
 
-        jmp *%ebx
+        retl
+
+// Call a 16bit function from 32bit mode.
+// 4(%esp) = address of struct bregs
+// Clobbers: all gp registers, flags, stack registers, cr0, idt/gdt
+        .globl __call16_from32
+__call16_from32:
+        pushl %eax
+
+        // Jump to 16bit mode
+        ljmp $0x20, $1f
 
         .code16gcc
-
-// We need a copy of this string, but we are not actually a PnP BIOS,
-// so make sure it is *not* aligned, so OSes will not see it if they
-// scan.
-        .align 2
-        .byte 0
-pnp_string:
-        .ascii "$PnP"
-
-// Return from 32bit code to 16bit code - must pass in destination
-// code segment,offset (%ebx) and the return stack position (%esp).
-
-        .globl call16
-call16:
+1:
         // restore data segment limits to 0xffff
         movw $0x28, %ax
         movw %ax, %ds
@@ -96,43 +112,79 @@ call16:
         movl %eax, %cr0
 
         // far jump to flush CPU queue after transition to real mode
-        ljmpw $0xf000, $1f
-1:
+        ljmpw $0xf000, $2f
+2:
         // restore IDT to normal real-mode defaults
         lidt %cs:rmode_IDT_info
 
-        // Setup segment registers
+        // Clear segment registers
         xorw %ax, %ax
-        movw %ax, %ds
         movw %ax, %fs
         movw %ax, %gs
-        movw $0xf000, %ax
         movw %ax, %es
-        lea pnp_string, %di
-        movw $ CONFIG_STACK16_SEGMENT , %ax
-        movw %ax, %ss
-        movl %esp, %eax
-        movl $ CONFIG_STACK16_OFFSET , %esp
+        movw %ax, %ds
+        movw %ax, %ss  // Assume stack is in segment 0
 
-        // Save info
-        pushl %eax
-        pushl %ebx
-        movl %esp, %ebp
-
-        lcallw %ss:*(%bp)
-
-        // Restore stack and jump back to 32bit mode.
         popl %eax
-        popl %esp
+        pushl $transition32
 
-        // Set resume point of rombios32 code - the actual instruction
-	// is altered later in the build process.
-        .globl set_resume32
-set_resume32:
-        mov $0xf0000000, %ebx
+        // Fall through to __call16
 
-        jmp transition32
 
+// Call a 16bit function with a specified cpu register state
+// %eax = address of struct bregs
+// Clobbers: all gp registers, es
+        .globl __call16
+__call16:
+        // Save eax
+        pushl %eax
+
+        // Setup for iretw call
+        pushw $0xf000
+        pushw $1f               // return point
+        pushw 0x28(%eax)        // flags
+        pushl 0x24(%eax)        // CS:IP
+
+        // Load calling registers.
+        movl 0x04(%eax), %edi
+        movl 0x08(%eax), %esi
+        movl 0x0c(%eax), %ebp
+        movl 0x14(%eax), %ebx
+        movl 0x18(%eax), %edx
+        movl 0x1c(%eax), %ecx
+        movw 0x02(%eax), %es    // XXX - should load %ds too
+        movl 0x20(%eax), %eax
+
+        // Invoke call
+        iretw                   // XXX - just do a lcalll
+1:
+        // Store flags, eax, ecx
+        pushfw
+        pushl %eax
+        movl 0x06(%esp), %eax
+        movl %ecx, 0x1c(%eax)   // Save %ecx
+        popl %ecx
+        movl %ecx, 0x20(%eax)   // Save %eax
+        popw %cx
+        movw %cx, 0x28(%eax)    // Save flags
+
+        // Store remaining registers
+        movw %es, 0x02(%eax)
+        movl %edi, 0x04(%eax)
+        movl %esi, 0x08(%eax)
+        movl %ebp, 0x0c(%eax)
+        movl %ebx, 0x14(%eax)
+        movl %edx, 0x18(%eax)
+
+        // Remove %eax
+        popl %eax
+
+        retl
+
+
+/****************************************************************
+ * GDT and IDT tables
+ ****************************************************************/
 
 // Protected mode IDT descriptor
 //
@@ -171,15 +223,30 @@ rombios32_gdt:
         .word 0xffff, 0, 0x9b0f, 0x0000 // 16 bit code segment base=0xf0000 limit=0xffff
         .word 0xffff, 0, 0x9300, 0x0000 // 16 bit data segment base=0x0 limit=0xffff
 
+// We need a copy of this string, but we are not actually a PnP BIOS,
+// so make sure it is *not* aligned, so OSes will not see it if they
+// scan.
+        .align 2
+        .byte 0
+        .globl pnp_string
+pnp_string:
+        .ascii "$PnP"
+
+
+/****************************************************************
+ * Interrupt entry points
+ ****************************************************************/
 
         .macro ENTRY cfunc
+        cli         // In case something far-calls insted of using "int"
         pushal
         pushw %es
         pushw %ds
         movw %ss, %ax
         movw %ax, %ds
-        mov %esp, %eax
-        call \cfunc
+        movzwl %sp, %esp
+        movl %esp, %eax
+        calll \cfunc
         popw %ds
         popw %es
         popal
@@ -192,20 +259,49 @@ rombios32_gdt:
         iretw
         .endm
 
+        .macro IRQ_TRAMPOLINE num
+        .globl irq_trampoline_0x\num
+        irq_trampoline_0x\num :
+        int $0x\num
+        lretw
+        .endm
 
         .org 0xe2c3
         IRQ_ENTRY nmi
 
         IRQ_ENTRY 13
-        IRQ_ENTRY 19
         IRQ_ENTRY 12
         IRQ_ENTRY 11
         IRQ_ENTRY 76
-        IRQ_ENTRY 18
         IRQ_ENTRY 1c
         IRQ_ENTRY 70
         IRQ_ENTRY 74
         IRQ_ENTRY 75
+
+        .globl entry_19
+entry_19:
+        // init the stack pointer
+        xorw %ax, %ax
+        movw %ax, %ss
+        movl $ CONFIG_STACK_OFFSET , %esp
+        calll handle_19
+
+        .globl entry_18
+entry_18:
+        // init the stack pointer
+        xorw %ax, %ax
+        movw %ax, %ss
+        movl $ CONFIG_STACK_OFFSET , %esp
+        calll handle_18
+
+        IRQ_TRAMPOLINE 02
+        IRQ_TRAMPOLINE 10
+        IRQ_TRAMPOLINE 13
+        IRQ_TRAMPOLINE 15
+        IRQ_TRAMPOLINE 18
+        IRQ_TRAMPOLINE 19
+        IRQ_TRAMPOLINE 1c
+        IRQ_TRAMPOLINE 4a
 
         .org 0xe3fe
         jmp entry_13
@@ -214,6 +310,7 @@ rombios32_gdt:
         // XXX - Fixed Disk Parameter Table
 
         .org 0xe6f2
+        // XXX - should reset ss and sp
         jmp entry_19
 
         .org 0xe6f5
@@ -255,7 +352,11 @@ rombios32_gdt:
         // XXX int 1D
         iretw
 
+        .globl freespace2_start, freespace2_end
+freespace2_start:
+
         .org 0xf841
+freespace2_end:
         jmp entry_12
 
         .org 0xf84d

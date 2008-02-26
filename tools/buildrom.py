@@ -64,11 +64,6 @@ def main():
     start32 = int(o32['OFFSET__start'], 16)
     outrom = alteraddr(outrom, jmppos+2, start32)
 
-    # Fixup resume from 16 jump to 32 bit code
-    jmppos = int(o16['OFFSET_set_resume32'], 16)
-    resume32 = int(o32['OFFSET_call16_resume'], 16)
-    outrom = alteraddr(outrom, jmppos+2, resume32)
-
     # Write output rom
     f = open(OUT, 'wb')
     f.write(outrom)

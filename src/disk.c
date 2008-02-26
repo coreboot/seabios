@@ -12,6 +12,7 @@
 static void
 disk_13(struct bregs *regs, u8 drive)
 {
+    // XXX
     set_cf(regs, 1);
 }
 
@@ -46,6 +47,7 @@ handle_13(struct bregs *regs)
 {
     //debug_enter(regs);
     u8 drive = regs->dl;
+    // XXX
 #if BX_ELTORITO_BOOT
     if (regs->ah >= 0x4a || regs->ah <= 0x4d) {
         int13_eltorito(regs);

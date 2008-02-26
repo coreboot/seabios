@@ -29,6 +29,8 @@
     __asm__ __volatile__("movl %0, %%" #SEG ":%1"       \
                          : : "r"(value), "m"(var))
 
+extern void __force_link_error__unknown_type();
+
 #define __GET_VAR(seg, var) ({                                  \
     typeof(var) __val;                                          \
     if (__builtin_types_compatible_p(typeof(__val), u8))        \
@@ -37,6 +39,8 @@
         __val = READ16_SEG(seg, var);                           \
     else if (__builtin_types_compatible_p(typeof(__val), u32))  \
         __val = READ32_SEG(seg, var);                           \
+    else                                                        \
+        __force_link_error__unknown_type();                     \
     __val; })
 
 #define __SET_VAR(seg, var, val) do {                             \
@@ -46,6 +50,8 @@
             WRITE16_SEG(seg, var, (val));                         \
         else if (__builtin_types_compatible_p(typeof(var), u32))  \
             WRITE32_SEG(seg, var, (val));                         \
+        else                                                      \
+            __force_link_error__unknown_type();                   \
     } while (0)
 
 #define __SET_SEG(SEG, value)                                   \
@@ -55,19 +61,6 @@
     __asm__ __volatile__("movw %%" #SEG ", %w0" : "=r"(__seg)); \
     __seg;})
 
-#ifdef MODE16
-#define GET_VAR(seg, var) __GET_VAR(seg, var)
-#define SET_VAR(seg, var, val) __SET_VAR(seg, var, val)
-#define SET_SEG(SEG, value) __SET_SEG(SEG, value)
-#define GET_SEG(SEG) __GET_SEG(SEG)
-#else
-// In 32-bit mode there is no need to mess with the segments.
-#define GET_VAR(seg, var) (var)
-#define SET_VAR(seg, var, val) (var) = (val)
-#define SET_SEG(SEG, value) ((void)(value))
-#define GET_SEG(SEG) 0
-#endif
-
 #define GET_FARVAR(seg, var) ({                 \
     SET_SEG(ES, (seg));                         \
     GET_VAR(ES, (var)); })
@@ -75,3 +68,32 @@
         SET_SEG(ES, (seg));                     \
         SET_VAR(ES, (var), val);                \
     } while (0)
+
+#define PTR_TO_SEG(p) ((((u32)(p)) >> 4) & 0xf000)
+#define PTR_TO_OFFSET(p) (((u32)(p)) & 0xffff)
+
+#define __GET_FARPTR(ptr) ({                                            \
+    typeof (&(ptr)) __ptr;                                              \
+    GET_FARVAR(PTR_TO_SEG(__ptr), *(typeof __ptr)PTR_TO_OFFSET(__ptr)); })
+#define __SET_FARVAR(ptr, val) do {                                     \
+        typeof (&(ptr)) __ptr;                                          \
+        SET_FARVAR(PTR_TO_SEG(__ptr), *(typeof __ptr)PTR_TO_OFFSET(__ptr) \
+                   , (val));                                            \
+    } while (0)
+
+#ifdef MODE16
+#define GET_VAR(seg, var) __GET_VAR(seg, (var))
+#define SET_VAR(seg, var, val) __SET_VAR(seg, (var), (val))
+#define SET_SEG(SEG, value) __SET_SEG(SEG, (value))
+#define GET_SEG(SEG) __GET_SEG(SEG)
+#define GET_FARPTR(ptr) __GET_FARPTR(ptr)
+#define SET_FARPTR(ptr, val) __SET_FARPTR((ptr), (val))
+#else
+// In 32-bit mode there is no need to mess with the segments.
+#define GET_VAR(seg, var) (var)
+#define SET_VAR(seg, var, val) do { (var) = (val); } while (0)
+#define SET_SEG(SEG, value) ((void)(value))
+#define GET_SEG(SEG) 0
+#define GET_FARPTR(ptr) (ptr)
+#define SET_FARPTR(ptr, val) do { (var) = (val); } while (0)
+#endif

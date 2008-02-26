@@ -3,6 +3,8 @@
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
+#ifndef __BIOSVAR_H
+#define __BIOSVAR_H
 
 #include "types.h" // u8
 #include "farptr.h" // SET_SEG
@@ -23,8 +25,8 @@ struct bios_data_area_s {
     // 30:00
 //    u8 stack[256];
     // 40:00
-    u16 port_com1, port_com2, port_com3, port_com4;
-    u16 port_lpt1, port_lpt2, port_lpt3;
+    u16 port_com[4];
+    u16 port_lpt[3];
     u16 ebda_seg;
     // 40:10
     u16 equipment_list_flags;
@@ -52,7 +54,9 @@ struct bios_data_area_s {
     u32 timer_counter;
     // 40:70
     u8 timer_rollover;
-    u8 other4[0x0f];
+    u8 other4[0x07];
+    u8 lpt_timeout[4];
+    u8 com_timeout[4];
     // 40:80
     u16 kbd_buf_start_offset;
     u16 kbd_buf_end_offset;
@@ -123,9 +127,48 @@ struct extended_bios_data_area_s {
 #endif // BX_ELTORITO_BOOT
 };
 
+// Accessor functions
+#define GET_EBDA(var) \
+    GET_FARVAR(EBDA_SEG, ((struct extended_bios_data_area_s *)0)->var)
+#define SET_EBDA(var, val) \
+    SET_FARVAR(EBDA_SEG, ((struct extended_bios_data_area_s *)0)->var, (val))
+
 
 /****************************************************************
- * Extended Bios Data Area (EBDA)
+ * Initial Program Load (IPL)
+ ****************************************************************/
+
+// XXX - is this a standard, or just a bochs bios thing?
+
+struct ipl_entry_s {
+    u16 type;
+    u16 flags;
+    u32 vector;
+    u32 description;
+    u32 reserved;
+};
+
+struct ipl_s {
+    struct ipl_entry_s table[8];
+    u16 count;
+    u16 sequence;
+    u8 pad[124];
+};
+
+#define IPL_TYPE_FLOPPY      0x01
+#define IPL_TYPE_HARDDISK    0x02
+#define IPL_TYPE_CDROM       0x03
+#define IPL_TYPE_BEV         0x80
+
+// Accessor functions
+#define GET_IPL(var) \
+    GET_FARVAR(IPL_SEG, ((struct ipl_s *)0)->var)
+#define SET_IPL(var, val) \
+    SET_FARVAR(IPL_SEG, ((struct ipl_s *)0)->var, (val))
+
+
+/****************************************************************
+ * Registers saved/restored in romlayout.S
  ****************************************************************/
 
 #define UREG(ER, R, RH, RL) union { u32 ER; struct { u16 R; u16 R ## _hi; }; struct { u8 RL; u8 RH; u8 R ## _hilo; u8 R ## _hihi; }; }
@@ -179,5 +222,8 @@ extern struct bios_config_table_s BIOS_CONFIG_TABLE;
 #define SEG_BIOS     0xf000
 
 #define EBDA_SEG           0x9FC0
+#define IPL_SEG            0x9FF0
 #define EBDA_SIZE          1              // In KiB
 #define BASE_MEM_IN_K   (640 - EBDA_SIZE)
+
+#endif // __BIOSVAR_H

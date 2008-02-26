@@ -11,9 +11,13 @@
 #include "biosvar.h" // struct bregs
 
 static void
-screenc(char c)
+screenc(u8 c)
 {
-    // XXX
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x0e;
+    br.al = c;
+    call16_int(0x10, &br);
 }
 
 // XXX
@@ -23,8 +27,12 @@ screenc(char c)
 static void
 putc(u16 action, char c)
 {
-    screenc(c);
     outb(c, PORT_DEBUG);
+    if (action) {
+        if (c == '\n')
+            screenc('\r');
+        screenc(c);
+    }
 }
 
 // Write a string to the framebuffer.
@@ -140,13 +148,27 @@ bprintf(u16 action, const char *fmt, ...)
     va_end(args);
 }
 
+static void
+dump_regs(const char *fname, const char *type, struct bregs *regs)
+{
+    if (!regs) {
+        bprintf(0, "%s %s: NULL\n", type, fname);
+        return;
+    }
+    bprintf(0, "%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
+            , type, fname, regs->eax, regs->ebx, regs->ecx, regs->edx
+            , regs->esi, regs->edi);
+    bprintf(0, "  ds=%x es=%x bp=%x sp=%x ip=%x cs=%x f=%x\n"
+            , regs->ds, regs->es, regs->ebp, regs->esp
+            , regs->ip, regs->cs, regs->flags);
+}
+
 // Function called on handler startup.
 void
 __debug_enter(const char *fname, struct bregs *regs)
 {
-    bprintf(0, "enter %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
-            , fname, regs->eax, regs->ebx, regs->ecx, regs->edx
-            , regs->esi, regs->edi);
+    // XXX - implement run time suppression test
+    dump_regs(fname, "enter", regs);
 }
 
 void
@@ -154,7 +176,5 @@ __debug_exit(const char *fname, struct bregs *regs)
 {
     if (! (regs->flags & F_CF))
         return;
-    bprintf(0, "exit %s: a=%x b=%x c=%x d=%x s=%x i=%x\n"
-            , fname, regs->eax, regs->ebx, regs->ecx, regs->edx
-            , regs->esi, regs->edi);
+    dump_regs(fname, "exit", regs);
 }

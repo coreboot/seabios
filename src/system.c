@@ -282,6 +282,13 @@ handle_1591(struct bregs *regs)
 {
 }
 
+// keyboard intercept
+static void
+handle_154f(struct bregs *regs)
+{
+    set_cf(regs, 1);
+}
+
 static void
 handle_15c0(struct bregs *regs)
 {
@@ -453,6 +460,7 @@ handle_15(struct bregs *regs)
         default:   handle_1524XX(regs); break;
         }
         break;
+    case 0x4f: handle_154f(regs); break;
     case 0x52: handle_1552(regs); break;
     case 0x83:
         switch (regs->al) {
@@ -526,4 +534,13 @@ void VISIBLE
 handle_75(struct bregs *regs)
 {
     debug_enter(regs);
+
+    // clear irq13
+    outb(0, PORT_MATH_CLEAR);
+    // clear interrupt
+    eoi_both_pics();
+    // legacy nmi call
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x02, &br);
 }
