@@ -1,0 +1,8 @@
+// Configuration definitions.
+
+#define CONFIG_FLOPPY_SUPPORT 1
+#define CONFIG_PS2_MOUSE 0
+#define CONFIG_ATA 0
+#define CONFIG_STACK16_SEGMENT 0x00
+#define CONFIG_STACK16_OFFSET  0xfffe
+#define CONFIG_STACK32_OFFSET 0x80000

@@ -1,0 +1,22 @@
+Make header files work with either 32bit or 16bit code.
+
+Fix makefiles so that they rebuild the required files automatically.
+
+Make sure gdt/idt tables are properly aligned
+
+Cleanup setting of ES on GET/SET_BDA
+
+Make sure inline assembly isn't preventing inlining of calling
+functions.
+
+Convert remaining parts of rombios.c to new code.
+
+Convert rombios32 and apm bios stuff to new code.
+
+Allow one to select adding 32 bit code to 0xf000 or in a separate
+location.
+
+Try generating bios tables at compile time.
+
+Move e820 map generation to post time (just have e820 code copy pre
+made tables back to user).

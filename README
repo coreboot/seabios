@@ -1,0 +1,71 @@
+This code implements an X86 legacy bios.  It is intended to be
+compiled using standard gnu tools (eg, gas and gcc).
+
+To build, one should be able to run "make" in the main directory.  The
+resulting file "out/rom.bin" contains the processed bios image.
+
+The code has been successfully compiled with gcc 4.1.2 and gas
+2.17.50.0.18.
+
+
+Overview of files:
+
+The src/ directory contains the bios source code.  The post.c code is
+compiled in 32bit mode.  The output.c code is compiled twice - once in
+16bit mode and once in 32bit mode.  The remaining c files are compiled
+in 16bit mode.
+
+The tools/ directory contains helper utilities for manipulating and
+building the final rom.
+
+The out/ directory is created by the build process - it contains all
+temporary and final files.
+
+
+Build overview:
+
+The 16bit code is compiled via gcc to assembler (file out/blob.16.s).
+The gcc "-fwhole-program" option is used to optimize the process so
+that gcc can efficiently compile and discard unneeded code.
+
+This resulting assembler code is pulled into romlayout.S.  The gas
+option ".code16gcc" is used prior to including the gcc generated
+assembler - this option enables gcc to be used to generate valid 16
+bit code.  The romlayout.S also defines all the mandatory bios visible
+memory locations.
+
+The post code (post.c) is written in 32bits.  The 16bit post vector
+(in romlayout.S) transitions the cpu into 32 bit mode before calling
+the initialization code in post.c.
+
+In the last step, the compiled 32 bit code is merged into the 16 bit
+code so that one binary file contains both.  Currently, both 16bit and
+32bit code will be located in the 64K block at segment 0xf000.
+
+
+GCC 16 bit limitations:
+
+Although the 16bit code is compiled with gcc, developers need to be
+aware of the environment.  In particular, global variables _must_ be
+treated specially.
+
+The code has full access to stack variables and general purpose
+registers.  The entry code in romlayout.S will push the original
+registers on the stack before calling the C code and then pop them off
+(including any required changes) before returning from the interrupt.
+Changes to CS, DS, and ES segment registers in C code is also safe.
+Changes to other segment registers (SS, FS, GS) need to be restored
+manually.
+
+Stack variables (and pointers to stack variables) work as they
+normally do in standard C code.
+
+However, variables stored outside the stack need to be accessed via
+the GET_VAR and SET_VAR macros.  This is due to the 16bit segment
+nature of the X86 cpu when it is in "real mode".  The C entry code
+will set DS and SS to point to the stack segment.  Variables not on
+the stack need to be accessed via an explicit segment register.
+Global constant definitions (those in 0xf000) can be accessed via the
+CS segment register.  Any other access requires altering one of the
+other segment registers (usually ES) and then accessing the variable
+via that segment register.
