@@ -22,8 +22,8 @@ _start:
         .globl post16
 post16:
 
-        // Entry point of rombios32 code - the actual instruction is
-        // altered later in the build process.
+        // Set entry point of rombios32 code - the actual instruction
+	// is altered later in the build process.
         .globl set_entry32
 set_entry32:
         mov $0xf0000000, %ebx
@@ -50,7 +50,7 @@ transition32:
         movl  %eax, %cr0
 
         // start protected mode code
-        .word 0xea66, 1f, 0x000f, 0x0010 // ljmpl $0x10, $(post32 | 0xf0000)
+        .word 0xea66, 1f, 0x000f, 0x0010 // ljmpl $0x10, $(1f | 0xf0000)
 
         .code32
 1:
@@ -125,8 +125,8 @@ call16:
         popl %eax
         popl %esp
 
-        // Resume point of rombios32 code - the actual instruction is
-        // altered later in the build process.
+        // Set resume point of rombios32 code - the actual instruction
+	// is altered later in the build process.
         .globl set_resume32
 set_resume32:
         mov $0xf0000000, %ebx

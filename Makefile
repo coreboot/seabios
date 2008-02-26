@@ -8,7 +8,7 @@
 OUT=out/
 
 # Source files
-SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c output.c boot.c
+SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c boot.c
 SRC32=post.c output.c
 
 # Default compiler flags (note -march=armv4 is needed for 16 bit insns)

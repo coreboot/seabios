@@ -14,12 +14,20 @@
 #define CMOS_RTC_MINUTES_ALARM   0x03
 #define CMOS_RTC_HOURS           0x04
 #define CMOS_RTC_HOURS_ALARM     0x05
+#define CMOS_RTC_DAY_WEEK        0x06
+#define CMOS_RTC_DAY_MONTH       0x07
+#define CMOS_RTC_MONTH           0x08
+#define CMOS_RTC_YEAR            0x09
+#define CMOS_STATUS_A            0x0a
 #define CMOS_STATUS_B            0x0b
+#define CMOS_STATUS_C            0x0c
+#define CMOS_STATUS_D            0x0d
 #define CMOS_RESET_CODE          0x0f
 #define CMOS_FLOPPY_DRIVE_TYPE   0x10
 #define CMOS_EQUIPMENT_INFO      0x14
 #define CMOS_EXTMEM_LOW          0x30
 #define CMOS_EXTMEM_HIGH         0x31
+#define CMOS_CENTURY             0x32
 #define CMOS_EXTMEM2_LOW         0x34
 #define CMOS_EXTMEM2_HIGH        0x35
 

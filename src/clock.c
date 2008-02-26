@@ -8,13 +8,242 @@
 #include "biosvar.h" // struct bregs
 #include "util.h" // debug_enter
 #include "disk.h" // floppy_tick
+#include "cmos.h" // inb_cmos
+
+static void
+init_rtc()
+{
+    outb_cmos(0x26, CMOS_STATUS_A);
+    outb_cmos(0x02, CMOS_STATUS_B);
+    inb_cmos(CMOS_STATUS_C);
+    inb_cmos(CMOS_STATUS_D);
+}
+
+static u8
+rtc_updating()
+{
+    // This function checks to see if the update-in-progress bit
+    // is set in CMOS Status Register A.  If not, it returns 0.
+    // If it is set, it tries to wait until there is a transition
+    // to 0, and will return 0 if such a transition occurs.  A 1
+    // is returned only after timing out.  The maximum period
+    // that this bit should be set is constrained to 244useconds.
+    // The count I use below guarantees coverage or more than
+    // this time, with any reasonable IPS setting.
+
+    u16 count = 25000;
+    while (--count != 0) {
+        if ( (inb_cmos(CMOS_STATUS_A) & 0x80) == 0 )
+            return 0;
+    }
+    return 1; // update-in-progress never transitioned to 0
+}
+
+// get current clock count
+static void
+handle_1a00(struct bregs *regs)
+{
+    u32 ticks = GET_BDA(timer_counter);
+    regs->cx = ticks >> 16;
+    regs->dx = ticks;
+    regs->al = GET_BDA(timer_rollover);
+    SET_BDA(timer_rollover, 0); // reset flag
+    set_cf(regs, 0);
+}
+
+// Set Current Clock Count
+static void
+handle_1a01(struct bregs *regs)
+{
+    u32 ticks = (regs->cx << 16) | regs->dx;
+    SET_BDA(timer_counter, ticks);
+    SET_BDA(timer_rollover, 0); // reset flag
+    regs->ah = 0;
+    set_cf(regs, 0);
+}
+
+// Read CMOS Time
+static void
+handle_1a02(struct bregs *regs)
+{
+    if (rtc_updating()) {
+        set_cf(regs, 1);
+        return;
+    }
+
+    regs->dh = inb_cmos(CMOS_RTC_SECONDS);
+    regs->cl = inb_cmos(CMOS_RTC_MINUTES);
+    regs->ch = inb_cmos(CMOS_RTC_HOURS);
+    regs->dl = inb_cmos(CMOS_STATUS_B) & 0x01;
+    regs->ah = 0;
+    regs->al = regs->ch;
+    set_cf(regs, 0);
+}
+
+// Set CMOS Time
+static void
+handle_1a03(struct bregs *regs)
+{
+    // Using a debugger, I notice the following masking/setting
+    // of bits in Status Register B, by setting Reg B to
+    // a few values and getting its value after INT 1A was called.
+    //
+    //        try#1       try#2       try#3
+    // before 1111 1101   0111 1101   0000 0000
+    // after  0110 0010   0110 0010   0000 0010
+    //
+    // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
+    // My assumption: RegB = ((RegB & 01100000b) | 00000010b)
+    if (rtc_updating()) {
+        init_rtc();
+        // fall through as if an update were not in progress
+    }
+    outb_cmos(regs->dh, CMOS_RTC_SECONDS);
+    outb_cmos(regs->cl, CMOS_RTC_MINUTES);
+    outb_cmos(regs->ch, CMOS_RTC_HOURS);
+    // Set Daylight Savings time enabled bit to requested value
+    u8 val8 = (inb_cmos(CMOS_STATUS_B) & 0x60) | 0x02 | (regs->dl & 0x01);
+    outb_cmos(val8, CMOS_STATUS_B);
+    regs->ah = 0;
+    regs->al = val8; // val last written to Reg B
+    set_cf(regs, 0);
+}
+
+// Read CMOS Date
+static void
+handle_1a04(struct bregs *regs)
+{
+    regs->ah = 0;
+    if (rtc_updating()) {
+        set_cf(regs, 1);
+        return;
+    }
+    regs->cl = inb_cmos(CMOS_RTC_YEAR);
+    regs->dh = inb_cmos(CMOS_RTC_MONTH);
+    regs->dl = inb_cmos(CMOS_RTC_DAY_MONTH);
+    regs->ch = inb_cmos(CMOS_CENTURY);
+    regs->al = regs->ch;
+    set_cf(regs, 0);
+}
+
+// Set CMOS Date
+static void
+handle_1a05(struct bregs *regs)
+{
+    // Using a debugger, I notice the following masking/setting
+    // of bits in Status Register B, by setting Reg B to
+    // a few values and getting its value after INT 1A was called.
+    //
+    //        try#1       try#2       try#3       try#4
+    // before 1111 1101   0111 1101   0000 0010   0000 0000
+    // after  0110 1101   0111 1101   0000 0010   0000 0000
+    //
+    // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
+    // My assumption: RegB = (RegB & 01111111b)
+    if (rtc_updating()) {
+        init_rtc();
+        set_cf(regs, 1);
+        return;
+    }
+    outb_cmos(regs->cl, CMOS_RTC_YEAR);
+    outb_cmos(regs->dh, CMOS_RTC_MONTH);
+    outb_cmos(regs->dl, CMOS_RTC_DAY_MONTH);
+    outb_cmos(regs->ch, CMOS_CENTURY);
+    u8 val8 = inb_cmos(CMOS_STATUS_B) & 0x7f; // clear halt-clock bit
+    outb_cmos(val8, CMOS_STATUS_B);
+    regs->ah = 0;
+    regs->al = val8; // AL = val last written to Reg B
+    set_cf(regs, 0);
+}
+
+// Set Alarm Time in CMOS
+static void
+handle_1a06(struct bregs *regs)
+{
+    // Using a debugger, I notice the following masking/setting
+    // of bits in Status Register B, by setting Reg B to
+    // a few values and getting its value after INT 1A was called.
+    //
+    //        try#1       try#2       try#3
+    // before 1101 1111   0101 1111   0000 0000
+    // after  0110 1111   0111 1111   0010 0000
+    //
+    // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
+    // My assumption: RegB = ((RegB & 01111111b) | 00100000b)
+    u8 val8 = inb_cmos(CMOS_STATUS_B); // Get Status Reg B
+    regs->ax = 0;
+    if (val8 & 0x20) {
+        // Alarm interrupt enabled already
+        set_cf(regs, 1);
+        return;
+    }
+    if (rtc_updating()) {
+        init_rtc();
+        // fall through as if an update were not in progress
+    }
+    outb_cmos(regs->dh, CMOS_RTC_SECONDS_ALARM);
+    outb_cmos(regs->cl, CMOS_RTC_MINUTES_ALARM);
+    outb_cmos(regs->ch, CMOS_RTC_HOURS_ALARM);
+    outb(inb(PORT_PIC2_DATA) & ~PIC2_IRQ8, PORT_PIC2_DATA); // enable IRQ 8
+    // enable Status Reg B alarm bit, clear halt clock bit
+    outb_cmos((val8 & 0x7f) | 0x20, CMOS_STATUS_B);
+    set_cf(regs, 0);
+}
+
+// Turn off Alarm
+static void
+handle_1a07(struct bregs *regs)
+{
+    // Using a debugger, I notice the following masking/setting
+    // of bits in Status Register B, by setting Reg B to
+    // a few values and getting its value after INT 1A was called.
+    //
+    //        try#1       try#2       try#3       try#4
+    // before 1111 1101   0111 1101   0010 0000   0010 0010
+    // after  0100 0101   0101 0101   0000 0000   0000 0010
+    //
+    // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
+    // My assumption: RegB = (RegB & 01010111b)
+    u8 val8 = inb_cmos(CMOS_STATUS_B); // Get Status Reg B
+    // clear clock-halt bit, disable alarm bit
+    outb_cmos(val8 & 0x57, CMOS_STATUS_B); // disable alarm bit
+    regs->ah = 0;
+    regs->al = val8; // val last written to Reg B
+    set_cf(regs, 0);
+}
+
+static void
+handle_1ab1(struct bregs *regs)
+{
+    // XXX - pcibios stuff
+    set_cf(regs, 1);
+}
+
+// Unsupported
+static void
+handle_1aXX(struct bregs *regs)
+{
+    set_cf(regs, 1);
+}
 
 // INT 1Ah Time-of-day Service Entry Point
 void VISIBLE
 handle_1a(struct bregs *regs)
 {
-    debug_enter(regs);
-    set_cf(regs, 1);
+    //debug_enter(regs);
+    switch (regs->ah) {
+    case 0x00: handle_1a00(regs); break;
+    case 0x01: handle_1a01(regs); break;
+    case 0x02: handle_1a02(regs); break;
+    case 0x03: handle_1a03(regs); break;
+    case 0x04: handle_1a04(regs); break;
+    case 0x05: handle_1a05(regs); break;
+    case 0x06: handle_1a06(regs); break;
+    case 0x07: handle_1a07(regs); break;
+    case 0xb1: handle_1ab1(regs); break;
+    default:   handle_1aXX(regs); break;
+    }
+    debug_exit(regs);
 }
 
 // User Timer Tick

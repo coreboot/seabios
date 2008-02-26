@@ -38,6 +38,19 @@ memset(void *s, int c, size_t n)
         ((char *)s)[n--] = c;
 }
 
+static inline void
+eoi_master_pic()
+{
+    outb(PIC1_IRQ5, PORT_PIC1);
+}
+
+static inline void
+eoi_both_pics()
+{
+    outb(PIC2_IRQ13, PORT_PIC2);
+    eoi_master_pic();
+}
+
 // output.c
 void bprintf(u16 action, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));

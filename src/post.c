@@ -80,19 +80,147 @@ pit_setup()
     outb(0x0, PORT_PIT_COUNTER0);
 }
 
+//--------------------------------------------------------------------------
+// keyboard_panic
+//--------------------------------------------------------------------------
 static void
-kbd_init()
+keyboard_panic(u16 status)
 {
+  // If you're getting a 993 keyboard panic here,
+  // please see the comment in keyboard_init
+
+  BX_PANIC("Keyboard error:%u\n",status);
+}
+
+static void
+kbd_wait(u8 mask, u8 code)
+{
+    u16 max = 0xffff;
+    while ( ((inb(PORT_KBD_STATUS) & mask) == 0) && (--max>0) )
+        outb(code, PORT_DIAG);
+    if (!max)
+        keyboard_panic(code);
+}
+
+static inline void kbd_flush(u8 code) {
+    kbd_wait(0x02, code);
+}
+static inline void kbd_waitdata(u8 code) {
+    kbd_wait(0x01, code);
+}
+
+//--------------------------------------------------------------------------
+// keyboard_init
+//--------------------------------------------------------------------------
+// this file is based on LinuxBIOS implementation of keyboard.c
+// could convert to #asm to gain space
+static void
+keyboard_init()
+{
+    /* ------------------- Flush buffers ------------------------*/
+    /* Wait until buffer is empty */
+    kbd_flush(0x00);
+
+    /* flush incoming keys */
+    u16 max=0x2000;
+    while (--max > 0) {
+        outb(0x00, PORT_DIAG);
+        if (inb(PORT_KBD_STATUS) & 0x01) {
+            inb(PORT_KBD_DATA);
+            max = 0x2000;
+            }
+        }
+
+    // Due to timer issues, and if the IPS setting is > 15000000,
+    // the incoming keys might not be flushed here. That will
+    // cause a panic a few lines below.  See sourceforge bug report :
+    // [ 642031 ] FATAL: Keyboard RESET error:993
+
+    /* ------------------- controller side ----------------------*/
+    /* send cmd = 0xAA, self test 8042 */
+    outb(0xaa, PORT_KBD_STATUS);
+
+    kbd_flush(0x00);
+    kbd_waitdata(0x01);
+
+    /* read self-test result, 0x55 should be returned from 0x60 */
+    if ((inb(PORT_KBD_DATA) != 0x55))
+        keyboard_panic(991);
+
+    /* send cmd = 0xAB, keyboard interface test */
+    outb(0xab, PORT_KBD_STATUS);
+
+    kbd_flush(0x10);
+    kbd_waitdata(0x11);
+
+    /* read keyboard interface test result, */
+    /* 0x00 should be returned form 0x60 */
+    if ((inb(PORT_KBD_DATA) != 0x00))
+        keyboard_panic(992);
+
+    /* Enable Keyboard clock */
+    outb(0xae, PORT_KBD_STATUS);
+    outb(0xa8, PORT_KBD_STATUS);
+
+    /* ------------------- keyboard side ------------------------*/
+    /* reset kerboard and self test  (keyboard side) */
+    outb(0xff, PORT_KBD_DATA);
+
+    kbd_flush(0x20);
+    kbd_waitdata(0x21);
+
+    /* keyboard should return ACK */
+    if ((inb(PORT_KBD_DATA) != 0xfa))
+        keyboard_panic(993);
+
+    kbd_waitdata(0x31);
+
+    if ((inb(PORT_KBD_DATA) != 0xaa))
+        keyboard_panic(994);
+
+    /* Disable keyboard */
+    outb(0xf5, PORT_KBD_DATA);
+
+    kbd_flush(0x40);
+    kbd_waitdata(0x41);
+
+    /* keyboard should return ACK */
+    if ((inb(PORT_KBD_DATA) != 0xfa))
+        keyboard_panic(995);
+
+    /* Write Keyboard Mode */
+    outb(0x60, PORT_KBD_STATUS);
+
+    kbd_flush(0x50);
+
+    /* send cmd: scan code convert, disable mouse, enable IRQ 1 */
+    outb(0x61, PORT_KBD_DATA);
+
+    kbd_flush(0x60);
+
+    /* Enable keyboard */
+    outb(0xf4, PORT_KBD_DATA);
+
+    kbd_flush(0x70);
+    kbd_waitdata(0x71);
+
+    /* keyboard should return ACK */
+    if ((inb(PORT_KBD_DATA) != 0xfa))
+        keyboard_panic(996);
+
+    outb(0x77, PORT_DIAG);
 }
 
 static void
 kbd_setup()
 {
     bda->kbd_mode = 0x10;
-    bda->kbd_buf_head = bda->kbd_buf_tail = offsetof(struct bios_data_area_s, kbd_buf);
-    bda->kbd_buf_start_offset = offsetof(struct bios_data_area_s, kbd_buf);
-    bda->kbd_buf_end_offset = offsetof(struct bios_data_area_s, kbd_buf[sizeof(bda->kbd_buf)]);
-    kbd_init();
+    bda->kbd_buf_head = bda->kbd_buf_tail = bda->kbd_buf_start_offset
+        = offsetof(struct bios_data_area_s, kbd_buf) - 0x400;
+    bda->kbd_buf_end_offset
+        = (offsetof(struct bios_data_area_s, kbd_buf[sizeof(bda->kbd_buf)])
+           - 0x400);
+    keyboard_init();
 
     // XXX
     u16 eqb = bda->equipment_list_flags;

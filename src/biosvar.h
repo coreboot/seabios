@@ -32,7 +32,8 @@ struct bios_data_area_s {
     u16 mem_size_kb;
     u8 pad2;
     u8 ps2_ctrl_flag;
-    u16 kbd_flag;
+    u8 kbd_flag0;
+    u8 kbd_flag1;
     u8 alt_keypad;
     u16 kbd_buf_head;
     u16 kbd_buf_tail;
@@ -85,13 +86,10 @@ struct bios_data_area_s {
 #define FMS_DATA_RATE_MASK          (0xc0)
 
 // Accessor functions
-#define GET_BDA(var) ({                                         \
-    SET_SEG(ES, 0x0000);                                        \
-    GET_VAR(ES, ((struct bios_data_area_s *)0)->var); })
-#define SET_BDA(var, val) do {                                  \
-        SET_SEG(ES, 0x0000);                                    \
-        SET_VAR(ES, ((struct bios_data_area_s *)0)->var, val);  \
-    } while (0)
+#define GET_BDA(var) \
+    GET_FARVAR(0x0000, ((struct bios_data_area_s *)0)->var)
+#define SET_BDA(var, val) \
+    SET_FARVAR(0x0000, ((struct bios_data_area_s *)0)->var, (val))
 #define CLEARBITS_BDA(var, val) do {                                    \
         typeof(((struct bios_data_area_s *)0)->var) __val = GET_BDA(var); \
         SET_BDA(var, (__val & ~(val)));                                 \
@@ -149,7 +147,8 @@ struct bregs {
 } __attribute__((packed));
 
 // bregs flags bitdefs
-#define F_CF (1<<9)
+#define F_ZF (1<<6)
+#define F_CF (1<<0)
 
 static inline void
 set_cf(struct bregs *regs, int cond)

@@ -20,9 +20,12 @@
 #define PORT_PIT_COUNTER1      0x0041
 #define PORT_PIT_COUNTER2      0x0042
 #define PORT_PIT_MODE          0x0043
+#define PORT_KBD_DATA          0x0060
 #define PORT_KBD_CTRLB         0x0061
+#define PORT_KBD_STATUS        0x0064
 #define PORT_CMOS_INDEX        0x0070
 #define PORT_CMOS_DATA         0x0071
+#define PORT_DIAG              0x0080
 #define PORT_DMA_PAGE_2        0x0081
 #define PORT_A20               0x0092
 #define PORT_PIC2              0x00a0

@@ -727,7 +727,7 @@ floppy_13(struct bregs *regs, u8 drive)
 void VISIBLE
 handle_0e(struct bregs *regs)
 {
-    debug_enter(regs);
+    //debug_enter(regs);
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
         outb(0x08, PORT_FD_DATA); // sense interrupt status
         while ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)

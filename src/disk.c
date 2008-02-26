@@ -44,7 +44,7 @@ handle_40(struct bregs *regs)
 void VISIBLE
 handle_13(struct bregs *regs)
 {
-    debug_enter(regs);
+    //debug_enter(regs);
     u8 drive = regs->dl;
 #if BX_ELTORITO_BOOT
     if (regs->ah >= 0x4a || regs->ah <= 0x4d) {

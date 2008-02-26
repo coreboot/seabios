@@ -29,7 +29,7 @@
     __asm__ __volatile__("movl %0, %%" #SEG ":%1"       \
                          : : "r"(value), "m"(var))
 
-#define GET_VAR(seg, var) ({                                    \
+#define __GET_VAR(seg, var) ({                                  \
     typeof(var) __val;                                          \
     if (__builtin_types_compatible_p(typeof(__val), u8))        \
         __val = READ8_SEG(seg, var);                            \
@@ -39,7 +39,7 @@
         __val = READ32_SEG(seg, var);                           \
     __val; })
 
-#define SET_VAR(seg, var, val) do {                               \
+#define __SET_VAR(seg, var, val) do {                             \
         if (__builtin_types_compatible_p(typeof(var), u8))        \
             WRITE8_SEG(seg, var, (val));                          \
         else if (__builtin_types_compatible_p(typeof(var), u16))  \
@@ -48,10 +48,30 @@
             WRITE32_SEG(seg, var, (val));                         \
     } while (0)
 
-#define SET_SEG(SEG, value)                                     \
+#define __SET_SEG(SEG, value)                                   \
     __asm__ __volatile__("movw %w0, %%" #SEG : : "r"(value))
-#define GET_SEG(SEG) ({                                         \
+#define __GET_SEG(SEG) ({                                       \
     u16 __seg;                                                  \
     __asm__ __volatile__("movw %%" #SEG ", %w0" : "=r"(__seg)); \
     __seg;})
 
+#ifdef MODE16
+#define GET_VAR(seg, var) __GET_VAR(seg, var)
+#define SET_VAR(seg, var, val) __SET_VAR(seg, var, val)
+#define SET_SEG(SEG, value) __SET_SEG(SEG, value)
+#define GET_SEG(SEG) __GET_SEG(SEG)
+#else
+// In 32-bit mode there is no need to mess with the segments.
+#define GET_VAR(seg, var) (var)
+#define SET_VAR(seg, var, val) (var) = (val)
+#define SET_SEG(SEG, value) ((void)(value))
+#define GET_SEG(SEG) 0
+#endif
+
+#define GET_FARVAR(seg, var) ({                 \
+    SET_SEG(ES, (seg));                         \
+    GET_VAR(ES, (var)); })
+#define SET_FARVAR(seg, var, val) do {          \
+        SET_SEG(ES, (seg));                     \
+        SET_VAR(ES, (var), val);                \
+    } while (0)

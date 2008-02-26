@@ -55,7 +55,7 @@ putuint(u16 action, u32 val)
     char *d = &buf[sizeof(buf) - 1];
     *d-- = '\0';
     for (;;) {
-        *d = val % 10;
+        *d = (val % 10) + '0';
         val /= 10;
         if (!val)
             break;
@@ -147,14 +147,13 @@ __debug_enter(const char *fname, struct bregs *regs)
     bprintf(0, "enter %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
             , fname, regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
-    bprintf(0, "&=%x ds=%x es=%x bp=%x sp=%x ip=%x cs=%x f=%x\n"
-            , (u32)regs, regs->ds, regs->es, regs->ebp, regs->esp
-            , regs->ip, regs->cs, regs->flags);
 }
 
 void
 __debug_exit(const char *fname, struct bregs *regs)
 {
+    if (! (regs->flags & F_CF))
+        return;
     bprintf(0, "exit %s: a=%x b=%x c=%x d=%x s=%x i=%x\n"
             , fname, regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
