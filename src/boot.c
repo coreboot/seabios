@@ -28,6 +28,8 @@ print_boot_device(u16 type)
     if (type == 0 || type > 0x4)
         BX_PANIC("Bad drive type\n");
     printf("Booting from %s...\n", drivetypes[type]);
+
+    // XXX - latest cvs has BEV description
 }
 
 //--------------------------------------------------------------------------
@@ -40,7 +42,7 @@ print_boot_failure(u16 type, u8 reason)
     if (type == 0 || type > 0x3)
         BX_PANIC("Bad drive type\n");
 
-    printf("Boot from %s failed", drivetypes[type]);
+    printf("Boot failed");
     if (type < 4) {
         /* Report the reason too */
         if (reason==0)
@@ -48,7 +50,7 @@ print_boot_failure(u16 type, u8 reason)
         else
             printf(": could not read the boot disk");
     }
-    printf("\n");
+    printf("\n\n");
 }
 
 static void

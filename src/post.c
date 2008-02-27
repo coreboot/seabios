@@ -465,10 +465,10 @@ callrom(u16 seg, u16 offset)
 }
 
 static void
-rom_scan()
+rom_scan(u32 start, u32 end)
 {
-    u8 *p = (u8*)0xc0000;
-    for (; p <= (u8*)0xe0000; p += 2048) {
+    u8 *p = (u8*)start;
+    for (; p <= (u8*)end; p += 2048) {
         u8 *rom = p;
         if (*(u16*)rom != 0xaa55)
             continue;
@@ -549,12 +549,14 @@ post()
     serial_setup();
     timer_setup();
     pic_setup();
+
+    rom_scan(0xc0000, 0xc7800);
+
+    printf("BIOS - begin\n\n");
+
     // XXX - need to do pci stuff
     //pci_setup();
     init_boot_vectors();
-    rom_scan();
-
-    printf("BIOS - begin\n\n");
 
     floppy_drive_post();
     hard_drive_post();
@@ -562,6 +564,10 @@ post()
         ata_init();
         ata_detect();
     }
+
+    init_boot_vectors();
+    rom_scan(0xc8000, 0xe0000);
+
     callrom(0xf000, OFFSET_begin_boot);
 }
 
