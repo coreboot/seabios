@@ -103,3 +103,15 @@ void __debug_exit(const char *fname, struct bregs *regs);
 
 // kbd.c
 void handle_15c2(struct bregs *regs);
+
+// clock.c
+void handle_1583(struct bregs *regs);
+
+// Frequent bios return helper
+#define RET_EUNSUPPORTED 0x86
+static inline void
+handle_ret(struct bregs *regs, u8 code)
+{
+    regs->ah = code;
+    set_cf(regs, code);
+}

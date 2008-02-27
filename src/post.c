@@ -16,6 +16,16 @@
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
 #define ipl ((struct ipl_s *)(IPL_SEG<<4))
 
+static int
+checksum(u8 *p, u32 len)
+{
+    u32 i;
+    u8 sum = 0;
+    for (i=0; i<len; i++)
+        sum += p[i];
+    return sum;
+}
+
 static void
 init_bda()
 {
@@ -337,16 +347,14 @@ floppy_drive_post()
 }
 
 static void
-cdemu_init()
-{
-    // XXX
-    //ebda->cdemu.active = 0;
-}
-
-static void
 ata_init()
 {
-    // XXX
+    // hdidmap  and cdidmap init.
+    u8 device;
+    for (device=0; device < CONFIG_MAX_ATA_DEVICES; device++) {
+        ebda->ata.hdidmap[device] = CONFIG_MAX_ATA_DEVICES;
+        ebda->ata.cdidmap[device] = CONFIG_MAX_ATA_DEVICES;
+    }
 }
 
 static void
@@ -356,9 +364,66 @@ ata_detect()
 }
 
 static void
+fill_hdinfo(struct fdpt_s *info, u8 typecmos, u8 basecmos)
+{
+    u8 type = inb_cmos(typecmos);
+    if (type != 47)
+        // XXX - halt
+        return;
+
+    info->precompensation = (inb_cmos(basecmos+4) << 8) | inb_cmos(basecmos+3);
+    info->drive_control_byte = inb_cmos(basecmos+5);
+    info->landing_zone = (inb_cmos(basecmos+7) << 8) | inb_cmos(basecmos+6);
+    u16 cyl = (inb_cmos(basecmos+1) << 8) | inb_cmos(basecmos+0);
+    u8 heads = inb_cmos(basecmos+2);
+    u8 sectors = inb_cmos(basecmos+8);
+    if (cyl < 1024) {
+        // no logical CHS mapping used, just physical CHS
+        // use Standard Fixed Disk Parameter Table (FDPT)
+        info->cylinders = cyl;
+        info->heads = heads;
+        info->sectors = sectors;
+        return;
+    }
+
+    // complies with Phoenix style Translated Fixed Disk Parameter
+    // Table (FDPT)
+    info->phys_cylinders = cyl;
+    info->phys_heads = heads;
+    info->phys_sectors = sectors;
+    info->sectors = sectors;
+    info->a0h_signature = 0xa0;
+    if (cyl > 8192) {
+        cyl >>= 4;
+        heads <<= 4;
+    } else if (cyl > 4096) {
+        cyl >>= 3;
+        heads <<= 3;
+    } else if (cyl > 2048) {
+        cyl >>= 2;
+        heads <<= 2;
+    }
+    info->cylinders = cyl;
+    info->heads = heads;
+    info->checksum = ~checksum((u8*)info, sizeof(*info)-1) + 1;
+}
+
+static void
 hard_drive_post()
 {
-    // XXX
+    outb(0x0a, 0x03f6); // 0000 1010 = reserved, disable IRQ 14
+    bda->disk_count = 1;
+    bda->disk_control_byte = 0xc0;
+
+    // move disk geometry data from CMOS to EBDA disk parameter table(s)
+    u8 diskinfo = inb_cmos(CMOS_DISK_DATA);
+    if ((diskinfo & 0xf0) == 0xf0)
+        // Fill EBDA table for hard disk 0.
+        fill_hdinfo(&ebda->fdpt0, CMOS_DISK_DRIVE1_TYPE, CMOS_DISK_DRIVE1_CYL);
+    if ((diskinfo & 0x0f) == 0x0f)
+        // XXX - bochs halts on any other type
+        // Fill EBDA table for hard disk 1.
+        fill_hdinfo(&ebda->fdpt0, CMOS_DISK_DRIVE2_TYPE, CMOS_DISK_DRIVE2_CYL);
 }
 
 
@@ -397,16 +462,6 @@ callrom(u16 seg, u16 offset)
     br.cs = seg;
     br.ip = offset;
     call16(&br);
-}
-
-static int
-checksum(u8 *p, u32 len)
-{
-    u32 i;
-    u8 sum = 0;
-    for (i=0; i<len; i++)
-        sum += p[i];
-    return sum;
 }
 
 static void
@@ -507,7 +562,6 @@ post()
         ata_init();
         ata_detect();
     }
-    cdemu_init();
     callrom(0xf000, OFFSET_begin_boot);
 }
 

@@ -8,6 +8,9 @@
 
 #include "types.h" // u8
 #include "farptr.h" // SET_SEG
+#include "config.h" // CONFIG_*
+
+#define PACKED __attribute__((packed))
 
 
 /****************************************************************
@@ -54,7 +57,10 @@ struct bios_data_area_s {
     u32 timer_counter;
     // 40:70
     u8 timer_rollover;
-    u8 other4[0x07];
+    u8 other4[0x04];
+    u8 disk_count;
+    u8 disk_control_byte;
+    u8 port_disk;
     u8 lpt_timeout[4];
     u8 com_timeout[4];
     // 40:80
@@ -74,7 +80,7 @@ struct bios_data_area_s {
     u32 user_wait_timeout;
     // 40:A0
     u8 rtc_wait_flag;
-} __attribute__((packed));
+} PACKED;
 
 // BDA floppy_recalibration_status bitdefs
 #define FRS_TIMEOUT (1<<7)
@@ -105,6 +111,107 @@ struct bios_data_area_s {
 
 
 /****************************************************************
+ * Hard drive info
+ ****************************************************************/
+
+struct fdpt_s {
+    u16 cylinders;
+    u8 heads;
+    u8 a0h_signature;
+    u8 phys_sectors;
+    u16 precompensation;
+    u8 reserved;
+    u8 drive_control_byte;
+    u16 phys_cylinders;
+    u8 phys_heads;
+    u16 landing_zone;
+    u8 sectors;
+    u8 checksum;
+} PACKED;
+
+struct chs_s {
+    u16 heads;      // # heads
+    u16 cylinders;  // # cylinders
+    u16 spt;        // # sectors / track
+};
+
+// DPTE definition
+struct dpte_s {
+    u16 iobase1;
+    u16 iobase2;
+    u8  prefix;
+    u8  unused;
+    u8  irq;
+    u8  blkcount;
+    u8  dma;
+    u8  pio;
+    u16 options;
+    u16 reserved;
+    u8  revision;
+    u8  checksum;
+};
+
+struct ata_channel_s {
+    u8  iface;        // ISA or PCI
+    u16 iobase1;      // IO Base 1
+    u16 iobase2;      // IO Base 2
+    u8  irq;          // IRQ
+} PACKED;
+
+struct ata_device_s {
+    u8  type;         // Detected type of ata (ata/atapi/none/unknown)
+    u8  device;       // Detected type of attached devices (hd/cd/none)
+    u8  removable;    // Removable device flag
+    u8  lock;         // Locks for removable devices
+    u8  mode;         // transfer mode : PIO 16/32 bits - IRQ - ISADMA - PCIDMA
+    u16 blksize;      // block size
+
+    u8  translation;  // type of translation
+    struct chs_s  lchs;         // Logical CHS
+    struct chs_s  pchs;         // Physical CHS
+
+    u32 sectors;      // Total sectors count
+} PACKED;
+
+struct ata_s {
+    // ATA channels info
+    struct ata_channel_s channels[CONFIG_MAX_ATA_INTERFACES];
+
+    // ATA devices info
+    struct ata_device_s  devices[CONFIG_MAX_ATA_DEVICES];
+    //
+    // map between (bios hd id - 0x80) and ata channels
+    u8  hdcount, hdidmap[CONFIG_MAX_ATA_DEVICES];
+
+    // map between (bios cd id - 0xE0) and ata channels
+    u8  cdcount, cdidmap[CONFIG_MAX_ATA_DEVICES];
+
+    // Buffer for DPTE table
+    struct dpte_s dpte;
+
+    // Count of transferred sectors and bytes
+    u16 trsfsectors;
+    u32 trsfbytes;
+} PACKED;
+
+// ElTorito Device Emulation data
+struct cdemu_s {
+    u8  active;
+    u8  media;
+    u8  emulated_drive;
+    u8  controller_index;
+    u16 device_spec;
+    u32 ilba;
+    u16 buffer_segment;
+    u16 load_segment;
+    u16 sector_count;
+
+    // Virtual device
+    struct chs_s  vdevice;
+} PACKED;
+
+
+/****************************************************************
  * Extended Bios Data Area (EBDA)
  ****************************************************************/
 
@@ -112,19 +219,16 @@ struct extended_bios_data_area_s {
     u8 size;
     u8 other1[0x3c];
 
-    // FDPT - Can be splitted in data members if needed
-    u8 fdpt0[0x10];
-    u8 fdpt1[0x10];
+    struct fdpt_s fdpt0;
+    struct fdpt_s fdpt1;
 
     u8 other2[0xC4];
 
     // ATA Driver data
-    //ata_t   ata;
+    struct ata_s   ata;
 
-#if BX_ELTORITO_BOOT
     // El Torito Emulation data
-    cdemu_t cdemu;
-#endif // BX_ELTORITO_BOOT
+    struct cdemu_s cdemu;
 };
 
 // Accessor functions

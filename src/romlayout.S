@@ -25,15 +25,19 @@ bios16c_end:
  * POST handler
  ****************************************************************/
 
-        .org 0xe05b
-        .globl _start
-_start:
-        .globl post16
-post16:
-        // init the stack pointer
+        // Macro to reset the 16bit stack
+        // Clobbers %ax
+        .macro RESET_STACK
         xorw %ax, %ax
         movw %ax, %ss
         movl $ CONFIG_STACK_OFFSET , %esp
+        .endm
+
+        .org 0xe05b
+        .globl post16
+post16:
+        // init the stack pointer
+        RESET_STACK
 
         // Set entry point of rombios32 code - the actual address
 	// is altered later in the build process.
@@ -280,18 +284,12 @@ pnp_string:
 
         .globl entry_19
 entry_19:
-        // init the stack pointer
-        xorw %ax, %ax
-        movw %ax, %ss
-        movl $ CONFIG_STACK_OFFSET , %esp
+        RESET_STACK
         calll handle_19
 
         .globl entry_18
 entry_18:
-        // init the stack pointer
-        xorw %ax, %ax
-        movw %ax, %ss
-        movl $ CONFIG_STACK_OFFSET , %esp
+        RESET_STACK
         calll handle_18
 
         IRQ_TRAMPOLINE 02
@@ -310,7 +308,6 @@ entry_18:
         // XXX - Fixed Disk Parameter Table
 
         .org 0xe6f2
-        // XXX - should reset ss and sp
         jmp entry_19
 
         .org 0xe6f5

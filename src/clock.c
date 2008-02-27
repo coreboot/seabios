@@ -280,6 +280,60 @@ handle_08(struct bregs *regs)
     eoi_master_pic();
 }
 
+// Set Interval requested.
+static void
+handle_158300(struct bregs *regs)
+{
+    if (GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING) {
+        // Interval already set.
+        DEBUGF("int15: Func 83h, failed, already waiting.\n" );
+        handle_ret(regs, RET_EUNSUPPORTED);
+    }
+    // Interval not already set.
+    SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
+    u32 v = (regs->es << 16) | regs->bx;
+    SET_BDA(ptr_user_wait_complete_flag, v);
+    v = (regs->dx << 16) | regs->cx;
+    SET_BDA(user_wait_timeout, v);
+
+    // Unmask IRQ8 so INT70 will get through.
+    u8 irqDisable = inb(PORT_PIC2_DATA);
+    outb(irqDisable & ~PIC2_IRQ8, PORT_PIC2_DATA);
+    // Turn on the Periodic Interrupt timer
+    u8 bRegister = inb_cmos(CMOS_STATUS_B);
+    outb_cmos(CMOS_STATUS_B, bRegister | CSB_EN_ALARM_IRQ);
+
+    set_cf(regs, 0); // XXX - no set ah?
+}
+
+// Clear interval requested
+static void
+handle_158301(struct bregs *regs)
+{
+    SET_BDA(rtc_wait_flag, 0); // Clear status byte
+    // Turn off the Periodic Interrupt timer
+    u8 bRegister = inb_cmos(CMOS_STATUS_B);
+    outb_cmos(CMOS_STATUS_B, bRegister & ~CSB_EN_ALARM_IRQ);
+    set_cf(regs, 0); // XXX - no set ah?
+}
+
+static void
+handle_1583XX(struct bregs *regs)
+{
+    regs->al--;
+    handle_ret(regs, RET_EUNSUPPORTED);
+}
+
+void
+handle_1583(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x00: handle_158300(regs); break;
+    case 0x01: handle_158301(regs); break;
+    default:   handle_1583XX(regs); break;
+    }
+}
+
 // int70h: IRQ8 - CMOS RTC
 void VISIBLE
 handle_70(struct bregs *regs)

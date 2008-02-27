@@ -11,7 +11,7 @@ OUT=out/
 SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c boot.c
 SRC32=post.c output.c
 
-# Default compiler flags (note -march=armv4 is needed for 16 bit insns)
+# Default compiler flags
 CFLAGS = -Wall -g -Os -MD -m32 -march=i386 -mregparm=2 -ffreestanding
 CFLAGS16 = -Wall -Os -MD -m32 -DMODE16 -march=i386 -mregparm=2 -ffreestanding -fno-jump-tables
 
@@ -36,7 +36,7 @@ $(OUT)%.proc.16.s: $(OUT)%.16.s
 
 $(OUT)%.16.s: %.c
 	@echo "  Generating assembler for $<"
-	$(Q)$(CC) $(CFLAGS16) -fwhole-program -S -combine -c $< -o $@
+	$(Q)$(CC) $(CFLAGS16) -fwhole-program -S -combine -c $< src/null.c -o $@
 
 $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $<"
@@ -60,7 +60,7 @@ $(OUT)romlayout16.o: romlayout.S $(OUT)blob.proc.16.s $(OUT)font.proc.16.s $(OUT
 
 $(OUT)rom16.o: $(OUT)romlayout16.o
 	@echo "  Linking $@"
-	$(Q)ld -melf_i386 -Ttext 0 $< -o $@
+	$(Q)ld -melf_i386 -e post16 -Ttext 0 $< -o $@
 
 $(OUT)rom16.bin: $(OUT)rom16.o
 	@echo "  Extracting binary $@"

@@ -10,9 +10,6 @@
 #include "ioport.h" // inb
 #include "cmos.h" // inb_cmos
 
-#define RET_EUNSUPPORTED 0x86
-
-
 // Use PS2 System Control port A to set A20 enable
 static inline u8
 set_a20(u8 cond)
@@ -26,13 +23,6 @@ set_a20(u8 cond)
     outb(newval, PORT_A20);
 
     return (newval & 0x02) != 0;
-}
-
-static inline void
-handle_ret(struct bregs *regs, u8 code)
-{
-    regs->ah = code;
-    set_cf(regs, code);
 }
 
 static void
@@ -76,47 +66,10 @@ handle_1552(struct bregs *regs)
     handle_ret(regs, 0);
 }
 
-// Set Interval requested.
 static void
-handle_158300(struct bregs *regs)
+handle_1553(struct bregs *regs)
 {
-    if (GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING) {
-        // Interval already set.
-        DEBUGF("int15: Func 83h, failed, already waiting.\n" );
-        handle_ret(regs, RET_EUNSUPPORTED);
-    }
-    // Interval not already set.
-    SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
-    u32 v = (regs->es << 16) | regs->bx;
-    SET_BDA(ptr_user_wait_complete_flag, v);
-    v = (regs->dx << 16) | regs->cx;
-    SET_BDA(user_wait_timeout, v);
-
-    // Unmask IRQ8 so INT70 will get through.
-    u8 irqDisable = inb(PORT_PIC2_DATA);
-    outb(irqDisable & ~PIC2_IRQ8, PORT_PIC2_DATA);
-    // Turn on the Periodic Interrupt timer
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(CMOS_STATUS_B, bRegister | CSB_EN_ALARM_IRQ);
-
-    set_cf(regs, 0); // XXX - no set ah?
-}
-
-// Clear interval requested
-static void
-handle_158301(struct bregs *regs)
-{
-    SET_BDA(rtc_wait_flag, 0); // Clear status byte
-    // Turn off the Periodic Interrupt timer
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(CMOS_STATUS_B, bRegister & ~CSB_EN_ALARM_IRQ);
-    set_cf(regs, 0); // XXX - no set ah?
-}
-
-static void
-handle_1583XX(struct bregs *regs)
-{
-    regs->al--;
+    // XXX - APM call
     handle_ret(regs, RET_EUNSUPPORTED);
 }
 
@@ -434,14 +387,12 @@ handle_15e820(struct bregs *regs)
 static void
 handle_15e8XX(struct bregs *regs)
 {
-    regs->al--;
     handle_ret(regs, RET_EUNSUPPORTED);
 }
 
 static void
 handle_15XX(struct bregs *regs)
 {
-    regs->al--;
     handle_ret(regs, RET_EUNSUPPORTED);
 }
 
@@ -462,13 +413,8 @@ handle_15(struct bregs *regs)
         break;
     case 0x4f: handle_154f(regs); break;
     case 0x52: handle_1552(regs); break;
-    case 0x83:
-        switch (regs->al) {
-        case 0x00: handle_158300(regs); break;
-        case 0x01: handle_158301(regs); break;
-        default:   handle_1583XX(regs); break;
-        }
-        break;
+    case 0x53: handle_1553(regs); break;
+    case 0x83: handle_1583(regs); break;
     case 0x86: handle_1586(regs); break;
     case 0x87: handle_1587(regs); break;
     case 0x88: handle_1588(regs); break;

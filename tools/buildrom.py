@@ -57,12 +57,21 @@ def main():
     if size32 > freespace:
         print "32bit code too large (%d vs %d)" % (size32, freespace)
         sys.exit(1)
+    if data16[spos:spos+size32] != '\0'*size32:
+        print "Non zero data in 16bit freespace (%d to %d)" % (
+            spos, spos+size32)
+        sys.exit(1)
     outrom = data16[:spos] + data32 + data16[spos+size32:]
 
     # Fixup initial jump to 32 bit code
     jmppos = int(o16['OFFSET_set_entry32'], 16)
     start32 = int(o32['OFFSET__start'], 16)
     outrom = alteraddr(outrom, jmppos+2, start32)
+
+    print "Writing output rom %s" % OUT
+    print " 16bit C-code size: %d" % spos
+    print " 32bit C-code size: %d" % size32
+    print " Total C-code size: %d" % (spos+size32)
 
     # Write output rom
     f = open(OUT, 'wb')
