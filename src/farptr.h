@@ -3,6 +3,8 @@
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
+#ifndef __FARPTR_H
+#define __FARPTR_H
 
 #define READ8_SEG(SEG, var) ({                                          \
     u8 __value;                                                         \
@@ -97,3 +99,5 @@ extern void __force_link_error__unknown_type();
 #define GET_FARPTR(ptr) (ptr)
 #define SET_FARPTR(ptr, val) do { (var) = (val); } while (0)
 #endif
+
+#endif // farptr.h

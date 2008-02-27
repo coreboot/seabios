@@ -11,9 +11,17 @@ OUT=out/
 SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c boot.c
 SRC32=post.c output.c
 
+cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
+              /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
+
 # Default compiler flags
-CFLAGS = -Wall -g -Os -MD -m32 -march=i386 -mregparm=2 -ffreestanding
-CFLAGS16 = -Wall -Os -MD -m32 -DMODE16 -march=i386 -mregparm=2 -ffreestanding -fno-jump-tables
+COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=2 -ffreestanding
+COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
+COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
+COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
+
+CFLAGS = $(COMMONCFLAGS) -g
+CFLAGS16 = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
 
 all: $(OUT) $(OUT)rom.bin
 

@@ -3,16 +3,20 @@
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
+#ifndef __UTIL_H
+#define __UTIL_H
 
 #include "ioport.h" // outb
 #include "biosvar.h" // struct bregs
 
-static inline void irq_disable(void) {
-        asm volatile("cli": : :"memory");
+static inline void irq_disable(void)
+{
+    asm volatile("cli": : :"memory");
 }
 
-static inline void irq_enable(void) {
-        asm volatile("sti": : :"memory");
+static inline void irq_enable(void)
+{
+    asm volatile("sti": : :"memory");
 }
 
 static inline unsigned long irq_save(void)
@@ -91,7 +95,6 @@ void call16(struct bregs *callregs)
 // output.c
 void bprintf(u16 action, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
-struct bregs;
 void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_exit(const char *fname, struct bregs *regs);
 #define debug_enter(regs) \
@@ -115,3 +118,5 @@ handle_ret(struct bregs *regs, u8 code)
     regs->ah = code;
     set_cf(regs, code);
 }
+
+#endif // util.h
