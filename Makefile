@@ -22,6 +22,7 @@ COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 CFLAGS = $(COMMONCFLAGS) -g
 CFLAGS16 = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
+CFLAGS16WHOLE = $(CFLAGS16) -g -fwhole-program
 
 all: $(OUT) $(OUT)rom.bin
 
@@ -40,7 +41,7 @@ vpath %.S src
 ################ Build rules
 $(OUT)%.proc.16.s: $(OUT)%.16.s
 	@echo "  Moving data sections to text in $<"
-	$(Q)sed 's/\t.section\t.rodata.*// ; s/\t.data//' < $< > $@
+	$(Q)sed 's/\t\.section\t\.rodata.*// ; s/\t\.data//' < $< > $@
 
 $(OUT)%.16.s: %.c
 	@echo "  Generating assembler for $<"
@@ -60,7 +61,7 @@ $(OUT)%.offset.auto.h: $(OUT)%.o
 
 $(OUT)blob.16.s:
 	@echo "  Generating whole program assembler $@"
-	$(Q)$(CC) $(CFLAGS16) -fwhole-program -S -combine -c $(addprefix src/, $(SRC16)) -o $@
+	$(Q)$(CC) $(CFLAGS16WHOLE) -S -combine -c $(addprefix src/, $(SRC16)) -o $@
 
 $(OUT)romlayout16.o: romlayout.S $(OUT)blob.proc.16.s $(OUT)font.proc.16.s $(OUT)cbt.proc.16.s
 	@echo "  Generating 16bit layout of $@"
