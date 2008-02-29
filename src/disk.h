@@ -13,12 +13,17 @@
 #define DISK_RET_EPARAM      0x01
 #define DISK_RET_ECHANGED    0x06
 #define DISK_RET_EBOUNDARY   0x09
+#define DISK_RET_EBADTRACK   0x0c
 #define DISK_RET_ECONTROLLER 0x20
 #define DISK_RET_ETIMEOUT    0x80
 #define DISK_RET_EMEDIA      0xC0
+#define DISK_RET_ENOTREADY   0xAA
 
 // floppy.c
 void floppy_13(struct bregs *regs, u8 drive);
 void floppy_tick();
+
+// disk.c
+void ata_detect();
 
 #endif // disk.h

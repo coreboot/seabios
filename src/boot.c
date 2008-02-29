@@ -9,6 +9,7 @@
 #include "biosvar.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "cmos.h" // inb_cmos
+#include "disk.h" // ata_detect
 
 //--------------------------------------------------------------------------
 // print_boot_device
@@ -177,6 +178,7 @@ handle_19()
 void VISIBLE
 begin_boot()
 {
+    ata_detect();
     irq_enable();
     struct bregs br;
     memset(&br, 0, sizeof(br));

@@ -57,7 +57,9 @@ struct bios_data_area_s {
     u32 timer_counter;
     // 40:70
     u8 timer_rollover;
-    u8 other4[0x04];
+    u8 break_flag;
+    u16 soft_reset_flag;
+    u8 disk_last_status;
     u8 disk_count;
     u8 disk_control_byte;
     u8 port_disk;
@@ -68,7 +70,9 @@ struct bios_data_area_s {
     u16 kbd_buf_end_offset;
     u8 other5[7];
     u8 floppy_last_data_rate;
-    u8 other6[3];
+    u8 disk_status_controller;
+    u8 disk_error_controller;
+    u8 disk_interrupt_flag;
     u8 floppy_harddisk_info;
     // 40:90
     u8 floppy_media_state[4];

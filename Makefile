@@ -8,7 +8,8 @@
 OUT=out/
 
 # Source files
-SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c boot.c
+SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c \
+      boot.c ata.c
 SRC32=post.c output.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
