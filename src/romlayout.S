@@ -201,8 +201,7 @@ __call16:
 // Set limit to 0
 pmode_IDT_info:
         .word 0x0000  // limit 15:00
-        .word 0x0000  // base  15:00
-        .byte 0x0f    // base  23:16
+        .long 0xf0000 // base 16:47
 
 // Real mode IDT descriptor
 //
@@ -211,8 +210,7 @@ pmode_IDT_info:
 // limit =   03ff
 rmode_IDT_info:
         .word 0x03ff  // limit 15:00
-        .word 0x0000  // base  15:00
-        .byte 0x00    // base  23:16
+        .long 0       // base 16:47
 
 rombios32_gdt_48:
         .word 0x30
