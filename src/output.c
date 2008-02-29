@@ -140,6 +140,7 @@ bprintf(u16 action, const char *fmt, ...)
             puts_cs(action, sarg);
             break;
         default:
+            putc(action, '%');
             putc(action, *s);
             n = s;
         }
@@ -177,4 +178,10 @@ __debug_exit(const char *fname, struct bregs *regs)
     if (! (regs->flags & F_CF))
         return;
     dump_regs(fname, "exit", regs);
+}
+
+void
+__debug_stub(const char *fname, struct bregs *regs)
+{
+    dump_regs(fname, "stub", regs);
 }

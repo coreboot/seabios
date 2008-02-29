@@ -39,7 +39,7 @@ static inline void nop(void)
 
 #define DEBUGF(fmt, args...)
 #define BX_PANIC(fmt, args...)
-#define BX_INFO(fmt, args...)
+#define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
 
 static inline void
 memset(void *s, int c, size_t n)
@@ -97,10 +97,13 @@ void bprintf(u16 action, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
 void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_exit(const char *fname, struct bregs *regs);
+void __debug_stub(const char *fname, struct bregs *regs);
 #define debug_enter(regs) \
     __debug_enter(__func__, regs)
 #define debug_exit(regs) \
     __debug_exit(__func__, regs)
+#define debug_stub(regs) \
+    __debug_stub(__func__, regs)
 #define printf(fmt, args...)                     \
     bprintf(1, fmt , ##args )
 

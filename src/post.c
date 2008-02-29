@@ -537,7 +537,7 @@ post()
     if (status != 0x00 && status != 0x09 && status < 0x0d)
         status_restart(status);
 
-    BX_INFO("Start bios");
+    BX_INFO("Start bios\n");
 
     init_bda();
     init_handlers();
