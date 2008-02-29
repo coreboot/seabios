@@ -696,31 +696,32 @@ floppy_1316(struct bregs *regs, u8 drive)
 static void
 floppy_13XX(struct bregs *regs, u8 drive)
 {
-    BX_INFO("int13_diskette: unsupported AH=%02x\n", GET_AH());
+    BX_INFO("int13_diskette: unsupported AH=%02x\n", regs->ah);
     floppy_ret(regs, DISK_RET_EPARAM);
 }
 
 void
 floppy_13(struct bregs *regs, u8 drive)
 {
-    if (CONFIG_FLOPPY_SUPPORT) {
-        switch (regs->ah) {
-        case 0x00: floppy_1300(regs, drive); break;
-        case 0x01: floppy_1301(regs, drive); break;
-        case 0x02: floppy_1302(regs, drive); break;
-        case 0x03: floppy_1303(regs, drive); break;
-        case 0x04: floppy_1304(regs, drive); break;
-        case 0x05: floppy_1305(regs, drive); break;
-        case 0x08: floppy_1308(regs, drive); break;
-        case 0x15: floppy_1315(regs, drive); break;
-        case 0x16: floppy_1316(regs, drive); break;
-        default:   floppy_13XX(regs, drive); break;
-        }
-    } else {
+    if (! CONFIG_FLOPPY_SUPPORT) {
+        // Minimal stubs
         switch (regs->ah) {
         case 0x01: floppy_1301(regs, drive); break;
         default:   floppy_13XX(regs, drive); break;
         }
+        return;
+    }
+    switch (regs->ah) {
+    case 0x00: floppy_1300(regs, drive); break;
+    case 0x01: floppy_1301(regs, drive); break;
+    case 0x02: floppy_1302(regs, drive); break;
+    case 0x03: floppy_1303(regs, drive); break;
+    case 0x04: floppy_1304(regs, drive); break;
+    case 0x05: floppy_1305(regs, drive); break;
+    case 0x08: floppy_1308(regs, drive); break;
+    case 0x15: floppy_1315(regs, drive); break;
+    case 0x16: floppy_1316(regs, drive); break;
+    default:   floppy_13XX(regs, drive); break;
     }
 }
 
