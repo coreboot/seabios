@@ -59,6 +59,18 @@ handle_1524XX(struct bregs *regs)
     handle_ret(regs, RET_EUNSUPPORTED);
 }
 
+static void
+handle_1524(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x00: handle_152400(regs); break;
+    case 0x01: handle_152401(regs); break;
+    case 0x02: handle_152402(regs); break;
+    case 0x03: handle_152403(regs); break;
+    default:   handle_1524XX(regs); break;
+    }
+}
+
 // removable media eject
 static void
 handle_1552(struct bregs *regs)
@@ -100,9 +112,6 @@ handle_1587(struct bregs *regs)
 {
     // +++ should probably have descriptor checks
     // +++ should have exception handlers
-
-    // turn off interrupts
-    unsigned long flags = irq_save();
 
     u8 prev_a20_enable = set_a20(1); // enable A20 line
 
@@ -171,7 +180,7 @@ handle_1587(struct bregs *regs)
         "movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to protected mode
-        "ljmpw $0xf000, $1f\n"
+        "ljmpw $0x0020, $1f\n"
         "1:\n"
 
         // GDT points to valid descriptor table, now load DS, ES
@@ -204,8 +213,6 @@ handle_1587(struct bregs *regs)
         "popw %%ds\n" : : "c" (regs->cx), "r" (si + 8));
 
     set_a20(prev_a20_enable);
-
-    irq_restore(flags);
 
     handle_ret(regs, 0);
 }
@@ -391,6 +398,16 @@ handle_15e8XX(struct bregs *regs)
 }
 
 static void
+handle_15e8(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x01: handle_15e801(regs); break;
+    case 0x20: handle_15e820(regs); break;
+    default:   handle_15e8XX(regs); break;
+    }
+}
+
+static void
 handle_15XX(struct bregs *regs)
 {
     handle_ret(regs, RET_EUNSUPPORTED);
@@ -400,17 +417,9 @@ handle_15XX(struct bregs *regs)
 void VISIBLE
 handle_15(struct bregs *regs)
 {
-    debug_enter(regs);
+    //debug_enter(regs);
     switch (regs->ah) {
-    case 0x24:
-        switch (regs->al) {
-        case 0x00: handle_152400(regs); break;
-        case 0x01: handle_152401(regs); break;
-        case 0x02: handle_152402(regs); break;
-        case 0x03: handle_152403(regs); break;
-        default:   handle_1524XX(regs); break;
-        }
-        break;
+    case 0x24: handle_1524(regs); break;
     case 0x4f: handle_154f(regs); break;
     case 0x52: handle_1552(regs); break;
     case 0x53: handle_1553(regs); break;
@@ -423,13 +432,7 @@ handle_15(struct bregs *regs)
     case 0xc0: handle_15c0(regs); break;
     case 0xc1: handle_15c1(regs); break;
     case 0xc2: handle_15c2(regs); break;
-    case 0xe8:
-        switch (regs->al) {
-        case 0x01: handle_15e801(regs); break;
-        case 0x20: handle_15e820(regs); break;
-        default:   handle_15e8XX(regs); break;
-        }
-        break;
+    case 0xe8: handle_15e8(regs); break;
     default:   handle_15XX(regs); break;
     }
     debug_exit(regs);
