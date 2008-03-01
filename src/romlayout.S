@@ -78,7 +78,8 @@ transition32:
         movl  %eax, %cr0
 
         // start protected mode code
-        .word 0xea66, 1f, 0x000f, PROTECTED_MODE_CS // ljmpl $PROTECTED_MODE_CS, $1f
+        // ljmpl $PROTECTED_MODE_CS, $(1f | 0xf0000)
+        .word 0xea66, 1f, 0x000f, PROTECTED_MODE_CS
 
         .code32
 1:
@@ -96,7 +97,7 @@ transition32:
         retl
 
 // Call a 16bit function from 32bit mode.
-// 4(%esp) = address of struct bregs
+// %eax = address of struct bregs
 // Clobbers: all gp registers, flags, stack registers, cr0, idt/gdt
         .globl __call16_from32
 __call16_from32:
@@ -226,10 +227,14 @@ rombios32_gdt_48:
 rombios32_gdt:
         .word 0, 0, 0, 0
         .word 0, 0, 0, 0
-        .word 0xffff, 0, 0x9b00, 0x00cf // 32 bit flat code segment (PROTECTED_MODE_CS)
-        .word 0xffff, 0, 0x9300, 0x00cf // 32 bit flat data segment (PROTECTED_MODE_DS)
-        .word 0xffff, 0, 0x9b0f, 0x0000 // 16 bit code segment base=0xf0000 limit=0xffff
-        .word 0xffff, 0, 0x9300, 0x0000 // 16 bit data segment base=0x0 limit=0xffff
+        // 32 bit flat code segment (PROTECTED_MODE_CS)
+        .word 0xffff, 0, 0x9b00, 0x00cf
+        // 32 bit flat data segment (PROTECTED_MODE_DS)
+        .word 0xffff, 0, 0x9300, 0x00cf
+        // 16 bit code segment base=0xf0000 limit=0xffff (REAL_MODE_CS)
+        .word 0xffff, 0, 0x9b0f, 0x0000
+        // 16 bit data segment base=0x0 limit=0xffff (REAL_MODE_DS)
+        .word 0xffff, 0, 0x9300, 0x0000
 
 // We need a copy of this string, but we are not actually a PnP BIOS,
 // so make sure it is *not* aligned, so OSes will not see it if they
