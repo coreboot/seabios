@@ -165,11 +165,6 @@ handle_1587(struct bregs *regs)
     SET_VAR(ES, *(u16*)(si+0x28+6), 0x0000);   // base 31:24/reserved/limit 19:16
 
     asm volatile(
-        // Save registers
-        "pushw %%ds\n"
-        "pushw %%es\n"
-        "pushal\n"
-
         // Load new descriptor tables
         "lgdt %%es:(%1)\n"
         "lidt %%cs:pmode_IDT_info\n"
@@ -207,10 +202,11 @@ handle_1587(struct bregs *regs)
         // restore IDT to normal real-mode defaults
         "lidt %%cs:rmode_IDT_info\n"
 
-        // restore regisers
-        "popal\n"
-        "popw %%es\n"
-        "popw %%ds\n" : : "c" (regs->cx), "r" (si + 8));
+        // Restore %ds (from %ss)
+        "movw %%ss, %%ax\n"
+        "movw %%ax, %%ds\n"
+        : : "c" (regs->cx), "r" (si + 8)
+        : "eax", "di", "si"); // XXX - also clobbers %es
 
     set_a20(prev_a20_enable);
 
