@@ -358,12 +358,6 @@ ata_init()
 }
 
 static void
-ata_detect()
-{
-    // XXX
-}
-
-static void
 fill_hdinfo(struct fdpt_s *info, u8 typecmos, u8 basecmos)
 {
     u8 type = inb_cmos(typecmos);
@@ -508,35 +502,8 @@ rom_scan(u32 start, u32 end)
 }
 
 static void
-status_restart(u8 status)
-{
-    // XXX
-#if 0
-    if (status == 0x05)
-        eoi_jmp_post();
-#endif
-
-    BX_PANIC("Unimplemented shutdown status: %02x\n",(Bit8u)status);
-}
-
-static void
 post()
 {
-    // first reset the DMA controllers
-    outb(0, PORT_DMA1_MASTER_CLEAR);
-    outb(0, PORT_DMA2_MASTER_CLEAR);
-
-    // then initialize the DMA controllers
-    outb(0xc0, PORT_DMA2_MODE_REG);
-    outb(0x00, PORT_DMA2_MASK_REG);
-
-    // Get and then clear CMOS shutdown status.
-    u8 status = inb_cmos(CMOS_RESET_CODE);
-    outb_cmos(0, CMOS_RESET_CODE);
-
-    if (status != 0x00 && status != 0x09 && status < 0x0d)
-        status_restart(status);
-
     BX_INFO("Start bios\n");
 
     init_bda();
@@ -560,10 +527,8 @@ post()
 
     floppy_drive_post();
     hard_drive_post();
-    if (CONFIG_ATA) {
+    if (CONFIG_ATA)
         ata_init();
-        ata_detect();
-    }
 
     init_boot_vectors();
     rom_scan(0xc8000, 0xe0000);
@@ -571,8 +536,43 @@ post()
     callrom(0xf000, OFFSET_begin_boot);
 }
 
+static void
+init_dma()
+{
+    // first reset the DMA controllers
+    outb(0, PORT_DMA1_MASTER_CLEAR);
+    outb(0, PORT_DMA2_MASTER_CLEAR);
+
+    // then initialize the DMA controllers
+    outb(0xc0, PORT_DMA2_MODE_REG);
+    outb(0x00, PORT_DMA2_MASK_REG);
+}
+
+static void
+check_restart_status()
+{
+    // Get and then clear CMOS shutdown status.
+    u8 status = inb_cmos(CMOS_RESET_CODE);
+    outb_cmos(0, CMOS_RESET_CODE);
+
+    if (status == 0x00 || status == 0x09 || status >= 0x0d)
+        // Normal post
+        return;
+
+    // XXX
+#if 0
+    if (status == 0x05)
+        eoi_jmp_post();
+#endif
+
+    BX_PANIC("Unimplemented shutdown status: %02x\n",(Bit8u)status);
+}
+
 void VISIBLE
 _start()
 {
+    init_dma();
+    check_restart_status();
+
     post();
 }
