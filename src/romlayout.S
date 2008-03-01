@@ -7,6 +7,11 @@
 
 #include "config.h"
 
+#define PROTECTED_MODE_CS (2 << 3) // 0x10
+#define PROTECTED_MODE_DS (3 << 3) // 0x18
+#define REAL_MODE_CS      (4 << 3) // 0x20
+#define REAL_MODE_DS      (5 << 3) // 0x28
+
         .code16gcc
 
 
@@ -40,7 +45,7 @@ post16:
         RESET_STACK
 
         // Set entry point of rombios32 code - the actual address
-	// is altered later in the build process.
+        // is altered later in the build process.
         .globl set_entry32
 set_entry32:
         pushl $0xf0000000
@@ -73,12 +78,12 @@ transition32:
         movl  %eax, %cr0
 
         // start protected mode code
-        .word 0xea66, 1f, 0x000f, 0x0010 // ljmpl $0x10, $(1f | 0xf0000)
+        .word 0xea66, 1f, 0x000f, PROTECTED_MODE_CS // ljmpl $PROTECTED_MODE_CS, $1f
 
         .code32
 1:
         // init data segments
-        movl $0x18, %eax
+        movl $PROTECTED_MODE_DS, %eax
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
@@ -117,6 +122,7 @@ __call16_from32:
 
         // far jump to flush CPU queue after transition to real mode
         ljmpw $0xf000, $2f
+
 2:
         // restore IDT to normal real-mode defaults
         lidt %cs:rmode_IDT_info
@@ -135,7 +141,7 @@ __call16_from32:
         // Fall through to __call16
 
 
-// Call a 16bit function with a specified cpu register state
+// Call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs
 // Clobbers: all gp registers, es
         .globl __call16
@@ -220,8 +226,8 @@ rombios32_gdt_48:
 rombios32_gdt:
         .word 0, 0, 0, 0
         .word 0, 0, 0, 0
-        .word 0xffff, 0, 0x9b00, 0x00cf // 32 bit flat code segment (0x10)
-        .word 0xffff, 0, 0x9300, 0x00cf // 32 bit flat data segment (0x18)
+        .word 0xffff, 0, 0x9b00, 0x00cf // 32 bit flat code segment (PROTECTED_MODE_CS)
+        .word 0xffff, 0, 0x9300, 0x00cf // 32 bit flat data segment (PROTECTED_MODE_DS)
         .word 0xffff, 0, 0x9b0f, 0x0000 // 16 bit code segment base=0xf0000 limit=0xffff
         .word 0xffff, 0, 0x9300, 0x0000 // 16 bit data segment base=0x0 limit=0xffff
 
