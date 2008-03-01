@@ -8,6 +8,7 @@ u16 ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
                      , u16 head, u16 sector, u32 lba, u16 segment, u16 offset);
 u16 ata_cmd_packet(u16 device, u8 cmdlen, u16 cmdseg, u16 cmdoff, u16 header
                    , u32 length, u8 inout, u16 bufseg, u16 bufoff);
+void ata_detect();
 
 // Global defines -- ATA register and register bits.
 // command block & control block regs

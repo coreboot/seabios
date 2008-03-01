@@ -37,6 +37,7 @@
 #define CMOS_EXTMEM2_LOW         0x34
 #define CMOS_EXTMEM2_HIGH        0x35
 #define CMOS_BIOS_BOOTFLAG1      0x38
+#define CMOS_BIOS_DISKTRANSFLAG  0x39
 #define CMOS_BIOS_BOOTFLAG2      0x3d
 
 // CMOS_STATUS_B bitdefs

@@ -9,7 +9,7 @@
 #include "biosvar.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "cmos.h" // inb_cmos
-#include "disk.h" // ata_detect
+#include "ata.h" // ata_detect
 
 //--------------------------------------------------------------------------
 // print_boot_device

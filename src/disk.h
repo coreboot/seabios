@@ -23,7 +23,4 @@
 void floppy_13(struct bregs *regs, u8 drive);
 void floppy_tick();
 
-// disk.c
-void ata_detect();
-
 #endif // disk.h
