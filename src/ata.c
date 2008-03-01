@@ -1,3 +1,10 @@
+// Low level ATA disk access
+//
+// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2002  MandrakeSoft S.A.
+//
+// This file may be distributed under the terms of the GNU GPLv3 license.
+
 #include "ata.h" // ATA_*
 #include "types.h" // u8
 #include "ioport.h" // inb
