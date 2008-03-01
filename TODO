@@ -1,10 +1,7 @@
 Find out why ubuntu compiles are failing.  Find work around.
 
-See if it is better to tell gcc that call16 clobbers all registers
-instead of having the code call pushal/popal.
-
-The __call16 code does a long jump to the interrupt handlers - this is
-unnecessary.
+The __call16 code does a long jump to the interrupt trampolines - this
+is unnecessary.
 
 Fix makefiles so that they rebuild the required files automatically.
 

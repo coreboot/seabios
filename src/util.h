@@ -65,16 +65,18 @@ static inline
 void call16(struct bregs *callregs)
 {
     asm volatile(
-        "pushfl\n"   // Save flags
-        "pushal\n"   // Save registers
+        "pushl %%ebp\n" // Save state
+        "pushfl\n"
 #ifdef MODE16
         "calll __call16\n"
 #else
         "calll __call16_from32\n"
 #endif
-        "popal\n"
-        "popfl\n"
-        : : "a" (callregs), "m" (*callregs));
+        "popfl\n"       // Restore state
+        "popl %%ebp\n"
+        : "=a" (callregs), "=m" (*callregs)
+        : "a" (callregs), "m" (*callregs)
+        : "ebx", "ecx", "edx", "esi", "edi");
 }
 
 static inline
