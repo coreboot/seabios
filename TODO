@@ -1,7 +1,5 @@
 Find out why ubuntu compiles are failing.  Find work around.
 
-Fixup __call16 usage from util.h / rombios32.lds.S
-
 See if it is better to tell gcc that call16 clobbers all registers
 instead of having the code call pushal/popal.
 

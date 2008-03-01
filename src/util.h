@@ -67,29 +67,33 @@ void call16(struct bregs *callregs)
     asm volatile(
         "pushfl\n"   // Save flags
         "pushal\n"   // Save registers
+#ifdef MODE16
         "calll __call16\n"
+#else
+        "calll __call16_from32\n"
+#endif
         "popal\n"
         "popfl\n"
         : : "a" (callregs), "m" (*callregs));
 }
 
-// XXX - this is ugly.
+static inline
+void __call16_int(struct bregs *callregs, u16 offset)
+{
+    callregs->cs = 0xf000;
+    callregs->ip = offset;
+    call16(callregs);
+}
+
 #ifdef MODE16
-#define call16_int(nr, callregs) do {           \
-        struct bregs *__br = (callregs);        \
-        extern void irq_trampoline_ ##nr ();    \
-        __br->cs = 0xf000;                      \
-        __br->ip = (u16)&irq_trampoline_ ##nr;  \
-        call16(__br);                           \
+#define call16_int(nr, callregs) do {                           \
+        extern void irq_trampoline_ ##nr ();                    \
+        __call16_int((callregs), (u16)&irq_trampoline_ ##nr );  \
     } while (0)
 #else
 #include "../out/rom16.offset.auto.h"
-#define call16_int(nr, callregs) do {           \
-        struct bregs *__br = (callregs);        \
-        __br->cs = 0xf000;                      \
-        __br->ip = OFFSET_irq_trampoline_ ##nr; \
-        call16(__br);                           \
-    } while (0)
+#define call16_int(nr, callregs)                                \
+    __call16_int((callregs), OFFSET_irq_trampoline_ ##nr )
 #endif
 
 // output.c
