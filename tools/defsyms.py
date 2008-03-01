@@ -9,7 +9,14 @@
 import sys
 import string
 
+def printUsage():
+    print "Usage:\n   %s <output file>" % (sys.argv[0],)
+    sys.exit(1)
+
 def main():
+    if len(sys.argv) != 2:
+        printUsage()
+    # Find symbols (that are valid)
     syms = []
     lines = sys.stdin.readlines()
     for line in lines:
@@ -22,17 +29,27 @@ def main():
                 break
         else:
             syms.append((sym, addr))
-    print """
-#ifndef __OFFSET16_AUTO_H
-#define __OFFSET16_AUTO_H
+    # Build guard string
+    guardstr = ''
+    for c in sys.argv[1]:
+        if c not in string.letters + string.digits + '_':
+            guardstr += '_'
+        else:
+            guardstr += c
+    # Generate header
+    f = open(sys.argv[1], 'wb')
+    f.write("""
+#ifndef __OFFSET_AUTO_H__%s
+#define __OFFSET_AUTO_H__%s
 // Auto generated file - please see defsyms.py.
 // This file contains symbol offsets of a compiled binary.
-"""
+
+""" % (guardstr, guardstr))
     for sym, addr in syms:
-        print "#define OFFSET_%s 0x%s" % (sym, addr)
-    print """
-#endif // __OFFSET16_AUTO_H
-"""
+        f.write("#define OFFSET_%s 0x%s\n" % (sym, addr))
+    f.write("""
+#endif // __OFFSET_AUTO_H__%s
+""" % (guardstr,))
 
 if __name__ == '__main__':
     main()

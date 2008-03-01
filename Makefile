@@ -58,7 +58,7 @@ $(OUT)%.bin: $(OUT)%.o
 
 $(OUT)%.offset.auto.h: $(OUT)%.o
 	@echo "  Generating symbol offset header $@"
-	$(Q)nm $< | ./tools/defsyms.py > $@
+	$(Q)nm $< | ./tools/defsyms.py $@
 
 $(OUT)blob.16.s:
 	@echo "  Generating whole program assembler $@"
