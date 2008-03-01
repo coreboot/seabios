@@ -135,13 +135,16 @@ bprintf(u16 action, const char *fmt, ...)
             val = va_arg(args, s32);
             puthex(action, val);
             break;
+        case 'c':
+            val = va_arg(args, int);
+            putc(action, val);
+            break;
         case 's':
             sarg = va_arg(args, const char *);
             puts_cs(action, sarg);
             break;
         default:
             putc(action, '%');
-            putc(action, *s);
             n = s;
         }
         s = n;
