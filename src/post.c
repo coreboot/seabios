@@ -549,6 +549,19 @@ init_dma()
 }
 
 static void
+eoi_jmp_post()
+{
+    // XXX - this is supposed to jump without changing any memory -
+    // but the stack has been altered by the time the code gets here.
+    eoi_both_pics();
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.cs = bda->jump_cs_ip >> 16;
+    br.ip = bda->jump_cs_ip;
+    call16(&br);
+}
+
+static void
 check_restart_status()
 {
     // Get and then clear CMOS shutdown status.
@@ -559,11 +572,8 @@ check_restart_status()
         // Normal post
         return;
 
-    // XXX
-#if 0
     if (status == 0x05)
         eoi_jmp_post();
-#endif
 
     BX_PANIC("Unimplemented shutdown status: %02x\n",(Bit8u)status);
 }

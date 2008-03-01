@@ -52,8 +52,11 @@ struct bios_data_area_s {
     u8 floppy_return_status[7];
     u8 other1[0x7];
     // 40:50
-    u8 other2[0x1c];
-    // 40:6c
+    u8 other2[0x10];
+    // 40:60
+    u8 other3[0x7];
+    u32 jump_cs_ip;
+    u8 dummy;
     u32 timer_counter;
     // 40:70
     u8 timer_rollover;
