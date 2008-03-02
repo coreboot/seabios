@@ -251,7 +251,7 @@ pnp_string:
  ****************************************************************/
 
         .macro ENTRY cfunc
-        cli         // In case something far-calls insted of using "int"
+        cli         // In case something far-calls instead of using "int"
         pushal
         pushw %es
         pushw %ds
@@ -404,7 +404,7 @@ dummy_iret_handler:
         .ascii "06/23/99"
 
         .org 0xfffe
-        // model byte 0xFC = AT
+        // XXX - model byte 0xFC = AT
         .byte 0xfc
         .byte 0x00
 

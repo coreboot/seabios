@@ -16,7 +16,7 @@
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
 #define ipl ((struct ipl_s *)(IPL_SEG<<4))
 
-static int
+static u8
 checksum(u8 *p, u32 len)
 {
     u32 i;
