@@ -37,8 +37,8 @@ static inline void nop(void)
     asm volatile("nop");
 }
 
-#define DEBUGF(fmt, args...)
-#define BX_PANIC(fmt, args...)
+#define DEBUGF(fmt, args...) bprintf(0, fmt , ##args)
+#define BX_PANIC(fmt, args...) bprintf(0, fmt , ##args)
 #define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
 
 static inline void
@@ -74,8 +74,8 @@ void call16(struct bregs *callregs)
 #endif
         "popfl\n"       // Restore state
         "popl %%ebp\n"
-        : "=a" (callregs), "=m" (*callregs)
-        : "a" (callregs), "m" (*callregs)
+        : "+a" (callregs), "+m" (*callregs)
+        :
         : "ebx", "ecx", "edx", "esi", "edi");
 }
 
