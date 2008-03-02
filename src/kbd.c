@@ -128,14 +128,14 @@ handle_1609(struct bregs *regs)
 static void
 handle_160a(struct bregs *regs)
 {
-    outb(0xf2, PORT_KBD_DATA);
+    outb(0xf2, PORT_PS2_DATA);
     /* Wait for data */
     u16 max=0xffff;
-    while ( ((inb(PORT_KBD_STATUS) & 0x01) == 0) && (--max>0) )
+    while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
         outb(0x00, PORT_DIAG);
     if (!max)
         return;
-    if (inb(PORT_KBD_DATA) != 0xfa) {
+    if (inb(PORT_PS2_DATA) != 0xfa) {
         regs->bx = 0;
         return;
     }
@@ -143,11 +143,11 @@ handle_160a(struct bregs *regs)
     u8 count = 2;
     do {
         max=0xffff;
-        while ( ((inb(PORT_KBD_STATUS) & 0x01) == 0) && (--max>0) )
+        while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
             outb(0x00, PORT_DIAG);
         if (max>0x0) {
             kbd_code >>= 8;
-            kbd_code |= (inb(PORT_KBD_DATA) << 8);
+            kbd_code |= (inb(PORT_PS2_DATA) << 8);
         }
     } while (--count>0);
     regs->bx = kbd_code;
@@ -219,16 +219,16 @@ set_leds()
     if (((shift_flags >> 4) & 0x07) ^ ((led_flags & 0x07) == 0))
         return;
 
-    outb(0xed, PORT_KBD_DATA);
-    while ((inb(PORT_KBD_STATUS) & 0x01) == 0)
+    outb(0xed, PORT_PS2_DATA);
+    while ((inb(PORT_PS2_STATUS) & 0x01) == 0)
         outb(0x21, PORT_DIAG);
-    if (inb(PORT_KBD_DATA) == 0xfa) {
+    if (inb(PORT_PS2_DATA) == 0xfa) {
         led_flags &= 0xf8;
         led_flags |= (shift_flags >> 4) & 0x07;
-        outb(led_flags & 0x07, PORT_KBD_DATA);
-        while ((inb(PORT_KBD_STATUS) & 0x01) == 0)
+        outb(led_flags & 0x07, PORT_PS2_DATA);
+        while ((inb(PORT_PS2_STATUS) & 0x01) == 0)
             outb(0x21, PORT_DIAG);
-        inb(PORT_KBD_DATA);
+        inb(PORT_PS2_DATA);
         SET_BDA(kbd_led, led_flags);
     }
 }
@@ -551,10 +551,10 @@ handle_09(struct bregs *regs)
         return;
 
     // disable keyboard
-    outb(0xad, PORT_KBD_STATUS);
+    outb(0xad, PORT_PS2_STATUS);
 
     // read key from keyboard controller
-    u8 key = inb(PORT_KBD_DATA);
+    u8 key = inb(PORT_PS2_DATA);
     irq_enable();
     if (CONFIG_KBD_CALL_INT15_4F) {
         // allow for keyboard intercept
@@ -575,5 +575,5 @@ handle_09(struct bregs *regs)
 
 done:
     // enable keyboard
-    outb(0xae, PORT_KBD_STATUS);
+    outb(0xae, PORT_PS2_STATUS);
 }
