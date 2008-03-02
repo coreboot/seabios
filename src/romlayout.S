@@ -224,6 +224,7 @@ rombios32_gdt_48:
         .word rombios32_gdt
         .word 0x000f
 
+        .balign 8
 rombios32_gdt:
         .word 0, 0, 0, 0
         .word 0, 0, 0, 0
@@ -235,15 +236,6 @@ rombios32_gdt:
         .word 0xffff, 0, 0x9b0f, 0x0000
         // 16 bit data segment base=0x0 limit=0xffff (REAL_MODE_DS)
         .word 0xffff, 0, 0x9300, 0x0000
-
-// We need a copy of this string, but we are not actually a PnP BIOS,
-// so make sure it is *not* aligned, so OSes will not see it if they
-// scan.
-        .align 2
-        .byte 0
-        .globl pnp_string
-pnp_string:
-        .ascii "$PnP"
 
 
 /****************************************************************
@@ -342,7 +334,8 @@ entry_18:
         IRQ_ENTRY 0e
 
         .org 0xefc7
-        // XXX - Diskette Controller Parameter Table
+.include "out/floppy_dbt.proc.16.s"
+        .text
 
         .org 0xefd2
         IRQ_ENTRY 17
@@ -404,8 +397,7 @@ dummy_iret_handler:
         .ascii "06/23/99"
 
         .org 0xfffe
-        // XXX - model byte 0xFC = AT
-        .byte 0xfc
+        .byte CONFIG_MODEL_ID
         .byte 0x00
 
         .end

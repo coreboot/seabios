@@ -13,4 +13,8 @@
 #define CONFIG_STACK_SEGMENT 0x00
 #define CONFIG_STACK_OFFSET  0xfffe
 
+#define CONFIG_MODEL_ID      0xFC
+#define CONFIG_SUBMODEL_ID   0x00
+#define CONFIG_BIOS_REVISION 0x01
+
 #endif // config.h

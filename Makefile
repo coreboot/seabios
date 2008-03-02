@@ -11,6 +11,7 @@ OUT=out/
 SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c \
       boot.c ata.c
 SRC32=post.c output.c
+TABLESRC=font.c cbt.c floppy_dbt.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
@@ -25,7 +26,8 @@ CFLAGS = $(COMMONCFLAGS) -g
 CFLAGS16 = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
 CFLAGS16WHOLE = $(CFLAGS16) -g -fwhole-program
 
-all: $(OUT) $(OUT)rom.bin
+TABLETMP=$(addprefix $(OUT), $(patsubst %.c,%.16.s,$(TABLESRC)))
+all: $(OUT) $(OUT)rom.bin $(TABLETMP)
 
 # Run with "make V=1" to see the actual compile commands
 ifdef V
@@ -64,7 +66,8 @@ $(OUT)blob.16.s:
 	@echo "  Generating whole program assembler $@"
 	$(Q)$(CC) $(CFLAGS16WHOLE) -S -combine -c $(addprefix src/, $(SRC16)) -o $@
 
-$(OUT)romlayout16.o: romlayout.S $(OUT)blob.proc.16.s $(OUT)font.proc.16.s $(OUT)cbt.proc.16.s
+TABLEASM=$(addprefix $(OUT), $(patsubst %.c,%.proc.16.s,$(TABLESRC)))
+$(OUT)romlayout16.o: romlayout.S $(OUT)blob.proc.16.s $(TABLEASM)
 	@echo "  Generating 16bit layout of $@"
 	$(Q)$(CC) $(CFLAGS16) -c $< -o $@
 

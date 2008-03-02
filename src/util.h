@@ -82,7 +82,7 @@ void call16(struct bregs *callregs)
 static inline
 void __call16_int(struct bregs *callregs, u16 offset)
 {
-    callregs->cs = 0xf000;
+    callregs->cs = SEG_BIOS;
     callregs->ip = offset;
     call16(callregs);
 }

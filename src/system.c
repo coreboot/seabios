@@ -250,6 +250,7 @@ handle_15c0(struct bregs *regs)
 {
     regs->es = SEG_BIOS;
     regs->bx = (u16)&BIOS_CONFIG_TABLE;
+    handle_ret(regs, 0);
 }
 
 static void

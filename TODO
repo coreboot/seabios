@@ -1,5 +1,7 @@
 Find out why ubuntu compiles are failing.  Find work around.
 
+Audit all sti/cli calls.
+
 Code assumes ebda segment is static - it doesn't read 0x40e.
 
 See if using an ld script for 16bit mode is a good idea.
@@ -8,8 +10,6 @@ The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
 
 Fix makefiles so that they rebuild the required files automatically.
-
-Make sure gdt/idt tables are properly aligned
 
 Cleanup setting of ES on GET/SET_BDA
 

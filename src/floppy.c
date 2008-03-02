@@ -14,44 +14,27 @@
 
 #define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
 
-// XXX - //.org 0xefc7
-
-// Since no provisions are made for multiple drive types, most
-// values in this table are ignored.  I set parameters for 1.44M
-// floppy here
-char diskette_param_table[11] = {
-    0xAF,
-    0x02, // head load time 0000001, DMA used
-    0x25,
-    0x02,
-    18,
-    0x1B,
-    0xFF,
-    0x6C,
-    0xF6,
-    0x0F,
-    0x08,
-};
-
 // New diskette parameter table adding 3 parameters from IBM
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M
 // floppy here
-char diskette_param_table2[14] VISIBLE = {
-    0xAF,
-    0x02, // head load time 0000001, DMA used
-    0x25,
-    0x02,
-    18,
-    0x1B,
-    0xFF,
-    0x6C,
-    0xF6,
-    0x0F,
-    0x08,
-    79,   // maximum track
-    0,    // data transfer rate
-    4,    // drive type in cmos
+struct floppy_ext_dbt_s diskette_param_table2 VISIBLE = {
+    .dbt = {
+        .specify1       = 0xAF,
+        .specify2       = 0x02, // head load time 0000001, DMA used
+        .shutoff_ticks  = 0x25,
+        .bps_code       = 0x02,
+        .sectors        = 18,
+        .interblock_len = 0x1B,
+        .data_len       = 0xFF,
+        .gap_len        = 0x6C,
+        .fill_byte      = 0xF6,
+        .settle_time    = 0x0F,
+        .startup_time   = 0x08,
+    },
+    .max_track      = 79,   // maximum track
+    .data_rate      = 0,    // data transfer rate
+    .drive_type     = 4,    // drive type in cmos
 };
 
 // Oddities:
@@ -196,7 +179,7 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
         // read
         mode_register = 0x46;
 
-    DEBUGF("floppy dma c2");
+    //DEBUGF("floppy dma c2\n");
     outb(0x06, PORT_DMA1_MASK_REG);
     outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
     outb(base_address, PORT_DMA_ADDR_2);
@@ -660,7 +643,7 @@ floppy_1308(struct bregs *regs, u8 drive)
 
     /* set es & di to point to 11 byte diskette param table in ROM */
     regs->es = SEG_BIOS;
-    regs->di = (u16)diskette_param_table2;
+    regs->di = (u16)&diskette_param_table2;
     /* disk status not changed upon success */
 }
 

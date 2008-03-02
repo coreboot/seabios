@@ -33,7 +33,7 @@ init_bda()
 
     int i;
     for (i=0; i<256; i++) {
-        bda->ivecs[i].seg = 0xf000;
+        bda->ivecs[i].seg = SEG_BIOS;
         bda->ivecs[i].offset = OFFSET_dummy_iret_handler;
     }
 
@@ -451,8 +451,8 @@ callrom(u16 seg, u16 offset)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
-    br.es = 0xf000;
-    br.di = OFFSET_pnp_string;
+    br.es = SEG_BIOS;
+    br.di = OFFSET_pnp_string + 1; // starts 1 past for alignment
     br.cs = seg;
     br.ip = offset;
     call16(&br);
@@ -533,7 +533,7 @@ post()
     init_boot_vectors();
     rom_scan(0xc8000, 0xe0000);
 
-    callrom(0xf000, OFFSET_begin_boot);
+    callrom(SEG_BIOS, OFFSET_begin_boot);
 }
 
 static void

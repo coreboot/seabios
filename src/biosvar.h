@@ -326,9 +326,12 @@ set_cf(struct bregs *regs, int cond)
  ****************************************************************/
 
 struct bios_config_table_s {
-    // XXX
-    u8 x;
-};
+    u16 size;
+    u8 model;
+    u8 submodel;
+    u8 biosrev;
+    u8 feature1, feature2, feature3, feature4, feature5;
+} PACKED;
 
 extern struct bios_config_table_s BIOS_CONFIG_TABLE;
 

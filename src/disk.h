@@ -65,6 +65,28 @@ struct int13dpt_s {
 #define SET_INT13DPT(regs,var,val)                                      \
     SET_FARVAR((regs)->ds, ((struct int13dpt_s*)((regs)->si+0))->var, (val))
 
+// Floppy "Disk Base Table"
+struct floppy_dbt_s {
+    u8 specify1;
+    u8 specify2;
+    u8 shutoff_ticks;
+    u8 bps_code;
+    u8 sectors;
+    u8 interblock_len;
+    u8 data_len;
+    u8 gap_len;
+    u8 fill_byte;
+    u8 settle_time;
+    u8 startup_time;
+};
+
+struct floppy_ext_dbt_s {
+    struct floppy_dbt_s dbt;
+    // Extra fields
+    u8 max_track;
+    u8 data_rate;
+    u8 drive_type;
+};
 
 // floppy.c
 void floppy_13(struct bregs *regs, u8 drive);
