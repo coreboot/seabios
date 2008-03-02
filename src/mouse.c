@@ -191,7 +191,6 @@ mouse_15c203(struct bregs *regs)
     //      1 =  50 dpi, 2 counts per millimeter
     //      2 = 100 dpi, 4 counts per millimeter
     //      3 = 200 dpi, 8 counts per millimeter
-    bprintf(0, "ebda_seg=%x\n", GET_BDA(ebda_seg));
     u8 comm_byte = inhibit_mouse_int_and_events(); // disable IRQ12 and packets
     if (regs->bh >= 4) {
         handle_ret(regs, RET_EUNSUPPORTED);
@@ -235,7 +234,6 @@ mouse_15c205(struct bregs *regs)
         handle_ret(regs, RET_EINTERFACE);
         return;
     }
-    bprintf(0, "ebda_seg=%x\n", GET_BDA(ebda_seg));
     SET_EBDA(mouse_flag1, 0x00);
     SET_EBDA(mouse_flag2, regs->bh);
 
@@ -340,7 +338,7 @@ mouse_15c2XX(struct bregs *regs)
 void
 handle_15c2(struct bregs *regs)
 {
-    debug_stub(regs);
+    //debug_stub(regs);
 
     if (! CONFIG_PS2_MOUSE) {
         handle_ret(regs, RET_EUNSUPPORTED);
@@ -417,7 +415,7 @@ int74_function()
 void VISIBLE
 handle_74(struct bregs *regs)
 {
-    debug_enter(regs);
+    //debug_isr(regs);
 
     irq_enable();
     int74_function();

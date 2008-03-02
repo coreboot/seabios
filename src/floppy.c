@@ -12,6 +12,9 @@
 #include "util.h" // irq_disable
 #include "cmos.h" // inb_cmos
 
+#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
+#define DEBUGF(fmt, args...)
+
 #define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
 
 // New diskette parameter table adding 3 parameters from IBM
@@ -149,9 +152,6 @@ floppy_pio(u8 *cmd, u8 cmdlen)
     v &= ~FRS_TIMEOUT;
     SET_BDA(floppy_recalibration_status, v);
 
-    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
-        BX_PANIC("int13_diskette: ctrl not ready\n");
-
     return 0;
 }
 
@@ -200,6 +200,10 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
     u8 ret = floppy_pio(cmd, cmdlen);
     if (ret)
         return ret;
+
+    // check port 3f4 for accessibility to status bytes
+    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
+        BX_PANIC("int13_diskette: ctrl not ready\n");
 
     // read 7 return status bytes from controller
     u8 i;
@@ -347,6 +351,7 @@ check_drive(struct bregs *regs, u8 drive)
 {
     // see if drive exists
     if (drive > 1 || !get_drive_type(drive)) {
+        // XXX - return type doesn't match
         floppy_fail(regs, DISK_RET_ETIMEOUT);
         return 1;
     }
@@ -712,7 +717,7 @@ floppy_13(struct bregs *regs, u8 drive)
 void VISIBLE
 handle_0e(struct bregs *regs)
 {
-    //debug_enter(regs);
+    //debug_isr(regs);
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
         outb(0x08, PORT_FD_DATA); // sense interrupt status
         while ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)

@@ -10,6 +10,9 @@
 #include "disk.h" // floppy_tick
 #include "cmos.h" // inb_cmos
 
+#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
+#define DEBUGF(fmt, args...)
+
 static void
 init_rtc()
 {
@@ -257,7 +260,7 @@ handle_1c(struct bregs *regs)
 void VISIBLE
 handle_08(struct bregs *regs)
 {
-//    debug_enter(regs);
+//    debug_isr(regs);
 
     floppy_tick();
 
@@ -338,7 +341,7 @@ handle_1583(struct bregs *regs)
 void VISIBLE
 handle_70(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_isr(regs);
 
     // Check which modes are enabled and have occurred.
     u8 registerB = inb_cmos(CMOS_STATUS_B);

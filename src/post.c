@@ -317,7 +317,7 @@ static void
 pic_setup()
 {
     outb(0x11, PORT_PIC1);
-    outb(0x11, PORT_PIC2_DATA);
+    outb(0x11, PORT_PIC2);
     outb(0x08, PORT_PIC1_DATA);
     outb(0x70, PORT_PIC2_DATA);
     outb(0x04, PORT_PIC1_DATA);

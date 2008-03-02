@@ -37,7 +37,6 @@ static inline void nop(void)
     asm volatile("nop");
 }
 
-#define DEBUGF(fmt, args...) bprintf(0, fmt , ##args)
 #define BX_PANIC(fmt, args...) bprintf(0, fmt , ##args)
 #define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
 
@@ -104,12 +103,15 @@ void bprintf(u16 action, const char *fmt, ...)
 void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_exit(const char *fname, struct bregs *regs);
 void __debug_stub(const char *fname, struct bregs *regs);
+void __debug_isr(const char *fname, struct bregs *regs);
 #define debug_enter(regs) \
     __debug_enter(__func__, regs)
 #define debug_exit(regs) \
     __debug_exit(__func__, regs)
 #define debug_stub(regs) \
     __debug_stub(__func__, regs)
+#define debug_isr(regs) \
+    __debug_isr(__func__, regs)
 #define printf(fmt, args...)                     \
     bprintf(1, fmt , ##args )
 

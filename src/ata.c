@@ -926,5 +926,4 @@ ata_detect()
     // FIXME : should use bios=cmos|auto|disable bits
     // FIXME : should know about translation bits
     // FIXME : move hard_drive_post here
-
 }

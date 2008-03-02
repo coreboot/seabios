@@ -167,6 +167,13 @@ dump_regs(const char *fname, const char *type, struct bregs *regs)
             , regs->ip, regs->cs, regs->flags);
 }
 
+void
+__debug_isr(const char *fname, struct bregs *regs)
+{
+    puts_cs(0, fname);
+    putc(0, '\n');
+}
+
 // Function called on handler startup.
 void
 __debug_enter(const char *fname, struct bregs *regs)

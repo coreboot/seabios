@@ -471,7 +471,7 @@ handle_10(struct bregs *regs)
 void VISIBLE
 handle_nmi(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_isr(regs);
     // XXX
 }
 
@@ -479,7 +479,7 @@ handle_nmi(struct bregs *regs)
 void VISIBLE
 handle_75(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_isr(regs);
 
     // clear irq13
     outb(0, PORT_MATH_CLEAR);

@@ -651,7 +651,7 @@ handle_13(struct bregs *regs)
 void VISIBLE
 handle_76(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_isr(regs);
     SET_BDA(floppy_harddisk_info, 0xff);
     eoi_both_pics();
 }

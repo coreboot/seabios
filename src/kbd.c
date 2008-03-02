@@ -544,14 +544,14 @@ process_key(u8 scancode)
 void VISIBLE
 handle_09(struct bregs *regs)
 {
-//    debug_enter(regs);
-
-    outb(0x0b, PORT_PIC1);
-    if ((inb(PORT_PIC1) & 0x02) == 0)
-        return;
+    //debug_isr(regs);
 
     // disable keyboard
     outb(0xad, PORT_PS2_STATUS);
+
+    outb(0x0b, PORT_PIC1);
+    if ((inb(PORT_PIC1) & 0x02) == 0)
+        goto done;
 
     // read key from keyboard controller
     u8 key = inb(PORT_PS2_DATA);
@@ -564,7 +564,7 @@ handle_09(struct bregs *regs)
         tr.ah = 0x4f;
         tr.flags = F_CF;
         call16_int(0x15, &tr);
-        if (!tr.flags & F_CF)
+        if (!(tr.flags & F_CF))
             goto done;
         key = tr.al;
     }

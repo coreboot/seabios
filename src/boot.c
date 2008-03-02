@@ -183,7 +183,8 @@ handle_19()
 void VISIBLE
 begin_boot()
 {
-    ata_detect();
+    if (CONFIG_ATA)
+        ata_detect();
     irq_enable();
     struct bregs br;
     memset(&br, 0, sizeof(br));
