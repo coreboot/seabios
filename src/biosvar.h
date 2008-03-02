@@ -224,8 +224,15 @@ struct cdemu_s {
 
 struct extended_bios_data_area_s {
     u8 size;
-    u8 other1[0x3c];
+    u8 reserved1[0x21];
+    u32 far_call_pointer;
+    u8 mouse_flag1;
+    u8 mouse_flag2;
+    u8 mouse_data[0x08];
+    // 0x30
+    u8 other1[0x0d];
 
+    // 0x3d
     struct fdpt_s fdpt0;
     struct fdpt_s fdpt1;
 
