@@ -17,14 +17,15 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
 
 # Default compiler flags
-COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=2 -ffreestanding
+COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=2 \
+               -ffreestanding -fwhole-program
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 CFLAGS = $(COMMONCFLAGS) -g
-CFLAGS16 = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
-CFLAGS16WHOLE = $(CFLAGS16) -g -fwhole-program
+CFLAGS16INC = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
+CFLAGS16 = $(CFLAGS16INC) -g
 
 TABLETMP=$(addprefix $(OUT), $(patsubst %.c,%.16.s,$(TABLESRC)))
 all: $(OUT) $(OUT)rom.bin $(TABLETMP)
@@ -42,13 +43,34 @@ vpath %.c src
 vpath %.S src
 
 ################ Build rules
+
+# Do a whole file compile - two methods are supported.  The first
+# involves including all the content textually via #include
+# directives.  The second method uses gcc's "-combine" option.
+ifdef AVOIDCOMBINE
+DEPHACK=
+define whole-compile
+@echo "  Compiling whole program $3"
+$(Q)/bin/echo -e '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
+$(Q)$(CC) $1 -c $3.tmp.c -o $3
+endef
+else
+# Ugly way to get gcc to generate .d files correctly.
+DEPHACK=-combine src/null.c
+define whole-compile
+@echo "  Compiling whole program $3"
+$(Q)$(CC) $1 -combine -c $2 -o $3
+endef
+endif
+
+
 $(OUT)%.proc.16.s: $(OUT)%.16.s
 	@echo "  Moving data sections to text in $<"
 	$(Q)sed 's/\t\.section\t\.rodata.*// ; s/\t\.data//' < $< > $@
 
 $(OUT)%.16.s: %.c
 	@echo "  Generating assembler for $<"
-	$(Q)$(CC) $(CFLAGS16) -fwhole-program -S -combine -c $< src/null.c -o $@
+	$(Q)$(CC) $(CFLAGS16INC) $(DEPHACK) -S -c $< -o $@
 
 $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $<"
@@ -62,9 +84,7 @@ $(OUT)%.offset.auto.h: $(OUT)%.o
 	@echo "  Generating symbol offset header $@"
 	$(Q)nm $< | ./tools/defsyms.py $@
 
-$(OUT)blob.16.s:
-	@echo "  Generating whole program assembler $@"
-	$(Q)$(CC) $(CFLAGS16WHOLE) -S -combine -c $(addprefix src/, $(SRC16)) -o $@
+$(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
 TABLEASM=$(addprefix $(OUT), $(patsubst %.c,%.proc.16.s,$(TABLESRC)))
 $(OUT)romlayout16.o: romlayout.S $(OUT)blob.proc.16.s $(TABLEASM)
@@ -79,9 +99,7 @@ $(OUT)rom16.bin: $(OUT)rom16.o
 	@echo "  Extracting binary $@"
 	$(Q)objcopy -O binary $< $@
 
-$(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h
-	@echo "  Compiling whole program $@"
-	$(Q)$(CC) $(CFLAGS) -fwhole-program -combine -c $(addprefix src/, $(SRC32)) -o $@
+$(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 
 $(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking $@"

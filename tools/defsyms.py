@@ -21,7 +21,7 @@ def main():
     lines = sys.stdin.readlines()
     for line in lines:
         addr, type, sym = line.split()
-        if type not in 'TA':
+        if type not in 'Tt':
             # Only interested in global symbols in text segment
             continue
         for c in sym:
