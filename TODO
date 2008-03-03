@@ -2,6 +2,10 @@ Find out why ubuntu compiles are failing.  Find work around.
 
 Audit all sti/cli calls.
 
+Look into ways to reduce stack usage.  For example, %esp, %ebp, %esi
+(high bits), %edi (high bits) are already restored by the C code if
+they're changed - they probably don't need to be backed up on entry.
+
 Code assumes ebda segment is static - it doesn't read 0x40e.
 
 See if using an ld script for 16bit mode is a good idea.
