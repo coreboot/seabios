@@ -104,12 +104,12 @@ __call16_from32:
         pushl %eax
 
         // Jump to 16bit mode
-        ljmp $0x20, $1f
+        ljmp $REAL_MODE_CS, $1f
 
         .code16gcc
 1:
         // restore data segment limits to 0xffff
-        movw $0x28, %ax
+        movw $REAL_MODE_DS, %ax
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
