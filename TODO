@@ -1,5 +1,3 @@
-Find out why ubuntu compiles are failing.  Find work around.
-
 Audit all sti/cli calls.
 
 Look into ways to reduce stack usage.  For example, %esp, %ebp, %esi
