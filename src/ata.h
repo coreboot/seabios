@@ -5,6 +5,9 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
+#ifndef __ATA_H
+#define __ATA_H
+
 #include "types.h" // u16
 
 // Function definitions
@@ -154,3 +157,4 @@ void ata_detect();
 #define ATA_DATA_IN      0x01
 #define ATA_DATA_OUT     0x02
 
+#endif /* __ATA_H */

@@ -10,8 +10,6 @@
 #include "farptr.h" // SET_SEG
 #include "config.h" // CONFIG_*
 
-#define PACKED __attribute__((packed))
-
 
 /****************************************************************
  * Bios Data Area (BDA)
