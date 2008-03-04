@@ -12,6 +12,11 @@
 #include "util.h" // debug_enter
 #include "ata.h" // ATA_*
 
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
 static inline void
 disk_ret(struct bregs *regs, u8 code)
 {
@@ -120,9 +125,12 @@ extended_access(struct bregs *regs, u8 device, u16 command)
         return;
     }
 
+    u8 type = GET_EBDA(ata.devices[device].type);
+
     // Get 32 bits lba and check
     lba = GET_INT13EXT(regs, lba1);
-    if (lba >= GET_EBDA(ata.devices[device].sectors)) {
+    if (type == ATA_TYPE_ATA
+        && lba >= GET_EBDA(ata.devices[device].sectors)) {
         BX_INFO("int13_harddisk: function %02x. LBA out of range\n", regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
@@ -131,9 +139,25 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     u8 status;
     switch (command) {
     case ATA_CMD_READ_SECTORS:
-        status = ata_cmd_data_in(device, ATA_CMD_READ_SECTORS
-                                 , count, 0, 0, 0
-                                 , lba, segment, offset);
+        if (type == ATA_TYPE_ATA) {
+            status = ata_cmd_data_in(device, ATA_CMD_READ_SECTORS
+                                     , count, 0, 0, 0
+                                     , lba, segment, offset);
+        } else {
+            u8 atacmd[12];
+            memset(atacmd, 0, sizeof(atacmd));
+            atacmd[0]=0x28;                      // READ command
+            atacmd[7]=(count & 0xff00) >> 8;     // Sectors
+            atacmd[8]=(count & 0x00ff);          // Sectors
+            atacmd[2]=(lba & 0xff000000) >> 24;  // LBA
+            atacmd[3]=(lba & 0x00ff0000) >> 16;
+            atacmd[4]=(lba & 0x0000ff00) >> 8;
+            atacmd[5]=(lba & 0x000000ff);
+
+            status = ata_cmd_packet(device, (u32)atacmd, sizeof(atacmd)
+                                    , 0, count*2048L
+                                    , ATA_DATA_IN, segment, offset);
+        }
         break;
     case ATA_CMD_WRITE_SECTORS:
         status = ata_cmd_data_out(device, ATA_CMD_WRITE_SECTORS
@@ -156,6 +180,11 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     }
     disk_ret(regs, DISK_RET_SUCCESS);
 }
+
+
+/****************************************************************
+ * Hard Drive functions
+ ****************************************************************/
 
 // disk controller reset
 static void
@@ -357,6 +386,7 @@ disk_1348(struct bregs *regs, u8 device)
 
     // EDD 1.x
 
+    u8  type    = GET_EBDA(ata.devices[device].type);
     u16 npc     = GET_EBDA(ata.devices[device].pchs.cylinders);
     u16 nph     = GET_EBDA(ata.devices[device].pchs.heads);
     u16 npspt   = GET_EBDA(ata.devices[device].pchs.spt);
@@ -364,17 +394,28 @@ disk_1348(struct bregs *regs, u8 device)
     u16 blksize = GET_EBDA(ata.devices[device].blksize);
 
     SET_INT13DPT(regs, size, 0x1a);
-    if ((lba/npspt)/nph > 0x3fff) {
-        SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
-        SET_INT13DPT(regs, cylinders, 0x3fff);
+    if (type == ATA_TYPE_ATA) {
+        if ((lba/npspt)/nph > 0x3fff) {
+            SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
+            SET_INT13DPT(regs, cylinders, 0x3fff);
+        } else {
+            SET_INT13DPT(regs, infos, 0x02); // geometry is valid
+            SET_INT13DPT(regs, cylinders, (u32)npc);
+        }
+        SET_INT13DPT(regs, heads, (u32)nph);
+        SET_INT13DPT(regs, spt, (u32)npspt);
+        SET_INT13DPT(regs, sector_count1, lba);  // FIXME should be Bit64
+        SET_INT13DPT(regs, sector_count2, 0L);
     } else {
-        SET_INT13DPT(regs, infos, 0x02); // geometry is valid
-        SET_INT13DPT(regs, cylinders, (u32)npc);
+        // ATAPI
+        // 0x74 = removable, media change, lockable, max values
+        SET_INT13DPT(regs, infos, 0x74);
+        SET_INT13DPT(regs, cylinders, 0xffffffff);
+        SET_INT13DPT(regs, heads, 0xffffffff);
+        SET_INT13DPT(regs, spt, 0xffffffff);
+        SET_INT13DPT(regs, sector_count1, 0xffffffff);  // FIXME should be Bit64
+        SET_INT13DPT(regs, sector_count2, 0xffffffff);
     }
-    SET_INT13DPT(regs, heads, (u32)nph);
-    SET_INT13DPT(regs, spt, (u32)npspt);
-    SET_INT13DPT(regs, sector_count1, lba);  // FIXME should be Bit64
-    SET_INT13DPT(regs, sector_count2, 0L);
     SET_INT13DPT(regs, blksize, blksize);
 
     if (size < 0x1e) {
@@ -396,13 +437,20 @@ disk_1348(struct bregs *regs, u8 device)
     u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
     u8 irq = GET_EBDA(ata.channels[channel].irq);
     u8 mode = GET_EBDA(ata.devices[device].mode);
-    u8 translation = GET_EBDA(ata.devices[device].translation);
 
-    u16 options  = (translation==ATA_TRANSLATION_NONE?0:1)<<3; // chs translation
+    u16 options;
+    if (type == ATA_TYPE_ATA) {
+        u8 translation = GET_EBDA(ata.devices[device].translation);
+        options  = (translation==ATA_TRANSLATION_NONE?0:1)<<3; // chs translation
+        options |= (translation==ATA_TRANSLATION_LBA?1:0)<<9;
+        options |= (translation==ATA_TRANSLATION_RECHS?3:0)<<9;
+    } else {
+        // ATAPI
+        options  = (1<<5); // removable device
+        options |= (1<<6); // atapi device
+    }
     options |= (1<<4); // lba translation
     options |= (mode==ATA_MODE_PIO32?1:0)<<7;
-    options |= (translation==ATA_TRANSLATION_LBA?1:0)<<9;
-    options |= (translation==ATA_TRANSLATION_RECHS?3:0)<<9;
 
     SET_EBDA(ata.dpte.iobase1, iobase1);
     SET_EBDA(ata.dpte.iobase2, iobase2 + ATA_CB_DC);
@@ -565,12 +613,166 @@ disk_13(struct bregs *regs, u8 device)
     }
 }
 
+
+/****************************************************************
+ * CDROM functions
+ ****************************************************************/
+
+// read disk drive size
 static void
+cdrom_1315(struct bregs *regs, u8 device)
+{
+    disk_ret(regs, DISK_RET_EADDRNOTFOUND);
+}
+
+// lock
+static void
+cdrom_134500(struct bregs *regs, u8 device)
+{
+    u8 locks = GET_EBDA(ata.devices[device].lock);
+    if (locks == 0xff) {
+        regs->al = 1;
+        disk_ret(regs, DISK_RET_ETOOMANYLOCKS);
+        return;
+    }
+    SET_EBDA(ata.devices[device].lock, locks + 1);
+    regs->al = 1;
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+// unlock
+static void
+cdrom_134501(struct bregs *regs, u8 device)
+{
+    u8 locks = GET_EBDA(ata.devices[device].lock);
+    if (locks == 0x00) {
+        regs->al = 0;
+        disk_ret(regs, DISK_RET_ENOTLOCKED);
+        return;
+    }
+    locks--;
+    SET_EBDA(ata.devices[device].lock, locks);
+    regs->al = (locks ? 1 : 0);
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+// status
+static void
+cdrom_134502(struct bregs *regs, u8 device)
+{
+    u8 locks = GET_EBDA(ata.devices[device].lock);
+    regs->al = (locks ? 1 : 0);
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+static void
+cdrom_1345XX(struct bregs *regs, u8 device)
+{
+    disk_ret(regs, DISK_RET_EPARAM);
+}
+
+// IBM/MS lock/unlock drive
+static void
+cdrom_1345(struct bregs *regs, u8 device)
+{
+    switch (regs->al) {
+    case 0x00: cdrom_134500(regs, device); break;
+    case 0x01: cdrom_134501(regs, device); break;
+    case 0x02: cdrom_134502(regs, device); break;
+    default:   cdrom_1345XX(regs, device); break;
+    }
+}
+
+// IBM/MS eject media
+static void
+cdrom_1346(struct bregs *regs, u8 device)
+{
+    u8 locks = GET_EBDA(ata.devices[device].lock);
+    if (locks != 0) {
+        disk_ret(regs, DISK_RET_ELOCKED);
+        return;
+    }
+
+    // FIXME should handle 0x31 no media in device
+    // FIXME should handle 0xb5 valid request failed
+
+    // Call removable media eject
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x52;
+    call16_int(0x15, &br);
+
+    if (br.ah || br.flags & F_CF) {
+        disk_ret(regs, DISK_RET_ELOCKED);
+        return;
+    }
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+// IBM/MS extended media change
+static void
+cdrom_1349(struct bregs *regs, u8 device)
+{
+    // always send changed ??
+    regs->ah = DISK_RET_ECHANGED;
+    set_cf(regs, 1);
+}
+
+static void
+cdrom_ok(struct bregs *regs, u8 device)
+{
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+static void
+cdrom_wp(struct bregs *regs, u8 device)
+{
+    disk_ret(regs, DISK_RET_EWRITEPROTECT);
+}
+
+void
 cdrom_13(struct bregs *regs, u8 device)
 {
-    // XXX
-    disk_13XX(regs, device);
+    //debug_stub(regs);
+
+    switch (regs->ah) {
+    case 0x15: cdrom_1315(regs, device); break;
+    case 0x45: cdrom_1345(regs, device); break;
+    case 0x46: cdrom_1346(regs, device); break;
+    case 0x49: cdrom_1349(regs, device); break;
+
+    // These functions are the same as for hard disks
+    case 0x01: disk_1301(regs, device); break;
+    case 0x41: disk_1341(regs, device); break;
+    case 0x42: disk_1342(regs, device); break;
+    case 0x44: disk_1344(regs, device); break;
+    case 0x47: disk_1347(regs, device); break;
+    case 0x48: disk_1348(regs, device); break;
+    case 0x4e: disk_134e(regs, device); break;
+
+    // all these functions return SUCCESS
+    case 0x00: cdrom_ok(regs, device); break; // disk controller reset
+    case 0x09: cdrom_ok(regs, device); break; // initialize drive parameters
+    case 0x0c: cdrom_ok(regs, device); break; // seek to specified cylinder
+    case 0x0d: cdrom_ok(regs, device); break; // alternate disk reset
+    case 0x10: cdrom_ok(regs, device); break; // check drive ready
+    case 0x11: cdrom_ok(regs, device); break; // recalibrate
+    case 0x14: cdrom_ok(regs, device); break; // controller internal diagnostic
+    case 0x16: cdrom_ok(regs, device); break; // detect disk change
+
+    // all these functions return disk write-protected
+    case 0x03: cdrom_wp(regs, device); break; // write disk sectors
+    case 0x05: cdrom_wp(regs, device); break; // format disk track
+    case 0x43: cdrom_wp(regs, device); break; // IBM/MS extended write
+
+    default:   disk_13XX(regs, device); break;
+    }
 }
+
+
+/****************************************************************
+ * Entry points
+ ****************************************************************/
 
 static u8
 get_device(struct bregs *regs, u8 drive)
