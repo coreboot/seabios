@@ -425,7 +425,7 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
       // 3 : error
       // 4 : not ready
 u16
-ata_cmd_packet(u16 device, u8 cmdlen, u16 cmdseg, u16 cmdoff, u16 header
+ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
                , u32 length, u8 inout, u16 bufseg, u16 bufoff)
 {
     u16 iobase1, iobase2;
@@ -490,14 +490,10 @@ ata_cmd_packet(u16 device, u8 cmdlen, u16 cmdseg, u16 cmdoff, u16 header
         return 4;
     }
 
-    // Normalize address
-    cmdseg += (cmdoff / 16);
-    cmdoff %= 16;
-
     // Send command to device
     irq_enable();
 
-    outsw(iobase1, cmdseg, cmdoff, cmdlen);
+    outsw(iobase1, GET_SEG(SS), cmdbuf, cmdlen);
 
     if (inout == ATA_DATA_NO) {
         await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
