@@ -94,6 +94,7 @@ struct floppy_ext_dbt_s {
 };
 
 // floppy.c
+extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_13(struct bregs *regs, u8 drive);
 void floppy_tick();
 

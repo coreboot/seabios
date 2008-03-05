@@ -110,6 +110,78 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 }
 
 static void
+emu_access(struct bregs *regs, u8 device, u16 command)
+{
+    u16 nbsectors   = regs->al;
+    u16 cylinder    = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
+    u16 sector      = regs->cl & 0x3f;
+    u16 head        = regs->dh;
+
+    if ((nbsectors > 128) || (nbsectors == 0) || (sector == 0)) {
+        BX_INFO("int13_harddisk: function %02x, parameter out of range!\n"
+                , regs->ah);
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
+    }
+
+    u16 nlc   = GET_EBDA(cdemu.vdevice.cylinders);
+    u16 nlh   = GET_EBDA(cdemu.vdevice.heads);
+    u16 nlspt = GET_EBDA(cdemu.vdevice.spt);
+
+    // sanity check on cyl heads, sec
+    if ( (cylinder >= nlc) || (head >= nlh) || (sector > nlspt )) {
+        BX_INFO("int13_harddisk: function %02x, parameters out of"
+                " range %04x/%04x/%04x!\n"
+                , regs->ah, cylinder, head, sector);
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
+    }
+
+    if (!command) {
+        // If verify or seek
+        disk_ret(regs, DISK_RET_SUCCESS);
+        return;
+    }
+
+    u32 ilba = GET_EBDA(cdemu.ilba);
+    // calculate the virtual lba inside the image
+    u32 vlba= (((((u32)cylinder*(u32)nlh)+(u32)head)*(u32)nlspt)
+               +((u32)(sector-1)));
+    // start lba on cd
+    u32 slba  = (u32)vlba/4;
+    u16 before= (u16)vlba%4;
+    // end lba on cd
+    u32 elba = (u32)(vlba+nbsectors-1)/4;
+    u32 count = elba-slba+1;
+    u32 lba = ilba+slba;
+
+    u16 segment = regs->es;
+    u16 offset  = regs->bx;
+
+    u8 atacmd[12];
+    memset(atacmd, 0, sizeof(atacmd));
+    atacmd[0]=0x28;                      // READ command
+    atacmd[7]=(count & 0xff00) >> 8;     // Sectors
+    atacmd[8]=(count & 0x00ff);          // Sectors
+    atacmd[2]=(lba & 0xff000000) >> 24;  // LBA
+    atacmd[3]=(lba & 0x00ff0000) >> 16;
+    atacmd[4]=(lba & 0x0000ff00) >> 8;
+    atacmd[5]=(lba & 0x000000ff);
+
+    u8 status = ata_cmd_packet(device, (u32)atacmd, sizeof(atacmd)
+                               , before*512, count*2048L
+                               , ATA_DATA_IN, segment, offset);
+
+    if (status != 0) {
+        BX_INFO("int13_harddisk: function %02x, error %02x !\n",regs->ah,status);
+        regs->al = 0;
+        disk_ret(regs, DISK_RET_EBADTRACK);
+    }
+    regs->al = nbsectors;
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+static void
 extended_access(struct bregs *regs, u8 device, u16 command)
 {
     u16 count = GET_INT13EXT(regs, count);
@@ -730,7 +802,7 @@ cdrom_wp(struct bregs *regs, u8 device)
     disk_ret(regs, DISK_RET_EWRITEPROTECT);
 }
 
-void
+static void
 cdrom_13(struct bregs *regs, u8 device)
 {
     //debug_stub(regs);
@@ -767,6 +839,113 @@ cdrom_13(struct bregs *regs, u8 device)
 
     default:   disk_13XX(regs, device); break;
     }
+}
+
+
+/****************************************************************
+ * CD emulation
+ ****************************************************************/
+
+// read disk sectors
+static void
+cdemu_1302(struct bregs *regs, u8 device)
+{
+    emu_access(regs, device, ATA_CMD_READ_SECTORS);
+}
+
+// verify disk sectors
+static void
+cdemu_1304(struct bregs *regs, u8 device)
+{
+    emu_access(regs, device, 0);
+}
+
+// read disk drive parameters
+static void
+cdemu_1308(struct bregs *regs, u8 device)
+{
+    u16 nlc   = GET_EBDA(cdemu.vdevice.cylinders) - 1;
+    u16 nlh   = GET_EBDA(cdemu.vdevice.heads) - 1;
+    u16 nlspt = GET_EBDA(cdemu.vdevice.spt);
+
+    regs->al = 0x00;
+    regs->bl = 0x00;
+    regs->ch = nlc & 0xff;
+    regs->cl = ((nlc >> 2) & 0xc0) | (nlspt  & 0x3f);
+    regs->dh = nlh;
+    // FIXME ElTorito Various. should send the real count of drives 1 or 2
+    // FIXME ElTorito Harddisk. should send the HD count
+    regs->dl = 0x02;
+    u8 media = GET_EBDA(cdemu.media);
+    if (media <= 3)
+        regs->bl = media * 2;
+
+    regs->es = SEG_BIOS;
+    regs->di = (u16)&diskette_param_table2;
+
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+static void
+cdemu_13(struct bregs *regs)
+{
+    //debug_stub(regs);
+
+    u8 device  = GET_EBDA(cdemu.controller_index) * 2;
+    device += GET_EBDA(cdemu.device_spec);
+
+    switch (regs->ah) {
+    case 0x02: cdemu_1302(regs, device); break;
+    case 0x04: cdemu_1304(regs, device); break;
+    case 0x08: cdemu_1308(regs, device); break;
+    // XXX - All other calls get passed to standard CDROM functions.
+    default: cdrom_13(regs, device); break;
+    }
+}
+
+struct eltorito_s {
+    u8 size;
+    u8 media;
+    u8 emulated_drive;
+    u8 controller_index;
+    u32 ilba;
+    u16 device_spec;
+    u16 buffer_segment;
+    u16 load_segment;
+    u16 sector_count;
+    u8 cylinders;
+    u8 sectors;
+    u8 heads;
+};
+
+#define SET_INT13ET(regs,var,val)                                      \
+    SET_FARVAR((regs)->ds, ((struct eltorito_s*)((regs)->si+0))->var, (val))
+
+// ElTorito - Terminate disk emu
+static void
+cdemu_134b(struct bregs *regs)
+{
+    // FIXME ElTorito Hardcoded
+    SET_INT13ET(regs, size, 0x13);
+    SET_INT13ET(regs, media, GET_EBDA(cdemu.media));
+    SET_INT13ET(regs, emulated_drive, GET_EBDA(cdemu.emulated_drive));
+    SET_INT13ET(regs, controller_index, GET_EBDA(cdemu.controller_index));
+    SET_INT13ET(regs, ilba, GET_EBDA(cdemu.ilba));
+    SET_INT13ET(regs, device_spec, GET_EBDA(cdemu.device_spec));
+    SET_INT13ET(regs, buffer_segment, GET_EBDA(cdemu.buffer_segment));
+    SET_INT13ET(regs, load_segment, GET_EBDA(cdemu.load_segment));
+    SET_INT13ET(regs, sector_count, GET_EBDA(cdemu.sector_count));
+    SET_INT13ET(regs, cylinders, GET_EBDA(cdemu.vdevice.cylinders));
+    SET_INT13ET(regs, sectors, GET_EBDA(cdemu.vdevice.spt));
+    SET_INT13ET(regs, heads, GET_EBDA(cdemu.vdevice.heads));
+
+    // If we have to terminate emulation
+    if (regs->al == 0x00) {
+        // FIXME ElTorito Various. Should be handled accordingly to spec
+        SET_EBDA(cdemu.active, 0x00); // bye bye
+    }
+
+    disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 
@@ -835,17 +1014,24 @@ handle_40(struct bregs *regs)
 void VISIBLE
 handle_13(struct bregs *regs)
 {
-    //debug_enter(regs);
+    debug_enter(regs);
     u8 drive = regs->dl;
-    // XXX
-#if BX_ELTORITO_BOOT
-    if (regs->ah >= 0x4a || regs->ah <= 0x4d) {
-        int13_eltorito(regs);
-    } else if (cdemu_isactive() && cdrom_emulated_drive()) {
-        int13_cdemu(regs);
-    } else
-#endif
-        handle_legacy_disk(regs, drive);
+
+    if (CONFIG_ELTORITO_BOOT) {
+        if (regs->ah == 0x4b) {
+            cdemu_134b(regs);
+            goto done;
+        }
+        if (GET_EBDA(cdemu.active)) {
+            if (drive == GET_EBDA(cdemu.emulated_drive)) {
+                cdemu_13(regs);
+                goto done;
+            }
+            drive--;
+        }
+    }
+    handle_legacy_disk(regs, drive);
+done:
     debug_exit(regs);
 }
 
