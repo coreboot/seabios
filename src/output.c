@@ -97,6 +97,12 @@ puthex(u16 action, u32 val)
     putsinglehex(action, (val >> 0) & 0xf);
 }
 
+static inline int
+isdigit(u8 c)
+{
+    return c - '0' < 10;
+}
+
 void
 bprintf(u16 action, const char *fmt, ...)
 {
@@ -112,7 +118,12 @@ bprintf(u16 action, const char *fmt, ...)
             continue;
         }
         const char *n = s+1;
-        c = GET_VAR(CS, (u8)*n);
+        for (;;) {
+            c = GET_VAR(CS, (u8)*n);
+            if (!isdigit(c))
+                break;
+            n++;
+        }
         s32 val;
         const char *sarg;
         switch (c) {
