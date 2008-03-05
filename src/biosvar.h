@@ -185,11 +185,9 @@ struct ata_s {
     // ATA devices info
     struct ata_device_s  devices[CONFIG_MAX_ATA_DEVICES];
     //
-    // map between (bios hd id - 0x80) and ata channels
-    u8  hdcount, hdidmap[CONFIG_MAX_ATA_DEVICES];
-
-    // map between (bios cd id - 0xE0) and ata channels
-    u8  cdcount, cdidmap[CONFIG_MAX_ATA_DEVICES];
+    // map between bios hd/cd id and ata channels
+    u8 hdcount, cdcount;
+    u8 idmap[2][CONFIG_MAX_ATA_DEVICES];
 
     // Buffer for DPTE table
     struct dpte_s dpte;

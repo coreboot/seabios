@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "cmos.h" // inb_cmos
 #include "ata.h" // ata_detect
+#include "disk.h" // cdrom_boot
 
 // We need a copy of this string, but we are not actually a PnP BIOS,
 // so make sure it is *not* aligned, so OSes will not see it if they
@@ -67,7 +68,7 @@ try_boot(u16 seq_nr)
     u8 bootdrv = 0;
     u16 bootdev, bootip;
 
-    if (CONFIG_ELTORITO_BOOT) {
+    if (CONFIG_CDROM_BOOT) {
         bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
         bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);
         bootdev >>= 4 * seq_nr;
@@ -133,10 +134,24 @@ try_boot(u16 seq_nr)
         bootip = (bootseg & 0x0fff) << 4;
         bootseg &= 0xf000;
         break;
-    case IPL_TYPE_CDROM: /* CD-ROM */
-        // XXX
-        return;
+    case IPL_TYPE_CDROM: {
+        /* CD-ROM */
+        if (! CONFIG_CDROM_BOOT)
+            break;
+        u16 status = cdrom_boot();
+        if (status) {
+            printf("CDROM boot failure code : %04x\n", status);
+            print_boot_failure(type, 1);
+            return;
+        }
+
+        bootdrv = GET_EBDA(cdemu.emulated_drive);
+        bootseg = GET_EBDA(cdemu.load_segment);
+        /* Canonicalize bootseg:bootip */
+        bootip = (bootseg & 0x0fff) << 4;
+        bootseg &= 0xf000;
         break;
+    }
     case IPL_TYPE_BEV: {
         /* Expansion ROM with a Bootstrap Entry Vector (a far
          * pointer) */

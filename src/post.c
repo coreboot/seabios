@@ -352,8 +352,8 @@ ata_init()
     // hdidmap  and cdidmap init.
     u8 device;
     for (device=0; device < CONFIG_MAX_ATA_DEVICES; device++) {
-        ebda->ata.hdidmap[device] = CONFIG_MAX_ATA_DEVICES;
-        ebda->ata.cdidmap[device] = CONFIG_MAX_ATA_DEVICES;
+        ebda->ata.idmap[0][device] = CONFIG_MAX_ATA_DEVICES;
+        ebda->ata.idmap[1][device] = CONFIG_MAX_ATA_DEVICES;
     }
 }
 
@@ -437,7 +437,7 @@ init_boot_vectors()
     ip++;
 
     // CDROM
-    if (CONFIG_ELTORITO_BOOT) {
+    if (CONFIG_CDROM_BOOT) {
         ip->type = IPL_TYPE_CDROM;
         ip++;
     }

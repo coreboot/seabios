@@ -9,6 +9,9 @@
 #include "util.h" // memset
 #include "ata.h" // ATA_CMD_READ_SECTORS
 
+#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
+#define DEBUGF(fmt, args...)
+
 
 /****************************************************************
  * CDROM functions
@@ -276,4 +279,259 @@ cdemu_134b(struct bregs *regs)
     }
 
     disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+
+/****************************************************************
+ * CD booting
+ ****************************************************************/
+
+// Request SENSE
+static u16
+atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
+{
+    u8 buffer[18];
+    u8 atacmd[12];
+    memset(atacmd, 0, sizeof(atacmd));
+    atacmd[0] = ATA_CMD_REQUEST_SENSE;
+    atacmd[4] = sizeof(buffer);
+    u16 ret = ata_cmd_packet(device, atacmd, sizeof(atacmd)
+                             , 18L, 0, ATA_DATA_IN, GET_SEG(SS), (u32)buffer);
+    if (ret != 0)
+        return 0x0002;
+
+    *asc = buffer[12];
+    *ascq = buffer[13];
+
+    return 0;
+}
+
+static u16
+atapi_is_ready(u16 device)
+{
+    if (GET_EBDA(ata.devices[device].type) != ATA_TYPE_ATAPI) {
+        printf("not implemented for non-ATAPI device\n");
+        return -1;
+    }
+
+    DEBUGF("ata_detect_medium: begin\n");
+    u8 packet[12];
+    memset(packet, 0, sizeof(packet));
+    packet[0] = 0x25; /* READ CAPACITY */
+
+    /* Retry READ CAPACITY 50 times unless MEDIUM NOT PRESENT
+     * is reported by the device. If the device reports "IN PROGRESS",
+     * 30 seconds is added. */
+    u8 buf[8];
+    u32 timeout = 5000;
+    u32 time = 0;
+    u8 in_progress = 0;
+    for (;; time+=100) {
+        if (time >= timeout) {
+            DEBUGF("read capacity failed\n");
+            return -1;
+        }
+        u16 ret = ata_cmd_packet(device, packet, sizeof(packet)
+                                 , 0, 8L, ATA_DATA_IN, GET_SEG(SS), (u32)buf);
+        if (ret == 0)
+            break;
+
+        u8 asc=0, ascq=0;
+        ret = atapi_get_sense(device, &asc, &ascq);
+        if (!ret)
+            continue;
+
+        if (asc == 0x3a) { /* MEDIUM NOT PRESENT */
+            DEBUGF("Device reports MEDIUM NOT PRESENT\n");
+            return -1;
+        }
+
+        if (asc == 0x04 && ascq == 0x01 && !in_progress) {
+            /* IN PROGRESS OF BECOMING READY */
+            printf("Waiting for device to detect medium... ");
+            /* Allow 30 seconds more */
+            timeout = 30000;
+            in_progress = 1;
+        }
+    }
+
+    u32 block_len = (u32) buf[4] << 24
+        | (u32) buf[5] << 16
+        | (u32) buf[6] << 8
+        | (u32) buf[7] << 0;
+
+    if (block_len != 2048 && block_len != 512) {
+        printf("Unsupported sector size %u\n", block_len);
+        return -1;
+    }
+    SET_EBDA(ata.devices[device].blksize, block_len);
+
+    u32 sectors = (u32) buf[0] << 24
+        | (u32) buf[1] << 16
+        | (u32) buf[2] << 8
+        | (u32) buf[3] << 0;
+
+    DEBUGF("sectors=%u\n", sectors);
+    if (block_len == 2048)
+        sectors <<= 2; /* # of sectors in 512-byte "soft" sector */
+    if (sectors != GET_EBDA(ata.devices[device].sectors))
+        printf("%dMB medium detected\n", sectors>>(20-9));
+    SET_EBDA(ata.devices[device].sectors, sectors);
+    return 0;
+}
+
+static u16
+atapi_is_cdrom(u8 device)
+{
+    if (device >= CONFIG_MAX_ATA_DEVICES)
+        return 0;
+
+    if (GET_EBDA(ata.devices[device].type) != ATA_TYPE_ATAPI)
+        return 0;
+
+    if (GET_EBDA(ata.devices[device].device) != ATA_DEVICE_CDROM)
+        return 0;
+
+    return 1;
+}
+
+// Compare a string on the stack to one in the code segment.
+static int
+streq_cs(u8 *s1, char *cs_s2)
+{
+    u8 *s2 = (u8*)cs_s2;
+    for (;;) {
+        if (*s1 != GET_VAR(CS, *s2))
+            return 0;
+        if (! *s1)
+            return 1;
+        s1++;
+        s2++;
+    }
+}
+
+u16
+cdrom_boot()
+{
+    // Find out the first cdrom
+    u8 device;
+    for (device=0; device<CONFIG_MAX_ATA_DEVICES; device++)
+        if (atapi_is_cdrom(device))
+            break;
+
+    u16 ret = atapi_is_ready(device);
+    if (ret)
+        BX_INFO("ata_is_ready returned %d\n", ret);
+
+    // if not found
+    if (device >= CONFIG_MAX_ATA_DEVICES)
+        return 2;
+
+    // Read the Boot Record Volume Descriptor
+    u8 buffer[2048];
+    ret = cdrom_read(device, 0x11, 2048, GET_SEG(SS), (u32)buffer, 0);
+    if (ret)
+        return 3;
+
+    // Validity checks
+    if (buffer[0])
+        return 4;
+    if (!streq_cs(&buffer[1], "CD001\001EL TORITO SPECIFICATION"))
+        return 5;
+
+    // ok, now we calculate the Boot catalog address
+    u32 lba = *(u32*)&buffer[0x47];
+
+    // And we read the Boot Catalog
+    ret = cdrom_read(device, lba, 2048, GET_SEG(SS), (u32)buffer, 0);
+    if (ret)
+        return 7;
+
+    // Validation entry
+    if (buffer[0x00] != 0x01)
+        return 8;   // Header
+    if (buffer[0x01] != 0x00)
+        return 9;   // Platform
+    if (buffer[0x1E] != 0x55)
+        return 10;  // key 1
+    if (buffer[0x1F] != 0xAA)
+        return 10;  // key 2
+
+    // Initial/Default Entry
+    if (buffer[0x20] != 0x88)
+        return 11; // Bootable
+
+    SET_EBDA(cdemu.media,buffer[0x21]);
+    if (buffer[0x21] == 0)
+        // FIXME ElTorito Hardcoded. cdrom is hardcoded as device 0xE0.
+        // Win2000 cd boot needs to know it booted from cd
+        SET_EBDA(cdemu.emulated_drive, 0xE0);
+    else if (buffer[0x21] < 4)
+        SET_EBDA(cdemu.emulated_drive, 0x00);
+    else
+        SET_EBDA(cdemu.emulated_drive, 0x80);
+
+    SET_EBDA(cdemu.controller_index, device/2);
+    SET_EBDA(cdemu.device_spec, device%2);
+
+    u16 boot_segment = *(u16*)&buffer[0x22];
+    if (!boot_segment)
+        boot_segment = 0x07C0;
+
+    SET_EBDA(cdemu.load_segment,boot_segment);
+    SET_EBDA(cdemu.buffer_segment,0x0000);
+
+    u16 nbsectors = *(u16*)&buffer[0x26];
+    SET_EBDA(cdemu.sector_count, nbsectors);
+
+    lba = *(u32*)&buffer[0x28];
+    SET_EBDA(cdemu.ilba, lba);
+
+    // And we read the image in memory
+    ret = cdrom_read(device, lba, nbsectors*512
+                     , boot_segment, 0, 0);
+    if (ret)
+        return 12;
+
+    // Remember the media type
+    switch (GET_EBDA(cdemu.media)) {
+    case 0x01:  // 1.2M floppy
+        SET_EBDA(cdemu.vdevice.spt, 15);
+        SET_EBDA(cdemu.vdevice.cylinders, 80);
+        SET_EBDA(cdemu.vdevice.heads, 2);
+        break;
+    case 0x02:  // 1.44M floppy
+        SET_EBDA(cdemu.vdevice.spt, 18);
+        SET_EBDA(cdemu.vdevice.cylinders, 80);
+        SET_EBDA(cdemu.vdevice.heads, 2);
+        break;
+    case 0x03:  // 2.88M floppy
+        SET_EBDA(cdemu.vdevice.spt, 36);
+        SET_EBDA(cdemu.vdevice.cylinders, 80);
+        SET_EBDA(cdemu.vdevice.heads, 2);
+        break;
+    case 0x04: { // Harddrive
+        u16 spt = GET_FARVAR(boot_segment,*(u8*)(446+6));
+        u16 cyl = (spt << 2) + GET_FARVAR(boot_segment,*(u8*)(446+7)) + 1;
+        u16 heads = GET_FARVAR(boot_segment,*(u8*)(446+5)) + 1;
+        SET_EBDA(cdemu.vdevice.spt, spt & 0x3f);
+        SET_EBDA(cdemu.vdevice.cylinders, cyl);
+        SET_EBDA(cdemu.vdevice.heads, heads);
+        break;
+    }
+    }
+
+    if (GET_EBDA(cdemu.media) != 0) {
+        // Increase bios installed hardware number of devices
+        if (GET_EBDA(cdemu.emulated_drive) == 0x00)
+            SETBITS_BDA(equipment_list_flags, 0x41);
+        else
+            SET_EBDA(ata.hdcount, GET_EBDA(ata.hdcount) + 1);
+    }
+
+    // everything is ok, so from now on, the emulation is active
+    if (GET_EBDA(cdemu.media))
+        SET_EBDA(cdemu.active, 0x01);
+
+    return 0;
 }

@@ -104,12 +104,12 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 void
 emu_access(struct bregs *regs, u8 device, u16 command)
 {
-    u16 nbsectors   = regs->al;
-    u16 cylinder    = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
-    u16 sector      = regs->cl & 0x3f;
-    u16 head        = regs->dh;
+    u16 count    = regs->al;
+    u16 cylinder = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
+    u16 sector   = regs->cl & 0x3f;
+    u16 head     = regs->dh;
 
-    if ((nbsectors > 128) || (nbsectors == 0) || (sector == 0)) {
+    if ((count > 128) || (count == 0) || (sector == 0)) {
         BX_INFO("int13_harddisk: function %02x, parameter out of range!\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -142,34 +142,18 @@ emu_access(struct bregs *regs, u8 device, u16 command)
     // start lba on cd
     u32 slba  = (u32)vlba/4;
     u16 before= (u16)vlba%4;
-    // end lba on cd
-    u32 elba = (u32)(vlba+nbsectors-1)/4;
-    u32 count = elba-slba+1;
-    u32 lba = ilba+slba;
+    u32 lba = ilba + slba;
 
     u16 segment = regs->es;
     u16 offset  = regs->bx;
 
-    u8 atacmd[12];
-    memset(atacmd, 0, sizeof(atacmd));
-    atacmd[0]=0x28;                      // READ command
-    atacmd[7]=(count & 0xff00) >> 8;     // Sectors
-    atacmd[8]=(count & 0x00ff);          // Sectors
-    atacmd[2]=(lba & 0xff000000) >> 24;  // LBA
-    atacmd[3]=(lba & 0x00ff0000) >> 16;
-    atacmd[4]=(lba & 0x0000ff00) >> 8;
-    atacmd[5]=(lba & 0x000000ff);
-
-    u8 status = ata_cmd_packet(device, (u32)atacmd, sizeof(atacmd)
-                               , before*512, count*2048L
-                               , ATA_DATA_IN, segment, offset);
-
+    u8 status = cdrom_read(device, lba, count*512, segment, offset, before*512);
     if (status != 0) {
         BX_INFO("int13_harddisk: function %02x, error %02x !\n",regs->ah,status);
         regs->al = 0;
         disk_ret(regs, DISK_RET_EBADTRACK);
     }
-    regs->al = nbsectors;
+    regs->al = count;
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
@@ -203,25 +187,12 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     u8 status;
     switch (command) {
     case ATA_CMD_READ_SECTORS:
-        if (type == ATA_TYPE_ATA) {
+        if (type == ATA_TYPE_ATA)
             status = ata_cmd_data_in(device, ATA_CMD_READ_SECTORS
                                      , count, 0, 0, 0
                                      , lba, segment, offset);
-        } else {
-            u8 atacmd[12];
-            memset(atacmd, 0, sizeof(atacmd));
-            atacmd[0]=0x28;                      // READ command
-            atacmd[7]=(count & 0xff00) >> 8;     // Sectors
-            atacmd[8]=(count & 0x00ff);          // Sectors
-            atacmd[2]=(lba & 0xff000000) >> 24;  // LBA
-            atacmd[3]=(lba & 0x00ff0000) >> 16;
-            atacmd[4]=(lba & 0x0000ff00) >> 8;
-            atacmd[5]=(lba & 0x000000ff);
-
-            status = ata_cmd_packet(device, (u32)atacmd, sizeof(atacmd)
-                                    , 0, count*2048L
-                                    , ATA_DATA_IN, segment, offset);
-        }
+        else
+            status = cdrom_read(device, lba, count*2048, segment, offset, 0);
         break;
     case ATA_CMD_WRITE_SECTORS:
         status = ata_cmd_data_out(device, ATA_CMD_WRITE_SECTORS
@@ -683,7 +654,7 @@ disk_13(struct bregs *regs, u8 device)
  ****************************************************************/
 
 static u8
-get_device(struct bregs *regs, u8 drive)
+get_device(struct bregs *regs, u8 iscd, u8 drive)
 {
     // basic check : device has to be defined
     if (drive >= CONFIG_MAX_ATA_DEVICES) {
@@ -692,7 +663,7 @@ get_device(struct bregs *regs, u8 drive)
     }
 
     // Get the ata channel
-    u8 device = GET_EBDA(ata.hdidmap[drive]);
+    u8 device = GET_EBDA(ata.idmap[iscd][drive]);
 
     // basic check : device has to be valid
     if (device >= CONFIG_MAX_ATA_DEVICES) {
@@ -718,14 +689,14 @@ handle_legacy_disk(struct bregs *regs, u8 drive)
     }
 
     if (drive >= 0xe0) {
-        u8 device = get_device(regs, drive - 0xe0);
+        u8 device = get_device(regs, 1, drive - 0xe0);
         if (device >= CONFIG_MAX_ATA_DEVICES)
             return;
         cdrom_13(regs, device);
         return;
     }
 
-    u8 device = get_device(regs, drive - 0x80);
+    u8 device = get_device(regs, 0, drive - 0x80);
     if (device >= CONFIG_MAX_ATA_DEVICES)
         return;
     disk_13(regs, device);
@@ -746,7 +717,7 @@ handle_13(struct bregs *regs)
     debug_enter(regs);
     u8 drive = regs->dl;
 
-    if (CONFIG_ELTORITO_BOOT) {
+    if (CONFIG_CDROM_BOOT) {
         if (regs->ah == 0x4b) {
             cdemu_134b(regs);
             goto done;
@@ -756,7 +727,8 @@ handle_13(struct bregs *regs)
                 cdemu_13(regs);
                 goto done;
             }
-            drive--;
+            if (drive < 0xe0)
+                drive--;
         }
     }
     handle_legacy_disk(regs, drive);

@@ -425,7 +425,7 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
       // 3 : error
       // 4 : not ready
 u16
-ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
+ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
                , u32 length, u8 inout, u16 bufseg, u16 bufoff)
 {
     u16 iobase1, iobase2;
@@ -493,13 +493,12 @@ ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
     // Send command to device
     irq_enable();
 
-    outsw(iobase1, GET_SEG(SS), cmdbuf, cmdlen);
+    outsw(iobase1, GET_SEG(SS), (u32)cmdbuf, cmdlen);
 
     if (inout == ATA_DATA_NO) {
         await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
         status = inb(iobase1 + ATA_CB_STAT);
-    }
-    else {
+    } else {
         u16 loops = 0;
         u8 sc;
         while (1) {
@@ -507,8 +506,7 @@ ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
             if (loops == 0) {//first time through
                 status = inb(iobase2 + ATA_CB_ASTAT);
                 await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
-            }
-            else
+            } else
                 await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
             loops++;
 
@@ -533,23 +531,21 @@ ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
             lcount =  ((u16)(inb(iobase1 + ATA_CB_CH))<<8)+inb(iobase1 + ATA_CB_CL);
 
             // adjust to read what we want
-            if(header>lcount) {
+            if (header > lcount) {
                 lbefore=lcount;
                 header-=lcount;
                 lcount=0;
-            }
-            else {
+            } else {
                 lbefore=header;
                 header=0;
                 lcount-=lbefore;
             }
 
-            if(lcount>length) {
+            if (lcount > length) {
                 lafter=lcount-length;
                 lcount=length;
                 length=0;
-            }
-            else {
+            } else {
                 lafter=0;
                 length-=lcount;
             }
@@ -589,9 +585,9 @@ ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
                     inw(iobase1);
 
             if (lmode == ATA_MODE_PIO32)
-                insl(iobase1, bufoff, bufseg, lcount);
+                insl(iobase1, bufseg, bufoff, lcount);
             else
-                insw(iobase1, bufoff, bufseg, lcount);
+                insw(iobase1, bufseg, bufoff, lcount);
 
             for (i=0; i<lafter; i++)
                 if (lmode == ATA_MODE_PIO32)
@@ -620,6 +616,26 @@ ata_cmd_packet(u16 device, u16 cmdbuf, u8 cmdlen, u16 header
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
     return 0;
+}
+
+u16
+cdrom_read(u16 device, u32 lba, u32 count, u16 segment, u16 offset, u16 skip)
+{
+    u16 sectors = (count + 2048 - 1) / 2048;
+
+    u8 atacmd[12];
+    memset(atacmd, 0, sizeof(atacmd));
+    atacmd[0]=0x28;                      // READ command
+    atacmd[7]=(sectors & 0xff00) >> 8;   // Sectors
+    atacmd[8]=(sectors & 0x00ff);        // Sectors
+    atacmd[2]=(lba & 0xff000000) >> 24;  // LBA
+    atacmd[3]=(lba & 0x00ff0000) >> 16;
+    atacmd[4]=(lba & 0x0000ff00) >> 8;
+    atacmd[5]=(lba & 0x000000ff);
+
+    return ata_cmd_packet(device, atacmd, sizeof(atacmd)
+                          , skip, count, ATA_DATA_IN
+                          , segment, offset);
 }
 
 // ---------------------------------------------------------------------------
@@ -817,7 +833,7 @@ ata_detect()
             SET_EBDA(ata.devices[device].lchs.spt, spt);
 
             // fill hdidmap
-            SET_EBDA(ata.hdidmap[hdcount], device);
+            SET_EBDA(ata.idmap[0][hdcount], device);
             hdcount++;
         }
 
@@ -848,7 +864,7 @@ ata_detect()
             SET_EBDA(ata.devices[device].blksize, blksize);
 
             // fill cdidmap
-            SET_EBDA(ata.cdidmap[cdcount], device);
+            SET_EBDA(ata.idmap[1][cdcount], device);
             cdcount++;
         }
 
