@@ -9,7 +9,7 @@ OUT=out/
 
 # Source files
 SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c \
-      boot.c ata.c
+      boot.c ata.c cdrom.c
 SRC32=post.c output.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 

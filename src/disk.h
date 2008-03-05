@@ -93,9 +93,30 @@ struct floppy_ext_dbt_s {
     u8 drive_type;
 };
 
+// Helper function for setting up a return code.
+static inline void
+disk_ret(struct bregs *regs, u8 code)
+{
+    regs->ah = code;
+    SET_BDA(disk_last_status, code);
+    set_cf(regs, code);
+}
+
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_13(struct bregs *regs, u8 drive);
 void floppy_tick();
+
+// disk.c
+void emu_access(struct bregs *regs, u8 device, u16 command);
+void extended_access(struct bregs *regs, u8 device, u16 command);
+void disk_13(struct bregs *regs, u8 device);
+void disk_13XX(struct bregs *regs, u8 device);
+
+// cdrom.c
+void cdrom_13(struct bregs *regs, u8 device);
+void cdemu_13(struct bregs *regs);
+void cdemu_134b(struct bregs *regs);
+
 
 #endif // disk.h
