@@ -5,6 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
+#include "acpi.h"
 #include "util.h" // irq_restore
 #include "biosvar.h" // CONFIG_BIOS_TABLE
 #include "ioport.h" // inb
@@ -281,8 +282,6 @@ handle_15e801(struct bregs *regs)
 
     set_cf(regs, 0);
 }
-
-#define ACPI_DATA_SIZE    0x00010000L
 
 static void
 set_e820_range(u16 DI, u32 start, u32 end, u16 type)

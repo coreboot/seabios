@@ -53,6 +53,15 @@ memset(void *s, int c, size_t n)
 }
 
 static inline void
+memcpy(void *d, void *s, size_t n)
+{
+    while (n) {
+        ((char *)d)[n-1] = ((char *)s)[n-1];
+		n--;
+	}
+}
+
+static inline void
 eoi_master_pic()
 {
     outb(PIC1_IRQ5, PORT_PIC1);
@@ -136,6 +145,12 @@ handle_ret(struct bregs *regs, u8 code)
 {
     regs->ah = code;
     set_cf(regs, code);
+}
+
+unsigned long
+align(unsigned long addr, unsigned long v)
+{
+    return (addr + v - 1) & ~(v - 1);
 }
 
 #endif // util.h

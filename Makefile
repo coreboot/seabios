@@ -4,13 +4,19 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
+# Don't compile ACPI DSDT by default
+# Uncomment the below line in case you want to compile DSDT yourself.
+# Note: "iasl" package is required to compile.
+#BUILD_ACPI = 1
+BUILD_ACPI = 0
+
 # Output directory
 OUT=out/
 
 # Source files
 SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c \
       boot.c ata.c cdrom.c apm.c
-SRC32=post.c output.c
+SRC32=post.c output.c smbios.c acpi.c smm.c smp.c pci.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
@@ -28,6 +34,7 @@ CFLAGS16INC = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
 CFLAGS16 = $(CFLAGS16INC) -g
 
 TABLETMP=$(addprefix $(OUT), $(patsubst %.c,%.16.s,$(TABLESRC)))
+
 all: $(OUT) $(OUT)rom.bin $(TABLETMP)
 
 # Run with "make V=1" to see the actual compile commands
@@ -99,7 +106,15 @@ $(OUT)rom16.bin: $(OUT)rom16.o
 	@echo "  Extracting binary $@"
 	$(Q)objcopy -O binary $< $@
 
-$(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
+$(OUT)romlayout32.o: $(OUT)acpi-dsdt.hex $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
+
+ifeq ($(BUILD_ACPI), 1)
+$(OUT)acpi-dsdt.hex: src/acpi-dsdt.dsl
+	iasl -tc -p $@ $<
+else
+$(OUT)acpi-dsdt.hex: src/acpi-dsdt.hex
+	cp src/acpi-dsdt.hex $(OUT)
+endif
 
 $(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking $@"
@@ -110,6 +125,7 @@ $(OUT)rom.bin: $(OUT)rom16.bin $(OUT)rom32.bin $(OUT)rom16.offset.auto.h $(OUT)r
 	$(Q)./tools/buildrom.py
 
 ####### Generic rules
+.PHONY : clean
 clean:
 	rm -rf $(OUT)
 

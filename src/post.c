@@ -12,6 +12,27 @@
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
 
+#include "acpi.h"
+#include "smbios.h"
+#include "smp.h"
+#include "pci.h"
+
+u32 cpuid_signature;
+u32 cpuid_features;
+u32 cpuid_ext_features;
+unsigned long ram_size;
+unsigned long bios_table_cur_addr;
+unsigned long bios_table_end_addr;
+
+#ifdef CONFIG_USE_EBDA_TABLES
+unsigned long ebda_cur_addr;
+#endif
+
+#define cpuid(index, eax, ebx, ecx, edx) \
+  asm volatile ("cpuid" \
+                : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) \
+                : "0" (index))
+
 #define bda ((struct bios_data_area_s *)0)
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
 #define ipl ((struct ipl_s *)(IPL_SEG<<4))
@@ -502,6 +523,32 @@ rom_scan(u32 start, u32 end)
 }
 
 static void
+ram_probe(void)
+{
+    if (inb_cmos(0x34) | inb_cmos(0x35))
+        ram_size = (inb_cmos(0x34) | (inb_cmos(0x35) << 8)) * 65536 +
+                   16 * 1024 * 1024;
+    else
+        ram_size = (inb_cmos(0x17) | (inb_cmos(0x18) << 8)) * 1024;
+#ifdef CONFIG_USE_EBDA_TABLES
+    ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
+#endif
+
+    BX_INFO("ram_size=0x%08lx\n", ram_size);
+}
+
+static void
+cpu_probe(void)
+{
+    u32 eax, ebx, ecx, edx;
+
+    cpuid(1, eax, ebx, ecx, edx);
+    cpuid_signature = eax;
+    cpuid_features = edx;
+    cpuid_ext_features = ecx;
+}
+
+static void
 post()
 {
     BX_INFO("Start bios\n");
@@ -532,6 +579,26 @@ post()
 
     init_boot_vectors();
     rom_scan(0xc8000, 0xe0000);
+
+    ram_probe();
+    cpu_probe();
+    smp_probe();
+    //pci_bios_init();
+
+    if (bios_table_cur_addr != 0) {
+        mptable_init();
+
+        smbios_init();
+
+        if (acpi_enabled)
+            acpi_bios_init();
+
+        bios_lock_shadow_ram();
+
+        BX_INFO("bios_table_cur_addr: 0x%08lx\n", bios_table_cur_addr);
+        if (bios_table_cur_addr > bios_table_end_addr)
+            BX_PANIC("bios_table_end_addr overflow!\n");
+    }
 
     callrom(SEG_BIOS, OFFSET_begin_boot);
 }
