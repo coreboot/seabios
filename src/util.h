@@ -37,6 +37,11 @@ static inline void nop(void)
     asm volatile("nop");
 }
 
+static inline void hlt(void)
+{
+    asm volatile("hlt");
+}
+
 #define BX_PANIC(fmt, args...) bprintf(0, fmt , ##args)
 #define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
 
@@ -120,6 +125,9 @@ void handle_15c2(struct bregs *regs);
 
 // clock.c
 void handle_1583(struct bregs *regs);
+
+// apm.c
+void handle_1553(struct bregs *regs);
 
 // Frequent bios return helper
 #define RET_EUNSUPPORTED 0x86

@@ -78,13 +78,6 @@ handle_1552(struct bregs *regs)
     handle_ret(regs, 0);
 }
 
-static void
-handle_1553(struct bregs *regs)
-{
-    // XXX - APM call
-    handle_ret(regs, RET_EUNSUPPORTED);
-}
-
 // Sleep for n microseconds. currently using the
 // refresh request port 0x61 bit4, toggling every 15usec
 static void
