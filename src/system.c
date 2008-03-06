@@ -403,7 +403,7 @@ handle_15XX(struct bregs *regs)
 }
 
 // INT 15h System Services Entry Point
-void VISIBLE
+void VISIBLE16
 handle_15(struct bregs *regs)
 {
     //debug_enter(regs);
@@ -428,7 +428,7 @@ handle_15(struct bregs *regs)
 }
 
 // INT 12h Memory Size Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_12(struct bregs *regs)
 {
     debug_enter(regs);
@@ -437,7 +437,7 @@ handle_12(struct bregs *regs)
 }
 
 // INT 11h Equipment List Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_11(struct bregs *regs)
 {
     debug_enter(regs);
@@ -446,21 +446,21 @@ handle_11(struct bregs *regs)
 }
 
 // INT 05h Print Screen Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_05(struct bregs *regs)
 {
     debug_enter(regs);
 }
 
 // INT 10h Video Support Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_10(struct bregs *regs)
 {
     debug_enter(regs);
     // dont do anything, since the VGA BIOS handles int10h requests
 }
 
-void VISIBLE
+void VISIBLE16
 handle_nmi(struct bregs *regs)
 {
     debug_isr(regs);
@@ -468,7 +468,7 @@ handle_nmi(struct bregs *regs)
 }
 
 // INT 75 - IRQ13 - MATH COPROCESSOR EXCEPTION
-void VISIBLE
+void VISIBLE16
 handle_75(struct bregs *regs)
 {
     debug_isr(regs);

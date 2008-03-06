@@ -113,7 +113,7 @@ handle_14XX(struct bregs *regs)
 }
 
 // INT 14h Serial Communications Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_14(struct bregs *regs)
 {
     debug_enter(regs);
@@ -215,7 +215,7 @@ handle_17XX(struct bregs *regs)
 }
 
 // INT17h : Printer Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_17(struct bregs *regs)
 {
     debug_enter(regs);

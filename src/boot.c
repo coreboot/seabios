@@ -15,7 +15,7 @@
 // We need a copy of this string, but we are not actually a PnP BIOS,
 // so make sure it is *not* aligned, so OSes will not see it if they
 // scan.
-char pnp_string[] VISIBLE __attribute__((aligned (2))) = " $PnP";
+char pnp_string[] VISIBLE16 __attribute__((aligned (2))) = " $PnP";
 
 //--------------------------------------------------------------------------
 // print_boot_device
@@ -178,7 +178,7 @@ try_boot(u16 seq_nr)
 }
 
 // Boot Failure recovery: try the next device.
-void VISIBLE
+void VISIBLE16
 handle_18()
 {
     debug_enter(NULL);
@@ -187,7 +187,7 @@ handle_18()
 }
 
 // INT 19h Boot Load Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_19()
 {
     debug_enter(NULL);
@@ -195,7 +195,7 @@ handle_19()
 }
 
 // Called from 32bit code - start boot process
-void VISIBLE
+void VISIBLE16
 begin_boot()
 {
     if (CONFIG_ATA)

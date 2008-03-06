@@ -230,7 +230,7 @@ handle_1aXX(struct bregs *regs)
 }
 
 // INT 1Ah Time-of-day Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_1a(struct bregs *regs)
 {
     //debug_enter(regs);
@@ -250,14 +250,14 @@ handle_1a(struct bregs *regs)
 }
 
 // User Timer Tick
-void VISIBLE
+void VISIBLE16
 handle_1c(struct bregs *regs)
 {
     //debug_enter(regs);
 }
 
 // INT 08h System Timer ISR Entry Point
-void VISIBLE
+void VISIBLE16
 handle_08(struct bregs *regs)
 {
 //    debug_isr(regs);
@@ -338,7 +338,7 @@ handle_1583(struct bregs *regs)
 }
 
 // int70h: IRQ8 - CMOS RTC
-void VISIBLE
+void VISIBLE16
 handle_70(struct bregs *regs)
 {
     debug_isr(regs);

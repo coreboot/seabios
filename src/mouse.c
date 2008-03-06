@@ -412,7 +412,7 @@ int74_function()
 }
 
 // INT74h : PS/2 mouse hardware interrupt
-void VISIBLE
+void VISIBLE16
 handle_74(struct bregs *regs)
 {
     //debug_isr(regs);

@@ -15,7 +15,16 @@ typedef signed int s32;
 typedef u32 size_t;
 typedef unsigned long long u64;
 
-#define VISIBLE __attribute__((externally_visible))
+#define __VISIBLE __attribute__((externally_visible))
+#ifdef MODE16
+// Notes a function as externally visible in the 16bit code chunk.
+#define VISIBLE16 __VISIBLE
+// Notes a function as externally visible in the 32bit code chunk.
+#define VISIBLE32
+#else
+#define VISIBLE16
+#define VISIBLE32 __VISIBLE
+#endif
 
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))

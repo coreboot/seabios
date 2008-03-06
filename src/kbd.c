@@ -234,7 +234,7 @@ set_leds()
 }
 
 // INT 16h Keyboard Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_16(struct bregs *regs)
 {
 //    debug_enter(regs);
@@ -541,7 +541,7 @@ process_key(u8 scancode)
 }
 
 // INT09h : Keyboard Hardware Service Entry Point
-void VISIBLE
+void VISIBLE16
 handle_09(struct bregs *regs)
 {
     //debug_isr(regs);

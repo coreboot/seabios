@@ -641,7 +641,7 @@ check_restart_status()
     call16(&br);
 }
 
-void VISIBLE
+void VISIBLE32
 _start()
 {
     init_dma();

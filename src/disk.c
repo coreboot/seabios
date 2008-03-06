@@ -702,7 +702,7 @@ handle_legacy_disk(struct bregs *regs, u8 drive)
     disk_13(regs, device);
 }
 
-void VISIBLE
+void VISIBLE16
 handle_40(struct bregs *regs)
 {
     debug_enter(regs);
@@ -711,7 +711,7 @@ handle_40(struct bregs *regs)
 }
 
 // INT 13h Fixed Disk Services Entry Point
-void VISIBLE
+void VISIBLE16
 handle_13(struct bregs *regs)
 {
     debug_enter(regs);
@@ -737,7 +737,7 @@ done:
 }
 
 // record completion in BIOS task complete flag
-void VISIBLE
+void VISIBLE16
 handle_76(struct bregs *regs)
 {
     debug_isr(regs);
