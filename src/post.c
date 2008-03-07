@@ -525,11 +525,11 @@ rom_scan(u32 start, u32 end)
 static void
 ram_probe(void)
 {
-    if (inb_cmos(0x34) | inb_cmos(0x35))
-        ram_size = (inb_cmos(0x34) | (inb_cmos(0x35) << 8)) * 65536 +
-                   16 * 1024 * 1024;
+    if (inb_cmos(CMOS_MEM_EXTMEM2_LOW) | inb_cmos(CMOS_MEM_EXTMEM2_HIGH))
+        ram_size = (inb_cmos(CMOS_MEM_EXTMEM2_LOW) | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) *
+		           64 * 1024 + 16 * 1024 * 1024;
     else
-        ram_size = (inb_cmos(0x17) | (inb_cmos(0x18) << 8)) * 1024;
+        ram_size = (inb_cmos(CMOS_MEM_BASE_LOW) | (inb_cmos(CMOS_MEM_BASE_HIGH) << 8)) * 1024;
 #ifdef CONFIG_USE_EBDA_TABLES
     ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
 #endif

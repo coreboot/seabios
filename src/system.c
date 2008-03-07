@@ -211,8 +211,8 @@ handle_1587(struct bregs *regs)
 static void
 handle_1588(struct bregs *regs)
 {
-    regs->al = inb_cmos(CMOS_EXTMEM_LOW);
-    regs->ah = inb_cmos(CMOS_EXTMEM_HIGH);
+    regs->al = inb_cmos(CMOS_MEM_EXTMEM_LOW);
+    regs->ah = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
     // According to Ralf Brown's interrupt the limit should be 15M,
     // but real machines mostly return max. 63M.
     if (regs->ax > 0xffc0)
@@ -265,16 +265,16 @@ handle_15e801(struct bregs *regs)
     // regs.u.r16.bx = 0;
 
     // Get the amount of extended memory (above 1M)
-    regs->cl = inb_cmos(CMOS_EXTMEM_LOW);
-    regs->ch = inb_cmos(CMOS_EXTMEM_HIGH);
+    regs->cl = inb_cmos(CMOS_MEM_EXTMEM_LOW);
+    regs->ch = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
 
     // limit to 15M
     if (regs->cx > 0x3c00)
         regs->cx = 0x3c00;
 
     // Get the amount of extended memory above 16M in 64k blocs
-    regs->dl = inb_cmos(CMOS_EXTMEM2_LOW);
-    regs->dh = inb_cmos(CMOS_EXTMEM2_HIGH);
+    regs->dl = inb_cmos(CMOS_MEM_EXTMEM2_LOW);
+    regs->dh = inb_cmos(CMOS_MEM_EXTMEM2_HIGH);
 
     // Set configured memory equal to extended memory
     regs->ax = regs->cx;
@@ -310,9 +310,9 @@ handle_15e820(struct bregs *regs)
         return;
     }
 
-    u32 extended_memory_size = inb_cmos(CMOS_EXTMEM2_HIGH);
+    u32 extended_memory_size = inb_cmos(CMOS_MEM_EXTMEM2_HIGH);
     extended_memory_size <<= 8;
-    extended_memory_size |= inb_cmos(CMOS_EXTMEM2_LOW);
+    extended_memory_size |= inb_cmos(CMOS_MEM_EXTMEM2_LOW);
     extended_memory_size *= 64;
     // greater than EFF00000???
     if (extended_memory_size > 0x3bc000)
@@ -322,9 +322,9 @@ handle_15e820(struct bregs *regs)
     extended_memory_size += (16L * 1024 * 1024);
 
     if (extended_memory_size <= (16L * 1024 * 1024)) {
-        extended_memory_size = inb_cmos(CMOS_EXTMEM_HIGH);
+        extended_memory_size = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
         extended_memory_size <<= 8;
-        extended_memory_size |= inb_cmos(CMOS_EXTMEM_LOW);
+        extended_memory_size |= inb_cmos(CMOS_MEM_EXTMEM_LOW);
         extended_memory_size *= 1024;
     }
 
