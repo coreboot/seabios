@@ -136,7 +136,7 @@ void handle_15c2(struct bregs *regs);
 void handle_1583(struct bregs *regs);
 
 // apm.c
-void handle_1553(struct bregs *regs);
+void VISIBLE16 handle_1553(struct bregs *regs);
 
 // Frequent bios return helper
 #define RET_EUNSUPPORTED 0x86

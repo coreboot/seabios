@@ -45,11 +45,15 @@ handle_155301(struct bregs *regs)
     set_cf(regs, 0);
 }
 
+// Assembler entry points defined in romlayout.S
+extern void apm16protected_entry();
+extern void apm32protected_entry();
+
 // APM 16 bit protected mode interface connect
 static void
 handle_155302(struct bregs *regs)
 {
-    regs->bx = 0; // XXX - apm16_entry
+    regs->bx = (u32)apm16protected_entry;
     regs->ax = SEG_BIOS; // 16 bit code segment base
     regs->si = 0xfff0;   // 16 bit code segment size
     regs->cx = SEG_BIOS; // data segment address
@@ -61,13 +65,13 @@ handle_155302(struct bregs *regs)
 static void
 handle_155303(struct bregs *regs)
 {
-    regs->ax = 0xf000; // 32 bit code segment base
-    regs->ebx = 0; // XXX - apm32_entry
-    regs->cx = 0xf000; // 16 bit code segment base
+    regs->ax = SEG_BIOS; // 32 bit code segment base
+    regs->ebx = (u32)apm32protected_entry;
+    regs->cx = SEG_BIOS; // 16 bit code segment base
     // 32 bit code segment size (low 16 bits)
     // 16 bit code segment size (high 16 bits)
     regs->esi = 0xfff0fff0;
-    regs->dx = 0xf000; // data segment address
+    regs->dx = SEG_BIOS; // data segment address
     regs->di = 0xfff0; // data segment length
     set_cf(regs, 0);
 }
@@ -171,7 +175,7 @@ handle_1553XX(struct bregs *regs)
     set_cf(regs, 1);
 }
 
-void
+void VISIBLE16
 handle_1553(struct bregs *regs)
 {
     switch (regs->al) {

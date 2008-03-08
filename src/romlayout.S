@@ -243,7 +243,6 @@ rombios32_gdt:
  ****************************************************************/
 
         .macro ENTRY cfunc
-        cli         // In case something far-calls instead of using "int"
         pushal
         pushw %es
         pushw %ds
@@ -260,16 +259,26 @@ rombios32_gdt:
         .macro IRQ_ENTRY num
         .globl entry_\num
         entry_\num :
+        cli         // In case something far-calls instead of using "int"
         ENTRY handle_\num
         iretw
         .endm
 
-        .macro IRQ_TRAMPOLINE num
-        .globl irq_trampoline_0x\num
-        irq_trampoline_0x\num :
-        int $0x\num
+        // APM trampolines
+        .globl apm16protected_entry
+apm16protected_entry:
+        ENTRY handle_1553
         lretw
-        .endm
+
+        .code32
+        .globl apm32protected_entry
+apm32protected_entry:
+        pushw %cs
+        incw (%esp)
+        pushw apm16protected_entry
+        lcallw *(%esp)
+        lretl
+        .code16gcc
 
         .org 0xe2c3
         IRQ_ENTRY nmi
@@ -292,6 +301,15 @@ entry_19:
 entry_18:
         RESET_STACK
         calll handle_18
+
+
+        // IRQ trampolines
+        .macro IRQ_TRAMPOLINE num
+        .globl irq_trampoline_0x\num
+        irq_trampoline_0x\num :
+        int $0x\num
+        lretw
+        .endm
 
         IRQ_TRAMPOLINE 02
         IRQ_TRAMPOLINE 10
