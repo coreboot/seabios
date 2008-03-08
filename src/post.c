@@ -59,6 +59,9 @@ init_bda()
     }
 
     bda->mem_size_kb = BASE_MEM_IN_K;
+
+    // mov CMOS Equipment Byte to BDA Equipment Word
+    bda->equipment_list_flags = inb_cmos(CMOS_EQUIPMENT_INFO);
 }
 
 static void
@@ -257,10 +260,6 @@ kbd_setup()
         = (offsetof(struct bios_data_area_s, kbd_buf[sizeof(bda->kbd_buf)])
            - 0x400);
     keyboard_init();
-
-    // mov CMOS Equipment Byte to BDA Equipment Word
-    u16 eqb = bda->equipment_list_flags;
-    bda->equipment_list_flags = (eqb & 0xff00) | inb_cmos(CMOS_EQUIPMENT_INFO);
 }
 
 static u16
