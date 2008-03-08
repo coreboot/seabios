@@ -173,11 +173,13 @@ __call16:
         pushfw
         pushl %eax
         movl 0x06(%esp), %eax
-        movl %ecx, 0x1c(%eax)   // Save %ecx
+        movl %ecx, %ss:0x1c(%eax)       // Save %ecx
+        movw %ss, %cx
+        movw %cx, %ds                   // Restore %ds == %ss
         popl %ecx
-        movl %ecx, 0x20(%eax)   // Save %eax
+        movl %ecx, 0x20(%eax)           // Save %eax
         popw %cx
-        movw %cx, 0x28(%eax)    // Save flags
+        movw %cx, 0x28(%eax)            // Save flags
 
         // Store remaining registers
         movw %es, 0x02(%eax)
