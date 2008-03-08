@@ -11,6 +11,12 @@
 #include "ioport.h" // inb
 #include "cmos.h" // inb_cmos
 
+#define E820_RAM          1
+#define E820_RESERVED     2
+#define E820_ACPI         3
+#define E820_NVS          4
+#define E820_UNUSABLE     5
+
 // Use PS2 System Control port A to set A20 enable
 static inline u8
 set_a20(u8 cond)
@@ -330,21 +336,21 @@ handle_15e820(struct bregs *regs)
 
     switch (regs->bx) {
     case 0:
-        set_e820_range(regs->di, 0x0000000L, 0x0009fc00L, 1);
+        set_e820_range(regs->di, 0x0000000L, 0x0009fc00L, E820_RAM);
         regs->ebx = 1;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
         set_cf(regs, 0);
         break;
     case 1:
-        set_e820_range(regs->di, 0x0009fc00L, 0x000a0000L, 2);
+        set_e820_range(regs->di, 0x0009fc00L, 0x000a0000L, E820_RESERVED);
         regs->ebx = 2;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
         set_cf(regs, 0);
         break;
     case 2:
-        set_e820_range(regs->di, 0x000e8000L, 0x00100000L, 2);
+        set_e820_range(regs->di, 0x000e8000L, 0x00100000L, E820_RESERVED);
         regs->ebx = 3;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
@@ -352,7 +358,7 @@ handle_15e820(struct bregs *regs)
         break;
     case 3:
         set_e820_range(regs->di, 0x00100000L,
-                       extended_memory_size - ACPI_DATA_SIZE, 1);
+                       extended_memory_size - ACPI_DATA_SIZE, E820_RAM);
         regs->ebx = 4;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
@@ -361,7 +367,7 @@ handle_15e820(struct bregs *regs)
     case 4:
         set_e820_range(regs->di,
                        extended_memory_size - ACPI_DATA_SIZE,
-                       extended_memory_size, 3); // ACPI RAM
+                       extended_memory_size, E820_ACPI); // ACPI RAM
         regs->ebx = 5;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
@@ -369,7 +375,7 @@ handle_15e820(struct bregs *regs)
         break;
     case 5:
         /* 256KB BIOS area at the end of 4 GB */
-        set_e820_range(regs->di, 0xfffc0000L, 0x00000000L, 2);
+        set_e820_range(regs->di, 0xfffc0000L, 0x00000000L, E820_RESERVED);
         regs->ebx = 0;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
