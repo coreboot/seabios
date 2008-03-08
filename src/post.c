@@ -126,20 +126,23 @@ keyboard_panic(u16 status)
 }
 
 static void
-kbd_wait(u8 mask, u8 code)
+kbd_flush(u8 code)
 {
     u16 max = 0xffff;
-    while ( ((inb(PORT_PS2_STATUS) & mask) == 0) && (--max>0) )
+    while ((inb(PORT_PS2_STATUS) & 0x02) && (--max > 0))
         outb(code, PORT_DIAG);
-    if (!max)
+    if (!max && code != 0xff)
         keyboard_panic(code);
 }
 
-static inline void kbd_flush(u8 code) {
-    kbd_wait(0x02, code);
-}
-static inline void kbd_waitdata(u8 code) {
-    kbd_wait(0x01, code);
+static void
+kbd_waitdata(u8 code)
+{
+    u16 max = 0xffff;
+    while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
+        outb(code, PORT_DIAG);
+    if (!max)
+        keyboard_panic(code);
 }
 
 //--------------------------------------------------------------------------
@@ -152,7 +155,7 @@ keyboard_init()
 {
     /* ------------------- Flush buffers ------------------------*/
     /* Wait until buffer is empty */
-    kbd_flush(0x00);
+    kbd_flush(0xff);
 
     /* flush incoming keys */
     u16 max=0x2000;
