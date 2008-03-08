@@ -523,8 +523,8 @@ post()
 
     printf("BIOS - begin\n\n");
 
-    // XXX - need to do pci stuff
-    //pci_setup();
+    rombios32_init();
+
     init_boot_vectors();
 
     floppy_drive_post();
@@ -533,6 +533,8 @@ post()
         ata_init();
 
     init_boot_vectors();
+
+    // XXX - original bios calls ata_detect before rom scan.
     rom_scan(0xc8000, 0xe0000);
 
     callrom(SEG_BIOS, OFFSET_begin_boot);

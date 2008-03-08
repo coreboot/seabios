@@ -32,4 +32,9 @@ typedef u32 size_t;
 
 #define PACKED __attribute__((packed))
 
+#define barrier() __asm__ __volatile__("": : :"memory")
+
+#define __stringify_1(x)        #x
+#define __stringify(x)          __stringify_1(x)
+
 #endif // types.h

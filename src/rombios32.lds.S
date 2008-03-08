@@ -18,8 +18,9 @@ SECTIONS
         _text32_start = . ;
         .text     : { *(.text)    }
         .rodata    : { *(.rodata) }
-        . = ALIGN(16);
         .data     : { *(.data)    }
+        // XXX - should change code so it doesn't require global variables.
+        . = 0x00040000;
         __bss_start = . ;
         .bss      : { *(.bss) *(COMMON) }
         _end = . ;

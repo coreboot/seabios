@@ -52,6 +52,18 @@ memset(void *s, int c, size_t n)
         ((char *)s)[--n] = c;
 }
 
+static inline void *
+memcpy(void *d1, const void *s1, size_t len)
+{
+    u8 *d = d1;
+    const u8 *s = s1;
+
+    while (len--) {
+        *d++ = *s++;
+    }
+    return d1;
+}
+
 static inline void
 eoi_master_pic()
 {
@@ -137,5 +149,11 @@ handle_ret(struct bregs *regs, u8 code)
     regs->ah = code;
     set_cf(regs, code);
 }
+
+// util.c
+void usleep(u32 count);
+
+// rombios32.c
+void rombios32_init(void);
 
 #endif // util.h
