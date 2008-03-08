@@ -124,6 +124,11 @@ bprintf(u16 action, const char *fmt, ...)
                 break;
             n++;
         }
+        if (c == 'l') {
+            // Ignore long format indicator
+            n++;
+            c = GET_VAR(CS, (u8)*n);
+        }
         s32 val;
         const char *sarg;
         switch (c) {
