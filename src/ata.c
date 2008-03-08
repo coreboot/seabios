@@ -20,7 +20,8 @@
 
 #define IDE_TIMEOUT 32000u //32 seconds max for IDE ops
 
-#define BX_DEBUG_ATA BX_INFO
+#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
+#define DEBUGF(fmt, args...)
 
 // XXX - lots of redundancy in this file.
 
@@ -52,10 +53,14 @@ await_ide(u8 when_done, u16 base, u16 timeout)
         // mod 2048 each 16 ms
         if (time>>16 != last) {
             last = time >>16;
-            BX_DEBUG_ATA("await_ide: (TIMEOUT,BSY,!BSY,!BSY_DRQ,!BSY_!DRQ,!BSY_RDY) %d time= %d timeout= %d\n",when_done,time>>11, timeout);
+            DEBUGF("await_ide: (TIMEOUT,BSY,!BSY,!BSY_DRQ,!BSY_!DRQ,!BSY_RDY)"
+                   " %d time= %d timeout= %d\n"
+                   , when_done, time>>11, timeout);
         }
         if (status & ATA_CB_STAT_ERR) {
-            BX_DEBUG_ATA("await_ide: ERROR (TIMEOUT,BSY,!BSY,!BSY_DRQ,!BSY_!DRQ,!BSY_RDY) %d time= %d timeout= %d\n",when_done,time>>11, timeout);
+            DEBUGF("await_ide: ERROR (TIMEOUT,BSY,!BSY,!BSY_DRQ"
+                   ",!BSY_!DRQ,!BSY_RDY) %d time= %d timeout= %d\n"
+                   , when_done, time>>11, timeout);
             return -1;
         }
         if ((timeout == 0) || ((time>>11) > timeout))
@@ -234,11 +239,11 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
     status = inb(iobase1 + ATA_CB_STAT);
 
     if (status & ATA_CB_STAT_ERR) {
-        BX_DEBUG_ATA("ata_cmd_data_in : read error\n");
+        DEBUGF("ata_cmd_data_in : read error\n");
         return 2;
     } else if ( !(status & ATA_CB_STAT_DRQ) ) {
-        BX_DEBUG_ATA("ata_cmd_data_in : DRQ not set (status %02x)\n"
-                     , (unsigned) status);
+        DEBUGF("ata_cmd_data_in : DRQ not set (status %02x)\n"
+               , (unsigned) status);
         return 3;
     }
 
@@ -267,8 +272,8 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
             if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
                             | ATA_CB_STAT_ERR) )
                  != ATA_CB_STAT_RDY ) {
-                BX_DEBUG_ATA("ata_cmd_data_in : no sectors left (status %02x)\n"
-                             , (unsigned) status);
+                DEBUGF("ata_cmd_data_in : no sectors left (status %02x)\n"
+                       , (unsigned) status);
                 return 4;
             }
             break;
@@ -277,8 +282,8 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
             if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
                             | ATA_CB_STAT_ERR) )
                  != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
-                BX_DEBUG_ATA("ata_cmd_data_in : more sectors left (status %02x)\n"
-                             , (unsigned) status);
+                DEBUGF("ata_cmd_data_in : more sectors left (status %02x)\n"
+                       , (unsigned) status);
                 return 5;
             }
             continue;
@@ -362,11 +367,11 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
     status = inb(iobase1 + ATA_CB_STAT);
 
     if (status & ATA_CB_STAT_ERR) {
-        BX_DEBUG_ATA("ata_cmd_data_out : read error\n");
+        DEBUGF("ata_cmd_data_out : read error\n");
         return 2;
     } else if ( !(status & ATA_CB_STAT_DRQ) ) {
-        BX_DEBUG_ATA("ata_cmd_data_out : DRQ not set (status %02x)\n"
-                     , (unsigned) status);
+        DEBUGF("ata_cmd_data_out : DRQ not set (status %02x)\n"
+               , (unsigned) status);
         return 3;
     }
 
@@ -394,8 +399,8 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
             if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF
                             | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) )
                  != ATA_CB_STAT_RDY ) {
-                BX_DEBUG_ATA("ata_cmd_data_out : no sectors left (status %02x)\n"
-                             , (unsigned) status);
+                DEBUGF("ata_cmd_data_out : no sectors left (status %02x)\n"
+                       , (unsigned) status);
                 return 6;
             }
             break;
@@ -403,8 +408,8 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
             if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
                             | ATA_CB_STAT_ERR) )
                  != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ) ) {
-                BX_DEBUG_ATA("ata_cmd_data_out : more sectors left (status %02x)\n"
-                             , (unsigned) status);
+                DEBUGF("ata_cmd_data_out : more sectors left (status %02x)\n"
+                       , (unsigned) status);
                 return 7;
             }
             continue;
@@ -445,7 +450,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
 
     // The header length must be even
     if (header & 1) {
-        BX_DEBUG_ATA("ata_cmd_packet : header must be even (%04x)\n",header);
+        DEBUGF("ata_cmd_packet : header must be even (%04x)\n", header);
         return 1;
     }
 
@@ -482,11 +487,11 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
     status = inb(iobase1 + ATA_CB_STAT);
 
     if (status & ATA_CB_STAT_ERR) {
-        BX_DEBUG_ATA("ata_cmd_packet : error, status is %02x\n",status);
+        DEBUGF("ata_cmd_packet : error, status is %02x\n", status);
         return 3;
     } else if ( !(status & ATA_CB_STAT_DRQ) ) {
-        BX_DEBUG_ATA("ata_cmd_packet : DRQ not set (status %02x)\n"
-                     , (unsigned) status);
+        DEBUGF("ata_cmd_packet : DRQ not set (status %02x)\n"
+               , (unsigned) status);
         return 4;
     }
 
@@ -519,7 +524,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
                 break;
 
             if (status & ATA_CB_STAT_ERR) {
-                BX_DEBUG_ATA("ata_cmd_packet : error (status %02x)\n",status);
+                DEBUGF("ata_cmd_packet : error (status %02x)\n", status);
                 return 3;
             }
 
@@ -553,9 +558,9 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
             // Save byte count
             count = lcount;
 
-            BX_DEBUG_ATA("Trying to read %04x bytes (%04x %04x %04x) "
-                         ,lbefore+lcount+lafter,lbefore,lcount,lafter);
-            BX_DEBUG_ATA("to 0x%04x:0x%04x\n",bufseg,bufoff);
+            DEBUGF("Trying to read %04x bytes (%04x %04x %04x) "
+                   , lbefore+lcount+lafter, lbefore, lcount, lafter);
+            DEBUGF("to 0x%04x:0x%04x\n", bufseg, bufoff);
 
             // If counts not dividable by 4, use 16bits mode
             lmode = mode;
@@ -608,8 +613,8 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
     if ( (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF
                     | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR) )
          != ATA_CB_STAT_RDY ) {
-        BX_DEBUG_ATA("ata_cmd_packet : not ready (status %02x)\n"
-                     , (unsigned) status);
+        DEBUGF("ata_cmd_packet : not ready (status %02x)\n"
+               , (unsigned) status);
         return 4;
     }
 

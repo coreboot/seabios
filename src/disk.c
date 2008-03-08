@@ -714,7 +714,7 @@ handle_40(struct bregs *regs)
 void VISIBLE16
 handle_13(struct bregs *regs)
 {
-    debug_enter(regs);
+    //debug_enter(regs);
     u8 drive = regs->dl;
 
     if (CONFIG_CDROM_BOOT) {
