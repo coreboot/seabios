@@ -279,21 +279,29 @@ handle_15e801(struct bregs *regs)
 #define ACPI_DATA_SIZE    0x00010000L
 
 static void
-set_e820_range(u16 DI, u32 start, u32 end, u16 type)
+set_e820_range(struct bregs *regs, u32 start, u32 end, u16 type, int last)
 {
-    SET_VAR(ES, *(u16*)(DI+0), start);
-    SET_VAR(ES, *(u16*)(DI+2), start >> 16);
-    SET_VAR(ES, *(u16*)(DI+4), 0x00);
-    SET_VAR(ES, *(u16*)(DI+6), 0x00);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+0), start);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+2), start >> 16);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+4), 0x00);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+6), 0x00);
 
     end -= start;
-    SET_VAR(ES, *(u16*)(DI+8), end);
-    SET_VAR(ES, *(u16*)(DI+10), end >> 16);
-    SET_VAR(ES, *(u16*)(DI+12), 0x0000);
-    SET_VAR(ES, *(u16*)(DI+14), 0x0000);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+8), end);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+10), end >> 16);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+12), 0x0000);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+14), 0x0000);
 
-    SET_VAR(ES, *(u16*)(DI+16), type);
-    SET_VAR(ES, *(u16*)(DI+18), 0x0);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+16), type);
+    SET_FARVAR(regs->es, *(u16*)(regs->di+18), 0x0);
+
+    if (last)
+        regs->ebx = 0;
+    else
+        regs->ebx++;
+    regs->eax = 0x534D4150;
+    regs->ecx = 0x14;
+    set_success(regs);
 }
 
 // XXX - should create e820 memory map in post and just copy it here.
@@ -325,50 +333,26 @@ handle_15e820(struct bregs *regs)
 
     switch (regs->bx) {
     case 0:
-        set_e820_range(regs->di, 0x0000000L, 0x0009fc00L, E820_RAM);
-        regs->ebx = 1;
-        regs->eax = 0x534D4150;
-        regs->ecx = 0x14;
-        set_success(regs);
+        set_e820_range(regs, 0x0000000L, 0x0009fc00L, E820_RAM, 0);
         break;
     case 1:
-        set_e820_range(regs->di, 0x0009fc00L, 0x000a0000L, E820_RESERVED);
-        regs->ebx = 2;
-        regs->eax = 0x534D4150;
-        regs->ecx = 0x14;
-        set_success(regs);
+        set_e820_range(regs, 0x0009fc00L, 0x000a0000L, E820_RESERVED, 0);
         break;
     case 2:
-        set_e820_range(regs->di, 0x000e8000L, 0x00100000L, E820_RESERVED);
-        regs->ebx = 3;
-        regs->eax = 0x534D4150;
-        regs->ecx = 0x14;
-        set_success(regs);
+        set_e820_range(regs, 0x000e8000L, 0x00100000L, E820_RESERVED, 0);
         break;
     case 3:
-        set_e820_range(regs->di, 0x00100000L,
-                       extended_memory_size - ACPI_DATA_SIZE, E820_RAM);
-        regs->ebx = 4;
-        regs->eax = 0x534D4150;
-        regs->ecx = 0x14;
-        set_success(regs);
+        set_e820_range(regs, 0x00100000L,
+                       extended_memory_size - ACPI_DATA_SIZE, E820_RAM, 0);
         break;
     case 4:
-        set_e820_range(regs->di,
+        set_e820_range(regs,
                        extended_memory_size - ACPI_DATA_SIZE,
-                       extended_memory_size, E820_ACPI); // ACPI RAM
-        regs->ebx = 5;
-        regs->eax = 0x534D4150;
-        regs->ecx = 0x14;
-        set_cf(regs, 0);
+                       extended_memory_size, E820_ACPI, 0);
         break;
     case 5:
         /* 256KB BIOS area at the end of 4 GB */
-        set_e820_range(regs->di, 0xfffc0000L, 0x00000000L, E820_RESERVED);
-        regs->ebx = 0;
-        regs->eax = 0x534D4150;
-        regs->ecx = 0x14;
-        set_cf(regs, 0);
+        set_e820_range(regs, 0xfffc0000L, 0x00000000L, E820_RESERVED, 1);
         break;
     default:  /* AX=E820, DX=534D4150, BX unrecognized */
         set_code_fail(regs, RET_EUNSUPPORTED);
