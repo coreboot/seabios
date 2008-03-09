@@ -18,7 +18,7 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 
 # Default compiler flags
 COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=2 \
-               -ffreestanding -fwhole-program
+               -ffreestanding -fwhole-program -fomit-frame-pointer
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
