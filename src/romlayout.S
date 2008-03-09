@@ -269,18 +269,28 @@ rombios32_gdt:
         // APM trampolines
         .globl apm16protected_entry
 apm16protected_entry:
+        pushfw          // save flags
+        pushl %eax      // dummy
         ENTRY handle_1553
+        addw $4, %sp    // pop dummy
+        popfw           // restore flags
         lretw
 
         .code32
         .globl apm32protected_entry
 apm32protected_entry:
-        pushw %cs
+        pushfw          // save flags
+        pushw %cs       // Setup for long jump to 16bitmode
         incw (%esp)
-        pushw apm16protected_entry
+        pushw 1f
         lcallw *(%esp)
+        addl $4, %esp   // pop call address
+        popfw
         lretl
         .code16gcc
+1:                      // 16bit entry point for apm32 code.
+        ENTRY handle_1553
+        lretw
 
         .org 0xe2c3
         IRQ_ENTRY nmi

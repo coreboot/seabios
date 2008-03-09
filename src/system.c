@@ -419,7 +419,7 @@ handle_15(struct bregs *regs)
     case 0xe8: handle_15e8(regs); break;
     default:   handle_15XX(regs); break;
     }
-    debug_exit(regs);
+    //debug_exit(regs);
 }
 
 // INT 12h Memory Size Service Entry Point

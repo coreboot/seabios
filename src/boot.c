@@ -164,6 +164,9 @@ try_boot(u16 seq_nr)
         return;
     }
 
+    /* Debugging info */
+    BX_INFO("Booting from %x:%x\n", bootseg, bootip);
+
     memset(&cr, 0, sizeof(cr));
     cr.ip = bootip;
     cr.cs = bootseg;

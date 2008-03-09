@@ -349,7 +349,7 @@ disk_1315(struct bregs *regs, u8 device)
     regs->cx = lba >> 16;
     regs->dx = lba & 0xffff;
 
-    disk_ret(regs, 0);
+    disk_ret(regs, DISK_RET_SUCCESS);
     regs->ah = 3; // hard disk accessible
 }
 

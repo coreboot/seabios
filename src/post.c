@@ -131,7 +131,6 @@ kbd_waitdata(u8 code)
 // keyboard_init
 //--------------------------------------------------------------------------
 // this file is based on LinuxBIOS implementation of keyboard.c
-// could convert to #asm to gain space
 static void
 keyboard_init()
 {
