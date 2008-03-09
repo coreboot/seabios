@@ -12,6 +12,9 @@
 #include "util.h" // debug_enter
 #include "ata.h" // ATA_*
 
+#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
+#define DEBUGF(fmt, args...)
+
 
 /****************************************************************
  * Helper functions

@@ -527,11 +527,12 @@ cdrom_boot()
             SETBITS_BDA(equipment_list_flags, 0x41);
         else
             SET_EBDA(ata.hdcount, GET_EBDA(ata.hdcount) + 1);
+        // everything is ok, so from now on, the emulation is active
+        SET_EBDA(cdemu.active, 0x01);
     }
 
-    // everything is ok, so from now on, the emulation is active
-    if (GET_EBDA(cdemu.media))
-        SET_EBDA(cdemu.active, 0x01);
+    DEBUGF("cdemu media=%d active=%d\n"
+           , GET_EBDA(cdemu.media), GET_EBDA(cdemu.active));
 
     return 0;
 }

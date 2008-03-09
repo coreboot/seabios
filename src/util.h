@@ -151,8 +151,8 @@ set_code_success(struct bregs *regs)
     } while (0)
 
 #define set_code_fail(regs, code) do {          \
-        (regs)->ah = (code);                    \
         set_fail(regs);                         \
+        (regs)->ah = (code);                    \
     } while (0)
 
 // kbd.c
