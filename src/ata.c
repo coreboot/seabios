@@ -157,7 +157,6 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
-    u8 current = 0;
 
     u8 status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
@@ -207,8 +206,8 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
 
     irq_enable();
 
+    u8 current = 0;
     while (1) {
-
         if (offset > 0xf800) {
             offset -= 0x800;
             segment += 0x80;
@@ -282,7 +281,6 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
-    u8 current = 0;
 
     u8 status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
@@ -332,8 +330,8 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
 
     irq_enable();
 
+    u8 current = 0;
     while (1) {
-
         if (offset > 0xf800) {
             offset -= 0x800;
             segment += 0x80;
@@ -387,14 +385,13 @@ u16
 ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
                , u32 length, u8 inout, u16 bufseg, u16 bufoff)
 {
-    u16 iobase1, iobase2;
-    u16 lcount, lbefore, lafter, count;
-    u8  channel, slave;
-    u8  status, mode, lmode;
-    u32 transfer;
+    DEBUGF("ata_cmd_packet d=%d cmdlen=%d h=%d l=%d inout=%d"
+           " seg=%x off=%x\n"
+           , device, cmdlen, header, length, inout
+           , bufseg, bufoff);
 
-    channel = device / 2;
-    slave = device % 2;
+    u8 channel = device / 2;
+    u8 slave = device % 2;
 
     // Data out is not supported yet
     if (inout == ATA_DATA_OUT) {
@@ -408,10 +405,9 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
         return 1;
     }
 
-    iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    mode    = GET_EBDA(ata.devices[device].mode);
-    transfer= 0L;
+    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
+    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u8 mode     = GET_EBDA(ata.devices[device].mode);
 
     if (cmdlen < 12)
         cmdlen=12;
@@ -423,7 +419,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
 
-    status = inb(iobase1 + ATA_CB_STAT);
+    u8 status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
         return 2;
 
@@ -459,9 +455,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
         status = inb(iobase1 + ATA_CB_STAT);
     } else {
         u16 loops = 0;
-        u8 sc;
         while (1) {
-
             if (loops == 0) {//first time through
                 status = inb(iobase2 + ATA_CB_ASTAT);
                 await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
@@ -470,7 +464,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
             loops++;
 
             status = inb(iobase1 + ATA_CB_STAT);
-            sc = inb(iobase1 + ATA_CB_SC);
+            inb(iobase1 + ATA_CB_SC);
 
             // Check if command completed
             if(((inb(iobase1 + ATA_CB_SC)&0x7)==0x3) &&
@@ -487,9 +481,11 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
             bufoff %= 16;
 
             // Get the byte count
-            lcount =  ((u16)(inb(iobase1 + ATA_CB_CH))<<8)+inb(iobase1 + ATA_CB_CL);
+            u16 lcount =  (((u16)(inb(iobase1 + ATA_CB_CH))<<8)
+                           + inb(iobase1 + ATA_CB_CL));
 
             // adjust to read what we want
+            u16 lbefore, lafter;
             if (header > lcount) {
                 lbefore=lcount;
                 header-=lcount;
@@ -510,14 +506,14 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
             }
 
             // Save byte count
-            count = lcount;
+            u16 count = lcount;
 
             DEBUGF("Trying to read %04x bytes (%04x %04x %04x) "
                    , lbefore+lcount+lafter, lbefore, lcount, lafter);
             DEBUGF("to 0x%04x:0x%04x\n", bufseg, bufoff);
 
             // If counts not dividable by 4, use 16bits mode
-            lmode = mode;
+            u8 lmode = mode;
             if (lbefore & 0x03) lmode=ATA_MODE_PIO16;
             if (lcount  & 0x03) lmode=ATA_MODE_PIO16;
             if (lafter  & 0x03) lmode=ATA_MODE_PIO16;
@@ -558,8 +554,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
             bufoff += count;
 
             // Save transferred bytes count
-            transfer += count;
-            SET_EBDA(ata.trsfbytes,transfer);
+            SET_EBDA(ata.trsfsectors, loops);
         }
     }
 
