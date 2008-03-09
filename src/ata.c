@@ -182,28 +182,24 @@ u16
 ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
                 , u16 head, u16 sector, u32 lba, u16 segment, u16 offset)
 {
-    u16 iobase1, iobase2, blksize;
-    u8  channel, slave;
-    u8  status, current, mode;
+    DEBUGF("ata_cmd_data_in d=%d cmd=%d count=%d c=%d h=%d s=%d"
+           " lba=%d seg=%x off=%x\n"
+           , device, command, count, cylinder, head, sector
+           , lba, segment, offset);
 
-    channel = device / 2;
-    slave   = device % 2;
+    u8 channel = device / 2;
+    u8 slave   = device % 2;
 
-    iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    mode    = GET_EBDA(ata.devices[device].mode);
-    blksize = 0x200;
-    if (mode == ATA_MODE_PIO32)
-        blksize>>=2;
-    else
-        blksize>>=1;
+    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
+    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u8 mode     = GET_EBDA(ata.devices[device].mode);
 
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
-    current = 0;
+    u8 current = 0;
 
-    status = inb(iobase1 + ATA_CB_STAT);
+    u8 status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
         return 1;
 
@@ -259,9 +255,10 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
         }
 
         if (mode == ATA_MODE_PIO32)
-            insl(iobase1, segment, offset, blksize);
+            insl(iobase1, segment, offset, 512 / 4);
         else
-            insw(iobase1, segment, offset, blksize);
+            insw(iobase1, segment, offset, 512 / 2);
+        offset += 512;
 
         current++;
         SET_EBDA(ata.trsfsectors,current);
@@ -310,28 +307,24 @@ u16
 ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
                  , u16 head, u16 sector, u32 lba, u16 segment, u16 offset)
 {
-    u16 iobase1, iobase2, blksize;
-    u8  channel, slave;
-    u8  status, current, mode;
+    DEBUGF("ata_cmd_data_out d=%d cmd=%d count=%d c=%d h=%d s=%d"
+           " lba=%d seg=%x off=%x\n"
+           , device, command, count, cylinder, head, sector
+           , lba, segment, offset);
 
-    channel = device / 2;
-    slave   = device % 2;
+    u8 channel = device / 2;
+    u8 slave   = device % 2;
 
-    iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    mode    = GET_EBDA(ata.devices[device].mode);
-    blksize = 0x200;
-    if (mode == ATA_MODE_PIO32)
-        blksize>>=2;
-    else
-        blksize>>=1;
+    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
+    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u8 mode     = GET_EBDA(ata.devices[device].mode);
 
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
-    current = 0;
+    u8 current = 0;
 
-    status = inb(iobase1 + ATA_CB_STAT);
+    u8 status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
         return 1;
 
@@ -387,9 +380,10 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
         }
 
         if (mode == ATA_MODE_PIO32)
-            outsl(iobase1, segment, offset, blksize);
+            outsl(iobase1, segment, offset, 512 / 4);
         else
-            outsw(iobase1, segment, offset, blksize);
+            outsw(iobase1, segment, offset, 512 / 2);
+        offset += 512;
 
         current++;
         SET_EBDA(ata.trsfsectors,current);
