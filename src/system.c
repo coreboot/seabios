@@ -123,10 +123,11 @@ handle_1587(struct bregs *regs)
 // check for access rights of source & dest here
 
     // Initialize GDT descriptor
+    SET_SEG(ES, regs->es);
     u16 si = regs->si;
     u16 base15_00 = (regs->es << 4) + si;
     u16 base23_16 = regs->es >> 12;
-    if (base15_00 < (regs->es<<4))
+    if (base15_00 < (u16)(regs->es<<4))
         base23_16++;
     SET_VAR(ES, *(u16*)(si+0x08+0), 47);       // limit 15:00 = 6 * 8bytes/descriptor
     SET_VAR(ES, *(u16*)(si+0x08+2), base15_00);// base 15:00
@@ -153,8 +154,8 @@ handle_1587(struct bregs *regs)
 
     asm volatile(
         // Load new descriptor tables
-        "lgdt %%es:(%1)\n"
-        "lidt %%cs:pmode_IDT_info\n"
+        "lgdtw %%es:0x8(%%si)\n"
+        "lidtw %%cs:pmode_IDT_info\n"
 
         // set PE bit in CR0
         "movl %%cr0, %%eax\n"
@@ -191,8 +192,8 @@ handle_1587(struct bregs *regs)
         // Restore %ds (from %ss)
         "movw %%ss, %%ax\n"
         "movw %%ax, %%ds\n"
-        : : "c" (regs->cx), "r" (si + 8)
-        : "eax", "di", "si"); // XXX - also clobbers %es
+        : "+c"(regs->cx), "+S"(si)
+        : : "eax", "di"); // XXX - also clobbers %es
 
     set_a20(prev_a20_enable);
 
