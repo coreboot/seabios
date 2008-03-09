@@ -199,11 +199,9 @@ __debug_enter(const char *fname, struct bregs *regs)
 }
 
 void
-__debug_exit(const char *fname, struct bregs *regs)
+__debug_fail(const char *fname, struct bregs *regs)
 {
-    if (! (regs->flags & F_CF))
-        return;
-    dump_regs(fname, "exit", regs);
+    dump_regs(fname, "fail", regs);
 }
 
 void

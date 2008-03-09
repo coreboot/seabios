@@ -35,14 +35,14 @@ handle_155300(struct bregs *regs)
     // bit 0 : 16 bit interface supported
     // bit 1 : 32 bit interface supported
     regs->cx = 0x03;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM real mode interface connect
 static void
 handle_155301(struct bregs *regs)
 {
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Assembler entry points defined in romlayout.S
@@ -58,7 +58,7 @@ handle_155302(struct bregs *regs)
     regs->si = 0xfff0;   // 16 bit code segment size
     regs->cx = SEG_BIOS; // data segment address
     regs->di = 0xfff0;   // data segment length
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM 32 bit protected mode interface connect
@@ -73,14 +73,14 @@ handle_155303(struct bregs *regs)
     regs->esi = 0xfff0fff0;
     regs->dx = SEG_BIOS; // data segment address
     regs->di = 0xfff0; // data segment length
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM interface disconnect
 static void
 handle_155304(struct bregs *regs)
 {
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM cpu idle
@@ -89,7 +89,7 @@ handle_155305(struct bregs *regs)
 {
     irq_enable();
     hlt();
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM Set Power State
@@ -97,7 +97,7 @@ static void
 handle_155307(struct bregs *regs)
 {
     if (regs->bx != 1) {
-        set_cf(regs, 0);
+        set_success(regs);
         return;
     }
     switch (regs->cx) {
@@ -114,13 +114,13 @@ handle_155307(struct bregs *regs)
             hlt();
         break;
     }
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
 handle_155308(struct bregs *regs)
 {
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Get Power Status
@@ -133,15 +133,15 @@ handle_15530a(struct bregs *regs)
     regs->cl = 0xff; // unknown remaining time
     regs->dx = 0xffff; // unknown remaining time
     regs->si = 0x00; // zero battery
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Get PM Event
 static void
 handle_15530b(struct bregs *regs)
 {
+    set_fail(regs);
     regs->ah = 0x80; // no event pending
-    set_cf(regs, 1);
 }
 
 // APM Driver Version
@@ -150,14 +150,14 @@ handle_15530e(struct bregs *regs)
 {
     regs->ah = 1;
     regs->al = 2;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM Engage / Disengage
 static void
 handle_15530f(struct bregs *regs)
 {
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // APM Get Capabilities
@@ -166,13 +166,13 @@ handle_155310(struct bregs *regs)
 {
     regs->bl = 0;
     regs->cx = 0;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
 handle_1553XX(struct bregs *regs)
 {
-    set_cf(regs, 1);
+    set_fail(regs);
 }
 
 void VISIBLE16

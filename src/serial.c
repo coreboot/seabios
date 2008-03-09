@@ -17,12 +17,12 @@ static u16
 getComAddr(struct bregs *regs)
 {
     if (regs->dx >= 4) {
-        set_cf(regs, 1);
+        set_fail(regs);
         return 0;
     }
     u16 addr = GET_BDA(port_com[regs->dx]);
     if (! addr)
-        set_cf(regs, 1);
+        set_fail(regs);
     return addr;
 }
 
@@ -44,7 +44,7 @@ handle_1400(struct bregs *regs)
     outb(regs->al & 0x1F, addr+3);
     regs->ah = inb(addr+5);
     regs->al = inb(addr+6);
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
@@ -67,7 +67,7 @@ handle_1401(struct bregs *regs)
     regs->ah = inb(addr+5);
     if (!timeout)
         regs->ah |= 0x80;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
@@ -91,7 +91,7 @@ handle_1402(struct bregs *regs)
     } else {
         regs->ah = inb(addr+5);
     }
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
@@ -102,14 +102,14 @@ handle_1403(struct bregs *regs)
         return;
     regs->ah = inb(addr+5);
     regs->al = inb(addr+6);
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
 handle_14XX(struct bregs *regs)
 {
     // Unsupported
-    set_cf(regs, 1);
+    set_fail(regs);
 }
 
 // INT 14h Serial Communications Service Entry Point
@@ -127,7 +127,6 @@ handle_14(struct bregs *regs)
     case 0x03: handle_1403(regs); break;
     default:   handle_14XX(regs); break;
     }
-    debug_exit(regs);
 }
 
 
@@ -139,12 +138,12 @@ static u16
 getLptAddr(struct bregs *regs)
 {
     if (regs->dx >= 3) {
-        set_cf(regs, 1);
+        set_fail(regs);
         return 0;
     }
     u16 addr = GET_BDA(port_lpt[regs->dx]);
     if (! addr)
-        set_cf(regs, 1);
+        set_fail(regs);
     return addr;
 }
 
@@ -155,7 +154,7 @@ lpt_ret(struct bregs *regs, u16 addr, u16 timeout)
     regs->ah = (val8 ^ 0x48);
     if (!timeout)
         regs->ah |= 0x01;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // INT 17 - PRINTER - WRITE CHARACTER
@@ -211,7 +210,7 @@ static void
 handle_17XX(struct bregs *regs)
 {
     // Unsupported
-    set_cf(regs, 1);
+    set_fail(regs);
 }
 
 // INT17h : Printer Service Entry Point
@@ -228,5 +227,4 @@ handle_17(struct bregs *regs)
     case 0x02: handle_1702(regs); break;
     default:   handle_17XX(regs); break;
     }
-    debug_exit(regs);
 }

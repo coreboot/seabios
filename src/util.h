@@ -118,19 +118,42 @@ void __call16_int(struct bregs *callregs, u16 offset)
 void bprintf(u16 action, const char *fmt, ...)
     __attribute__ ((format (printf, 2, 3)));
 void __debug_enter(const char *fname, struct bregs *regs);
-void __debug_exit(const char *fname, struct bregs *regs);
+void __debug_fail(const char *fname, struct bregs *regs);
 void __debug_stub(const char *fname, struct bregs *regs);
 void __debug_isr(const char *fname, struct bregs *regs);
 #define debug_enter(regs) \
     __debug_enter(__func__, regs)
-#define debug_exit(regs) \
-    __debug_exit(__func__, regs)
 #define debug_stub(regs) \
     __debug_stub(__func__, regs)
 #define debug_isr(regs) \
     __debug_isr(__func__, regs)
 #define printf(fmt, args...)                     \
     bprintf(1, fmt , ##args )
+
+// Frequently used return codes
+#define RET_EUNSUPPORTED 0x86
+static inline void
+set_success(struct bregs *regs)
+{
+    set_cf(regs, 0);
+}
+
+static inline void
+set_code_success(struct bregs *regs)
+{
+    regs->ah = 0;
+    set_cf(regs, 0);
+}
+
+#define set_fail(regs) do {                     \
+        __debug_fail(__func__, (regs));         \
+        set_cf((regs), 1);                      \
+    } while (0)
+
+#define set_code_fail(regs, code) do {          \
+        (regs)->ah = (code);                    \
+        set_fail(regs);                         \
+    } while (0)
 
 // kbd.c
 void handle_15c2(struct bregs *regs);
@@ -140,15 +163,6 @@ void handle_1583(struct bregs *regs);
 
 // apm.c
 void VISIBLE16 handle_1553(struct bregs *regs);
-
-// Frequent bios return helper
-#define RET_EUNSUPPORTED 0x86
-static inline void
-handle_ret(struct bregs *regs, u8 code)
-{
-    regs->ah = code;
-    set_cf(regs, code);
-}
 
 // util.c
 void usleep(u32 count);

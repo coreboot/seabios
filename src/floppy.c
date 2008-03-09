@@ -334,16 +334,18 @@ floppy_media_sense(u8 drive)
 static inline void
 floppy_ret(struct bregs *regs, u8 code)
 {
-    regs->ah = code;
     SET_BDA(floppy_last_status, code);
-    set_cf(regs, code);
+    if (code)
+        set_code_fail(regs, code);
+    else
+        set_code_success(regs);
 }
 
 static inline void
 floppy_fail(struct bregs *regs, u8 code)
 {
-    regs->al = 0; // no sectors read
     floppy_ret(regs, code);
+    regs->al = 0; // no sectors read
 }
 
 static u16
@@ -476,8 +478,8 @@ floppy_1303(struct bregs *regs, u8 drive)
 
     if (data[0] & 0xc0) {
         if (data[1] & 0x02) {
+            set_fail(regs);
             regs->ax = 0x0300;
-            set_cf(regs, 1);
             return;
         }
         BX_PANIC("int13_diskette_function: read error\n");
@@ -549,8 +551,8 @@ floppy_1305(struct bregs *regs, u8 drive)
 
     if (data[0] & 0xc0) {
         if (data[1] & 0x02) {
+            set_fail(regs);
             regs->ax = 0x0300;
-            set_cf(regs, 1);
             return;
         }
         BX_PANIC("int13_diskette_function: read error\n");
@@ -581,7 +583,7 @@ floppy_1308(struct bregs *regs, u8 drive)
         regs->es = 0;
         regs->di = 0;
         regs->dl = num_floppies;
-        set_cf(regs, 0);
+        set_success(regs);
         return;
     }
 
@@ -658,15 +660,15 @@ floppy_1315(struct bregs *regs, u8 drive)
 {
     DEBUGF("floppy f15\n");
     if (drive > 1) {
+        set_fail(regs);
         regs->ah = 0; // only 2 drives supported
         // set_diskette_ret_status here ???
-        set_cf(regs, 1);
         return;
     }
     u8 drive_type = get_drive_type(drive);
 
     regs->ah = (drive_type != 0);
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // get diskette change line status

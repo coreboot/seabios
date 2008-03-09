@@ -35,34 +35,34 @@ static void
 handle_152400(struct bregs *regs)
 {
     set_a20(0);
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 static void
 handle_152401(struct bregs *regs)
 {
     set_a20(1);
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 static void
 handle_152402(struct bregs *regs)
 {
     regs->al = !!(inb(PORT_A20) & 0x20);
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 static void
 handle_152403(struct bregs *regs)
 {
     regs->bx = 3;
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 static void
 handle_1524XX(struct bregs *regs)
 {
-    handle_ret(regs, RET_EUNSUPPORTED);
+    set_code_fail(regs, RET_EUNSUPPORTED);
 }
 
 static void
@@ -81,7 +81,7 @@ handle_1524(struct bregs *regs)
 static void
 handle_1552(struct bregs *regs)
 {
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 // Wait for CX:DX microseconds. currently using the
@@ -196,7 +196,7 @@ handle_1587(struct bregs *regs)
 
     set_a20(prev_a20_enable);
 
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 // Get the amount of extended memory (above 1M)
@@ -209,7 +209,7 @@ handle_1588(struct bregs *regs)
     // but real machines mostly return max. 63M.
     if (regs->ax > 0xffc0)
         regs->ax = 0xffc0;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Device busy interrupt.  Called by Int 16h when no key available
@@ -228,6 +228,7 @@ handle_1591(struct bregs *regs)
 static void
 handle_154f(struct bregs *regs)
 {
+    // set_fail(regs);  -- don't report this failure.
     set_cf(regs, 1);
 }
 
@@ -236,14 +237,14 @@ handle_15c0(struct bregs *regs)
 {
     regs->es = SEG_BIOS;
     regs->bx = (u16)&BIOS_CONFIG_TABLE;
-    handle_ret(regs, 0);
+    set_code_success(regs);
 }
 
 static void
 handle_15c1(struct bregs *regs)
 {
     regs->es = GET_BDA(ebda_seg);
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
@@ -272,7 +273,7 @@ handle_15e801(struct bregs *regs)
     regs->ax = regs->cx;
     regs->bx = regs->dx;
 
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 #define ACPI_DATA_SIZE    0x00010000L
@@ -300,7 +301,7 @@ static void
 handle_15e820(struct bregs *regs)
 {
     if (regs->edx != 0x534D4150) {
-        handle_ret(regs, RET_EUNSUPPORTED);
+        set_code_fail(regs, RET_EUNSUPPORTED);
         return;
     }
 
@@ -328,21 +329,21 @@ handle_15e820(struct bregs *regs)
         regs->ebx = 1;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
-        set_cf(regs, 0);
+        set_success(regs);
         break;
     case 1:
         set_e820_range(regs->di, 0x0009fc00L, 0x000a0000L, E820_RESERVED);
         regs->ebx = 2;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
-        set_cf(regs, 0);
+        set_success(regs);
         break;
     case 2:
         set_e820_range(regs->di, 0x000e8000L, 0x00100000L, E820_RESERVED);
         regs->ebx = 3;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
-        set_cf(regs, 0);
+        set_success(regs);
         break;
     case 3:
         set_e820_range(regs->di, 0x00100000L,
@@ -350,7 +351,7 @@ handle_15e820(struct bregs *regs)
         regs->ebx = 4;
         regs->eax = 0x534D4150;
         regs->ecx = 0x14;
-        set_cf(regs, 0);
+        set_success(regs);
         break;
     case 4:
         set_e820_range(regs->di,
@@ -370,14 +371,14 @@ handle_15e820(struct bregs *regs)
         set_cf(regs, 0);
         break;
     default:  /* AX=E820, DX=534D4150, BX unrecognized */
-        handle_ret(regs, RET_EUNSUPPORTED);
+        set_code_fail(regs, RET_EUNSUPPORTED);
     }
 }
 
 static void
 handle_15e8XX(struct bregs *regs)
 {
-    handle_ret(regs, RET_EUNSUPPORTED);
+    set_code_fail(regs, RET_EUNSUPPORTED);
 }
 
 static void
@@ -393,7 +394,7 @@ handle_15e8(struct bregs *regs)
 static void
 handle_15XX(struct bregs *regs)
 {
-    handle_ret(regs, RET_EUNSUPPORTED);
+    set_code_fail(regs, RET_EUNSUPPORTED);
 }
 
 // INT 15h System Services Entry Point
@@ -418,7 +419,6 @@ handle_15(struct bregs *regs)
     case 0xe8: handle_15e8(regs); break;
     default:   handle_15XX(regs); break;
     }
-    //debug_exit(regs);
 }
 
 // INT 12h Memory Size Service Entry Point
@@ -427,7 +427,6 @@ handle_12(struct bregs *regs)
 {
     debug_enter(regs);
     regs->ax = GET_BDA(mem_size_kb);
-    debug_exit(regs);
 }
 
 // INT 11h Equipment List Service Entry Point
@@ -436,7 +435,6 @@ handle_11(struct bregs *regs)
 {
     debug_enter(regs);
     regs->ax = GET_BDA(equipment_list_flags);
-    debug_exit(regs);
 }
 
 // INT 05h Print Screen Service Entry Point

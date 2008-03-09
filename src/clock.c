@@ -51,7 +51,7 @@ handle_1a00(struct bregs *regs)
     regs->dx = ticks;
     regs->al = GET_BDA(timer_rollover);
     SET_BDA(timer_rollover, 0); // reset flag
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Set Current Clock Count
@@ -62,7 +62,7 @@ handle_1a01(struct bregs *regs)
     SET_BDA(timer_counter, ticks);
     SET_BDA(timer_rollover, 0); // reset flag
     regs->ah = 0;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Read CMOS Time
@@ -70,7 +70,7 @@ static void
 handle_1a02(struct bregs *regs)
 {
     if (rtc_updating()) {
-        set_cf(regs, 1);
+        set_fail(regs);
         return;
     }
 
@@ -80,7 +80,7 @@ handle_1a02(struct bregs *regs)
     regs->dl = inb_cmos(CMOS_STATUS_B) & 0x01;
     regs->ah = 0;
     regs->al = regs->ch;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Set CMOS Time
@@ -109,7 +109,7 @@ handle_1a03(struct bregs *regs)
     outb_cmos(val8, CMOS_STATUS_B);
     regs->ah = 0;
     regs->al = val8; // val last written to Reg B
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Read CMOS Date
@@ -118,7 +118,7 @@ handle_1a04(struct bregs *regs)
 {
     regs->ah = 0;
     if (rtc_updating()) {
-        set_cf(regs, 1);
+        set_fail(regs);
         return;
     }
     regs->cl = inb_cmos(CMOS_RTC_YEAR);
@@ -126,7 +126,7 @@ handle_1a04(struct bregs *regs)
     regs->dl = inb_cmos(CMOS_RTC_DAY_MONTH);
     regs->ch = inb_cmos(CMOS_CENTURY);
     regs->al = regs->ch;
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Set CMOS Date
@@ -145,7 +145,7 @@ handle_1a05(struct bregs *regs)
     // My assumption: RegB = (RegB & 01111111b)
     if (rtc_updating()) {
         init_rtc();
-        set_cf(regs, 1);
+        set_fail(regs);
         return;
     }
     outb_cmos(regs->cl, CMOS_RTC_YEAR);
@@ -156,7 +156,7 @@ handle_1a05(struct bregs *regs)
     outb_cmos(val8, CMOS_STATUS_B);
     regs->ah = 0;
     regs->al = val8; // AL = val last written to Reg B
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Set Alarm Time in CMOS
@@ -177,7 +177,7 @@ handle_1a06(struct bregs *regs)
     regs->ax = 0;
     if (val8 & 0x20) {
         // Alarm interrupt enabled already
-        set_cf(regs, 1);
+        set_fail(regs);
         return;
     }
     if (rtc_updating()) {
@@ -190,7 +190,7 @@ handle_1a06(struct bregs *regs)
     outb(inb(PORT_PIC2_DATA) & ~PIC2_IRQ8, PORT_PIC2_DATA); // enable IRQ 8
     // enable Status Reg B alarm bit, clear halt clock bit
     outb_cmos((val8 & 0x7f) | 0x20, CMOS_STATUS_B);
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // Turn off Alarm
@@ -212,21 +212,21 @@ handle_1a07(struct bregs *regs)
     outb_cmos(val8 & 0x57, CMOS_STATUS_B); // disable alarm bit
     regs->ah = 0;
     regs->al = val8; // val last written to Reg B
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 static void
 handle_1ab1(struct bregs *regs)
 {
     // XXX - pcibios stuff
-    set_cf(regs, 1);
+    set_fail(regs);
 }
 
 // Unsupported
 static void
 handle_1aXX(struct bregs *regs)
 {
-    set_cf(regs, 1);
+    set_fail(regs);
 }
 
 // INT 1Ah Time-of-day Service Entry Point
@@ -246,7 +246,6 @@ handle_1a(struct bregs *regs)
     case 0xb1: handle_1ab1(regs); break;
     default:   handle_1aXX(regs); break;
     }
-    debug_exit(regs);
 }
 
 // User Timer Tick
@@ -290,7 +289,7 @@ handle_158300(struct bregs *regs)
     if (GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING) {
         // Interval already set.
         DEBUGF("int15: Func 83h, failed, already waiting.\n" );
-        handle_ret(regs, RET_EUNSUPPORTED);
+        set_code_fail(regs, RET_EUNSUPPORTED);
     }
     // Interval not already set.
     SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
@@ -306,7 +305,7 @@ handle_158300(struct bregs *regs)
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
     outb_cmos(CMOS_STATUS_B, bRegister | CSB_EN_ALARM_IRQ);
 
-    set_cf(regs, 0); // XXX - no set ah?
+    set_success(regs); // XXX - no set ah?
 }
 
 // Clear interval requested
@@ -317,14 +316,14 @@ handle_158301(struct bregs *regs)
     // Turn off the Periodic Interrupt timer
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
     outb_cmos(CMOS_STATUS_B, bRegister & ~CSB_EN_ALARM_IRQ);
-    set_cf(regs, 0); // XXX - no set ah?
+    set_success(regs); // XXX - no set ah?
 }
 
 static void
 handle_1583XX(struct bregs *regs)
 {
+    set_code_fail(regs, RET_EUNSUPPORTED);
     regs->al--;
-    handle_ret(regs, RET_EUNSUPPORTED);
 }
 
 void

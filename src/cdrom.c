@@ -112,9 +112,9 @@ cdrom_1346(struct bregs *regs, u8 device)
 static void
 cdrom_1349(struct bregs *regs, u8 device)
 {
+    set_fail(regs);
     // always send changed ??
     regs->ah = DISK_RET_ECHANGED;
-    set_cf(regs, 1);
 }
 
 static void

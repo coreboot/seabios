@@ -707,7 +707,6 @@ handle_40(struct bregs *regs)
 {
     debug_enter(regs);
     handle_legacy_disk(regs, regs->dl);
-    debug_exit(regs);
 }
 
 // INT 13h Fixed Disk Services Entry Point
@@ -720,20 +719,18 @@ handle_13(struct bregs *regs)
     if (CONFIG_CDROM_BOOT) {
         if (regs->ah == 0x4b) {
             cdemu_134b(regs);
-            goto done;
+            return;
         }
         if (GET_EBDA(cdemu.active)) {
             if (drive == GET_EBDA(cdemu.emulated_drive)) {
                 cdemu_13(regs);
-                goto done;
+                return;
             }
             if (drive < 0xe0)
                 drive--;
         }
     }
     handle_legacy_disk(regs, drive);
-done:
-    debug_exit(regs);
 }
 
 // record completion in BIOS task complete flag
