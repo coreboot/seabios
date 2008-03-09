@@ -174,10 +174,17 @@ try_boot(u16 seq_nr)
     cr.dl = bootdrv;
     cr.ax = 0xaa55;
     call16(&cr);
+}
+
+static void
+do_boot(u16 seq_nr)
+{
+    try_boot(seq_nr);
 
     // Boot failed: invoke the boot recovery function
-    memset(&cr, 0, sizeof(cr));
-    call16_int(0x18, &cr);
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x18, &br);
 }
 
 // Boot Failure recovery: try the next device.
@@ -186,7 +193,7 @@ handle_18()
 {
     debug_enter(NULL);
     u16 seq = GET_IPL(sequence) + 1;
-    try_boot(seq);
+    do_boot(seq);
 }
 
 // INT 19h Boot Load Service Entry Point
@@ -194,7 +201,7 @@ void VISIBLE16
 handle_19()
 {
     debug_enter(NULL);
-    try_boot(0);
+    do_boot(0);
 }
 
 // Called from 32bit code - start boot process
