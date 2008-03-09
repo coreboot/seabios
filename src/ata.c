@@ -125,46 +125,6 @@ ata_reset(u16 device)
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
 }
 
-static void
-insw(u16 port, u16 segment, u16 offset, u16 count)
-{
-    u16 i;
-    for (i=0; i<count; i++) {
-        u16 d = inw(port);
-        SET_FARVAR(segment, *(u16*)(offset + 2*i), d);
-    }
-}
-
-static void
-insl(u16 port, u16 segment, u16 offset, u16 count)
-{
-    u16 i;
-    for (i=0; i<count; i++) {
-        u32 d = inl(port);
-        SET_FARVAR(segment, *(u32*)(offset + 4*i), d);
-    }
-}
-
-static void
-outsw(u16 port, u16 segment, u16 offset, u16 count)
-{
-    u16 i;
-    for (i=0; i<count; i++) {
-        u16 d = GET_FARVAR(segment, *(u16*)(offset + 2*i));
-        outw(d, port);
-    }
-}
-
-static void
-outsl(u16 port, u16 segment, u16 offset, u16 count)
-{
-    u16 i;
-    for (i=0; i<count; i++) {
-        u32 d = GET_FARVAR(segment, *(u32*)(offset + 4*i));
-        outl(d, port);
-    }
-}
-
 
 // ---------------------------------------------------------------------------
 // ATA/ATAPI driver : execute a data-in command
@@ -255,9 +215,9 @@ ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
         }
 
         if (mode == ATA_MODE_PIO32)
-            insl(iobase1, segment, offset, 512 / 4);
+            insl_seg(iobase1, segment, offset, 512 / 4);
         else
-            insw(iobase1, segment, offset, 512 / 2);
+            insw_seg(iobase1, segment, offset, 512 / 2);
         offset += 512;
 
         current++;
@@ -380,9 +340,9 @@ ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
         }
 
         if (mode == ATA_MODE_PIO32)
-            outsl(iobase1, segment, offset, 512 / 4);
+            outsl_seg(iobase1, segment, offset, 512 / 4);
         else
-            outsw(iobase1, segment, offset, 512 / 2);
+            outsw_seg(iobase1, segment, offset, 512 / 2);
         offset += 512;
 
         current++;
@@ -492,7 +452,7 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
     // Send command to device
     irq_enable();
 
-    outsw(iobase1, GET_SEG(SS), (u32)cmdbuf, cmdlen);
+    outsw_seg(iobase1, GET_SEG(SS), (u32)cmdbuf, cmdlen);
 
     if (inout == ATA_DATA_NO) {
         await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
@@ -584,9 +544,9 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
                     inw(iobase1);
 
             if (lmode == ATA_MODE_PIO32)
-                insl(iobase1, bufseg, bufoff, lcount);
+                insl_seg(iobase1, bufseg, bufoff, lcount);
             else
-                insw(iobase1, bufseg, bufoff, lcount);
+                insw_seg(iobase1, bufseg, bufoff, lcount);
 
             for (i=0; i<lafter; i++)
                 if (lmode == ATA_MODE_PIO32)

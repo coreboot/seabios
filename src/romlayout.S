@@ -245,6 +245,7 @@ rombios32_gdt:
  ****************************************************************/
 
         .macro ENTRY cfunc
+        cld
         pushal
         pushw %es
         pushw %ds

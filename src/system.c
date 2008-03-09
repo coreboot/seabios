@@ -174,7 +174,6 @@ handle_1587(struct bregs *regs)
         // move CX words from DS:SI to ES:DI
         "xorw %%si, %%si\n"
         "xorw %%di, %%di\n"
-        "cld\n"
         "rep movsw\n"
 
         // reset PG bit in CR0 ???

@@ -6,6 +6,8 @@
 #ifndef __FARPTR_H
 #define __FARPTR_H
 
+#include "ioport.h" // insb
+
 #define READ8_SEG(SEG, var) ({                                          \
     u8 __value;                                                         \
     __asm__ __volatile__("movb %%" #SEG ":%1, %b0"                      \
@@ -99,5 +101,30 @@ extern void __force_link_error__unknown_type();
 #define GET_FARPTR(ptr) (ptr)
 #define SET_FARPTR(ptr, val) do { (var) = (val); } while (0)
 #endif
+
+static inline void insb_seg(u16 port, u16 segment, u16 offset, u16 count) {
+    SET_SEG(ES, segment);
+    insb(port, (u8*)(offset+0), count);
+}
+static inline void insw_seg(u16 port, u16 segment, u16 offset, u16 count) {
+    SET_SEG(ES, segment);
+    insw(port, (u16*)(offset+0), count);
+}
+static inline void insl_seg(u16 port, u16 segment, u16 offset, u16 count) {
+    SET_SEG(ES, segment);
+    insl(port, (u32*)(offset+0), count);
+}
+static inline void outsb_seg(u16 port, u16 segment, u16 offset, u16 count) {
+    SET_SEG(ES, segment);
+    outsb(port, (u8*)(offset+0), count);
+}
+static inline void outsw_seg(u16 port, u16 segment, u16 offset, u16 count) {
+    SET_SEG(ES, segment);
+    outsw(port, (u16*)(offset+0), count);
+}
+static inline void outsl_seg(u16 port, u16 segment, u16 offset, u16 count) {
+    SET_SEG(ES, segment);
+    outsl(port, (u32*)(offset+0), count);
+}
 
 #endif // farptr.h
