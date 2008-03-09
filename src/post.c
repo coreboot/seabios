@@ -536,6 +536,10 @@ post()
     // XXX - original bios calls ata_detect before rom scan.
     rom_scan(0xc8000, 0xe0000);
 
+    // reset the memory (some boot loaders such as syslinux suppose
+    // that the memory is set to zero)
+    memset((void*)0x40000, 0, 0x40000); // XXX - shouldn't use globals
+
     callrom(SEG_BIOS, OFFSET_begin_boot);
 }
 
