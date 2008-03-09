@@ -69,8 +69,9 @@ extern void __force_link_error__unknown_type();
     SET_SEG(ES, (seg));                         \
     GET_VAR(ES, (var)); })
 #define SET_FARVAR(seg, var, val) do {          \
+        typeof(var) __sfv_val = (val);          \
         SET_SEG(ES, (seg));                     \
-        SET_VAR(ES, (var), val);                \
+        SET_VAR(ES, (var), __sfv_val);          \
     } while (0)
 
 #define PTR_TO_SEG(p) ((((u32)(p)) >> 4) & 0xf000)
