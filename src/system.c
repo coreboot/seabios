@@ -152,6 +152,7 @@ handle_1587(struct bregs *regs)
     SET_VAR(ES, *(u8 *)(si+0x28+5), 0x93);     // access
     SET_VAR(ES, *(u16*)(si+0x28+6), 0x0000);   // base 31:24/reserved/limit 19:16
 
+    u16 count = regs->cx;
     asm volatile(
         // Load new descriptor tables
         "lgdtw %%es:0x8(%%si)\n"
@@ -192,7 +193,7 @@ handle_1587(struct bregs *regs)
         // Restore %ds (from %ss)
         "movw %%ss, %%ax\n"
         "movw %%ax, %%ds\n"
-        : "+c"(regs->cx), "+S"(si)
+        : "+c"(count), "+S"(si)
         : : "eax", "di"); // XXX - also clobbers %es
 
     set_a20(prev_a20_enable);
