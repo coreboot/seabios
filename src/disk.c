@@ -44,7 +44,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 sector      = regs->cl & 0x3f;
     u16 head        = regs->dh;
 
-    if ((count > 128) || (count == 0) || (sector == 0)) {
+    if (count > 128 || count == 0 || sector == 0) {
         BX_INFO("int13_harddisk: function %02x, parameter out of range!\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -58,20 +58,12 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 npspt = GET_EBDA(ata.devices[device].pchs.spt);
 
     // sanity check on cyl heads, sec
-    if ( (cylinder >= nlc) || (head >= nlh) || (sector > nlspt )) {
+    if (cylinder >= nlc || head >= nlh || sector > nlspt) {
         BX_INFO("int13_harddisk: function %02x, parameters out of"
                 " range %04x/%04x/%04x!\n"
                 , regs->ah, cylinder, head, sector);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
-    }
-
-    u32 lba = 0;
-    // if needed, translate lchs to lba, and execute command
-    if ( (nph != nlh) || (npspt != nlspt)) {
-        lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
-               + (u32)sector - 1);
-        sector = 0; // this forces the command to be lba
     }
 
     if (!command) {
@@ -83,9 +75,19 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 segment = regs->es;
     u16 offset  = regs->bx;
 
-    u8 status = ata_cmd_data(device, command
-                             , count, cylinder, head, sector
-                             , lba, segment, offset);
+    u8 status;
+    u32 lba;
+    if (nph != nlh || npspt != nlspt) {
+        // translate lchs to lba
+        lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+               + (u32)sector - 1);
+        status = ata_cmd_data(device, command, lba, count, segment, offset);
+    } else {
+        // XXX - see if lba access can always be used.
+        status = ata_cmd_data_chs(device, command
+                                  , cylinder, head, sector
+                                  , count, segment, offset);
+    }
 
     // Set nb of sector transferred
     regs->al = GET_EBDA(ata.trsfsectors);
@@ -188,9 +190,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
     u8 status;
     if (type == ATA_TYPE_ATA)
-        status = ata_cmd_data(device, command
-                              , count, 0, 0, 0
-                              , lba, segment, offset);
+        status = ata_cmd_data(device, command, lba, count, segment, offset);
     else
         status = cdrom_read(device, lba, count*2048, segment, offset, 0);
 

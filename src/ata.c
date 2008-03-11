@@ -28,7 +28,7 @@
 static int
 await_ide(u8 when_done, u16 base, u16 timeout)
 {
-    u32 time=0,last=0;
+    u32 time=0, last=0;
     // for the times you're supposed to throw one away
     u16 status = inb(base + ATA_CB_STAT);
     for (;;) {
@@ -138,90 +138,97 @@ ata_reset(u16 device)
       // 5 : more sectors to read/verify
       // 6 : no sectors left to write
       // 7 : more sectors to write
-u16
-ata_cmd_data(u16 device, u16 command, u16 count, u16 cylinder
-             , u16 head, u16 sector, u32 lba, u16 segment, u16 offset)
+
+static int
+send_cmd(struct ata_pio_command *cmd)
 {
-    DEBUGF("ata_cmd_data d=%d cmd=%d count=%d c=%d h=%d s=%d"
-           " lba=%d seg=%x off=%x\n"
-           , device, command, count, cylinder, head, sector
-           , lba, segment, offset);
-
-    u8 channel = device / 2;
-    u8 slave   = device % 2;
-
+    u16 biosid = cmd->biosid;
+    u8 channel = biosid / 2;
     u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
     u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    u8 mode     = GET_EBDA(ata.devices[device].mode);
-
-    // Reset count of transferred data
-    SET_EBDA(ata.trsfsectors,0);
-    SET_EBDA(ata.trsfbytes,0L);
 
     u8 status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
         return 1;
 
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
-
-    // sector will be 0 only on lba access. Convert to lba-chs
-    if (sector == 0) {
-        if ((count >= 1 << 8) || (lba + count >= 1UL << 28)) {
-            outb(0x00, iobase1 + ATA_CB_FR);
-            outb((count >> 8) & 0xff, iobase1 + ATA_CB_SC);
-            outb(lba >> 24, iobase1 + ATA_CB_SN);
-            outb(0, iobase1 + ATA_CB_CL);
-            outb(0, iobase1 + ATA_CB_CH);
-            command |= 0x04;
-            count &= (1UL << 8) - 1;
-            lba &= (1UL << 24) - 1;
-        }
-        sector = (u16) (lba & 0x000000ffL);
-        cylinder = (u16) ((lba>>8) & 0x0000ffffL);
-        head = ((u16) ((lba>>24) & 0x0000000fL)) | ATA_CB_DH_LBA;
+    if (cmd->command & 0x04) {
+        outb(0x00, iobase1 + ATA_CB_FR);
+        outb(cmd->sector_count2, iobase1 + ATA_CB_SC);
+        outb(cmd->lba_low2, iobase1 + ATA_CB_SN);
+        outb(cmd->lba_mid2, iobase1 + ATA_CB_CL);
+        outb(cmd->lba_high2, iobase1 + ATA_CB_CH);
     }
-
-    outb(0x00, iobase1 + ATA_CB_FR);
-    outb(count, iobase1 + ATA_CB_SC);
-    outb(sector, iobase1 + ATA_CB_SN);
-    outb(cylinder & 0x00ff, iobase1 + ATA_CB_CL);
-    outb(cylinder >> 8, iobase1 + ATA_CB_CH);
-    outb((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0) | (u8) head
-         , iobase1 + ATA_CB_DH);
-    outb(command, iobase1 + ATA_CB_CMD);
+    outb(cmd->feature, iobase1 + ATA_CB_FR);
+    outb(cmd->sector_count, iobase1 + ATA_CB_SC);
+    outb(cmd->lba_low, iobase1 + ATA_CB_SN);
+    outb(cmd->lba_mid, iobase1 + ATA_CB_CL);
+    outb(cmd->lba_high, iobase1 + ATA_CB_CH);
+    outb(cmd->device, iobase1 + ATA_CB_DH);
+    outb(cmd->command, iobase1 + ATA_CB_CMD);
 
     await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
-    status = inb(iobase1 + ATA_CB_STAT);
 
+    status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_ERR) {
-        DEBUGF("ata_cmd_data : read error\n");
+        DEBUGF("send_cmd : read error\n");
         return 2;
     }
     if (!(status & ATA_CB_STAT_DRQ)) {
-        DEBUGF("ata_cmd_data : DRQ not set (status %02x)\n"
+        DEBUGF("send_cmd : DRQ not set (status %02x)\n"
                , (unsigned) status);
         return 3;
     }
 
-    // FIXME : move seg/off translation here
+    return 0;
+}
+
+int
+ata_transfer(struct ata_pio_command *cmd)
+{
+    DEBUGF("ata_transfer id=%d cmd=%d lba=%d count=%d seg=%x off=%x\n"
+           , cmd->biosid, cmd->command
+           , (cmd->lba_high << 16) | (cmd->lba_mid << 8) | cmd->lba_low
+           , cmd->sector_count, cmd->segment, cmd->offset);
+
+    // Reset count of transferred data
+    SET_EBDA(ata.trsfsectors,0);
+    SET_EBDA(ata.trsfbytes,0L);
+
+    int ret = send_cmd(cmd);
+    if (ret)
+        return ret;
+
+    u16 biosid = cmd->biosid;
+    u8 channel  = biosid / 2;
+    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
+    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u8 mode     = GET_EBDA(ata.devices[biosid].mode);
+    int iswrite = (cmd->command & ~0x40) == ATA_CMD_WRITE_SECTORS;
 
     irq_enable();
 
+    u16 segment = cmd->segment;
+    u16 offset = cmd->offset;
     u8 current = 0;
-    while (1) {
-        if (offset > 0xf800) {
+    u16 count = cmd->sector_count;
+    u8 status;
+    for (;;) {
+        if (offset >= 0xf800) {
             offset -= 0x800;
             segment += 0x80;
         }
 
-        if (command == ATA_CMD_WRITE_SECTORS) {
+        if (iswrite) {
             // Write data to controller
+            DEBUGF("Write sector id=%d dest=%x:%x\n", biosid, segment, offset);
             if (mode == ATA_MODE_PIO32)
                 outsl_seg(iobase1, segment, offset, 512 / 4);
             else
                 outsw_seg(iobase1, segment, offset, 512 / 2);
         } else {
             // Read data from controller
+            DEBUGF("Read sector id=%d dest=%x:%x\n", biosid, segment, offset);
             if (mode == ATA_MODE_PIO32)
                 insl_seg(iobase1, segment, offset, 512 / 4);
             else
@@ -239,7 +246,7 @@ ata_cmd_data(u16 device, u16 command, u16 count, u16 cylinder
         status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
                    | ATA_CB_STAT_ERR);
         if (status != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ)) {
-            DEBUGF("ata_cmd_data : more sectors left (status %02x)\n"
+            DEBUGF("ata_transfer : more sectors left (status %02x)\n"
                    , (unsigned) status);
             return 5;
         }
@@ -247,17 +254,18 @@ ata_cmd_data(u16 device, u16 command, u16 count, u16 cylinder
 
     status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF
                | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR);
-    if (command != ATA_CMD_WRITE_SECTORS)
+    if (!iswrite)
         status &= ~ATA_CB_STAT_DF;
     if (status != ATA_CB_STAT_RDY ) {
-        DEBUGF("ata_cmd_data : no sectors left (status %02x)\n"
+        DEBUGF("ata_transfer : no sectors left (status %02x)\n"
                , (unsigned) status);
         return 4;
     }
 
+    irq_disable();
+
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
-    irq_disable();
     return 0;
 }
 
@@ -270,23 +278,17 @@ ata_cmd_data(u16 device, u16 command, u16 count, u16 cylinder
       // 2 : BUSY bit set
       // 3 : error
       // 4 : not ready
-u16
-ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
-               , u32 length, u8 inout, u16 bufseg, u16 bufoff)
+int
+ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
+               , u16 header, u32 length, u16 bufseg, u16 bufoff)
 {
-    DEBUGF("ata_cmd_packet d=%d cmdlen=%d h=%d l=%d inout=%d"
+    DEBUGF("ata_cmd_packet d=%d cmdlen=%d h=%d l=%d"
            " seg=%x off=%x\n"
-           , device, cmdlen, header, length, inout
+           , biosid, cmdlen, header, length
            , bufseg, bufoff);
 
-    u8 channel = device / 2;
-    u8 slave = device % 2;
-
-    // Data out is not supported yet
-    if (inout == ATA_DATA_OUT) {
-        BX_INFO("ata_cmd_packet: DATA_OUT not supported yet\n");
-        return 1;
-    }
+    u8 channel = biosid / 2;
+    u8 slave = biosid % 2;
 
     // The header length must be even
     if (header & 1) {
@@ -296,155 +298,133 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
 
     u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
     u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    u8 mode     = GET_EBDA(ata.devices[device].mode);
+    u8 mode     = GET_EBDA(ata.devices[biosid].mode);
 
-    if (cmdlen < 12)
-        cmdlen=12;
-    if (cmdlen > 12)
-        cmdlen=16;
-    cmdlen>>=1;
+    struct ata_pio_command cmd;
+    cmd.sector_count = 0;
+    cmd.feature = 0;
+    cmd.lba_low = 0;
+    cmd.lba_mid = 0xf0;
+    cmd.lba_high = 0xff;
+    cmd.device = slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0;
+    cmd.command = ATA_CMD_PACKET;
+
+    cmd.biosid = biosid;
+    int ret = send_cmd(&cmd);
+    if (ret)
+        return ret;
 
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
 
-    u8 status = inb(iobase1 + ATA_CB_STAT);
-    if (status & ATA_CB_STAT_BSY)
-        return 2;
-
-    outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
-    outb(0x00, iobase1 + ATA_CB_FR);
-    outb(0x00, iobase1 + ATA_CB_SC);
-    outb(0x00, iobase1 + ATA_CB_SN);
-    outb(0xfff0 & 0x00ff, iobase1 + ATA_CB_CL);
-    outb(0xfff0 >> 8, iobase1 + ATA_CB_CH);
-    outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1 + ATA_CB_DH);
-    outb(ATA_CMD_PACKET, iobase1 + ATA_CB_CMD);
-
-    // Device should ok to receive command
-    await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
-    status = inb(iobase1 + ATA_CB_STAT);
-
-    if (status & ATA_CB_STAT_ERR) {
-        DEBUGF("ata_cmd_packet : error, status is %02x\n", status);
-        return 3;
-    } else if ( !(status & ATA_CB_STAT_DRQ) ) {
-        DEBUGF("ata_cmd_packet : DRQ not set (status %02x)\n"
-               , (unsigned) status);
-        return 4;
-    }
-
-    // Send command to device
     irq_enable();
 
-    outsw_seg(iobase1, GET_SEG(SS), (u32)cmdbuf, cmdlen);
+    // Send command to device
+    outsw_seg(iobase1, GET_SEG(SS), (u32)cmdbuf, cmdlen / 2);
 
-    if (inout == ATA_DATA_NO) {
-        await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
+    u8 status;
+    u16 loops = 0;
+    for (;;) {
+        if (loops == 0) {//first time through
+            status = inb(iobase2 + ATA_CB_ASTAT);
+            await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
+        } else
+            await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
+        loops++;
+
         status = inb(iobase1 + ATA_CB_STAT);
-    } else {
-        u16 loops = 0;
-        while (1) {
-            if (loops == 0) {//first time through
-                status = inb(iobase2 + ATA_CB_ASTAT);
-                await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
-            } else
-                await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
-            loops++;
+        inb(iobase1 + ATA_CB_SC);
 
-            status = inb(iobase1 + ATA_CB_STAT);
-            inb(iobase1 + ATA_CB_SC);
+        // Check if command completed
+        if(((inb(iobase1 + ATA_CB_SC)&0x7)==0x3) &&
+           ((status & (ATA_CB_STAT_RDY | ATA_CB_STAT_ERR)) == ATA_CB_STAT_RDY))
+            break;
 
-            // Check if command completed
-            if(((inb(iobase1 + ATA_CB_SC)&0x7)==0x3) &&
-               ((status & (ATA_CB_STAT_RDY | ATA_CB_STAT_ERR)) == ATA_CB_STAT_RDY))
-                break;
-
-            if (status & ATA_CB_STAT_ERR) {
-                DEBUGF("ata_cmd_packet : error (status %02x)\n", status);
-                return 3;
-            }
-
-            // Normalize address
-            bufseg += (bufoff / 16);
-            bufoff %= 16;
-
-            // Get the byte count
-            u16 lcount =  (((u16)(inb(iobase1 + ATA_CB_CH))<<8)
-                           + inb(iobase1 + ATA_CB_CL));
-
-            // adjust to read what we want
-            u16 lbefore, lafter;
-            if (header > lcount) {
-                lbefore=lcount;
-                header-=lcount;
-                lcount=0;
-            } else {
-                lbefore=header;
-                header=0;
-                lcount-=lbefore;
-            }
-
-            if (lcount > length) {
-                lafter=lcount-length;
-                lcount=length;
-                length=0;
-            } else {
-                lafter=0;
-                length-=lcount;
-            }
-
-            // Save byte count
-            u16 count = lcount;
-
-            DEBUGF("Trying to read %04x bytes (%04x %04x %04x) "
-                   , lbefore+lcount+lafter, lbefore, lcount, lafter);
-            DEBUGF("to 0x%04x:0x%04x\n", bufseg, bufoff);
-
-            // If counts not dividable by 4, use 16bits mode
-            u8 lmode = mode;
-            if (lbefore & 0x03) lmode=ATA_MODE_PIO16;
-            if (lcount  & 0x03) lmode=ATA_MODE_PIO16;
-            if (lafter  & 0x03) lmode=ATA_MODE_PIO16;
-
-            // adds an extra byte if count are odd. before is always even
-            if (lcount & 0x01) {
-                lcount+=1;
-                if ((lafter > 0) && (lafter & 0x01)) {
-                    lafter-=1;
-                }
-            }
-
-            if (lmode == ATA_MODE_PIO32) {
-                lcount>>=2; lbefore>>=2; lafter>>=2;
-            } else {
-                lcount>>=1; lbefore>>=1; lafter>>=1;
-            }
-
-            int i;
-            for (i=0; i<lbefore; i++)
-                if (lmode == ATA_MODE_PIO32)
-                    inl(iobase1);
-                else
-                    inw(iobase1);
-
-            if (lmode == ATA_MODE_PIO32)
-                insl_seg(iobase1, bufseg, bufoff, lcount);
-            else
-                insw_seg(iobase1, bufseg, bufoff, lcount);
-
-            for (i=0; i<lafter; i++)
-                if (lmode == ATA_MODE_PIO32)
-                    inl(iobase1);
-                else
-                    inw(iobase1);
-
-            // Compute new buffer address
-            bufoff += count;
-
-            // Save transferred bytes count
-            SET_EBDA(ata.trsfsectors, loops);
+        if (status & ATA_CB_STAT_ERR) {
+            DEBUGF("ata_cmd_packet : error (status %02x)\n", status);
+            return 3;
         }
+
+        // Normalize address
+        bufseg += (bufoff / 16);
+        bufoff %= 16;
+
+        // Get the byte count
+        u16 lcount =  (((u16)(inb(iobase1 + ATA_CB_CH))<<8)
+                       + inb(iobase1 + ATA_CB_CL));
+
+        // adjust to read what we want
+        u16 lbefore, lafter;
+        if (header > lcount) {
+            lbefore=lcount;
+            header-=lcount;
+            lcount=0;
+        } else {
+            lbefore=header;
+            header=0;
+            lcount-=lbefore;
+        }
+
+        if (lcount > length) {
+            lafter=lcount-length;
+            lcount=length;
+            length=0;
+        } else {
+            lafter=0;
+            length-=lcount;
+        }
+
+        // Save byte count
+        u16 count = lcount;
+
+        DEBUGF("Trying to read %04x bytes (%04x %04x %04x) "
+               , lbefore+lcount+lafter, lbefore, lcount, lafter);
+        DEBUGF("to 0x%04x:0x%04x\n", bufseg, bufoff);
+
+        // If counts not dividable by 4, use 16bits mode
+        u8 lmode = mode;
+        if (lbefore & 0x03) lmode=ATA_MODE_PIO16;
+        if (lcount  & 0x03) lmode=ATA_MODE_PIO16;
+        if (lafter  & 0x03) lmode=ATA_MODE_PIO16;
+
+        // adds an extra byte if count are odd. before is always even
+        if (lcount & 0x01) {
+            lcount+=1;
+            if ((lafter > 0) && (lafter & 0x01)) {
+                lafter-=1;
+            }
+        }
+
+        if (lmode == ATA_MODE_PIO32) {
+            lcount>>=2; lbefore>>=2; lafter>>=2;
+        } else {
+            lcount>>=1; lbefore>>=1; lafter>>=1;
+        }
+
+        int i;
+        for (i=0; i<lbefore; i++)
+            if (lmode == ATA_MODE_PIO32)
+                inl(iobase1);
+            else
+                inw(iobase1);
+
+        if (lmode == ATA_MODE_PIO32)
+            insl_seg(iobase1, bufseg, bufoff, lcount);
+        else
+            insw_seg(iobase1, bufseg, bufoff, lcount);
+
+        for (i=0; i<lafter; i++)
+            if (lmode == ATA_MODE_PIO32)
+                inl(iobase1);
+            else
+                inw(iobase1);
+
+        // Compute new buffer address
+        bufoff += count;
+
+        // Save transferred bytes count
+        SET_EBDA(ata.trsfsectors, loops);
     }
 
     // Final check, device must be ready
@@ -461,8 +441,8 @@ ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
     return 0;
 }
 
-u16
-cdrom_read(u16 device, u32 lba, u32 count, u16 segment, u16 offset, u16 skip)
+int
+cdrom_read(u16 biosid, u32 lba, u32 count, u16 segment, u16 offset, u16 skip)
 {
     u16 sectors = (count + 2048 - 1) / 2048;
 
@@ -476,9 +456,8 @@ cdrom_read(u16 device, u32 lba, u32 count, u16 segment, u16 offset, u16 skip)
     atacmd[4]=(lba & 0x0000ff00) >> 8;
     atacmd[5]=(lba & 0x000000ff);
 
-    return ata_cmd_packet(device, atacmd, sizeof(atacmd)
-                          , skip, count, ATA_DATA_IN
-                          , segment, offset);
+    return ata_cmd_packet(biosid, atacmd, sizeof(atacmd)
+                          , skip, count, segment, offset);
 }
 
 // ---------------------------------------------------------------------------
@@ -587,9 +566,9 @@ ata_detect()
             SET_EBDA(ata.devices[device].device,ATA_DEVICE_HD);
             SET_EBDA(ata.devices[device].mode, ATA_MODE_PIO16);
 
-            u16 ret = ata_cmd_data(device,ATA_CMD_IDENTIFY_DEVICE
-                                   , 1, 0, 0, 0, 0L
-                                   , GET_SEG(SS), (u32)buffer);
+            u16 ret = ata_cmd_data_chs(device, ATA_CMD_IDENTIFY_DEVICE
+                                       , 0, 0, 1, 1
+                                       , GET_SEG(SS), (u32)buffer);
             if (ret)
                 BX_PANIC("ata-detect: Failed to detect ATA device\n");
 
@@ -691,9 +670,9 @@ ata_detect()
             SET_EBDA(ata.devices[device].device,ATA_DEVICE_CDROM);
             SET_EBDA(ata.devices[device].mode, ATA_MODE_PIO16);
 
-            u16 ret = ata_cmd_data(device,ATA_CMD_IDENTIFY_DEVICE_PACKET
-                                   , 1, 0, 0, 0, 0L
-                                   , GET_SEG(SS), (u32)buffer);
+            u16 ret = ata_cmd_data_chs(device, ATA_CMD_IDENTIFY_DEVICE_PACKET
+                                       , 0, 0, 1, 1
+                                       , GET_SEG(SS), (u32)buffer);
             if (ret != 0)
                 BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
 
