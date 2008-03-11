@@ -1,5 +1,8 @@
 Audit all sti/cli calls.
 
+Audit statements where a 32bit intermediary changes meaning of a 16bit
+comparison.
+
 Look into ways to reduce stack usage.  For example, %esp, %ebp, %esi
 (high bits), %edi (high bits) are already restored by the C code if
 they're changed - they probably don't need to be backed up on entry.

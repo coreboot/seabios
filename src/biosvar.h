@@ -239,7 +239,7 @@ struct extended_bios_data_area_s {
 
     // El Torito Emulation data
     struct cdemu_s cdemu;
-};
+} PACKED;
 
 // Accessor functions
 #define GET_EBDA(var) \

@@ -42,7 +42,9 @@ static inline void hlt(void)
     asm volatile("hlt");
 }
 
+// XXX - should halt machine
 #define BX_PANIC(fmt, args...) bprintf(0, fmt , ##args)
+
 #define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
 
 static inline void
@@ -120,13 +122,13 @@ void bprintf(u16 action, const char *fmt, ...)
 void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_fail(const char *fname, struct bregs *regs);
 void __debug_stub(const char *fname, struct bregs *regs);
-void __debug_isr(const char *fname, struct bregs *regs);
+void __debug_isr(const char *fname);
 #define debug_enter(regs) \
     __debug_enter(__func__, regs)
 #define debug_stub(regs) \
     __debug_stub(__func__, regs)
 #define debug_isr(regs) \
-    __debug_isr(__func__, regs)
+    __debug_isr(__func__)
 #define printf(fmt, args...)                     \
     bprintf(1, fmt , ##args )
 

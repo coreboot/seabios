@@ -8,6 +8,7 @@
 
 #include "ioport.h" // outb
 #include "biosvar.h" // struct bregs
+#include "util.h" // set_code_fail
 
 #define DISK_RET_SUCCESS       0x00
 #define DISK_RET_EPARAM        0x01
@@ -34,7 +35,7 @@ struct int13ext_s {
     u16 segment;
     u32 lba1;
     u32 lba2;
-};
+} PACKED;
 
 #define GET_INT13EXT(regs,var)                                          \
     GET_FARVAR((regs)->ds, ((struct int13ext_s*)((regs)->si+0))->var)
@@ -63,7 +64,7 @@ struct int13dpt_s {
     u8  device_path[8];
     u8  reserved3;
     u8  checksum;
-};
+} PACKED;
 
 #define GET_INT13DPT(regs,var)                                          \
     GET_FARVAR((regs)->ds, ((struct int13dpt_s*)((regs)->si+0))->var)
@@ -83,7 +84,7 @@ struct floppy_dbt_s {
     u8 fill_byte;
     u8 settle_time;
     u8 startup_time;
-};
+} PACKED;
 
 struct floppy_ext_dbt_s {
     struct floppy_dbt_s dbt;
@@ -91,15 +92,17 @@ struct floppy_ext_dbt_s {
     u8 max_track;
     u8 data_rate;
     u8 drive_type;
-};
+} PACKED;
 
 // Helper function for setting up a return code.
 static inline void
 disk_ret(struct bregs *regs, u8 code)
 {
-    regs->ah = code;
     SET_BDA(disk_last_status, code);
-    set_cf(regs, code);
+    if (code)
+        set_code_fail(regs, code);
+    else
+        set_code_success(regs);
 }
 
 // floppy.c
@@ -109,7 +112,6 @@ void floppy_tick();
 
 // disk.c
 void emu_access(struct bregs *regs, u8 device, u16 command);
-void extended_access(struct bregs *regs, u8 device, u16 command);
 void disk_13(struct bregs *regs, u8 device);
 void disk_13XX(struct bregs *regs, u8 device);
 

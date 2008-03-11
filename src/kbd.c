@@ -237,7 +237,7 @@ set_leds()
 void VISIBLE16
 handle_16(struct bregs *regs)
 {
-//    debug_enter(regs);
+    //debug_enter(regs);
 
     set_leds();
 
@@ -542,9 +542,9 @@ process_key(u8 scancode)
 
 // INT09h : Keyboard Hardware Service Entry Point
 void VISIBLE16
-handle_09(struct bregs *regs)
+handle_09()
 {
-    //debug_isr(regs);
+    //debug_isr();
 
     // disable keyboard
     outb(0xad, PORT_PS2_STATUS);

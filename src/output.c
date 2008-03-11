@@ -184,7 +184,7 @@ dump_regs(const char *fname, const char *type, struct bregs *regs)
 }
 
 void
-__debug_isr(const char *fname, struct bregs *regs)
+__debug_isr(const char *fname)
 {
     puts_cs(0, fname);
     putc(0, '\n');

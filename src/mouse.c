@@ -8,6 +8,9 @@
 #include "biosvar.h" // struct bregs
 #include "util.h" // debug_enter
 
+#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
+#define DEBUGF(fmt, args...)
+
 static char panic_msg_keyb_buffer_full[] = "%s: keyboard input buffer full\n";
 
 static void
@@ -413,9 +416,9 @@ int74_function()
 
 // INT74h : PS/2 mouse hardware interrupt
 void VISIBLE16
-handle_74(struct bregs *regs)
+handle_74()
 {
-    //debug_isr(regs);
+    //debug_isr();
 
     irq_enable();
     int74_function();

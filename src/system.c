@@ -194,7 +194,7 @@ handle_1587(struct bregs *regs)
         "movw %%ss, %%ax\n"
         "movw %%ax, %%ds\n"
         : "+c"(count), "+S"(si)
-        : : "eax", "di"); // XXX - also clobbers %es
+        : : "eax", "di", "cc"); // XXX - also clobbers %es
 
     set_a20(prev_a20_enable);
 
@@ -439,17 +439,17 @@ handle_10(struct bregs *regs)
 }
 
 void VISIBLE16
-handle_nmi(struct bregs *regs)
+handle_nmi()
 {
-    debug_isr(regs);
-    // XXX
+    debug_isr();
+    BX_PANIC("NMI Handler called\n");
 }
 
 // INT 75 - IRQ13 - MATH COPROCESSOR EXCEPTION
 void VISIBLE16
-handle_75(struct bregs *regs)
+handle_75()
 {
-    debug_isr(regs);
+    debug_isr();
 
     // clear irq13
     outb(0, PORT_MATH_CLEAR);

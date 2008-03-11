@@ -160,7 +160,7 @@ emu_access(struct bregs *regs, u8 device, u16 command)
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
-void
+static void
 extended_access(struct bregs *regs, u8 device, u16 command)
 {
     u16 count = GET_INT13EXT(regs, count);
@@ -738,9 +738,9 @@ handle_13(struct bregs *regs)
 
 // record completion in BIOS task complete flag
 void VISIBLE16
-handle_76(struct bregs *regs)
+handle_76()
 {
-    debug_isr(regs);
-    SET_BDA(floppy_harddisk_info, 0xff);
+    debug_isr();
+    SET_BDA(disk_interrupt_flag, 0xff);
     eoi_both_pics();
 }

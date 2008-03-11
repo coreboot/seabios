@@ -192,6 +192,8 @@ __call16:
         // Remove %eax
         popl %eax
 
+        cld
+
         retl
 
 
@@ -244,7 +246,31 @@ rombios32_gdt:
  * Interrupt entry points
  ****************************************************************/
 
+        // Call a C function - this does the minimal work necessary to
+        // call into C.  It sets up %ds, backs up %es, and backs up
+        // those registers that are call clobbered by the C compiler.
         .macro ENTRY cfunc
+        cld
+        pushl %eax
+        pushl %ecx
+        pushl %edx
+        pushw %es
+        pushw %ds
+        movw %ss, %ax
+        movw %ax, %ds
+        calll \cfunc
+        popw %ds
+        popw %es
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
+
+        // Call a C function with current register list as an
+        // argument.  This backs up the registers and sets %eax
+        // to point to the backup.  On return, the registers are
+        // restored from the structur.
+        .macro ENTRY_ARG cfunc
         cld
         pushal
         pushw %es
@@ -259,6 +285,7 @@ rombios32_gdt:
         popal
         .endm
 
+        // Define an entry point for an interrupt (no args passed).
         .macro IRQ_ENTRY num
         .globl entry_\num
         entry_\num :
@@ -267,12 +294,21 @@ rombios32_gdt:
         iretw
         .endm
 
+        // Define an entry point for an interrupt (can read/modify args).
+        .macro IRQ_ENTRY_ARG num
+        .globl entry_\num
+        entry_\num :
+        cli         // In case something far-calls instead of using "int"
+        ENTRY_ARG handle_\num
+        iretw
+        .endm
+
         // APM trampolines
         .globl apm16protected_entry
 apm16protected_entry:
         pushfw          // save flags
         pushl %eax      // dummy
-        ENTRY handle_1553
+        ENTRY_ARG handle_1553
         addw $4, %sp    // pop dummy
         popfw           // restore flags
         lretw
@@ -290,48 +326,20 @@ apm32protected_entry:
         lretl
         .code16gcc
 1:                      // 16bit entry point for apm32 code.
-        ENTRY handle_1553
+        ENTRY_ARG handle_1553
         lretw
 
         .org 0xe2c3
         IRQ_ENTRY nmi
 
-        IRQ_ENTRY 13
-        IRQ_ENTRY 12
-        IRQ_ENTRY 11
+        IRQ_ENTRY_ARG 13
+        IRQ_ENTRY_ARG 12
+        IRQ_ENTRY_ARG 11
         IRQ_ENTRY 76
         IRQ_ENTRY 1c
         IRQ_ENTRY 70
         IRQ_ENTRY 74
         IRQ_ENTRY 75
-
-        .globl entry_19
-entry_19:
-        RESET_STACK
-        calll handle_19
-
-        .globl entry_18
-entry_18:
-        RESET_STACK
-        calll handle_18
-
-
-        // IRQ trampolines
-        .macro IRQ_TRAMPOLINE num
-        .globl irq_trampoline_0x\num
-        irq_trampoline_0x\num :
-        int $0x\num
-        lretw
-        .endm
-
-        IRQ_TRAMPOLINE 02
-        IRQ_TRAMPOLINE 10
-        IRQ_TRAMPOLINE 13
-        IRQ_TRAMPOLINE 15
-        IRQ_TRAMPOLINE 18
-        IRQ_TRAMPOLINE 19
-        IRQ_TRAMPOLINE 1c
-        IRQ_TRAMPOLINE 4a
 
         .org 0xe3fe
         jmp entry_13
@@ -350,16 +358,44 @@ entry_18:
         // XXX - Baud Rate Generator Table
 
         .org 0xe739
-        IRQ_ENTRY 14
+        IRQ_ENTRY_ARG 14
+
+        // int 18/19 are special - they reset the stack and do not return.
+        .globl entry_19
+entry_19:
+        RESET_STACK
+        ENTRY handle_19
+
+        .globl entry_18
+entry_18:
+        RESET_STACK
+        ENTRY handle_18
+
+        // IRQ trampolines
+        .macro IRQ_TRAMPOLINE num
+        .globl irq_trampoline_0x\num
+        irq_trampoline_0x\num :
+        int $0x\num
+        lretw
+        .endm
+
+        IRQ_TRAMPOLINE 02
+        IRQ_TRAMPOLINE 10
+        IRQ_TRAMPOLINE 13
+        IRQ_TRAMPOLINE 15
+        IRQ_TRAMPOLINE 18
+        IRQ_TRAMPOLINE 19
+        IRQ_TRAMPOLINE 1c
+        IRQ_TRAMPOLINE 4a
 
         .org 0xe82e
-        IRQ_ENTRY 16
+        IRQ_ENTRY_ARG 16
 
         .org 0xe987
         IRQ_ENTRY 09
 
         .org 0xec59
-        IRQ_ENTRY 40
+        IRQ_ENTRY_ARG 40
 
         .org 0xef57
         IRQ_ENTRY 0e
@@ -369,14 +405,14 @@ entry_18:
         .text
 
         .org 0xefd2
-        IRQ_ENTRY 17
+        IRQ_ENTRY_ARG 17
 
         .org 0xf045
         // XXX int 10
         iretw
 
         .org 0xf065
-        IRQ_ENTRY 10
+        IRQ_ENTRY_ARG 10
 
         .org 0xf0a4
         // XXX int 1D
@@ -393,14 +429,14 @@ freespace2_end:
         jmp entry_11
 
         .org 0xf859
-        IRQ_ENTRY 15
+        IRQ_ENTRY_ARG 15
 
         .org 0xfa6e
 .include "out/font.proc.16.s"
         .text
 
         .org 0xfe6e
-        IRQ_ENTRY 1a
+        IRQ_ENTRY_ARG 1a
 
         .org 0xfea5
         IRQ_ENTRY 08
@@ -418,7 +454,7 @@ dummy_iret_handler:
         iretw
 
         .org 0xff54
-        IRQ_ENTRY 05
+        IRQ_ENTRY_ARG 05
 
         .org 0xfff0 // Power-up Entry Point
         ljmpw $0xf000, $post16

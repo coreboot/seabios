@@ -250,16 +250,17 @@ handle_1a(struct bregs *regs)
 
 // User Timer Tick
 void VISIBLE16
-handle_1c(struct bregs *regs)
+handle_1c()
 {
     //debug_enter(regs);
 }
 
 // INT 08h System Timer ISR Entry Point
 void VISIBLE16
-handle_08(struct bregs *regs)
+handle_08()
 {
-//    debug_isr(regs);
+    //debug_isr();
+    irq_enable();
 
     floppy_tick();
 
@@ -278,6 +279,8 @@ handle_08(struct bregs *regs)
     struct bregs br;
     memset(&br, 0, sizeof(br));
     call16_int(0x1c, &br);
+
+    irq_disable();
 
     eoi_master_pic();
 }
@@ -338,9 +341,9 @@ handle_1583(struct bregs *regs)
 
 // int70h: IRQ8 - CMOS RTC
 void VISIBLE16
-handle_70(struct bregs *regs)
+handle_70()
 {
-    debug_isr(regs);
+    debug_isr();
 
     // Check which modes are enabled and have occurred.
     u8 registerB = inb_cmos(CMOS_STATUS_B);

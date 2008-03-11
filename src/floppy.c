@@ -717,9 +717,9 @@ floppy_13(struct bregs *regs, u8 drive)
 
 // INT 0Eh Diskette Hardware ISR Entry Point
 void VISIBLE16
-handle_0e(struct bregs *regs)
+handle_0e()
 {
-    //debug_isr(regs);
+    //debug_isr();
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
         outb(0x08, PORT_FD_DATA); // sense interrupt status
         while ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
