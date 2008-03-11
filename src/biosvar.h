@@ -301,7 +301,7 @@ struct bregs {
     u16 ip;
     u16 cs;
     u16 flags;
-} __attribute__((packed));
+} PACKED;
 
 // bregs flags bitdefs
 #define F_ZF (1<<6)
