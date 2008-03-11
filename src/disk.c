@@ -74,25 +74,18 @@ basic_access(struct bregs *regs, u8 device, u16 command)
         sector = 0; // this forces the command to be lba
     }
 
-    u16 segment = regs->es;
-    u16 offset  = regs->bx;
-
-    u8 status;
-    switch (command) {
-    case ATA_CMD_READ_SECTORS:
-        status = ata_cmd_data_in(device, ATA_CMD_READ_SECTORS
-                                 , count, cylinder, head, sector
-                                 , lba, segment, offset);
-        break;
-    case ATA_CMD_WRITE_SECTORS:
-        status = ata_cmd_data_out(device, ATA_CMD_WRITE_SECTORS
-                                  , count, cylinder, head, sector
-                                  , lba, segment, offset);
-        break;
-    default:
+    if (!command) {
+        // If verify or seek
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
+
+    u16 segment = regs->es;
+    u16 offset  = regs->bx;
+
+    u8 status = ata_cmd_data(device, command
+                             , count, cylinder, head, sector
+                             , lba, segment, offset);
 
     // Set nb of sector transferred
     regs->al = GET_EBDA(ata.trsfsectors);
@@ -187,26 +180,19 @@ extended_access(struct bregs *regs, u8 device, u16 command)
         return;
     }
 
-    u8 status;
-    switch (command) {
-    case ATA_CMD_READ_SECTORS:
-        if (type == ATA_TYPE_ATA)
-            status = ata_cmd_data_in(device, ATA_CMD_READ_SECTORS
-                                     , count, 0, 0, 0
-                                     , lba, segment, offset);
-        else
-            status = cdrom_read(device, lba, count*2048, segment, offset, 0);
-        break;
-    case ATA_CMD_WRITE_SECTORS:
-        status = ata_cmd_data_out(device, ATA_CMD_WRITE_SECTORS
-                                  , count, 0, 0, 0
-                                  , lba, segment, offset);
-        break;
-    default:
+    if (!command) {
         // If verify or seek
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
+
+    u8 status;
+    if (type == ATA_TYPE_ATA)
+        status = ata_cmd_data(device, command
+                              , count, 0, 0, 0
+                              , lba, segment, offset);
+    else
+        status = cdrom_read(device, lba, count*2048, segment, offset, 0);
 
     SET_INT13EXT(regs, count, GET_EBDA(ata.trsfsectors));
 

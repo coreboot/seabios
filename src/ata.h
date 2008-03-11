@@ -12,10 +12,8 @@
 
 // Function definitions
 void ata_reset(u16 device);
-u16 ata_cmd_data_in(u16 device, u16 command, u16 count, u16 cylinder
-                    , u16 head, u16 sector, u32 lba, u16 segment, u16 offset);
-u16 ata_cmd_data_out(u16 device, u16 command, u16 count, u16 cylinder
-                     , u16 head, u16 sector, u32 lba, u16 segment, u16 offset);
+u16 ata_cmd_data(u16 device, u16 command, u16 count, u16 cylinder
+                 , u16 head, u16 sector, u32 lba, u16 segment, u16 offset);
 u16 ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen, u16 header
                    , u32 length, u8 inout, u16 bufseg, u16 bufoff);
 u16 cdrom_read(u16 device, u32 lba, u32 count
