@@ -42,8 +42,12 @@ static inline void hlt(void)
     asm volatile("hlt");
 }
 
-// XXX - should halt machine
-#define BX_PANIC(fmt, args...) bprintf(0, fmt , ##args)
+// XXX - move this to a c file and use PANIC PORT.
+#define BX_PANIC(fmt, args...) do { \
+        bprintf(0, fmt , ##args);   \
+        for (;;)                    \
+            hlt();                  \
+    } while (0)
 
 #define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
 
