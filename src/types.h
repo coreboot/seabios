@@ -27,6 +27,7 @@ typedef u32 size_t;
 
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
+#define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
 
 #define NULL ((void *)0)
 
