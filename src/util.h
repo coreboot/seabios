@@ -45,6 +45,7 @@ static inline void hlt(void)
 // XXX - move this to a c file and use PANIC PORT.
 #define BX_PANIC(fmt, args...) do { \
         bprintf(0, fmt , ##args);   \
+        irq_disable();              \
         for (;;)                    \
             hlt();                  \
     } while (0)
@@ -83,22 +84,20 @@ eoi_both_pics()
     eoi_master_pic();
 }
 
+// Call a function with a specified register state.  Note that on
+// return, the interrupt enable/disable flag may be altered.
 static inline
 void call16(struct bregs *callregs)
 {
     asm volatile(
-        "pushl %%ebp\n" // Save state
-        "pushfl\n"
 #ifdef MODE16
         "calll __call16\n"
 #else
         "calll __call16_from32\n"
 #endif
-        "popfl\n"       // Restore state
-        "popl %%ebp\n"
         : "+a" (callregs), "+m" (*callregs)
         :
-        : "ebx", "ecx", "edx", "esi", "edi");
+        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc");
 }
 
 static inline

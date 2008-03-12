@@ -50,6 +50,8 @@ post16:
 set_entry32:
         pushl $0xf0000000
 
+        cld
+
         // Fall through to transition32 function below
 
 
@@ -91,8 +93,6 @@ transition32:
         xorl %eax, %eax
         movw %ax, %fs
         movw %ax, %gs
-
-        cld
 
         retl
 

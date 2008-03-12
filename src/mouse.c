@@ -397,8 +397,6 @@ int74_function()
 
     u32 func = GET_EBDA(far_call_pointer);
     asm volatile(
-        "pushl %%ebp\n"
-        "pushfl\n"
         "pushl %0\n"
         "pushw %w1\n"  // status
         "pushw %w2\n"  // X
@@ -406,11 +404,10 @@ int74_function()
         "pushw $0\n"   // Z
         "lcallw *8(%%esp)\n"
         "addl $12, %%esp\n"
-        "popfl\n"
-        "popl %%ebp\n"
+        "cld\n"
         : "+a" (func), "+b" (status), "+c" (X), "+d" (Y)
         :
-        : "esi", "edi"
+        : "esi", "edi", "ebp", "cc"
         );
 }
 

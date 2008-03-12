@@ -1,4 +1,5 @@
-Audit all sti/cli calls.
+Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
+setup properly with respect to irqs.
 
 Audit statements where a 32bit intermediary changes meaning of a 16bit
 comparison.

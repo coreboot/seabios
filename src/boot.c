@@ -63,7 +63,10 @@ print_boot_failure(u16 type, u8 reason)
 static void
 try_boot(u16 seq_nr)
 {
+    irq_enable();
+
     SET_IPL(sequence, seq_nr);
+
     u16 bootseg;
     u8 bootdrv = 0;
     u16 bootdev, bootip;
@@ -210,7 +213,6 @@ begin_boot()
 {
     if (CONFIG_ATA)
         ata_detect();
-    irq_enable();
     struct bregs br;
     memset(&br, 0, sizeof(br));
     call16_int(0x19, &br);

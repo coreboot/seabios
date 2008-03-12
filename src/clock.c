@@ -356,6 +356,7 @@ handle_70()
         struct bregs br;
         memset(&br, 0, sizeof(br));
         call16_int(0x4a, &br);
+        irq_disable();
     }
     if (!(registerC & 0x40))
         goto done;
