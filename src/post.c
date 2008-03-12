@@ -33,14 +33,14 @@ init_bda()
 
     int i;
     for (i=0; i<256; i++) {
-        bda->ivecs[i].seg = SEG_BIOS;
-        bda->ivecs[i].offset = OFFSET_dummy_iret_handler;
+        SET_BDA(ivecs[i].seg, SEG_BIOS);
+        SET_BDA(ivecs[i].offset, OFFSET_dummy_iret_handler);
     }
 
-    bda->mem_size_kb = BASE_MEM_IN_K;
+    SET_BDA(mem_size_kb, BASE_MEM_IN_K);
 
     // mov CMOS Equipment Byte to BDA Equipment Word
-    bda->equipment_list_flags = inb_cmos(CMOS_EQUIPMENT_INFO);
+    SET_BDA(equipment_list_flags, inb_cmos(CMOS_EQUIPMENT_INFO));
 }
 
 static void
@@ -48,29 +48,29 @@ init_handlers()
 {
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
-    bda->ivecs[0x79].seg = 0;
-    bda->ivecs[0x79].offset = 0;
+    SET_BDA(ivecs[0x79].seg, 0);
+    SET_BDA(ivecs[0x79].offset, 0);
 
-    bda->ivecs[0x40].offset = OFFSET_entry_40;
-    bda->ivecs[0x0e].offset = OFFSET_entry_0e;
-    bda->ivecs[0x13].offset = OFFSET_entry_13;
-    bda->ivecs[0x76].offset = OFFSET_entry_76;
-    bda->ivecs[0x17].offset = OFFSET_entry_17;
-    bda->ivecs[0x18].offset = OFFSET_entry_18;
-    bda->ivecs[0x19].offset = OFFSET_entry_19;
-    bda->ivecs[0x1c].offset = OFFSET_entry_1c;
-    bda->ivecs[0x12].offset = OFFSET_entry_12;
-    bda->ivecs[0x11].offset = OFFSET_entry_11;
-    bda->ivecs[0x15].offset = OFFSET_entry_15;
-    bda->ivecs[0x08].offset = OFFSET_entry_08;
-    bda->ivecs[0x09].offset = OFFSET_entry_09;
-    bda->ivecs[0x16].offset = OFFSET_entry_16;
-    bda->ivecs[0x14].offset = OFFSET_entry_14;
-    bda->ivecs[0x1a].offset = OFFSET_entry_1a;
-    bda->ivecs[0x70].offset = OFFSET_entry_70;
-    bda->ivecs[0x74].offset = OFFSET_entry_74;
-    bda->ivecs[0x75].offset = OFFSET_entry_75;
-    bda->ivecs[0x10].offset = OFFSET_entry_10;
+    SET_BDA(ivecs[0x40].offset, OFFSET_entry_40);
+    SET_BDA(ivecs[0x0e].offset, OFFSET_entry_0e);
+    SET_BDA(ivecs[0x13].offset, OFFSET_entry_13);
+    SET_BDA(ivecs[0x76].offset, OFFSET_entry_76);
+    SET_BDA(ivecs[0x17].offset, OFFSET_entry_17);
+    SET_BDA(ivecs[0x18].offset, OFFSET_entry_18);
+    SET_BDA(ivecs[0x19].offset, OFFSET_entry_19);
+    SET_BDA(ivecs[0x1c].offset, OFFSET_entry_1c);
+    SET_BDA(ivecs[0x12].offset, OFFSET_entry_12);
+    SET_BDA(ivecs[0x11].offset, OFFSET_entry_11);
+    SET_BDA(ivecs[0x15].offset, OFFSET_entry_15);
+    SET_BDA(ivecs[0x08].offset, OFFSET_entry_08);
+    SET_BDA(ivecs[0x09].offset, OFFSET_entry_09);
+    SET_BDA(ivecs[0x16].offset, OFFSET_entry_16);
+    SET_BDA(ivecs[0x14].offset, OFFSET_entry_14);
+    SET_BDA(ivecs[0x1a].offset, OFFSET_entry_1a);
+    SET_BDA(ivecs[0x70].offset, OFFSET_entry_70);
+    SET_BDA(ivecs[0x74].offset, OFFSET_entry_74);
+    SET_BDA(ivecs[0x75].offset, OFFSET_entry_75);
+    SET_BDA(ivecs[0x10].offset, OFFSET_entry_10);
 }
 
 static void
@@ -78,11 +78,13 @@ init_ebda()
 {
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = EBDA_SIZE;
-    bda->ebda_seg = EBDA_SEG;
-    bda->ivecs[0x41].seg = EBDA_SEG;
-    bda->ivecs[0x41].offset = offsetof(struct extended_bios_data_area_s, fdpt0);
-    bda->ivecs[0x46].seg = EBDA_SEG;
-    bda->ivecs[0x41].offset = offsetof(struct extended_bios_data_area_s, fdpt1);
+    SET_BDA(ebda_seg, EBDA_SEG);
+    SET_BDA(ivecs[0x41].seg, EBDA_SEG);
+    SET_BDA(ivecs[0x41].offset
+            , offsetof(struct extended_bios_data_area_s, fdpt0));
+    SET_BDA(ivecs[0x46].seg, EBDA_SEG);
+    SET_BDA(ivecs[0x41].offset
+            , offsetof(struct extended_bios_data_area_s, fdpt1));
 }
 
 static void
@@ -101,10 +103,10 @@ pit_setup()
 static void
 keyboard_panic(u16 status)
 {
-  // If you're getting a 993 keyboard panic here,
-  // please see the comment in keyboard_init
+    // If you're getting a 993 keyboard panic here,
+    // please see the comment in keyboard_init
 
-  BX_PANIC("Keyboard error:%u\n",status);
+    BX_PANIC("Keyboard error:%u\n",status);
 }
 
 static void
@@ -231,12 +233,14 @@ keyboard_init()
 static void
 kbd_setup()
 {
-    bda->kbd_mode = 0x10;
-    bda->kbd_buf_head = bda->kbd_buf_tail = bda->kbd_buf_start_offset
-        = offsetof(struct bios_data_area_s, kbd_buf) - 0x400;
-    bda->kbd_buf_end_offset
-        = (offsetof(struct bios_data_area_s, kbd_buf[sizeof(bda->kbd_buf)])
-           - 0x400);
+    u16 x = offsetof(struct bios_data_area_s, kbd_buf) - 0x400;
+    SET_BDA(kbd_mode, 0x10);
+    SET_BDA(kbd_buf_head, x);
+    SET_BDA(kbd_buf_tail, x);
+    SET_BDA(kbd_buf_start_offset, x);
+
+    SET_BDA(kbd_buf_end_offset, x + sizeof(bda->kbd_buf));
+
     keyboard_init();
 }
 
@@ -250,8 +254,8 @@ detect_parport(u16 port, u8 timeout, u8 count)
     if (inb(port) != 0xaa)
         // Not present
         return 0;
-    bda->port_lpt[count] = port;
-    bda->lpt_timeout[count] = timeout;
+    SET_BDA(port_lpt[count], port);
+    SET_BDA(lpt_timeout[count], timeout);
     return 1;
 }
 
@@ -263,8 +267,8 @@ lpt_setup()
     count += detect_parport(0x278, 0x14, count);
 
     // Equipment word bits 14..15 determing # parallel ports
-    u16 eqb = bda->equipment_list_flags;
-    bda->equipment_list_flags = (eqb & 0x3fff) | (count << 14);
+    u16 eqb = GET_BDA(equipment_list_flags);
+    SET_BDA(equipment_list_flags, (eqb & 0x3fff) | (count << 14));
 }
 
 static u16
@@ -276,8 +280,8 @@ detect_serial(u16 port, u8 timeout, u8 count)
     if (inb(port+2) != 0x02)
         return 0;
     outb(0x00, port+1);
-    bda->port_com[count] = port;
-    bda->com_timeout[count] = timeout;
+    SET_BDA(port_com[count], port);
+    SET_BDA(com_timeout[count], timeout);
     return 1;
 }
 
@@ -291,8 +295,8 @@ serial_setup()
     count += detect_serial(0x2e8, 0x0a, count);
 
     // Equipment word bits 9..11 determing # serial ports
-    u16 eqb = bda->equipment_list_flags;
-    bda->equipment_list_flags = (eqb & 0xf1ff) | (count << 9);
+    u16 eqb = GET_BDA(equipment_list_flags);
+    SET_BDA(equipment_list_flags, (eqb & 0xf1ff) | (count << 9));
 }
 
 static u32
@@ -310,8 +314,8 @@ timer_setup()
     ticks += (minutes * 10923904) / 10000;
     u32 hours = bcd2bin(inb_cmos(CMOS_RTC_HOURS));
     ticks += (hours * 65543427) / 1000;
-    bda->timer_counter = ticks;
-    bda->timer_rollover = 0;
+    SET_BDA(timer_counter, ticks);
+    SET_BDA(timer_rollover, 0);
 }
 
 static void
@@ -341,10 +345,10 @@ floppy_drive_post()
         out |= 0x07;
     if (type & 0x0f)
         out |= 0x70;
-    bda->floppy_harddisk_info = out;
+    SET_BDA(floppy_harddisk_info, out);
     outb(0x02, PORT_DMA1_MASK_REG);
 
-    bda->ivecs[0x1E].offset = OFFSET_diskette_param_table2;
+    SET_BDA(ivecs[0x1E].offset, OFFSET_diskette_param_table2);
 }
 
 static void
@@ -407,8 +411,8 @@ static void
 hard_drive_post()
 {
     outb(0x0a, 0x03f6); // 0000 1010 = reserved, disable IRQ 14
-    bda->disk_count = 1;
-    bda->disk_control_byte = 0xc0;
+    SET_BDA(disk_count, 1);
+    SET_BDA(disk_control_byte, 0xc0);
 
     // move disk geometry data from CMOS to EBDA disk parameter table(s)
     u8 diskinfo = inb_cmos(CMOS_DISK_DATA);
@@ -576,8 +580,8 @@ check_restart_status()
     eoi_both_pics();
     struct bregs br;
     memset(&br, 0, sizeof(br));
-    br.cs = bda->jump_cs_ip >> 16;
-    br.ip = bda->jump_cs_ip;
+    br.cs = GET_BDA(jump_cs_ip) >> 16;
+    br.ip = GET_BDA(jump_cs_ip);
     call16(&br);
 }
 
