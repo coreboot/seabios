@@ -348,6 +348,9 @@ static void bios_shadow_init(PCIDevice *d)
         copy_bios(d, v);
     }
 
+    // Clear the area just copied.
+    memcpy((void *)BIOS_TMP_STORAGE, 0, 0x10000);
+
     i440_pcidev = *d;
 }
 
