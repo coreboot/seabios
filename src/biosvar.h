@@ -287,13 +287,14 @@ struct ipl_s {
 
 #define UREG(ER, R, RH, RL) union { u32 ER; struct { u16 R; u16 R ## _hi; }; struct { u8 RL; u8 RH; u8 R ## _hilo; u8 R ## _hihi; }; }
 
+// Layout of registers passed in to irq handlers.  Note that this
+// layout corresponds to code in romlayout.S - don't change it here
+// without also updating the assembler code.
 struct bregs {
     u16 ds;
     u16 es;
     UREG(edi, di, di_hi, di_lo);
     UREG(esi, si, si_hi, si_lo);
-    UREG(ebp, bp, bp_hi, bp_lo);
-    UREG(esp, sp, sp_hi, sp_lo);
     UREG(ebx, bx, bh, bl);
     UREG(edx, dx, dh, dl);
     UREG(ecx, cx, ch, cl);

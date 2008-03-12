@@ -27,8 +27,57 @@ bios16c_end:
 
 
 /****************************************************************
- * POST handler
+ * Entry macros
  ****************************************************************/
+
+        // Call a C function - this does the minimal work necessary to
+        // call into C.  It sets up %ds, backs up %es, and backs up
+        // those registers that are call clobbered by the C compiler.
+        .macro ENTRY cfunc
+        cld
+        pushl %eax
+        pushl %ecx
+        pushl %edx
+        pushw %es
+        pushw %ds
+        movw %ss, %ax
+        movw %ax, %ds
+        calll \cfunc
+        popw %ds
+        popw %es
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
+
+        // Call a C function with current register list as an
+        // argument.  This backs up the registers and sets %eax
+        // to point to the backup.  On return, the registers are
+        // restored from the structure.
+        .macro ENTRY_ARG cfunc
+        cld
+        pushl %eax
+        pushl %ecx
+        pushl %edx
+        pushl %ebx
+        pushl %esi
+        pushl %edi
+        pushw %es
+        pushw %ds
+        movw %ss, %ax
+        movw %ax, %ds
+        movzwl %sp, %esp
+        movl %esp, %eax
+        calll \cfunc
+        popw %ds
+        popw %es
+        popl %edi
+        popl %esi
+        popl %ebx
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
 
         // Macro to reset the 16bit stack
         // Clobbers %ax
@@ -37,6 +86,11 @@ bios16c_end:
         movw %ax, %ss
         movl $ CONFIG_STACK_OFFSET , %esp
         .endm
+
+
+/****************************************************************
+ * POST handler
+ ****************************************************************/
 
         .org 0xe05b
         .globl post16
@@ -153,18 +207,17 @@ __call16:
         // Setup for iretw call
         pushw $0xf000
         pushw $1f               // return point
-        pushw 0x28(%eax)        // flags
-        pushl 0x24(%eax)        // CS:IP
+        pushw 0x20(%eax)        // flags
+        pushl 0x1c(%eax)        // CS:IP
 
         // Load calling registers.
         movl 0x04(%eax), %edi
         movl 0x08(%eax), %esi
-        movl 0x0c(%eax), %ebp
-        movl 0x14(%eax), %ebx
-        movl 0x18(%eax), %edx
-        movl 0x1c(%eax), %ecx
+        movl 0x0c(%eax), %ebx
+        movl 0x10(%eax), %edx
+        movl 0x14(%eax), %ecx
         movw 0x02(%eax), %es    // XXX - should load %ds too
-        movl 0x20(%eax), %eax
+        movl 0x18(%eax), %eax
 
         // Invoke call
         iretw                   // XXX - just do a lcalll
@@ -173,21 +226,20 @@ __call16:
         pushfw
         pushl %eax
         movl 0x06(%esp), %eax
-        movl %ecx, %ss:0x1c(%eax)       // Save %ecx
+        movl %ecx, %ss:0x14(%eax)       // Save %ecx
         movw %ss, %cx
         movw %cx, %ds                   // Restore %ds == %ss
         popl %ecx
-        movl %ecx, 0x20(%eax)           // Save %eax
+        movl %ecx, 0x18(%eax)           // Save %eax
         popw %cx
-        movw %cx, 0x28(%eax)            // Save flags
+        movw %cx, 0x20(%eax)            // Save flags
 
         // Store remaining registers
         movw %es, 0x02(%eax)
         movl %edi, 0x04(%eax)
         movl %esi, 0x08(%eax)
-        movl %ebp, 0x0c(%eax)
-        movl %ebx, 0x14(%eax)
-        movl %edx, 0x18(%eax)
+        movl %ebx, 0x0c(%eax)
+        movl %edx, 0x10(%eax)
 
         // Remove %eax
         popl %eax
@@ -195,6 +247,32 @@ __call16:
         cld
 
         retl
+
+        // APM trampolines
+        .globl apm16protected_entry
+apm16protected_entry:
+        pushfw          // save flags
+        pushl %eax      // dummy
+        ENTRY_ARG handle_1553
+        addw $4, %sp    // pop dummy
+        popfw           // restore flags
+        lretw
+
+        .code32
+        .globl apm32protected_entry
+apm32protected_entry:
+        pushfw          // save flags
+        pushw %cs       // Setup for long jump to 16bitmode
+        incw (%esp)
+        pushw 1f
+        lcallw *(%esp)
+        addl $4, %esp   // pop call address
+        popfw
+        lretl
+        .code16gcc
+1:                      // 16bit entry point for apm32 code.
+        ENTRY_ARG handle_1553
+        lretw
 
 
 /****************************************************************
@@ -246,45 +324,6 @@ rombios32_gdt:
  * Interrupt entry points
  ****************************************************************/
 
-        // Call a C function - this does the minimal work necessary to
-        // call into C.  It sets up %ds, backs up %es, and backs up
-        // those registers that are call clobbered by the C compiler.
-        .macro ENTRY cfunc
-        cld
-        pushl %eax
-        pushl %ecx
-        pushl %edx
-        pushw %es
-        pushw %ds
-        movw %ss, %ax
-        movw %ax, %ds
-        calll \cfunc
-        popw %ds
-        popw %es
-        popl %edx
-        popl %ecx
-        popl %eax
-        .endm
-
-        // Call a C function with current register list as an
-        // argument.  This backs up the registers and sets %eax
-        // to point to the backup.  On return, the registers are
-        // restored from the structur.
-        .macro ENTRY_ARG cfunc
-        cld
-        pushal
-        pushw %es
-        pushw %ds
-        movw %ss, %ax
-        movw %ax, %ds
-        movzwl %sp, %esp
-        movl %esp, %eax
-        calll \cfunc
-        popw %ds
-        popw %es
-        popal
-        .endm
-
         // Define an entry point for an interrupt (no args passed).
         .macro IRQ_ENTRY num
         .globl entry_\num
@@ -303,32 +342,6 @@ rombios32_gdt:
         iretw
         .endm
 
-        // APM trampolines
-        .globl apm16protected_entry
-apm16protected_entry:
-        pushfw          // save flags
-        pushl %eax      // dummy
-        ENTRY_ARG handle_1553
-        addw $4, %sp    // pop dummy
-        popfw           // restore flags
-        lretw
-
-        .code32
-        .globl apm32protected_entry
-apm32protected_entry:
-        pushfw          // save flags
-        pushw %cs       // Setup for long jump to 16bitmode
-        incw (%esp)
-        pushw 1f
-        lcallw *(%esp)
-        addl $4, %esp   // pop call address
-        popfw
-        lretl
-        .code16gcc
-1:                      // 16bit entry point for apm32 code.
-        ENTRY_ARG handle_1553
-        lretw
-
         .org 0xe2c3
         IRQ_ENTRY nmi
 
@@ -339,7 +352,6 @@ apm32protected_entry:
         IRQ_ENTRY 1c
         IRQ_ENTRY 70
         IRQ_ENTRY 74
-        IRQ_ENTRY 75
 
         .org 0xe3fe
         jmp entry_13
@@ -359,6 +371,8 @@ apm32protected_entry:
 
         .org 0xe739
         IRQ_ENTRY_ARG 14
+
+        IRQ_ENTRY 75
 
         // int 18/19 are special - they reset the stack and do not return.
         .globl entry_19
