@@ -444,13 +444,215 @@ cdrom_read(u16 biosid, u32 lba, u32 count, void *far_buffer, u16 skip)
 // ATA/ATAPI driver : device detection
 // ---------------------------------------------------------------------------
 
+static void
+report_model(u8 devid, u8 *buffer)
+{
+    u8 model[41];
+
+    // Read model name
+    int i;
+    for (i=0; i<40; i+=2) {
+        model[i] = buffer[i+54+1];
+        model[i+1] = buffer[i+54];
+    }
+
+    // Reformat
+    model[40] = 0x00;
+    for (i=39; i>0; i--) {
+        if (model[i] != 0x20)
+            break;
+        model[i] = 0x00;
+    }
+
+    u8 channel = devid / 2;
+    u8 slave = devid % 2;
+    // XXX - model on stack not %cs
+    printf("ata%d %s: %s", channel, slave ? " slave" : "master", model);
+}
+
+static u8
+get_ata_version(u8 *buffer)
+{
+    u16 ataversion = *(u16*)&buffer[160];
+    u8 version;
+    for (version=15; version>0; version--)
+        if (ataversion & (1<<version))
+            break;
+    return version;
+}
+
+static void
+init_drive_atapi(u8 devid)
+{
+    SET_EBDA(ata.devices[devid].type,ATA_TYPE_ATAPI);
+
+    // Temporary values to do the transfer
+    SET_EBDA(ata.devices[devid].device,ATA_DEVICE_CDROM);
+    SET_EBDA(ata.devices[devid].mode, ATA_MODE_PIO16);
+
+    // Now we send a IDENTIFY command to ATAPI device
+    u8 buffer[0x0200];
+    memset(buffer, 0, sizeof(buffer));
+    u16 ret = ata_cmd_data(devid, ATA_CMD_IDENTIFY_DEVICE_PACKET
+                           , 1, 1
+                           , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+    if (ret != 0)
+        BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
+
+    u8 type      = buffer[1] & 0x1f;
+    u8 removable = (buffer[0] & 0x80) ? 1 : 0;
+    u8 mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u16 blksize  = 2048;
+
+    SET_EBDA(ata.devices[devid].device, type);
+    SET_EBDA(ata.devices[devid].removable, removable);
+    SET_EBDA(ata.devices[devid].mode, mode);
+    SET_EBDA(ata.devices[devid].blksize, blksize);
+
+    // fill cdidmap
+    u8 cdcount = GET_EBDA(ata.cdcount);
+    SET_EBDA(ata.idmap[1][cdcount], devid);
+    SET_EBDA(ata.cdcount, ++cdcount);
+
+    report_model(devid, buffer);
+    u8 version = get_ata_version(buffer);
+    if (GET_EBDA(ata.devices[devid].device)==ATA_DEVICE_CDROM)
+        printf(" ATAPI-%d CD-Rom/DVD-Rom\n", version);
+    else
+        printf(" ATAPI-%d Device\n", version);
+}
+
+static void
+init_drive_ata(u8 devid)
+{
+    SET_EBDA(ata.devices[devid].type,ATA_TYPE_ATA);
+
+    // Temporary values to do the transfer
+    SET_EBDA(ata.devices[devid].device, ATA_DEVICE_HD);
+    SET_EBDA(ata.devices[devid].mode, ATA_MODE_PIO16);
+
+    // Now we send a IDENTIFY command to ATA device
+    u8 buffer[0x0200];
+    memset(buffer, 0, sizeof(buffer));
+    u16 ret = ata_cmd_data(devid, ATA_CMD_IDENTIFY_DEVICE
+                           , 1, 1
+                           , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+    if (ret)
+        BX_PANIC("ata-detect: Failed to detect ATA device\n");
+
+    u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
+    u8 mode       = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u16 blksize   = *(u16*)&buffer[10];
+
+    u16 cylinders = *(u16*)&buffer[1*2]; // word 1
+    u16 heads     = *(u16*)&buffer[3*2]; // word 3
+    u16 spt       = *(u16*)&buffer[6*2]; // word 6
+
+    u32 sectors   = *(u32*)&buffer[60*2]; // word 60 and word 61
+
+    SET_EBDA(ata.devices[devid].device,ATA_DEVICE_HD);
+    SET_EBDA(ata.devices[devid].removable, removable);
+    SET_EBDA(ata.devices[devid].mode, mode);
+    SET_EBDA(ata.devices[devid].blksize, blksize);
+    SET_EBDA(ata.devices[devid].pchs.heads, heads);
+    SET_EBDA(ata.devices[devid].pchs.cylinders, cylinders);
+    SET_EBDA(ata.devices[devid].pchs.spt, spt);
+    SET_EBDA(ata.devices[devid].sectors, sectors);
+
+    u8 channel = devid / 2;
+    u8 slave = devid % 2;
+    u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
+    u8 shift;
+    for (shift=devid%4; shift>0; shift--)
+        translation >>= 2;
+    translation &= 0x03;
+
+    SET_EBDA(ata.devices[devid].translation, translation);
+
+    BX_INFO("ata%d-%d: PCHS=%u/%d/%d translation="
+            , channel, slave, cylinders, heads, spt);
+    switch (translation) {
+    case ATA_TRANSLATION_NONE:
+        BX_INFO("none");
+        break;
+    case ATA_TRANSLATION_LBA:
+        BX_INFO("lba");
+        spt = 63;
+        sectors /= 63;
+        heads = sectors / 1024;
+        if (heads>128)
+            heads = 255;
+        else if (heads>64)
+            heads = 128;
+        else if (heads>32)
+            heads = 64;
+        else if (heads>16)
+            heads = 32;
+        else
+            heads = 16;
+        cylinders = sectors / heads;
+        break;
+    case ATA_TRANSLATION_RECHS:
+        BX_INFO("r-echs");
+        // Take care not to overflow
+        if (heads==16) {
+            if (cylinders>61439)
+                cylinders=61439;
+            heads=15;
+            cylinders = (u16)((u32)(cylinders)*16/15);
+        }
+        // then go through the large bitshift process
+    case ATA_TRANSLATION_LARGE:
+        if (translation == ATA_TRANSLATION_LARGE)
+            BX_INFO("large");
+        while(cylinders > 1024) {
+            cylinders >>= 1;
+            heads <<= 1;
+
+            // If we max out the head count
+            if (heads > 127)
+                break;
+        }
+        break;
+    }
+    // clip to 1024 cylinders in lchs
+    if (cylinders > 1024)
+        cylinders = 1024;
+    BX_INFO(" LCHS=%d/%d/%d\n", cylinders, heads, spt);
+
+    SET_EBDA(ata.devices[devid].lchs.heads, heads);
+    SET_EBDA(ata.devices[devid].lchs.cylinders, cylinders);
+    SET_EBDA(ata.devices[devid].lchs.spt, spt);
+
+    // fill hdidmap
+    u8 hdcount = GET_EBDA(ata.hdcount);
+    SET_EBDA(ata.idmap[0][hdcount], devid);
+    SET_EBDA(ata.hdcount, ++hdcount);
+
+    u32 sizeinmb = GET_EBDA(ata.devices[devid].sectors);
+    sizeinmb >>= 11;
+
+    report_model(devid, buffer);
+    u8 version = get_ata_version(buffer);
+    if (sizeinmb < (1 << 16))
+        printf(" ATA-%d Hard-Disk (%u MBytes)\n", version, sizeinmb);
+    else
+        printf(" ATA-%d Hard-Disk (%u GBytes)\n", version, sizeinmb >> 10);
+}
+
+static void
+init_drive_unknown(u8 devid)
+{
+    SET_EBDA(ata.devices[devid].type,ATA_TYPE_UNKNOWN);
+
+    u8 channel = devid / 2;
+    u8 slave = devid % 2;
+    printf("ata%d %s: Unknown device\n", channel, slave ? " slave" : "master");
+}
+
 void
 ata_detect()
 {
-    u8  hdcount, cdcount, device, type;
-    u8  buffer[0x0200];
-    memset(buffer, 0, sizeof(buffer));
-
 #if CONFIG_MAX_ATA_INTERFACES > 0
     SET_EBDA(ata.channels[0].iface,ATA_IFACE_ISA);
     SET_EBDA(ata.channels[0].iobase1,0x1f0);
@@ -480,18 +682,13 @@ ata_detect()
 #endif
 
     // Device detection
-    hdcount=cdcount=0;
+    u8 devid;
+    for(devid=0; devid<CONFIG_MAX_ATA_DEVICES; devid++) {
+        u8 channel = devid / 2;
+        u8 slave = devid % 2;
 
-    for(device=0; device<CONFIG_MAX_ATA_DEVICES; device++) {
-        u16 iobase1, iobase2;
-        u8  channel, slave, shift;
-        u8  sc, sn, cl, ch, st;
-
-        channel = device / 2;
-        slave = device % 2;
-
-        iobase1 =GET_EBDA(ata.channels[channel].iobase1);
-        iobase2 =GET_EBDA(ata.channels[channel].iobase2);
+        u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
+        u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
 
         // Disable interrupts
         outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
@@ -506,235 +703,40 @@ ata_detect()
         outb(0xaa, iobase1+ATA_CB_SN);
 
         // If we found something
+        u8 sc = inb(iobase1+ATA_CB_SC);
+        u8 sn = inb(iobase1+ATA_CB_SN);
+
+        if (sc != 0x55 || sn != 0xaa)
+            continue;
+
+        // reset the channel
+        ata_reset(devid);
+
+        // check for ATA or ATAPI
+        outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
         sc = inb(iobase1+ATA_CB_SC);
         sn = inb(iobase1+ATA_CB_SN);
-
-        if ( (sc == 0x55) && (sn == 0xaa) ) {
-            SET_EBDA(ata.devices[device].type,ATA_TYPE_UNKNOWN);
-
-            // reset the channel
-            ata_reset(device);
-
-            // check for ATA or ATAPI
-            outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-            sc = inb(iobase1+ATA_CB_SC);
-            sn = inb(iobase1+ATA_CB_SN);
-            if ((sc==0x01) && (sn==0x01)) {
-                cl = inb(iobase1+ATA_CB_CL);
-                ch = inb(iobase1+ATA_CB_CH);
-                st = inb(iobase1+ATA_CB_STAT);
-
-                if ((cl==0x14) && (ch==0xeb)) {
-                    SET_EBDA(ata.devices[device].type,ATA_TYPE_ATAPI);
-                } else if ((cl==0x00) && (ch==0x00) && (st!=0x00)) {
-                    SET_EBDA(ata.devices[device].type,ATA_TYPE_ATA);
-                } else if ((cl==0xff) && (ch==0xff)) {
-                    SET_EBDA(ata.devices[device].type,ATA_TYPE_NONE);
-                }
-            }
+        if (sc!=0x01 || sn!=0x01) {
+            init_drive_unknown(devid);
+            continue;
         }
+        u8 cl = inb(iobase1+ATA_CB_CL);
+        u8 ch = inb(iobase1+ATA_CB_CH);
+        u8 st = inb(iobase1+ATA_CB_STAT);
 
-        type=GET_EBDA(ata.devices[device].type);
-
-        // Now we send a IDENTIFY command to ATA device
-        if(type == ATA_TYPE_ATA) {
-            u32 sectors;
-            u16 cylinders, heads, spt, blksize;
-            u8  translation, removable, mode;
-
-            //Temporary values to do the transfer
-            SET_EBDA(ata.devices[device].device,ATA_DEVICE_HD);
-            SET_EBDA(ata.devices[device].mode, ATA_MODE_PIO16);
-
-            u16 ret = ata_cmd_data(device, ATA_CMD_IDENTIFY_DEVICE
-                                   , 1, 1
-                                   , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
-            if (ret)
-                BX_PANIC("ata-detect: Failed to detect ATA device\n");
-
-            removable = (buffer[0] & 0x80) ? 1 : 0;
-            mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-            blksize   = *(u16*)&buffer[10];
-
-            cylinders = *(u16*)&buffer[1*2]; // word 1
-            heads     = *(u16*)&buffer[3*2]; // word 3
-            spt       = *(u16*)&buffer[6*2]; // word 6
-
-            sectors   = *(u32*)&buffer[60*2]; // word 60 and word 61
-
-            SET_EBDA(ata.devices[device].device,ATA_DEVICE_HD);
-            SET_EBDA(ata.devices[device].removable, removable);
-            SET_EBDA(ata.devices[device].mode, mode);
-            SET_EBDA(ata.devices[device].blksize, blksize);
-            SET_EBDA(ata.devices[device].pchs.heads, heads);
-            SET_EBDA(ata.devices[device].pchs.cylinders, cylinders);
-            SET_EBDA(ata.devices[device].pchs.spt, spt);
-            SET_EBDA(ata.devices[device].sectors, sectors);
-            BX_INFO("ata%d-%d: PCHS=%u/%d/%d translation="
-                    , channel, slave,cylinders, heads, spt);
-
-            translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
-            for (shift=device%4; shift>0; shift--)
-                translation >>= 2;
-            translation &= 0x03;
-
-            SET_EBDA(ata.devices[device].translation, translation);
-
-            switch (translation) {
-            case ATA_TRANSLATION_NONE:
-                BX_INFO("none");
-                break;
-            case ATA_TRANSLATION_LBA:
-                BX_INFO("lba");
-                break;
-            case ATA_TRANSLATION_LARGE:
-                BX_INFO("large");
-                break;
-            case ATA_TRANSLATION_RECHS:
-                BX_INFO("r-echs");
-                break;
-            }
-            switch (translation) {
-            case ATA_TRANSLATION_NONE:
-                break;
-            case ATA_TRANSLATION_LBA:
-                spt = 63;
-                sectors /= 63;
-                heads = sectors / 1024;
-                if (heads>128) heads = 255;
-                else if (heads>64) heads = 128;
-                else if (heads>32) heads = 64;
-                else if (heads>16) heads = 32;
-                else heads=16;
-                cylinders = sectors / heads;
-                break;
-            case ATA_TRANSLATION_RECHS:
-                // Take care not to overflow
-                if (heads==16) {
-                    if(cylinders>61439) cylinders=61439;
-                    heads=15;
-                    cylinders = (u16)((u32)(cylinders)*16/15);
-                }
-                // then go through the large bitshift process
-            case ATA_TRANSLATION_LARGE:
-                while(cylinders > 1024) {
-                    cylinders >>= 1;
-                    heads <<= 1;
-
-                    // If we max out the head count
-                    if (heads > 127) break;
-                }
-                break;
-            }
-            // clip to 1024 cylinders in lchs
-            if (cylinders > 1024)
-                cylinders=1024;
-            BX_INFO(" LCHS=%d/%d/%d\n", cylinders, heads, spt);
-
-            SET_EBDA(ata.devices[device].lchs.heads, heads);
-            SET_EBDA(ata.devices[device].lchs.cylinders, cylinders);
-            SET_EBDA(ata.devices[device].lchs.spt, spt);
-
-            // fill hdidmap
-            SET_EBDA(ata.idmap[0][hdcount], device);
-            hdcount++;
-        }
-
-        // Now we send a IDENTIFY command to ATAPI device
-        if(type == ATA_TYPE_ATAPI) {
-
-            u8  type, removable, mode;
-            u16 blksize;
-
-            //Temporary values to do the transfer
-            SET_EBDA(ata.devices[device].device,ATA_DEVICE_CDROM);
-            SET_EBDA(ata.devices[device].mode, ATA_MODE_PIO16);
-
-            u16 ret = ata_cmd_data(device, ATA_CMD_IDENTIFY_DEVICE_PACKET
-                                   , 1, 1
-                                   , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
-            if (ret != 0)
-                BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
-
-            type      = buffer[1] & 0x1f;
-            removable = (buffer[0] & 0x80) ? 1 : 0;
-            mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-            blksize   = 2048;
-
-            SET_EBDA(ata.devices[device].device, type);
-            SET_EBDA(ata.devices[device].removable, removable);
-            SET_EBDA(ata.devices[device].mode, mode);
-            SET_EBDA(ata.devices[device].blksize, blksize);
-
-            // fill cdidmap
-            SET_EBDA(ata.idmap[1][cdcount], device);
-            cdcount++;
-        }
-
-        u32 sizeinmb = 0;
-        u16 ataversion;
-        u8  c, i, version=0, model[41];
-
-        switch (type) {
-        case ATA_TYPE_ATA:
-            sizeinmb = GET_EBDA(ata.devices[device].sectors);
-            sizeinmb >>= 11;
-        case ATA_TYPE_ATAPI:
-            // Read ATA/ATAPI version
-            ataversion=((u16)(buffer[161])<<8) | buffer[160];
-            for(version=15;version>0;version--) {
-                if ((ataversion&(1<<version))!=0)
-                    break;
-            }
-
-            // Read model name
-            for (i=0;i<20;i++) {
-                model[i*2] = buffer[(i*2)+54+1];
-                model[(i*2)+1] = buffer[(i*2)+54];
-            }
-
-            // Reformat
-            model[40] = 0x00;
-            for (i=39;i>0;i--) {
-                if (model[i]==0x20)
-                    model[i] = 0x00;
-                else
-                    break;
-            }
-            break;
-        }
-
-        switch (type) {
-        case ATA_TYPE_ATA:
-            printf("ata%d %s: ",channel,slave?" slave":"master");
-            i=0;
-            while ((c=model[i++]))
-                printf("%c",c);
-            if (sizeinmb < (1UL<<16))
-                printf(" ATA-%d Hard-Disk (%u MBytes)\n", version, (u16)sizeinmb);
-            else
-                printf(" ATA-%d Hard-Disk (%u GBytes)\n", version, (u16)(sizeinmb>>10));
-            break;
-        case ATA_TYPE_ATAPI:
-            printf("ata%d %s: ",channel,slave?" slave":"master");
-            i=0;
-            while ((c=model[i++]))
-                printf("%c",c);
-            if (GET_EBDA(ata.devices[device].device)==ATA_DEVICE_CDROM)
-                printf(" ATAPI-%d CD-Rom/DVD-Rom\n",version);
-            else
-                printf(" ATAPI-%d Device\n",version);
-            break;
-        case ATA_TYPE_UNKNOWN:
-            printf("ata%d %s: Unknown device\n",channel,slave?" slave":"master");
-            break;
-        }
+        if (cl==0x14 && ch==0xeb)
+            init_drive_atapi(devid);
+        else if (cl==0x00 && ch==0x00 && st!=0x00)
+            init_drive_ata(devid);
+        else if (cl==0xff && ch==0xff)
+            // None
+            continue;
+        else
+            init_drive_unknown(devid);
     }
 
-    // Store the devices counts
-    SET_EBDA(ata.hdcount, hdcount);
-    SET_EBDA(ata.cdcount, cdcount);
-    SET_BDA(disk_count, hdcount);
+    // Store the device count
+    SET_BDA(disk_count, GET_EBDA(ata.hdcount));
 
     printf("\n");
 
