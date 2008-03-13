@@ -13,6 +13,7 @@ typedef signed short s16;
 typedef unsigned int u32;
 typedef signed int s32;
 typedef u32 size_t;
+typedef unsigned long long u64;
 
 #define __VISIBLE __attribute__((externally_visible))
 #ifdef MODE16

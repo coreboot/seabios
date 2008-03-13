@@ -21,6 +21,7 @@
 
 #include "util.h" // BX_INFO
 #include "cmos.h" // inb_cmos
+#include "types.h"
 
 #define BX_APPNAME "Bochs"
 
@@ -28,15 +29,6 @@
 #define PM_IO_BASE        0xb000
 #define SMB_IO_BASE       0xb100
 #define CPU_COUNT_ADDR    0xf000
-
-typedef signed char  int8_t;
-typedef short int16_t;
-typedef int   int32_t;
-typedef long long int64_t;
-typedef unsigned char  uint8_t;
-typedef unsigned short uint16_t;
-typedef unsigned int   uint32_t;
-typedef unsigned long long uint64_t;
 
 /* if true, put the MP float table and ACPI RSDT in EBDA and the MP
    table in RAM. Unfortunately, Linux has bugs with that, so we prefer
@@ -55,7 +47,7 @@ typedef unsigned long long uint64_t;
 
 #define CPUID_APIC (1 << 9)
 
-#define APIC_BASE    ((uint8_t *)0xfee00000)
+#define APIC_BASE    ((u8 *)0xfee00000)
 #define APIC_ICR_LOW 0x300
 #define APIC_SVR     0x0F0
 #define APIC_ID      0x020
@@ -70,47 +62,47 @@ typedef unsigned long long uint64_t;
 
 #define BIOS_TMP_STORAGE  0x00030000 /* 64 KB used to copy the BIOS to shadow RAM */
 
-static inline void writel(void *addr, uint32_t val)
+static inline void writel(void *addr, u32 val)
 {
-    *(volatile uint32_t *)addr = val;
+    *(volatile u32 *)addr = val;
 }
 
-static inline void writew(void *addr, uint16_t val)
+static inline void writew(void *addr, u16 val)
 {
-    *(volatile uint16_t *)addr = val;
+    *(volatile u16 *)addr = val;
 }
 
-static inline void writeb(void *addr, uint8_t val)
+static inline void writeb(void *addr, u8 val)
 {
-    *(volatile uint8_t *)addr = val;
+    *(volatile u8 *)addr = val;
 }
 
-static inline uint32_t readl(const void *addr)
+static inline u32 readl(const void *addr)
 {
-    return *(volatile const uint32_t *)addr;
+    return *(volatile const u32 *)addr;
 }
 
-static inline uint16_t readw(const void *addr)
+static inline u16 readw(const void *addr)
 {
-    return *(volatile const uint16_t *)addr;
+    return *(volatile const u16 *)addr;
 }
 
-static inline uint8_t readb(const void *addr)
+static inline u8 readb(const void *addr)
 {
-    return *(volatile const uint8_t *)addr;
+    return *(volatile const u8 *)addr;
 }
 
 int smp_cpus;
-uint32_t cpuid_signature;
-uint32_t cpuid_features;
-uint32_t cpuid_ext_features;
+u32 cpuid_signature;
+u32 cpuid_features;
+u32 cpuid_ext_features;
 unsigned long ram_size;
-uint8_t bios_uuid[16];
+u8 bios_uuid[16];
 #ifdef BX_USE_EBDA_TABLES
 unsigned long ebda_cur_addr;
 #endif
 int acpi_enabled;
-uint32_t pm_io_base, smb_io_base;
+u32 pm_io_base, smb_io_base;
 int pm_sci_int;
 unsigned long bios_table_cur_addr;
 unsigned long bios_table_end_addr;
@@ -118,14 +110,14 @@ unsigned long bios_table_end_addr;
 void uuid_probe(void)
 {
 #ifdef BX_QEMU
-    uint32_t eax, ebx, ecx, edx;
+    u32 eax, ebx, ecx, edx;
 
     // check if backdoor port exists
     asm volatile ("outl %%eax, %%dx"
         : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
         : "a" (0x564d5868), "c" (0xa), "d" (0x5658));
     if (ebx == 0x564d5868) {
-        uint32_t *uuid_ptr = (uint32_t *)bios_uuid;
+        u32 *uuid_ptr = (u32 *)bios_uuid;
         // get uuid
         asm volatile ("outl %%eax, %%dx"
             : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
@@ -144,7 +136,7 @@ void uuid_probe(void)
 
 void cpu_probe(void)
 {
-    uint32_t eax, ebx, ecx, edx;
+    u32 eax, ebx, ecx, edx;
     cpuid(1, eax, ebx, ecx, edx);
     cpuid_signature = eax;
     cpuid_features = edx;
@@ -159,7 +151,7 @@ void ram_probe(void)
   else
     ram_size = (inb_cmos(0x17) | (inb_cmos(0x18) << 8)) * 1024;
 #ifdef BX_USE_EBDA_TABLES
-    ebda_cur_addr = ((*(uint16_t *)(0x40e)) << 4) + 0x380;
+    ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
 #endif
     BX_INFO("ram_size=0x%08lx\n", ram_size);
 }
@@ -167,13 +159,13 @@ void ram_probe(void)
 /****************************************************/
 /* SMP probe */
 
-extern uint8_t smp_ap_boot_code_start;
-extern uint8_t smp_ap_boot_code_end;
+extern u8 smp_ap_boot_code_start;
+extern u8 smp_ap_boot_code_end;
 
 /* find the number of CPUs by launching a SIPI to them */
 void smp_probe(void)
 {
-    uint32_t val, sipi_vector;
+    u32 val, sipi_vector;
 
     smp_cpus = 1;
     if (cpuid_features & CPUID_APIC) {
@@ -228,53 +220,53 @@ typedef struct PCIDevice {
     int devfn;
 } PCIDevice;
 
-static uint32_t pci_bios_io_addr;
-static uint32_t pci_bios_mem_addr;
-static uint32_t pci_bios_bigmem_addr;
+static u32 pci_bios_io_addr;
+static u32 pci_bios_mem_addr;
+static u32 pci_bios_bigmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
-static uint8_t pci_irqs[4] = { 11, 9, 11, 9 };
+static u8 pci_irqs[4] = { 11, 9, 11, 9 };
 static PCIDevice i440_pcidev;
 
-static void pci_config_writel(PCIDevice *d, uint32_t addr, uint32_t val)
+static void pci_config_writel(PCIDevice *d, u32 addr, u32 val)
 {
     outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
     outl(val, 0xcfc);
 }
 
-static void pci_config_writew(PCIDevice *d, uint32_t addr, uint32_t val)
+static void pci_config_writew(PCIDevice *d, u32 addr, u32 val)
 {
     outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
     outw(val, 0xcfc + (addr & 2));
 }
 
-static void pci_config_writeb(PCIDevice *d, uint32_t addr, uint32_t val)
+static void pci_config_writeb(PCIDevice *d, u32 addr, u32 val)
 {
     outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
     outb(val, 0xcfc + (addr & 3));
 }
 
-static uint32_t pci_config_readl(PCIDevice *d, uint32_t addr)
+static u32 pci_config_readl(PCIDevice *d, u32 addr)
 {
     outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
     return inl(0xcfc);
 }
 
-static uint32_t pci_config_readw(PCIDevice *d, uint32_t addr)
+static u32 pci_config_readw(PCIDevice *d, u32 addr)
 {
     outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
     return inw(0xcfc + (addr & 2));
 }
 
-static uint32_t pci_config_readb(PCIDevice *d, uint32_t addr)
+static u32 pci_config_readb(PCIDevice *d, u32 addr)
 {
     outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
     return inb(0xcfc + (addr & 3));
 }
 
-static void pci_set_io_region_addr(PCIDevice *d, int region_num, uint32_t addr)
+static void pci_set_io_region_addr(PCIDevice *d, int region_num, u32 addr)
 {
-    uint16_t cmd;
-    uint32_t ofs, old_addr;
+    u16 cmd;
+    u32 ofs, old_addr;
 
     if ( region_num == PCI_ROM_SLOT ) {
         ofs = 0x30;
@@ -367,14 +359,14 @@ static void bios_lock_shadow_ram(void)
 
 static void pci_bios_init_bridges(PCIDevice *d)
 {
-    uint16_t vendor_id, device_id;
+    u16 vendor_id, device_id;
 
     vendor_id = pci_config_readw(d, PCI_VENDOR_ID);
     device_id = pci_config_readw(d, PCI_DEVICE_ID);
 
     if (vendor_id == 0x8086 && device_id == 0x7000) {
         int i, irq;
-        uint8_t elcr[2];
+        u8 elcr[2];
 
         /* PIIX3 bridge */
 
@@ -466,13 +458,13 @@ asm(
     "  .code32\n"
     );
 
-extern uint8_t smm_relocation_start, smm_relocation_end;
-extern uint8_t smm_code_start, smm_code_end;
+extern u8 smm_relocation_start, smm_relocation_end;
+extern u8 smm_code_start, smm_code_end;
 
 #ifdef BX_USE_SMM
 static void smm_init(PCIDevice *d)
 {
-    uint32_t value;
+    u32 value;
 
     /* check if SMM init is already done */
     value = pci_config_readl(d, 0x58);
@@ -511,7 +503,7 @@ static void smm_init(PCIDevice *d)
 static void pci_bios_init_device(PCIDevice *d)
 {
     int class;
-    uint32_t *paddr;
+    u32 *paddr;
     int i, pin, pic_irq, vendor_id, device_id;
 
     class = pci_config_readw(d, PCI_CLASS_DEVICE);
@@ -562,7 +554,7 @@ static void pci_bios_init_device(PCIDevice *d)
         /* default memory mappings */
         for(i = 0; i < PCI_NUM_REGIONS; i++) {
             int ofs;
-            uint32_t val, size ;
+            u32 val, size ;
 
             if (i == PCI_ROM_SLOT)
                 ofs = 0x30;
@@ -614,7 +606,7 @@ void pci_for_each_device(void (*init_func)(PCIDevice *d))
 {
     PCIDevice d1, *d = &d1;
     int bus, devfn;
-    uint16_t vendor_id, device_id;
+    u16 vendor_id, device_id;
 
     for(bus = 0; bus < 1; bus++) {
         for(devfn = 0; devfn < 256; devfn++) {
@@ -645,35 +637,35 @@ void pci_bios_init(void)
 /****************************************************/
 /* Multi Processor table init */
 
-static void putb(uint8_t **pp, int val)
+static void putb(u8 **pp, int val)
 {
-    uint8_t *q;
+    u8 *q;
     q = *pp;
     *q++ = val;
     *pp = q;
 }
 
-static void putstr(uint8_t **pp, const char *str)
+static void putstr(u8 **pp, const char *str)
 {
-    uint8_t *q;
+    u8 *q;
     q = *pp;
     while (*str)
         *q++ = *str++;
     *pp = q;
 }
 
-static void putle16(uint8_t **pp, int val)
+static void putle16(u8 **pp, int val)
 {
-    uint8_t *q;
+    u8 *q;
     q = *pp;
     *q++ = val;
     *q++ = val >> 8;
     *pp = q;
 }
 
-static void putle32(uint8_t **pp, int val)
+static void putle32(u8 **pp, int val)
 {
-    uint8_t *q;
+    u8 *q;
     q = *pp;
     *q++ = val;
     *q++ = val >> 8;
@@ -682,7 +674,7 @@ static void putle32(uint8_t **pp, int val)
     *pp = q;
 }
 
-static int mpf_checksum(const uint8_t *data, int len)
+static int mpf_checksum(const u8 *data, int len)
 {
     int sum, i;
     sum = 0;
@@ -698,7 +690,7 @@ static unsigned long align(unsigned long addr, unsigned long v)
 
 static void mptable_init(void)
 {
-    uint8_t *mp_config_table, *q, *float_pointer_struct;
+    u8 *mp_config_table, *q, *float_pointer_struct;
     int ioapic_id, i, len;
     int mp_config_table_size;
 
@@ -708,10 +700,10 @@ static void mptable_init(void)
 #endif
 
 #ifdef BX_USE_EBDA_TABLES
-    mp_config_table = (uint8_t *)(ram_size - ACPI_DATA_SIZE - MPTABLE_MAX_SIZE);
+    mp_config_table = (u8 *)(ram_size - ACPI_DATA_SIZE - MPTABLE_MAX_SIZE);
 #else
     bios_table_cur_addr = align(bios_table_cur_addr, 16);
-    mp_config_table = (uint8_t *)bios_table_cur_addr;
+    mp_config_table = (u8 *)bios_table_cur_addr;
 #endif
     q = mp_config_table;
     putstr(&q, "PCMP"); /* "PCMP signature */
@@ -793,10 +785,10 @@ static void mptable_init(void)
     /* floating pointer structure */
 #ifdef BX_USE_EBDA_TABLES
     ebda_cur_addr = align(ebda_cur_addr, 16);
-    float_pointer_struct = (uint8_t *)ebda_cur_addr;
+    float_pointer_struct = (u8 *)ebda_cur_addr;
 #else
     bios_table_cur_addr = align(bios_table_cur_addr, 16);
-    float_pointer_struct = (uint8_t *)bios_table_cur_addr;
+    float_pointer_struct = (u8 *)bios_table_cur_addr;
 #endif
     q = float_pointer_struct;
     putstr(&q, "_MP_");
@@ -832,15 +824,15 @@ static void mptable_init(void)
    BSD license) */
 
 #define ACPI_TABLE_HEADER_DEF   /* ACPI common table header */ \
-	uint8_t                            signature [4];          /* ACPI signature (4 ASCII characters) */\
-	uint32_t                             length;                 /* Length of table, in bytes, including header */\
-	uint8_t                              revision;               /* ACPI Specification minor version # */\
-	uint8_t                              checksum;               /* To make sum of entire table == 0 */\
-	uint8_t                            oem_id [6];             /* OEM identification */\
-	uint8_t                            oem_table_id [8];       /* OEM table identification */\
-	uint32_t                             oem_revision;           /* OEM revision number */\
-	uint8_t                            asl_compiler_id [4];    /* ASL compiler vendor ID */\
-	uint32_t                             asl_compiler_revision;  /* ASL compiler revision number */
+	u8                            signature [4];          /* ACPI signature (4 ASCII characters) */\
+	u32                             length;                 /* Length of table, in bytes, including header */\
+	u8                              revision;               /* ACPI Specification minor version # */\
+	u8                              checksum;               /* To make sum of entire table == 0 */\
+	u8                            oem_id [6];             /* OEM identification */\
+	u8                            oem_table_id [8];       /* OEM table identification */\
+	u32                             oem_revision;           /* OEM revision number */\
+	u8                            asl_compiler_id [4];    /* ASL compiler vendor ID */\
+	u32                             asl_compiler_revision;  /* ASL compiler revision number */
 
 
 struct acpi_table_header         /* ACPI common table header */
@@ -850,15 +842,15 @@ struct acpi_table_header         /* ACPI common table header */
 
 struct rsdp_descriptor         /* Root System Descriptor Pointer */
 {
-	uint8_t                            signature [8];          /* ACPI signature, contains "RSD PTR " */
-	uint8_t                              checksum;               /* To make sum of struct == 0 */
-	uint8_t                            oem_id [6];             /* OEM identification */
-	uint8_t                              revision;               /* Must be 0 for 1.0, 2 for 2.0 */
-	uint32_t                             rsdt_physical_address;  /* 32-bit physical address of RSDT */
-	uint32_t                             length;                 /* XSDT Length in bytes including hdr */
-	uint64_t                             xsdt_physical_address;  /* 64-bit physical address of XSDT */
-	uint8_t                              extended_checksum;      /* Checksum of entire table */
-	uint8_t                            reserved [3];           /* Reserved field must be 0 */
+	u8                            signature [8];          /* ACPI signature, contains "RSD PTR " */
+	u8                              checksum;               /* To make sum of struct == 0 */
+	u8                            oem_id [6];             /* OEM identification */
+	u8                              revision;               /* Must be 0 for 1.0, 2 for 2.0 */
+	u32                             rsdt_physical_address;  /* 32-bit physical address of RSDT */
+	u32                             length;                 /* XSDT Length in bytes including hdr */
+	u64                             xsdt_physical_address;  /* 64-bit physical address of XSDT */
+	u8                              extended_checksum;      /* Checksum of entire table */
+	u8                            reserved [3];           /* Reserved field must be 0 */
 };
 
 /*
@@ -867,7 +859,7 @@ struct rsdp_descriptor         /* Root System Descriptor Pointer */
 struct rsdt_descriptor_rev1
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
-	uint32_t                             table_offset_entry [3]; /* Array of pointers to other */
+	u32                             table_offset_entry [3]; /* Array of pointers to other */
 			 /* ACPI tables */
 };
 
@@ -876,14 +868,14 @@ struct rsdt_descriptor_rev1
  */
 struct facs_descriptor_rev1
 {
-	uint8_t                            signature[4];           /* ACPI Signature */
-	uint32_t                             length;                 /* Length of structure, in bytes */
-	uint32_t                             hardware_signature;     /* Hardware configuration signature */
-	uint32_t                             firmware_waking_vector; /* ACPI OS waking vector */
-	uint32_t                             global_lock;            /* Global Lock */
-	uint32_t                             S4bios_f        : 1;    /* Indicates if S4BIOS support is present */
-	uint32_t                             reserved1       : 31;   /* Must be 0 */
-	uint8_t                              resverved3 [40];        /* Reserved - must be zero */
+	u8                            signature[4];           /* ACPI Signature */
+	u32                             length;                 /* Length of structure, in bytes */
+	u32                             hardware_signature;     /* Hardware configuration signature */
+	u32                             firmware_waking_vector; /* ACPI OS waking vector */
+	u32                             global_lock;            /* Global Lock */
+	u32                             S4bios_f        : 1;    /* Indicates if S4BIOS support is present */
+	u32                             reserved1       : 31;   /* Must be 0 */
+	u8                              resverved3 [40];        /* Reserved - must be zero */
 };
 
 
@@ -893,57 +885,57 @@ struct facs_descriptor_rev1
 struct fadt_descriptor_rev1
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
-	uint32_t                             firmware_ctrl;          /* Physical address of FACS */
-	uint32_t                             dsdt;                   /* Physical address of DSDT */
-	uint8_t                              model;                  /* System Interrupt Model */
-	uint8_t                              reserved1;              /* Reserved */
-	uint16_t                             sci_int;                /* System vector of SCI interrupt */
-	uint32_t                             smi_cmd;                /* Port address of SMI command port */
-	uint8_t                              acpi_enable;            /* Value to write to smi_cmd to enable ACPI */
-	uint8_t                              acpi_disable;           /* Value to write to smi_cmd to disable ACPI */
-	uint8_t                              S4bios_req;             /* Value to write to SMI CMD to enter S4BIOS state */
-	uint8_t                              reserved2;              /* Reserved - must be zero */
-	uint32_t                             pm1a_evt_blk;           /* Port address of Power Mgt 1a acpi_event Reg Blk */
-	uint32_t                             pm1b_evt_blk;           /* Port address of Power Mgt 1b acpi_event Reg Blk */
-	uint32_t                             pm1a_cnt_blk;           /* Port address of Power Mgt 1a Control Reg Blk */
-	uint32_t                             pm1b_cnt_blk;           /* Port address of Power Mgt 1b Control Reg Blk */
-	uint32_t                             pm2_cnt_blk;            /* Port address of Power Mgt 2 Control Reg Blk */
-	uint32_t                             pm_tmr_blk;             /* Port address of Power Mgt Timer Ctrl Reg Blk */
-	uint32_t                             gpe0_blk;               /* Port addr of General Purpose acpi_event 0 Reg Blk */
-	uint32_t                             gpe1_blk;               /* Port addr of General Purpose acpi_event 1 Reg Blk */
-	uint8_t                              pm1_evt_len;            /* Byte length of ports at pm1_x_evt_blk */
-	uint8_t                              pm1_cnt_len;            /* Byte length of ports at pm1_x_cnt_blk */
-	uint8_t                              pm2_cnt_len;            /* Byte Length of ports at pm2_cnt_blk */
-	uint8_t                              pm_tmr_len;              /* Byte Length of ports at pm_tm_blk */
-	uint8_t                              gpe0_blk_len;           /* Byte Length of ports at gpe0_blk */
-	uint8_t                              gpe1_blk_len;           /* Byte Length of ports at gpe1_blk */
-	uint8_t                              gpe1_base;              /* Offset in gpe model where gpe1 events start */
-	uint8_t                              reserved3;              /* Reserved */
-	uint16_t                             plvl2_lat;              /* Worst case HW latency to enter/exit C2 state */
-	uint16_t                             plvl3_lat;              /* Worst case HW latency to enter/exit C3 state */
-	uint16_t                             flush_size;             /* Size of area read to flush caches */
-	uint16_t                             flush_stride;           /* Stride used in flushing caches */
-	uint8_t                              duty_offset;            /* Bit location of duty cycle field in p_cnt reg */
-	uint8_t                              duty_width;             /* Bit width of duty cycle field in p_cnt reg */
-	uint8_t                              day_alrm;               /* Index to day-of-month alarm in RTC CMOS RAM */
-	uint8_t                              mon_alrm;               /* Index to month-of-year alarm in RTC CMOS RAM */
-	uint8_t                              century;                /* Index to century in RTC CMOS RAM */
-	uint8_t                              reserved4;              /* Reserved */
-	uint8_t                              reserved4a;             /* Reserved */
-	uint8_t                              reserved4b;             /* Reserved */
+	u32                             firmware_ctrl;          /* Physical address of FACS */
+	u32                             dsdt;                   /* Physical address of DSDT */
+	u8                              model;                  /* System Interrupt Model */
+	u8                              reserved1;              /* Reserved */
+	u16                             sci_int;                /* System vector of SCI interrupt */
+	u32                             smi_cmd;                /* Port address of SMI command port */
+	u8                              acpi_enable;            /* Value to write to smi_cmd to enable ACPI */
+	u8                              acpi_disable;           /* Value to write to smi_cmd to disable ACPI */
+	u8                              S4bios_req;             /* Value to write to SMI CMD to enter S4BIOS state */
+	u8                              reserved2;              /* Reserved - must be zero */
+	u32                             pm1a_evt_blk;           /* Port address of Power Mgt 1a acpi_event Reg Blk */
+	u32                             pm1b_evt_blk;           /* Port address of Power Mgt 1b acpi_event Reg Blk */
+	u32                             pm1a_cnt_blk;           /* Port address of Power Mgt 1a Control Reg Blk */
+	u32                             pm1b_cnt_blk;           /* Port address of Power Mgt 1b Control Reg Blk */
+	u32                             pm2_cnt_blk;            /* Port address of Power Mgt 2 Control Reg Blk */
+	u32                             pm_tmr_blk;             /* Port address of Power Mgt Timer Ctrl Reg Blk */
+	u32                             gpe0_blk;               /* Port addr of General Purpose acpi_event 0 Reg Blk */
+	u32                             gpe1_blk;               /* Port addr of General Purpose acpi_event 1 Reg Blk */
+	u8                              pm1_evt_len;            /* Byte length of ports at pm1_x_evt_blk */
+	u8                              pm1_cnt_len;            /* Byte length of ports at pm1_x_cnt_blk */
+	u8                              pm2_cnt_len;            /* Byte Length of ports at pm2_cnt_blk */
+	u8                              pm_tmr_len;              /* Byte Length of ports at pm_tm_blk */
+	u8                              gpe0_blk_len;           /* Byte Length of ports at gpe0_blk */
+	u8                              gpe1_blk_len;           /* Byte Length of ports at gpe1_blk */
+	u8                              gpe1_base;              /* Offset in gpe model where gpe1 events start */
+	u8                              reserved3;              /* Reserved */
+	u16                             plvl2_lat;              /* Worst case HW latency to enter/exit C2 state */
+	u16                             plvl3_lat;              /* Worst case HW latency to enter/exit C3 state */
+	u16                             flush_size;             /* Size of area read to flush caches */
+	u16                             flush_stride;           /* Stride used in flushing caches */
+	u8                              duty_offset;            /* Bit location of duty cycle field in p_cnt reg */
+	u8                              duty_width;             /* Bit width of duty cycle field in p_cnt reg */
+	u8                              day_alrm;               /* Index to day-of-month alarm in RTC CMOS RAM */
+	u8                              mon_alrm;               /* Index to month-of-year alarm in RTC CMOS RAM */
+	u8                              century;                /* Index to century in RTC CMOS RAM */
+	u8                              reserved4;              /* Reserved */
+	u8                              reserved4a;             /* Reserved */
+	u8                              reserved4b;             /* Reserved */
 #if 0
-	uint32_t                             wb_invd         : 1;    /* The wbinvd instruction works properly */
-	uint32_t                             wb_invd_flush   : 1;    /* The wbinvd flushes but does not invalidate */
-	uint32_t                             proc_c1         : 1;    /* All processors support C1 state */
-	uint32_t                             plvl2_up        : 1;    /* C2 state works on MP system */
-	uint32_t                             pwr_button      : 1;    /* Power button is handled as a generic feature */
-	uint32_t                             sleep_button    : 1;    /* Sleep button is handled as a generic feature, or not present */
-	uint32_t                             fixed_rTC       : 1;    /* RTC wakeup stat not in fixed register space */
-	uint32_t                             rtcs4           : 1;    /* RTC wakeup stat not possible from S4 */
-	uint32_t                             tmr_val_ext     : 1;    /* The tmr_val width is 32 bits (0 = 24 bits) */
-	uint32_t                             reserved5       : 23;   /* Reserved - must be zero */
+	u32                             wb_invd         : 1;    /* The wbinvd instruction works properly */
+	u32                             wb_invd_flush   : 1;    /* The wbinvd flushes but does not invalidate */
+	u32                             proc_c1         : 1;    /* All processors support C1 state */
+	u32                             plvl2_up        : 1;    /* C2 state works on MP system */
+	u32                             pwr_button      : 1;    /* Power button is handled as a generic feature */
+	u32                             sleep_button    : 1;    /* Sleep button is handled as a generic feature, or not present */
+	u32                             fixed_rTC       : 1;    /* RTC wakeup stat not in fixed register space */
+	u32                             rtcs4           : 1;    /* RTC wakeup stat not possible from S4 */
+	u32                             tmr_val_ext     : 1;    /* The tmr_val width is 32 bits (0 = 24 bits) */
+	u32                             reserved5       : 23;   /* Reserved - must be zero */
 #else
-        uint32_t flags;
+        u32 flags;
 #endif
 };
 
@@ -962,12 +954,12 @@ struct fadt_descriptor_rev1
 struct multiple_apic_table
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
-	uint32_t                             local_apic_address;     /* Physical address of local APIC */
+	u32                             local_apic_address;     /* Physical address of local APIC */
 #if 0
-	uint32_t                             PCATcompat      : 1;    /* A one indicates system also has dual 8259s */
-	uint32_t                             reserved1       : 31;
+	u32                             PCATcompat      : 1;    /* A one indicates system also has dual 8259s */
+	u32                             reserved1       : 31;
 #else
-        uint32_t                             flags;
+        u32                             flags;
 #endif
 };
 
@@ -989,47 +981,47 @@ struct multiple_apic_table
  * MADT sub-structures (Follow MULTIPLE_APIC_DESCRIPTION_TABLE)
  */
 #define APIC_HEADER_DEF                     /* Common APIC sub-structure header */\
-	uint8_t                              type; \
-	uint8_t                              length;
+	u8                              type; \
+	u8                              length;
 
 /* Sub-structures for MADT */
 
 struct madt_processor_apic
 {
 	APIC_HEADER_DEF
-	uint8_t                              processor_id;           /* ACPI processor id */
-	uint8_t                              local_apic_id;          /* Processor's local APIC id */
+	u8                              processor_id;           /* ACPI processor id */
+	u8                              local_apic_id;          /* Processor's local APIC id */
 #if 0
-	uint32_t                             processor_enabled: 1;   /* Processor is usable if set */
-	uint32_t                             reserved2       : 31;   /* Reserved, must be zero */
+	u32                             processor_enabled: 1;   /* Processor is usable if set */
+	u32                             reserved2       : 31;   /* Reserved, must be zero */
 #else
-        uint32_t flags;
+        u32 flags;
 #endif
 };
 
 struct madt_io_apic
 {
 	APIC_HEADER_DEF
-	uint8_t                              io_apic_id;             /* I/O APIC ID */
-	uint8_t                              reserved;               /* Reserved - must be zero */
-	uint32_t                             address;                /* APIC physical address */
-	uint32_t                             interrupt;              /* Global system interrupt where INTI
+	u8                              io_apic_id;             /* I/O APIC ID */
+	u8                              reserved;               /* Reserved - must be zero */
+	u32                             address;                /* APIC physical address */
+	u32                             interrupt;              /* Global system interrupt where INTI
 			  * lines start */
 };
 
 #include "acpi-dsdt.hex"
 
-static inline uint16_t cpu_to_le16(uint16_t x)
+static inline u16 cpu_to_le16(u16 x)
 {
     return x;
 }
 
-static inline uint32_t cpu_to_le32(uint32_t x)
+static inline u32 cpu_to_le32(u32 x)
 {
     return x;
 }
 
-static int acpi_checksum(const uint8_t *data, int len)
+static int acpi_checksum(const u8 *data, int len)
 {
     int sum, i;
     sum = 0;
@@ -1039,7 +1031,7 @@ static int acpi_checksum(const uint8_t *data, int len)
 }
 
 static void acpi_build_table_header(struct acpi_table_header *h,
-                                    char *sig, int len, uint8_t rev)
+                                    char *sig, int len, u8 rev)
 {
     memcpy(h->signature, sig, 4);
     h->length = cpu_to_le32(len);
@@ -1062,9 +1054,9 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     h->checksum = acpi_checksum((void *)h, len);
 }
 
-int acpi_build_processor_ssdt(uint8_t *ssdt)
+int acpi_build_processor_ssdt(u8 *ssdt)
 {
-    uint8_t *ssdt_ptr = ssdt;
+    u8 *ssdt_ptr = ssdt;
     int i, length;
     int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
 
@@ -1121,9 +1113,9 @@ void acpi_bios_init(void)
     struct fadt_descriptor_rev1 *fadt;
     struct facs_descriptor_rev1 *facs;
     struct multiple_apic_table *madt;
-    uint8_t *dsdt, *ssdt;
-    uint32_t base_addr, rsdt_addr, fadt_addr, addr, facs_addr, dsdt_addr, ssdt_addr;
-    uint32_t acpi_tables_size, madt_addr, madt_size;
+    u8 *dsdt, *ssdt;
+    u32 base_addr, rsdt_addr, fadt_addr, addr, facs_addr, dsdt_addr, ssdt_addr;
+    u32 acpi_tables_size, madt_addr, madt_size;
     int i;
 
     /* reserve memory space for tables */
@@ -1259,91 +1251,91 @@ void acpi_bios_init(void)
  */
 struct smbios_entry_point {
 	char anchor_string[4];
-	uint8_t checksum;
-	uint8_t length;
-	uint8_t smbios_major_version;
-	uint8_t smbios_minor_version;
-	uint16_t max_structure_size;
-	uint8_t entry_point_revision;
-	uint8_t formatted_area[5];
+	u8 checksum;
+	u8 length;
+	u8 smbios_major_version;
+	u8 smbios_minor_version;
+	u16 max_structure_size;
+	u8 entry_point_revision;
+	u8 formatted_area[5];
 	char intermediate_anchor_string[5];
-	uint8_t intermediate_checksum;
-	uint16_t structure_table_length;
-	uint32_t structure_table_address;
-	uint16_t number_of_structures;
-	uint8_t smbios_bcd_revision;
+	u8 intermediate_checksum;
+	u16 structure_table_length;
+	u32 structure_table_address;
+	u16 number_of_structures;
+	u8 smbios_bcd_revision;
 } __attribute__((__packed__));
 
 /* This goes at the beginning of every SMBIOS structure. */
 struct smbios_structure_header {
-	uint8_t type;
-	uint8_t length;
-	uint16_t handle;
+	u8 type;
+	u8 length;
+	u16 handle;
 } __attribute__((__packed__));
 
 /* SMBIOS type 0 - BIOS Information */
 struct smbios_type_0 {
 	struct smbios_structure_header header;
-	uint8_t vendor_str;
-	uint8_t bios_version_str;
-	uint16_t bios_starting_address_segment;
-	uint8_t bios_release_date_str;
-	uint8_t bios_rom_size;
-	uint8_t bios_characteristics[8];
-	uint8_t bios_characteristics_extension_bytes[2];
-	uint8_t system_bios_major_release;
-	uint8_t system_bios_minor_release;
-	uint8_t embedded_controller_major_release;
-	uint8_t embedded_controller_minor_release;
+	u8 vendor_str;
+	u8 bios_version_str;
+	u16 bios_starting_address_segment;
+	u8 bios_release_date_str;
+	u8 bios_rom_size;
+	u8 bios_characteristics[8];
+	u8 bios_characteristics_extension_bytes[2];
+	u8 system_bios_major_release;
+	u8 system_bios_minor_release;
+	u8 embedded_controller_major_release;
+	u8 embedded_controller_minor_release;
 } __attribute__((__packed__));
 
 /* SMBIOS type 1 - System Information */
 struct smbios_type_1 {
 	struct smbios_structure_header header;
-	uint8_t manufacturer_str;
-	uint8_t product_name_str;
-	uint8_t version_str;
-	uint8_t serial_number_str;
-	uint8_t uuid[16];
-	uint8_t wake_up_type;
-	uint8_t sku_number_str;
-	uint8_t family_str;
+	u8 manufacturer_str;
+	u8 product_name_str;
+	u8 version_str;
+	u8 serial_number_str;
+	u8 uuid[16];
+	u8 wake_up_type;
+	u8 sku_number_str;
+	u8 family_str;
 } __attribute__((__packed__));
 
 /* SMBIOS type 3 - System Enclosure (v2.3) */
 struct smbios_type_3 {
 	struct smbios_structure_header header;
-	uint8_t manufacturer_str;
-	uint8_t type;
-	uint8_t version_str;
-	uint8_t serial_number_str;
-	uint8_t asset_tag_number_str;
-	uint8_t boot_up_state;
-	uint8_t power_supply_state;
-	uint8_t thermal_state;
-	uint8_t security_status;
-    uint32_t oem_defined;
-    uint8_t height;
-    uint8_t number_of_power_cords;
-    uint8_t contained_element_count;
+	u8 manufacturer_str;
+	u8 type;
+	u8 version_str;
+	u8 serial_number_str;
+	u8 asset_tag_number_str;
+	u8 boot_up_state;
+	u8 power_supply_state;
+	u8 thermal_state;
+	u8 security_status;
+    u32 oem_defined;
+    u8 height;
+    u8 number_of_power_cords;
+    u8 contained_element_count;
     // contained elements follow
 } __attribute__((__packed__));
 
 /* SMBIOS type 4 - Processor Information (v2.0) */
 struct smbios_type_4 {
 	struct smbios_structure_header header;
-	uint8_t socket_designation_str;
-	uint8_t processor_type;
-	uint8_t processor_family;
-	uint8_t processor_manufacturer_str;
-	uint32_t processor_id[2];
-	uint8_t processor_version_str;
-	uint8_t voltage;
-	uint16_t external_clock;
-	uint16_t max_speed;
-	uint16_t current_speed;
-	uint8_t status;
-	uint8_t processor_upgrade;
+	u8 socket_designation_str;
+	u8 processor_type;
+	u8 processor_family;
+	u8 processor_manufacturer_str;
+	u32 processor_id[2];
+	u8 processor_version_str;
+	u8 voltage;
+	u16 external_clock;
+	u16 max_speed;
+	u16 current_speed;
+	u8 status;
+	u8 processor_upgrade;
 } __attribute__((__packed__));
 
 /* SMBIOS type 16 - Physical Memory Array
@@ -1351,12 +1343,12 @@ struct smbios_type_4 {
  */
 struct smbios_type_16 {
 	struct smbios_structure_header header;
-	uint8_t location;
-	uint8_t use;
-	uint8_t error_correction;
-	uint32_t maximum_capacity;
-	uint16_t memory_error_information_handle;
-	uint16_t number_of_memory_devices;
+	u8 location;
+	u8 use;
+	u8 error_correction;
+	u32 maximum_capacity;
+	u16 memory_error_information_handle;
+	u16 number_of_memory_devices;
 } __attribute__((__packed__));
 
 /* SMBIOS type 17 - Memory Device
@@ -1364,45 +1356,45 @@ struct smbios_type_16 {
  */
 struct smbios_type_17 {
 	struct smbios_structure_header header;
-	uint16_t physical_memory_array_handle;
-	uint16_t memory_error_information_handle;
-	uint16_t total_width;
-	uint16_t data_width;
-	uint16_t size;
-	uint8_t form_factor;
-	uint8_t device_set;
-	uint8_t device_locator_str;
-	uint8_t bank_locator_str;
-	uint8_t memory_type;
-	uint16_t type_detail;
+	u16 physical_memory_array_handle;
+	u16 memory_error_information_handle;
+	u16 total_width;
+	u16 data_width;
+	u16 size;
+	u8 form_factor;
+	u8 device_set;
+	u8 device_locator_str;
+	u8 bank_locator_str;
+	u8 memory_type;
+	u16 type_detail;
 } __attribute__((__packed__));
 
 /* SMBIOS type 19 - Memory Array Mapped Address */
 struct smbios_type_19 {
 	struct smbios_structure_header header;
-	uint32_t starting_address;
-	uint32_t ending_address;
-	uint16_t memory_array_handle;
-	uint8_t partition_width;
+	u32 starting_address;
+	u32 ending_address;
+	u16 memory_array_handle;
+	u8 partition_width;
 } __attribute__((__packed__));
 
 /* SMBIOS type 20 - Memory Device Mapped Address */
 struct smbios_type_20 {
 	struct smbios_structure_header header;
-	uint32_t starting_address;
-	uint32_t ending_address;
-	uint16_t memory_device_handle;
-	uint16_t memory_array_mapped_address_handle;
-	uint8_t partition_row_position;
-	uint8_t interleave_position;
-	uint8_t interleaved_data_depth;
+	u32 starting_address;
+	u32 ending_address;
+	u16 memory_device_handle;
+	u16 memory_array_mapped_address_handle;
+	u8 partition_row_position;
+	u8 interleave_position;
+	u8 interleaved_data_depth;
 } __attribute__((__packed__));
 
 /* SMBIOS type 32 - System Boot Information */
 struct smbios_type_32 {
 	struct smbios_structure_header header;
-	uint8_t reserved[6];
-	uint8_t boot_status;
+	u8 reserved[6];
+	u8 boot_status;
 } __attribute__((__packed__));
 
 /* SMBIOS type 127 -- End-of-table */
@@ -1412,12 +1404,12 @@ struct smbios_type_127 {
 
 static void
 smbios_entry_point_init(void *start,
-                        uint16_t max_structure_size,
-                        uint16_t structure_table_length,
-                        uint32_t structure_table_address,
-                        uint16_t number_of_structures)
+                        u16 max_structure_size,
+                        u16 structure_table_length,
+                        u32 structure_table_address,
+                        u16 number_of_structures)
 {
-    uint8_t sum;
+    u8 sum;
     int i;
     struct smbios_entry_point *ep = (struct smbios_entry_point *)start;
 
@@ -1440,12 +1432,12 @@ smbios_entry_point_init(void *start,
 
     sum = 0;
     for (i = 0; i < 0x10; i++)
-        sum += ((int8_t *)start)[i];
+        sum += ((s8 *)start)[i];
     ep->checksum = -sum;
 
     sum = 0;
     for (i = 0x10; i < ep->length; i++)
-        sum += ((int8_t *)start)[i];
+        sum += ((s8 *)start)[i];
     ep->intermediate_checksum = -sum;
     }
 
@@ -1481,7 +1473,7 @@ smbios_type_0_init(void *start)
     start += sizeof(BX_APPNAME);
     memcpy((char *)start, RELEASE_DATE_STR, sizeof(RELEASE_DATE_STR));
     start += sizeof(RELEASE_DATE_STR);
-    *((uint8_t *)start) = 0;
+    *((u8 *)start) = 0;
 
     return start+1;
 }
@@ -1507,7 +1499,7 @@ smbios_type_1_init(void *start)
     p->family_str = 0;
 
     start += sizeof(struct smbios_type_1);
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
 
     return start+2;
 }
@@ -1537,7 +1529,7 @@ smbios_type_3_init(void *start)
     p->contained_element_count = 0;
 
     start += sizeof(struct smbios_type_3);
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
 
     return start+2;
 }
@@ -1580,7 +1572,7 @@ smbios_type_4_init(void *start, unsigned int cpu_number)
 
 /* Type 16 -- Physical Memory Array */
 static void *
-smbios_type_16_init(void *start, uint32_t memsize)
+smbios_type_16_init(void *start, u32 memsize)
 {
     struct smbios_type_16 *p = (struct smbios_type_16*)start;
 
@@ -1596,14 +1588,14 @@ smbios_type_16_init(void *start, uint32_t memsize)
     p->number_of_memory_devices = 1;
 
     start += sizeof(struct smbios_type_16);
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
 
     return start + 2;
 }
 
 /* Type 17 -- Memory Device */
 static void *
-smbios_type_17_init(void *start, uint32_t memory_size_mb)
+smbios_type_17_init(void *start, u32 memory_size_mb)
 {
     struct smbios_type_17 *p = (struct smbios_type_17 *)start;
 
@@ -1616,7 +1608,7 @@ smbios_type_17_init(void *start, uint32_t memory_size_mb)
     p->data_width = 64;
     /* truncate memory_size_mb to 16 bits and clear most significant
        bit [indicates size in MB] */
-    p->size = (uint16_t) memory_size_mb & 0x7fff;
+    p->size = (u16) memory_size_mb & 0x7fff;
     p->form_factor = 0x09; /* DIMM */
     p->device_set = 0;
     p->device_locator_str = 1;
@@ -1627,14 +1619,14 @@ smbios_type_17_init(void *start, uint32_t memory_size_mb)
     start += sizeof(struct smbios_type_17);
     memcpy((char *)start, "DIMM 1", 7);
     start += 7;
-    *((uint8_t *)start) = 0;
+    *((u8 *)start) = 0;
 
     return start+1;
 }
 
 /* Type 19 -- Memory Array Mapped Address */
 static void *
-smbios_type_19_init(void *start, uint32_t memory_size_mb)
+smbios_type_19_init(void *start, u32 memory_size_mb)
 {
     struct smbios_type_19 *p = (struct smbios_type_19 *)start;
 
@@ -1648,14 +1640,14 @@ smbios_type_19_init(void *start, uint32_t memory_size_mb)
     p->partition_width = 1;
 
     start += sizeof(struct smbios_type_19);
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
 
     return start + 2;
 }
 
 /* Type 20 -- Memory Device Mapped Address */
 static void *
-smbios_type_20_init(void *start, uint32_t memory_size_mb)
+smbios_type_20_init(void *start, u32 memory_size_mb)
 {
     struct smbios_type_20 *p = (struct smbios_type_20 *)start;
 
@@ -1673,7 +1665,7 @@ smbios_type_20_init(void *start, uint32_t memory_size_mb)
 
     start += sizeof(struct smbios_type_20);
 
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
     return start+2;
 }
 
@@ -1690,7 +1682,7 @@ smbios_type_32_init(void *start)
     p->boot_status = 0; /* no errors detected */
 
     start += sizeof(struct smbios_type_32);
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
 
     return start+2;
 }
@@ -1706,7 +1698,7 @@ smbios_type_127_init(void *start)
     p->header.handle = 0x7f00;
 
     start += sizeof(struct smbios_type_127);
-    *((uint16_t *)start) = 0;
+    *((u16 *)start) = 0;
 
     return start + 2;
 }
@@ -1752,7 +1744,7 @@ void smbios_init(void)
     smbios_entry_point_init(
         start, max_struct_size,
         (p - (char *)start) - sizeof(struct smbios_entry_point),
-        (uint32_t)(start + sizeof(struct smbios_entry_point)),
+        (u32)(start + sizeof(struct smbios_entry_point)),
         nr_structs);
 
 #ifdef BX_USE_EBDA_TABLES
