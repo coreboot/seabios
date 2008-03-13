@@ -546,9 +546,9 @@ ata_detect()
             SET_EBDA(ata.devices[device].device,ATA_DEVICE_HD);
             SET_EBDA(ata.devices[device].mode, ATA_MODE_PIO16);
 
-            u16 ret = ata_cmd_data_chs(device, ATA_CMD_IDENTIFY_DEVICE
-                                       , 0, 0, 1, 1
-                                       , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+            u16 ret = ata_cmd_data(device, ATA_CMD_IDENTIFY_DEVICE
+                                   , 1, 1
+                                   , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
             if (ret)
                 BX_PANIC("ata-detect: Failed to detect ATA device\n");
 
@@ -650,9 +650,9 @@ ata_detect()
             SET_EBDA(ata.devices[device].device,ATA_DEVICE_CDROM);
             SET_EBDA(ata.devices[device].mode, ATA_MODE_PIO16);
 
-            u16 ret = ata_cmd_data_chs(device, ATA_CMD_IDENTIFY_DEVICE_PACKET
-                                       , 0, 0, 1, 1
-                                       , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+            u16 ret = ata_cmd_data(device, ATA_CMD_IDENTIFY_DEVICE_PACKET
+                                   , 1, 1
+                                   , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
             if (ret != 0)
                 BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
 

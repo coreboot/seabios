@@ -68,24 +68,4 @@ ata_cmd_data(u16 biosid, u16 command, u32 lba, u16 count, void *far_buffer)
     return ata_transfer(&cmd);
 }
 
-static inline int
-ata_cmd_data_chs(u16 biosid, u16 command, u16 cyl, u16 head, u16 sect, u16 count
-                 , void *far_buffer)
-{
-    u8 slave   = biosid % 2;
-
-    struct ata_pio_command cmd;
-    cmd.far_buffer = far_buffer;
-    cmd.biosid = biosid;
-
-    cmd.sector_count = count & 0xff;
-    cmd.feature = 0;
-    cmd.lba_low = sect;
-    cmd.lba_mid = cyl;
-    cmd.lba_high = cyl >> 8;
-    cmd.device = (slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0) | (head & 0xff);
-    cmd.command = command;
-    return ata_transfer(&cmd);
-}
-
 #endif /* __ATA_H */

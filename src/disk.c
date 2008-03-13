@@ -54,8 +54,6 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 nlc   = GET_EBDA(ata.devices[device].lchs.cylinders);
     u16 nlh   = GET_EBDA(ata.devices[device].lchs.heads);
     u16 nlspt = GET_EBDA(ata.devices[device].lchs.spt);
-    u16 nph   = GET_EBDA(ata.devices[device].pchs.heads);
-    u16 npspt = GET_EBDA(ata.devices[device].pchs.spt);
 
     // sanity check on cyl heads, sec
     if (cylinder >= nlc || head >= nlh || sector > nlspt) {
@@ -75,23 +73,12 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 segment = regs->es;
     u16 offset  = regs->bx;
 
-    irq_enable();
-
-    u8 status;
-    u32 lba;
-    if (nph != nlh || npspt != nlspt) {
-        // translate lchs to lba
-        lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+    // translate lchs to lba
+    u32 lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
                + (u32)sector - 1);
-        status = ata_cmd_data(device, command, lba, count
-                              , MAKE_32_PTR(segment, offset));
-    } else {
-        // XXX - see if lba access can always be used.
-        status = ata_cmd_data_chs(device, command
-                                  , cylinder, head, sector, count
-                                  , MAKE_32_PTR(segment, offset));
-    }
-
+    irq_enable();
+    u8 status = ata_cmd_data(device, command, lba, count
+                             , MAKE_32_PTR(segment, offset));
     irq_disable();
 
     // Set nb of sector transferred
