@@ -75,6 +75,8 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 segment = regs->es;
     u16 offset  = regs->bx;
 
+    irq_enable();
+
     u8 status;
     u32 lba;
     if (nph != nlh || npspt != nlspt) {
@@ -89,6 +91,8 @@ basic_access(struct bregs *regs, u8 device, u16 command)
                                   , cylinder, head, sector, count
                                   , MAKE_32_PTR(segment, offset));
     }
+
+    irq_disable();
 
     // Set nb of sector transferred
     regs->al = GET_EBDA(ata.trsfsectors);
@@ -146,8 +150,10 @@ emu_access(struct bregs *regs, u8 device, u16 command)
     u16 segment = regs->es;
     u16 offset  = regs->bx;
 
+    irq_enable();
     u8 status = cdrom_read(device, lba, count*512
                            , MAKE_32_PTR(segment, offset), before*512);
+    irq_disable();
     if (status != 0) {
         BX_INFO("int13_harddisk: function %02x, error %02x !\n",regs->ah,status);
         regs->al = 0;
@@ -190,6 +196,8 @@ extended_access(struct bregs *regs, u8 device, u16 command)
         return;
     }
 
+    irq_enable();
+
     u8 status;
     if (type == ATA_TYPE_ATA)
         status = ata_cmd_data(device, command, lba, count
@@ -197,6 +205,8 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     else
         status = cdrom_read(device, lba, count*2048
                             , MAKE_32_PTR(segment, offset), 0);
+
+    irq_disable();
 
     SET_INT13EXT(regs, count, GET_EBDA(ata.trsfsectors));
 

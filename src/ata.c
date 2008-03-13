@@ -205,9 +205,6 @@ ata_transfer(struct ata_pio_command *cmd)
     u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
     u8 mode     = GET_EBDA(ata.devices[biosid].mode);
     int iswrite = (cmd->command & ~0x40) == ATA_CMD_WRITE_SECTORS;
-
-    irq_enable();
-
     u8 current = 0;
     u16 count = cmd->sector_count;
     u8 status;
@@ -255,8 +252,6 @@ ata_transfer(struct ata_pio_command *cmd)
                , (unsigned) status);
         return 4;
     }
-
-    irq_disable();
 
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
@@ -309,8 +304,6 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
     SET_EBDA(ata.trsfbytes,0L);
-
-    irq_enable();
 
     // Send command to device
     outsw_far(iobase1, MAKE_32_PTR(GET_SEG(SS), (u32)cmdbuf), cmdlen / 2);
