@@ -12,8 +12,7 @@
 #include "atabits.h"
 
 struct ata_pio_command {
-    u16 segment;
-    u16 offset;
+    void *far_buffer;
     u8 biosid;
 
     u8 feature;
@@ -34,21 +33,19 @@ struct ata_pio_command {
 void ata_reset(u16 device);
 int ata_transfer(struct ata_pio_command *cmd);
 int ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen
-                   , u16 header, u32 length, u16 bufseg, u16 bufoff);
+                   , u16 header, u32 length, void *far_buffer);
 int cdrom_read(u16 device, u32 lba, u32 count
-               , u16 segment, u16 offset, u16 skip);
+               , void *far_buffer, u16 skip);
 void ata_detect();
 
 static inline int
-ata_cmd_data(u16 biosid, u16 command, u32 lba, u16 count
-             , u16 segment, u16 offset)
+ata_cmd_data(u16 biosid, u16 command, u32 lba, u16 count, void *far_buffer)
 {
     u8 slave   = biosid % 2;
 
     struct ata_pio_command cmd;
+    cmd.far_buffer = far_buffer;
     cmd.biosid = biosid;
-    cmd.segment = segment;
-    cmd.offset = offset;
 
     if (count >= (1<<8) || lba + count >= (1<<28)) {
         cmd.sector_count2 = count >> 8;
@@ -73,14 +70,13 @@ ata_cmd_data(u16 biosid, u16 command, u32 lba, u16 count
 
 static inline int
 ata_cmd_data_chs(u16 biosid, u16 command, u16 cyl, u16 head, u16 sect, u16 count
-                 , u16 segment, u16 offset)
+                 , void *far_buffer)
 {
     u8 slave   = biosid % 2;
 
     struct ata_pio_command cmd;
+    cmd.far_buffer = far_buffer;
     cmd.biosid = biosid;
-    cmd.segment = segment;
-    cmd.offset = offset;
 
     cmd.sector_count = count & 0xff;
     cmd.feature = 0;

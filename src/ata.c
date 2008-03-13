@@ -186,10 +186,10 @@ send_cmd(struct ata_pio_command *cmd)
 int
 ata_transfer(struct ata_pio_command *cmd)
 {
-    DEBUGF("ata_transfer id=%d cmd=%d lba=%d count=%d seg=%x off=%x\n"
+    DEBUGF("ata_transfer id=%d cmd=%d lba=%d count=%d buf=%p\n"
            , cmd->biosid, cmd->command
            , (cmd->lba_high << 16) | (cmd->lba_mid << 8) | cmd->lba_low
-           , cmd->sector_count, cmd->segment, cmd->offset);
+           , cmd->sector_count, cmd->far_buffer);
 
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors,0);
@@ -208,34 +208,28 @@ ata_transfer(struct ata_pio_command *cmd)
 
     irq_enable();
 
-    u16 segment = cmd->segment;
-    u16 offset = cmd->offset;
     u8 current = 0;
     u16 count = cmd->sector_count;
     u8 status;
+    void *far_buffer = cmd->far_buffer;
     for (;;) {
-        if (offset >= 0xf800) {
-            offset -= 0x800;
-            segment += 0x80;
-        }
-
         if (iswrite) {
             // Write data to controller
-            DEBUGF("Write sector id=%d dest=%x:%x\n", biosid, segment, offset);
+            DEBUGF("Write sector id=%d dest=%p\n", biosid, far_buffer);
             if (mode == ATA_MODE_PIO32)
-                outsl_seg(iobase1, segment, offset, 512 / 4);
+                outsl_far(iobase1, far_buffer, 512 / 4);
             else
-                outsw_seg(iobase1, segment, offset, 512 / 2);
+                outsw_far(iobase1, far_buffer, 512 / 2);
         } else {
             // Read data from controller
-            DEBUGF("Read sector id=%d dest=%x:%x\n", biosid, segment, offset);
+            DEBUGF("Read sector id=%d dest=%p\n", biosid, far_buffer);
             if (mode == ATA_MODE_PIO32)
-                insl_seg(iobase1, segment, offset, 512 / 4);
+                insl_far(iobase1, far_buffer, 512 / 4);
             else
-                insw_seg(iobase1, segment, offset, 512 / 2);
+                insw_far(iobase1, far_buffer, 512 / 2);
             await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
         }
-        offset += 512;
+        far_buffer += 512;
 
         current++;
         SET_EBDA(ata.trsfsectors,current);
@@ -280,12 +274,10 @@ ata_transfer(struct ata_pio_command *cmd)
       // 4 : not ready
 int
 ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
-               , u16 header, u32 length, u16 bufseg, u16 bufoff)
+               , u16 header, u32 length, void *far_buffer)
 {
-    DEBUGF("ata_cmd_packet d=%d cmdlen=%d h=%d l=%d"
-           " seg=%x off=%x\n"
-           , biosid, cmdlen, header, length
-           , bufseg, bufoff);
+    DEBUGF("ata_cmd_packet d=%d cmdlen=%d h=%d l=%d buf=%p\n"
+           , biosid, cmdlen, header, length, far_buffer);
 
     u8 channel = biosid / 2;
     u8 slave = biosid % 2;
@@ -321,7 +313,7 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
     irq_enable();
 
     // Send command to device
-    outsw_seg(iobase1, GET_SEG(SS), (u32)cmdbuf, cmdlen / 2);
+    outsw_far(iobase1, MAKE_32_PTR(GET_SEG(SS), (u32)cmdbuf), cmdlen / 2);
 
     u8 status;
     u16 loops = 0;
@@ -345,10 +337,6 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
             DEBUGF("ata_cmd_packet : error (status %02x)\n", status);
             return 3;
         }
-
-        // Normalize address
-        bufseg += (bufoff / 16);
-        bufoff %= 16;
 
         // Get the byte count
         u16 lcount =  (((u16)(inb(iobase1 + ATA_CB_CH))<<8)
@@ -378,9 +366,8 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
         // Save byte count
         u16 count = lcount;
 
-        DEBUGF("Trying to read %04x bytes (%04x %04x %04x) "
-               , lbefore+lcount+lafter, lbefore, lcount, lafter);
-        DEBUGF("to 0x%04x:0x%04x\n", bufseg, bufoff);
+        DEBUGF("Trying to read %04x bytes (%04x %04x %04x) to %p\n"
+               , lbefore+lcount+lafter, lbefore, lcount, lafter, far_buffer);
 
         // If counts not dividable by 4, use 16bits mode
         u8 lmode = mode;
@@ -410,9 +397,9 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
                 inw(iobase1);
 
         if (lmode == ATA_MODE_PIO32)
-            insl_seg(iobase1, bufseg, bufoff, lcount);
+            insl_far(iobase1, far_buffer, lcount);
         else
-            insw_seg(iobase1, bufseg, bufoff, lcount);
+            insw_far(iobase1, far_buffer, lcount);
 
         for (i=0; i<lafter; i++)
             if (lmode == ATA_MODE_PIO32)
@@ -421,7 +408,7 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
                 inw(iobase1);
 
         // Compute new buffer address
-        bufoff += count;
+        far_buffer += count;
 
         // Save transferred bytes count
         SET_EBDA(ata.trsfsectors, loops);
@@ -442,7 +429,7 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
 }
 
 int
-cdrom_read(u16 biosid, u32 lba, u32 count, u16 segment, u16 offset, u16 skip)
+cdrom_read(u16 biosid, u32 lba, u32 count, void *far_buffer, u16 skip)
 {
     u16 sectors = (count + 2048 - 1) / 2048;
 
@@ -457,7 +444,7 @@ cdrom_read(u16 biosid, u32 lba, u32 count, u16 segment, u16 offset, u16 skip)
     atacmd[5]=(lba & 0x000000ff);
 
     return ata_cmd_packet(biosid, atacmd, sizeof(atacmd)
-                          , skip, count, segment, offset);
+                          , skip, count, far_buffer);
 }
 
 // ---------------------------------------------------------------------------
@@ -568,7 +555,7 @@ ata_detect()
 
             u16 ret = ata_cmd_data_chs(device, ATA_CMD_IDENTIFY_DEVICE
                                        , 0, 0, 1, 1
-                                       , GET_SEG(SS), (u32)buffer);
+                                       , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
             if (ret)
                 BX_PANIC("ata-detect: Failed to detect ATA device\n");
 
@@ -672,7 +659,7 @@ ata_detect()
 
             u16 ret = ata_cmd_data_chs(device, ATA_CMD_IDENTIFY_DEVICE_PACKET
                                        , 0, 0, 1, 1
-                                       , GET_SEG(SS), (u32)buffer);
+                                       , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
             if (ret != 0)
                 BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
 
