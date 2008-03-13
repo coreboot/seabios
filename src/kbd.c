@@ -9,6 +9,154 @@
 #include "util.h" // debug_enter
 #include "config.h" // CONFIG_*
 
+//--------------------------------------------------------------------------
+// keyboard_panic
+//--------------------------------------------------------------------------
+static void
+keyboard_panic(u16 status)
+{
+    // If you're getting a 993 keyboard panic here,
+    // please see the comment in keyboard_init
+
+    BX_PANIC("Keyboard error:%u\n",status);
+}
+
+static void
+kbd_flush(u8 code)
+{
+    u16 max = 0xffff;
+    while ((inb(PORT_PS2_STATUS) & 0x02) && (--max > 0))
+        outb(code, PORT_DIAG);
+    if (!max && code != 0xff)
+        keyboard_panic(code);
+}
+
+static void
+kbd_waitdata(u8 code)
+{
+    u16 max = 0xffff;
+    while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
+        outb(code, PORT_DIAG);
+    if (!max)
+        keyboard_panic(code);
+}
+
+//--------------------------------------------------------------------------
+// keyboard_init
+//--------------------------------------------------------------------------
+// this file is based on LinuxBIOS implementation of keyboard.c
+static void
+keyboard_init()
+{
+    /* ------------------- Flush buffers ------------------------*/
+    /* Wait until buffer is empty */
+    kbd_flush(0xff);
+
+    /* flush incoming keys */
+    u16 max=0x2000;
+    while (--max > 0) {
+        outb(0x00, PORT_DIAG);
+        if (inb(PORT_PS2_STATUS) & 0x01) {
+            inb(PORT_PS2_DATA);
+            max = 0x2000;
+            }
+        }
+
+    // Due to timer issues, and if the IPS setting is > 15000000,
+    // the incoming keys might not be flushed here. That will
+    // cause a panic a few lines below.  See sourceforge bug report :
+    // [ 642031 ] FATAL: Keyboard RESET error:993
+
+    /* ------------------- controller side ----------------------*/
+    /* send cmd = 0xAA, self test 8042 */
+    outb(0xaa, PORT_PS2_STATUS);
+
+    kbd_flush(0x00);
+    kbd_waitdata(0x01);
+
+    /* read self-test result, 0x55 should be returned from 0x60 */
+    if (inb(PORT_PS2_DATA) != 0x55)
+        keyboard_panic(991);
+
+    /* send cmd = 0xAB, keyboard interface test */
+    outb(0xab, PORT_PS2_STATUS);
+
+    kbd_flush(0x10);
+    kbd_waitdata(0x11);
+
+    /* read keyboard interface test result, */
+    /* 0x00 should be returned form 0x60 */
+    if (inb(PORT_PS2_DATA) != 0x00)
+        keyboard_panic(992);
+
+    /* Enable Keyboard clock */
+    outb(0xae, PORT_PS2_STATUS);
+    outb(0xa8, PORT_PS2_STATUS);
+
+    /* ------------------- keyboard side ------------------------*/
+    /* reset kerboard and self test  (keyboard side) */
+    outb(0xff, PORT_PS2_DATA);
+
+    kbd_flush(0x20);
+    kbd_waitdata(0x21);
+
+    /* keyboard should return ACK */
+    if (inb(PORT_PS2_DATA) != 0xfa)
+        keyboard_panic(993);
+
+    kbd_waitdata(0x31);
+
+    if (inb(PORT_PS2_DATA) != 0xaa)
+        keyboard_panic(994);
+
+    /* Disable keyboard */
+    outb(0xf5, PORT_PS2_DATA);
+
+    kbd_flush(0x40);
+    kbd_waitdata(0x41);
+
+    /* keyboard should return ACK */
+    if (inb(PORT_PS2_DATA) != 0xfa)
+        keyboard_panic(995);
+
+    /* Write Keyboard Mode */
+    outb(0x60, PORT_PS2_STATUS);
+
+    kbd_flush(0x50);
+
+    /* send cmd: scan code convert, disable mouse, enable IRQ 1 */
+    outb(0x61, PORT_PS2_DATA);
+
+    kbd_flush(0x60);
+
+    /* Enable keyboard */
+    outb(0xf4, PORT_PS2_DATA);
+
+    kbd_flush(0x70);
+    kbd_waitdata(0x71);
+
+    /* keyboard should return ACK */
+    if (inb(PORT_PS2_DATA) != 0xfa)
+        keyboard_panic(996);
+
+    outb(0x77, PORT_DIAG);
+}
+
+void
+kbd_setup()
+{
+    u16 x = offsetof(struct bios_data_area_s, kbd_buf) - 0x400;
+    SET_BDA(kbd_mode, 0x10);
+    SET_BDA(kbd_buf_head, x);
+    SET_BDA(kbd_buf_tail, x);
+    SET_BDA(kbd_buf_start_offset, x);
+
+    SET_BDA(kbd_buf_end_offset
+            , x + FIELD_SIZEOF(struct bios_data_area_s, kbd_buf));
+
+    keyboard_init();
+}
+
 static u8
 enqueue_key(u8 scan_code, u8 ascii_code)
 {
