@@ -11,6 +11,7 @@
 #include "cmos.h" // CMOS_*
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
+#include "ata.h"
 
 #define bda ((struct bios_data_area_s *)0)
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
@@ -532,19 +533,23 @@ post()
 
     floppy_drive_post();
     hard_drive_post();
-    if (CONFIG_ATA)
+    if (CONFIG_ATA) {
         ata_init();
+        ata_detect();
+    }
 
     init_boot_vectors();
 
-    // XXX - original bios calls ata_detect before rom scan.
     rom_scan(0xc8000, 0xe0000);
 
     // reset the memory (some boot loaders such as syslinux suppose
     // that the memory is set to zero)
     memset((void*)0x40000, 0, 0x40000); // XXX - shouldn't use globals
 
-    callrom(SEG_BIOS, OFFSET_begin_boot);
+    // Invoke int 19 to start boot process.
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x19, &br);
 }
 
 static void

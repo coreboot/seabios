@@ -10,7 +10,7 @@ OUT=out/
 # Source files
 SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c \
       boot.c ata.c cdrom.c apm.c util.c
-SRC32=post.c output.c rombios32.c util.c
+SRC32=post.c output.c rombios32.c util.c ata.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \

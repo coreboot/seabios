@@ -206,14 +206,3 @@ handle_19()
     debug_enter(NULL);
     do_boot(0);
 }
-
-// Called from 32bit code - start boot process
-void VISIBLE16
-begin_boot()
-{
-    if (CONFIG_ATA)
-        ata_detect();
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    call16_int(0x19, &br);
-}
