@@ -158,7 +158,7 @@ __call16_from32:
         pushl %eax
 
         // Jump to 16bit mode
-        ljmp $REAL_MODE_CS, $1f
+        ljmpw $REAL_MODE_CS, $1f
 
         .code16gcc
 1:
@@ -261,18 +261,24 @@ apm16protected_entry:
         .code32
         .globl apm32protected_entry
 apm32protected_entry:
-        pushfw          // save flags
-        pushw %cs       // Setup for long jump to 16bitmode
-        incw (%esp)
-        pushw 1f
-        lcallw *(%esp)
+        pushfw
+        pushw %cs       // Setup for long jump to 16bit mode
+        pushw $1f
+        incw 2(%esp)
+        ljmpw *(%esp)
+        .code16gcc
+1:
+        ENTRY_ARG handle_1553
+
+        movw $2f,(%esp) // Setup for long jump back to 32bit mode
+        decw 2(%esp)
+        ljmpw *(%esp)
+        .code32
+2:
         addl $4, %esp   // pop call address
         popfw
         lretl
         .code16gcc
-1:                      // 16bit entry point for apm32 code.
-        ENTRY_ARG handle_1553
-        lretw
 
 
 /****************************************************************
