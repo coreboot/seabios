@@ -20,7 +20,7 @@ screenc(u8 c)
     call16_int(0x10, &br);
 }
 
-// XXX
+// XXX - move PORT_DEBUG to standard place?
 #define PORT_DEBUG  0x403
 
 // Write a charcter to the framebuffer.

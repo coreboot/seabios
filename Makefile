@@ -96,10 +96,6 @@ $(OUT)rom16.o: $(OUT)romlayout16.o
 	@echo "  Linking $@"
 	$(Q)ld -melf_i386 -e post16 -Ttext 0 $< -o $@
 
-$(OUT)rom16.bin: $(OUT)rom16.o
-	@echo "  Extracting binary $@"
-	$(Q)objcopy -O binary $< $@
-
 $(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 
 $(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds

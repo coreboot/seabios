@@ -9,7 +9,7 @@
 #define __ATA_H
 
 #include "types.h" // u16
-#include "atabits.h"
+#include "atabits.h" // ATA_CB_DH_DEV1
 
 struct ata_pio_command {
     void *far_buffer;

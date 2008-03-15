@@ -178,6 +178,7 @@ handle_1553XX(struct bregs *regs)
 void VISIBLE16
 handle_1553(struct bregs *regs)
 {
+    //debug_stub(regs);
     switch (regs->al) {
     case 0x00: handle_155300(regs); break;
     case 0x01: handle_155301(regs); break;
