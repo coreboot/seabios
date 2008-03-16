@@ -169,6 +169,9 @@ void handle_1583(struct bregs *regs);
 // apm.c
 void VISIBLE16 handle_1553(struct bregs *regs);
 
+// pcibios.c
+void handle_1ab1(struct bregs *regs);
+
 // util.c
 void usleep(u32 count);
 

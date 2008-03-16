@@ -215,13 +215,6 @@ handle_1a07(struct bregs *regs)
     set_success(regs);
 }
 
-static void
-handle_1ab1(struct bregs *regs)
-{
-    // XXX - pcibios stuff
-    set_fail(regs);
-}
-
 // Unsupported
 static void
 handle_1aXX(struct bregs *regs)

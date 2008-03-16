@@ -21,7 +21,8 @@
 
 #include "util.h" // BX_INFO
 #include "cmos.h" // inb_cmos
-#include "types.h"
+#include "pci.h" // PCIDevice
+#include "types.h" // u32
 
 #define BX_APPNAME "Bochs"
 
@@ -215,53 +216,12 @@ void smp_probe(void)
 #define PCI_MIN_GNT		0x3e	/* 8 bits */
 #define PCI_MAX_LAT		0x3f	/* 8 bits */
 
-typedef struct PCIDevice {
-    int bus;
-    int devfn;
-} PCIDevice;
-
 static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
 static u32 pci_bios_bigmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
 static u8 pci_irqs[4] = { 11, 9, 11, 9 };
 static PCIDevice i440_pcidev;
-
-static void pci_config_writel(PCIDevice *d, u32 addr, u32 val)
-{
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    outl(val, 0xcfc);
-}
-
-static void pci_config_writew(PCIDevice *d, u32 addr, u32 val)
-{
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    outw(val, 0xcfc + (addr & 2));
-}
-
-static void pci_config_writeb(PCIDevice *d, u32 addr, u32 val)
-{
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    outb(val, 0xcfc + (addr & 3));
-}
-
-static u32 pci_config_readl(PCIDevice *d, u32 addr)
-{
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    return inl(0xcfc);
-}
-
-static u32 pci_config_readw(PCIDevice *d, u32 addr)
-{
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    return inw(0xcfc + (addr & 2));
-}
-
-static u32 pci_config_readb(PCIDevice *d, u32 addr)
-{
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    return inb(0xcfc + (addr & 3));
-}
 
 static void pci_set_io_region_addr(PCIDevice *d, int region_num, u32 addr)
 {
