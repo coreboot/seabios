@@ -23,7 +23,7 @@ SECTIONS
         . = 0x00040000;
         __bss_start = . ;
         .bss      : { *(.bss) *(COMMON) }
-        _end = . ;
+        __bss_end = . ;
         __call16_from32 = (0xf0000 | OFFSET___call16_from32) ;
         /DISCARD/ : { *(.stab)
                      *(.stabstr)

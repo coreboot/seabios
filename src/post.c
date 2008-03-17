@@ -381,6 +381,10 @@ post()
 
     printf("BIOS - begin\n\n");
 
+    // clear bss section -- XXX - shouldn't use globals
+    extern char __bss_start[], __bss_end[];
+    memset(__bss_start, 0, __bss_end - __bss_start);
+
     rombios32_init();
 
     init_boot_vectors();
