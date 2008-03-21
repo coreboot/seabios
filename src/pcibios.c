@@ -139,7 +139,7 @@ handle_1ab101(struct bregs *regs)
     regs->edx = 0x20494350; // "PCI "
     // XXX - bochs bios code sets edi to point to 32bit code - but no
     // reference to this in spec.
-    set_cf(regs, 0);
+    set_success(regs);
 }
 
 // find pci device
