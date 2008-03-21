@@ -1,3 +1,6 @@
+#ifndef __PCI_H
+#define __PCI_H
+
 #include "types.h" // u32
 
 typedef struct PCIDevice {
@@ -11,3 +14,5 @@ void pci_config_writeb(PCIDevice *d, u32 addr, u8 val);
 u32 pci_config_readl(PCIDevice *d, u32 addr);
 u16 pci_config_readw(PCIDevice *d, u32 addr);
 u8 pci_config_readb(PCIDevice *d, u32 addr);
+
+#endif
