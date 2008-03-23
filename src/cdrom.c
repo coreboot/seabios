@@ -229,10 +229,25 @@ cdemu_13(struct bregs *regs)
         disk_13(regs, device);
         break;
 
+    // These functions are the same as standard CDROM.
+    case 0x00:
+    case 0x01:
+    case 0x03:
+    case 0x05:
+    case 0x09:
+    case 0x0c:
+    case 0x0d:
+    case 0x10:
+    case 0x11:
+    case 0x14:
+    case 0x15:
+    case 0x16:
+        cdrom_13(regs, device);
+        break;
+
     case 0x08: cdemu_1308(regs, device); break;
 
-    // XXX - All other calls get passed to standard CDROM functions.
-    default: cdrom_13(regs, device); break;
+    default:   disk_13XX(regs, device); break;
     }
 }
 
