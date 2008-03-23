@@ -179,18 +179,13 @@ cdrom_13(struct bregs *regs, u8 device)
  * CD emulation
  ****************************************************************/
 
-// read disk sectors
-static void
-cdemu_1302(struct bregs *regs, u8 device)
+// Read a series of 512 byte sectors from the cdrom starting at the
+// image offset.
+inline int
+cdrom_read_emu(u16 biosid, u32 vlba, u32 count, void *far_buffer)
 {
-    emu_access(regs, device, ATA_CMD_READ_SECTORS);
-}
-
-// verify disk sectors
-static void
-cdemu_1304(struct bregs *regs, u8 device)
-{
-    emu_access(regs, device, 0);
+    u32 ilba = GET_EBDA(cdemu.ilba);
+    return cdrom_read_512(biosid, ilba * 4 + vlba, count, far_buffer);
 }
 
 // read disk drive parameters
@@ -228,9 +223,14 @@ cdemu_13(struct bregs *regs)
     device += GET_EBDA(cdemu.device_spec);
 
     switch (regs->ah) {
-    case 0x02: cdemu_1302(regs, device); break;
-    case 0x04: cdemu_1304(regs, device); break;
+    // These functions are the same as for hard disks
+    case 0x02:
+    case 0x04:
+        disk_13(regs, device);
+        break;
+
     case 0x08: cdemu_1308(regs, device); break;
+
     // XXX - All other calls get passed to standard CDROM functions.
     default: cdrom_13(regs, device); break;
     }
@@ -295,8 +295,7 @@ atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
     memset(atacmd, 0, sizeof(atacmd));
     atacmd[0] = ATA_CMD_REQUEST_SENSE;
     atacmd[4] = sizeof(buffer);
-    u16 ret = ata_cmd_packet(device, atacmd, sizeof(atacmd)
-                             , 0, sizeof(buffer)
+    u16 ret = ata_cmd_packet(device, atacmd, sizeof(atacmd), sizeof(buffer)
                              , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret != 0)
         return 0x0002;
@@ -332,8 +331,7 @@ atapi_is_ready(u16 device)
             DEBUGF("read capacity failed\n");
             return -1;
         }
-        u16 ret = ata_cmd_packet(device, packet, sizeof(packet)
-                                 , 0, sizeof(buf)
+        u16 ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
                                  , MAKE_FARPTR(GET_SEG(SS), (u32)buf));
         if (ret == 0)
             break;
@@ -431,8 +429,8 @@ cdrom_boot()
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
-    ret = cdrom_read(device, 0x11, 2048
-                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer), 0);
+    ret = cdrom_read(device, 0x11, 1
+                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret)
         return 3;
 
@@ -446,8 +444,8 @@ cdrom_boot()
     u32 lba = *(u32*)&buffer[0x47];
 
     // And we read the Boot Catalog
-    ret = cdrom_read(device, lba, 2048
-                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer), 0);
+    ret = cdrom_read(device, lba, 1
+                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret)
         return 7;
 
@@ -484,8 +482,7 @@ cdrom_boot()
     SET_EBDA(cdemu.ilba, lba);
 
     // And we read the image in memory
-    ret = cdrom_read(device, lba, nbsectors*512
-                     , MAKE_FARPTR(boot_segment, 0), 0);
+    ret = cdrom_read_emu(device, 0, nbsectors, MAKE_FARPTR(boot_segment, 0));
     if (ret)
         return 12;
 

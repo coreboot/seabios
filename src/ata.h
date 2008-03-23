@@ -33,9 +33,9 @@ struct ata_pio_command {
 void ata_reset(u16 device);
 int ata_transfer(struct ata_pio_command *cmd);
 int ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen
-                   , u16 header, u32 length, void *far_buffer);
-int cdrom_read(u16 device, u32 lba, u32 count
-               , void *far_buffer, u16 skip);
+                   , u32 length, void *far_buffer);
+int cdrom_read(u16 device, u32 lba, u32 count, void *far_buffer);
+int cdrom_read_512(u16 device, u32 lba, u32 count, void *far_buffer);
 void ata_detect();
 
 static inline int

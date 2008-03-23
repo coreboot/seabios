@@ -267,9 +267,9 @@ ata_transfer(struct ata_pio_command *cmd)
       // 2 : BUSY bit set
       // 3 : error
       // 4 : not ready
-int
-ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
-               , u16 header, u32 length, void *far_buffer)
+static inline int
+__ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
+                 , u16 header, u32 length, void *far_buffer)
 {
     DEBUGF("ata_cmd_packet d=%d cmdlen=%d h=%d l=%d buf=%p\n"
            , biosid, cmdlen, header, length, far_buffer);
@@ -422,23 +422,57 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
 }
 
 int
-cdrom_read(u16 biosid, u32 lba, u32 count, void *far_buffer, u16 skip)
+ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
+               , u32 length, void *far_buffer)
 {
-    u16 sectors = (count + 2048 - 1) / 2048;
+    return __ata_cmd_packet(biosid, cmdbuf, cmdlen, 0, length, far_buffer);
+}
 
-    u8 atacmd[12];
-    memset(atacmd, 0, sizeof(atacmd));
-    atacmd[0]=0x28;                      // READ command
-    atacmd[7]=(sectors & 0xff00) >> 8;   // Sectors
-    atacmd[8]=(sectors & 0x00ff);        // Sectors
-    atacmd[2]=(lba & 0xff000000) >> 24;  // LBA
+static void
+build_cdrom_cmd(u8 *atacmd, u32 lba, u16 count)
+{
+    memset(atacmd, 0, 12);
+    atacmd[0]=0x28;                     // READ command
+    atacmd[7]=(count & 0xff00) >> 8;    // Sectors
+    atacmd[8]=(count & 0x00ff);         // Sectors
+    atacmd[2]=(lba & 0xff000000) >> 24; // LBA
     atacmd[3]=(lba & 0x00ff0000) >> 16;
     atacmd[4]=(lba & 0x0000ff00) >> 8;
     atacmd[5]=(lba & 0x000000ff);
-
-    return ata_cmd_packet(biosid, atacmd, sizeof(atacmd)
-                          , skip, count, far_buffer);
 }
+
+// Read sectors from the cdrom.
+int
+cdrom_read(u16 biosid, u32 lba, u32 count, void *far_buffer)
+{
+    u8 atacmd[12];
+    build_cdrom_cmd(atacmd, lba, count);
+    return ata_cmd_packet(biosid, atacmd, sizeof(atacmd)
+                          , count*2048, far_buffer);
+}
+
+// Pretend the cdrom has 512 byte sectors (instead of 2048) and read
+// sectors.
+int
+cdrom_read_512(u16 biosid, u32 vlba, u32 count, void *far_buffer)
+{
+    u32 slba = vlba / 4;
+    u16 before = vlba % 4;
+    u32 elba = (vlba + count - 1) / 4;
+
+    u8 atacmd[12];
+    build_cdrom_cmd(atacmd, slba, elba - slba + 1);
+
+    int status = __ata_cmd_packet(biosid, atacmd, sizeof(atacmd)
+                                  , before*512, count*512, far_buffer);
+    if (status) {
+        SET_EBDA(ata.trsfsectors, 0);
+        return status;
+    }
+    SET_EBDA(ata.trsfsectors, count);
+    return 0;
+}
+
 
 // ---------------------------------------------------------------------------
 // ATA/ATAPI driver : device detection
