@@ -142,7 +142,8 @@ emu_access(struct bregs *regs, u8 device, u16 command)
                            , MAKE_32_PTR(segment, offset), before*512);
     irq_disable();
     if (status != 0) {
-        BX_INFO("int13_harddisk: function %02x, error %02x !\n",regs->ah,status);
+        BX_INFO("int13_harddisk: function %02x, error %02x !\n"
+                , regs->ah, status);
         regs->al = 0;
         disk_ret(regs, DISK_RET_EBADTRACK);
     }
@@ -222,8 +223,10 @@ disk_1300(struct bregs *regs, u8 device)
 static void
 disk_1301(struct bregs *regs, u8 device)
 {
-    regs->ah = GET_BDA(disk_last_status);
-    disk_ret(regs, DISK_RET_SUCCESS);
+    u8 v = GET_BDA(disk_last_status);
+    regs->ah = v;
+    set_cf(regs, v);
+    // XXX - clear disk_last_status?
 }
 
 // read disk sectors
