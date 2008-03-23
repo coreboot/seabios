@@ -139,6 +139,24 @@ ata_reset(u16 device)
       // 6 : no sectors left to write
       // 7 : more sectors to write
 
+struct ata_pio_command {
+    void *far_buffer;
+    u8 biosid;
+
+    u8 feature;
+    u8 sector_count;
+    u8 lba_low;
+    u8 lba_mid;
+    u8 lba_high;
+    u8 device;
+    u8 command;
+
+    u8 sector_count2;
+    u8 lba_low2;
+    u8 lba_mid2;
+    u8 lba_high2;
+};
+
 static int
 send_cmd(struct ata_pio_command *cmd)
 {
@@ -183,7 +201,7 @@ send_cmd(struct ata_pio_command *cmd)
     return 0;
 }
 
-int
+static int
 ata_transfer(struct ata_pio_command *cmd)
 {
     DEBUGF("ata_transfer id=%d cmd=%d lba=%d count=%d buf=%p\n"
@@ -256,6 +274,36 @@ ata_transfer(struct ata_pio_command *cmd)
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
     return 0;
+}
+
+inline int
+ata_cmd_data(u16 biosid, u16 command, u32 lba, u16 count, void *far_buffer)
+{
+    u8 slave   = biosid % 2;
+
+    struct ata_pio_command cmd;
+    cmd.far_buffer = far_buffer;
+    cmd.biosid = biosid;
+
+    if (count >= (1<<8) || lba + count >= (1<<28)) {
+        cmd.sector_count2 = count >> 8;
+        cmd.lba_low2 = lba >> 24;
+        cmd.lba_mid2 = 0;
+        cmd.lba_high2 = 0;
+
+        command |= 0x04;
+        lba &= 0xffffff;
+    }
+
+    cmd.feature = 0;
+    cmd.sector_count = count;
+    cmd.lba_low = lba;
+    cmd.lba_mid = lba >> 8;
+    cmd.lba_high = lba >> 16;
+    cmd.device = ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
+                  | ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
+    cmd.command = command;
+    return ata_transfer(&cmd);
 }
 
 // ---------------------------------------------------------------------------
