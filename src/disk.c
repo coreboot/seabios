@@ -537,7 +537,6 @@ disk_134e06(struct bregs *regs, u8 device)
 static void
 disk_134eXX(struct bregs *regs, u8 device)
 {
-    debug_stub(regs);
     disk_ret(regs, DISK_RET_EPARAM);
 }
 
@@ -557,7 +556,6 @@ disk_134e(struct bregs *regs, u8 device)
 void
 disk_13XX(struct bregs *regs, u8 device)
 {
-    debug_stub(regs);
     disk_ret(regs, DISK_RET_EPARAM);
 }
 
