@@ -78,7 +78,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
                + (u32)sector - 1);
     irq_enable();
     u8 status = ata_cmd_data(device, command, lba, count
-                             , MAKE_32_PTR(segment, offset));
+                             , MAKE_FARPTR(segment, offset));
     irq_disable();
 
     // Set nb of sector transferred
@@ -139,7 +139,7 @@ emu_access(struct bregs *regs, u8 device, u16 command)
 
     irq_enable();
     u8 status = cdrom_read(device, lba, count*512
-                           , MAKE_32_PTR(segment, offset), before*512);
+                           , MAKE_FARPTR(segment, offset), before*512);
     irq_disable();
     if (status != 0) {
         BX_INFO("int13_harddisk: function %02x, error %02x !\n"
@@ -189,10 +189,10 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     u8 status;
     if (type == ATA_TYPE_ATA)
         status = ata_cmd_data(device, command, lba, count
-                              , MAKE_32_PTR(segment, offset));
+                              , MAKE_FARPTR(segment, offset));
     else
         status = cdrom_read(device, lba, count*2048
-                            , MAKE_32_PTR(segment, offset), 0);
+                            , MAKE_FARPTR(segment, offset), 0);
 
     irq_disable();
 

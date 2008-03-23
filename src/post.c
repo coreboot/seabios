@@ -330,7 +330,7 @@ rom_scan(u32 start, u32 end)
         if (checksum(rom, len) != 0)
             continue;
         p = (u8*)(((u32)p + len) / 2048 * 2048);
-        callrom(PTR_TO_SEG(rom), PTR_TO_OFFSET(rom + 3));
+        callrom(FARPTR_TO_SEG(rom), FARPTR_TO_OFFSET(rom + 3));
 
         // Look at the ROM's PnP Expansion header.  Properly, we're supposed
         // to init all the ROMs and then go back and build an IPL table of
@@ -351,11 +351,11 @@ rom_scan(u32 start, u32 end)
 
         struct ipl_entry_s *ip = &ipl->table[ipl->count];
         ip->type = IPL_TYPE_BEV;
-        ip->vector = (PTR_TO_SEG(rom) << 16) | entry;
+        ip->vector = (FARPTR_TO_SEG(rom) << 16) | entry;
 
         u16 desc = *(u16*)&rom[0x1a+0x10];
         if (desc)
-            ip->description = (PTR_TO_SEG(rom) << 16) | desc;
+            ip->description = (FARPTR_TO_SEG(rom) << 16) | desc;
 
         ipl->count++;
     }

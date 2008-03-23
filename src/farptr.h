@@ -95,9 +95,9 @@ extern void __force_link_error__unknown_type();
 
 // Macros for converting to/from 32bit style pointers to their
 // equivalent 16bit segment/offset values.
-#define PTR_TO_SEG(p) (((u32)(p)) >> 4)
-#define PTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
-#define MAKE_32_PTR(seg,off) ((void*)(((seg)<<4)+(off)))
+#define FARPTR_TO_SEG(p) (((u32)(p)) >> 4)
+#define FARPTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
+#define MAKE_FARPTR(seg,off) ((void*)(((seg)<<4)+(off)))
 
 
 #ifdef MODE16
@@ -113,35 +113,35 @@ extern void __force_link_error__unknown_type();
 #define SET_FARPTR(ptr, val) __SET_FARPTR((ptr), (val))
 
 static inline void insb_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, PTR_TO_SEG(farptr));
-    insb(port, (u8*)PTR_TO_OFFSET(farptr), count);
+    SET_SEG(ES, FARPTR_TO_SEG(farptr));
+    insb(port, (u8*)FARPTR_TO_OFFSET(farptr), count);
 }
 static inline void insw_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, PTR_TO_SEG(farptr));
-    insw(port, (u16*)PTR_TO_OFFSET(farptr), count);
+    SET_SEG(ES, FARPTR_TO_SEG(farptr));
+    insw(port, (u16*)FARPTR_TO_OFFSET(farptr), count);
 }
 static inline void insl_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, PTR_TO_SEG(farptr));
-    insl(port, (u32*)PTR_TO_OFFSET(farptr), count);
+    SET_SEG(ES, FARPTR_TO_SEG(farptr));
+    insl(port, (u32*)FARPTR_TO_OFFSET(farptr), count);
 }
 static inline void outsb_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, PTR_TO_SEG(farptr));
-    outsb(port, (u8*)PTR_TO_OFFSET(farptr), count);
+    SET_SEG(ES, FARPTR_TO_SEG(farptr));
+    outsb(port, (u8*)FARPTR_TO_OFFSET(farptr), count);
 }
 static inline void outsw_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, PTR_TO_SEG(farptr));
-    outsw(port, (u16*)PTR_TO_OFFSET(farptr), count);
+    SET_SEG(ES, FARPTR_TO_SEG(farptr));
+    outsw(port, (u16*)FARPTR_TO_OFFSET(farptr), count);
 }
 static inline void outsl_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, PTR_TO_SEG(farptr));
-    outsl(port, (u32*)PTR_TO_OFFSET(farptr), count);
+    SET_SEG(ES, FARPTR_TO_SEG(farptr));
+    outsl(port, (u32*)FARPTR_TO_OFFSET(farptr), count);
 }
 
 #else
 
 // In 32-bit mode there is no need to mess with the segments.
 #define GET_FARVAR(seg, var) \
-    (*((typeof(&(var)))MAKE_32_PTR((seg), (u32)&(var))))
+    (*((typeof(&(var)))MAKE_FARPTR((seg), (u32)&(var))))
 #define SET_FARVAR(seg, var, val) \
     do { GET_FARVAR((seg), (var)) = (val); } while (0)
 #define GET_VAR(seg, var) (var)

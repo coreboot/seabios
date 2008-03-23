@@ -297,7 +297,7 @@ atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
     atacmd[4] = sizeof(buffer);
     u16 ret = ata_cmd_packet(device, atacmd, sizeof(atacmd)
                              , 0, sizeof(buffer)
-                             , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+                             , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret != 0)
         return 0x0002;
 
@@ -334,7 +334,7 @@ atapi_is_ready(u16 device)
         }
         u16 ret = ata_cmd_packet(device, packet, sizeof(packet)
                                  , 0, sizeof(buf)
-                                 , MAKE_32_PTR(GET_SEG(SS), (u32)buf));
+                                 , MAKE_FARPTR(GET_SEG(SS), (u32)buf));
         if (ret == 0)
             break;
 
@@ -432,7 +432,7 @@ cdrom_boot()
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
     ret = cdrom_read(device, 0x11, 2048
-                     , MAKE_32_PTR(GET_SEG(SS), (u32)buffer), 0);
+                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer), 0);
     if (ret)
         return 3;
 
@@ -447,7 +447,7 @@ cdrom_boot()
 
     // And we read the Boot Catalog
     ret = cdrom_read(device, lba, 2048
-                     , MAKE_32_PTR(GET_SEG(SS), (u32)buffer), 0);
+                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer), 0);
     if (ret)
         return 7;
 
@@ -485,7 +485,7 @@ cdrom_boot()
 
     // And we read the image in memory
     ret = cdrom_read(device, lba, nbsectors*512
-                     , MAKE_32_PTR(boot_segment, 0), 0);
+                     , MAKE_FARPTR(boot_segment, 0), 0);
     if (ret)
         return 12;
 

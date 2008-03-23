@@ -306,7 +306,7 @@ ata_cmd_packet(u16 biosid, u8 *cmdbuf, u8 cmdlen
     SET_EBDA(ata.trsfbytes,0L);
 
     // Send command to device
-    outsw_far(iobase1, MAKE_32_PTR(GET_SEG(SS), (u32)cmdbuf), cmdlen / 2);
+    outsw_far(iobase1, MAKE_FARPTR(GET_SEG(SS), (u32)cmdbuf), cmdlen / 2);
 
     u8 status;
     u16 loops = 0;
@@ -495,7 +495,7 @@ init_drive_atapi(u8 devid)
     memset(buffer, 0, sizeof(buffer));
     u16 ret = ata_cmd_data(devid, ATA_CMD_IDENTIFY_DEVICE_PACKET
                            , 1, 1
-                           , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+                           , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret != 0)
         BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
 
@@ -536,7 +536,7 @@ init_drive_ata(u8 devid)
     memset(buffer, 0, sizeof(buffer));
     u16 ret = ata_cmd_data(devid, ATA_CMD_IDENTIFY_DEVICE
                            , 1, 1
-                           , MAKE_32_PTR(GET_SEG(SS), (u32)buffer));
+                           , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret)
         BX_PANIC("ata-detect: Failed to detect ATA device\n");
 
