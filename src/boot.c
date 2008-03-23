@@ -71,6 +71,7 @@ try_boot(u16 seq_nr)
     u8 bootdrv = 0;
     u16 bootdev, bootip;
 
+    // XXX - why different bootdev check based on CONFIG_CDROM_BOOT?
     if (CONFIG_CDROM_BOOT) {
         bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
         bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);

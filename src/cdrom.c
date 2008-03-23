@@ -465,15 +465,8 @@ cdrom_boot()
     if (buffer[0x20] != 0x88)
         return 11; // Bootable
 
-    SET_EBDA(cdemu.media,buffer[0x21]);
-    if (buffer[0x21] == 0)
-        // FIXME ElTorito Hardcoded. cdrom is hardcoded as device 0xE0.
-        // Win2000 cd boot needs to know it booted from cd
-        SET_EBDA(cdemu.emulated_drive, 0xE0);
-    else if (buffer[0x21] < 4)
-        SET_EBDA(cdemu.emulated_drive, 0x00);
-    else
-        SET_EBDA(cdemu.emulated_drive, 0x80);
+    u8 media = buffer[0x21];
+    SET_EBDA(cdemu.media, media);
 
     SET_EBDA(cdemu.controller_index, device/2);
     SET_EBDA(cdemu.device_spec, device%2);
@@ -481,9 +474,8 @@ cdrom_boot()
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)
         boot_segment = 0x07C0;
-
-    SET_EBDA(cdemu.load_segment,boot_segment);
-    SET_EBDA(cdemu.buffer_segment,0x0000);
+    SET_EBDA(cdemu.load_segment, boot_segment);
+    SET_EBDA(cdemu.buffer_segment, 0x0000);
 
     u16 nbsectors = *(u16*)&buffer[0x26];
     SET_EBDA(cdemu.sector_count, nbsectors);
@@ -497,8 +489,34 @@ cdrom_boot()
     if (ret)
         return 12;
 
+    if (media == 0) {
+        // No emulation requested - return success.
+
+        // FIXME ElTorito Hardcoded. cdrom is hardcoded as device 0xE0.
+        // Win2000 cd boot needs to know it booted from cd
+        SET_EBDA(cdemu.emulated_drive, 0xE0);
+
+        return 0;
+    }
+
+    // Emulation of a floppy/harddisk requested
+    if (! CONFIG_CDROM_EMU)
+        return 13;
+
+    // Set emulated drive id and increase bios installed hardware
+    // number of devices
+    if (media < 4) {
+        // Floppy emulation
+        SET_EBDA(cdemu.emulated_drive, 0x00);
+        SETBITS_BDA(equipment_list_flags, 0x41);
+    } else {
+        // Harddrive emulation
+        SET_EBDA(cdemu.emulated_drive, 0x80);
+        SET_EBDA(ata.hdcount, GET_EBDA(ata.hdcount) + 1);
+    }
+
     // Remember the media type
-    switch (GET_EBDA(cdemu.media)) {
+    switch (media) {
     case 0x01:  // 1.2M floppy
         SET_EBDA(cdemu.vdevice.spt, 15);
         SET_EBDA(cdemu.vdevice.cylinders, 80);
@@ -525,18 +543,9 @@ cdrom_boot()
     }
     }
 
-    if (GET_EBDA(cdemu.media) != 0) {
-        // Increase bios installed hardware number of devices
-        if (GET_EBDA(cdemu.emulated_drive) == 0x00)
-            SETBITS_BDA(equipment_list_flags, 0x41);
-        else
-            SET_EBDA(ata.hdcount, GET_EBDA(ata.hdcount) + 1);
-        // everything is ok, so from now on, the emulation is active
-        SET_EBDA(cdemu.active, 0x01);
-    }
-
-    DEBUGF("cdemu media=%d active=%d\n"
-           , GET_EBDA(cdemu.media), GET_EBDA(cdemu.active));
+    // everything is ok, so from now on, the emulation is active
+    SET_EBDA(cdemu.active, 0x01);
+    DEBUGF("cdemu media=%d\n", media);
 
     return 0;
 }
