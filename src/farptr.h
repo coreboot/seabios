@@ -85,11 +85,13 @@ extern void __force_link_error__unknown_type();
 // automatically update the %es segment, break the pointer into
 // segment/offset, and then make the access.)
 #define __GET_FARPTR(ptr) ({                                            \
-    typeof (&(ptr)) __ptr = (ptr);                                      \
-    GET_FARVAR(PTR_TO_SEG(__ptr), *(typeof __ptr)PTR_TO_OFFSET(__ptr)); })
+    typeof(&(ptr)) __ptr = &(ptr);                                      \
+    GET_FARVAR(FARPTR_TO_SEG(__ptr)                                     \
+               , *(typeof(__ptr))FARPTR_TO_OFFSET(__ptr)); })
 #define __SET_FARPTR(ptr, val) do {                                     \
-        typeof (&(ptr)) __ptr = (ptr);                                  \
-        SET_FARVAR(PTR_TO_SEG(__ptr), *(typeof __ptr)PTR_TO_OFFSET(__ptr) \
+        typeof (&(ptr)) __ptr = &(ptr);                                 \
+        SET_FARVAR(FARPTR_TO_SEG(__ptr)                                 \
+                   , *(typeof(__ptr))FARPTR_TO_OFFSET(__ptr)            \
                    , (val));                                            \
     } while (0)
 
@@ -149,7 +151,7 @@ static inline void outsl_far(u16 port, void *farptr, u16 count) {
 #define SET_SEG(SEG, value) ((void)(value))
 #define GET_SEG(SEG) 0
 #define GET_FARPTR(ptr) (ptr)
-#define SET_FARPTR(ptr, val) do { (var) = (val); } while (0)
+#define SET_FARPTR(ptr, val) do { (ptr) = (val); } while (0)
 
 #define insb_far(port, farptr, count) insb(port, farptr, count)
 #define insw_far(port, farptr, count) insw(port, farptr, count)
