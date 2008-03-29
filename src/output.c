@@ -147,6 +147,7 @@ bprintf(u16 action, const char *fmt, ...)
             val = va_arg(args, s32);
             putuint(action, val);
             break;
+        case 'p':
         case 'x':
             val = va_arg(args, s32);
             puthex(action, val);
@@ -178,9 +179,8 @@ dump_regs(const char *fname, const char *type, struct bregs *regs)
     bprintf(0, "%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
             , type, fname, regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
-    bprintf(0, "  ds=%x es=%x ip=%x cs=%x f=%x\n"
-            , regs->ds, regs->es
-            , regs->ip, regs->cs, regs->flags);
+    bprintf(0, "  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
+            , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
 }
 
 void
