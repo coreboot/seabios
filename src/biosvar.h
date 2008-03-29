@@ -194,7 +194,6 @@ struct ata_s {
 
     // Count of transferred sectors and bytes
     u16 trsfsectors;
-    u32 trsfbytes;
 } PACKED;
 
 // ElTorito Device Emulation data

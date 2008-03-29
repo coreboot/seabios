@@ -12,12 +12,12 @@
 #include "atabits.h" // ATA_CB_DH_DEV1
 
 // Function definitions
-void ata_reset(u16 device);
-int ata_cmd_data(u16 biosid, u16 command, u32 lba, u16 count, void *far_buffer);
-int ata_cmd_packet(u16 device, u8 *cmdbuf, u8 cmdlen
+void ata_reset(int driveid);
+int ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer);
+int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *far_buffer);
-int cdrom_read(u16 device, u32 lba, u32 count, void *far_buffer);
-int cdrom_read_512(u16 device, u32 lba, u32 count, void *far_buffer);
+int cdrom_read(int driveid, u32 lba, u32 count, void *far_buffer);
+int cdrom_read_512(int driveid, u32 lba, u32 count, void *far_buffer);
 void ata_detect();
 
 #endif /* __ATA_H */
