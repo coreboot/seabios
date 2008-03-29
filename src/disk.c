@@ -39,18 +39,6 @@ checksum_seg(u16 seg, u16 offset, u32 len)
 static void
 basic_access(struct bregs *regs, u8 device, u16 command)
 {
-    u16 count       = regs->al;
-    u16 cylinder    = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
-    u16 sector      = regs->cl & 0x3f;
-    u16 head        = regs->dh;
-
-    if (count > 128 || count == 0 || sector == 0) {
-        BX_INFO("int13_harddisk: function %02x, parameter out of range!\n"
-                , regs->ah);
-        disk_ret(regs, DISK_RET_EPARAM);
-        return;
-    }
-
     u8 type = GET_EBDA(ata.devices[device].type);
     u16 nlc, nlh, nlspt;
     if (type == ATA_TYPE_ATA) {
@@ -62,6 +50,18 @@ basic_access(struct bregs *regs, u8 device, u16 command)
         nlc   = GET_EBDA(cdemu.vdevice.cylinders);
         nlh   = GET_EBDA(cdemu.vdevice.heads);
         nlspt = GET_EBDA(cdemu.vdevice.spt);
+    }
+
+    u16 count       = regs->al;
+    u16 cylinder    = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
+    u16 sector      = regs->cl & 0x3f;
+    u16 head        = regs->dh;
+
+    if (count > 128 || count == 0 || sector == 0) {
+        BX_INFO("int13_harddisk: function %02x, parameter out of range!\n"
+                , regs->ah);
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
     }
 
     // sanity check on cyl heads, sec
