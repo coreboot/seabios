@@ -634,15 +634,6 @@ static void putle32(u8 **pp, int val)
     *pp = q;
 }
 
-static int mpf_checksum(const u8 *data, int len)
-{
-    int sum, i;
-    sum = 0;
-    for(i = 0; i < len; i++)
-        sum += data[i];
-    return sum & 0xff;
-}
-
 static unsigned long align(unsigned long addr, unsigned long v)
 {
     return (addr + v - 1) & ~(v - 1);
@@ -734,7 +725,7 @@ static void mptable_init(void)
     mp_config_table[4] = len;
     mp_config_table[5] = len >> 8;
 
-    mp_config_table[7] = -mpf_checksum(mp_config_table, q - mp_config_table);
+    mp_config_table[7] = -checksum(mp_config_table, q - mp_config_table);
 
     mp_config_table_size = q - mp_config_table;
 
@@ -764,8 +755,8 @@ static void mptable_init(void)
     putb(&q, 0);
     putb(&q, 0);
     putb(&q, 0);
-    float_pointer_struct[10] =
-        -mpf_checksum(float_pointer_struct, q - float_pointer_struct);
+    float_pointer_struct[10] = -checksum(float_pointer_struct
+                                         , q - float_pointer_struct);
 #ifdef BX_USE_EBDA_TABLES
     ebda_cur_addr += (q - float_pointer_struct);
 #else
@@ -981,15 +972,6 @@ static inline u32 cpu_to_le32(u32 x)
     return x;
 }
 
-static int acpi_checksum(const u8 *data, int len)
-{
-    int sum, i;
-    sum = 0;
-    for(i = 0; i < len; i++)
-        sum += data[i];
-    return (-sum) & 0xff;
-}
-
 static void acpi_build_table_header(struct acpi_table_header *h,
                                     char *sig, int len, u8 rev)
 {
@@ -1011,7 +993,7 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     memcpy(h->asl_compiler_id, "BXPC", 4);
 #endif
     h->asl_compiler_revision = cpu_to_le32(1);
-    h->checksum = acpi_checksum((void *)h, len);
+    h->checksum = -checksum((void *)h, len);
 }
 
 int acpi_build_processor_ssdt(u8 *ssdt)
@@ -1135,7 +1117,7 @@ void acpi_bios_init(void)
     memcpy(rsdp->oem_id, "BOCHS ", 6);
 #endif
     rsdp->rsdt_physical_address = cpu_to_le32(rsdt_addr);
-    rsdp->checksum = acpi_checksum((void *)rsdp, 20);
+    rsdp->checksum = -checksum((void *)rsdp, 20);
 
     /* RSDT */
     memset(rsdt, 0, sizeof(*rsdt));
@@ -1369,8 +1351,6 @@ smbios_entry_point_init(void *start,
                         u32 structure_table_address,
                         u16 number_of_structures)
 {
-    u8 sum;
-    int i;
     struct smbios_entry_point *ep = (struct smbios_entry_point *)start;
 
     memcpy(ep->anchor_string, "_SM_", 4);
@@ -1390,16 +1370,10 @@ smbios_entry_point_init(void *start,
     ep->checksum = 0;
     ep->intermediate_checksum = 0;
 
-    sum = 0;
-    for (i = 0; i < 0x10; i++)
-        sum += ((s8 *)start)[i];
-    ep->checksum = -sum;
+    ep->checksum = -checksum(start, 0x10);
 
-    sum = 0;
-    for (i = 0x10; i < ep->length; i++)
-        sum += ((s8 *)start)[i];
-    ep->intermediate_checksum = -sum;
-    }
+    ep->intermediate_checksum = -checksum(start + 0x10, ep->length - 0x10);
+}
 
 /* Type 0 -- BIOS Information */
 #define RELEASE_DATE_STR "01/01/2007"

@@ -26,16 +26,6 @@
         disk_ret(__regs, DISK_RET_SUCCESS);     \
     } while (0)
 
-static u8
-checksum_seg(u16 seg, u16 offset, u32 len)
-{
-    u32 i;
-    u8 sum = 0;
-    for (i=0; i<len; i++)
-        sum += GET_FARVAR(seg, *(u8*)(offset+i));
-    return sum;
-}
-
 static void
 basic_access(struct bregs *regs, u8 device, u16 command)
 {
@@ -452,9 +442,9 @@ disk_1348(struct bregs *regs, u8 device)
     else
         SET_EBDA(ata.dpte.revision, 0x10);
 
-    u8 sum = checksum_seg(EBDA_SEG
-                          , offsetof(struct extended_bios_data_area_s, ata.dpte)
-                          , 15);
+    u8 *p = MAKE_FARPTR(EBDA_SEG
+                        , offsetof(struct extended_bios_data_area_s, ata.dpte));
+    u8 sum = checksum(p, 15);
     SET_EBDA(ata.dpte.checksum, ~sum);
 
     if (size < 0x42) {
@@ -498,7 +488,7 @@ disk_1348(struct bregs *regs, u8 device)
     SET_INT13DPT(regs, device_path[2], 0);
     SET_INT13DPT(regs, device_path[4], 0L);
 
-    sum = checksum_seg(regs->ds, 30, 34);
+    sum = checksum(MAKE_FARPTR(regs->ds, 30), 34);
     SET_INT13DPT(regs, checksum, ~sum);
 }
 

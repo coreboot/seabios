@@ -17,16 +17,6 @@
 #define bda ((struct bios_data_area_s *)0)
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
 
-static u8
-checksum(u8 *p, u32 len)
-{
-    u32 i;
-    u8 sum = 0;
-    for (i=0; i<len; i++)
-        sum += p[i];
-    return sum;
-}
-
 static void
 init_bda()
 {
@@ -258,7 +248,7 @@ fill_hdinfo(struct fdpt_s *info, u8 typecmos, u8 basecmos)
     }
     info->cylinders = cyl;
     info->heads = heads;
-    info->checksum = ~checksum((u8*)info, sizeof(*info)-1) + 1;
+    info->checksum = -checksum((u8*)info, sizeof(*info)-1);
 }
 
 static void

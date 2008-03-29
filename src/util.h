@@ -173,6 +173,7 @@ void VISIBLE16 handle_1553(struct bregs *regs);
 void handle_1ab1(struct bregs *regs);
 
 // util.c
+u8 checksum(u8 *far_data, u32 len);
 void usleep(u32 count);
 
 // rombios32.c
