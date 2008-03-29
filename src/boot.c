@@ -71,26 +71,15 @@ try_boot(u16 seq_nr)
     u8 bootdrv = 0;
     u16 bootdev, bootip;
 
-    // XXX - why different bootdev check based on CONFIG_CDROM_BOOT?
-    if (CONFIG_CDROM_BOOT) {
-        bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
-        bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);
-        bootdev >>= 4 * seq_nr;
-        bootdev &= 0xf;
-        if (bootdev == 0)
-            BX_PANIC("No bootable device.\n");
+    bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
+    bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);
+    bootdev >>= 4 * seq_nr;
+    bootdev &= 0xf;
+    if (bootdev == 0)
+        BX_PANIC("No bootable device.\n");
 
-        /* Translate from CMOS runes to an IPL table offset by subtracting 1 */
-        bootdev -= 1;
-    } else {
-        if (seq_nr ==2)
-            BX_PANIC("No more boot devices.");
-        if (!!(inb_cmos(CMOS_BIOS_CONFIG) & 0x20) ^ (seq_nr == 1))
-            /* Boot from floppy if the bit is set or it's the second boot */
-            bootdev = 0x00;
-        else
-            bootdev = 0x01;
-    }
+    /* Translate from CMOS runes to an IPL table offset by subtracting 1 */
+    bootdev -= 1;
 
     if (bootdev >= GET_EBDA(ipl.count)) {
         BX_INFO("Invalid boot device (0x%x)\n", bootdev);

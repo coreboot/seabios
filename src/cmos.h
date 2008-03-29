@@ -32,7 +32,6 @@
 #define CMOS_DISK_DRIVE2_TYPE    0x1a
 #define CMOS_DISK_DRIVE1_CYL     0x1b
 #define CMOS_DISK_DRIVE2_CYL     0x24
-#define CMOS_BIOS_CONFIG         0x2d
 #define CMOS_MEM_EXTMEM_LOW      0x30
 #define CMOS_MEM_EXTMEM_HIGH     0x31
 #define CMOS_CENTURY             0x32
