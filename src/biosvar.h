@@ -119,21 +119,6 @@ struct bios_data_area_s {
  * Hard drive info
  ****************************************************************/
 
-struct fdpt_s {
-    u16 cylinders;
-    u8 heads;
-    u8 a0h_signature;
-    u8 phys_sectors;
-    u16 precompensation;
-    u8 reserved;
-    u8 drive_control_byte;
-    u16 phys_cylinders;
-    u8 phys_heads;
-    u16 landing_zone;
-    u8 sectors;
-    u8 checksum;
-} PACKED;
-
 struct chs_s {
     u16 heads;      // # heads
     u16 cylinders;  // # cylinders
@@ -161,7 +146,7 @@ struct ata_channel_s {
     u16 iobase1;      // IO Base 1
     u16 iobase2;      // IO Base 2
     u8  irq;          // IRQ
-} PACKED;
+};
 
 struct ata_device_s {
     u8  type;         // Detected type of ata (ata/atapi/none/unknown)
@@ -176,7 +161,7 @@ struct ata_device_s {
     struct chs_s  pchs;         // Physical CHS
 
     u32 sectors;      // Total sectors count
-} PACKED;
+};
 
 struct ata_s {
     // ATA channels info
@@ -194,7 +179,7 @@ struct ata_s {
 
     // Count of transferred sectors and bytes
     u16 trsfsectors;
-} PACKED;
+};
 
 // ElTorito Device Emulation data
 struct cdemu_s {
@@ -210,12 +195,50 @@ struct cdemu_s {
 
     // Virtual device
     struct chs_s  vdevice;
-} PACKED;
+};
+
+
+/****************************************************************
+ * Initial Program Load (IPL)
+ ****************************************************************/
+
+struct ipl_entry_s {
+    u16 type;
+    u16 flags;
+    u32 vector;
+    u32 description;
+};
+
+struct ipl_s {
+    struct ipl_entry_s table[8];
+    u16 count;
+    u16 sequence;
+};
+
+#define IPL_TYPE_FLOPPY      0x01
+#define IPL_TYPE_HARDDISK    0x02
+#define IPL_TYPE_CDROM       0x03
+#define IPL_TYPE_BEV         0x80
 
 
 /****************************************************************
  * Extended Bios Data Area (EBDA)
  ****************************************************************/
+
+struct fdpt_s {
+    u16 cylinders;
+    u8 heads;
+    u8 a0h_signature;
+    u8 phys_sectors;
+    u16 precompensation;
+    u8 reserved;
+    u8 drive_control_byte;
+    u16 phys_cylinders;
+    u8 phys_heads;
+    u16 landing_zone;
+    u8 sectors;
+    u8 checksum;
+} PACKED;
 
 struct extended_bios_data_area_s {
     u8 size;
@@ -231,6 +254,7 @@ struct extended_bios_data_area_s {
     struct fdpt_s fdpt0;
     struct fdpt_s fdpt1;
 
+    // 0x5d
     u8 other2[0xC4];
 
     // ATA Driver data
@@ -238,6 +262,9 @@ struct extended_bios_data_area_s {
 
     // El Torito Emulation data
     struct cdemu_s cdemu;
+
+    // Initial program load
+    struct ipl_s ipl;
 } PACKED;
 
 // Accessor functions
@@ -245,39 +272,6 @@ struct extended_bios_data_area_s {
     GET_FARVAR(EBDA_SEG, ((struct extended_bios_data_area_s *)0)->var)
 #define SET_EBDA(var, val) \
     SET_FARVAR(EBDA_SEG, ((struct extended_bios_data_area_s *)0)->var, (val))
-
-
-/****************************************************************
- * Initial Program Load (IPL)
- ****************************************************************/
-
-// XXX - is this a standard, or just a bochs bios thing?
-
-struct ipl_entry_s {
-    u16 type;
-    u16 flags;
-    u32 vector;
-    u32 description;
-    u32 reserved;
-};
-
-struct ipl_s {
-    struct ipl_entry_s table[8];
-    u16 count;
-    u16 sequence;
-    u8 pad[124];
-};
-
-#define IPL_TYPE_FLOPPY      0x01
-#define IPL_TYPE_HARDDISK    0x02
-#define IPL_TYPE_CDROM       0x03
-#define IPL_TYPE_BEV         0x80
-
-// Accessor functions
-#define GET_IPL(var) \
-    GET_FARVAR(IPL_SEG, ((struct ipl_s *)0)->var)
-#define SET_IPL(var, val) \
-    SET_FARVAR(IPL_SEG, ((struct ipl_s *)0)->var, (val))
 
 
 /****************************************************************
@@ -339,7 +333,6 @@ extern struct bios_config_table_s BIOS_CONFIG_TABLE;
 #define SEG_BIOS     0xf000
 
 #define EBDA_SEG           0x9FC0
-#define IPL_SEG            0x9FF0
 #define EBDA_SIZE          1              // In KiB
 #define BASE_MEM_IN_K   (640 - EBDA_SIZE)
 

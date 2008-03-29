@@ -65,7 +65,7 @@ try_boot(u16 seq_nr)
 {
     irq_enable();
 
-    SET_IPL(sequence, seq_nr);
+    SET_EBDA(ipl.sequence, seq_nr);
 
     u16 bootseg;
     u8 bootdrv = 0;
@@ -92,11 +92,11 @@ try_boot(u16 seq_nr)
             bootdev = 0x01;
     }
 
-    if (bootdev >= GET_IPL(count)) {
+    if (bootdev >= GET_EBDA(ipl.count)) {
         BX_INFO("Invalid boot device (0x%x)\n", bootdev);
         return;
     }
-    u16 type = GET_IPL(table[bootdev].type);
+    u16 type = GET_EBDA(ipl.table[bootdev].type);
 
     /* Do the loading, and set up vector as a far pointer to the boot
      * address, and bootdrv as the boot drive */
@@ -159,7 +159,7 @@ try_boot(u16 seq_nr)
     case IPL_TYPE_BEV: {
         /* Expansion ROM with a Bootstrap Entry Vector (a far
          * pointer) */
-        u32 vector = GET_IPL(table[bootdev].vector);
+        u32 vector = GET_EBDA(ipl.table[bootdev].vector);
         bootseg = vector >> 16;
         bootip = vector & 0xffff;
         break;
@@ -196,7 +196,7 @@ void VISIBLE16
 handle_18()
 {
     debug_enter(NULL);
-    u16 seq = GET_IPL(sequence) + 1;
+    u16 seq = GET_EBDA(ipl.sequence) + 1;
     do_boot(seq);
 }
 

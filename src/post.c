@@ -16,7 +16,6 @@
 
 #define bda ((struct bios_data_area_s *)0)
 #define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
-#define ipl ((struct ipl_s *)(IPL_SEG<<4))
 
 static u8
 checksum(u8 *p, u32 len)
@@ -284,11 +283,8 @@ hard_drive_post()
 static void
 init_boot_vectors()
 {
-    // Clear out the IPL table.
-    memset(ipl, 0, sizeof(*ipl));
-
     // Floppy drive
-    struct ipl_entry_s *ip = &ipl->table[0];
+    struct ipl_entry_s *ip = &ebda->ipl.table[0];
     ip->type = IPL_TYPE_FLOPPY;
     ip++;
 
@@ -302,8 +298,8 @@ init_boot_vectors()
         ip++;
     }
 
-    ipl->count = ip - ipl->table;
-    ipl->sequence = 0xffff;
+    ebda->ipl.count = ip - ebda->ipl.table;
+    ebda->ipl.sequence = 0xffff;
 }
 
 static void
@@ -346,10 +342,10 @@ rom_scan(u32 start, u32 end)
         // Found a device that thinks it can boot the system.  Record
         // its BEV and product name string.
 
-        if (ipl->count >= ARRAY_SIZE(ipl->table))
+        if (ebda->ipl.count >= ARRAY_SIZE(ebda->ipl.table))
             continue;
 
-        struct ipl_entry_s *ip = &ipl->table[ipl->count];
+        struct ipl_entry_s *ip = &ebda->ipl.table[ebda->ipl.count];
         ip->type = IPL_TYPE_BEV;
         ip->vector = (FARPTR_TO_SEG(rom) << 16) | entry;
 
@@ -357,7 +353,7 @@ rom_scan(u32 start, u32 end)
         if (desc)
             ip->description = (FARPTR_TO_SEG(rom) << 16) | desc;
 
-        ipl->count++;
+        ebda->ipl.count++;
     }
 }
 
