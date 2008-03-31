@@ -37,6 +37,7 @@
 #define PORT_FD_DOR            0x03f2
 #define PORT_FD_STATUS         0x03f4
 #define PORT_FD_DATA           0x03f5
+#define PORT_HD_DATA           0x03f6
 
 // PORT_PIC1 bitdefs
 #define PIC1_IRQ5  (1<<5)

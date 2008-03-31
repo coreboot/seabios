@@ -278,8 +278,6 @@ handle_15e801(struct bregs *regs)
     set_success(regs);
 }
 
-#define ACPI_DATA_SIZE    0x00010000L
-
 static void
 set_e820_range(struct bregs *regs, u32 start, u32 end, u16 type, int last)
 {
@@ -344,12 +342,13 @@ handle_15e820(struct bregs *regs)
         set_e820_range(regs, 0x000e8000L, 0x00100000L, E820_RESERVED, 0);
         break;
     case 3:
-        set_e820_range(regs, 0x00100000L,
-                       extended_memory_size - ACPI_DATA_SIZE, E820_RAM, 0);
+        set_e820_range(regs, 0x00100000L
+                       , extended_memory_size - CONFIG_ACPI_DATA_SIZE
+                       , E820_RAM, 0);
         break;
     case 4:
         set_e820_range(regs,
-                       extended_memory_size - ACPI_DATA_SIZE,
+                       extended_memory_size - CONFIG_ACPI_DATA_SIZE,
                        extended_memory_size, E820_ACPI, 0);
         break;
     case 5:

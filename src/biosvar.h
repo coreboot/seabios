@@ -102,9 +102,9 @@ struct bios_data_area_s {
 
 // Accessor functions
 #define GET_BDA(var) \
-    GET_FARVAR(0x0000, ((struct bios_data_area_s *)0)->var)
+    GET_FARVAR(SEG_BDA, ((struct bios_data_area_s *)0)->var)
 #define SET_BDA(var, val) \
-    SET_FARVAR(0x0000, ((struct bios_data_area_s *)0)->var, (val))
+    SET_FARVAR(SEG_BDA, ((struct bios_data_area_s *)0)->var, (val))
 #define CLEARBITS_BDA(var, val) do {                                    \
         typeof(((struct bios_data_area_s *)0)->var) __val = GET_BDA(var); \
         SET_BDA(var, (__val & ~(val)));                                 \
@@ -269,9 +269,9 @@ struct extended_bios_data_area_s {
 
 // Accessor functions
 #define GET_EBDA(var) \
-    GET_FARVAR(EBDA_SEG, ((struct extended_bios_data_area_s *)0)->var)
+    GET_FARVAR(SEG_EBDA, ((struct extended_bios_data_area_s *)0)->var)
 #define SET_EBDA(var, val) \
-    SET_FARVAR(EBDA_SEG, ((struct extended_bios_data_area_s *)0)->var, (val))
+    SET_FARVAR(SEG_EBDA, ((struct extended_bios_data_area_s *)0)->var, (val))
 
 
 /****************************************************************
@@ -331,8 +331,9 @@ extern struct bios_config_table_s BIOS_CONFIG_TABLE;
  ****************************************************************/
 
 #define SEG_BIOS     0xf000
+#define SEG_EBDA     0x9fc0
+#define SEG_BDA      0x0000
 
-#define EBDA_SEG           0x9FC0
 #define EBDA_SIZE          1              // In KiB
 #define BASE_MEM_IN_K   (640 - EBDA_SIZE)
 

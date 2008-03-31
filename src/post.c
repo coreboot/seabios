@@ -14,8 +14,8 @@
 #include "ata.h"
 #include "kbd.h"
 
-#define bda ((struct bios_data_area_s *)0)
-#define ebda ((struct extended_bios_data_area_s *)(EBDA_SEG<<4))
+#define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
+#define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
 
 static void
 init_bda()
@@ -69,11 +69,11 @@ init_ebda()
 {
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = EBDA_SIZE;
-    SET_BDA(ebda_seg, EBDA_SEG);
-    SET_BDA(ivecs[0x41].seg, EBDA_SEG);
+    SET_BDA(ebda_seg, SEG_EBDA);
+    SET_BDA(ivecs[0x41].seg, SEG_EBDA);
     SET_BDA(ivecs[0x41].offset
             , offsetof(struct extended_bios_data_area_s, fdpt0));
-    SET_BDA(ivecs[0x46].seg, EBDA_SEG);
+    SET_BDA(ivecs[0x46].seg, SEG_EBDA);
     SET_BDA(ivecs[0x41].offset
             , offsetof(struct extended_bios_data_area_s, fdpt1));
 }
@@ -254,7 +254,7 @@ fill_hdinfo(struct fdpt_s *info, u8 typecmos, u8 basecmos)
 static void
 hard_drive_post()
 {
-    outb(0x0a, 0x03f6); // 0000 1010 = reserved, disable IRQ 14
+    outb(0x0a, PORT_HD_DATA); // 0000 1010 = reserved, disable IRQ 14
     SET_BDA(disk_count, 1);
     SET_BDA(disk_control_byte, 0xc0);
 
@@ -268,7 +268,6 @@ hard_drive_post()
         // Fill EBDA table for hard disk 1.
         fill_hdinfo(&ebda->fdpt0, CMOS_DISK_DRIVE2_TYPE, CMOS_DISK_DRIVE2_CYL);
 }
-
 
 static void
 init_boot_vectors()

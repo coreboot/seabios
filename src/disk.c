@@ -402,7 +402,7 @@ disk_1348(struct bregs *regs, u8 device)
 
     SET_INT13DPT(regs, size, 0x1e);
 
-    SET_INT13DPT(regs, dpte_segment, EBDA_SEG);
+    SET_INT13DPT(regs, dpte_segment, SEG_EBDA);
     SET_INT13DPT(regs, dpte_offset
                  , offsetof(struct extended_bios_data_area_s, ata.dpte));
 
@@ -442,7 +442,7 @@ disk_1348(struct bregs *regs, u8 device)
     else
         SET_EBDA(ata.dpte.revision, 0x10);
 
-    u8 *p = MAKE_FARPTR(EBDA_SEG
+    u8 *p = MAKE_FARPTR(SEG_EBDA
                         , offsetof(struct extended_bios_data_area_s, ata.dpte));
     u8 sum = checksum(p, 15);
     SET_EBDA(ata.dpte.checksum, ~sum);

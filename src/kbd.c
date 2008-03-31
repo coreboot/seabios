@@ -174,8 +174,8 @@ enqueue_key(u8 scan_code, u8 ascii_code)
     if (buffer_tail == buffer_head)
         return 0;
 
-    SET_FARVAR(0x0000, *(u8*)(temp_tail+0x400+0), ascii_code);
-    SET_FARVAR(0x0000, *(u8*)(temp_tail+0x400+1), scan_code);
+    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+0x400+0), ascii_code);
+    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+0x400+1), scan_code);
     SET_BDA(kbd_buf_tail, buffer_tail);
     return 1;
 }
@@ -196,8 +196,8 @@ dequeue_key(u8 *scan_code, u8 *ascii_code, u8 incr)
         nop();
     }
 
-    *ascii_code = GET_FARVAR(0x0000, *(u8*)(buffer_head+0x400+0));
-    *scan_code  = GET_FARVAR(0x0000, *(u8*)(buffer_head+0x400+1));
+    *ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+0));
+    *scan_code  = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+1));
 
     if (incr) {
         u16 buffer_start = GET_BDA(kbd_buf_start_offset);
@@ -639,7 +639,8 @@ process_key(u8 scancode)
             break; /* toss key releases ... */
         }
         if (scancode > MAX_SCAN_CODE) {
-            BX_INFO("KBD: int09h_handler(): unknown scancode read: 0x%02x!\n", scancode);
+            BX_INFO("KBD: int09h_handler(): unknown scancode read: 0x%02x!\n"
+                    , scancode);
             return;
         }
         u8 asciicode;
@@ -650,7 +651,8 @@ process_key(u8 scancode)
         } else if (shift_flags & 0x04) { /* CONTROL */
             asciicode = GET_VAR(CS, info->control);
             scancode = GET_VAR(CS, info->control) >> 8;
-        } else if (((mf2_state & 0x02) > 0) && ((scancode >= 0x47) && (scancode <= 0x53))) {
+        } else if ((mf2_state & 0x02) > 0
+                   && scancode >= 0x47 && scancode <= 0x53) {
             /* extended keys handling */
             asciicode = 0xe0;
             scancode = GET_VAR(CS, info->normal) >> 8;

@@ -26,10 +26,14 @@
 
 #define BX_APPNAME "Bochs"
 
-#define ACPI_DATA_SIZE    0x00010000L
+// Memory addresses used by this code.  (Note global variables (bss)
+// are at 0x40000).
+#define CPU_COUNT_ADDR    0xf000
+#define AP_BOOT_ADDR      0x10000
+#define BIOS_TMP_STORAGE  0x30000 /* 64 KB used to copy the BIOS to shadow RAM */
+
 #define PM_IO_BASE        0xb000
 #define SMB_IO_BASE       0xb100
-#define CPU_COUNT_ADDR    0xf000
 
 /* if true, put the MP float table and ACPI RSDT in EBDA and the MP
    table in RAM. Unfortunately, Linux has bugs with that, so we prefer
@@ -56,12 +60,8 @@
 
 #define APIC_ENABLED 0x0100
 
-#define AP_BOOT_ADDR 0x10000
-
 #define MPTABLE_MAX_SIZE  0x00002000
 #define SMI_CMD_IO_ADDR   0xb2
-
-#define BIOS_TMP_STORAGE  0x00030000 /* 64 KB used to copy the BIOS to shadow RAM */
 
 static inline void writel(void *addr, u32 val)
 {
@@ -651,7 +651,7 @@ static void mptable_init(void)
 #endif
 
 #ifdef BX_USE_EBDA_TABLES
-    mp_config_table = (u8 *)(ram_size - ACPI_DATA_SIZE - MPTABLE_MAX_SIZE);
+    mp_config_table = (u8 *)(ram_size - CONFIG_ACPI_DATA_SIZE - MPTABLE_MAX_SIZE);
 #else
     bios_table_cur_addr = align(bios_table_cur_addr, 16);
     mp_config_table = (u8 *)bios_table_cur_addr;
@@ -1071,7 +1071,7 @@ void acpi_bios_init(void)
     bios_table_cur_addr += sizeof(*rsdp);
 #endif
 
-    addr = base_addr = ram_size - ACPI_DATA_SIZE;
+    addr = base_addr = ram_size - CONFIG_ACPI_DATA_SIZE;
     rsdt_addr = addr;
     rsdt = (void *)(addr);
     addr += sizeof(*rsdt);
