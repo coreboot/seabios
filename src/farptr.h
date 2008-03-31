@@ -8,65 +8,77 @@
 
 #include "ioport.h" // insb
 
+// Dummy definitions used to make sure gcc understands dependencies
+// between SET_SEG and GET/READ/WRITE_SEG macros.
+extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
+
 // Low level macros for reading/writing memory via a segment selector.
-#define READ8_SEG(SEG, var) ({                                          \
-    u8 __value;                                                         \
-    __asm__ __volatile__("movb %%" #SEG ":%1, %b0"                      \
-                         : "=Qi"(__value) : "m"(var));                  \
+#define READ8_SEG(SEG, var) ({                          \
+    typeof(var) __value;                                \
+    __asm__("movb %%" #SEG ":%1, %b0" : "=Qi"(__value)  \
+            : "m"(var), "m"(__segment_ ## SEG));        \
     __value; })
-#define READ16_SEG(SEG, var) ({                                         \
-    u16 __value;                                                        \
-    __asm__ __volatile__("movw %%" #SEG ":%1, %w0"                      \
-                         : "=ri"(__value) : "m"(var));                  \
+#define READ16_SEG(SEG, var) ({                         \
+    typeof(var) __value;                                \
+    __asm__("movw %%" #SEG ":%1, %w0" : "=ri"(__value)  \
+            : "m"(var), "m"(__segment_ ## SEG));        \
     __value; })
-#define READ32_SEG(SEG, var) ({                                         \
-    u32 __value;                                                        \
-    __asm__ __volatile__("movl %%" #SEG ":%1, %0"                       \
-                         : "=ri"(__value) : "m"(var));                  \
+#define READ32_SEG(SEG, var) ({                         \
+    typeof(var) __value;                                \
+    __asm__("movl %%" #SEG ":%1, %0" : "=ri"(__value)   \
+            : "m"(var), "m"(__segment_ ## SEG));        \
     __value; })
-#define WRITE8_SEG(SEG, var, value)                     \
-    __asm__ __volatile__("movb %b0, %%" #SEG ":%1"      \
-                         : : "Q"(value), "m"(var))
-#define WRITE16_SEG(SEG, var, value)                    \
-    __asm__ __volatile__("movw %w0, %%" #SEG ":%1"      \
-                         : : "r"(value), "m"(var))
-#define WRITE32_SEG(SEG, var, value)                    \
-    __asm__ __volatile__("movl %0, %%" #SEG ":%1"       \
-                         : : "r"(value), "m"(var))
+#define WRITE8_SEG(SEG, var, value)                             \
+    __asm__("movb %b0, %%" #SEG ":%1" :                         \
+            : "Q"(value), "m"(var), "m"(__segment_ ## SEG))
+#define WRITE16_SEG(SEG, var, value)                            \
+    __asm__("movw %w0, %%" #SEG ":%1" :                         \
+            : "r"(value), "m"(var), "m"(__segment_ ## SEG))
+#define WRITE32_SEG(SEG, var, value)                            \
+    __asm__("movl %0, %%" #SEG ":%1" :                          \
+            : "r"(value), "m"(var), "m"(__segment_ ## SEG))
 
 // Low level macros for getting/setting a segment register.
 #define __SET_SEG(SEG, value)                                   \
-    __asm__ __volatile__("movw %w0, %%" #SEG : : "r"(value))
+    __asm__("movw %w1, %%" #SEG : "=m"(__segment_ ## SEG)       \
+            : "r"(value))
 #define __GET_SEG(SEG) ({                                       \
     u16 __seg;                                                  \
-    __asm__ __volatile__("movw %%" #SEG ", %w0" : "=r"(__seg)); \
+    __asm__("movw %%" #SEG ", %w0" : "=r"(__seg)                \
+            : "m"(__segment_ ## SEG));                          \
     __seg;})
 
 // Macros for automatically choosing the appropriate memory size
 // access method.
 extern void __force_link_error__unknown_type();
 
-#define __GET_VAR(seg, var) ({                                  \
-    typeof(var) __val;                                          \
-    if (__builtin_types_compatible_p(typeof(__val), u8))        \
-        __val = READ8_SEG(seg, var);                            \
-    else if (__builtin_types_compatible_p(typeof(__val), u16))  \
-        __val = READ16_SEG(seg, var);                           \
-    else if (__builtin_types_compatible_p(typeof(__val), u32))  \
-        __val = READ32_SEG(seg, var);                           \
-    else                                                        \
-        __force_link_error__unknown_type();                     \
+#define __GET_VAR(seg, var) ({                                          \
+    typeof(var) __val;                                                  \
+    if (__builtin_types_compatible_p(typeof(__val), u8)                 \
+        || __builtin_types_compatible_p(typeof(__val), s8))             \
+        __val = READ8_SEG(seg, var);                                    \
+    else if (__builtin_types_compatible_p(typeof(__val), u16)           \
+             || __builtin_types_compatible_p(typeof(__val), s16))       \
+        __val = READ16_SEG(seg, var);                                   \
+    else if (__builtin_types_compatible_p(typeof(__val), u32)           \
+             || __builtin_types_compatible_p(typeof(__val), s32))       \
+        __val = READ32_SEG(seg, var);                                   \
+    else                                                                \
+        __force_link_error__unknown_type();                             \
     __val; })
 
-#define __SET_VAR(seg, var, val) do {                             \
-        if (__builtin_types_compatible_p(typeof(var), u8))        \
-            WRITE8_SEG(seg, var, (val));                          \
-        else if (__builtin_types_compatible_p(typeof(var), u16))  \
-            WRITE16_SEG(seg, var, (val));                         \
-        else if (__builtin_types_compatible_p(typeof(var), u32))  \
-            WRITE32_SEG(seg, var, (val));                         \
-        else                                                      \
-            __force_link_error__unknown_type();                   \
+#define __SET_VAR(seg, var, val) do {                                   \
+        if (__builtin_types_compatible_p(typeof(var), u8)               \
+            || __builtin_types_compatible_p(typeof(var), s8))           \
+            WRITE8_SEG(seg, var, (val));                                \
+        else if (__builtin_types_compatible_p(typeof(var), u16)         \
+                 || __builtin_types_compatible_p(typeof(var), s16))     \
+            WRITE16_SEG(seg, var, (val));                               \
+        else if (__builtin_types_compatible_p(typeof(var), u32)         \
+                 || __builtin_types_compatible_p(typeof(var), s32))     \
+            WRITE32_SEG(seg, var, (val));                               \
+        else                                                            \
+            __force_link_error__unknown_type();                         \
     } while (0)
 
 // Macros for accessing a variable in another segment.  (They
