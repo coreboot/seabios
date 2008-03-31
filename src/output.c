@@ -48,7 +48,7 @@ static void
 puts_cs(u16 action, const char *s)
 {
     for (;; s++) {
-        char c = GET_VAR(CS, (u8)*s);
+        char c = GET_VAR(CS, *(u8*)s);
         if (!c)
             break;
         putc(action, c);
@@ -110,7 +110,7 @@ bprintf(u16 action, const char *fmt, ...)
     va_start(args, fmt);
     const char *s = fmt;
     for (;; s++) {
-        char c = GET_VAR(CS, (u8)*s);
+        char c = GET_VAR(CS, *(u8*)s);
         if (!c)
             break;
         if (c != '%') {
@@ -119,7 +119,7 @@ bprintf(u16 action, const char *fmt, ...)
         }
         const char *n = s+1;
         for (;;) {
-            c = GET_VAR(CS, (u8)*n);
+            c = GET_VAR(CS, *(u8*)n);
             if (!isdigit(c))
                 break;
             n++;
@@ -127,7 +127,7 @@ bprintf(u16 action, const char *fmt, ...)
         if (c == 'l') {
             // Ignore long format indicator
             n++;
-            c = GET_VAR(CS, (u8)*n);
+            c = GET_VAR(CS, *(u8*)n);
         }
         s32 val;
         const char *sarg;
