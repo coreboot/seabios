@@ -35,15 +35,18 @@ bios16c_end:
         // those registers that are call clobbered by the C compiler.
         .macro ENTRY cfunc
         cld
-        pushl %eax
+        pushl %eax              // Save registers clobbered by C code
         pushl %ecx
         pushl %edx
         pushw %es
         pushw %ds
-        movw %ss, %ax
+        movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
+        pushl %esp              // Backup %esp, then clear high bits
+        movzwl %sp, %esp
         calll \cfunc
-        popw %ds
+        popl %esp               // Restore %esp (including high bits)
+        popw %ds                // Restore registers saved above
         popw %es
         popl %edx
         popl %ecx
@@ -56,7 +59,7 @@ bios16c_end:
         // restored from the structure.
         .macro ENTRY_ARG cfunc
         cld
-        pushl %eax
+        pushl %eax              // Save registers (matches struct bregs)
         pushl %ecx
         pushl %edx
         pushl %ebx
@@ -64,12 +67,14 @@ bios16c_end:
         pushl %edi
         pushw %es
         pushw %ds
-        movw %ss, %ax
+        movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
+        movl %esp, %ebx         // Backup %esp, then zero high bits
         movzwl %sp, %esp
-        movl %esp, %eax
+        movl %esp, %eax         // First arg is pointer to struct bregs
         calll \cfunc
-        popw %ds
+        movl %ebx, %esp         // Restore %esp (including high bits)
+        popw %ds                // Restore registers (from struct bregs)
         popw %es
         popl %edi
         popl %esi
@@ -191,6 +196,8 @@ __call16_from32:
         movw %ax, %ss  // Assume stack is in segment 0
 
         popl %eax
+
+        // Set __call16 return address to be transition32
         pushl $transition32
 
         // Fall through to __call16
@@ -248,7 +255,8 @@ __call16:
 
         retl
 
-        // APM trampolines
+
+// APM trampolines
         .globl apm16protected_entry
 apm16protected_entry:
         pushfw          // save flags
@@ -357,7 +365,6 @@ rombios32_gdt:
         IRQ_ENTRY 76
         IRQ_ENTRY 1c
         IRQ_ENTRY 70
-        IRQ_ENTRY 74
 
         .org 0xe3fe
         jmp entry_13
@@ -378,6 +385,7 @@ rombios32_gdt:
         .org 0xe739
         IRQ_ENTRY_ARG 14
 
+        IRQ_ENTRY 74
         IRQ_ENTRY 75
 
         // int 18/19 are special - they reset the stack and do not return.
