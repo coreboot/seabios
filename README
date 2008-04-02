@@ -51,10 +51,8 @@ Overview of files:
 
 The src/ directory contains the bios source code.  Several of the
 files are compiled twice - once for 16bit mode and once for 32bit
-mode.  The gcc compile option '-fwhole-program' is used to remove code
-that is not needed for a particular mode.  (In the code, one can use
-the macros 'VISIBLE16' and 'VISIBLE32' to instruct a symbol to be
-outputted in 16bit and 32bit mode respectively.)
+mode.  (The gcc compile option '-fwhole-program' is used to remove
+code that is not needed for a particular mode.)
 
 The tools/ directory contains helper utilities for manipulating and
 building the final rom.
@@ -67,7 +65,9 @@ Build overview:
 
 The 16bit code is compiled via gcc to assembler (file out/blob.16.s).
 The gcc "-fwhole-program" option is used to optimize the process so
-that gcc can efficiently compile and discard unneeded code.
+that gcc can efficiently compile and discard unneeded code.  (In the
+code, one can use the macros 'VISIBLE16' and 'VISIBLE32' to instruct a
+symbol to be outputted in 16bit and 32bit mode respectively.)
 
 This resulting assembler code is pulled into romlayout.S.  The gas
 option ".code16gcc" is used prior to including the gcc generated
@@ -133,8 +133,7 @@ much stack space can break old DOS applications.
 
 There does not appear to be explicit documentation on the minimum
 stack space available for bios calls.  However, Freedos has been
-observed to call into the bios with less than 150 bytes of stack space
-available.
+observed to call into the bios with less than 150 bytes available.
 
 Note that the post code and boot code (irq 18/19) do not have a stack
 limitation because the entry points for these functions reset the
@@ -146,6 +145,12 @@ tail-recursive often helps, reducing the number of parameters passed
 to functions often helps, sometimes reordering variable declarations
 helps, inlining of functions can sometimes help, and passing of packed
 structures can also help.
+
+Some useful stats: the overhead for the entry to a bios handler that
+takes a 'struct bregs' is 38 bytes of stack space (6 bytes from
+interrupt insn, 28 bytes to store registers, and 4 bytes for call
+insn).  An entry to an ISR handler without args takes 30 bytes (6 + 20
++ 4).
 
 
 Debugging the bios:
