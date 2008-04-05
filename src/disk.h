@@ -95,15 +95,9 @@ struct floppy_ext_dbt_s {
 } PACKED;
 
 // Helper function for setting up a return code.
-static inline void
-disk_ret(struct bregs *regs, u8 code)
-{
-    SET_BDA(disk_last_status, code);
-    if (code)
-        set_code_fail(regs, code);
-    else
-        set_code_success(regs);
-}
+void __disk_ret(const char *fname, struct bregs *regs, u8 code);
+#define disk_ret(regs, code) \
+    __disk_ret(__func__, (regs), (code))
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;

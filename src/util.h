@@ -42,34 +42,8 @@ static inline void hlt(void)
     asm volatile("hlt");
 }
 
-// XXX - move this to a c file and use PANIC PORT.
-#define BX_PANIC(fmt, args...) do { \
-        bprintf(0, fmt , ##args);   \
-        irq_disable();              \
-        for (;;)                    \
-            hlt();                  \
-    } while (0)
-
-#define BX_INFO(fmt, args...) bprintf(0, fmt , ##args)
-
-static inline void
-memset(void *s, int c, size_t n)
-{
-    while (n)
-        ((char *)s)[--n] = c;
-}
-
-static inline void *
-memcpy(void *d1, const void *s1, size_t len)
-{
-    u8 *d = d1;
-    const u8 *s = s1;
-
-    while (len--) {
-        *d++ = *s++;
-    }
-    return d1;
-}
+void memset(void *s, int c, size_t n);
+void *memcpy(void *d1, const void *s1, size_t len);
 
 static inline void
 eoi_master_pic()
@@ -120,8 +94,13 @@ void __call16_int(struct bregs *callregs, u16 offset)
 #endif
 
 // output.c
-void bprintf(u16 action, const char *fmt, ...)
-    __attribute__ ((format (printf, 2, 3)));
+void BX_PANIC(const char *fmt, ...)
+    __attribute__ ((format (printf, 1, 2)))
+    __attribute__ ((noreturn));
+void BX_INFO(const char *fmt, ...)
+    __attribute__ ((format (printf, 1, 2)));
+void printf(const char *fmt, ...)
+    __attribute__ ((format (printf, 1, 2)));
 void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_fail(const char *fname, struct bregs *regs);
 void __debug_stub(const char *fname, struct bregs *regs);
@@ -132,8 +111,6 @@ void __debug_isr(const char *fname);
     __debug_stub(__func__, regs)
 #define debug_isr(regs) \
     __debug_isr(__func__)
-#define printf(fmt, args...)                     \
-    bprintf(1, fmt , ##args )
 
 // Frequently used return codes
 #define RET_EUNSUPPORTED 0x86
@@ -150,15 +127,13 @@ set_code_success(struct bregs *regs)
     set_cf(regs, 0);
 }
 
-#define set_fail(regs) do {                     \
-        __debug_fail(__func__, (regs));         \
-        set_cf((regs), 1);                      \
-    } while (0)
+void __set_fail(const char *fname, struct bregs *regs);
+void __set_code_fail(const char *fname, struct bregs *regs, u8 code);
 
-#define set_code_fail(regs, code) do {          \
-        set_fail(regs);                         \
-        (regs)->ah = (code);                    \
-    } while (0)
+#define set_fail(regs) \
+    __set_fail(__func__, (regs))
+#define set_code_fail(regs, code)               \
+    __set_code_fail(__func__, (regs), (code))
 
 // kbd.c
 void handle_15c2(struct bregs *regs);

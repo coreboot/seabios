@@ -7,7 +7,7 @@
 #include <stdarg.h> // va_list
 
 #include "farptr.h" // GET_VAR
-#include "util.h" // bprintf
+#include "util.h" // printf
 #include "biosvar.h" // struct bregs
 
 static void
@@ -103,11 +103,9 @@ isdigit(u8 c)
     return c - '0' < 10;
 }
 
-void
-bprintf(u16 action, const char *fmt, ...)
+static void
+bvprintf(u16 action, const char *fmt, va_list args)
 {
-    va_list args;
-    va_start(args, fmt);
     const char *s = fmt;
     for (;; s++) {
         char c = GET_VAR(CS, *(u8*)s);
@@ -166,6 +164,37 @@ bprintf(u16 action, const char *fmt, ...)
         }
         s = n;
     }
+}
+
+void
+BX_PANIC(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bvprintf(0, fmt, args);
+    va_end(args);
+
+    // XXX - use PANIC PORT.
+    irq_disable();
+    for (;;)
+        hlt();
+}
+
+void
+BX_INFO(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bvprintf(0, fmt, args);
+    va_end(args);
+}
+
+void
+printf(const char *fmt, ...)
+{
+    va_list args;
+    va_start(args, fmt);
+    bvprintf(1, fmt, args);
     va_end(args);
 }
 
@@ -173,13 +202,13 @@ static void
 dump_regs(const char *fname, const char *type, struct bregs *regs)
 {
     if (!regs) {
-        bprintf(0, "%s %s: NULL\n", type, fname);
+        BX_INFO("%s %s: NULL\n", type, fname);
         return;
     }
-    bprintf(0, "%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
+    BX_INFO("%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
             , type, fname, regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
-    bprintf(0, "  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
+    BX_INFO("  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
             , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
 }
 

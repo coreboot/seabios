@@ -22,3 +22,36 @@ usleep(u32 count)
         if ((inb(PORT_PS2_CTRLB) ^ kbd) & KBD_REFRESH)
             count--;
 }
+
+void
+memset(void *s, int c, size_t n)
+{
+    while (n)
+        ((char *)s)[--n] = c;
+}
+
+void *
+memcpy(void *d1, const void *s1, size_t len)
+{
+    u8 *d = d1;
+    const u8 *s = s1;
+
+    while (len--)
+        *d++ = *s++;
+
+    return d1;
+}
+
+void
+__set_fail(const char *fname, struct bregs *regs)
+{
+    __debug_fail(fname, regs);
+    set_cf(regs, 1);
+}
+
+void
+__set_code_fail(const char *fname, struct bregs *regs, u8 code)
+{
+    __set_fail(fname, regs);
+    regs->ah = code;
+}

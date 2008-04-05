@@ -20,11 +20,25 @@
  * Helper functions
  ****************************************************************/
 
-#define DISK_STUB(regs) do {                    \
-        struct bregs *__regs = (regs);          \
-        debug_stub(__regs);                     \
-        disk_ret(__regs, DISK_RET_SUCCESS);     \
-    } while (0)
+void
+__disk_ret(const char *fname, struct bregs *regs, u8 code)
+{
+    SET_BDA(disk_last_status, code);
+    if (code)
+        __set_code_fail(fname, regs, code);
+    else
+        set_code_success(regs);
+}
+
+static void
+__disk_stub(const char *fname, struct bregs *regs)
+{
+    __debug_stub(fname, regs);
+    __disk_ret(fname, regs, DISK_RET_SUCCESS);
+}
+
+#define DISK_STUB(regs) \
+    __disk_stub(__func__, (regs))
 
 static void
 basic_access(struct bregs *regs, u8 device, u16 command)
