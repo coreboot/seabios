@@ -59,8 +59,8 @@ keyboard_init()
         if (inb(PORT_PS2_STATUS) & 0x01) {
             inb(PORT_PS2_DATA);
             max = 0x2000;
-            }
         }
+    }
 
     // Due to timer issues, and if the IPS setting is > 15000000,
     // the incoming keys might not be flushed here. That will
@@ -193,7 +193,7 @@ dequeue_key(u8 *scan_code, u8 *ascii_code, u8 incr)
             break;
         if (!incr)
             return 0;
-        nop();
+        cpu_relax();
     }
 
     *ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+0));

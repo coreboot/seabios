@@ -117,9 +117,12 @@ floppy_prepare_controller(u8 drive)
     if (prev_reset == 0) {
         irq_enable();
         u8 v;
-        do {
+        for (;;) {
             v = GET_BDA(floppy_recalibration_status);
-        } while ((v & FRS_TIMEOUT) == 0);
+            if (v & FRS_TIMEOUT)
+                break;
+            cpu_relax();
+        }
         irq_disable();
 
         v &= ~FRS_TIMEOUT;
@@ -139,14 +142,17 @@ floppy_pio(u8 *cmd, u8 cmdlen)
 
     irq_enable();
     u8 v;
-    do {
+    for (;;) {
         if (!GET_BDA(floppy_motor_counter)) {
             irq_disable();
             floppy_reset_controller();
             return DISK_RET_ETIMEOUT;
         }
         v = GET_BDA(floppy_recalibration_status);
-    } while (!(v & FRS_TIMEOUT));
+        if (v & FRS_TIMEOUT)
+            break;
+        cpu_relax();
+    }
     irq_disable();
 
     v &= ~FRS_TIMEOUT;

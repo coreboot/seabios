@@ -32,6 +32,11 @@ static inline void irq_restore(unsigned long flags)
     asm volatile("pushl %0 ; popfl" : : "g" (flags) : "memory", "cc");
 }
 
+static inline void cpu_relax(void)
+{
+    asm volatile("rep ; nop": : :"memory");
+}
+
 static inline void nop(void)
 {
     asm volatile("nop");
