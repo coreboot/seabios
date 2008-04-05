@@ -26,17 +26,36 @@ static const char drivetypes[][10]={
     "", "Floppy","Hard Disk","CD-Rom", "Network"
 };
 
-static void
-print_boot_device(u16 type)
+void
+printf_bootdev(u16 bootdev)
 {
+    u16 type = GET_EBDA(ipl.table[bootdev].type);
+
     /* NIC appears as type 0x80 */
     if (type == IPL_TYPE_BEV)
         type = 0x4;
     if (type == 0 || type > 0x4)
         BX_PANIC("Bad drive type\n");
-    printf("Booting from %s...\n", drivetypes[type]);
+    printf("%s", drivetypes[type]);
 
-    // XXX - latest cvs has BEV description
+    /* print product string if BEV */
+    void *far_description = (void*)GET_EBDA(ipl.table[bootdev].description);
+    if (type == 4 && far_description != 0) {
+        char description[33];
+        /* first 32 bytes are significant */
+        memcpy(MAKE_FARPTR(GET_SEG(SS), &description), far_description, 32);
+        /* terminate string */
+        description[32] = 0;
+        printf(" [%.s]", description);
+    }
+}
+
+static void
+print_boot_device(u16 bootdev)
+{
+    printf("Booting from ");
+    printf_bootdev(bootdev);
+    printf("...\n");
 }
 
 //--------------------------------------------------------------------------
@@ -67,14 +86,20 @@ try_boot(u16 seq_nr)
 
     SET_EBDA(ipl.sequence, seq_nr);
 
-    u16 bootseg;
-    u8 bootdrv = 0;
-    u16 bootdev, bootip;
-
-    bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
+    u16 bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
     bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
+
+    /* Read user selected device */
+    u16 bootfirst = GET_EBDA(ipl.bootfirst);
+    if (bootfirst != 0xFFFF) {
+        bootdev = bootfirst;
+        /* Reset boot sequence */
+        SET_EBDA(ipl.bootfirst, 0xFFFF);
+        SET_EBDA(ipl.sequence, 0xFFFF);
+    }
+
     if (bootdev == 0)
         BX_PANIC("No bootable device.\n");
 
@@ -85,12 +110,15 @@ try_boot(u16 seq_nr)
         BX_INFO("Invalid boot device (0x%x)\n", bootdev);
         return;
     }
-    u16 type = GET_EBDA(ipl.table[bootdev].type);
 
     /* Do the loading, and set up vector as a far pointer to the boot
      * address, and bootdrv as the boot drive */
-    print_boot_device(type);
+    print_boot_device(bootdev);
 
+    u16 type = GET_EBDA(ipl.table[bootdev].type);
+
+    u16 bootseg, bootip;
+    u8 bootdrv = 0;
     struct bregs cr;
     switch(type) {
     case IPL_TYPE_FLOPPY: /* FDD */

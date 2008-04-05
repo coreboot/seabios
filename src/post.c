@@ -289,6 +289,7 @@ init_boot_vectors()
 
     ebda->ipl.count = ip - ebda->ipl.table;
     ebda->ipl.sequence = 0xffff;
+    ebda->ipl.bootfirst = 0xffff;
 }
 
 static void
@@ -340,7 +341,7 @@ rom_scan(u32 start, u32 end)
 
         u16 desc = *(u16*)&rom[0x1a+0x10];
         if (desc)
-            ip->description = (FARPTR_TO_SEG(rom) << 16) | desc;
+            ip->description = (u32)MAKE_FARPTR(FARPTR_TO_SEG(rom), desc);
 
         ebda->ipl.count++;
     }
@@ -384,6 +385,8 @@ post()
     init_boot_vectors();
 
     rom_scan(0xc8000, 0xe0000);
+
+    interactive_bootmenu();
 
     // reset the memory (some boot loaders such as syslinux suppose
     // that the memory is set to zero)

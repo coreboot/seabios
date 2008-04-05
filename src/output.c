@@ -154,6 +154,14 @@ bvprintf(u16 action, const char *fmt, va_list args)
             val = va_arg(args, int);
             putc(action, val);
             break;
+        case '.':
+            // Hack to support "%.s" - meaning string on stack.
+            if (GET_VAR(CS, *(u8*)(n+1)) != 's')
+                break;
+            n++;
+            sarg = va_arg(args, const char *);
+            puts(action, sarg);
+            break;
         case 's':
             sarg = va_arg(args, const char *);
             puts_cs(action, sarg);

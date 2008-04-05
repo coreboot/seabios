@@ -154,4 +154,10 @@ void usleep(u32 count);
 // rombios32.c
 void rombios32_init(void);
 
+// boot.c
+void printf_bootdev(u16 bootdev);
+
+// post_menu.c
+void interactive_bootmenu();
+
 #endif // util.h

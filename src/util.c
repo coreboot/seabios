@@ -31,15 +31,18 @@ memset(void *s, int c, size_t n)
 }
 
 void *
-memcpy(void *d1, const void *s1, size_t len)
+memcpy(void *far_d1, const void *far_s1, size_t len)
 {
-    u8 *d = d1;
-    const u8 *s = s1;
+    u8 *d = far_d1;
+    u8 *s = (u8*)far_s1;
 
-    while (len--)
-        *d++ = *s++;
+    while (len--) {
+        SET_FARPTR(*d, GET_FARPTR(*s));
+        d++;
+        s++;
+    }
 
-    return d1;
+    return far_d1;
 }
 
 void
