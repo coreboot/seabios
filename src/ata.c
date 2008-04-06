@@ -320,13 +320,14 @@ ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
     struct ata_pio_command cmd;
     memset(&cmd, 0, sizeof(cmd));
 
+    cmd.command = command;
     if (count >= (1<<8) || lba + count >= (1<<28)) {
         cmd.sector_count2 = count >> 8;
         cmd.lba_low2 = lba >> 24;
         cmd.lba_mid2 = 0;
         cmd.lba_high2 = 0;
 
-        command |= 0x04;
+        cmd.command |= 0x04;
         lba &= 0xffffff;
     }
 
@@ -337,7 +338,6 @@ ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
     cmd.lba_high = lba >> 16;
     cmd.device = ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
                   | ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
-    cmd.command = command;
 
     int ret = send_cmd(driveid, &cmd);
     if (ret)
@@ -623,7 +623,7 @@ init_drive_ata(int driveid)
     case ATA_TRANSLATION_LARGE:
         if (translation == ATA_TRANSLATION_LARGE)
             BX_INFO("large");
-        while(cylinders > 1024) {
+        while (cylinders > 1024) {
             cylinders >>= 1;
             heads <<= 1;
 
