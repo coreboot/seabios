@@ -328,7 +328,7 @@ handle_15e820(struct bregs *regs)
         extended_memory_size = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
         extended_memory_size <<= 8;
         extended_memory_size |= inb_cmos(CMOS_MEM_EXTMEM_LOW);
-        extended_memory_size *= 1024;
+        extended_memory_size += 1 * 1024 * 1024;
     }
 
     switch (regs->bx) {
