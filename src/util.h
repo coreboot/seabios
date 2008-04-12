@@ -47,7 +47,7 @@ static inline void hlt(void)
     asm volatile("hlt");
 }
 
-void memset(void *s, int c, size_t n);
+void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 
 static inline void
