@@ -29,14 +29,14 @@ extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
             : "m"(var), "m"(__segment_ ## SEG));        \
     __value; })
 #define WRITE8_SEG(SEG, var, value)                             \
-    __asm__("movb %b0, %%" #SEG ":%1" :                         \
-            : "Q"(value), "m"(var), "m"(__segment_ ## SEG))
+    __asm__("movb %b1, %%" #SEG ":%0" : "=m"(var)               \
+            : "Q"(value), "m"(__segment_ ## SEG))
 #define WRITE16_SEG(SEG, var, value)                            \
-    __asm__("movw %w0, %%" #SEG ":%1" :                         \
-            : "r"(value), "m"(var), "m"(__segment_ ## SEG))
+    __asm__("movw %w1, %%" #SEG ":%0" : "=m"(var)               \
+            : "r"(value), "m"(__segment_ ## SEG))
 #define WRITE32_SEG(SEG, var, value)                            \
-    __asm__("movl %0, %%" #SEG ":%1" :                          \
-            : "r"(value), "m"(var), "m"(__segment_ ## SEG))
+    __asm__("movl %1, %%" #SEG ":%0" : "=m"(var)                \
+            : "r"(value), "m"(__segment_ ## SEG))
 
 // Low level macros for getting/setting a segment register.
 #define __SET_SEG(SEG, value)                                   \
