@@ -301,7 +301,7 @@ static void bios_shadow_init(PCIDevice *d)
     }
 
     // Clear the area just copied.
-    memcpy((void *)BIOS_TMP_STORAGE, 0, 0x10000);
+    memset((void *)BIOS_TMP_STORAGE, 0, 0x10000);
 
     i440_pcidev = *d;
 }
@@ -444,7 +444,8 @@ static void smm_init(PCIDevice *d)
         outb(0x00, 0xb2);
 
         /* wait until SMM code executed */
-        while (inb(0xb3) != 0x00);
+        while (inb(0xb3) != 0x00)
+            ;
 
         /* enable the SMM memory window */
         pci_config_writeb(&i440_pcidev, 0x72, 0x02 | 0x48);
