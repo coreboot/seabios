@@ -40,6 +40,19 @@ struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
     .drive_type     = 4,    // drive type in cmos
 };
 
+void
+floppy_drive_setup()
+{
+    u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
+    u8 out = 0;
+    if (type & 0xf0)
+        out |= 0x07;
+    if (type & 0x0f)
+        out |= 0x70;
+    SET_BDA(floppy_harddisk_info, out);
+    outb(0x02, PORT_DMA1_MASK_REG);
+}
+
 // Oddities:
 //   Return codes vary greatly - AL not cleared consistenlty, BDA return
 //      status not set consistently, sometimes panics.

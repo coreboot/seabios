@@ -11,8 +11,9 @@
 #include "cmos.h" // CMOS_*
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
-#include "ata.h"
-#include "kbd.h"
+#include "ata.h" // ata_detect
+#include "kbd.h" // kbd_setup
+#include "disk.h" // floppy_drive_setup
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
@@ -62,6 +63,8 @@ init_handlers()
     SET_BDA(ivecs[0x74].offset, OFFSET_entry_74);
     SET_BDA(ivecs[0x75].offset, OFFSET_entry_75);
     SET_BDA(ivecs[0x10].offset, OFFSET_entry_10);
+
+    SET_BDA(ivecs[0x1E].offset, OFFSET_diskette_param_table2);
 }
 
 static void
@@ -178,21 +181,6 @@ pic_setup()
         outb(0x8f, PORT_PIC2_DATA);
     else
         outb(0x9f, PORT_PIC2_DATA);
-}
-
-static void
-floppy_drive_post()
-{
-    u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
-    u8 out = 0;
-    if (type & 0xf0)
-        out |= 0x07;
-    if (type & 0x0f)
-        out |= 0x70;
-    SET_BDA(floppy_harddisk_info, out);
-    outb(0x02, PORT_DMA1_MASK_REG);
-
-    SET_BDA(ivecs[0x1E].offset, OFFSET_diskette_param_table2);
 }
 
 static void
@@ -373,7 +361,7 @@ post()
 
     rombios32_init();
 
-    floppy_drive_post();
+    floppy_drive_setup();
     hard_drive_post();
     if (CONFIG_ATA) {
         ata_init();
