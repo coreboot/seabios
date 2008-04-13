@@ -8,16 +8,18 @@
 OUT=out/
 
 # Source files
-SRC16=floppy.c disk.c system.c clock.c serial.c kbd.c mouse.c output.c \
-      boot.c ata.c cdrom.c apm.c util.c pcibios.c pci.c
-SRC32=post.c output.c rombios32.c util.c ata.c kbd.c pci.c boot.c post_menu.c
+SRCBOTH=output.c util.c ata.c kbd.c pci.c boot.c
+SRC16=$(SRCBOTH) floppy.c disk.c system.c clock.c serial.c mouse.c \
+      cdrom.c apm.c pcibios.c
+SRC32=$(SRCBOTH) post.c rombios32.c post_menu.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
 
 # Default compiler flags
-COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=2 \
+COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
+               -mpreferred-stack-boundary=2 -mrtd \
                -ffreestanding -fwhole-program -fomit-frame-pointer \
                -fno-delete-null-pointer-checks
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
