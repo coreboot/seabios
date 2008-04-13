@@ -266,7 +266,7 @@ hard_drive_post()
     if ((diskinfo & 0x0f) == 0x0f)
         // XXX - bochs halts on any other type
         // Fill EBDA table for hard disk 1.
-        fill_hdinfo(&ebda->fdpt0, CMOS_DISK_DRIVE2_TYPE, CMOS_DISK_DRIVE2_CYL);
+        fill_hdinfo(&ebda->fdpt1, CMOS_DISK_DRIVE2_TYPE, CMOS_DISK_DRIVE2_CYL);
 }
 
 static void
@@ -372,8 +372,6 @@ post()
     memset(__bss_start, 0, __bss_end - __bss_start);
 
     rombios32_init();
-
-    init_boot_vectors();
 
     floppy_drive_post();
     hard_drive_post();
