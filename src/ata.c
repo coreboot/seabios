@@ -668,7 +668,7 @@ init_drive_unknown(int driveid)
     printf("ata%d %s: Unknown device\n", channel, slave ? " slave" : "master");
 }
 
-void
+static void
 ata_detect()
 {
 #if CONFIG_MAX_ATA_INTERFACES > 0
@@ -761,4 +761,89 @@ ata_detect()
     // FIXME : should use bios=cmos|auto|disable bits
     // FIXME : should know about translation bits
     // FIXME : move hard_drive_post here
+}
+
+static void
+ata_init()
+{
+    // hdidmap  and cdidmap init.
+    u8 device;
+    for (device=0; device < CONFIG_MAX_ATA_DEVICES; device++) {
+        SET_EBDA(ata.idmap[0][device], CONFIG_MAX_ATA_DEVICES);
+        SET_EBDA(ata.idmap[1][device], CONFIG_MAX_ATA_DEVICES);
+    }
+}
+
+static void
+fill_hdinfo(int hdnum, u8 typecmos, u8 basecmos)
+{
+    u8 type = inb_cmos(typecmos);
+    if (type != 47)
+        // XXX - halt
+        return;
+
+    SET_EBDA(fdpt[hdnum].precompensation, ((inb_cmos(basecmos+4) << 8)
+                                           | inb_cmos(basecmos+3)));
+    SET_EBDA(fdpt[hdnum].drive_control_byte, inb_cmos(basecmos+5));
+    SET_EBDA(fdpt[hdnum].landing_zone, ((inb_cmos(basecmos+7) << 8)
+                                        | inb_cmos(basecmos+6)));
+    u16 cyl = (inb_cmos(basecmos+1) << 8) | inb_cmos(basecmos+0);
+    u8 heads = inb_cmos(basecmos+2);
+    u8 sectors = inb_cmos(basecmos+8);
+    if (cyl < 1024) {
+        // no logical CHS mapping used, just physical CHS
+        // use Standard Fixed Disk Parameter Table (FDPT)
+        SET_EBDA(fdpt[hdnum].cylinders, cyl);
+        SET_EBDA(fdpt[hdnum].heads, heads);
+        SET_EBDA(fdpt[hdnum].sectors, sectors);
+        return;
+    }
+
+    // complies with Phoenix style Translated Fixed Disk Parameter
+    // Table (FDPT)
+    SET_EBDA(fdpt[hdnum].phys_cylinders, cyl);
+    SET_EBDA(fdpt[hdnum].phys_heads, heads);
+    SET_EBDA(fdpt[hdnum].phys_sectors, sectors);
+    SET_EBDA(fdpt[hdnum].sectors, sectors);
+    SET_EBDA(fdpt[hdnum].a0h_signature, 0xa0);
+    if (cyl > 8192) {
+        cyl >>= 4;
+        heads <<= 4;
+    } else if (cyl > 4096) {
+        cyl >>= 3;
+        heads <<= 3;
+    } else if (cyl > 2048) {
+        cyl >>= 2;
+        heads <<= 2;
+    }
+    SET_EBDA(fdpt[hdnum].cylinders, cyl);
+    SET_EBDA(fdpt[hdnum].heads, heads);
+    u8 *p = MAKE_FARPTR(SEG_EBDA, offsetof(struct extended_bios_data_area_s
+                                           , fdpt[hdnum]));
+    u8 sum = checksum(p, FIELD_SIZEOF(struct extended_bios_data_area_s
+                                      , fdpt[hdnum]) - 1);
+    SET_EBDA(fdpt[hdnum].checksum, -sum);
+}
+
+void
+hard_drive_setup()
+{
+    outb(0x0a, PORT_HD_DATA); // 0000 1010 = reserved, disable IRQ 14
+    SET_BDA(disk_count, 1);
+    SET_BDA(disk_control_byte, 0xc0);
+
+    // move disk geometry data from CMOS to EBDA disk parameter table(s)
+    u8 diskinfo = inb_cmos(CMOS_DISK_DATA);
+    if ((diskinfo & 0xf0) == 0xf0)
+        // Fill EBDA table for hard disk 0.
+        fill_hdinfo(0, CMOS_DISK_DRIVE1_TYPE, CMOS_DISK_DRIVE1_CYL);
+    if ((diskinfo & 0x0f) == 0x0f)
+        // XXX - bochs halts on any other type
+        // Fill EBDA table for hard disk 1.
+        fill_hdinfo(1, CMOS_DISK_DRIVE2_TYPE, CMOS_DISK_DRIVE2_CYL);
+
+    if (CONFIG_ATA) {
+        ata_init();
+        ata_detect();
+    }
 }

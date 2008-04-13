@@ -252,8 +252,7 @@ struct extended_bios_data_area_s {
     u8 other1[0x0d];
 
     // 0x3d
-    struct fdpt_s fdpt0;
-    struct fdpt_s fdpt1;
+    struct fdpt_s fdpt[2];
 
     // 0x5d
     u8 other2[0xC4];

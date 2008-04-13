@@ -18,6 +18,6 @@ int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *far_buffer);
 int cdrom_read(int driveid, u32 lba, u32 count, void *far_buffer);
 int cdrom_read_512(int driveid, u32 lba, u32 count, void *far_buffer);
-void ata_detect();
+void hard_drive_setup();
 
 #endif /* __ATA_H */
