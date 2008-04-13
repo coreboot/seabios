@@ -148,6 +148,7 @@ void serial_setup();
 void lpt_setup();
 
 // clock.c
+void timer_setup();
 void handle_1583(struct bregs *regs);
 
 // apm.c

@@ -8,8 +8,8 @@
 OUT=out/
 
 # Source files
-SRCBOTH=output.c util.c floppy.c ata.c kbd.c pci.c boot.c serial.c
-SRC16=$(SRCBOTH) disk.c system.c clock.c mouse.c cdrom.c apm.c pcibios.c
+SRCBOTH=output.c util.c floppy.c ata.c kbd.c pci.c boot.c serial.c clock.c
+SRC16=$(SRCBOTH) disk.c system.c mouse.c cdrom.c apm.c pcibios.c
 SRC32=$(SRCBOTH) post.c rombios32.c post_menu.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 

@@ -14,6 +14,37 @@
 #define DEBUGF(fmt, args...)
 
 static void
+pit_setup()
+{
+    // timer0: binary count, 16bit count, mode 2
+    outb(0x34, PORT_PIT_MODE);
+    // maximum count of 0000H = 18.2Hz
+    outb(0x0, PORT_PIT_COUNTER0);
+    outb(0x0, PORT_PIT_COUNTER0);
+}
+
+static u32
+bcd2bin(u8 val)
+{
+    return (val & 0xf) + ((val >> 4) * 10);
+}
+
+void
+timer_setup()
+{
+    pit_setup();
+
+    u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
+    u32 ticks = (seconds * 18206507) / 1000000;
+    u32 minutes = bcd2bin(inb_cmos(CMOS_RTC_MINUTES));
+    ticks += (minutes * 10923904) / 10000;
+    u32 hours = bcd2bin(inb_cmos(CMOS_RTC_HOURS));
+    ticks += (hours * 65543427) / 1000;
+    SET_BDA(timer_counter, ticks);
+    SET_BDA(timer_rollover, 0);
+}
+
+static void
 init_rtc()
 {
     outb_cmos(0x26, CMOS_STATUS_A);
