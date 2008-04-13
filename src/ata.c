@@ -76,7 +76,7 @@ await_ide(u8 when_done, u16 base, u16 timeout)
 }
 
 // Wait for ide state - pauses for one ata cycle first.
-static inline int
+static __always_inline int
 pause_await_ide(u8 when_done, u16 iobase1, u16 iobase2, u16 timeout)
 {
     // Wait one PIO transfer cycle.
@@ -226,7 +226,7 @@ insx_discard(int mode, int iobase1, int bytes)
 // and/or last block may be partially transferred.  This function is
 // inlined because all the callers use different forms and because the
 // large number of parameters would consume a lot of stack space.
-static inline int
+static __always_inline int
 ata_transfer(int driveid, int iswrite, int count, int blocksize
              , int skipfirst, int skiplast, void *far_buffer)
 {
@@ -386,7 +386,7 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 }
 
 // Low-level cdrom read atapi command transmit function.
-static inline int
+static __always_inline int
 send_cdrom_cmd(int driveid, u32 lba, u16 count)
 {
     u8 atacmd[12];
