@@ -14,6 +14,34 @@
  ****************************************************************/
 
 static u16
+detect_serial(u16 port, u8 timeout, u8 count)
+{
+    outb(0x02, port+1);
+    if (inb(port+1) != 0x02)
+        return 0;
+    if (inb(port+2) != 0x02)
+        return 0;
+    outb(0x00, port+1);
+    SET_BDA(port_com[count], port);
+    SET_BDA(com_timeout[count], timeout);
+    return 1;
+}
+
+void
+serial_setup()
+{
+    u16 count = 0;
+    count += detect_serial(0x3f8, 0x0a, count);
+    count += detect_serial(0x2f8, 0x0a, count);
+    count += detect_serial(0x3e8, 0x0a, count);
+    count += detect_serial(0x2e8, 0x0a, count);
+
+    // Equipment word bits 9..11 determing # serial ports
+    u16 eqb = GET_BDA(equipment_list_flags);
+    SET_BDA(equipment_list_flags, (eqb & 0xf1ff) | (count << 9));
+}
+
+static u16
 getComAddr(struct bregs *regs)
 {
     if (regs->dx >= 4) {
@@ -133,6 +161,33 @@ handle_14(struct bregs *regs)
 /****************************************************************
  * LPT ports
  ****************************************************************/
+
+static u16
+detect_parport(u16 port, u8 timeout, u8 count)
+{
+    // clear input mode
+    outb(inb(port+2) & 0xdf, port+2);
+
+    outb(0xaa, port);
+    if (inb(port) != 0xaa)
+        // Not present
+        return 0;
+    SET_BDA(port_lpt[count], port);
+    SET_BDA(lpt_timeout[count], timeout);
+    return 1;
+}
+
+void
+lpt_setup()
+{
+    u16 count = 0;
+    count += detect_parport(0x378, 0x14, count);
+    count += detect_parport(0x278, 0x14, count);
+
+    // Equipment word bits 14..15 determing # parallel ports
+    u16 eqb = GET_BDA(equipment_list_flags);
+    SET_BDA(equipment_list_flags, (eqb & 0x3fff) | (count << 14));
+}
 
 static u16
 getLptAddr(struct bregs *regs)

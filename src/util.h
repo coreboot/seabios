@@ -143,6 +143,10 @@ void __set_code_fail(const char *fname, struct bregs *regs, u8 code);
 // kbd.c
 void handle_15c2(struct bregs *regs);
 
+// serial.c
+void serial_setup();
+void lpt_setup();
+
 // clock.c
 void handle_1583(struct bregs *regs);
 
