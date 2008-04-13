@@ -209,7 +209,7 @@ cdemu_1308(struct bregs *regs, u8 device)
         regs->bl = media * 2;
 
     regs->es = SEG_BIOS;
-    regs->di = (u16)&diskette_param_table2;
+    regs->di = (u32)&diskette_param_table2;
 
     disk_ret(regs, DISK_RET_SUCCESS);
 }

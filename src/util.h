@@ -90,7 +90,7 @@ void __call16_int(struct bregs *callregs, u16 offset)
 #ifdef MODE16
 #define call16_int(nr, callregs) do {                           \
         extern void irq_trampoline_ ##nr ();                    \
-        __call16_int((callregs), (u16)&irq_trampoline_ ##nr );  \
+        __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
 #else
 #include "../out/rom16.offset.auto.h"

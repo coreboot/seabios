@@ -669,7 +669,7 @@ floppy_1308(struct bregs *regs, u8 drive)
 
     /* set es & di to point to 11 byte diskette param table in ROM */
     regs->es = SEG_BIOS;
-    regs->di = (u16)&diskette_param_table2;
+    regs->di = (u32)&diskette_param_table2;
     /* disk status not changed upon success */
 }
 

@@ -39,7 +39,7 @@ await_ide(u8 when_done, u16 base, u16 timeout)
     for (;;) {
         u8 status = inb(base+ATA_CB_STAT);
         time++;
-        u8 result;
+        u8 result = 0;
         if (when_done == BSY)
             result = status & ATA_CB_STAT_BSY;
         else if (when_done == NOT_BSY)
@@ -50,8 +50,6 @@ await_ide(u8 when_done, u16 base, u16 timeout)
             result = !(status & ATA_CB_STAT_BSY) && !(status & ATA_CB_STAT_DRQ);
         else if (when_done == NOT_BSY_RDY)
             result = !(status & ATA_CB_STAT_BSY) && (status & ATA_CB_STAT_RDY);
-        else if (when_done == TIMEOUT)
-            result = 0;
 
         if (result)
             return status;

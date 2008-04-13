@@ -238,7 +238,7 @@ static void
 handle_15c0(struct bregs *regs)
 {
     regs->es = SEG_BIOS;
-    regs->bx = (u16)&BIOS_CONFIG_TABLE;
+    regs->bx = (u32)&BIOS_CONFIG_TABLE;
     set_code_success(regs);
 }
 
