@@ -350,12 +350,15 @@ floppy_media_sense(u8 drive)
     return rv;
 }
 
-static inline void
-floppy_ret(struct bregs *regs, u8 code)
+#define floppy_ret(regs, code) \
+    __floppy_ret(__func__, (regs), (code))
+
+void
+__floppy_ret(const char *fname, struct bregs *regs, u8 code)
 {
     SET_BDA(floppy_last_status, code);
     if (code)
-        set_code_fail(regs, code);
+        __set_code_fail(fname, regs, code);
     else
         set_code_success(regs);
 }
