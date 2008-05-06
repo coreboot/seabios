@@ -1,3 +1,13 @@
+Split rombios32.c up into multiple files.
+
+Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
+cvs tip.
+
+Alter ISRs so that they do not enable irqs.  Only call out to other
+bios functions after minimizing stack usage.
+
+Try to write a script to analyze stack usage of 16bit code.
+
 Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
 setup properly with respect to irqs.
 
@@ -17,12 +27,7 @@ Fix makefiles so that they rebuild the required files automatically.
 
 Cleanup setting of ES on GET/SET_BDA
 
-Make sure inline assembly isn't preventing inlining of calling
-functions.
-
-Convert remaining parts of rombios.c to new code.
-
-Convert rombios32 and apm bios stuff to new code.
+Possibly implement 32bit pcibios support.
 
 Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.

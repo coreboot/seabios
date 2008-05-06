@@ -11,7 +11,7 @@
 #include "cmos.h" // CMOS_*
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
-#include "ata.h" // ata_detect
+#include "ata.h" // hard_drive_setup
 #include "kbd.h" // kbd_setup
 #include "disk.h" // floppy_drive_setup
 
@@ -33,11 +33,7 @@ init_bda()
 
     // mov CMOS Equipment Byte to BDA Equipment Word
     SET_BDA(equipment_list_flags, inb_cmos(CMOS_EQUIPMENT_INFO));
-}
 
-static void
-init_handlers()
-{
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_BDA(ivecs[0x79].seg, 0);
@@ -183,7 +179,6 @@ post()
     BX_INFO("Start bios\n");
 
     init_bda();
-    init_handlers();
     init_ebda();
 
     timer_setup();

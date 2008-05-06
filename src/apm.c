@@ -19,7 +19,7 @@ out_str(const char *str_cs)
         u8 c = GET_VAR(CS, *s);
         if (!c)
             break;
-        outb(c, 0x8900);
+        outb(c, PORT_BIOS_APM);
         s++;
     }
 }

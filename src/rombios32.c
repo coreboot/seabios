@@ -1652,7 +1652,7 @@ void smbios_init(void)
     start = (void *)(bios_table_cur_addr);
 #endif
 
-	p = (char *)start + sizeof(struct smbios_entry_point);
+    p = (char *)start + sizeof(struct smbios_entry_point);
 
 #define add_struct(fn) { \
     q = (fn); \

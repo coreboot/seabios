@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "util.h" // irq_restore
-#include "biosvar.h" // CONFIG_BIOS_TABLE
+#include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
 #include "cmos.h" // inb_cmos
 

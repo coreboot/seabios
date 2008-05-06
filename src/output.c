@@ -20,14 +20,11 @@ screenc(u8 c)
     call16_int(0x10, &br);
 }
 
-// XXX - move PORT_DEBUG to standard place?
-#define PORT_DEBUG  0x403
-
 // Write a charcter to the framebuffer.
 static void
 putc(u16 action, char c)
 {
-    outb(c, PORT_DEBUG);
+    outb(c, PORT_BIOS_DEBUG);
     if (action) {
         if (c == '\n')
             screenc('\r');

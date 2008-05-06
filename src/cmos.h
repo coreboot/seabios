@@ -26,8 +26,6 @@
 #define CMOS_FLOPPY_DRIVE_TYPE   0x10
 #define CMOS_DISK_DATA           0x12
 #define CMOS_EQUIPMENT_INFO      0x14
-#define CMOS_MEM_BASE_LOW        0x17
-#define CMOS_MEM_BASE_HIGH       0x18
 #define CMOS_DISK_DRIVE1_TYPE    0x19
 #define CMOS_DISK_DRIVE2_TYPE    0x1a
 #define CMOS_DISK_DRIVE1_CYL     0x1b

@@ -38,6 +38,9 @@
 #define PORT_FD_STATUS         0x03f4
 #define PORT_FD_DATA           0x03f5
 #define PORT_HD_DATA           0x03f6
+#define PORT_FD_DIR            0x03f7
+#define PORT_BIOS_DEBUG        0x0403
+#define PORT_BIOS_APM          0x8900
 
 // PORT_PIC1 bitdefs
 #define PIC1_IRQ5  (1<<5)
