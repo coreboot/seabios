@@ -23,8 +23,7 @@
 #include "cmos.h" // inb_cmos
 #include "pci.h" // PCIDevice
 #include "types.h" // u32
-
-#define BX_APPNAME "Bochs"
+#include "config.h" // CONFIG_*
 
 // Memory addresses used by this code.  (Note global variables (bss)
 // are at 0x40000).
@@ -34,14 +33,6 @@
 
 #define PM_IO_BASE        0xb000
 #define SMB_IO_BASE       0xb100
-
-/* if true, put the MP float table and ACPI RSDT in EBDA and the MP
-   table in RAM. Unfortunately, Linux has bugs with that, so we prefer
-   to modify the BIOS in shadow RAM */
-//#define BX_USE_EBDA_TABLES
-
-/* define it if the (emulated) hardware supports SMM mode */
-#define BX_USE_SMM
 
 #define cpuid(index, eax, ebx, ecx, edx) \
   asm volatile ("cpuid" \
@@ -99,7 +90,7 @@ u32 cpuid_features;
 u32 cpuid_ext_features;
 unsigned long ram_size;
 u8 bios_uuid[16];
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
 unsigned long ebda_cur_addr;
 #endif
 int acpi_enabled;
@@ -110,7 +101,7 @@ unsigned long bios_table_end_addr;
 
 void uuid_probe(void)
 {
-#ifdef BX_QEMU
+#if (CONFIG_QEMU == 1)
     u32 eax, ebx, ecx, edx;
 
     // check if backdoor port exists
@@ -151,7 +142,7 @@ void ram_probe(void)
         16 * 1024 * 1024;
   else
     ram_size = (inb_cmos(0x17) | (inb_cmos(0x18) << 8)) * 1024;
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
 #endif
     BX_INFO("ram_size=0x%08lx\n", ram_size);
@@ -421,7 +412,7 @@ asm(
 extern u8 smm_relocation_start, smm_relocation_end;
 extern u8 smm_code_start, smm_code_end;
 
-#ifdef BX_USE_SMM
+#if (CONFIG_USE_SMM == 1)
 static void smm_init(PCIDevice *d)
 {
     u32 value;
@@ -556,7 +547,7 @@ static void pci_bios_init_device(PCIDevice *d)
         pci_config_writel(d, 0x90, smb_io_base | 1);
         pci_config_writeb(d, 0xd2, 0x09); /* enable SMBus io space */
         pm_sci_int = pci_config_readb(d, PCI_INTERRUPT_LINE);
-#ifdef BX_USE_SMM
+#if (CONFIG_USE_SMM == 1)
         smm_init(d);
 #endif
         acpi_enabled = 1;
@@ -646,12 +637,12 @@ static void mptable_init(void)
     int ioapic_id, i, len;
     int mp_config_table_size;
 
-#ifdef BX_QEMU
+#if (CONFIG_QEMU == 1)
     if (smp_cpus <= 1)
         return;
 #endif
 
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     mp_config_table = (u8 *)(ram_size - CONFIG_ACPI_DATA_SIZE - MPTABLE_MAX_SIZE);
 #else
     bios_table_cur_addr = align(bios_table_cur_addr, 16);
@@ -662,7 +653,7 @@ static void mptable_init(void)
     putle16(&q, 0); /* table length (patched later) */
     putb(&q, 4); /* spec rev */
     putb(&q, 0); /* checksum (patched later) */
-#ifdef BX_QEMU
+#if (CONFIG_QEMU == 1)
     putstr(&q, "QEMUCPU "); /* OEM id */
 #else
     putstr(&q, "BOCHSCPU");
@@ -730,12 +721,12 @@ static void mptable_init(void)
 
     mp_config_table_size = q - mp_config_table;
 
-#ifndef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES != 1)
     bios_table_cur_addr += mp_config_table_size;
 #endif
 
     /* floating pointer structure */
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = align(ebda_cur_addr, 16);
     float_pointer_struct = (u8 *)ebda_cur_addr;
 #else
@@ -758,7 +749,7 @@ static void mptable_init(void)
     putb(&q, 0);
     float_pointer_struct[10] = -checksum(float_pointer_struct
                                          , q - float_pointer_struct);
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr += (q - float_pointer_struct);
 #else
     bios_table_cur_addr += (q - float_pointer_struct);
@@ -979,7 +970,7 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     memcpy(h->signature, sig, 4);
     h->length = cpu_to_le32(len);
     h->revision = rev;
-#ifdef BX_QEMU
+#if (CONFIG_QEMU == 1)
     memcpy(h->oem_id, "QEMU  ", 6);
     memcpy(h->oem_table_id, "QEMU", 4);
 #else
@@ -988,7 +979,7 @@ static void acpi_build_table_header(struct acpi_table_header *h,
 #endif
     memcpy(h->oem_table_id + 4, sig, 4);
     h->oem_revision = cpu_to_le32(1);
-#ifdef BX_QEMU
+#if (CONFIG_QEMU == 1)
     memcpy(h->asl_compiler_id, "QEMU", 4);
 #else
     memcpy(h->asl_compiler_id, "BXPC", 4);
@@ -1062,7 +1053,7 @@ void acpi_bios_init(void)
     int i;
 
     /* reserve memory space for tables */
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = align(ebda_cur_addr, 16);
     rsdp = (void *)(ebda_cur_addr);
     ebda_cur_addr += sizeof(*rsdp);
@@ -1112,7 +1103,7 @@ void acpi_bios_init(void)
     /* RSDP */
     memset(rsdp, 0, sizeof(*rsdp));
     memcpy(rsdp->signature, "RSD PTR ", 8);
-#ifdef BX_QEMU
+#if (CONFIG_QEMU == 1)
     memcpy(rsdp->oem_id, "QEMU  ", 6);
 #else
     memcpy(rsdp->oem_id, "BOCHS ", 6);
@@ -1404,8 +1395,8 @@ smbios_type_0_init(void *start)
     p->embedded_controller_minor_release = 0xff;
 
     start += sizeof(struct smbios_type_0);
-    memcpy((char *)start, BX_APPNAME, sizeof(BX_APPNAME));
-    start += sizeof(BX_APPNAME);
+    memcpy((char *)start, CONFIG_APPNAME, sizeof(CONFIG_APPNAME));
+    start += sizeof(CONFIG_APPNAME);
     memcpy((char *)start, RELEASE_DATE_STR, sizeof(RELEASE_DATE_STR));
     start += sizeof(RELEASE_DATE_STR);
     *((u8 *)start) = 0;
@@ -1644,7 +1635,7 @@ void smbios_init(void)
     char *start, *p, *q;
     int memsize = ram_size / (1024 * 1024);
 
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = align(ebda_cur_addr, 16);
     start = (void *)(ebda_cur_addr);
 #else
@@ -1682,7 +1673,7 @@ void smbios_init(void)
         (u32)(start + sizeof(struct smbios_entry_point)),
         nr_structs);
 
-#ifdef BX_USE_EBDA_TABLES
+#if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr += (p - (char *)start);
 #else
     bios_table_cur_addr += (p - (char *)start);

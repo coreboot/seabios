@@ -1,6 +1,17 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
+
 // Configuration definitions.
+
+/* Dont support QEMU BIOS by default.
+ * Change CONFIG_QEMU to 1 to support QEMU. */
+#define CONFIG_QEMU 0
+
+#if (QEMU_SUPPORT == 1)
+#define CONFIG_APPNAME "QEMU"
+#else
+#define CONFIG_APPNAME "Bochs"
+#endif
 
 #define CONFIG_FLOPPY_SUPPORT 1
 #define CONFIG_PS2_MOUSE 1
@@ -9,6 +20,14 @@
 #define CONFIG_CDROM_BOOT 1
 #define CONFIG_CDROM_EMU 1
 #define CONFIG_PCIBIOS 1
+
+/* define it if the (emulated) hardware supports SMM mode */
+#define CONFIG_USE_SMM 1
+
+/* if true, put the MP float table and ACPI RSDT in EBDA and the MP
+   table in RAM. Unfortunately, Linux has bugs with that, so we prefer
+   to modify the BIOS in shadow RAM */
+#define CONFIG_USE_EBDA_TABLES 0
 
 #define CONFIG_MAX_ATA_INTERFACES 4
 #define CONFIG_MAX_ATA_DEVICES  (CONFIG_MAX_ATA_INTERFACES*2)
