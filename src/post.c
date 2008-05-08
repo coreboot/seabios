@@ -176,6 +176,9 @@ rom_scan(u32 start, u32 end)
 static void
 post()
 {
+    if (CONFIG_DEBUG_SERIAL)
+        debug_serial_setup();
+
     BX_INFO("Start bios\n");
 
     init_bda();

@@ -13,6 +13,8 @@
 #define CONFIG_APPNAME "Bochs"
 #endif
 
+#define CONFIG_DEBUG_SERIAL 0
+
 #define CONFIG_FLOPPY_SUPPORT 1
 #define CONFIG_PS2_MOUSE 1
 #define CONFIG_ATA 1

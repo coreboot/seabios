@@ -145,6 +145,8 @@ void handle_15c2(struct bregs *regs);
 
 // serial.c
 void serial_setup();
+void debug_serial_setup();
+void debug_serial(char c);
 void lpt_setup();
 
 // clock.c

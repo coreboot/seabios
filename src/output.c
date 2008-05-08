@@ -24,8 +24,15 @@ screenc(u8 c)
 static void
 putc(u16 action, char c)
 {
-    outb(c, PORT_BIOS_DEBUG);
+    if (CONFIG_DEBUG_SERIAL)
+        // Send character to serial port.
+        debug_serial(c);
+    else
+        // Send character to debug port.
+        outb(c, PORT_BIOS_DEBUG);
+
     if (action) {
+        // Send character to video screen.
         if (c == '\n')
             screenc('\r');
         screenc(c);
