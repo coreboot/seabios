@@ -7,6 +7,7 @@
 
 import sys
 import struct
+import os
 
 ROM16='out/rom16.bin'
 ROM32='out/rom32.bin'
@@ -77,6 +78,12 @@ def main():
     f = open(OUT, 'wb')
     f.write(outrom)
     f.close()
+
+    # Build elf file with 32bit entry point
+    os.system(
+        "objcopy -I binary -O elf32-i386 -B i386"
+        " --change-addresses 0xf0000 --set-start %s %s %s" %(
+            int(o32['OFFSET_post32'], 16) - 0xf0000, OUT, OUT+".o"))
 
 if __name__ == '__main__':
     main()

@@ -265,3 +265,15 @@ _start()
 
     post();
 }
+
+// Externally visible 32bit entry point.
+asm(
+    ".global post32\n"
+    "post32:\n"
+    "cli\n"
+    "cld\n"
+    "lidtl " __stringify(0xf0000 | OFFSET_pmode_IDT_info) "\n"
+    "lgdtl " __stringify(0xf0000 | OFFSET_rombios32_gdt_48) "\n"
+    "movl $" __stringify(CONFIG_STACK_OFFSET) ", %esp\n"
+    "jmp _start\n"
+    );
