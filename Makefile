@@ -30,7 +30,7 @@ CFLAGS16INC = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
 CFLAGS16 = $(CFLAGS16INC) -g
 
 TABLETMP=$(addprefix $(OUT), $(patsubst %.c,%.16.s,$(TABLESRC)))
-all: $(OUT) $(OUT)rom.bin $(TABLETMP)
+all: $(OUT) $(OUT)bios.bin $(TABLETMP)
 
 # Run with "make V=1" to see the actual compile commands
 ifdef V
@@ -103,7 +103,7 @@ $(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking $@"
 	$(Q)ld -T $(OUT)rombios32.lds $< -o $@
 
-$(OUT)rom.bin: $(OUT)rom16.bin $(OUT)rom32.bin $(OUT)rom16.offset.auto.h $(OUT)rom32.offset.auto.h
+$(OUT)bios.bin: $(OUT)rom16.bin $(OUT)rom32.bin $(OUT)rom16.offset.auto.h $(OUT)rom32.offset.auto.h
 	@echo "  Building $@"
 	$(Q)./tools/buildrom.py
 

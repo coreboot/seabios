@@ -2,7 +2,7 @@ This code implements an X86 legacy bios.  It is intended to be
 compiled using standard gnu tools (eg, gas and gcc).
 
 To build, one should be able to run "make" in the main directory.  The
-resulting file "out/rom.bin" contains the processed bios image.
+resulting file "out/bios.bin" contains the processed bios image.
 
 The build requires gcc v4.1 or later.  Some buggy versions of gcc have
 issues with the '-combine' compiler option - in particular, recent
@@ -15,13 +15,13 @@ Testing of images:
 To test the bios under bochs, one will need to instruct bochs to use
 the new bios image.  Use the 'romimage' option - for example:
 
-bochs -q 'floppya: 1_44=myfdimage.img' 'romimage: file=out/rom.bin'
+bochs -q 'floppya: 1_44=myfdimage.img' 'romimage: file=out/bios.bin'
 
 To test under qemu, one will need to create a directory with all the
 bios images and then overwrite the main bios image.  For example:
 
 cp /usr/share/qemu/*.bin mybiosdir/
-cp out/rom.bin mybiosdir/bios.bin
+cp out/bios.bin mybiosdir/
 
 Once this is setup, one can instruct qemu to use the newly created
 directory for rom images.  For example:

@@ -13,7 +13,7 @@ ROM16='out/rom16.bin'
 ROM32='out/rom32.bin'
 OFFSETS16='out/rom16.offset.auto.h'
 OFFSETS32='out/rom32.offset.auto.h'
-OUT='out/rom.bin'
+OUT='out/bios.bin'
 
 def align(v, a):
     return (v + a - 1) // a * a
@@ -81,9 +81,8 @@ def main():
 
     # Build elf file with 32bit entry point
     os.system(
-        "objcopy -I binary -O elf32-i386 -B i386"
-        " --change-addresses 0xf0000 --set-start %s %s %s" %(
-            int(o32['OFFSET_post32'], 16) - 0xf0000, OUT, OUT+".o"))
+        "ld -melf_i386 -e %s -Ttext 0xf0000 -b binary %s -o %s" % (
+            int(o32['OFFSET_post32'], 16), OUT, OUT+".elf"))
 
 if __name__ == '__main__':
     main()
