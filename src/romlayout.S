@@ -12,18 +12,13 @@
 #define REAL_MODE_CS      (4 << 3) // 0x20
 #define REAL_MODE_DS      (5 << 3) // 0x28
 
-        .code16gcc
-
 
 /****************************************************************
  * Include of 16bit C code
  ****************************************************************/
 
-        .globl bios16c_start, bios16c_end
-bios16c_start:
-.include "out/blob.proc.16.s"
-        .text
-bios16c_end:
+        .code16gcc
+.include "out/blob.16.s"
 
 
 /****************************************************************
@@ -92,12 +87,18 @@ bios16c_end:
         movl $ CONFIG_STACK_OFFSET , %esp
         .endm
 
+        // Specify a location in the fixed part of bios area.
+        .macro ORG addr
+        .section .text.fixed.addr
+        .org \addr - CONFIG_START_FIXED
+        .endm
+
 
 /****************************************************************
  * POST handler
  ****************************************************************/
 
-        .org 0xe05b
+        ORG 0xe05b
         .globl post16
 post16:
         // init the stack pointer
@@ -356,7 +357,7 @@ rombios32_gdt:
         iretw
         .endm
 
-        .org 0xe2c3
+        ORG 0xe2c3
         IRQ_ENTRY nmi
 
         IRQ_ENTRY_ARG 13
@@ -366,23 +367,23 @@ rombios32_gdt:
         IRQ_ENTRY 1c
         IRQ_ENTRY 70
 
-        .org 0xe3fe
+        ORG 0xe3fe
         jmp entry_13
 
-        .org 0xe401
+        ORG 0xe401
         // XXX - Fixed Disk Parameter Table
 
-        .org 0xe6f2
+        ORG 0xe6f2
         jmp entry_19
 
-        .org 0xe6f5
+        ORG 0xe6f5
 .include "out/cbt.proc.16.s"
         .text
 
-        .org 0xe729
+        ORG 0xe729
         // XXX - Baud Rate Generator Table
 
-        .org 0xe739
+        ORG 0xe739
         IRQ_ENTRY_ARG 14
 
         IRQ_ENTRY 74
@@ -417,82 +418,82 @@ entry_18:
         IRQ_TRAMPOLINE 1c
         IRQ_TRAMPOLINE 4a
 
-        .org 0xe82e
+        ORG 0xe82e
         IRQ_ENTRY_ARG 16
 
-        .org 0xe987
+        ORG 0xe987
         IRQ_ENTRY 09
 
-        .org 0xec59
+        ORG 0xec59
         IRQ_ENTRY_ARG 40
 
-        .org 0xef57
+        ORG 0xef57
         IRQ_ENTRY 0e
 
-        .org 0xefc7
+        ORG 0xefc7
 .include "out/floppy_dbt.proc.16.s"
         .text
 
-        .org 0xefd2
+        ORG 0xefd2
         IRQ_ENTRY_ARG 17
 
-        .org 0xf045
+        ORG 0xf045
         // XXX int 10
         iretw
 
-        .org 0xf065
+        ORG 0xf065
         IRQ_ENTRY_ARG 10
 
-        .org 0xf0a4
+        ORG 0xf0a4
         // XXX int 1D
         iretw
 
         .globl freespace2_start, freespace2_end
 freespace2_start:
 
-        .org 0xf841
+        ORG 0xf841
 freespace2_end:
         jmp entry_12
 
-        .org 0xf84d
+        ORG 0xf84d
         jmp entry_11
 
-        .org 0xf859
+        ORG 0xf859
         IRQ_ENTRY_ARG 15
 
-        .org 0xfa6e
+        ORG 0xfa6e
 .include "out/font.proc.16.s"
         .text
 
-        .org 0xfe6e
+        ORG 0xfe6e
         IRQ_ENTRY_ARG 1a
 
-        .org 0xfea5
+        ORG 0xfea5
         IRQ_ENTRY 08
 
-        .org 0xfef3
+        ORG 0xfef3
         // XXX - Initial Interrupt Vector Offsets Loaded by POST
 
-        .org 0xff00
+        ORG 0xff00
         // XXX - BIOS_COPYRIGHT_STRING
         .ascii "(c) 2002 MandrakeSoft S.A. Written by Kevin Lawton & the Bochs team."
 
-        .org 0xff53
+        ORG 0xff53
         .globl dummy_iret_handler
 dummy_iret_handler:
         iretw
 
-        .org 0xff54
+        ORG 0xff54
         IRQ_ENTRY_ARG 05
 
-        .org 0xfff0 // Power-up Entry Point
+        ORG 0xfff0 // Power-up Entry Point
         ljmpw $0xf000, $post16
 
-        .org 0xfff5
+        ORG 0xfff5
         // BIOS build date
         .ascii "06/23/99"
 
-        .org 0xfffe
+        ORG 0xfffe
         .byte CONFIG_MODEL_ID
         .byte 0x00
 

@@ -18,8 +18,6 @@ Look into ways to reduce stack usage.
 
 Code assumes ebda segment is static - it doesn't read 0x40e.
 
-See if using an ld script for 16bit mode is a good idea.
-
 The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
 

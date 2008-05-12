@@ -43,4 +43,7 @@
 #define CONFIG_SUBMODEL_ID   0x00
 #define CONFIG_BIOS_REVISION 0x01
 
+// Start of fixed addresses in 0xf0000 segment.
+#define CONFIG_START_FIXED 0xe050
+
 #endif // config.h

@@ -89,13 +89,13 @@ $(OUT)%.offset.auto.h: $(OUT)%.o
 $(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
 TABLEASM=$(addprefix $(OUT), $(patsubst %.c,%.proc.16.s,$(TABLESRC)))
-$(OUT)romlayout16.o: romlayout.S $(OUT)blob.proc.16.s $(TABLEASM)
+$(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(TABLEASM)
 	@echo "  Generating 16bit layout of $@"
 	$(Q)$(CC) $(CFLAGS16) -c $< -o $@
 
-$(OUT)rom16.o: $(OUT)romlayout16.o
+$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rombios16.lds
 	@echo "  Linking $@"
-	$(Q)ld -melf_i386 -e post16 -Ttext 0 $< -o $@
+	$(Q)ld -T $(OUT)rombios16.lds $< -o $@
 
 $(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 
