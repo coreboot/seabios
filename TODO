@@ -3,18 +3,15 @@ Split rombios32.c up into multiple files.
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
 
-Alter ISRs so that they do not enable irqs.  Only call out to other
-bios functions after minimizing stack usage.
-
-Try to write a script to analyze stack usage of 16bit code.
+Look into ways to reduce stack usage.  Alter ISRs so that they do not
+enable irqs.  Only call out to other bios functions after minimizing
+stack usage.
 
 Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
 setup properly with respect to irqs.
 
 Audit statements where a 32bit intermediary changes meaning of a 16bit
 comparison.
-
-Look into ways to reduce stack usage.
 
 Code assumes ebda segment is static - it doesn't read 0x40e.
 
