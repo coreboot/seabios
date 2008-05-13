@@ -37,6 +37,7 @@ typedef u32 size_t;
 
 #define barrier() __asm__ __volatile__("": : :"memory")
 
+#define noinline __attribute__((noinline))
 #define __always_inline inline __attribute__((always_inline))
 
 #define __stringify_1(x)        #x

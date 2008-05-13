@@ -181,7 +181,7 @@ cdrom_13(struct bregs *regs, u8 device)
 
 // Read a series of 512 byte sectors from the cdrom starting at the
 // image offset.
-inline int
+__always_inline int
 cdrom_read_emu(u16 biosid, u32 vlba, u32 count, void *far_buffer)
 {
     u32 ilba = GET_EBDA(cdemu.ilba);

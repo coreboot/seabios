@@ -141,6 +141,18 @@ ata_reset(int driveid)
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
 }
 
+
+/****************************************************************
+ * ATA send command
+ ****************************************************************/
+
+struct ata_op_s {
+    u32 lba;
+    void *far_buffer;
+    u16 driveid;
+    u16 count;
+};
+
 struct ata_pio_command {
     u8 feature;
     u8 sector_count;
@@ -202,6 +214,11 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
 
     return 0;
 }
+
+
+/****************************************************************
+ * ATA transfers
+ ****************************************************************/
 
 // Read and discard x number of bytes from an io channel.
 static void
@@ -304,23 +321,51 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
     return 0;
 }
 
+static noinline int
+ata_transfer_disk(const struct ata_op_s *op, int iswrite)
+{
+    return ata_transfer(op->driveid, iswrite, op->count, IDE_SECTOR_SIZE
+                        , 0, 0, op->far_buffer);
+}
+
+static noinline int
+ata_transfer_cdrom(const struct ata_op_s *op)
+{
+    return ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
+                        , 0, 0, op->far_buffer);
+}
+
+static noinline int
+ata_transfer_emu(const struct ata_op_s *op, int before, int after)
+{
+    int vcount = op->count * 4 - before - after;
+    int ret = ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
+                           , before*512, after*512, op->far_buffer);
+    if (ret) {
+        SET_EBDA(ata.trsfsectors, 0);
+        return ret;
+    }
+    SET_EBDA(ata.trsfsectors, vcount);
+    return 0;
+}
+
 
 /****************************************************************
  * ATA hard drive functions
  ****************************************************************/
 
-// Read/write count blocks from a harddrive.
-int
-ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
+static noinline int
+send_cmd_disk(const struct ata_op_s *op, u16 command)
 {
-    u8 slave   = driveid % 2;
+    u8 slave = op->driveid % 2;
+    u32 lba = op->lba;
 
     struct ata_pio_command cmd;
     memset(&cmd, 0, sizeof(cmd));
 
     cmd.command = command;
-    if (count >= (1<<8) || lba + count >= (1<<28)) {
-        cmd.sector_count2 = count >> 8;
+    if (op->count >= (1<<8) || lba + op->count >= (1<<28)) {
+        cmd.sector_count2 = op->count >> 8;
         cmd.lba_low2 = lba >> 24;
         cmd.lba_mid2 = 0;
         cmd.lba_high2 = 0;
@@ -330,20 +375,32 @@ ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
     }
 
     cmd.feature = 0;
-    cmd.sector_count = count;
+    cmd.sector_count = op->count;
     cmd.lba_low = lba;
     cmd.lba_mid = lba >> 8;
     cmd.lba_high = lba >> 16;
     cmd.device = ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
                   | ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
 
-    int ret = send_cmd(driveid, &cmd);
+    return send_cmd(op->driveid, &cmd);
+}
+
+// Read/write count blocks from a harddrive.
+__always_inline int
+ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
+{
+    struct ata_op_s op;
+    op.driveid = driveid;
+    op.lba = lba;
+    op.count = count;
+    op.far_buffer = far_buffer;
+
+    int ret = send_cmd_disk(&op, command);
     if (ret)
         return ret;
 
     int iswrite = command == ATA_CMD_WRITE_SECTORS;
-    return ata_transfer(driveid, iswrite, count, IDE_SECTOR_SIZE
-                        , 0, 0, far_buffer);
+    return ata_transfer_disk(&op, iswrite);
 }
 
 
@@ -352,7 +409,7 @@ ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
  ****************************************************************/
 
 // Low-level atapi command transmit function.
-static int
+static __always_inline int
 send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 {
     u8 channel = driveid / 2;
@@ -384,37 +441,44 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 }
 
 // Low-level cdrom read atapi command transmit function.
-static __always_inline int
-send_cdrom_cmd(int driveid, u32 lba, u16 count)
+static int
+send_cmd_cdrom(const struct ata_op_s *op)
 {
     u8 atacmd[12];
     memset(atacmd, 0, sizeof(atacmd));
 
-    atacmd[0]=0x28;                     // READ command
-    atacmd[7]=(count & 0xff00) >> 8;    // Sectors
-    atacmd[8]=(count & 0x00ff);         // Sectors
-    atacmd[2]=(lba & 0xff000000) >> 24; // LBA
-    atacmd[3]=(lba & 0x00ff0000) >> 16;
-    atacmd[4]=(lba & 0x0000ff00) >> 8;
-    atacmd[5]=(lba & 0x000000ff);
+    atacmd[0]=0x28;                         // READ command
+    atacmd[7]=(op->count & 0xff00) >> 8;    // Sectors
+    atacmd[8]=(op->count & 0x00ff);
+    atacmd[2]=(op->lba & 0xff000000) >> 24; // LBA
+    atacmd[3]=(op->lba & 0x00ff0000) >> 16;
+    atacmd[4]=(op->lba & 0x0000ff00) >> 8;
+    atacmd[5]=(op->lba & 0x000000ff);
 
-    return send_atapi_cmd(driveid, atacmd, sizeof(atacmd), CDROM_SECTOR_SIZE);
+    return send_atapi_cmd(op->driveid, atacmd, sizeof(atacmd)
+                          , CDROM_SECTOR_SIZE);
 }
 
 // Read sectors from the cdrom.
-int
+__always_inline int
 cdrom_read(int driveid, u32 lba, u32 count, void *far_buffer)
 {
-    int ret = send_cdrom_cmd(driveid, lba, count);
+    struct ata_op_s op;
+    op.driveid = driveid;
+    op.lba = lba;
+    op.count = count;
+    op.far_buffer = far_buffer;
+
+    int ret = send_cmd_cdrom(&op);
     if (ret)
         return ret;
 
-    return ata_transfer(driveid, 0, count, CDROM_SECTOR_SIZE, 0, 0, far_buffer);
+    return ata_transfer_cdrom(&op);
 }
 
 // Pretend the cdrom has 512 byte sectors (instead of 2048) and read
 // sectors.
-int
+__always_inline int
 cdrom_read_512(int driveid, u32 vlba, u32 vcount, void *far_buffer)
 {
     u32 velba = vlba + vcount - 1;
@@ -424,23 +488,22 @@ cdrom_read_512(int driveid, u32 vlba, u32 vcount, void *far_buffer)
     int before = vlba % 4;
     int after = 3 - (velba % 4);
 
+    struct ata_op_s op;
+    op.driveid = driveid;
+    op.lba = lba;
+    op.count = count;
+    op.far_buffer = far_buffer;
+
     DEBUGF("cdrom_read_512: id=%d vlba=%d vcount=%d buf=%p lba=%d elba=%d"
            " count=%d before=%d after=%d\n"
            , driveid, vlba, vcount, far_buffer, lba, elba
            , count, before, after);
 
-    int ret = send_cdrom_cmd(driveid, lba, count);
+    int ret = send_cmd_cdrom(&op);
     if (ret)
         return ret;
 
-    ret = ata_transfer(driveid, 0, count, CDROM_SECTOR_SIZE
-                       , before*512, after*512, far_buffer);
-    if (ret) {
-        SET_EBDA(ata.trsfsectors, 0);
-        return ret;
-    }
-    SET_EBDA(ata.trsfsectors, vcount);
-    return 0;
+    return ata_transfer_emu(&op, before, after);
 }
 
 // Send a simple atapi command to a drive.
