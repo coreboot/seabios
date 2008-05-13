@@ -26,7 +26,8 @@ COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 CFLAGS = $(COMMONCFLAGS) -g
-CFLAGS16INC = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables
+CFLAGS16INC = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables -fno-defer-pop \
+              $(call cc-option,$(CC),--param large-stack-frame=8,)
 CFLAGS16 = $(CFLAGS16INC) -g
 
 TABLETMP=$(addprefix $(OUT), $(patsubst %.c,%.16.s,$(TABLESRC)))
