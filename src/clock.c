@@ -330,7 +330,7 @@ handle_158300(struct bregs *regs)
     outb(irqDisable & ~PIC2_IRQ8, PORT_PIC2_DATA);
     // Turn on the Periodic Interrupt timer
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(CMOS_STATUS_B, bRegister | CSB_EN_ALARM_IRQ);
+    outb_cmos(bRegister | CSB_EN_ALARM_IRQ, CMOS_STATUS_B);
 
     set_success(regs); // XXX - no set ah?
 }
@@ -342,7 +342,7 @@ handle_158301(struct bregs *regs)
     SET_BDA(rtc_wait_flag, 0); // Clear status byte
     // Turn off the Periodic Interrupt timer
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(CMOS_STATUS_B, bRegister & ~CSB_EN_ALARM_IRQ);
+    outb_cmos(bRegister & ~CSB_EN_ALARM_IRQ, CMOS_STATUS_B);
     set_success(regs); // XXX - no set ah?
 }
 
