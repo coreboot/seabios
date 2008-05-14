@@ -160,7 +160,7 @@ struct ata_device_s {
     struct chs_s  lchs;         // Logical CHS
     struct chs_s  pchs;         // Physical CHS
 
-    u32 sectors;      // Total sectors count
+    u64 sectors;      // Total sectors count
 };
 
 struct ata_s {

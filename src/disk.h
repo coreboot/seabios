@@ -33,8 +33,7 @@ struct int13ext_s {
     u16 count;
     u16 offset;
     u16 segment;
-    u32 lba1;
-    u32 lba2;
+    u64 lba;
 } PACKED;
 
 #define GET_INT13EXT(regs,var)                                          \
@@ -49,8 +48,7 @@ struct int13dpt_s {
     u32 cylinders;
     u32 heads;
     u32 spt;
-    u32 sector_count1;
-    u32 sector_count2;
+    u64 sector_count;
     u16 blksize;
     u16 dpte_offset;
     u16 dpte_segment;

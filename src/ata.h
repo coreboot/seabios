@@ -13,7 +13,7 @@
 
 // Function definitions
 void ata_reset(int driveid);
-int ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer);
+int ata_cmd_data(int driveid, u16 command, u64 lba, u16 count, void *far_buffer);
 int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *far_buffer);
 int cdrom_read(int driveid, u32 lba, u32 count, void *far_buffer);

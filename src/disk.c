@@ -115,21 +115,9 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 static void
 extended_access(struct bregs *regs, u8 device, u16 command)
 {
-    u16 count = GET_INT13EXT(regs, count);
-
-    // Can't use 64 bits lba
-    u32 lba = GET_INT13EXT(regs, lba2);
-    if (lba != 0L) {
-        BX_PANIC("int13_harddisk: function %02x. Can't use 64bits lba\n"
-                 , regs->ah);
-        disk_ret(regs, DISK_RET_EPARAM);
-        return;
-    }
-
+    // Get lba and check.
+    u64 lba = GET_INT13EXT(regs, lba);
     u8 type = GET_EBDA(ata.devices[device].type);
-
-    // Get 32 bits lba and check
-    lba = GET_INT13EXT(regs, lba1);
     if (type == ATA_TYPE_ATA
         && lba >= GET_EBDA(ata.devices[device].sectors)) {
         BX_INFO("int13_harddisk: function %02x. LBA out of range\n", regs->ah);
@@ -146,6 +134,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     u16 segment = GET_INT13EXT(regs, segment);
     u16 offset = GET_INT13EXT(regs, offset);
     void *far_buffer = MAKE_FARPTR(segment, offset);
+    u16 count = GET_INT13EXT(regs, count);
 
     irq_enable();
 
@@ -379,12 +368,12 @@ disk_1348(struct bregs *regs, u8 device)
     u16 npc     = GET_EBDA(ata.devices[device].pchs.cylinders);
     u16 nph     = GET_EBDA(ata.devices[device].pchs.heads);
     u16 npspt   = GET_EBDA(ata.devices[device].pchs.spt);
-    u32 lba     = GET_EBDA(ata.devices[device].sectors);
+    u64 lba     = GET_EBDA(ata.devices[device].sectors);
     u16 blksize = GET_EBDA(ata.devices[device].blksize);
 
     SET_INT13DPT(regs, size, 0x1a);
     if (type == ATA_TYPE_ATA) {
-        if ((lba/npspt)/nph > 0x3fff) {
+        if (lba > (u64)npspt*nph*0x3fff) {
             SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
             SET_INT13DPT(regs, cylinders, 0x3fff);
         } else {
@@ -393,8 +382,7 @@ disk_1348(struct bregs *regs, u8 device)
         }
         SET_INT13DPT(regs, heads, (u32)nph);
         SET_INT13DPT(regs, spt, (u32)npspt);
-        SET_INT13DPT(regs, sector_count1, lba);  // FIXME should be Bit64
-        SET_INT13DPT(regs, sector_count2, 0L);
+        SET_INT13DPT(regs, sector_count, lba);
     } else {
         // ATAPI
         // 0x74 = removable, media change, lockable, max values
@@ -402,8 +390,7 @@ disk_1348(struct bregs *regs, u8 device)
         SET_INT13DPT(regs, cylinders, 0xffffffff);
         SET_INT13DPT(regs, heads, 0xffffffff);
         SET_INT13DPT(regs, spt, 0xffffffff);
-        SET_INT13DPT(regs, sector_count1, 0xffffffff);  // FIXME should be Bit64
-        SET_INT13DPT(regs, sector_count2, 0xffffffff);
+        SET_INT13DPT(regs, sector_count, (u64)-1);
     }
     SET_INT13DPT(regs, blksize, blksize);
 

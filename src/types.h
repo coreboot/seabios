@@ -16,6 +16,11 @@ typedef unsigned long long u64;
 typedef signed long long s64;
 typedef u32 size_t;
 
+union u64_u32_u {
+    struct { u32 hi, lo; };
+    u64 val;
+};
+
 #define __VISIBLE __attribute__((externally_visible))
 #ifdef MODE16
 // Notes a function as externally visible in the 16bit code chunk.

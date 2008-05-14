@@ -147,7 +147,7 @@ ata_reset(int driveid)
  ****************************************************************/
 
 struct ata_op_s {
-    u32 lba;
+    u64 lba;
     void *far_buffer;
     u16 driveid;
     u16 count;
@@ -358,7 +358,7 @@ static noinline int
 send_cmd_disk(const struct ata_op_s *op, u16 command)
 {
     u8 slave = op->driveid % 2;
-    u32 lba = op->lba;
+    u64 lba = op->lba;
 
     struct ata_pio_command cmd;
     memset(&cmd, 0, sizeof(cmd));
@@ -367,8 +367,8 @@ send_cmd_disk(const struct ata_op_s *op, u16 command)
     if (op->count >= (1<<8) || lba + op->count >= (1<<28)) {
         cmd.sector_count2 = op->count >> 8;
         cmd.lba_low2 = lba >> 24;
-        cmd.lba_mid2 = 0;
-        cmd.lba_high2 = 0;
+        cmd.lba_mid2 = lba >> 32;
+        cmd.lba_high2 = lba >> 40;
 
         cmd.command |= 0x04;
         lba &= 0xffffff;
@@ -387,7 +387,7 @@ send_cmd_disk(const struct ata_op_s *op, u16 command)
 
 // Read/write count blocks from a harddrive.
 __always_inline int
-ata_cmd_data(int driveid, u16 command, u32 lba, u16 count, void *far_buffer)
+ata_cmd_data(int driveid, u16 command, u64 lba, u16 count, void *far_buffer)
 {
     struct ata_op_s op;
     op.driveid = driveid;
@@ -627,7 +627,11 @@ init_drive_ata(int driveid)
     u16 heads     = *(u16*)&buffer[3*2]; // word 3
     u16 spt       = *(u16*)&buffer[6*2]; // word 6
 
-    u32 sectors   = *(u32*)&buffer[60*2]; // word 60 and word 61
+    u64 sectors;
+    if (*(u16*)&buffer[83*2] & (1 << 10)) // word 83 - lba48 support
+        sectors  = *(u64*)&buffer[100*2]; // word 100-103
+    else
+        sectors = *(u32*)&buffer[60*2]; // word 60 and word 61
 
     SET_EBDA(ata.devices[driveid].device,ATA_DEVICE_HD);
     SET_EBDA(ata.devices[driveid].removable, removable);
@@ -657,8 +661,13 @@ init_drive_ata(int driveid)
     case ATA_TRANSLATION_LBA:
         BX_INFO("lba");
         spt = 63;
-        sectors /= 63;
-        heads = sectors / 1024;
+        if (sectors > 63*255*1024) {
+            heads = 255;
+            cylinders = 1024;
+            break;
+        }
+        u32 sect = (u32)sectors / 63;
+        heads = sect / 1024;
         if (heads>128)
             heads = 255;
         else if (heads>64)
@@ -669,7 +678,7 @@ init_drive_ata(int driveid)
             heads = 32;
         else
             heads = 16;
-        cylinders = sectors / heads;
+        cylinders = sect / heads;
         break;
     case ATA_TRANSLATION_RECHS:
         BX_INFO("r-echs");
@@ -708,15 +717,16 @@ init_drive_ata(int driveid)
     SET_EBDA(ata.idmap[0][hdcount], driveid);
     SET_EBDA(ata.hdcount, ++hdcount);
 
-    u32 sizeinmb = GET_EBDA(ata.devices[driveid].sectors);
+    u64 sizeinmb = GET_EBDA(ata.devices[driveid].sectors);
     sizeinmb >>= 11;
 
     report_model(driveid, buffer);
     u8 version = get_ata_version(buffer);
     if (sizeinmb < (1 << 16))
-        printf(" ATA-%d Hard-Disk (%u MBytes)\n", version, sizeinmb);
+        printf(" ATA-%d Hard-Disk (%u MBytes)\n", version, (u32)sizeinmb);
     else
-        printf(" ATA-%d Hard-Disk (%u GBytes)\n", version, sizeinmb >> 10);
+        printf(" ATA-%d Hard-Disk (%u GBytes)\n", version
+               , (u32)(sizeinmb >> 10));
 }
 
 static void

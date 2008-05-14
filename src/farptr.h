@@ -28,6 +28,12 @@ extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
     __asm__("movl %%" #SEG ":%1, %0" : "=ri"(__value)   \
             : "m"(var), "m"(__segment_ ## SEG));        \
     __value; })
+#define READ64_SEG(SEG, var) ({                                 \
+    union u64_u32_u __value;                                    \
+    union u64_u32_u *__r64_ptr = (union u64_u32_u *)&(var);     \
+    __value.hi = READ32_SEG(SEG, __r64_ptr->hi);                \
+    __value.lo = READ32_SEG(SEG, __r64_ptr->lo);                \
+    __value.val; })
 #define WRITE8_SEG(SEG, var, value)                             \
     __asm__("movb %b1, %%" #SEG ":%0" : "=m"(var)               \
             : "Q"(value), "m"(__segment_ ## SEG))
@@ -37,6 +43,13 @@ extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
 #define WRITE32_SEG(SEG, var, value)                            \
     __asm__("movl %1, %%" #SEG ":%0" : "=m"(var)                \
             : "r"(value), "m"(__segment_ ## SEG))
+#define WRITE64_SEG(SEG, var, value) do {                       \
+        union u64_u32_u __value;                                \
+        union u64_u32_u *__w64_ptr = (union u64_u32_u *)&(var); \
+        __value.val = (value);                                  \
+        WRITE32_SEG(SEG, __w64_ptr->hi, __value.hi);            \
+        WRITE32_SEG(SEG, __w64_ptr->lo, __value.lo);            \
+    } while (0)
 
 // Low level macros for getting/setting a segment register.
 #define __SET_SEG(SEG, value)                                   \
@@ -63,6 +76,9 @@ extern void __force_link_error__unknown_type();
     else if (__builtin_types_compatible_p(typeof(__val), u32)           \
              || __builtin_types_compatible_p(typeof(__val), s32))       \
         __val = READ32_SEG(seg, var);                                   \
+    else if (__builtin_types_compatible_p(typeof(__val), u64)           \
+             || __builtin_types_compatible_p(typeof(__val), s64))       \
+        __val = READ64_SEG(seg, var);                                   \
     else                                                                \
         __force_link_error__unknown_type();                             \
     __val; })
@@ -77,6 +93,9 @@ extern void __force_link_error__unknown_type();
         else if (__builtin_types_compatible_p(typeof(var), u32)         \
                  || __builtin_types_compatible_p(typeof(var), s32))     \
             WRITE32_SEG(seg, var, (val));                               \
+        else if (__builtin_types_compatible_p(typeof(var), u64)         \
+                 || __builtin_types_compatible_p(typeof(var), s64))     \
+            WRITE64_SEG(seg, var, (val));                               \
         else                                                            \
             __force_link_error__unknown_type();                         \
     } while (0)
