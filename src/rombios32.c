@@ -1,6 +1,4 @@
 /////////////////////////////////////////////////////////////////////////
-// $Id: rombios32.c,v 1.22 2008/01/27 17:57:26 sshwarts Exp $
-/////////////////////////////////////////////////////////////////////////
 //
 //  32 bit Bochs BIOS init code
 //  Copyright (C) 2006 Fabrice Bellard
@@ -137,15 +135,19 @@ void cpu_probe(void)
 
 void ram_probe(void)
 {
-  if (inb_cmos(0x34) | inb_cmos(0x35))
-    ram_size = (inb_cmos(0x34) | (inb_cmos(0x35) << 8)) * 65536 +
-        16 * 1024 * 1024;
-  else
-    ram_size = (inb_cmos(0x17) | (inb_cmos(0x18) << 8)) * 1024;
+    if (inb_cmos(CMOS_MEM_EXTMEM2_LOW) | inb_cmos(CMOS_MEM_EXTMEM2_HIGH))
+        ram_size = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
+                    | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) * 65536 +
+            16 * 1024 * 1024;
+    else
+        ram_size = ((inb_cmos(CMOS_MEM_EXTMEM_LOW)
+                     | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 8))
+                    * 1024 + 1 * 1024 * 1024);
+    BX_INFO("ram_size=0x%08lx\n", ram_size);
 #if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
+    BX_INFO("ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
 #endif
-    BX_INFO("ram_size=0x%08lx\n", ram_size);
 }
 
 /****************************************************/
@@ -1135,9 +1137,8 @@ void acpi_bios_init(void)
     fadt->pm1_evt_len = 4;
     fadt->pm1_cnt_len = 2;
     fadt->pm_tmr_len = 4;
-    fadt->plvl2_lat = cpu_to_le16(50);
-    fadt->plvl3_lat = cpu_to_le16(50);
-    fadt->plvl3_lat = cpu_to_le16(50);
+    fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
+    fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
     /* WBINVD + PROC_C1 + PWR_BUTTON + SLP_BUTTON + FIX_RTC */
     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6));
     acpi_build_table_header((struct acpi_table_header *)fadt, "FACP",
@@ -1692,13 +1693,13 @@ void rombios32_init(void)
 
     smp_probe();
 
-    uuid_probe();
-
     pci_bios_init();
 
     if (bios_table_cur_addr != 0) {
 
         mptable_init();
+
+        uuid_probe();
 
         smbios_init();
 
