@@ -257,6 +257,9 @@ struct extended_bios_data_area_s {
     // 0x5d
     u8 other2[0xC4];
 
+    // Physical memory available.
+    u32 ram_size;
+
     // ATA Driver data
     struct ata_s   ata;
 

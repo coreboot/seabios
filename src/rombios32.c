@@ -86,7 +86,6 @@ int smp_cpus;
 u32 cpuid_signature;
 u32 cpuid_features;
 u32 cpuid_ext_features;
-unsigned long ram_size;
 u8 bios_uuid[16];
 #if (CONFIG_USE_EBDA_TABLES == 1)
 unsigned long ebda_cur_addr;
@@ -131,23 +130,6 @@ void cpu_probe(void)
     cpuid_signature = eax;
     cpuid_features = edx;
     cpuid_ext_features = ecx;
-}
-
-void ram_probe(void)
-{
-    if (inb_cmos(CMOS_MEM_EXTMEM2_LOW) | inb_cmos(CMOS_MEM_EXTMEM2_HIGH))
-        ram_size = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
-                    | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) * 65536 +
-            16 * 1024 * 1024;
-    else
-        ram_size = ((inb_cmos(CMOS_MEM_EXTMEM_LOW)
-                     | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 8))
-                    * 1024 + 1 * 1024 * 1024);
-    BX_INFO("ram_size=0x%08lx\n", ram_size);
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
-    BX_INFO("ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
-#endif
 }
 
 /****************************************************/
@@ -579,7 +561,7 @@ void pci_bios_init(void)
 {
     pci_bios_io_addr = 0xc000;
     pci_bios_mem_addr = 0xf0000000;
-    pci_bios_bigmem_addr = ram_size;
+    pci_bios_bigmem_addr = GET_EBDA(ram_size);
     if (pci_bios_bigmem_addr < 0x90000000)
         pci_bios_bigmem_addr = 0x90000000;
 
@@ -645,7 +627,8 @@ static void mptable_init(void)
 #endif
 
 #if (CONFIG_USE_EBDA_TABLES == 1)
-    mp_config_table = (u8 *)(ram_size - CONFIG_ACPI_DATA_SIZE - MPTABLE_MAX_SIZE);
+    mp_config_table = (u8 *)(GET_EBDA(ram_size) - CONFIG_ACPI_DATA_SIZE
+                             - MPTABLE_MAX_SIZE);
 #else
     bios_table_cur_addr = align(bios_table_cur_addr, 16);
     mp_config_table = (u8 *)bios_table_cur_addr;
@@ -1065,7 +1048,7 @@ void acpi_bios_init(void)
     bios_table_cur_addr += sizeof(*rsdp);
 #endif
 
-    addr = base_addr = ram_size - CONFIG_ACPI_DATA_SIZE;
+    addr = base_addr = GET_EBDA(ram_size) - CONFIG_ACPI_DATA_SIZE;
     rsdt_addr = addr;
     rsdt = (void *)(addr);
     addr += sizeof(*rsdt);
@@ -1634,7 +1617,7 @@ void smbios_init(void)
 {
     unsigned cpu_num, nr_structs = 0, max_struct_size = 0;
     char *start, *p, *q;
-    int memsize = ram_size / (1024 * 1024);
+    int memsize = GET_EBDA(ram_size) / (1024 * 1024);
 
 #if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = align(ebda_cur_addr, 16);
@@ -1687,7 +1670,10 @@ void rombios32_init(void)
 {
     BX_INFO("Starting rombios32\n");
 
-    ram_probe();
+#if (CONFIG_USE_EBDA_TABLES == 1)
+    ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
+    BX_INFO("ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
+#endif
 
     cpu_probe();
 

@@ -78,6 +78,22 @@ init_ebda()
 }
 
 static void
+ram_probe(void)
+{
+    u32 rs = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
+              | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) * 65536;
+    if (rs)
+        rs += 16 * 1024 * 1024;
+    else
+        rs = ((inb_cmos(CMOS_MEM_EXTMEM_LOW)
+               | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 8)) * 1024
+              + 1 * 1024 * 1024);
+
+    SET_EBDA(ram_size, rs);
+    BX_INFO("ram_size=0x%08x\n", rs);
+}
+
+static void
 pic_setup()
 {
     outb(0x11, PORT_PIC1);
@@ -189,6 +205,8 @@ post()
     lpt_setup();
     serial_setup();
     pic_setup();
+
+    ram_probe();
 
     rom_scan(0xc0000, 0xc7800);
 

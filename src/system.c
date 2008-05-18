@@ -205,12 +205,14 @@ handle_1587(struct bregs *regs)
 static void
 handle_1588(struct bregs *regs)
 {
-    regs->al = inb_cmos(CMOS_MEM_EXTMEM_LOW);
-    regs->ah = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
+    u32 rs = GET_EBDA(ram_size);
+
     // According to Ralf Brown's interrupt the limit should be 15M,
     // but real machines mostly return max. 63M.
-    if (regs->ax > 0xffc0)
-        regs->ax = 0xffc0;
+    if (rs > 64*1024*1024)
+        regs->ax = 63 * 1024;
+    else
+        regs->ax = (rs - 1*1024*1024) / 1024;
     set_success(regs);
 }
 
@@ -259,17 +261,18 @@ handle_15e801(struct bregs *regs)
     // regs.u.r16.ax = 0;
     // regs.u.r16.bx = 0;
 
+    u32 rs = GET_EBDA(ram_size);
+
     // Get the amount of extended memory (above 1M)
-    regs->cl = inb_cmos(CMOS_MEM_EXTMEM_LOW);
-    regs->ch = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
-
-    // limit to 15M
-    if (regs->cx > 0x3c00)
-        regs->cx = 0x3c00;
-
-    // Get the amount of extended memory above 16M in 64k blocs
-    regs->dl = inb_cmos(CMOS_MEM_EXTMEM2_LOW);
-    regs->dh = inb_cmos(CMOS_MEM_EXTMEM2_HIGH);
+    if (rs > 16*1024*1024) {
+        // limit to 15M
+        regs->cx = 15*1024;
+        // Get the amount of extended memory above 16M in 64k blocks
+        regs->dx = (rs - 16*1024*1024) / (64*1024);
+    } else {
+        regs->cx = (rs - 1*1024*1024) / 1024;
+        regs->dx = 0;
+    }
 
     // Set configured memory equal to extended memory
     regs->ax = regs->cx;
@@ -281,17 +284,9 @@ handle_15e801(struct bregs *regs)
 static void
 set_e820_range(struct bregs *regs, u32 start, u32 end, u16 type, int last)
 {
-    SET_FARVAR(regs->es, *(u16*)(regs->di+0), start);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+2), start >> 16);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+4), 0x00);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+6), 0x00);
-
-    end -= start;
-    SET_FARVAR(regs->es, *(u16*)(regs->di+8), end);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+10), end >> 16);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+12), 0x0000);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+14), 0x0000);
-
+    u32 size = end - start;
+    SET_FARVAR(regs->es, *(u64*)(regs->di+0), start);
+    SET_FARVAR(regs->es, *(u64*)(regs->di+8), size);
     SET_FARVAR(regs->es, *(u16*)(regs->di+16), type);
     SET_FARVAR(regs->es, *(u16*)(regs->di+18), 0x0);
 
@@ -313,24 +308,11 @@ handle_15e820(struct bregs *regs)
         return;
     }
 
-    u32 extended_memory_size = inb_cmos(CMOS_MEM_EXTMEM2_HIGH);
-    extended_memory_size <<= 8;
-    extended_memory_size |= inb_cmos(CMOS_MEM_EXTMEM2_LOW);
-    extended_memory_size *= 64;
+    u32 extended_memory_size = GET_EBDA(ram_size);
     // greater than EFF00000???
-    if (extended_memory_size > 0x3bc000)
+    if (extended_memory_size > 0xf0000000)
         // everything after this is reserved memory until we get to 0x100000000
-        extended_memory_size = 0x3bc000;
-    extended_memory_size *= 1024;
-    extended_memory_size += (16L * 1024 * 1024);
-
-    if (extended_memory_size <= (16L * 1024 * 1024)) {
-        extended_memory_size = inb_cmos(CMOS_MEM_EXTMEM_HIGH);
-        extended_memory_size <<= 8;
-        extended_memory_size |= inb_cmos(CMOS_MEM_EXTMEM_LOW);
-        extended_memory_size *= 1024;
-        extended_memory_size += 1 * 1024 * 1024;
-    }
+        extended_memory_size = 0xf0000000;
 
     switch (regs->bx) {
     case 0:
