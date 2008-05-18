@@ -602,55 +602,68 @@ init_drive_atapi(int driveid)
 }
 
 static void
-init_drive_ata(int driveid)
+fill_fdpt(int driveid)
 {
-    SET_EBDA(ata.devices[driveid].type,ATA_TYPE_ATA);
+    if (driveid > 1)
+        return;
 
-    // Temporary values to do the transfer
-    SET_EBDA(ata.devices[driveid].device, ATA_DEVICE_HD);
-    SET_EBDA(ata.devices[driveid].mode, ATA_MODE_PIO16);
+    u16 nlc   = GET_EBDA(ata.devices[driveid].lchs.cylinders);
+    u16 nlh   = GET_EBDA(ata.devices[driveid].lchs.heads);
+    u16 nlspt = GET_EBDA(ata.devices[driveid].lchs.spt);
 
-    // Now we send a IDENTIFY command to ATA device
-    u8 buffer[0x0200];
-    memset(buffer, 0, sizeof(buffer));
-    u16 ret = ata_cmd_data(driveid, ATA_CMD_IDENTIFY_DEVICE
-                           , 1, 1
-                           , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
-    if (ret)
-        BX_PANIC("ata-detect: Failed to detect ATA device\n");
+    u16 npc   = GET_EBDA(ata.devices[driveid].pchs.cylinders);
+    u16 nph   = GET_EBDA(ata.devices[driveid].pchs.heads);
+    u16 npspt = GET_EBDA(ata.devices[driveid].pchs.spt);
 
-    u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode       = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-    u16 blksize   = *(u16*)&buffer[10];
+    SET_EBDA(fdpt[driveid].precompensation, 0xffff);
+    SET_EBDA(fdpt[driveid].drive_control_byte, 0xc0 | ((nph > 8) << 3));
+    SET_EBDA(fdpt[driveid].landing_zone, npc);
+    SET_EBDA(fdpt[driveid].cylinders, nlc);
+    SET_EBDA(fdpt[driveid].heads, nlh);
+    SET_EBDA(fdpt[driveid].sectors, nlspt);
 
-    u16 cylinders = *(u16*)&buffer[1*2]; // word 1
-    u16 heads     = *(u16*)&buffer[3*2]; // word 3
-    u16 spt       = *(u16*)&buffer[6*2]; // word 6
+    if (nlc == npc && nlh == nph && nlspt == npspt)
+        // no logical CHS mapping used, just physical CHS
+        // use Standard Fixed Disk Parameter Table (FDPT)
+        return;
 
-    u64 sectors;
-    if (*(u16*)&buffer[83*2] & (1 << 10)) // word 83 - lba48 support
-        sectors  = *(u64*)&buffer[100*2]; // word 100-103
-    else
-        sectors = *(u32*)&buffer[60*2]; // word 60 and word 61
+    // complies with Phoenix style Translated Fixed Disk Parameter
+    // Table (FDPT)
+    SET_EBDA(fdpt[driveid].phys_cylinders, npc);
+    SET_EBDA(fdpt[driveid].phys_heads, nph);
+    SET_EBDA(fdpt[driveid].phys_sectors, npspt);
+    SET_EBDA(fdpt[driveid].a0h_signature, 0xa0);
 
-    SET_EBDA(ata.devices[driveid].device,ATA_DEVICE_HD);
-    SET_EBDA(ata.devices[driveid].removable, removable);
-    SET_EBDA(ata.devices[driveid].mode, mode);
-    SET_EBDA(ata.devices[driveid].blksize, blksize);
-    SET_EBDA(ata.devices[driveid].pchs.heads, heads);
-    SET_EBDA(ata.devices[driveid].pchs.cylinders, cylinders);
-    SET_EBDA(ata.devices[driveid].pchs.spt, spt);
-    SET_EBDA(ata.devices[driveid].sectors, sectors);
+    // Checksum structure.
+    u8 *p = MAKE_FARPTR(SEG_EBDA, offsetof(struct extended_bios_data_area_s
+                                           , fdpt[driveid]));
+    u8 sum = checksum(p, FIELD_SIZEOF(struct extended_bios_data_area_s
+                                      , fdpt[driveid]) - 1);
+    SET_EBDA(fdpt[driveid].checksum, -sum);
+}
+
+static u8
+get_translation(int driveid)
+{
+    u8 channel = driveid / 2;
+    u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
+    translation >>= 2 * (driveid % 4);
+    translation &= 0x03;
+    return translation;
+}
+
+static void
+setup_translation(int driveid)
+{
+    u8 translation = get_translation(driveid);
+    SET_EBDA(ata.devices[driveid].translation, translation);
 
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
-    u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
-    u8 shift;
-    for (shift=driveid%4; shift>0; shift--)
-        translation >>= 2;
-    translation &= 0x03;
-
-    SET_EBDA(ata.devices[driveid].translation, translation);
+    u16 heads = GET_EBDA(ata.devices[driveid].pchs.heads);
+    u16 cylinders = GET_EBDA(ata.devices[driveid].pchs.cylinders);
+    u16 spt = GET_EBDA(ata.devices[driveid].pchs.spt);
+    u64 sectors = GET_EBDA(ata.devices[driveid].sectors);
 
     BX_INFO("ata%d-%d: PCHS=%u/%d/%d translation="
             , channel, slave, cylinders, heads, spt);
@@ -711,15 +724,62 @@ init_drive_ata(int driveid)
     SET_EBDA(ata.devices[driveid].lchs.heads, heads);
     SET_EBDA(ata.devices[driveid].lchs.cylinders, cylinders);
     SET_EBDA(ata.devices[driveid].lchs.spt, spt);
+}
+
+static void
+init_drive_ata(int driveid)
+{
+    SET_EBDA(ata.devices[driveid].type, ATA_TYPE_ATA);
+
+    // Temporary values to do the transfer
+    SET_EBDA(ata.devices[driveid].device, ATA_DEVICE_HD);
+    SET_EBDA(ata.devices[driveid].mode, ATA_MODE_PIO16);
+
+    // Now we send a IDENTIFY command to ATA device
+    u8 buffer[0x0200];
+    memset(buffer, 0, sizeof(buffer));
+    u16 ret = ata_cmd_data(driveid, ATA_CMD_IDENTIFY_DEVICE
+                           , 1, 1
+                           , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
+    if (ret)
+        BX_PANIC("ata-detect: Failed to detect ATA device\n");
+
+    u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
+    u8 mode       = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u16 blksize   = *(u16*)&buffer[10];
+
+    u16 cylinders = *(u16*)&buffer[1*2]; // word 1
+    u16 heads     = *(u16*)&buffer[3*2]; // word 3
+    u16 spt       = *(u16*)&buffer[6*2]; // word 6
+
+    u64 sectors;
+    if (*(u16*)&buffer[83*2] & (1 << 10)) // word 83 - lba48 support
+        sectors = *(u64*)&buffer[100*2]; // word 100-103
+    else
+        sectors = *(u32*)&buffer[60*2]; // word 60 and word 61
+
+    SET_EBDA(ata.devices[driveid].device, ATA_DEVICE_HD);
+    SET_EBDA(ata.devices[driveid].removable, removable);
+    SET_EBDA(ata.devices[driveid].mode, mode);
+    SET_EBDA(ata.devices[driveid].blksize, blksize);
+    SET_EBDA(ata.devices[driveid].pchs.heads, heads);
+    SET_EBDA(ata.devices[driveid].pchs.cylinders, cylinders);
+    SET_EBDA(ata.devices[driveid].pchs.spt, spt);
+    SET_EBDA(ata.devices[driveid].sectors, sectors);
+
+    // Setup disk geometry translation.
+    setup_translation(driveid);
 
     // fill hdidmap
     u8 hdcount = GET_EBDA(ata.hdcount);
     SET_EBDA(ata.idmap[0][hdcount], driveid);
     SET_EBDA(ata.hdcount, ++hdcount);
 
-    u64 sizeinmb = GET_EBDA(ata.devices[driveid].sectors);
-    sizeinmb >>= 11;
+    // Fill "fdpt" structure.
+    fill_fdpt(driveid);
 
+    // Report drive info to user.
+    u64 sizeinmb = GET_EBDA(ata.devices[driveid].sectors) >> 11;
     report_model(driveid, buffer);
     u8 version = get_ata_version(buffer);
     if (sizeinmb < (1 << 16))
@@ -742,34 +802,6 @@ init_drive_unknown(int driveid)
 static void
 ata_detect()
 {
-#if CONFIG_MAX_ATA_INTERFACES > 0
-    SET_EBDA(ata.channels[0].iface,ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[0].iobase1,0x1f0);
-    SET_EBDA(ata.channels[0].iobase2,0x3f0);
-    SET_EBDA(ata.channels[0].irq,14);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 1
-    SET_EBDA(ata.channels[1].iface,ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[1].iobase1,0x170);
-    SET_EBDA(ata.channels[1].iobase2,0x370);
-    SET_EBDA(ata.channels[1].irq,15);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 2
-    SET_EBDA(ata.channels[2].iface,ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[2].iobase1,0x1e8);
-    SET_EBDA(ata.channels[2].iobase2,0x3e0);
-    SET_EBDA(ata.channels[2].irq,12);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 3
-    SET_EBDA(ata.channels[3].iface,ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[3].iobase1,0x168);
-    SET_EBDA(ata.channels[3].iobase2,0x360);
-    SET_EBDA(ata.channels[3].irq,11);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 4
-#error Please fill the ATA interface informations
-#endif
-
     // Device detection
     int driveid;
     for(driveid=0; driveid<CONFIG_MAX_ATA_DEVICES; driveid++) {
@@ -824,97 +856,59 @@ ata_detect()
             init_drive_unknown(driveid);
     }
 
-    // Store the device count
-    SET_BDA(disk_count, GET_EBDA(ata.hdcount));
-
     printf("\n");
-
-    // FIXME : should use bios=cmos|auto|disable bits
-    // FIXME : should know about translation bits
-    // FIXME : move hard_drive_post here
 }
 
 static void
 ata_init()
 {
-    // hdidmap  and cdidmap init.
+    // hdidmap and cdidmap init.
     u8 device;
     for (device=0; device < CONFIG_MAX_ATA_DEVICES; device++) {
         SET_EBDA(ata.idmap[0][device], CONFIG_MAX_ATA_DEVICES);
         SET_EBDA(ata.idmap[1][device], CONFIG_MAX_ATA_DEVICES);
     }
-}
 
-static void
-fill_hdinfo(int hdnum, u8 typecmos, u8 basecmos)
-{
-    u8 type = inb_cmos(typecmos);
-    if (type != 47)
-        // XXX - halt
-        return;
-
-    SET_EBDA(fdpt[hdnum].precompensation, ((inb_cmos(basecmos+4) << 8)
-                                           | inb_cmos(basecmos+3)));
-    SET_EBDA(fdpt[hdnum].drive_control_byte, inb_cmos(basecmos+5));
-    SET_EBDA(fdpt[hdnum].landing_zone, ((inb_cmos(basecmos+7) << 8)
-                                        | inb_cmos(basecmos+6)));
-    u16 cyl = (inb_cmos(basecmos+1) << 8) | inb_cmos(basecmos+0);
-    u8 heads = inb_cmos(basecmos+2);
-    u8 sectors = inb_cmos(basecmos+8);
-    if (cyl < 1024) {
-        // no logical CHS mapping used, just physical CHS
-        // use Standard Fixed Disk Parameter Table (FDPT)
-        SET_EBDA(fdpt[hdnum].cylinders, cyl);
-        SET_EBDA(fdpt[hdnum].heads, heads);
-        SET_EBDA(fdpt[hdnum].sectors, sectors);
-        return;
-    }
-
-    // complies with Phoenix style Translated Fixed Disk Parameter
-    // Table (FDPT)
-    SET_EBDA(fdpt[hdnum].phys_cylinders, cyl);
-    SET_EBDA(fdpt[hdnum].phys_heads, heads);
-    SET_EBDA(fdpt[hdnum].phys_sectors, sectors);
-    SET_EBDA(fdpt[hdnum].sectors, sectors);
-    SET_EBDA(fdpt[hdnum].a0h_signature, 0xa0);
-    if (cyl > 8192) {
-        cyl >>= 4;
-        heads <<= 4;
-    } else if (cyl > 4096) {
-        cyl >>= 3;
-        heads <<= 3;
-    } else if (cyl > 2048) {
-        cyl >>= 2;
-        heads <<= 2;
-    }
-    SET_EBDA(fdpt[hdnum].cylinders, cyl);
-    SET_EBDA(fdpt[hdnum].heads, heads);
-    u8 *p = MAKE_FARPTR(SEG_EBDA, offsetof(struct extended_bios_data_area_s
-                                           , fdpt[hdnum]));
-    u8 sum = checksum(p, FIELD_SIZEOF(struct extended_bios_data_area_s
-                                      , fdpt[hdnum]) - 1);
-    SET_EBDA(fdpt[hdnum].checksum, -sum);
+#if CONFIG_MAX_ATA_INTERFACES > 0
+    SET_EBDA(ata.channels[0].iface, ATA_IFACE_ISA);
+    SET_EBDA(ata.channels[0].iobase1, 0x1f0);
+    SET_EBDA(ata.channels[0].iobase2, 0x3f0);
+    SET_EBDA(ata.channels[0].irq, 14);
+#endif
+#if CONFIG_MAX_ATA_INTERFACES > 1
+    SET_EBDA(ata.channels[1].iface, ATA_IFACE_ISA);
+    SET_EBDA(ata.channels[1].iobase1, 0x170);
+    SET_EBDA(ata.channels[1].iobase2, 0x370);
+    SET_EBDA(ata.channels[1].irq, 15);
+#endif
+#if CONFIG_MAX_ATA_INTERFACES > 2
+    SET_EBDA(ata.channels[2].iface, ATA_IFACE_ISA);
+    SET_EBDA(ata.channels[2].iobase1, 0x1e8);
+    SET_EBDA(ata.channels[2].iobase2, 0x3e0);
+    SET_EBDA(ata.channels[2].irq, 12);
+#endif
+#if CONFIG_MAX_ATA_INTERFACES > 3
+    SET_EBDA(ata.channels[3].iface, ATA_IFACE_ISA);
+    SET_EBDA(ata.channels[3].iobase1, 0x168);
+    SET_EBDA(ata.channels[3].iobase2, 0x360);
+    SET_EBDA(ata.channels[3].irq, 11);
+#endif
+#if CONFIG_MAX_ATA_INTERFACES > 4
+#error Please fill the ATA interface informations
+#endif
 }
 
 void
 hard_drive_setup()
 {
-    outb(0x0a, PORT_HD_DATA); // 0000 1010 = reserved, disable IRQ 14
-    SET_BDA(disk_count, 1);
+    if (!CONFIG_ATA)
+        return;
+
+    ata_init();
+    ata_detect();
+
+    // Store the device count
+    SET_BDA(disk_count, GET_EBDA(ata.hdcount));
+
     SET_BDA(disk_control_byte, 0xc0);
-
-    // move disk geometry data from CMOS to EBDA disk parameter table(s)
-    u8 diskinfo = inb_cmos(CMOS_DISK_DATA);
-    if ((diskinfo & 0xf0) == 0xf0)
-        // Fill EBDA table for hard disk 0.
-        fill_hdinfo(0, CMOS_DISK_DRIVE1_TYPE, CMOS_DISK_DRIVE1_CYL);
-    if ((diskinfo & 0x0f) == 0x0f)
-        // XXX - bochs halts on any other type
-        // Fill EBDA table for hard disk 1.
-        fill_hdinfo(1, CMOS_DISK_DRIVE2_TYPE, CMOS_DISK_DRIVE2_CYL);
-
-    if (CONFIG_ATA) {
-        ata_init();
-        ata_detect();
-    }
 }
