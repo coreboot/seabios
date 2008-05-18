@@ -213,7 +213,8 @@ struct ipl_s {
     struct ipl_entry_s table[8];
     u16 count;
     u16 sequence;
-    u16 bootfirst;
+    u32 bootorder;
+    u8 checkfloppysig;
 };
 
 #define IPL_TYPE_FLOPPY      0x01

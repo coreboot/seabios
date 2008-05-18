@@ -131,7 +131,10 @@ init_boot_vectors()
 
     ebda->ipl.count = ip - ebda->ipl.table;
     ebda->ipl.sequence = 0xffff;
-    ebda->ipl.bootfirst = 0xffff;
+    ebda->ipl.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
+                           | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
+    if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
+        ebda->ipl.checkfloppysig = 1;
 }
 
 static void

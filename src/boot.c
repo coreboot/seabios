@@ -8,7 +8,6 @@
 #include "util.h" // irq_enable
 #include "biosvar.h" // struct bregs
 #include "config.h" // CONFIG_*
-#include "cmos.h" // inb_cmos
 #include "ata.h" // ata_detect
 #include "disk.h" // cdrom_boot
 
@@ -23,7 +22,7 @@ char pnp_string[] VISIBLE16 __attribute__((aligned (2))) = " $PnP";
 //--------------------------------------------------------------------------
 
 static const char drivetypes[][10]={
-    "", "Floppy","Hard Disk","CD-Rom", "Network"
+    "", "Floppy", "Hard Disk", "CD-Rom", "Network"
 };
 
 void
@@ -86,24 +85,14 @@ try_boot(u16 seq_nr)
 
     SET_EBDA(ipl.sequence, seq_nr);
 
-    u16 bootdev = inb_cmos(CMOS_BIOS_BOOTFLAG2);
-    bootdev |= ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4);
+    u32 bootdev = GET_EBDA(ipl.bootorder);
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
-
-    /* Read user selected device */
-    u16 bootfirst = GET_EBDA(ipl.bootfirst);
-    if (bootfirst != 0xFFFF) {
-        bootdev = bootfirst;
-        /* Reset boot sequence */
-        SET_EBDA(ipl.bootfirst, 0xFFFF);
-        SET_EBDA(ipl.sequence, 0xFFFF);
-    }
 
     if (bootdev == 0)
         BX_PANIC("No bootable device.\n");
 
-    /* Translate from CMOS runes to an IPL table offset by subtracting 1 */
+    /* Translate bootdev to an IPL table offset by subtracting 1 */
     bootdev -= 1;
 
     if (bootdev >= GET_EBDA(ipl.count)) {
@@ -142,9 +131,8 @@ try_boot(u16 seq_nr)
         }
 
         /* Always check the signature on a HDD boot sector; on FDD,
-         * only do the check if the CMOS doesn't tell us to skip it */
-        if ((type != IPL_TYPE_FLOPPY)
-            || !((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0x01))) {
+         * only do the check if configured for it */
+        if (type != IPL_TYPE_FLOPPY || GET_EBDA(ipl.checkfloppysig)) {
             if (GET_FARVAR(bootseg, *(u16*)0x1fe) != 0xaa55) {
                 print_boot_failure(type, 0);
                 return;

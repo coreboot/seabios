@@ -73,7 +73,10 @@ interactive_bootmenu()
             /* ESC or F12 */
             break;
         if (scan_code <= count + 1) {
-            SET_EBDA(ipl.bootfirst, scan_code - 1);
+            // Add user choice to the boot order.
+            u16 choice = scan_code - 1;
+            u32 bootorder = GET_EBDA(ipl.bootorder);
+            SET_EBDA(ipl.bootorder, (bootorder << 4) | choice);
             break;
         }
     }
