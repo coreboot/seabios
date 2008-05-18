@@ -80,14 +80,21 @@ init_ebda()
 static void
 ram_probe(void)
 {
-    u32 rs = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
+    u32 rs;
+    if (CONFIG_COREBOOT) {
+        // XXX - just hardcode for now.
+        rs = 128*1024*1024;
+    } else {
+        // On emulators, get memory size from nvram.
+        rs = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
               | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) * 65536;
-    if (rs)
-        rs += 16 * 1024 * 1024;
-    else
-        rs = ((inb_cmos(CMOS_MEM_EXTMEM_LOW)
-               | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 8)) * 1024
-              + 1 * 1024 * 1024);
+        if (rs)
+            rs += 16 * 1024 * 1024;
+        else
+            rs = ((inb_cmos(CMOS_MEM_EXTMEM_LOW)
+                   | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 8)) * 1024
+                  + 1 * 1024 * 1024);
+    }
 
     SET_EBDA(ram_size, rs);
     BX_INFO("ram_size=0x%08x\n", rs);
@@ -131,10 +138,17 @@ init_boot_vectors()
 
     ebda->ipl.count = ip - ebda->ipl.table;
     ebda->ipl.sequence = 0xffff;
-    ebda->ipl.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
-                           | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
-    if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
+    if (CONFIG_COREBOOT) {
+        // XXX - hardcode defaults for coreboot.
+        ebda->ipl.bootorder = 0x00000231;
         ebda->ipl.checkfloppysig = 1;
+    } else {
+        // On emulators, get boot order from nvram.
+        ebda->ipl.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
+                               | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
+        if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
+            ebda->ipl.checkfloppysig = 1;
+    }
 }
 
 static void

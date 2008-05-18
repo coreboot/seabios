@@ -8,7 +8,6 @@
 #include "disk.h" // floppy_13
 #include "biosvar.h" // struct bregs
 #include "config.h" // CONFIG_*
-#include "cmos.h" // inb_cmos
 #include "util.h" // debug_enter
 #include "ata.h" // ATA_*
 

@@ -13,6 +13,9 @@
 #define CONFIG_APPNAME "Bochs"
 #endif
 
+// Configure as a payload coreboot payload.
+#define CONFIG_COREBOOT 0
+
 #define CONFIG_DEBUG_SERIAL 0
 
 #define CONFIG_FLOPPY_SUPPORT 1

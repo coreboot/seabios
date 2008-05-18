@@ -645,11 +645,25 @@ fill_fdpt(int driveid)
 static u8
 get_translation(int driveid)
 {
-    u8 channel = driveid / 2;
-    u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
-    translation >>= 2 * (driveid % 4);
-    translation &= 0x03;
-    return translation;
+    if (! CONFIG_COREBOOT) {
+        // Emulators pass in the translation info via nvram.
+        u8 channel = driveid / 2;
+        u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
+        translation >>= 2 * (driveid % 4);
+        translation &= 0x03;
+        return translation;
+    }
+
+    // On COREBOOT, use a heuristic to determine translation type.
+    u16 heads = GET_EBDA(ata.devices[driveid].pchs.heads);
+    u16 cylinders = GET_EBDA(ata.devices[driveid].pchs.cylinders);
+    u16 spt = GET_EBDA(ata.devices[driveid].pchs.spt);
+
+    if (cylinders <= 1024 && heads <= 16 && spt <= 63)
+        return ATA_TRANSLATION_NONE;
+    if (cylinders * heads <= 131072)
+        return ATA_TRANSLATION_LARGE;
+    return ATA_TRANSLATION_LBA;
 }
 
 static void

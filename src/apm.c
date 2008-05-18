@@ -14,6 +14,11 @@
 static void
 out_str(const char *str_cs)
 {
+    if (CONFIG_COREBOOT) {
+        BX_INFO("APM request '%s'\n", str_cs);
+        return;
+    }
+
     u8 *s = (u8*)str_cs;
     for (;;) {
         u8 c = GET_VAR(CS, *s);

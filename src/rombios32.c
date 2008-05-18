@@ -18,7 +18,6 @@
 //  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
 #include "util.h" // BX_INFO
-#include "cmos.h" // inb_cmos
 #include "pci.h" // PCIDevice
 #include "types.h" // u32
 #include "config.h" // CONFIG_*
@@ -1668,6 +1667,10 @@ void smbios_init(void)
 
 void rombios32_init(void)
 {
+    if (CONFIG_COREBOOT)
+        // XXX - not supported on coreboot yet.
+        return;
+
     BX_INFO("Starting rombios32\n");
 
 #if (CONFIG_USE_EBDA_TABLES == 1)

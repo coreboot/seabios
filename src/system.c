@@ -8,7 +8,6 @@
 #include "util.h" // irq_restore
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
-#include "cmos.h" // inb_cmos
 
 #define E820_RAM          1
 #define E820_RESERVED     2
