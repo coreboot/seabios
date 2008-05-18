@@ -83,16 +83,6 @@ handle_1552(struct bregs *regs)
     set_code_success(regs);
 }
 
-// Wait for CX:DX microseconds. currently using the
-// refresh request port 0x61 bit4, toggling every 15usec
-static void
-handle_1586(struct bregs *regs)
-{
-    irq_enable();
-    usleep((regs->cx << 16) | regs->dx);
-    irq_disable();
-}
-
 static void
 handle_1587(struct bregs *regs)
 {

@@ -39,9 +39,6 @@
 #define CMOS_BIOS_DISKTRANSFLAG  0x39
 #define CMOS_BIOS_BOOTFLAG2      0x3d
 
-// CMOS_STATUS_B bitdefs
-#define CSB_EN_ALARM_IRQ (1<<5)
-
 // CMOS_FLOPPY_DRIVE_TYPE bitdefs
 #define CFD_NO_DRIVE 0
 #define CFD_360KB    1

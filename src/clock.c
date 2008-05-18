@@ -13,6 +13,18 @@
 #define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
 #define DEBUGF(fmt, args...)
 
+// RTC register flags
+#define RTC_A_UIP 0x80
+#define RTC_B_SET 0x80
+#define RTC_B_PIE 0x40
+#define RTC_B_AIE 0x20
+#define RTC_B_UIE 0x10
+
+
+/****************************************************************
+ * Init
+ ****************************************************************/
+
 static void
 pit_setup()
 {
@@ -52,6 +64,11 @@ init_rtc()
     inb_cmos(CMOS_STATUS_C);
     inb_cmos(CMOS_STATUS_D);
 }
+
+
+/****************************************************************
+ * Standard clock functions
+ ****************************************************************/
 
 static u8
 rtc_updating()
@@ -183,7 +200,8 @@ handle_1a05(struct bregs *regs)
     outb_cmos(regs->dh, CMOS_RTC_MONTH);
     outb_cmos(regs->dl, CMOS_RTC_DAY_MONTH);
     outb_cmos(regs->ch, CMOS_CENTURY);
-    u8 val8 = inb_cmos(CMOS_STATUS_B) & 0x7f; // clear halt-clock bit
+    // clear halt-clock bit
+    u8 val8 = inb_cmos(CMOS_STATUS_B) & ~RTC_B_SET;
     outb_cmos(val8, CMOS_STATUS_B);
     regs->ah = 0;
     regs->al = val8; // AL = val last written to Reg B
@@ -220,7 +238,7 @@ handle_1a06(struct bregs *regs)
     outb_cmos(regs->ch, CMOS_RTC_HOURS_ALARM);
     outb(inb(PORT_PIC2_DATA) & ~PIC2_IRQ8, PORT_PIC2_DATA); // enable IRQ 8
     // enable Status Reg B alarm bit, clear halt clock bit
-    outb_cmos((val8 & 0x7f) | 0x20, CMOS_STATUS_B);
+    outb_cmos((val8 & ~RTC_B_SET) | RTC_B_AIE, CMOS_STATUS_B);
     set_success(regs);
 }
 
@@ -240,7 +258,7 @@ handle_1a07(struct bregs *regs)
     // My assumption: RegB = (RegB & 01010111b)
     u8 val8 = inb_cmos(CMOS_STATUS_B); // Get Status Reg B
     // clear clock-halt bit, disable alarm bit
-    outb_cmos(val8 & 0x57, CMOS_STATUS_B); // disable alarm bit
+    outb_cmos(val8 & ~(RTC_B_SET|RTC_B_AIE), CMOS_STATUS_B);
     regs->ah = 0;
     regs->al = val8; // val last written to Reg B
     set_success(regs);
@@ -309,41 +327,103 @@ handle_08()
     eoi_master_pic();
 }
 
-// Set Interval requested.
-static void
-handle_158300(struct bregs *regs)
+
+/****************************************************************
+ * Periodic timer
+ ****************************************************************/
+
+static int
+set_usertimer(u32 msecs, u16 seg, u16 offset)
 {
-    if (GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING) {
-        // Interval already set.
-        DEBUGF("int15: Func 83h, failed, already waiting.\n" );
-        set_code_fail(regs, RET_EUNSUPPORTED);
-    }
+    if (GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING)
+        return -1;
+
     // Interval not already set.
     SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
-    u32 v = (regs->es << 16) | regs->bx;
-    SET_BDA(ptr_user_wait_complete_flag, v);
-    v = (regs->dx << 16) | regs->cx;
-    SET_BDA(user_wait_timeout, v);
+    SET_BDA(ptr_user_wait_complete_flag, (seg << 16) | offset);
+    SET_BDA(user_wait_timeout, msecs);
 
     // Unmask IRQ8 so INT70 will get through.
     u8 irqDisable = inb(PORT_PIC2_DATA);
     outb(irqDisable & ~PIC2_IRQ8, PORT_PIC2_DATA);
     // Turn on the Periodic Interrupt timer
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(bRegister | CSB_EN_ALARM_IRQ, CMOS_STATUS_B);
+    outb_cmos(bRegister | RTC_B_PIE, CMOS_STATUS_B);
 
-    set_success(regs); // XXX - no set ah?
+    return 0;
+}
+
+static void
+clear_usertimer()
+{
+    // Turn off status byte.
+    SET_BDA(rtc_wait_flag, 0);
+    // Clear the Periodic Interrupt.
+    u8 bRegister = inb_cmos(CMOS_STATUS_B);
+    outb_cmos(bRegister & ~RTC_B_PIE, CMOS_STATUS_B);
+}
+
+// Sleep for n microseconds.
+int
+usleep(u32 count)
+{
+#ifdef MODE16
+    // In 16bit mode, use the rtc to wait for the specified time.
+    u8 statusflag = 0;
+    int ret = set_usertimer(count, GET_SEG(SS), (u32)&statusflag);
+    if (ret)
+        return -1;
+    irq_enable();
+    while (!statusflag)
+        cpu_relax();
+    irq_disable();
+    return 0;
+#else
+    // In 32bit mode, we need to call into 16bit mode to sleep.
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x86;
+    br.cx = count >> 16;
+    br.dx = count;
+    call16_int(0x15, &br);
+    if (br.flags & F_CF)
+        return -1;
+    return 0;
+#endif
+}
+
+#define RET_ECLOCKINUSE  0x83
+
+// Wait for CX:DX microseconds. currently using the
+// refresh request port 0x61 bit4, toggling every 15usec
+void
+handle_1586(struct bregs *regs)
+{
+    int ret = usleep((regs->cx << 16) | regs->dx);
+    if (ret)
+        set_code_fail(regs, RET_ECLOCKINUSE);
+    else
+        set_success(regs);
+}
+
+// Set Interval requested.
+static void
+handle_158300(struct bregs *regs)
+{
+    int ret = set_usertimer((regs->cx << 16) | regs->dx, regs->es, regs->bx);
+    if (ret)
+        // Interval already set.
+        set_code_fail(regs, RET_EUNSUPPORTED);
+    else
+        set_success(regs);
 }
 
 // Clear interval requested
 static void
 handle_158301(struct bregs *regs)
 {
-    SET_BDA(rtc_wait_flag, 0); // Clear status byte
-    // Turn off the Periodic Interrupt timer
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(bRegister & ~CSB_EN_ALARM_IRQ, CMOS_STATUS_B);
-    set_success(regs); // XXX - no set ah?
+    clear_usertimer();
+    set_success(regs);
 }
 
 static void
@@ -367,13 +447,13 @@ handle_1583(struct bregs *regs)
 void VISIBLE16
 handle_70()
 {
-    debug_isr();
+    //debug_isr();
 
     // Check which modes are enabled and have occurred.
     u8 registerB = inb_cmos(CMOS_STATUS_B);
     u8 registerC = inb_cmos(CMOS_STATUS_C);
 
-    if (!(registerB & 0x60))
+    if (!(registerB & (RTC_B_PIE|RTC_B_AIE)))
         goto done;
     if (registerC & 0x20) {
         // Handle Alarm Interrupt.
@@ -393,17 +473,14 @@ handle_70()
     // Wait Interval (Int 15, AH=83) active.
     u32 time = GET_BDA(user_wait_timeout);  // Time left in microseconds.
     if (time < 0x3D1) {
-        // Done waiting.
+        // Done waiting - write to specified flag byte.
         u32 segoff = GET_BDA(ptr_user_wait_complete_flag);
         u16 segment = segoff >> 16;
         u16 offset = segoff & 0xffff;
-        // Turn off status byte.
-        SET_BDA(rtc_wait_flag, 0);
-        // Clear the Periodic Interrupt.
-        outb_cmos(registerB & 0x37, CMOS_STATUS_B);
-        // Write to specified flag byte.
         u8 oldval = GET_FARVAR(segment, *(u8*)(offset+0));
         SET_FARVAR(segment, *(u8*)(offset+0), oldval | 0x80);
+
+        clear_usertimer();
     } else {
         // Continue waiting.
         time -= 0x3D1;

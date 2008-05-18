@@ -151,7 +151,9 @@ void lpt_setup();
 
 // clock.c
 void timer_setup();
+int usleep(u32 count);
 void handle_1583(struct bregs *regs);
+void handle_1586(struct bregs *regs);
 
 // apm.c
 void VISIBLE16 handle_1553(struct bregs *regs);
@@ -161,7 +163,6 @@ void handle_1ab1(struct bregs *regs);
 
 // util.c
 u8 checksum(u8 *far_data, u32 len);
-void usleep(u32 count);
 
 // rombios32.c
 void rombios32_init(void);
