@@ -337,7 +337,7 @@ extern struct bios_config_table_s BIOS_CONFIG_TABLE;
 #define SEG_EBDA     0x9fc0
 #define SEG_BDA      0x0000
 
-#define EBDA_SIZE          1              // In KiB
-#define BASE_MEM_IN_K   (640 - EBDA_SIZE)
+#define EBDA_SIZE DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)
+#define BASE_MEM_IN_K (640 - EBDA_SIZE)
 
 #endif // __BIOSVAR_H

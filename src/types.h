@@ -35,6 +35,7 @@ union u64_u32_u {
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
+#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 
 #define NULL ((void *)0)
 
