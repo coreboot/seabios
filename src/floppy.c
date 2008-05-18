@@ -45,21 +45,28 @@ floppy_drive_setup()
 {
     u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
     u8 out = 0;
-    if (type & 0xf0)
+    u8 num_floppies = 0;
+
+    if (type & 0xf0) {
         out |= 0x07;
-    if (type & 0x0f)
+        num_floppies++;
+    }
+    if (type & 0x0f) {
         out |= 0x70;
+        num_floppies++;
+    }
     SET_BDA(floppy_harddisk_info, out);
+
+    // Update equipment word bits for floppy
+    if (num_floppies == 1)
+        // 1 drive, ready for boot
+        SETBITS_BDA(equipment_list_flags, 0x01);
+    else if (num_floppies == 2)
+        // 2 drives, ready for boot
+        SETBITS_BDA(equipment_list_flags, 0x41);
+
     outb(0x02, PORT_DMA1_MASK_REG);
 }
-
-// Oddities:
-//   Return codes vary greatly - AL not cleared consistenlty, BDA return
-//      status not set consistently, sometimes panics.
-//   Extra outb(0x000a, 0x02) in read?
-//   Does not disable interrupts on failure paths.
-//   numfloppies used before set in int_1308
-//   int_1305 verifies track but doesn't use it?
 
 static inline void
 set_diskette_current_cyl(u8 drive, u8 cyl)

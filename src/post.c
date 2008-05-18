@@ -31,8 +31,8 @@ init_bda()
 
     SET_BDA(mem_size_kb, BASE_MEM_IN_K);
 
-    // mov CMOS Equipment Byte to BDA Equipment Word
-    SET_BDA(equipment_list_flags, inb_cmos(CMOS_EQUIPMENT_INFO));
+    // Set BDA Equipment Word - 0x06 = FPU enable, mouse installed
+    SET_BDA(equipment_list_flags, 0x06);
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
