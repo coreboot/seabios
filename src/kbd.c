@@ -48,6 +48,10 @@ kbd_waitdata(u8 code)
 static void
 keyboard_init()
 {
+    if (CONFIG_COREBOOT)
+        // Coreboot already does low-level keyboard init.
+        return;
+
     /* ------------------- Flush buffers ------------------------*/
     /* Wait until buffer is empty */
     kbd_flush(0xff);
