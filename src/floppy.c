@@ -434,7 +434,6 @@ floppy_1302(struct bregs *regs, u8 drive)
 
     if (head > 1 || sector == 0 || num_sectors == 0
         || track > 79 || num_sectors > 72) {
-        BX_INFO("int13_diskette: read/write/verify: parameter out of range\n");
         floppy_fail(regs, DISK_RET_EPARAM);
         return;
     }
@@ -482,7 +481,6 @@ floppy_1303(struct bregs *regs, u8 drive)
 
     if (head > 1 || sector == 0 || num_sectors == 0
         || track > 79 || num_sectors > 72) {
-        BX_INFO("int13_diskette: read/write/verify: parameter out of range\n");
         floppy_fail(regs, DISK_RET_EPARAM);
         return;
     }
@@ -534,7 +532,6 @@ floppy_1304(struct bregs *regs, u8 drive)
 
     if (head > 1 || sector == 0 || num_sectors == 0
         || track > 79 || num_sectors > 72) {
-        BX_INFO("int13_diskette: read/write/verify: parameter out of range\n");
         floppy_fail(regs, DISK_RET_EPARAM);
         return;
     }
@@ -558,7 +555,6 @@ floppy_1305(struct bregs *regs, u8 drive)
     u8 head        = regs->dh;
 
     if (head > 1 || num_sectors == 0 || num_sectors > 18) {
-        BX_INFO("int13_diskette: read/write/verify: parameter out of range\n");
         floppy_fail(regs, DISK_RET_EPARAM);
         return;
     }
@@ -715,7 +711,6 @@ floppy_1316(struct bregs *regs, u8 drive)
 static void
 floppy_13XX(struct bregs *regs, u8 drive)
 {
-    BX_INFO("int13_diskette: unsupported AH=%02x\n", regs->ah);
     floppy_ret(regs, DISK_RET_EPARAM);
 }
 

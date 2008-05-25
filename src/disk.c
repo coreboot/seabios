@@ -61,7 +61,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     u16 head        = regs->dh;
 
     if (count > 128 || count == 0 || sector == 0) {
-        BX_INFO("int13_harddisk: function %02x, parameter out of range!\n"
+        dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
@@ -69,7 +69,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 
     // sanity check on cyl heads, sec
     if (cylinder >= nlc || head >= nlh || sector > nlspt) {
-        BX_INFO("int13_harddisk: function %02x, parameters out of"
+        dprintf(1, "int13_harddisk: function %02x, parameters out of"
                 " range %04x/%04x/%04x!\n"
                 , regs->ah, cylinder, head, sector);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -104,7 +104,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     regs->al = GET_EBDA(ata.trsfsectors);
 
     if (status != 0) {
-        BX_INFO("int13_harddisk: function %02x, error %02x !\n"
+        dprintf(1, "int13_harddisk: function %02x, error %02x !\n"
                 , regs->ah, status);
         disk_ret(regs, DISK_RET_EBADTRACK);
     }
@@ -119,7 +119,8 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     u8 type = GET_EBDA(ata.devices[device].type);
     if (type == ATA_TYPE_ATA
         && lba >= GET_EBDA(ata.devices[device].sectors)) {
-        BX_INFO("int13_harddisk: function %02x. LBA out of range\n", regs->ah);
+        dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
+                , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
@@ -148,7 +149,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     SET_INT13EXT(regs, count, GET_EBDA(ata.trsfsectors));
 
     if (status != 0) {
-        BX_INFO("int13_harddisk: function %02x, error %02x !\n"
+        dprintf(1, "int13_harddisk: function %02x, error %02x !\n"
                 , regs->ah, status);
         disk_ret(regs, DISK_RET_EBADTRACK);
         return;

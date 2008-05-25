@@ -102,10 +102,14 @@ void __call16_int(struct bregs *callregs, u16 offset)
 void BX_PANIC(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)))
     __attribute__ ((noreturn));
-void BX_INFO(const char *fmt, ...)
-    __attribute__ ((format (printf, 1, 2)));
 void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
+void __dprintf(const char *fmt, ...)
+    __attribute__ ((format (printf, 1, 2)));
+#define dprintf(lvl, fmt, args...) do {                         \
+        if (CONFIG_DEBUG_LEVEL && (lvl) <= CONFIG_DEBUG_LEVEL)  \
+            __dprintf((fmt) , ##args );                         \
+    } while (0)
 void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_fail(const char *fname, struct bregs *regs);
 void __debug_stub(const char *fname, struct bregs *regs);

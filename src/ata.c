@@ -8,7 +8,7 @@
 #include "ata.h" // ATA_*
 #include "types.h" // u8
 #include "ioport.h" // inb
-#include "util.h" // BX_INFO
+#include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
 
 #define TIMEOUT 0
@@ -69,7 +69,7 @@ await_ide(u8 when_done, u16 base, u16 timeout)
         if (timeout == 0 || (time>>11) > timeout)
             break;
     }
-    BX_INFO("IDE time out\n");
+    dprintf(1, "IDE time out\n");
     return -1;
 }
 
@@ -679,14 +679,14 @@ setup_translation(int driveid)
     u16 spt = GET_EBDA(ata.devices[driveid].pchs.spt);
     u64 sectors = GET_EBDA(ata.devices[driveid].sectors);
 
-    BX_INFO("ata%d-%d: PCHS=%u/%d/%d translation="
+    dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation="
             , channel, slave, cylinders, heads, spt);
     switch (translation) {
     case ATA_TRANSLATION_NONE:
-        BX_INFO("none");
+        dprintf(1, "none");
         break;
     case ATA_TRANSLATION_LBA:
-        BX_INFO("lba");
+        dprintf(1, "lba");
         spt = 63;
         if (sectors > 63*255*1024) {
             heads = 255;
@@ -708,7 +708,7 @@ setup_translation(int driveid)
         cylinders = sect / heads;
         break;
     case ATA_TRANSLATION_RECHS:
-        BX_INFO("r-echs");
+        dprintf(1, "r-echs");
         // Take care not to overflow
         if (heads==16) {
             if (cylinders>61439)
@@ -719,7 +719,7 @@ setup_translation(int driveid)
         // then go through the large bitshift process
     case ATA_TRANSLATION_LARGE:
         if (translation == ATA_TRANSLATION_LARGE)
-            BX_INFO("large");
+            dprintf(1, "large");
         while (cylinders > 1024) {
             cylinders >>= 1;
             heads <<= 1;
@@ -733,7 +733,7 @@ setup_translation(int driveid)
     // clip to 1024 cylinders in lchs
     if (cylinders > 1024)
         cylinders = 1024;
-    BX_INFO(" LCHS=%d/%d/%d\n", cylinders, heads, spt);
+    dprintf(1, " LCHS=%d/%d/%d\n", cylinders, heads, spt);
 
     SET_EBDA(ata.devices[driveid].lchs.heads, heads);
     SET_EBDA(ata.devices[driveid].lchs.cylinders, cylinders);

@@ -16,6 +16,9 @@
 // Configure as a payload coreboot payload.
 #define CONFIG_COREBOOT 0
 
+// Control how verbose debug output is.
+#define CONFIG_DEBUG_LEVEL 1
+
 // Send debugging information to serial port
 #define CONFIG_DEBUG_SERIAL 0
 

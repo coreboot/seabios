@@ -96,7 +96,7 @@ try_boot(u16 seq_nr)
     bootdev -= 1;
 
     if (bootdev >= GET_EBDA(ipl.count)) {
-        BX_INFO("Invalid boot device (0x%x)\n", bootdev);
+        dprintf(1, "Invalid boot device (0x%x)\n", bootdev);
         return;
     }
 
@@ -174,7 +174,7 @@ try_boot(u16 seq_nr)
     }
 
     /* Debugging info */
-    BX_INFO("Booting from %x:%x\n", bootseg, bootip);
+    dprintf(1, "Booting from %x:%x\n", bootseg, bootip);
 
     memset(&cr, 0, sizeof(cr));
     cr.ip = bootip;

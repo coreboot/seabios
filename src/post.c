@@ -97,7 +97,7 @@ ram_probe(void)
     }
 
     SET_EBDA(ram_size, rs);
-    BX_INFO("ram_size=0x%08x\n", rs);
+    dprintf(1, "ram_size=0x%08x\n", rs);
 }
 
 static void
@@ -212,19 +212,27 @@ post()
     if (CONFIG_DEBUG_SERIAL)
         debug_serial_setup();
 
-    BX_INFO("Start bios\n");
+    dprintf(1, "Start bios\n");
 
+    dprintf(3, "init bda\n");
     init_bda();
     init_ebda();
 
+    dprintf(3, "init timer\n");
     timer_setup();
+    dprintf(3, "init keyboard\n");
     kbd_setup();
+    dprintf(3, "init lpt\n");
     lpt_setup();
+    dprintf(3, "init serial\n");
     serial_setup();
+    dprintf(3, "init pic\n");
     pic_setup();
 
+    dprintf(3, "Find memory size\n");
     ram_probe();
 
+    dprintf(1, "Scan for VGA option rom\n");
     rom_scan(0xc0000, 0xc7800);
 
     printf("BIOS - begin\n\n");
@@ -233,13 +241,18 @@ post()
     extern char __bss_start[], __bss_end[];
     memset(__bss_start, 0, __bss_end - __bss_start);
 
+    dprintf(3, "rombios32 init\n");
     rombios32_init();
 
+    dprintf(3, "init floppy drives\n");
     floppy_drive_setup();
+    dprintf(3, "init hard drives\n");
     hard_drive_setup();
 
+    dprintf(3, "init boot device ordering\n");
     init_boot_vectors();
 
+    dprintf(1, "Scan for option roms\n");
     rom_scan(0xc8000, 0xe0000);
 
     interactive_bootmenu();
@@ -249,6 +262,7 @@ post()
     memset((void*)0x40000, 0, 0x40000); // XXX - shouldn't use globals
 
     // Invoke int 19 to start boot process.
+    dprintf(3, "Jump to int19\n");
     struct bregs br;
     memset(&br, 0, sizeof(br));
     call16_int(0x19, &br);

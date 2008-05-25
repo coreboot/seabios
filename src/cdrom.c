@@ -436,7 +436,7 @@ cdrom_boot()
 
     u16 ret = atapi_is_ready(device);
     if (ret)
-        BX_INFO("ata_is_ready returned %d\n", ret);
+        dprintf(1, "ata_is_ready returned %d\n", ret);
 
     // if not found
     if (device >= CONFIG_MAX_ATA_DEVICES)

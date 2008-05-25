@@ -24,12 +24,14 @@ screenc(u8 c)
 static void
 putc(u16 action, char c)
 {
-    if (CONFIG_DEBUG_SERIAL)
-        // Send character to serial port.
-        debug_serial(c);
-    else
-        // Send character to debug port.
-        outb(c, PORT_BIOS_DEBUG);
+    if (CONFIG_DEBUG_LEVEL) {
+        if (! CONFIG_COREBOOT)
+            // Send character to debug port.
+            outb(c, PORT_BIOS_DEBUG);
+        if (CONFIG_DEBUG_SERIAL)
+            // Send character to serial port.
+            debug_serial(c);
+    }
 
     if (action) {
         // Send character to video screen.
@@ -193,7 +195,7 @@ BX_PANIC(const char *fmt, ...)
 }
 
 void
-BX_INFO(const char *fmt, ...)
+__dprintf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -214,13 +216,13 @@ static void
 dump_regs(const char *fname, const char *type, struct bregs *regs)
 {
     if (!regs) {
-        BX_INFO("%s %s: NULL\n", type, fname);
+        __dprintf("%s %s: NULL\n", type, fname);
         return;
     }
-    BX_INFO("%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
+    __dprintf("%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
             , type, fname, regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
-    BX_INFO("  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
+    __dprintf("  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
             , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
 }
 

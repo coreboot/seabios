@@ -17,7 +17,7 @@
 //  License along with this library; if not, write to the Free Software
 //  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301 USA
 
-#include "util.h" // BX_INFO
+#include "util.h" // dprintf
 #include "pci.h" // PCIDevice
 #include "types.h" // u32
 #include "config.h" // CONFIG_*
@@ -164,7 +164,7 @@ void smp_probe(void)
 
         smp_cpus = readw((void *)CPU_COUNT_ADDR);
     }
-    BX_INFO("Found %d cpu(s)\n", smp_cpus);
+    dprintf(1, "Found %d cpu(s)\n", smp_cpus);
 }
 
 /****************************************************/
@@ -211,7 +211,7 @@ static void pci_set_io_region_addr(PCIDevice d, int region_num, u32 addr)
     old_addr = pci_config_readl(d, ofs);
 
     pci_config_writel(d, ofs, addr);
-    BX_INFO("region %d: 0x%08x\n", region_num, addr);
+    dprintf(1, "region %d: 0x%08x\n", region_num, addr);
 
     /* enable memory mappings */
     cmd = pci_config_readw(d, PCI_COMMAND);
@@ -253,7 +253,7 @@ static void bios_shadow_init(PCIDevice d)
 {
     bios_table_cur_addr = 0xf0000 | OFFSET_freespace2_start;
     bios_table_end_addr = 0xf0000 | OFFSET_freespace2_end;
-    BX_INFO("bios_table_addr: 0x%08lx end=0x%08lx\n",
+    dprintf(1, "bios_table_addr: 0x%08lx end=0x%08lx\n",
             bios_table_cur_addr, bios_table_end_addr);
 
     /* remap the BIOS to shadow RAM an keep it read/write while we
@@ -315,7 +315,7 @@ static void pci_bios_init_bridges(PCIDevice d)
         }
         outb(elcr[0], 0x4d0);
         outb(elcr[1], 0x4d1);
-        BX_INFO("PIIX3 init: elcr=%02x %02x\n",
+        dprintf(1, "PIIX3 init: elcr=%02x %02x\n",
                 elcr[0], elcr[1]);
     } else if (vendor_id == 0x8086 && device_id == 0x1237) {
         /* i440 PCI bridge */
@@ -444,7 +444,7 @@ static void pci_bios_init_device(PCIDevice d)
     class = pci_config_readw(d, PCI_CLASS_DEVICE);
     vendor_id = pci_config_readw(d, PCI_VENDOR_ID);
     device_id = pci_config_readw(d, PCI_DEVICE_ID);
-    BX_INFO("PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n",
+    dprintf(1, "PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n",
             d.bus, d.devfn, vendor_id, device_id);
     switch(class) {
     case 0x0101:
@@ -736,7 +736,7 @@ static void mptable_init(void)
 #else
     bios_table_cur_addr += (q - float_pointer_struct);
 #endif
-    BX_INFO("MP table addr=0x%08lx MPC table addr=0x%08lx size=0x%x\n",
+    dprintf(1, "MP table addr=0x%08lx MPC table addr=0x%08lx size=0x%x\n",
             (unsigned long)float_pointer_struct,
             (unsigned long)mp_config_table,
             mp_config_table_size);
@@ -1078,7 +1078,8 @@ void acpi_bios_init(void)
 
     acpi_tables_size = addr - base_addr;
 
-    BX_INFO("ACPI tables: RSDP addr=0x%08lx ACPI DATA addr=0x%08lx size=0x%x\n",
+    dprintf(1, "ACPI tables: RSDP addr=0x%08lx"
+            " ACPI DATA addr=0x%08lx size=0x%x\n",
             (unsigned long)rsdp,
             (unsigned long)rsdt, acpi_tables_size);
 
@@ -1660,7 +1661,7 @@ void smbios_init(void)
     bios_table_cur_addr += (p - (char *)start);
 #endif
 
-    BX_INFO("SMBIOS table addr=0x%08lx\n", (unsigned long)start);
+    dprintf(1, "SMBIOS table addr=0x%08lx\n", (unsigned long)start);
 }
 
 void rombios32_init(void)
@@ -1669,11 +1670,11 @@ void rombios32_init(void)
         // XXX - not supported on coreboot yet.
         return;
 
-    BX_INFO("Starting rombios32\n");
+    dprintf(1, "Starting rombios32\n");
 
 #if (CONFIG_USE_EBDA_TABLES == 1)
     ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
-    BX_INFO("ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
+    dprintf(1, "ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
 #endif
 
     cpu_probe();
@@ -1695,7 +1696,7 @@ void rombios32_init(void)
 
         bios_lock_shadow_ram();
 
-        BX_INFO("bios_table_cur_addr: 0x%08lx\n", bios_table_cur_addr);
+        dprintf(1, "bios_table_cur_addr: 0x%08lx\n", bios_table_cur_addr);
         if (bios_table_cur_addr > bios_table_end_addr)
             BX_PANIC("bios_table_end_addr overflow!\n");
     }

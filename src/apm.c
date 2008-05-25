@@ -15,7 +15,7 @@ static void
 out_str(const char *str_cs)
 {
     if (CONFIG_COREBOOT) {
-        BX_INFO("APM request '%s'\n", str_cs);
+        dprintf(1, "APM request '%s'\n", str_cs);
         return;
     }
 
