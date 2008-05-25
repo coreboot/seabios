@@ -39,6 +39,8 @@
 #define PORT_FD_DATA           0x03f5
 #define PORT_HD_DATA           0x03f6
 #define PORT_FD_DIR            0x03f7
+#define PORT_PCI_CMD           0x0cf8
+#define PORT_PCI_DATA          0x0cfc
 #define PORT_BIOS_DEBUG        0x0403
 #define PORT_BIOS_APM          0x8900
 

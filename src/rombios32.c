@@ -197,7 +197,7 @@ static u32 pci_bios_bigmem_addr;
 static u8 pci_irqs[4] = { 11, 9, 11, 9 };
 static PCIDevice i440_pcidev;
 
-static void pci_set_io_region_addr(PCIDevice *d, int region_num, u32 addr)
+static void pci_set_io_region_addr(PCIDevice d, int region_num, u32 addr)
 {
     u16 cmd;
     u32 ofs, old_addr;
@@ -227,15 +227,15 @@ static void pci_set_io_region_addr(PCIDevice *d, int region_num, u32 addr)
 /* return the global irq number corresponding to a given device irq
    pin. We could also use the bus number to have a more precise
    mapping. */
-static int pci_slot_get_pirq(PCIDevice *pci_dev, int irq_num)
+static int pci_slot_get_pirq(PCIDevice pci_dev, int irq_num)
 {
     int slot_addend;
-    slot_addend = (pci_dev->devfn >> 3) - 1;
+    slot_addend = (pci_dev.devfn >> 3) - 1;
     return (irq_num + slot_addend) & 3;
 }
 
 static void
-copy_bios(PCIDevice *d, int v)
+copy_bios(PCIDevice d, int v)
 {
     pci_config_writeb(d, 0x59, v);
     memcpy((void *)0x000f0000, (void *)BIOS_TMP_STORAGE, 0x10000);
@@ -249,7 +249,7 @@ copy_bios(PCIDevice *d, int v)
             (__addr - __start < __size); \
         })
 
-static void bios_shadow_init(PCIDevice *d)
+static void bios_shadow_init(PCIDevice d)
 {
     bios_table_cur_addr = 0xf0000 | OFFSET_freespace2_start;
     bios_table_end_addr = 0xf0000 | OFFSET_freespace2_end;
@@ -268,7 +268,7 @@ static void bios_shadow_init(PCIDevice *d)
         // Current code is in shadowed area.  Perform the copy from
         // the code that is in the temporary location.
         u32 pos = (u32)copy_bios - 0xf0000 + BIOS_TMP_STORAGE;
-        void (*func)(PCIDevice *, int) = (void*)pos;
+        void (*func)(PCIDevice, int) = (void*)pos;
         func(d, v);
     } else {
         copy_bios(d, v);
@@ -277,12 +277,12 @@ static void bios_shadow_init(PCIDevice *d)
     // Clear the area just copied.
     memset((void *)BIOS_TMP_STORAGE, 0, 0x10000);
 
-    i440_pcidev = *d;
+    i440_pcidev = d;
 }
 
 static void bios_lock_shadow_ram(void)
 {
-    PCIDevice *d = &i440_pcidev;
+    PCIDevice d = i440_pcidev;
     int v;
 
     wbinvd();
@@ -291,7 +291,7 @@ static void bios_lock_shadow_ram(void)
     pci_config_writeb(d, 0x59, v);
 }
 
-static void pci_bios_init_bridges(PCIDevice *d)
+static void pci_bios_init_bridges(PCIDevice d)
 {
     u16 vendor_id, device_id;
 
@@ -396,7 +396,7 @@ extern u8 smm_relocation_start, smm_relocation_end;
 extern u8 smm_code_start, smm_code_end;
 
 #if (CONFIG_USE_SMM == 1)
-static void smm_init(PCIDevice *d)
+static void smm_init(PCIDevice d)
 {
     u32 value;
 
@@ -422,7 +422,7 @@ static void smm_init(PCIDevice *d)
             ;
 
         /* enable the SMM memory window */
-        pci_config_writeb(&i440_pcidev, 0x72, 0x02 | 0x48);
+        pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x48);
 
         /* copy the SMM code */
         memcpy((void *)0xa8000, &smm_code_start,
@@ -430,12 +430,12 @@ static void smm_init(PCIDevice *d)
         wbinvd();
 
         /* close the SMM memory window and enable normal SMM */
-        pci_config_writeb(&i440_pcidev, 0x72, 0x02 | 0x08);
+        pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x08);
     }
 }
 #endif
 
-static void pci_bios_init_device(PCIDevice *d)
+static void pci_bios_init_device(PCIDevice d)
 {
     int class;
     u32 *paddr;
@@ -445,7 +445,7 @@ static void pci_bios_init_device(PCIDevice *d)
     vendor_id = pci_config_readw(d, PCI_VENDOR_ID);
     device_id = pci_config_readw(d, PCI_DEVICE_ID);
     BX_INFO("PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n",
-            d->bus, d->devfn, vendor_id, device_id);
+            d.bus, d.devfn, vendor_id, device_id);
     switch(class) {
     case 0x0101:
         if (vendor_id == 0x8086 && device_id == 0x7010) {
@@ -537,16 +537,14 @@ static void pci_bios_init_device(PCIDevice *d)
     }
 }
 
-void pci_for_each_device(void (*init_func)(PCIDevice *d))
+void pci_for_each_device(void (*init_func)(PCIDevice d))
 {
-    PCIDevice d1, *d = &d1;
     int bus, devfn;
     u16 vendor_id, device_id;
 
     for(bus = 0; bus < 1; bus++) {
         for(devfn = 0; devfn < 256; devfn++) {
-            d->bus = bus;
-            d->devfn = devfn;
+            PCIDevice d = pci_bd(bus, devfn);
             vendor_id = pci_config_readw(d, PCI_VENDOR_ID);
             device_id = pci_config_readw(d, PCI_DEVICE_ID);
             if (vendor_id != 0xffff || device_id != 0xffff) {

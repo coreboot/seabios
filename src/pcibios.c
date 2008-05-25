@@ -44,7 +44,7 @@ struct pir_table {
     struct pir pir;
     struct pir_slot slots[6];
 } PACKED PIR_TABLE VISIBLE16 __attribute__((aligned(16))) = {
-#if CONFIG_PCIBIOS
+#if CONFIG_PIRTABLE
     .pir = {
         .signature = 0x52495024, // "$PIR"
         .version = 0x0100,
@@ -116,7 +116,7 @@ struct pir_table {
             .slot_nr = 5,
         },
     }
-#endif // CONFIG_PCIBIOS
+#endif // CONFIG_PIRTABLE
 };
 
 
@@ -146,56 +146,35 @@ handle_1ab101(struct bregs *regs)
 static void
 handle_1ab102(struct bregs *regs)
 {
-    u32 dev = (regs->cx << 16) | regs->dx;
-    u16 index = regs->si;
-    int i;
-    for (i=0; i<0x100; i++) {
-        PCIDevice d = {0, i};
-        u32 v = pci_config_readl(&d, 0);
-        if (v != dev)
-            continue;
-        if (index) {
-            index--;
-            continue;
-        }
-        // Found it.
-        regs->bx = i;
-        set_code_success(regs);
+    PCIDevice d;
+    int ret = pci_find_device(regs->cx, regs->dx, regs->si, &d);
+    if (ret) {
+        set_code_fail(regs, RET_DEVICE_NOT_FOUND);
         return;
     }
-    set_code_fail(regs, RET_DEVICE_NOT_FOUND);
+    regs->bx = d.devfn;
+    set_code_success(regs);
 }
 
 // find class code
 static void
 handle_1ab103(struct bregs *regs)
 {
-    u32 code = regs->ecx << 8;
-    u16 index = regs->si;
-    int i;
-    for (i=0; i<0x100; i++) {
-        PCIDevice d = {0, i};
-        u32 v = pci_config_readl(&d, 0x08);
-        if (v != code)
-            continue;
-        if (index) {
-            index--;
-            continue;
-        }
-        // Found it.
-        regs->bx = i;
-        set_code_success(regs);
+    PCIDevice d;
+    int ret = pci_find_class(regs->ecx, regs->si, &d);
+    if (ret) {
+        set_code_fail(regs, RET_DEVICE_NOT_FOUND);
         return;
     }
-    set_code_fail(regs, RET_DEVICE_NOT_FOUND);
+    regs->bx = d.devfn;
+    set_code_success(regs);
 }
 
 // read configuration byte
 static void
 handle_1ab108(struct bregs *regs)
 {
-    PCIDevice d = {regs->bh, regs->bl};
-    regs->cl = pci_config_readb(&d, regs->di);
+    regs->cl = pci_config_readb(pci_bd(regs->bh, regs->bl), regs->di);
     set_code_success(regs);
 }
 
@@ -203,8 +182,7 @@ handle_1ab108(struct bregs *regs)
 static void
 handle_1ab109(struct bregs *regs)
 {
-    PCIDevice d = {regs->bh, regs->bl};
-    regs->cx = pci_config_readw(&d, regs->di);
+    regs->cx = pci_config_readw(pci_bd(regs->bh, regs->bl), regs->di);
     set_code_success(regs);
 }
 
@@ -212,8 +190,7 @@ handle_1ab109(struct bregs *regs)
 static void
 handle_1ab10a(struct bregs *regs)
 {
-    PCIDevice d = {regs->bh, regs->bl};
-    regs->ecx = pci_config_readl(&d, regs->di);
+    regs->ecx = pci_config_readl(pci_bd(regs->bh, regs->bl), regs->di);
     set_code_success(regs);
 }
 
@@ -221,8 +198,7 @@ handle_1ab10a(struct bregs *regs)
 static void
 handle_1ab10b(struct bregs *regs)
 {
-    PCIDevice d = {regs->bh, regs->bl};
-    pci_config_writeb(&d, regs->di, regs->cl);
+    pci_config_writeb(pci_bd(regs->bh, regs->bl), regs->di, regs->cl);
     set_code_success(regs);
 }
 
@@ -230,8 +206,7 @@ handle_1ab10b(struct bregs *regs)
 static void
 handle_1ab10c(struct bregs *regs)
 {
-    PCIDevice d = {regs->bh, regs->bl};
-    pci_config_writew(&d, regs->di, regs->cx);
+    pci_config_writew(pci_bd(regs->bh, regs->bl), regs->di, regs->cx);
     set_code_success(regs);
 }
 
@@ -239,8 +214,7 @@ handle_1ab10c(struct bregs *regs)
 static void
 handle_1ab10d(struct bregs *regs)
 {
-    PCIDevice d = {regs->bh, regs->bl};
-    pci_config_writel(&d, regs->di, regs->ecx);
+    pci_config_writel(pci_bd(regs->bh, regs->bl), regs->di, regs->ecx);
     set_code_success(regs);
 }
 
@@ -248,6 +222,11 @@ handle_1ab10d(struct bregs *regs)
 static void
 handle_1ab10e(struct bregs *regs)
 {
+    if (! CONFIG_PIRTABLE) {
+        set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
+        return;
+    }
+
     // Validate and update size.
     u16 size = GET_FARVAR(regs->es, *(u16*)(regs->di+0));
     u32 pirsize = sizeof(PIR_TABLE.slots);
@@ -280,8 +259,6 @@ handle_1ab1XX(struct bregs *regs)
     set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
 }
 
-#define PCI_FIXED_HOST_BRIDGE 0x12378086 // i440FX PCI bridge
-
 void
 handle_1ab1(struct bregs *regs)
 {
@@ -289,20 +266,6 @@ handle_1ab1(struct bregs *regs)
 
     if (! CONFIG_PCIBIOS) {
         set_fail(regs);
-        return;
-    }
-
-    outl(0x80000000, 0x0cf8);
-    u32 v = inl(0x0cfc);
-    if (
-#ifdef PCI_FIXED_HOST_BRIDGE
-        v != PCI_FIXED_HOST_BRIDGE
-#else
-        v == 0xffffffff
-#endif
-        ) {
-        // Device not present
-        set_code_fail(regs, 0xff);
         return;
     }
 

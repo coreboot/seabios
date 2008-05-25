@@ -16,6 +16,7 @@
 // Configure as a payload coreboot payload.
 #define CONFIG_COREBOOT 0
 
+// Send debugging information to serial port
 #define CONFIG_DEBUG_SERIAL 0
 
 #define CONFIG_FLOPPY_SUPPORT 1
@@ -24,6 +25,9 @@
 #define CONFIG_KBD_CALL_INT15_4F 1
 #define CONFIG_CDROM_BOOT 1
 #define CONFIG_CDROM_EMU 1
+// Support built-in PIR table in 0xf000 segment
+#define CONFIG_PIRTABLE 1
+// Support int 1a/b1 PCI BIOS calls
 #define CONFIG_PCIBIOS 1
 
 /* define it if the (emulated) hardware supports SMM mode */

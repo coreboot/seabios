@@ -1,38 +1,86 @@
 #include "pci.h" // PCIDevice
 #include "ioport.h" // outl
 
-void pci_config_writel(PCIDevice *d, u32 addr, u32 val)
+void pci_config_writel(PCIDevice d, u32 addr, u32 val)
 {
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    outl(val, 0xcfc);
+    outl(0x80000000 | (d.bus << 16) | (d.devfn << 8) | (addr & 0xfc)
+         , PORT_PCI_CMD);
+    outl(val, PORT_PCI_DATA);
 }
 
-void pci_config_writew(PCIDevice *d, u32 addr, u16 val)
+void pci_config_writew(PCIDevice d, u32 addr, u16 val)
 {
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    outw(val, 0xcfc + (addr & 2));
+    outl(0x80000000 | (d.bus << 16) | (d.devfn << 8) | (addr & 0xfc)
+         , PORT_PCI_CMD);
+    outw(val, PORT_PCI_DATA + (addr & 2));
 }
 
-void pci_config_writeb(PCIDevice *d, u32 addr, u8 val)
+void pci_config_writeb(PCIDevice d, u32 addr, u8 val)
 {
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    outb(val, 0xcfc + (addr & 3));
+    outl(0x80000000 | (d.bus << 16) | (d.devfn << 8) | (addr & 0xfc)
+         , PORT_PCI_CMD);
+    outb(val, PORT_PCI_DATA + (addr & 3));
 }
 
-u32 pci_config_readl(PCIDevice *d, u32 addr)
+u32 pci_config_readl(PCIDevice d, u32 addr)
 {
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    return inl(0xcfc);
+    outl(0x80000000 | (d.bus << 16) | (d.devfn << 8) | (addr & 0xfc)
+         , PORT_PCI_CMD);
+    return inl(PORT_PCI_DATA);
 }
 
-u16 pci_config_readw(PCIDevice *d, u32 addr)
+u16 pci_config_readw(PCIDevice d, u32 addr)
 {
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    return inw(0xcfc + (addr & 2));
+    outl(0x80000000 | (d.bus << 16) | (d.devfn << 8) | (addr & 0xfc)
+         , PORT_PCI_CMD);
+    return inw(PORT_PCI_DATA + (addr & 2));
 }
 
-u8 pci_config_readb(PCIDevice *d, u32 addr)
+u8 pci_config_readb(PCIDevice d, u32 addr)
 {
-    outl(0x80000000 | (d->bus << 16) | (d->devfn << 8) | (addr & 0xfc), 0xcf8);
-    return inb(0xcfc + (addr & 3));
+    outl(0x80000000 | (d.bus << 16) | (d.devfn << 8) | (addr & 0xfc)
+         , PORT_PCI_CMD);
+    return inb(PORT_PCI_DATA + (addr & 3));
+}
+
+int
+pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev)
+{
+    int devfn;
+    u32 id = (devid << 16) | vendid;
+    for (devfn=0; devfn<0x100; devfn++) {
+        PCIDevice d = pci_bd(0, devfn);
+        u32 v = pci_config_readl(d, 0x00);
+        if (v != id)
+            continue;
+        if (index) {
+            index--;
+            continue;
+        }
+        // Found it.
+        *dev = d;
+        return 0;
+    }
+    return -1;
+}
+
+int
+pci_find_class(u32 classid, int index, PCIDevice *dev)
+{
+    int devfn;
+    u32 id = classid << 8;
+    for (devfn=0; devfn<0x100; devfn++) {
+        PCIDevice d = pci_bd(0, devfn);
+        u32 v = pci_config_readl(d, 0x08);
+        if (v != id)
+            continue;
+        if (index) {
+            index--;
+            continue;
+        }
+        // Found it.
+        *dev = d;
+        return 0;
+    }
+    return -1;
 }
