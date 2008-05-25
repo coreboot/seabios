@@ -333,7 +333,7 @@ handle_08()
  ****************************************************************/
 
 static int
-set_usertimer(u32 msecs, u16 seg, u16 offset)
+set_usertimer(u32 usecs, u16 seg, u16 offset)
 {
     if (GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING)
         return -1;
@@ -341,7 +341,7 @@ set_usertimer(u32 msecs, u16 seg, u16 offset)
     // Interval not already set.
     SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
     SET_BDA(ptr_user_wait_complete_flag, (seg << 16) | offset);
-    SET_BDA(user_wait_timeout, msecs);
+    SET_BDA(user_wait_timeout, usecs);
 
     // Unmask IRQ8 so INT70 will get through.
     u8 irqDisable = inb(PORT_PIC2_DATA);
