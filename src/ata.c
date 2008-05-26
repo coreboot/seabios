@@ -118,24 +118,23 @@ ata_reset(int driveid)
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
 
     type=GET_EBDA(ata.devices[driveid].type);
-    if (type != ATA_TYPE_NONE) {
 
-        // 8.2.1 (g) -- check for sc==sn==0x01
-        // select device
-        outb(slave?ATA_CB_DH_DEV1:ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-        sc = inb(iobase1+ATA_CB_SC);
-        sn = inb(iobase1+ATA_CB_SN);
+    // 8.2.1 (g) -- check for sc==sn==0x01
+    // select device
+    outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
+    sc = inb(iobase1+ATA_CB_SC);
+    sn = inb(iobase1+ATA_CB_SN);
 
-        if ( (sc==0x01) && (sn==0x01) ) {
-            if (type == ATA_TYPE_ATA) //ATA
-                await_ide(NOT_BSY_RDY, iobase1, IDE_TIMEOUT);
-            else //ATAPI
-                await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
-        }
-
-        // 8.2.1 (h) -- wait for not BSY
-        await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
+    // XXX - why special check for ATA and ready?
+    if ( (sc==0x01) && (sn==0x01) ) {
+        if (type == ATA_TYPE_ATA) //ATA
+            await_ide(NOT_BSY_RDY, iobase1, IDE_TIMEOUT);
+        else //ATAPI
+            await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
     }
+
+    // 8.2.1 (h) -- wait for not BSY
+    await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
 
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
