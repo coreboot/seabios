@@ -32,6 +32,8 @@
 #define CONFIG_PIRTABLE 1
 // Support int 1a/b1 PCI BIOS calls
 #define CONFIG_PCIBIOS 1
+// Support int 15/53 APM BIOS calls
+#define CONFIG_APMBIOS 1
 
 /* define it if the (emulated) hardware supports SMM mode */
 #define CONFIG_USE_SMM 1
