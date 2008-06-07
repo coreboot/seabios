@@ -12,8 +12,9 @@
 import sys
 import re
 
-#IGNORE = ['screenc', 'bvprintf']
-IGNORE = ['screenc']
+# List of functions we can assume are never called.
+#IGNORE = ['screenc', 'BX_PANIC', '__dprintf']
+IGNORE = ['screenc', 'BX_PANIC']
 
 # Find out maximum stack usage for a function
 def calcmaxstack(funcs, func):
@@ -37,14 +38,14 @@ hex_s = r'[0-9a-f]+'
 re_func = re.compile(r'^' + hex_s + r' <(?P<func>.*)>:$')
 re_asm = re.compile(
     r'^[ ]*(?P<addr>' + hex_s + r'):\t.*\t'
-    r'(?P<insn>[a-z0-9]+ [^<]*)( <(?P<ref>.*)>)?$')
+    r'(addr32 )?(?P<insn>[a-z0-9]+ [^<]*)( <(?P<ref>.*)>)?$')
 re_usestack = re.compile(
     r'^(push.*)|(sub.* [$](?P<num>0x' + hex_s + r'),%esp)$')
 
 def calc():
     # funcs = {funcname: [basicstackusage, maxstackusage
     #                     , [(addr, callfname, stackusage), ...]] }
-    funcs = {}
+    funcs = {'<indirect>': [0, 0, []]}
     cur = None
     atstart = 0
     stackusage = 0
@@ -58,6 +59,7 @@ def calc():
             funcs[m.group('func')] = cur
             stackusage = 0
             atstart = 1
+            subfuncs = {}
             continue
         m = re_asm.match(line)
         if m is not None:
@@ -65,8 +67,11 @@ def calc():
 
             im = re_usestack.match(insn)
             if im is not None:
-                if insn[:4] == 'push':
+                if insn[:5] == 'pushl' or insn[:6] == 'pushfl':
                     stackusage += 4
+                    continue
+                elif insn[:5] == 'pushw' or insn[:6] == 'pushfw':
+                    stackusage += 2
                     continue
                 stackusage += int(im.group('num'), 16)
 
@@ -75,17 +80,35 @@ def calc():
                 atstart = 0
 
             ref = m.group('ref')
-            if ref is not None and '+' not in ref:
-                if insn[:1] == 'j':
+            if ref is None:
+                if insn[:6] == 'lcallw':
+                    stackusage += 4
+                    ref = '<indirect>'
+                else:
+                    # misc instruction - just ignore
+                    continue
+            else:
+                # Jump or call insn
+                if '+' in ref:
+                    # Inter-function jump - reset stack usage to
+                    # preamble usage
+                    stackusage = cur[0]
+                    continue
+                if ref.split('.')[0] in IGNORE:
+                    # Call ignored - list only for informational purposes
+                    stackusage = 0
+                elif insn[:1] == 'j':
                     # Tail call
                     stackusage = 0
-                elif insn[:4] == 'call':
+                elif insn[:5] == 'calll':
                     stackusage += 4
                 else:
                     print "unknown call", ref
+            if (ref, stackusage) not in subfuncs:
                 cur[2].append((m.group('addr'), ref, stackusage))
-                # Reset stack usage to preamble usage
-                stackusage = cur[0]
+                subfuncs[(ref, stackusage)] = 1
+            # Reset stack usage to preamble usage
+            stackusage = cur[0]
 
             continue
 
@@ -107,7 +130,7 @@ def calc():
         print "\n%s[%d,%d]:" % (func, basicusage, maxusage)
         for addr, callfname, stackusage in calls:
             callinfo = funcs[callfname]
-            print "    %04s:%-30s[%d+%d,%d]" % (
+            print "    %04s:%-40s [%d+%d,%d]" % (
                 addr, callfname, stackusage, callinfo[0], stackusage+callinfo[1])
 
 def main():
