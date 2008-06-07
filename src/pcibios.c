@@ -50,8 +50,8 @@ struct pir_table {
         .version = 0x0100,
         .size = sizeof(struct pir_table),
         .router_devfunc = 0x08,
-        .compatible_devid = 0x70008086,
-        .checksum = 0x07, // XXX - should auto calculate
+        .compatible_devid = 0x122e8086,
+        .checksum = 0x37, // XXX - should auto calculate
     },
     .slots = {
         {
@@ -152,7 +152,8 @@ handle_1ab102(struct bregs *regs)
         set_code_fail(regs, RET_DEVICE_NOT_FOUND);
         return;
     }
-    regs->bx = d.devfn;
+    regs->bh = d.bus;
+    regs->bl = d.devfn;
     set_code_success(regs);
 }
 
@@ -166,7 +167,8 @@ handle_1ab103(struct bregs *regs)
         set_code_fail(regs, RET_DEVICE_NOT_FOUND);
         return;
     }
-    regs->bx = d.devfn;
+    regs->bh = d.bus;
+    regs->bl = d.devfn;
     set_code_success(regs);
 }
 
