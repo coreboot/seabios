@@ -676,7 +676,7 @@ handle_13(struct bregs *regs)
 void VISIBLE16
 handle_76()
 {
-    debug_isr();
+    //debug_isr();
     SET_BDA(disk_interrupt_flag, 0xff);
     eoi_both_pics();
 }

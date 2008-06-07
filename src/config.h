@@ -13,7 +13,7 @@
 #define CONFIG_APPNAME "Bochs"
 #endif
 
-// Configure as a payload coreboot payload.
+// Configure as a coreboot payload.
 #define CONFIG_COREBOOT 0
 
 // Control how verbose debug output is.

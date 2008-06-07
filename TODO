@@ -1,7 +1,19 @@
 Split rombios32.c up into multiple files.
 
+Support parsing of linuxbios/coreboot table.
+
+Do a pci scan for ide controllers - don't just assume ISA ports are
+available.
+
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
+  * bochs cvs (1.209)         -- all changes synched
+  * coreboot (r3348): 1.163   -- no noteworthy enhancements
+  * qemu (r4675): 1.207       -- supports >4Gig memory
+  * kvm (45a442c): 1.182      -- >4gig, e820 vmx pages, enable cache?
+  * virtualbox (r9404): 1.176 -- f11/f12 kbd, lots of mouse changes,
+    logo, set text mode?, int 1589, floppy data rate?,
+    dummy_isr_function, int19 calls post
 
 Look into ways to reduce stack usage.  Alter ISRs so that they do not
 enable irqs.  Only call out to other bios functions after minimizing
@@ -26,6 +38,8 @@ Possibly implement 32bit pcibios support.
 
 Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.
+
+Look at integrating the lgpl vgabios into tree.
 
 Try generating bios tables at compile time.
 
