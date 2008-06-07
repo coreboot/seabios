@@ -175,7 +175,12 @@ rom_scan(u32 start, u32 end)
         if (checksum(rom, len) != 0)
             continue;
         p = (u8*)(((u32)p + len) / 2048 * 2048);
+        dprintf(1, "Running option rom at %p\n", rom+3);
         callrom(FARPTR_TO_SEG(rom), FARPTR_TO_OFFSET(rom + 3));
+
+        if (GET_BDA(ebda_seg) != SEG_EBDA)
+            BX_PANIC("Option rom at %p attempted to move ebda from %x to %x\n"
+                     , rom, SEG_EBDA, GET_BDA(ebda_seg));
 
         // Look at the ROM's PnP Expansion header.  Properly, we're supposed
         // to init all the ROMs and then go back and build an IPL table of
