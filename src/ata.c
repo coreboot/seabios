@@ -92,19 +92,29 @@ nsleep(u32 delay)
         nop();
 }
 
+// Wait for ide state - pause for 400ns first.
+static __always_inline int
+ndelay_await_ide(u8 when_done, u16 iobase1, u16 timeout)
+{
+    nsleep(400);
+    return await_ide(when_done, iobase1, timeout);
+}
+
+// Delay for x milliseconds
+static void
+msleep(u32 delay)
+{
+    usleep(delay * 1000);
+}
+
 // Reset a drive
 void
 ata_reset(int driveid)
 {
-    u16 iobase1, iobase2;
-    u8  channel, slave, sn, sc;
-    u8  type;
-
-    channel = driveid / 2;
-    slave = driveid % 2;
-
-    iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u8 channel = driveid / 2;
+    u8 slave = driveid % 2;
+    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
+    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
 
     // Reset
 
@@ -112,29 +122,20 @@ ata_reset(int driveid)
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN | ATA_CB_DC_SRST, iobase2+ATA_CB_DC);
 
     // 8.2.1 (b) -- wait for BSY
-    await_ide(BSY, iobase1, 20);
+    int status = await_ide(BSY, iobase1, 20);
+    dprintf(6, "ata_reset(1) status=%x\n", status);
 
     // 8.2.1 (f) -- clear SRST
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
 
-    type=GET_EBDA(ata.devices[driveid].type);
-
     // 8.2.1 (g) -- check for sc==sn==0x01
     // select device
     outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-    sc = inb(iobase1+ATA_CB_SC);
-    sn = inb(iobase1+ATA_CB_SN);
-
-    // XXX - why special check for ATA and ready?
-    if ( (sc==0x01) && (sn==0x01) ) {
-        if (type == ATA_TYPE_ATA) //ATA
-            await_ide(NOT_BSY_RDY, iobase1, IDE_TIMEOUT);
-        else //ATAPI
-            await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
-    }
+    msleep(50);
 
     // 8.2.1 (h) -- wait for not BSY
-    await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
+    status = await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
+    dprintf(6, "ata_reset(2) status=%x\n", status);
 
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
@@ -179,7 +180,16 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
     if (status & ATA_CB_STAT_BSY)
         return 1;
 
+    // Disable interrupts
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
+
+    // Select device
+    u8 device = inb(iobase1 + ATA_CB_DH);
+    outb(cmd->device, iobase1 + ATA_CB_DH);
+    if ((device ^ cmd->device) & (1UL << 4))
+        // Wait for device to become active.
+        msleep(50);
+
     if (cmd->command & 0x04) {
         outb(0x00, iobase1 + ATA_CB_FR);
         outb(cmd->sector_count2, iobase1 + ATA_CB_SC);
@@ -192,12 +202,9 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
     outb(cmd->lba_low, iobase1 + ATA_CB_SN);
     outb(cmd->lba_mid, iobase1 + ATA_CB_CL);
     outb(cmd->lba_high, iobase1 + ATA_CB_CH);
-    outb(cmd->device, iobase1 + ATA_CB_DH);
     outb(cmd->command, iobase1 + ATA_CB_CMD);
 
-    nsleep(400);
-
-    status = await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
+    status = ndelay_await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
     if (status < 0)
         return status;
 
@@ -829,6 +836,7 @@ ata_detect()
 
         // Look for device
         outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
+        msleep(50);
         outb(0x55, iobase1+ATA_CB_SC);
         outb(0xaa, iobase1+ATA_CB_SN);
         outb(0xaa, iobase1+ATA_CB_SC);
@@ -839,6 +847,7 @@ ata_detect()
         // If we found something
         u8 sc = inb(iobase1+ATA_CB_SC);
         u8 sn = inb(iobase1+ATA_CB_SN);
+        dprintf(6, "ata_detect(1) drive=%d sc=%x sn=%x\n", driveid, sc, sn);
 
         if (sc != 0x55 || sn != 0xaa)
             continue;
@@ -848,8 +857,10 @@ ata_detect()
 
         // check for ATA or ATAPI
         outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
+        msleep(50);
         sc = inb(iobase1+ATA_CB_SC);
         sn = inb(iobase1+ATA_CB_SN);
+        dprintf(6, "ata_detect(2) drive=%d sc=%x sn=%x\n", driveid, sc, sn);
         if (sc!=0x01 || sn!=0x01) {
             init_drive_unknown(driveid);
             continue;
@@ -857,6 +868,8 @@ ata_detect()
         u8 cl = inb(iobase1+ATA_CB_CL);
         u8 ch = inb(iobase1+ATA_CB_CH);
         u8 st = inb(iobase1+ATA_CB_STAT);
+        dprintf(6, "ata_detect(3) drive=%d sc=%x sn=%x cl=%x ch=%x st=%x\n"
+                , driveid, sc, sn, cl, ch, st);
 
         if (cl==0x14 && ch==0xeb)
             init_drive_atapi(driveid);
