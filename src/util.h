@@ -136,6 +136,19 @@ set_code_success(struct bregs *regs)
     set_cf(regs, 0);
 }
 
+static inline void
+set_fail_silent(struct bregs *regs)
+{
+    set_cf(regs, 1);
+}
+
+static inline void
+set_code_fail_silent(struct bregs *regs, u8 code)
+{
+    regs->ah = code;
+    set_cf(regs, 1);
+}
+
 void __set_fail(const char *fname, struct bregs *regs);
 void __set_code_fail(const char *fname, struct bregs *regs, u8 code);
 

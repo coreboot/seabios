@@ -221,8 +221,7 @@ handle_1591(struct bregs *regs)
 static void
 handle_154f(struct bregs *regs)
 {
-    // set_fail(regs);  -- don't report this failure.
-    set_cf(regs, 1);
+    set_fail_silent(regs);
 }
 
 static void

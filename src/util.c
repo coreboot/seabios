@@ -38,12 +38,12 @@ void
 __set_fail(const char *fname, struct bregs *regs)
 {
     __debug_fail(fname, regs);
-    set_cf(regs, 1);
+    set_fail_silent(regs);
 }
 
 void
 __set_code_fail(const char *fname, struct bregs *regs, u8 code)
 {
-    __set_fail(fname, regs);
-    regs->ah = code;
+    __debug_fail(fname, regs);
+    set_code_fail_silent(regs, code);
 }
