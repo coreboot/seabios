@@ -76,24 +76,6 @@ handle_1400(struct bregs *regs)
     set_success(regs);
 }
 
-static int
-write_serial(u16 addr, u16 timeout, char c)
-{
-    u16 timer = GET_BDA(timer_counter);
-    while (((inb(addr+5) & 0x60) != 0x60) && (timeout)) {
-        u16 val16 = GET_BDA(timer_counter);
-        if (val16 != timer) {
-            timer = val16;
-            timeout--;
-        }
-    }
-    if (!timeout)
-        // Ran out of time.
-        return -1;
-    outb(c, addr);
-    return 0;
-}
-
 // SERIAL - WRITE CHARACTER TO PORT
 static void
 handle_1401(struct bregs *regs)
@@ -101,10 +83,19 @@ handle_1401(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
+    u16 timer = GET_BDA(timer_counter);
     u16 timeout = GET_BDA(com_timeout[regs->dx]);
-    int ret = write_serial(addr, timeout, regs->al);
+    while (((inb(addr+5) & 0x60) != 0x60) && (timeout)) {
+        u16 val16 = GET_BDA(timer_counter);
+        if (val16 != timer) {
+            timer = val16;
+            timeout--;
+        }
+    }
+    if (timeout)
+        outb(regs->al, addr);
     regs->ah = inb(addr+5);
-    if (ret)
+    if (!timeout)
         regs->ah |= 0x80;
     set_success(regs);
 }
@@ -168,26 +159,6 @@ handle_14(struct bregs *regs)
     case 0x03: handle_1403(regs); break;
     default:   handle_14XX(regs); break;
     }
-}
-
-
-/****************************************************************
- * Serial debugging
- ****************************************************************/
-
-#define BX_DEBUG_PORT 0x03f8
-
-void
-debug_serial_setup()
-{
-    /* setup for serial logging: 8N1 */
-    outb(0x03, BX_DEBUG_PORT+3);
-}
-
-void
-debug_serial(char c)
-{
-    write_serial(BX_DEBUG_PORT, 0x0a, c);
 }
 
 

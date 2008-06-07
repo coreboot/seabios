@@ -10,6 +10,20 @@
 #include "util.h" // printf
 #include "biosvar.h" // struct bregs
 
+#define DEBUG_PORT 0x03f8
+#define DEBUG_TIMEOUT 100000
+
+static void
+debug_serial(char c)
+{
+    int timeout = DEBUG_TIMEOUT;
+    while ((inb(DEBUG_PORT+5) & 0x60) != 0x60)
+        if (!timeout--)
+            // Ran out of time.
+            return;
+    outb(c, DEBUG_PORT);
+}
+
 static void
 screenc(u8 c)
 {
@@ -216,13 +230,13 @@ static void
 dump_regs(const char *fname, const char *type, struct bregs *regs)
 {
     if (!regs) {
-        __dprintf("%s %s: NULL\n", type, fname);
+        dprintf(1, "%s %s: NULL\n", type, fname);
         return;
     }
-    __dprintf("%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
+    dprintf(1, "%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
             , type, fname, regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
-    __dprintf("  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
+    dprintf(1, "  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
             , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
 }
 
