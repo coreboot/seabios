@@ -97,6 +97,13 @@ handle_155305(struct bregs *regs)
     set_success(regs);
 }
 
+// APM cpu busy
+static void
+handle_155306(struct bregs *regs)
+{
+    set_success(regs);
+}
+
 // APM Set Power State
 static void
 handle_155307(struct bregs *regs)
@@ -141,12 +148,13 @@ handle_15530a(struct bregs *regs)
     set_success(regs);
 }
 
+#define RET_ENOEVENT 0x80
+
 // Get PM Event
 static void
 handle_15530b(struct bregs *regs)
 {
-    set_fail(regs);
-    regs->ah = 0x80; // no event pending
+    set_code_fail_silent(regs, RET_ENOEVENT);
 }
 
 // APM Driver Version
@@ -196,6 +204,7 @@ handle_1553(struct bregs *regs)
     case 0x03: handle_155303(regs); break;
     case 0x04: handle_155304(regs); break;
     case 0x05: handle_155305(regs); break;
+    case 0x06: handle_155306(regs); break;
     case 0x07: handle_155307(regs); break;
     case 0x08: handle_155308(regs); break;
     case 0x0a: handle_15530a(regs); break;

@@ -37,10 +37,7 @@
         pushw %ds
         movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
-        pushl %esp              // Backup %esp, then clear high bits
-        movzwl %sp, %esp
         calll \cfunc
-        popl %esp               // Restore %esp (including high bits)
         popw %ds                // Restore registers saved above
         popw %es
         popl %edx
@@ -64,11 +61,8 @@
         pushw %ds
         movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
-        movl %esp, %ebx         // Backup %esp, then zero high bits
-        movzwl %sp, %esp
         movl %esp, %eax         // First arg is pointer to struct bregs
         calll \cfunc
-        movl %ebx, %esp         // Restore %esp (including high bits)
         popw %ds                // Restore registers (from struct bregs)
         popw %es
         popl %edi
@@ -263,7 +257,7 @@ apm16protected_entry:
         pushfw          // save flags
         pushl %eax      // dummy
         ENTRY_ARG handle_1553
-        addw $4, %sp    // pop dummy
+        addl $4, %esp   // pop dummy
         popfw           // restore flags
         lretw
 
@@ -273,14 +267,14 @@ apm32protected_entry:
         pushfw
         pushw %cs       // Setup for long jump to 16bit mode
         pushw $1f
-        incw 2(%esp)
+        addw $8, 2(%esp)
         ljmpw *(%esp)
         .code16gcc
 1:
         ENTRY_ARG handle_1553
 
         movw $2f,(%esp) // Setup for long jump back to 32bit mode
-        decw 2(%esp)
+        subw $8, 2(%esp)
         ljmpw *(%esp)
         .code32
 2:
