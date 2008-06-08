@@ -43,6 +43,7 @@ struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
 void
 floppy_drive_setup()
 {
+    dprintf(3, "init floppy drives\n");
     u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
     u8 out = 0;
     u8 num_floppies = 0;

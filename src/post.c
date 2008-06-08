@@ -21,6 +21,7 @@
 static void
 init_bda()
 {
+    dprintf(3, "init bda\n");
     memset(bda, 0, sizeof(*bda));
 
     int i;
@@ -80,6 +81,7 @@ init_ebda()
 static void
 ram_probe(void)
 {
+    dprintf(3, "Find memory size\n");
     u32 rs;
     if (CONFIG_COREBOOT) {
         // XXX - just hardcode for now.
@@ -103,6 +105,7 @@ ram_probe(void)
 static void
 pic_setup()
 {
+    dprintf(3, "init pic\n");
     outb(0x11, PORT_PIC1);
     outb(0x11, PORT_PIC2);
     outb(0x08, PORT_PIC1_DATA);
@@ -121,6 +124,8 @@ pic_setup()
 static void
 init_boot_vectors()
 {
+    dprintf(3, "init boot device ordering\n");
+
     // Floppy drive
     struct ipl_entry_s *ip = &ebda->ipl.table[0];
     ip->type = IPL_TYPE_FLOPPY;
@@ -217,22 +222,15 @@ rom_scan(u32 start, u32 end)
 static void
 post()
 {
-    dprintf(3, "init bda\n");
     init_bda();
     init_ebda();
 
-    dprintf(3, "init timer\n");
     timer_setup();
-    dprintf(3, "init keyboard\n");
     kbd_setup();
-    dprintf(3, "init lpt\n");
     lpt_setup();
-    dprintf(3, "init serial\n");
     serial_setup();
-    dprintf(3, "init pic\n");
     pic_setup();
 
-    dprintf(3, "Find memory size\n");
     ram_probe();
 
     dprintf(1, "Scan for VGA option rom\n");
@@ -240,15 +238,11 @@ post()
 
     printf("BIOS - begin\n\n");
 
-    dprintf(3, "rombios32 init\n");
     rombios32_init();
 
-    dprintf(3, "init floppy drives\n");
     floppy_drive_setup();
-    dprintf(3, "init hard drives\n");
     hard_drive_setup();
 
-    dprintf(3, "init boot device ordering\n");
     init_boot_vectors();
 
     dprintf(1, "Scan for option roms\n");

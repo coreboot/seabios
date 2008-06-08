@@ -44,6 +44,7 @@ bcd2bin(u8 val)
 void
 timer_setup()
 {
+    dprintf(3, "init timer\n");
     pit_setup();
 
     u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));

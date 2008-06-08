@@ -30,6 +30,7 @@ detect_serial(u16 port, u8 timeout, u8 count)
 void
 serial_setup()
 {
+    dprintf(3, "init serial\n");
     u16 count = 0;
     count += detect_serial(0x3f8, 0x0a, count);
     count += detect_serial(0x2f8, 0x0a, count);
@@ -184,6 +185,7 @@ detect_parport(u16 port, u8 timeout, u8 count)
 void
 lpt_setup()
 {
+    dprintf(3, "init lpt\n");
     u16 count = 0;
     count += detect_parport(0x378, 0x14, count);
     count += detect_parport(0x278, 0x14, count);

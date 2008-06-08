@@ -930,6 +930,7 @@ hard_drive_setup()
     if (!CONFIG_ATA)
         return;
 
+    dprintf(3, "init hard drives\n");
     ata_init();
     ata_detect();
 

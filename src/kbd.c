@@ -149,6 +149,7 @@ keyboard_init()
 void
 kbd_setup()
 {
+    dprintf(3, "init keyboard\n");
     u16 x = offsetof(struct bios_data_area_s, kbd_buf) - 0x400;
     SET_BDA(kbd_mode, 0x10);
     SET_BDA(kbd_buf_head, x);
