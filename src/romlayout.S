@@ -37,7 +37,10 @@
         pushw %ds
         movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
+        pushl %esp              // Backup %esp, then clear high bits
+        movzwl %sp, %esp
         calll \cfunc
+        popl %esp               // Restore %esp (including high bits)
         popw %ds                // Restore registers saved above
         popw %es
         popl %edx
@@ -50,6 +53,34 @@
         // to point to the backup.  On return, the registers are
         // restored from the structure.
         .macro ENTRY_ARG cfunc
+        cld
+        pushl %eax              // Save registers (matches struct bregs)
+        pushl %ecx
+        pushl %edx
+        pushl %ebx
+        pushl %esi
+        pushl %edi
+        pushw %es
+        pushw %ds
+        movw %ss, %ax           // Move %ss to %ds
+        movw %ax, %ds
+        movl %esp, %ebx         // Backup %esp, then zero high bits
+        movzwl %sp, %esp
+        movl %esp, %eax         // First arg is pointer to struct bregs
+        calll \cfunc
+        movl %ebx, %esp         // Restore %esp (including high bits)
+        popw %ds                // Restore registers (from struct bregs)
+        popw %es
+        popl %edi
+        popl %esi
+        popl %ebx
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
+
+        // As above, but don't mangle %esp
+        .macro ENTRY_ARG_ESP cfunc
         cld
         pushl %eax              // Save registers (matches struct bregs)
         pushl %ecx
@@ -257,7 +288,7 @@ apm16protected_entry:
         pushfw          // save flags
         pushl %eax      // dummy
         ENTRY_ARG handle_1553
-        addl $4, %esp   // pop dummy
+        addw $4, %sp    // pop dummy
         popfw           // restore flags
         lretw
 
@@ -271,7 +302,7 @@ apm32protected_entry:
         ljmpw *(%esp)
         .code16gcc
 1:
-        ENTRY_ARG handle_1553
+        ENTRY_ARG_ESP handle_1553
 
         movw $2f,(%esp) // Setup for long jump back to 32bit mode
         subw $8, 2(%esp)
