@@ -26,7 +26,6 @@
 // are at 0x40000).
 #define CPU_COUNT_ADDR    0xf000
 #define AP_BOOT_ADDR      0x10000
-#define BIOS_TMP_STORAGE  0x30000 /* 64 KB used to copy the BIOS to shadow RAM */
 
 #define PM_IO_BASE        0xb000
 #define SMB_IO_BASE       0xb100
@@ -35,8 +34,6 @@
   asm volatile ("cpuid" \
                 : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx) \
                 : "0" (index))
-
-#define wbinvd() asm volatile("wbinvd")
 
 #define CPUID_APIC (1 << 9)
 
@@ -234,63 +231,6 @@ static int pci_slot_get_pirq(PCIDevice pci_dev, int irq_num)
     return (irq_num + slot_addend) & 3;
 }
 
-static void
-copy_bios(PCIDevice d, int v)
-{
-    pci_config_writeb(d, 0x59, v);
-    memcpy((void *)0x000f0000, (void *)BIOS_TMP_STORAGE, 0x10000);
-}
-
-// Test if 'addr' is in the range from 'start'..'start+size'
-#define IN_RANGE(addr, start, size) ({   \
-            u32 __addr = (addr);         \
-            u32 __start = (start);       \
-            u32 __size = (size);         \
-            (__addr - __start < __size); \
-        })
-
-static void bios_shadow_init(PCIDevice d)
-{
-    bios_table_cur_addr = 0xf0000 | OFFSET_freespace2_start;
-    bios_table_end_addr = 0xf0000 | OFFSET_freespace2_end;
-    dprintf(1, "bios_table_addr: 0x%08lx end=0x%08lx\n",
-            bios_table_cur_addr, bios_table_end_addr);
-
-    /* remap the BIOS to shadow RAM an keep it read/write while we
-       are writing tables */
-    int v = pci_config_readb(d, 0x59);
-    v &= 0xcf;
-    pci_config_writeb(d, 0x59, v);
-    memcpy((void *)BIOS_TMP_STORAGE, (void *)0x000f0000, 0x10000);
-    v |= 0x30;
-
-    if (IN_RANGE((u32)copy_bios, 0xf0000, 0x10000)) {
-        // Current code is in shadowed area.  Perform the copy from
-        // the code that is in the temporary location.
-        u32 pos = (u32)copy_bios - 0xf0000 + BIOS_TMP_STORAGE;
-        void (*func)(PCIDevice, int) = (void*)pos;
-        func(d, v);
-    } else {
-        copy_bios(d, v);
-    }
-
-    // Clear the area just copied.
-    memset((void *)BIOS_TMP_STORAGE, 0, 0x10000);
-
-    i440_pcidev = d;
-}
-
-static void bios_lock_shadow_ram(void)
-{
-    PCIDevice d = i440_pcidev;
-    int v;
-
-    wbinvd();
-    v = pci_config_readb(d, 0x59);
-    v = (v & 0x0f) | (0x10);
-    pci_config_writeb(d, 0x59, v);
-}
-
 static void pci_bios_init_bridges(PCIDevice d)
 {
     u16 vendor_id, device_id;
@@ -319,7 +259,7 @@ static void pci_bios_init_bridges(PCIDevice d)
                 elcr[0], elcr[1]);
     } else if (vendor_id == 0x8086 && device_id == 0x1237) {
         /* i440 PCI bridge */
-        bios_shadow_init(d);
+        i440_pcidev = d;
     }
 }
 
@@ -1677,6 +1617,11 @@ void rombios32_init(void)
     dprintf(1, "ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
 #endif
 
+    bios_table_cur_addr = 0xf0000 | OFFSET_freespace2_start;
+    bios_table_end_addr = 0xf0000 | OFFSET_freespace2_end;
+    dprintf(1, "bios_table_addr: 0x%08lx end=0x%08lx\n",
+            bios_table_cur_addr, bios_table_end_addr);
+
     cpu_probe();
 
     smp_probe();
@@ -1693,8 +1638,6 @@ void rombios32_init(void)
 
         if (acpi_enabled)
             acpi_bios_init();
-
-        bios_lock_shadow_ram();
 
         dprintf(1, "bios_table_cur_addr: 0x%08lx\n", bios_table_cur_addr);
         if (bios_table_cur_addr > bios_table_end_addr)

@@ -151,6 +151,7 @@ init_boot_vectors()
     }
 }
 
+// Execute a given option rom.
 static void
 callrom(u16 seg, u16 offset)
 {
@@ -163,6 +164,7 @@ callrom(u16 seg, u16 offset)
     call16(&br);
 }
 
+// Find and run any "option roms" found in the given address range.
 static void
 rom_scan(u32 start, u32 end)
 {
@@ -211,11 +213,10 @@ rom_scan(u32 start, u32 end)
     }
 }
 
+// Main setup code.
 static void
 post()
 {
-    dprintf(1, "Start bios\n");
-
     dprintf(3, "init bda\n");
     init_bda();
     init_ebda();
@@ -239,10 +240,6 @@ post()
 
     printf("BIOS - begin\n\n");
 
-    // clear bss section -- XXX - shouldn't use globals
-    extern char __bss_start[], __bss_end[];
-    memset(__bss_start, 0, __bss_end - __bss_start);
-
     dprintf(3, "rombios32 init\n");
     rombios32_init();
 
@@ -256,20 +253,18 @@ post()
 
     dprintf(1, "Scan for option roms\n");
     rom_scan(0xc8000, 0xe0000);
-
-    interactive_bootmenu();
-
-    // reset the memory (some boot loaders such as syslinux suppose
-    // that the memory is set to zero)
-    memset((void*)0x40000, 0, 0x40000); // XXX - shouldn't use globals
-
-    // Invoke int 19 to start boot process.
-    dprintf(3, "Jump to int19\n");
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    call16_int(0x19, &br);
 }
 
+// Clear .bss section for C code.
+static void
+clear_bss()
+{
+    dprintf(3, "clearing .bss section\n");
+    extern char __bss_start[], __bss_end[];
+    memset(__bss_start, 0, __bss_end - __bss_start);
+}
+
+// Reset DMA controller
 static void
 init_dma()
 {
@@ -282,6 +277,7 @@ init_dma()
     outb(0x00, PORT_DMA2_MASK_REG);
 }
 
+// Check if the machine was setup with a special restart vector.
 static void
 check_restart_status()
 {
@@ -308,13 +304,34 @@ check_restart_status()
     call16(&br);
 }
 
+// 32-bit entry point.
 void VISIBLE32
 _start()
 {
     init_dma();
     check_restart_status();
 
+    dprintf(1, "Start bios\n");
+
+    // Setup for .bss and .data sections
+    clear_bss();
+    make_bios_writable();
+
+    // Perform main setup code.
     post();
+
+    // Present the user with a bootup menu.
+    interactive_bootmenu();
+
+    // Prep for boot process.
+    make_bios_readonly();
+    clear_bss();
+
+    // Invoke int 19 to start boot process.
+    dprintf(3, "Jump to int19\n");
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x19, &br);
 }
 
 // Externally visible 32bit entry point.

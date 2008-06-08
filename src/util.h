@@ -47,6 +47,11 @@ static inline void hlt(void)
     asm volatile("hlt");
 }
 
+static inline void wbinvd(void)
+{
+    asm volatile("wbinvd");
+}
+
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 
@@ -178,6 +183,10 @@ void handle_1ab1(struct bregs *regs);
 
 // util.c
 u8 checksum(u8 *far_data, u32 len);
+
+// shadow.c
+void make_bios_writable();
+void make_bios_readonly();
 
 // rombios32.c
 void rombios32_init(void);
