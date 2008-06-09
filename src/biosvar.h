@@ -48,11 +48,11 @@ struct bios_data_area_s {
     u8 floppy_motor_counter;
     u8 floppy_last_status;
     u8 floppy_return_status[7];
-    u8 other1[0x7];
+    u8 other_49[0x7];
     // 40:50
-    u8 other2[0x10];
+    u8 other_50[0x10];
     // 40:60
-    u8 other3[0x7];
+    u8 other_60[0x7];
     u32 jump_cs_ip;
     u8 dummy;
     u32 timer_counter;
@@ -69,7 +69,7 @@ struct bios_data_area_s {
     // 40:80
     u16 kbd_buf_start_offset;
     u16 kbd_buf_end_offset;
-    u8 other5[7];
+    u8 other_84[7];
     u8 floppy_last_data_rate;
     u8 disk_status_controller;
     u8 disk_error_controller;
@@ -260,6 +260,8 @@ struct extended_bios_data_area_s {
 
     // Physical memory available.
     u32 ram_size;
+    u16 e820_count;
+    u32 e820_loc;
 
     // ATA Driver data
     struct ata_s   ata;

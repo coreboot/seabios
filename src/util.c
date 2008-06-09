@@ -34,6 +34,23 @@ memcpy(void *far_d1, const void *far_s1, size_t len)
     return far_d1;
 }
 
+void *
+memmove(void *d, const void *s, size_t len)
+{
+    if (s >= d)
+        return memcpy(d, s, len);
+
+    d += len-1;
+    s += len-1;
+    while (len--) {
+        *(char*)d = *(char*)s;
+        d--;
+        s--;
+    }
+
+    return d;
+}
+
 void
 __set_fail(const char *fname, struct bregs *regs)
 {

@@ -5,12 +5,16 @@ Support parsing of linuxbios/coreboot table.
 Do a pci scan for ide controllers - don't just assume ISA ports are
 available.
 
+The keyboard driver should detect ctrl+alt+del and reboot the
+machine.
+
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
   * bochs cvs (1.209)         -- all changes synched
   * coreboot (r3348): 1.163   -- no noteworthy enhancements
   * qemu (r4675): 1.207       -- supports >4Gig memory
-  * kvm (45a442c): 1.182      -- >4gig, e820 vmx pages, enable cache?
+  * kvm (45a442c): 1.182      -- >4gig, e820 vmx pages, enable cache?,
+    wrmsr in smp_start and rombios32, acpi insrcovr table
   * virtualbox (r9404): 1.176 -- f11/f12 kbd, lots of mouse changes,
     logo, set text mode?, int 1589, floppy data rate?,
     dummy_isr_function, int19 calls post
@@ -42,6 +46,3 @@ location.
 Look at integrating the lgpl vgabios into tree.
 
 Try generating bios tables at compile time.
-
-Move e820 map generation to post time (just have e820 code copy pre
-made tables back to user).

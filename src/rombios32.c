@@ -21,6 +21,7 @@
 #include "pci.h" // PCIDevice
 #include "types.h" // u32
 #include "config.h" // CONFIG_*
+#include "memmap.h" // bios_table_cur_addr
 
 // Memory addresses used by this code.  (Note global variables (bss)
 // are at 0x40000).
@@ -89,8 +90,6 @@ unsigned long ebda_cur_addr;
 int acpi_enabled;
 u32 pm_io_base, smb_io_base;
 int pm_sci_int;
-unsigned long bios_table_cur_addr;
-unsigned long bios_table_end_addr;
 
 void uuid_probe(void)
 {
@@ -986,6 +985,7 @@ void acpi_bios_init(void)
 #endif
 
     addr = base_addr = GET_EBDA(ram_size) - CONFIG_ACPI_DATA_SIZE;
+    add_e820(addr, CONFIG_ACPI_DATA_SIZE, E820_ACPI);
     rsdt_addr = addr;
     rsdt = (void *)(addr);
     addr += sizeof(*rsdt);
@@ -1617,11 +1617,6 @@ void rombios32_init(void)
     dprintf(1, "ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
 #endif
 
-    bios_table_cur_addr = 0xf0000 | OFFSET_freespace2_start;
-    bios_table_end_addr = 0xf0000 | OFFSET_freespace2_end;
-    dprintf(1, "bios_table_addr: 0x%08lx end=0x%08lx\n",
-            bios_table_cur_addr, bios_table_end_addr);
-
     cpu_probe();
 
     smp_probe();
@@ -1639,7 +1634,7 @@ void rombios32_init(void)
         if (acpi_enabled)
             acpi_bios_init();
 
-        dprintf(1, "bios_table_cur_addr: 0x%08lx\n", bios_table_cur_addr);
+        dprintf(1, "bios_table_cur_addr: 0x%08x\n", bios_table_cur_addr);
         if (bios_table_cur_addr > bios_table_end_addr)
             BX_PANIC("bios_table_end_addr overflow!\n");
     }

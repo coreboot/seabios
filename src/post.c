@@ -14,6 +14,7 @@
 #include "ata.h" // hard_drive_setup
 #include "kbd.h" // kbd_setup
 #include "disk.h" // floppy_drive_setup
+#include "memmap.h" // add_e820
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
@@ -82,24 +83,30 @@ static void
 ram_probe(void)
 {
     dprintf(3, "Find memory size\n");
-    u32 rs;
     if (CONFIG_COREBOOT) {
-        // XXX - just hardcode for now.
-        rs = 128*1024*1024;
+        coreboot_fill_map();
     } else {
         // On emulators, get memory size from nvram.
-        rs = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
-              | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) * 65536;
+        u32 rs = (inb_cmos(CMOS_MEM_EXTMEM2_LOW)
+                  | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 8)) * 65536;
         if (rs)
             rs += 16 * 1024 * 1024;
         else
             rs = ((inb_cmos(CMOS_MEM_EXTMEM_LOW)
                    | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 8)) * 1024
                   + 1 * 1024 * 1024);
+        SET_EBDA(ram_size, rs);
+        add_e820(0, rs, E820_RAM);
+
+        /* reserve 256KB BIOS area at the end of 4 GB */
+        add_e820(0xfffc0000, 256*1024, E820_RESERVED);
     }
 
-    SET_EBDA(ram_size, rs);
-    dprintf(1, "ram_size=0x%08x\n", rs);
+    // Mark known areas as reserved.
+    add_e820((u32)MAKE_FARPTR(SEG_EBDA, 0), EBDA_SIZE * 1024, E820_RESERVED);
+    add_e820((u32)MAKE_FARPTR(SEG_BIOS, 0), 0x10000, E820_RESERVED);
+
+    dprintf(1, "ram_size=0x%08x\n", GET_EBDA(ram_size));
 }
 
 static void
@@ -231,6 +238,8 @@ post()
     serial_setup();
     pic_setup();
 
+    memmap_setup();
+
     ram_probe();
 
     dprintf(1, "Scan for VGA option rom\n");
@@ -239,6 +248,8 @@ post()
     printf("BIOS - begin\n\n");
 
     rombios32_init();
+
+    memmap_finalize();
 
     floppy_drive_setup();
     hard_drive_setup();

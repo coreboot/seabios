@@ -8,12 +8,7 @@
 #include "util.h" // irq_restore
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
-
-#define E820_RAM          1
-#define E820_RESERVED     2
-#define E820_ACPI         3
-#define E820_NVS          4
-#define E820_UNUSABLE     5
+#include "memmap.h" // E820_RAM
 
 // Use PS2 System Control port A to set A20 enable
 static inline u8
@@ -270,65 +265,23 @@ handle_15e801(struct bregs *regs)
 }
 
 static void
-set_e820_range(struct bregs *regs, u32 start, u32 end, u16 type, int last)
-{
-    u32 size = end - start;
-    SET_FARVAR(regs->es, *(u64*)(regs->di+0), start);
-    SET_FARVAR(regs->es, *(u64*)(regs->di+8), size);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+16), type);
-    SET_FARVAR(regs->es, *(u16*)(regs->di+18), 0x0);
-
-    if (last)
-        regs->ebx = 0;
-    else
-        regs->ebx++;
-    regs->eax = 0x534D4150;
-    regs->ecx = 0x14;
-    set_success(regs);
-}
-
-// XXX - should create e820 memory map in post and just copy it here.
-static void
 handle_15e820(struct bregs *regs)
 {
-    if (regs->edx != 0x534D4150) {
+    int count = GET_EBDA(e820_count);
+    if (regs->edx != 0x534D4150 || regs->bx >= count) {
         set_code_fail(regs, RET_EUNSUPPORTED);
         return;
     }
 
-    u32 extended_memory_size = GET_EBDA(ram_size);
-    // greater than EFF00000???
-    if (extended_memory_size > 0xf0000000)
-        // everything after this is reserved memory until we get to 0x100000000
-        extended_memory_size = 0xf0000000;
-
-    switch (regs->bx) {
-    case 0:
-        set_e820_range(regs, 0x0000000L, 0x0009fc00L, E820_RAM, 0);
-        break;
-    case 1:
-        set_e820_range(regs, 0x0009fc00L, 0x000a0000L, E820_RESERVED, 0);
-        break;
-    case 2:
-        set_e820_range(regs, 0x000e8000L, 0x00100000L, E820_RESERVED, 0);
-        break;
-    case 3:
-        set_e820_range(regs, 0x00100000L
-                       , extended_memory_size - CONFIG_ACPI_DATA_SIZE
-                       , E820_RAM, 0);
-        break;
-    case 4:
-        set_e820_range(regs,
-                       extended_memory_size - CONFIG_ACPI_DATA_SIZE,
-                       extended_memory_size, E820_ACPI, 0);
-        break;
-    case 5:
-        /* 256KB BIOS area at the end of 4 GB */
-        set_e820_range(regs, 0xfffc0000L, 0x00000000L, E820_RESERVED, 1);
-        break;
-    default:  /* AX=E820, DX=534D4150, BX unrecognized */
-        set_code_fail(regs, RET_EUNSUPPORTED);
-    }
+    struct e820entry *e = &((struct e820entry *)GET_EBDA(e820_loc))[regs->bx];
+    memcpy(MAKE_FARPTR(regs->es, regs->di), e, sizeof(*e));
+    if (regs->bx == count-1)
+        regs->ebx = 0;
+    else
+        regs->ebx++;
+    regs->eax = 0x534D4150;
+    regs->ecx = sizeof(*e);
+    set_success(regs);
 }
 
 static void

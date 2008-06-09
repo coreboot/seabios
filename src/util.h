@@ -54,6 +54,7 @@ static inline void wbinvd(void)
 
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
+void *memmove(void *d, const void *s, size_t len);
 
 static inline void
 eoi_master_pic()
@@ -196,5 +197,8 @@ void printf_bootdev(u16 bootdev);
 
 // post_menu.c
 void interactive_bootmenu();
+
+// coreboot.c
+void coreboot_fill_map();
 
 #endif // util.h
