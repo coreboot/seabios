@@ -347,6 +347,6 @@ asm(
     "cld\n"
     "lidtl " __stringify(0xf0000 | OFFSET_pmode_IDT_info) "\n"
     "lgdtl " __stringify(0xf0000 | OFFSET_rombios32_gdt_48) "\n"
-    "movl $" __stringify(CONFIG_STACK_OFFSET) ", %esp\n"
+    "movl $" __stringify(BUILD_STACK_ADDR) ", %esp\n"
     "ljmp $0x10, $_start\n"
     );

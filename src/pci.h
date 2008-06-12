@@ -27,6 +27,22 @@ int pci_find_class(u32 classid, int index, PCIDevice *dev);
 
 
 /****************************************************************
+ * PCI definitions
+ ****************************************************************/
+
+#define PCI_VENDOR_ID		0x00	/* 16 bits */
+#define PCI_DEVICE_ID		0x02	/* 16 bits */
+#define PCI_COMMAND		0x04	/* 16 bits */
+#define  PCI_COMMAND_IO		0x1	/* Enable response in I/O space */
+#define  PCI_COMMAND_MEMORY	0x2	/* Enable response in Memory space */
+#define PCI_CLASS_DEVICE        0x0a    /* Device class */
+#define PCI_INTERRUPT_LINE	0x3c	/* 8 bits */
+#define PCI_INTERRUPT_PIN	0x3d	/* 8 bits */
+#define PCI_MIN_GNT		0x3e	/* 8 bits */
+#define PCI_MAX_LAT		0x3f	/* 8 bits */
+
+
+/****************************************************************
  * PIR table
  ****************************************************************/
 

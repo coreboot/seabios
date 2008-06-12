@@ -46,16 +46,25 @@
 #define CONFIG_MAX_ATA_INTERFACES 4
 #define CONFIG_MAX_ATA_DEVICES  (CONFIG_MAX_ATA_INTERFACES*2)
 
-#define CONFIG_STACK_SEGMENT 0x00
-#define CONFIG_STACK_OFFSET  0xfffe
-
 #define CONFIG_ACPI_DATA_SIZE 0x00010000L
 
 #define CONFIG_MODEL_ID      0xFC
 #define CONFIG_SUBMODEL_ID   0x00
 #define CONFIG_BIOS_REVISION 0x01
 
+// Various memory addresses used by the code.
+#define BUILD_STACK_ADDR        0xfffe
+#define BUILD_CPU_COUNT_ADDR    0xf000
+#define BUILD_AP_BOOT_ADDR      0x10000
+#define BUILD_BSS_ADDR          0x40000
+ /* 64 KB used to copy the BIOS to shadow RAM */
+#define BUILD_BIOS_TMP_ADDR     0x30000
+
+#define BUILD_PM_IO_BASE        0xb000
+#define BUILD_SMB_IO_BASE       0xb100
+#define BUILD_SMI_CMD_IO_ADDR   0xb2
+
 // Start of fixed addresses in 0xf0000 segment.
-#define CONFIG_START_FIXED 0xe050
+#define BUILD_START_FIXED       0xe050
 
 #endif // config.h

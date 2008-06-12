@@ -19,8 +19,7 @@ SECTIONS
         .text     : { *(.text)    }
         .rodata   : { *(.rodata)  }
         .data     : { *(.data)    }
-        // XXX - should change code so it doesn't require global variables.
-        . = 0x00040000;
+        . = BUILD_BSS_ADDR;
         __bss_start = . ;
         .bss      : { *(.bss) *(COMMON) }
         __bss_end = . ;

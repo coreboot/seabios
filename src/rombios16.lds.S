@@ -19,7 +19,7 @@ SECTIONS
                 *(.rodata.*)
                 *(.data)
                 bios16c_end = .;
-                . = CONFIG_START_FIXED;
+                . = BUILD_START_FIXED;
                 *(.text.fixed.addr)
                 }
 

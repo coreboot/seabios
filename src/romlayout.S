@@ -109,13 +109,13 @@
         .macro RESET_STACK
         xorw %ax, %ax
         movw %ax, %ss
-        movl $ CONFIG_STACK_OFFSET , %esp
+        movl $ BUILD_STACK_ADDR , %esp
         .endm
 
         // Specify a location in the fixed part of bios area.
         .macro ORG addr
         .section .text.fixed.addr
-        .org \addr - CONFIG_START_FIXED
+        .org \addr - BUILD_START_FIXED
         .endm
 
 
