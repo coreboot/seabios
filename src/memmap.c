@@ -69,36 +69,51 @@ add_e820(u64 start, u64 size, u32 type)
     int i;
     for (i=0; i<e820_count; i++) {
         struct e820entry *e = &e820_list[i];
-        if (end <= e->start)
+        if (end < e->start)
             // Simple insertion point.
             break;
         u64 e_end = e->start + e->size;
-        if (start >= e_end)
+        if (start > e_end)
             // No overlap.
             continue;
-        // New item overlaps with an existing one.
+        // New item overlaps (or borders) an existing one.
         if (start > e->start) {
             e->size = start - e->start;
             i++;
             if (end < e_end)
                 // Need to split existing item
                 insert_e820(i, end, e_end - end, e->type);
+            if (type == e->type) {
+                // Same type - merge them.
+                size += start - e->start;
+                start = e->start;
+                i--;
+                remove_e820(i);
+            }
         }
         insert_e820(i, start, size, type);
         i++;
         // Remove all existing items that are completely overlapped.
         while (i<e820_count) {
             e = &e820_list[i];
-            if (end <= e->start)
+            if (end < e->start)
+                // No overlap - done.
                 break;
             e_end = e->start + e->size;
-            if (end < e_end) {
-                // Existing item not completely overlapped - adjust its start.
-                e->start = end;
-                e->size = e_end - e->start;
-                break;
+            if (end >= e_end) {
+                // Existing item completely overlapped - remove it.
+                remove_e820(i);
+                continue;
             }
-            remove_e820(i);
+            // Not completely overlapped - adjust its start.
+            e->start = end;
+            e->size = e_end - e->start;
+            if (type == e->type) {
+                // Same type - merge them.
+                (e-1)->size += e->size;
+                remove_e820(i);
+            }
+            break;
         }
         //dump_map();
         return;
