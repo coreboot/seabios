@@ -14,39 +14,13 @@
  * PIR table
  ****************************************************************/
 
-struct pir {
-    u32 signature;
-    u16 version;
-    u16 size;
-    u8 router_bus;
-    u8 router_devfunc;
-    u16 exclusive_irqs;
-    u32 compatible_devid;
-    u32 miniport_data;
-    u8 reserved[11];
-    u8 checksum;
-} PACKED;
-
-struct link_info {
-    u8 link;
-    u16 bitmap;
-} PACKED;
-
-struct pir_slot {
-    u8 bus;
-    u8 dev;
-    struct link_info links[4];
-    u8 slot_nr;
-    u8 reserved;
-} PACKED;
-
 struct pir_table {
-    struct pir pir;
+    struct pir_header pir;
     struct pir_slot slots[6];
 } PACKED PIR_TABLE VISIBLE16 __attribute__((aligned(16))) = {
 #if CONFIG_PIRTABLE
     .pir = {
-        .signature = 0x52495024, // "$PIR"
+        .signature = PIR_SIGNATURE,
         .version = 0x0100,
         .size = sizeof(struct pir_table),
         .router_devfunc = 0x08,
