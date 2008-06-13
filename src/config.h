@@ -28,8 +28,10 @@
 #define CONFIG_KBD_CALL_INT15_4F 1
 #define CONFIG_CDROM_BOOT 1
 #define CONFIG_CDROM_EMU 1
-// Support built-in PIR table in 0xf000 segment
+// Support generation of a PIR table in 0xf000 segment (for emulators)
 #define CONFIG_PIRTABLE 1
+// Support generation of ACPI PIR tables (for emulators)
+#define CONFIG_ACPI 1
 // Support int 1a/b1 PCI BIOS calls
 #define CONFIG_PCIBIOS 1
 // Support int 15/53 APM BIOS calls

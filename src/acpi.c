@@ -281,6 +281,9 @@ acpi_build_processor_ssdt(u8 *ssdt)
 /* base_addr must be a multiple of 4KB */
 void acpi_bios_init(void)
 {
+    if (! CONFIG_ACPI)
+        return;
+
     // This code is hardcoded for PIIX4 Power Management device.
     PCIDevice d;
     int ret = pci_find_device(0x8086, 0x7113, 0, &d);
