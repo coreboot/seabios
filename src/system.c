@@ -310,7 +310,7 @@ handle_15XX(struct bregs *regs)
 void VISIBLE16
 handle_15(struct bregs *regs)
 {
-    //debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_15);
     switch (regs->ah) {
     case 0x24: handle_1524(regs); break;
     case 0x4f: handle_154f(regs); break;
@@ -334,7 +334,7 @@ handle_15(struct bregs *regs)
 void VISIBLE16
 handle_12(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_12);
     regs->ax = GET_BDA(mem_size_kb);
 }
 
@@ -342,7 +342,7 @@ handle_12(struct bregs *regs)
 void VISIBLE16
 handle_11(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_11);
     regs->ax = GET_BDA(equipment_list_flags);
 }
 
@@ -350,21 +350,21 @@ handle_11(struct bregs *regs)
 void VISIBLE16
 handle_05(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_05);
 }
 
 // INT 10h Video Support Service Entry Point
 void VISIBLE16
 handle_10(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_10);
     // dont do anything, since the VGA BIOS handles int10h requests
 }
 
 void VISIBLE16
 handle_nmi()
 {
-    debug_isr();
+    debug_isr(DEBUG_ISR_nmi);
     BX_PANIC("NMI Handler called\n");
 }
 
@@ -372,7 +372,7 @@ handle_nmi()
 void VISIBLE16
 handle_75()
 {
-    debug_isr();
+    debug_isr(DEBUG_ISR_75);
 
     // clear irq13
     outb(0, PORT_MATH_CLEAR);

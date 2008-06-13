@@ -276,7 +276,7 @@ handle_1aXX(struct bregs *regs)
 void VISIBLE16
 handle_1a(struct bregs *regs)
 {
-    //debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_1a);
     switch (regs->ah) {
     case 0x00: handle_1a00(regs); break;
     case 0x01: handle_1a01(regs); break;
@@ -295,14 +295,14 @@ handle_1a(struct bregs *regs)
 void VISIBLE16
 handle_1c()
 {
-    //debug_enter(regs);
+    debug_isr(DEBUG_ISR_1c);
 }
 
 // INT 08h System Timer ISR Entry Point
 void VISIBLE16
 handle_08()
 {
-    //debug_isr();
+    debug_isr(DEBUG_ISR_08);
     irq_enable();
 
     floppy_tick();
@@ -448,7 +448,7 @@ handle_1583(struct bregs *regs)
 void VISIBLE16
 handle_70()
 {
-    //debug_isr();
+    debug_isr(DEBUG_ISR_70);
 
     // Check which modes are enabled and have occurred.
     u8 registerB = inb_cmos(CMOS_STATUS_B);

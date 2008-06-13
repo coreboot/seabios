@@ -644,7 +644,7 @@ handle_legacy_disk(struct bregs *regs, u8 drive)
 void VISIBLE16
 handle_40(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_40);
     handle_legacy_disk(regs, regs->dl);
 }
 
@@ -652,7 +652,7 @@ handle_40(struct bregs *regs)
 void VISIBLE16
 handle_13(struct bregs *regs)
 {
-    //debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_13);
     u8 drive = regs->dl;
 
     if (CONFIG_CDROM_EMU) {
@@ -676,7 +676,7 @@ handle_13(struct bregs *regs)
 void VISIBLE16
 handle_76()
 {
-    //debug_isr();
+    debug_isr(DEBUG_ISR_76);
     SET_BDA(disk_interrupt_flag, 0xff);
     eoi_both_pics();
 }

@@ -120,12 +120,16 @@ void __debug_enter(const char *fname, struct bregs *regs);
 void __debug_fail(const char *fname, struct bregs *regs);
 void __debug_stub(const char *fname, struct bregs *regs);
 void __debug_isr(const char *fname);
-#define debug_enter(regs) \
-    __debug_enter(__func__, regs)
+#define debug_enter(regs, lvl) do {                     \
+        if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
+            __debug_enter(__func__, regs);              \
+    } while (0)
+#define debug_isr(lvl) do {                             \
+        if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
+            __debug_isr(__func__);                      \
+    } while (0)
 #define debug_stub(regs) \
     __debug_stub(__func__, regs)
-#define debug_isr(regs) \
-    __debug_isr(__func__)
 
 // Frequently used return codes
 #define RET_EUNSUPPORTED 0x86

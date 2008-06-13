@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "biosvar.h" // struct bregs
-#include "util.h" // debug_enter
+#include "util.h" // debug_isr
 
 #define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
 #define DEBUGF(fmt, args...)
@@ -415,7 +415,7 @@ int74_function()
 void VISIBLE16
 handle_74()
 {
-    //debug_isr();
+    debug_isr(DEBUG_ISR_74);
 
     irq_enable();
     int74_function();

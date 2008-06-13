@@ -390,7 +390,7 @@ set_leds()
 void VISIBLE16
 handle_16(struct bregs *regs)
 {
-    //debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_16);
 
     set_leds();
 
@@ -700,7 +700,7 @@ process_key(u8 scancode)
 void VISIBLE16
 handle_09()
 {
-    //debug_isr();
+    debug_isr(DEBUG_ISR_09);
 
     // disable keyboard
     outb(0xad, PORT_PS2_STATUS);

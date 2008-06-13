@@ -200,7 +200,7 @@ do_boot(u16 seq_nr)
 void VISIBLE16
 handle_18()
 {
-    debug_enter(NULL);
+    debug_enter(NULL, DEBUG_HDL_18);
     u16 seq = GET_EBDA(ipl.sequence) + 1;
     do_boot(seq);
 }
@@ -209,6 +209,6 @@ handle_18()
 void VISIBLE16
 handle_19()
 {
-    debug_enter(NULL);
+    debug_enter(NULL, DEBUG_HDL_19);
     do_boot(0);
 }

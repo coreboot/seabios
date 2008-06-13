@@ -149,7 +149,7 @@ handle_14XX(struct bregs *regs)
 void VISIBLE16
 handle_14(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_14);
 
     irq_enable();
 
@@ -278,7 +278,7 @@ handle_17XX(struct bregs *regs)
 void VISIBLE16
 handle_17(struct bregs *regs)
 {
-    debug_enter(regs);
+    debug_enter(regs, DEBUG_HDL_17);
 
     irq_enable();
 
