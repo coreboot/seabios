@@ -132,6 +132,15 @@ ata_reset(int driveid)
     // select device
     outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
     msleep(50);
+    u8 sc = inb(iobase1+ATA_CB_SC);
+    u8 sn = inb(iobase1+ATA_CB_SN);
+
+    // For predetermined ATA drives - wait for ready.
+    if (sc==0x01 && sn==0x01) {
+        u8 type=GET_EBDA(ata.devices[driveid].type);
+        if (type == ATA_TYPE_ATA)
+            await_ide(NOT_BSY_RDY, iobase1, IDE_TIMEOUT);
+    }
 
     // 8.2.1 (h) -- wait for not BSY
     status = await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
