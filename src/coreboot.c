@@ -6,10 +6,79 @@
 
 #include "memmap.h" // add_e820
 #include "util.h" // dprintf
+#include "pci.h" // struct pir_header
+#include "acpi.h" // struct rsdp_descriptor
 
 
 /****************************************************************
- * Memory interface
+ * BIOS table copying
+ ****************************************************************/
+
+static void
+copy_pir(void *pos)
+{
+    struct pir_header *p = pos;
+    if (p->signature != PIR_SIGNATURE)
+        return;
+    if (GET_EBDA(pir_loc))
+        return;
+    if (p->size < sizeof(*p))
+        return;
+    if (checksum(pos, p->size) != 0)
+        return;
+    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
+    if (bios_table_cur_addr + p->size > bios_table_end_addr) {
+        dprintf(1, "No room to copy PIR table!\n");
+        return;
+    }
+    dprintf(1, "Copying PIR from %p to %x\n", pos, bios_table_cur_addr);
+    memcpy((void*)bios_table_cur_addr, pos, p->size);
+    SET_EBDA(pir_loc, bios_table_cur_addr);
+    bios_table_cur_addr += p->size;
+}
+
+#define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
+
+static void
+copy_acpi_rsdp(void *pos)
+{
+    if (*(u64*)pos != RSDP_SIGNATURE)
+        return;
+    struct rsdp_descriptor *p = pos;
+    u32 length = 20;
+    if (checksum(pos, length) != 0)
+        return;
+    if (p->revision > 1) {
+        length = p->length;
+        if (checksum(pos, length) != 0)
+            return;
+    }
+    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
+    if (bios_table_cur_addr + length > bios_table_end_addr) {
+        dprintf(1, "No room to copy ACPI RSDP table!\n");
+        return;
+    }
+    dprintf(1, "Copying ACPI RSDP from %p to %x\n", pos, bios_table_cur_addr);
+    memcpy((void*)bios_table_cur_addr, pos, length);
+    bios_table_cur_addr += length;
+}
+
+// Attempt to find (and relocate) any standard bios tables found in a
+// given address range.
+void
+scan_tables(u32 start, u32 size)
+{
+    void *p = (void*)ALIGN(start, 16);
+    void *end = (void*)start + size;
+    for (; p<end; p += 16) {
+        copy_pir(p);
+        copy_acpi_rsdp(p);
+    }
+}
+
+
+/****************************************************************
+ * Memory map
  ****************************************************************/
 
 struct cb_header {
@@ -67,7 +136,6 @@ find_cb_header(char *addr, int len)
         struct cb_header *cbh = (struct cb_header *)addr;
         if (cbh->signature != CB_SIGNATURE)
             continue;
-        dprintf(1, "sig %p=%x\n", addr, cbh->signature);
         if (! cbh->table_bytes)
             continue;
         if (ipchksum(addr, sizeof(*cbh)) != 0)
@@ -81,15 +149,15 @@ find_cb_header(char *addr, int len)
 }
 
 // Try to find the coreboot memory table in the given coreboot table.
-static struct cb_memory *
-find_cb_memory(struct cb_header *cbh)
+static void *
+find_cb_subtable(struct cb_header *cbh, u32 tag)
 {
     char *tbl = (char *)cbh + sizeof(*cbh);
     int i;
     for (i=0; i<cbh->table_entries; i++) {
         struct cb_memory *cbm = (struct cb_memory *)tbl;
         tbl += cbm->size;
-        if (cbm->tag == CB_TAG_MEMORY)
+        if (cbm->tag == tag)
             return cbm;
     }
     return NULL;
@@ -103,7 +171,7 @@ coreboot_fill_map()
     struct cb_header *cbh = find_cb_header(0, 0x1000);
     if (!cbh)
         goto fail;
-    struct cb_memory *cbm = find_cb_memory(cbh);
+    struct cb_memory *cbm = find_cb_subtable(cbh, CB_TAG_MEMORY);
     if (!cbm)
         goto fail;
 
@@ -112,8 +180,10 @@ coreboot_fill_map()
     for (i=0; i<count; i++) {
         struct cb_memory_range *m = &cbm->map[i];
         u32 type = m->type;
-        if (type == CB_MEM_TABLE)
+        if (type == CB_MEM_TABLE) {
             type = E820_RESERVED;
+            scan_tables(m->start, m->size);
+        }
         if ((type == E820_ACPI || type == E820_RAM)
             && (m->start + m->size) > maxram)
             maxram = m->start + m->size;
