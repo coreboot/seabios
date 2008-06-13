@@ -262,6 +262,7 @@ struct extended_bios_data_area_s {
     u32 ram_size;
     u16 e820_count;
     u32 e820_loc;
+    u32 pir_loc;
 
     // ATA Driver data
     struct ata_s   ata;

@@ -1173,6 +1173,8 @@ void rombios32_init(void)
 
     pci_bios_init();
 
+    create_pirtable();
+
     if (bios_table_cur_addr != 0) {
 
         mptable_init();

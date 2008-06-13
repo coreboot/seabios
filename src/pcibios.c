@@ -1,4 +1,4 @@
-// Low level ATA disk access
+// PCI BIOS (int 1a/b1) calls
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
@@ -8,95 +8,6 @@
 #include "types.h" // u32
 #include "util.h" // handle_1ab1
 #include "pci.h" // pci_config_readl
-
-
-/****************************************************************
- * PIR table
- ****************************************************************/
-
-struct pir_table {
-    struct pir_header pir;
-    struct pir_slot slots[6];
-} PACKED PIR_TABLE VISIBLE16 __attribute__((aligned(16))) = {
-#if CONFIG_PIRTABLE
-    .pir = {
-        .signature = PIR_SIGNATURE,
-        .version = 0x0100,
-        .size = sizeof(struct pir_table),
-        .router_devfunc = 0x08,
-        .compatible_devid = 0x122e8086,
-        .checksum = 0x37, // XXX - should auto calculate
-    },
-    .slots = {
-        {
-            // first slot entry PCI-to-ISA (embedded)
-            .dev = 1<<3,
-            .links = {
-                {.link = 0x60, .bitmap = 0xdef8}, // INTA#
-                {.link = 0x61, .bitmap = 0xdef8}, // INTB#
-                {.link = 0x62, .bitmap = 0xdef8}, // INTC#
-                {.link = 0x63, .bitmap = 0xdef8}, // INTD#
-            },
-            .slot_nr = 0, // embedded
-        }, {
-            // second slot entry: 1st PCI slot
-            .dev = 2<<3,
-            .links = {
-                {.link = 0x61, .bitmap = 0xdef8}, // INTA#
-                {.link = 0x62, .bitmap = 0xdef8}, // INTB#
-                {.link = 0x63, .bitmap = 0xdef8}, // INTC#
-                {.link = 0x60, .bitmap = 0xdef8}, // INTD#
-            },
-            .slot_nr = 1,
-        }, {
-            // third slot entry: 2nd PCI slot
-            .dev = 3<<3,
-            .links = {
-                {.link = 0x62, .bitmap = 0xdef8}, // INTA#
-                {.link = 0x63, .bitmap = 0xdef8}, // INTB#
-                {.link = 0x60, .bitmap = 0xdef8}, // INTC#
-                {.link = 0x61, .bitmap = 0xdef8}, // INTD#
-            },
-            .slot_nr = 2,
-        }, {
-            // 4th slot entry: 3rd PCI slot
-            .dev = 4<<3,
-            .links = {
-                {.link = 0x63, .bitmap = 0xdef8}, // INTA#
-                {.link = 0x60, .bitmap = 0xdef8}, // INTB#
-                {.link = 0x61, .bitmap = 0xdef8}, // INTC#
-                {.link = 0x62, .bitmap = 0xdef8}, // INTD#
-            },
-            .slot_nr = 3,
-        }, {
-            // 5th slot entry: 4rd PCI slot
-            .dev = 5<<3,
-            .links = {
-                {.link = 0x60, .bitmap = 0xdef8}, // INTA#
-                {.link = 0x61, .bitmap = 0xdef8}, // INTB#
-                {.link = 0x62, .bitmap = 0xdef8}, // INTC#
-                {.link = 0x63, .bitmap = 0xdef8}, // INTD#
-            },
-            .slot_nr = 4,
-        }, {
-            // 6th slot entry: 5rd PCI slot
-            .dev = 6<<3,
-            .links = {
-                {.link = 0x61, .bitmap = 0xdef8}, // INTA#
-                {.link = 0x62, .bitmap = 0xdef8}, // INTB#
-                {.link = 0x63, .bitmap = 0xdef8}, // INTC#
-                {.link = 0x60, .bitmap = 0xdef8}, // INTD#
-            },
-            .slot_nr = 5,
-        },
-    }
-#endif // CONFIG_PIRTABLE
-};
-
-
-/****************************************************************
- * Helper functions
- ****************************************************************/
 
 #define RET_FUNC_NOT_SUPPORTED 0x81
 #define RET_BAD_VENDOR_ID      0x83
@@ -198,14 +109,16 @@ handle_1ab10d(struct bregs *regs)
 static void
 handle_1ab10e(struct bregs *regs)
 {
-    if (! CONFIG_PIRTABLE) {
+    struct pir_header *pirtable_far = (struct pir_header*)GET_EBDA(pir_loc);
+    if (! pirtable_far) {
         set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
         return;
     }
 
     // Validate and update size.
     u16 size = GET_FARVAR(regs->es, *(u16*)(regs->di+0));
-    u32 pirsize = sizeof(PIR_TABLE.slots);
+    u16 pirsize = (GET_FARPTR(pirtable_far->size)
+                   - sizeof(struct pir_header));
     SET_FARVAR(regs->es, *(u16*)(regs->di+0), pirsize);
     if (size < pirsize) {
         set_code_fail(regs, RET_BUFFER_TOO_SMALL);
@@ -213,19 +126,14 @@ handle_1ab10e(struct bregs *regs)
     }
 
     // Get dest buffer.
-    u8 *d = (u8*)(GET_FARVAR(regs->es, *(u16*)(regs->di+2)) + 0);
+    u16 d = (GET_FARVAR(regs->es, *(u16*)(regs->di+2)) + 0);
     u16 destseg = GET_FARVAR(regs->es, *(u16*)(regs->di+4));
 
     // Memcpy pir table slots to dest buffer.
-    u8 *p = (u8*)PIR_TABLE.slots;
-    u8 *end = p + pirsize;
-    for (; p<end; p++, d++) {
-        u8 c = GET_VAR(CS, *p);
-        SET_FARVAR(destseg, *d, c);
-    }
+    memcpy(MAKE_FARPTR(destseg, d), pirtable_far, pirsize);
 
     // XXX - bochs bios sets bx to (1 << 9) | (1 << 11)
-    regs->bx = GET_VAR(CS, PIR_TABLE.pir.exclusive_irqs);
+    regs->bx = GET_FARPTR(pirtable_far->exclusive_irqs);
     set_code_success(regs);
 }
 
