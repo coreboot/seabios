@@ -10,6 +10,7 @@
 #include "ioport.h" // inb
 #include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
+#include "pic.h" // unmask_pic2
 
 #define TIMEOUT 0
 #define BSY 1
@@ -947,4 +948,7 @@ hard_drive_setup()
     SET_BDA(disk_count, GET_EBDA(ata.hdcount));
 
     SET_BDA(disk_control_byte, 0xc0);
+
+    // Enable IRQ14 (handle_76)
+    unmask_pic2(PIC2_IRQ14);
 }

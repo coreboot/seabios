@@ -9,6 +9,7 @@
 #include "util.h" // debug_enter
 #include "disk.h" // floppy_tick
 #include "cmos.h" // inb_cmos
+#include "pic.h" // unmask_pic1
 
 #define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
 #define DEBUGF(fmt, args...)
@@ -55,6 +56,9 @@ timer_setup()
     ticks += (hours * 65543427) / 1000;
     SET_BDA(timer_counter, ticks);
     SET_BDA(timer_rollover, 0);
+
+    // Enable IRQ0 (handle_08)
+    unmask_pic1(PIC1_IRQ0);
 }
 
 static void
@@ -237,7 +241,7 @@ handle_1a06(struct bregs *regs)
     outb_cmos(regs->dh, CMOS_RTC_SECONDS_ALARM);
     outb_cmos(regs->cl, CMOS_RTC_MINUTES_ALARM);
     outb_cmos(regs->ch, CMOS_RTC_HOURS_ALARM);
-    outb(inb(PORT_PIC2_DATA) & ~PIC2_IRQ8, PORT_PIC2_DATA); // enable IRQ 8
+    unmask_pic2(PIC2_IRQ8); // enable IRQ 8
     // enable Status Reg B alarm bit, clear halt clock bit
     outb_cmos((val8 & ~RTC_B_SET) | RTC_B_AIE, CMOS_STATUS_B);
     set_success(regs);
@@ -325,7 +329,7 @@ handle_08()
 
     irq_disable();
 
-    eoi_master_pic();
+    eoi_pic1();
 }
 
 
@@ -345,8 +349,7 @@ set_usertimer(u32 usecs, u16 seg, u16 offset)
     SET_BDA(user_wait_timeout, usecs);
 
     // Unmask IRQ8 so INT70 will get through.
-    u8 irqDisable = inb(PORT_PIC2_DATA);
-    outb(irqDisable & ~PIC2_IRQ8, PORT_PIC2_DATA);
+    unmask_pic2(PIC2_IRQ8);
     // Turn on the Periodic Interrupt timer
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
     outb_cmos(bRegister | RTC_B_PIE, CMOS_STATUS_B);
@@ -489,5 +492,5 @@ handle_70()
     }
 
 done:
-    eoi_both_pics();
+    eoi_pic2();
 }

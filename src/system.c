@@ -9,6 +9,7 @@
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
 #include "memmap.h" // E820_RAM
+#include "pic.h" // eoi_pic2
 
 // Use PS2 System Control port A to set A20 enable
 static inline u8
@@ -368,6 +369,16 @@ handle_nmi()
     BX_PANIC("NMI Handler called\n");
 }
 
+void
+mathcp_setup()
+{
+    dprintf(3, "math cp init\n");
+    // 80x87 coprocessor installed
+    SETBITS_BDA(equipment_list_flags, 0x02);
+    // Enable IRQ13 (handle_75)
+    unmask_pic2(PIC2_IRQ13);
+}
+
 // INT 75 - IRQ13 - MATH COPROCESSOR EXCEPTION
 void VISIBLE16
 handle_75()
@@ -377,7 +388,7 @@ handle_75()
     // clear irq13
     outb(0, PORT_MATH_CLEAR);
     // clear interrupt
-    eoi_both_pics();
+    eoi_pic2();
     // legacy nmi call
     struct bregs br;
     memset(&br, 0, sizeof(br));

@@ -56,19 +56,6 @@ void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 void *memmove(void *d, const void *s, size_t len);
 
-static inline void
-eoi_master_pic()
-{
-    outb(PIC1_IRQ5, PORT_PIC1);
-}
-
-static inline void
-eoi_both_pics()
-{
-    outb(PIC2_IRQ13, PORT_PIC2);
-    eoi_master_pic();
-}
-
 // Call a function with a specified register state.  Note that on
 // return, the interrupt enable/disable flag may be altered.
 static inline
@@ -169,6 +156,12 @@ void __set_code_fail(const char *fname, struct bregs *regs, u8 code);
 
 // kbd.c
 void handle_15c2(struct bregs *regs);
+
+// mouse.c
+void mouse_setup();
+
+// system.c
+void mathcp_setup();
 
 // serial.c
 void serial_setup();

@@ -15,6 +15,7 @@
 #include "kbd.h" // kbd_setup
 #include "disk.h" // floppy_drive_setup
 #include "memmap.h" // add_e820
+#include "pic.h" // pic_setup
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
@@ -25,42 +26,39 @@ init_bda()
     dprintf(3, "init bda\n");
     memset(bda, 0, sizeof(*bda));
 
+    SET_BDA(mem_size_kb, BASE_MEM_IN_K);
+
     int i;
     for (i=0; i<256; i++) {
         SET_BDA(ivecs[i].seg, SEG_BIOS);
         SET_BDA(ivecs[i].offset, OFFSET_dummy_iret_handler);
     }
 
-    SET_BDA(mem_size_kb, BASE_MEM_IN_K);
-
-    // Set BDA Equipment Word - 0x06 = FPU enable, mouse installed
-    SET_BDA(equipment_list_flags, 0x06);
+    SET_BDA(ivecs[0x08].offset, OFFSET_entry_08);
+    SET_BDA(ivecs[0x09].offset, OFFSET_entry_09);
+    SET_BDA(ivecs[0x0e].offset, OFFSET_entry_0e);
+    SET_BDA(ivecs[0x10].offset, OFFSET_entry_10);
+    SET_BDA(ivecs[0x11].offset, OFFSET_entry_11);
+    SET_BDA(ivecs[0x12].offset, OFFSET_entry_12);
+    SET_BDA(ivecs[0x13].offset, OFFSET_entry_13);
+    SET_BDA(ivecs[0x14].offset, OFFSET_entry_14);
+    SET_BDA(ivecs[0x15].offset, OFFSET_entry_15);
+    SET_BDA(ivecs[0x16].offset, OFFSET_entry_16);
+    SET_BDA(ivecs[0x17].offset, OFFSET_entry_17);
+    SET_BDA(ivecs[0x18].offset, OFFSET_entry_18);
+    SET_BDA(ivecs[0x19].offset, OFFSET_entry_19);
+    SET_BDA(ivecs[0x1a].offset, OFFSET_entry_1a);
+    SET_BDA(ivecs[0x1c].offset, OFFSET_entry_1c);
+    SET_BDA(ivecs[0x40].offset, OFFSET_entry_40);
+    SET_BDA(ivecs[0x70].offset, OFFSET_entry_70);
+    SET_BDA(ivecs[0x74].offset, OFFSET_entry_74);
+    SET_BDA(ivecs[0x75].offset, OFFSET_entry_75);
+    SET_BDA(ivecs[0x76].offset, OFFSET_entry_76);
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_BDA(ivecs[0x79].seg, 0);
     SET_BDA(ivecs[0x79].offset, 0);
-
-    SET_BDA(ivecs[0x40].offset, OFFSET_entry_40);
-    SET_BDA(ivecs[0x0e].offset, OFFSET_entry_0e);
-    SET_BDA(ivecs[0x13].offset, OFFSET_entry_13);
-    SET_BDA(ivecs[0x76].offset, OFFSET_entry_76);
-    SET_BDA(ivecs[0x17].offset, OFFSET_entry_17);
-    SET_BDA(ivecs[0x18].offset, OFFSET_entry_18);
-    SET_BDA(ivecs[0x19].offset, OFFSET_entry_19);
-    SET_BDA(ivecs[0x1c].offset, OFFSET_entry_1c);
-    SET_BDA(ivecs[0x12].offset, OFFSET_entry_12);
-    SET_BDA(ivecs[0x11].offset, OFFSET_entry_11);
-    SET_BDA(ivecs[0x15].offset, OFFSET_entry_15);
-    SET_BDA(ivecs[0x08].offset, OFFSET_entry_08);
-    SET_BDA(ivecs[0x09].offset, OFFSET_entry_09);
-    SET_BDA(ivecs[0x16].offset, OFFSET_entry_16);
-    SET_BDA(ivecs[0x14].offset, OFFSET_entry_14);
-    SET_BDA(ivecs[0x1a].offset, OFFSET_entry_1a);
-    SET_BDA(ivecs[0x70].offset, OFFSET_entry_70);
-    SET_BDA(ivecs[0x74].offset, OFFSET_entry_74);
-    SET_BDA(ivecs[0x75].offset, OFFSET_entry_75);
-    SET_BDA(ivecs[0x10].offset, OFFSET_entry_10);
 
     SET_BDA(ivecs[0x1E].offset, OFFSET_diskette_param_table2);
 }
@@ -107,25 +105,6 @@ ram_probe(void)
     add_e820((u32)MAKE_FARPTR(SEG_BIOS, 0), 0x10000, E820_RESERVED);
 
     dprintf(1, "ram_size=0x%08x\n", GET_EBDA(ram_size));
-}
-
-static void
-pic_setup()
-{
-    dprintf(3, "init pic\n");
-    outb(0x11, PORT_PIC1);
-    outb(0x11, PORT_PIC2);
-    outb(0x08, PORT_PIC1_DATA);
-    outb(0x70, PORT_PIC2_DATA);
-    outb(0x04, PORT_PIC1_DATA);
-    outb(0x02, PORT_PIC2_DATA);
-    outb(0x01, PORT_PIC1_DATA);
-    outb(0x01, PORT_PIC2_DATA);
-    outb(0xb8, PORT_PIC1_DATA);
-    if (CONFIG_PS2_MOUSE)
-        outb(0x8f, PORT_PIC2_DATA);
-    else
-        outb(0x9f, PORT_PIC2_DATA);
 }
 
 static void
@@ -232,11 +211,13 @@ post()
     init_bda();
     init_ebda();
 
+    pic_setup();
     timer_setup();
     kbd_setup();
     lpt_setup();
     serial_setup();
-    pic_setup();
+    mouse_setup();
+    mathcp_setup();
 
     memmap_setup();
 
@@ -301,7 +282,7 @@ check_restart_status()
 
     // XXX - this is supposed to jump without changing any memory -
     // but the stack has been altered by the time the code gets here.
-    eoi_both_pics();
+    eoi_pic2();
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.cs = GET_BDA(jump_cs_ip) >> 16;

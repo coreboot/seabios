@@ -14,7 +14,7 @@
 #define PORT_DMA1_MODE_REG     0x000b
 #define PORT_DMA1_CLEAR_FF_REG 0x000c
 #define PORT_DMA1_MASTER_CLEAR 0x000d
-#define PORT_PIC1              0x0020
+#define PORT_PIC1_CMD          0x0020
 #define PORT_PIC1_DATA         0x0021
 #define PORT_PIT_COUNTER0      0x0040
 #define PORT_PIT_COUNTER1      0x0041
@@ -28,7 +28,7 @@
 #define PORT_DIAG              0x0080
 #define PORT_DMA_PAGE_2        0x0081
 #define PORT_A20               0x0092
-#define PORT_PIC2              0x00a0
+#define PORT_PIC2_CMD          0x00a0
 #define PORT_PIC2_DATA         0x00a1
 #define PORT_DMA2_MASK_REG     0x00d4
 #define PORT_DMA2_MODE_REG     0x00d6
@@ -43,12 +43,6 @@
 #define PORT_PCI_DATA          0x0cfc
 #define PORT_BIOS_DEBUG        0x0403
 #define PORT_BIOS_APM          0x8900
-
-// PORT_PIC1 bitdefs
-#define PIC1_IRQ5  (1<<5)
-// PORT_PIC2 bitdefs
-#define PIC2_IRQ8  (1<<0)
-#define PIC2_IRQ13 (1<<5)
 
 // PORT_KBD_CTRLB bitdefs
 #define KBD_REFRESH (1<<4)

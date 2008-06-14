@@ -11,6 +11,7 @@
 #include "biosvar.h" // struct bregs
 #include "util.h" // irq_disable
 #include "cmos.h" // inb_cmos
+#include "pic.h" // unmask_pic1
 
 #define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
 #define DEBUGF(fmt, args...)
@@ -43,6 +44,8 @@ struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
 void
 floppy_drive_setup()
 {
+    if (! CONFIG_FLOPPY_SUPPORT)
+        return;
     dprintf(3, "init floppy drives\n");
     u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
     u8 out = 0;
@@ -67,6 +70,9 @@ floppy_drive_setup()
         SETBITS_BDA(equipment_list_flags, 0x41);
 
     outb(0x02, PORT_DMA1_MASK_REG);
+
+    // Enable IRQ6 (handle_0e)
+    unmask_pic1(PIC1_IRQ6);
 }
 
 static inline void
@@ -753,7 +759,7 @@ handle_0e()
             inb(PORT_FD_DATA);
         } while ((inb(PORT_FD_STATUS) & 0xc0) == 0xc0);
     }
-    eoi_master_pic();
+    eoi_pic1();
     // diskette interrupt has occurred
     SETBITS_BDA(floppy_recalibration_status, FRS_TIMEOUT);
 }

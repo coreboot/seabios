@@ -7,11 +7,24 @@
 
 #include "biosvar.h" // struct bregs
 #include "util.h" // debug_isr
+#include "pic.h" // unmask_pic2
 
 #define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
 #define DEBUGF(fmt, args...)
 
 static char panic_msg_keyb_buffer_full[] = "%s: keyboard input buffer full\n";
+
+void
+mouse_setup()
+{
+    if (! CONFIG_PS2_MOUSE)
+        return;
+    dprintf(3, "init mouse\n");
+    // pointing device installed
+    SETBITS_BDA(equipment_list_flags, 0x04);
+    // Enable IRQ12 (handle_74)
+    unmask_pic2(PIC2_IRQ12);
+}
 
 static void
 set_kbd_command_byte(u8 command_byte)
@@ -421,5 +434,5 @@ handle_74()
     int74_function();
     irq_disable();
 
-    eoi_both_pics();
+    eoi_pic2();
 }

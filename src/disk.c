@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "util.h" // debug_enter
 #include "ata.h" // ATA_*
+#include "pic.h" // eoi_pic2
 
 #define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
 #define DEBUGF(fmt, args...)
@@ -678,5 +679,5 @@ handle_76()
 {
     debug_isr(DEBUG_ISR_76);
     SET_BDA(disk_interrupt_flag, 0xff);
-    eoi_both_pics();
+    eoi_pic2();
 }

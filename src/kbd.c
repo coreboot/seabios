@@ -8,6 +8,7 @@
 #include "biosvar.h" // struct bregs
 #include "util.h" // debug_enter
 #include "config.h" // CONFIG_*
+#include "pic.h" // eoi_pic1
 
 //--------------------------------------------------------------------------
 // keyboard_panic
@@ -160,6 +161,9 @@ kbd_setup()
             , x + FIELD_SIZEOF(struct bios_data_area_s, kbd_buf));
 
     keyboard_init();
+
+    // Enable IRQ1 (handle_09)
+    unmask_pic1(PIC1_IRQ1);
 }
 
 static u8
@@ -705,8 +709,8 @@ handle_09()
     // disable keyboard
     outb(0xad, PORT_PS2_STATUS);
 
-    outb(0x0b, PORT_PIC1);
-    if ((inb(PORT_PIC1) & 0x02) == 0)
+    // Make sure there really is a keyboard irq pending.
+    if (! (get_pic1_isr() & PIC1_IRQ1))
         goto done;
 
     // read key from keyboard controller
@@ -727,7 +731,7 @@ handle_09()
     process_key(key);
 
     irq_disable();
-    eoi_master_pic();
+    eoi_pic1();
 
 done:
     // enable keyboard
