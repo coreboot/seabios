@@ -4,6 +4,8 @@
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
+#ifndef __PIC_H
+#define __PIC_H
 
 #include "ioport.h" // PORT_PIC*
 #include "util.h" // dprintf
@@ -75,3 +77,5 @@ pic_setup()
     outb(~PIC1_IRQ2, PORT_PIC1_DATA);
     outb(~0, PORT_PIC2_DATA);
 }
+
+#endif // pic.h
