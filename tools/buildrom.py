@@ -81,7 +81,7 @@ def main():
 
     # Build elf file with 32bit entry point
     os.system(
-        "ld -melf_i386 -e %s -Ttext 0xf0000 -b binary %s -o %s" % (
+        "ld -melf_i386 -e %s -Tdata 0xf0000 -b binary %s -o %s" % (
             int(o32['OFFSET_post32'], 16), OUT, OUT+".elf"))
 
 if __name__ == '__main__':
