@@ -8,6 +8,7 @@
 #define E820_ACPI         3
 #define E820_NVS          4
 #define E820_UNUSABLE     5
+#define E820_HOLE         ((u32)-1) // Useful for removing entries
 
 struct e820entry {
     u64 start;

@@ -91,8 +91,10 @@ add_e820(u64 start, u64 size, u32 type)
                 remove_e820(i);
             }
         }
-        insert_e820(i, start, size, type);
-        i++;
+        if (type != E820_HOLE) {
+            insert_e820(i, start, size, type);
+            i++;
+        }
         // Remove all existing items that are completely overlapped.
         while (i<e820_count) {
             e = &e820_list[i];

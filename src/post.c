@@ -100,6 +100,9 @@ ram_probe(void)
         add_e820(0xfffc0000, 256*1024, E820_RESERVED);
     }
 
+    // Don't declare any memory between 0xa0000 and 0x100000
+    add_e820(0xa0000, 0x50000, E820_HOLE);
+
     // Mark known areas as reserved.
     add_e820((u32)MAKE_FARPTR(SEG_EBDA, 0), EBDA_SIZE * 1024, E820_RESERVED);
     add_e820((u32)MAKE_FARPTR(SEG_BIOS, 0), 0x10000, E820_RESERVED);
