@@ -446,6 +446,9 @@ entry_18:
         ORG 0xe82e
         IRQ_ENTRY_ARG 16
 
+entry_hwirq:
+        ENTRY handle_hwirq
+
         ORG 0xe987
         IRQ_ENTRY 09
 

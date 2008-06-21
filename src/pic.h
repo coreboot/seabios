@@ -49,6 +49,18 @@ unmask_pic2(u8 irq)
     outb(inb(PORT_PIC2_DATA) & ~irq, PORT_PIC2_DATA);
 }
 
+static inline void
+mask_pic1(u8 irq)
+{
+    outb(inb(PORT_PIC1_DATA) | irq, PORT_PIC1_DATA);
+}
+
+static inline void
+mask_pic2(u8 irq)
+{
+    outb(inb(PORT_PIC2_DATA) | irq, PORT_PIC2_DATA);
+}
+
 static inline u8
 get_pic1_isr()
 {
@@ -57,25 +69,14 @@ get_pic1_isr()
     return inb(PORT_PIC1_CMD);
 }
 
-static inline void
-pic_setup()
+static inline u8
+get_pic2_isr()
 {
-    dprintf(3, "init pic\n");
-    // Send ICW1 (select OCW1 + will send ICW4)
-    outb(0x11, PORT_PIC1_CMD);
-    outb(0x11, PORT_PIC2_CMD);
-    // Send ICW2 (base irqs: 0x08-0x0f for irq0-7, 0x70-0x78 for irq8-15)
-    outb(0x08, PORT_PIC1_DATA);
-    outb(0x70, PORT_PIC2_DATA);
-    // Send ICW3 (cascaded pic ids)
-    outb(0x04, PORT_PIC1_DATA);
-    outb(0x02, PORT_PIC2_DATA);
-    // Send ICW4 (enable 8086 mode)
-    outb(0x01, PORT_PIC1_DATA);
-    outb(0x01, PORT_PIC2_DATA);
-    // Mask all irqs (except cascaded PIC2 irq)
-    outb(~PIC1_IRQ2, PORT_PIC1_DATA);
-    outb(~0, PORT_PIC2_DATA);
+    // 0x0b == select OCW1 + read ISR
+    outb(0x0b, PORT_PIC2_CMD);
+    return inb(PORT_PIC2_CMD);
 }
+
+void pic_setup();
 
 #endif // pic.h

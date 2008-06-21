@@ -36,7 +36,12 @@ init_bda()
 
     SET_BDA(ivecs[0x08].offset, OFFSET_entry_08);
     SET_BDA(ivecs[0x09].offset, OFFSET_entry_09);
+    //SET_BDA(ivecs[0x0a].offset, OFFSET_entry_hwirq);
+    //SET_BDA(ivecs[0x0b].offset, OFFSET_entry_hwirq);
+    //SET_BDA(ivecs[0x0c].offset, OFFSET_entry_hwirq);
+    //SET_BDA(ivecs[0x0d].offset, OFFSET_entry_hwirq);
     SET_BDA(ivecs[0x0e].offset, OFFSET_entry_0e);
+    //SET_BDA(ivecs[0x0f].offset, OFFSET_entry_hwirq);
     SET_BDA(ivecs[0x10].offset, OFFSET_entry_10);
     SET_BDA(ivecs[0x11].offset, OFFSET_entry_11);
     SET_BDA(ivecs[0x12].offset, OFFSET_entry_12);
@@ -51,9 +56,13 @@ init_bda()
     SET_BDA(ivecs[0x1c].offset, OFFSET_entry_1c);
     SET_BDA(ivecs[0x40].offset, OFFSET_entry_40);
     SET_BDA(ivecs[0x70].offset, OFFSET_entry_70);
+    //SET_BDA(ivecs[0x71].offset, OFFSET_entry_hwirq);
+    //SET_BDA(ivecs[0x72].offset, OFFSET_entry_hwirq);
+    //SET_BDA(ivecs[0x73].offset, OFFSET_entry_hwirq);
     SET_BDA(ivecs[0x74].offset, OFFSET_entry_74);
     SET_BDA(ivecs[0x75].offset, OFFSET_entry_75);
     SET_BDA(ivecs[0x76].offset, OFFSET_entry_76);
+    //SET_BDA(ivecs[0x77].offset, OFFSET_entry_hwirq);
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
