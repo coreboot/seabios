@@ -105,7 +105,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     regs->al = GET_EBDA(ata.trsfsectors);
 
     if (status != 0) {
-        dprintf(1, "int13_harddisk: function %02x, error %02x !\n"
+        dprintf(1, "int13_harddisk: function %02x, error %d!\n"
                 , regs->ah, status);
         disk_ret(regs, DISK_RET_EBADTRACK);
     }
@@ -139,7 +139,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
     irq_enable();
 
-    u8 status;
+    int status;
     if (type == ATA_TYPE_ATA)
         status = ata_cmd_data(device, command, lba, count, far_buffer);
     else
@@ -150,7 +150,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     SET_INT13EXT(regs, count, GET_EBDA(ata.trsfsectors));
 
     if (status != 0) {
-        dprintf(1, "int13_harddisk: function %02x, error %02x !\n"
+        dprintf(1, "int13_harddisk: function %02x, error %d!\n"
                 , regs->ah, status);
         disk_ret(regs, DISK_RET_EBADTRACK);
         return;
