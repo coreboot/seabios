@@ -37,7 +37,27 @@ copy_pir(void *pos)
     bios_table_cur_addr += p->size;
 }
 
-#define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
+static void
+copy_mptable(void *pos)
+{
+    struct mptable_floating_s *p = pos;
+    if (p->signature != MPTABLE_SIGNAURE)
+        return;
+    if (!p->physaddr)
+        return;
+    if (checksum(pos, sizeof(*p)) != 0)
+        return;
+    u32 length = p->length * 16;
+    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
+    if (bios_table_cur_addr + length > bios_table_end_addr) {
+        dprintf(1, "No room to copy MPTABLE!\n");
+        return;
+    }
+    dprintf(1, "Copying MPTABLE from %p to %x\n", pos, bios_table_cur_addr);
+    memcpy((void*)bios_table_cur_addr, pos, length);
+    SET_EBDA(pir_loc, bios_table_cur_addr);
+    bios_table_cur_addr += length;
+}
 
 static void
 copy_acpi_rsdp(void *pos)
@@ -72,6 +92,7 @@ scan_tables(u32 start, u32 size)
     void *end = (void*)start + size;
     for (; p<end; p += 16) {
         copy_pir(p);
+        copy_mptable(p);
         copy_acpi_rsdp(p);
     }
 }

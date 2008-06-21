@@ -8,6 +8,8 @@ void acpi_bios_init(void);
 // XXX - move to better header.
 extern int smp_cpus;
 
+#define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
+
 struct rsdp_descriptor         /* Root System Descriptor Pointer */
 {
 	u8                            signature [8];          /* ACPI signature, contains "RSD PTR " */
@@ -20,5 +22,19 @@ struct rsdp_descriptor         /* Root System Descriptor Pointer */
 	u8                              extended_checksum;      /* Checksum of entire table */
 	u8                            reserved [3];           /* Reserved field must be 0 */
 };
+
+// XXX - not really part of acpi.
+struct mptable_floating_s {
+    u32 signature;
+    u32 physaddr;
+    u8 length;
+    u8 spec_rev;
+    u8 checksum;
+    u8 feature1;
+    u8 feature2;
+    u8 reserved[3];
+};
+
+#define MPTABLE_SIGNAURE 0x5f504d5f  // "_MP_"
 
 #endif // acpi.h
