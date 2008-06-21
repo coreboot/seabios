@@ -7,6 +7,9 @@
 
 #include "pci.h" // PCIDevice
 #include "ioport.h" // outl
+#include "util.h" // dprintf
+
+#define MAX_BUS 1
 
 void pci_config_writel(PCIDevice d, u32 addr, u32 val)
 {
@@ -53,20 +56,22 @@ u8 pci_config_readb(PCIDevice d, u32 addr)
 int
 pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev)
 {
-    int devfn;
+    int devfn, bus;
     u32 id = (devid << 16) | vendid;
-    for (devfn=0; devfn<0x100; devfn++) {
-        PCIDevice d = pci_bd(0, devfn);
-        u32 v = pci_config_readl(d, 0x00);
-        if (v != id)
-            continue;
-        if (index) {
-            index--;
-            continue;
+    for (bus=0; bus < MAX_BUS; bus++) {
+        for (devfn=0; devfn<0x100; devfn++) {
+            PCIDevice d = pci_bd(bus, devfn);
+            u32 v = pci_config_readl(d, 0x00);
+            if (v != id)
+                continue;
+            if (index) {
+                index--;
+                continue;
+            }
+            // Found it.
+            *dev = d;
+            return 0;
         }
-        // Found it.
-        *dev = d;
-        return 0;
     }
     return -1;
 }
@@ -74,20 +79,22 @@ pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev)
 int
 pci_find_class(u32 classid, int index, PCIDevice *dev)
 {
-    int devfn;
+    int devfn, bus;
     u32 id = classid << 8;
-    for (devfn=0; devfn<0x100; devfn++) {
-        PCIDevice d = pci_bd(0, devfn);
-        u32 v = pci_config_readl(d, 0x08);
-        if (v != id)
-            continue;
-        if (index) {
-            index--;
-            continue;
+    for (bus=0; bus < MAX_BUS; bus++) {
+        for (devfn=0; devfn<0x100; devfn++) {
+            PCIDevice d = pci_bd(bus, devfn);
+            u32 v = pci_config_readl(d, 0x08);
+            if (v != id)
+                continue;
+            if (index) {
+                index--;
+                continue;
+            }
+            // Found it.
+            *dev = d;
+            return 0;
         }
-        // Found it.
-        *dev = d;
-        return 0;
     }
     return -1;
 }

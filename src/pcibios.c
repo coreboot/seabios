@@ -32,7 +32,7 @@ static void
 handle_1ab102(struct bregs *regs)
 {
     PCIDevice d;
-    int ret = pci_find_device(regs->cx, regs->dx, regs->si, &d);
+    int ret = pci_find_device(regs->dx, regs->cx, regs->si, &d);
     if (ret) {
         set_code_fail(regs, RET_DEVICE_NOT_FOUND);
         return;

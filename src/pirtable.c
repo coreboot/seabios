@@ -11,15 +11,13 @@
 struct pir_table {
     struct pir_header pir;
     struct pir_slot slots[6];
-} PACKED PIR_TABLE VISIBLE16 __attribute__((aligned(16))) = {
+} PACKED PIR_TABLE __attribute__((aligned(16))) = {
 #if CONFIG_PIRTABLE
     .pir = {
-        .signature = PIR_SIGNATURE,
         .version = 0x0100,
         .size = sizeof(struct pir_table),
         .router_devfunc = 0x08,
         .compatible_devid = 0x122e8086,
-        .checksum = 0x37, // XXX - should auto calculate
     },
     .slots = {
         {
@@ -93,6 +91,7 @@ create_pirtable()
     if (! CONFIG_PIRTABLE)
         return;
 
+    PIR_TABLE.pir.signature = PIR_SIGNATURE;
     PIR_TABLE.pir.checksum = -checksum((u8*)&PIR_TABLE, sizeof(PIR_TABLE));
     SET_EBDA(pir_loc, (u32)&PIR_TABLE);
 }
