@@ -61,9 +61,12 @@ putc(u16 action, char c)
         if (! CONFIG_COREBOOT)
             // Send character to debug port.
             outb(c, PORT_BIOS_DEBUG);
-        if (CONFIG_DEBUG_SERIAL)
+        if (CONFIG_DEBUG_SERIAL) {
             // Send character to serial port.
+            if (c == '\n')
+                debug_serial('\r');
             debug_serial(c);
+        }
     }
 
     if (action) {
