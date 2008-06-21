@@ -92,6 +92,7 @@ void __call16_int(struct bregs *callregs, u16 offset)
 #endif
 
 // output.c
+void debug_serial_setup();
 void BX_PANIC(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)))
     __attribute__ ((noreturn));

@@ -13,6 +13,25 @@
 #define DEBUG_PORT 0x03f8
 #define DEBUG_TIMEOUT 100000
 
+void
+debug_serial_setup()
+{
+    if (!CONFIG_DEBUG_SERIAL)
+        return;
+    // setup for serial logging: 8N1
+    u8 oldparam, newparam = 0x03;
+    oldparam = inb(DEBUG_PORT+3);
+    outb(newparam, DEBUG_PORT+3);
+    // Disable irqs
+    u8 oldier, newier = 0;
+    oldier = inb(DEBUG_PORT+1);
+    outb(newier, DEBUG_PORT+1);
+
+    if (oldparam != newparam || oldier != newier)
+        dprintf(1, "Changing serial settings was %x/%x now %x/%x\n"
+                , oldparam, oldier, newparam, newier);
+}
+
 static void
 debug_serial(char c)
 {

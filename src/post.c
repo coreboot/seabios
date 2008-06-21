@@ -156,6 +156,8 @@ callrom(u16 seg, u16 offset)
     br.cs = seg;
     br.ip = offset;
     call16(&br);
+
+    debug_serial_setup();
 }
 
 // Find and run any "option roms" found in the given address range.
@@ -168,8 +170,13 @@ rom_scan(u32 start, u32 end)
         if (*(u16*)rom != 0xaa55)
             continue;
         u32 len = rom[2] * 512;
-        if (checksum(rom, len) != 0)
+        u8 sum = checksum(rom, len);
+        if (sum != 0) {
+            dprintf(1, "Found option rom with bad checksum:"
+                    " loc=%p len=%d sum=%x\n"
+                    , rom, len, sum);
             continue;
+        }
         p = (u8*)(((u32)p + len) / 2048 * 2048);
         dprintf(1, "Running option rom at %p\n", rom+3);
         callrom(FARPTR_TO_SEG(rom), FARPTR_TO_OFFSET(rom + 3));
@@ -300,6 +307,7 @@ _start()
     init_dma();
     check_restart_status();
 
+    debug_serial_setup();
     dprintf(1, "Start bios\n");
 
     // Setup for .bss and .data sections
