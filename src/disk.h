@@ -112,7 +112,7 @@ int cdrom_read_emu(u16 device, u32 lba, u32 count, void *far_buffer);
 void cdrom_13(struct bregs *regs, u8 device);
 void cdemu_13(struct bregs *regs);
 void cdemu_134b(struct bregs *regs);
-u16 cdrom_boot();
+int cdrom_boot();
 
 
 #endif // disk.h

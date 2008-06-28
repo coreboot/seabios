@@ -12,9 +12,6 @@
 #include "ata.h" // ATA_*
 #include "pic.h" // eoi_pic2
 
-#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
-#define DEBUGF(fmt, args...)
-
 
 /****************************************************************
  * Helper functions

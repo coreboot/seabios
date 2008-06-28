@@ -24,9 +24,6 @@
 
 #define IDE_TIMEOUT 32000u //32 seconds max for IDE ops
 
-#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
-#define DEBUGF(fmt, args...)
-
 
 /****************************************************************
  * Helper functions
@@ -57,21 +54,21 @@ await_ide(u8 when_done, u16 base, u16 timeout)
         // mod 2048 each 16 ms
         if (time>>16 != last) {
             last = time >>16;
-            DEBUGF("await_ide: (TIMEOUT,BSY,!BSY,!BSY_DRQ,!BSY_!DRQ,!BSY_RDY)"
-                   " %d time= %d timeout= %d\n"
-                   , when_done, time>>11, timeout);
+            dprintf(6, "await_ide: (TIMEOUT,BSY,!BSY,!BSY_DRQ"
+                    ",!BSY_!DRQ,!BSY_RDY) %d time= %d timeout= %d\n"
+                    , when_done, time>>11, timeout);
         }
         if (status & ATA_CB_STAT_ERR) {
-            DEBUGF("await_ide: ERROR (TIMEOUT,BSY,!BSY,!BSY_DRQ"
-                   ",!BSY_!DRQ,!BSY_RDY) %d time= %d timeout= %d\n"
-                   , when_done, time>>11, timeout);
+            dprintf(1, "await_ide: ERROR (TIMEOUT,BSY,!BSY,!BSY_DRQ"
+                    ",!BSY_!DRQ,!BSY_RDY) %d status=%x time= %d timeout= %d\n"
+                    , when_done, status, time>>11, timeout);
             return -1;
         }
         if (timeout == 0 || (time>>11) > timeout)
             break;
     }
     dprintf(1, "IDE time out\n");
-    return -1;
+    return -2;
 }
 
 // Wait for ide state - pauses for one ata cycle first.
@@ -188,7 +185,7 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
 
     int status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
-        return 1;
+        return -3;
 
     // Disable interrupts
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
@@ -196,7 +193,7 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
     // Select device
     u8 device = inb(iobase1 + ATA_CB_DH);
     outb(cmd->device, iobase1 + ATA_CB_DH);
-    if ((device ^ cmd->device) & (1UL << 4))
+    if ((device ^ cmd->device) & (1 << 4))
         // Wait for device to become active.
         msleep(50);
 
@@ -219,13 +216,13 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
         return status;
 
     if (status & ATA_CB_STAT_ERR) {
-        DEBUGF("send_cmd : read error\n");
-        return 2;
+        dprintf(6, "send_cmd : read error\n");
+        return -4;
     }
     if (!(status & ATA_CB_STAT_DRQ)) {
-        DEBUGF("send_cmd : DRQ not set (status %02x)\n"
-               , (unsigned) status);
-        return 3;
+        dprintf(6, "send_cmd : DRQ not set (status %02x)\n"
+                , (unsigned) status);
+        return -5;
     }
 
     return 0;
@@ -261,10 +258,10 @@ static __always_inline int
 ata_transfer(int driveid, int iswrite, int count, int blocksize
              , int skipfirst, int skiplast, void *far_buffer)
 {
-    DEBUGF("ata_transfer id=%d write=%d count=%d bs=%d"
-           " skipf=%d skipl=%d buf=%p\n"
-           , driveid, iswrite, count, blocksize
-           , skipfirst, skiplast, far_buffer);
+    dprintf(16, "ata_transfer id=%d write=%d count=%d bs=%d"
+            " skipf=%d skipl=%d buf=%p\n"
+            , driveid, iswrite, count, blocksize
+            , skipfirst, skiplast, far_buffer);
 
     // Reset count of transferred data
     SET_EBDA(ata.trsfsectors, 0);
@@ -286,14 +283,14 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
 
         if (iswrite) {
             // Write data to controller
-            DEBUGF("Write sector id=%d dest=%p\n", driveid, far_buffer);
+            dprintf(16, "Write sector id=%d dest=%p\n", driveid, far_buffer);
             if (mode == ATA_MODE_PIO32)
                 outsl_far(iobase1, far_buffer, bsize / 4);
             else
                 outsw_far(iobase1, far_buffer, bsize / 2);
         } else {
             // Read data from controller
-            DEBUGF("Read sector id=%d dest=%p\n", driveid, far_buffer);
+            dprintf(16, "Read sector id=%d dest=%p\n", driveid, far_buffer);
             if (mode == ATA_MODE_PIO32)
                 insl_far(iobase1, far_buffer, bsize / 4);
             else
@@ -316,9 +313,9 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
         status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
                    | ATA_CB_STAT_ERR);
         if (status != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ)) {
-            DEBUGF("ata_transfer : more sectors left (status %02x)\n"
-                   , (unsigned) status);
-            return 5;
+            dprintf(6, "ata_transfer : more sectors left (status %02x)\n"
+                    , (unsigned) status);
+            return -6;
         }
     }
 
@@ -327,9 +324,9 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
     if (!iswrite)
         status &= ~ATA_CB_STAT_DF;
     if (status != ATA_CB_STAT_RDY ) {
-        DEBUGF("ata_transfer : no sectors left (status %02x)\n"
-               , (unsigned) status);
-        return 4;
+        dprintf(6, "ata_transfer : no sectors left (status %02x)\n"
+                , (unsigned) status);
+        return -7;
     }
 
     // Enable interrupts
@@ -510,10 +507,10 @@ cdrom_read_512(int driveid, u32 vlba, u32 vcount, void *far_buffer)
     op.count = count;
     op.far_buffer = far_buffer;
 
-    DEBUGF("cdrom_read_512: id=%d vlba=%d vcount=%d buf=%p lba=%d elba=%d"
-           " count=%d before=%d after=%d\n"
-           , driveid, vlba, vcount, far_buffer, lba, elba
-           , count, before, after);
+    dprintf(16, "cdrom_read_512: id=%d vlba=%d vcount=%d buf=%p lba=%d elba=%d"
+            " count=%d before=%d after=%d\n"
+            , driveid, vlba, vcount, far_buffer, lba, elba
+            , count, before, after);
 
     int ret = send_cmd_cdrom(&op);
     if (ret)
@@ -813,9 +810,9 @@ init_drive_ata(int driveid)
     report_model(driveid, buffer);
     u8 version = get_ata_version(buffer);
     if (sizeinmb < (1 << 16))
-        printf(" ATA-%d Hard-Disk (%u MBytes)\n", version, (u32)sizeinmb);
+        printf(" ATA-%d Hard-Disk (%u MiBytes)\n", version, (u32)sizeinmb);
     else
-        printf(" ATA-%d Hard-Disk (%u GBytes)\n", version
+        printf(" ATA-%d Hard-Disk (%u GiBytes)\n", version
                , (u32)(sizeinmb >> 10));
 }
 

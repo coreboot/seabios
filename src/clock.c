@@ -11,9 +11,6 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // unmask_pic1
 
-#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
-#define DEBUGF(fmt, args...)
-
 // RTC register flags
 #define RTC_A_UIP 0x80
 #define RTC_B_SET 0x80

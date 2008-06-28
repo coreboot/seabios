@@ -9,9 +9,6 @@
 #include "util.h" // memset
 #include "ata.h" // ATA_CMD_READ_SECTORS
 
-#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
-#define DEBUGF(fmt, args...)
-
 
 /****************************************************************
  * CDROM functions
@@ -302,7 +299,7 @@ cdemu_134b(struct bregs *regs)
  ****************************************************************/
 
 // Request SENSE
-static u16
+static int
 atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
 {
     u8 buffer[18];
@@ -310,10 +307,10 @@ atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
     memset(atacmd, 0, sizeof(atacmd));
     atacmd[0] = ATA_CMD_REQUEST_SENSE;
     atacmd[4] = sizeof(buffer);
-    u16 ret = ata_cmd_packet(device, atacmd, sizeof(atacmd), sizeof(buffer)
+    int ret = ata_cmd_packet(device, atacmd, sizeof(atacmd), sizeof(buffer)
                              , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
     if (ret != 0)
-        return 0x0002;
+        return ret;
 
     *asc = buffer[12];
     *ascq = buffer[13];
@@ -321,7 +318,7 @@ atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
     return 0;
 }
 
-static u16
+static int
 atapi_is_ready(u16 device)
 {
     if (GET_EBDA(ata.devices[device].type) != ATA_TYPE_ATAPI) {
@@ -329,7 +326,7 @@ atapi_is_ready(u16 device)
         return -1;
     }
 
-    DEBUGF("ata_detect_medium: begin\n");
+    dprintf(6, "ata_detect_medium: begin\n");
     u8 packet[12];
     memset(packet, 0, sizeof(packet));
     packet[0] = 0x25; /* READ CAPACITY */
@@ -343,10 +340,10 @@ atapi_is_ready(u16 device)
     u8 in_progress = 0;
     for (;; time+=100) {
         if (time >= timeout) {
-            DEBUGF("read capacity failed\n");
+            dprintf(1, "read capacity failed\n");
             return -1;
         }
-        u16 ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
+        int ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
                                  , MAKE_FARPTR(GET_SEG(SS), (u32)buf));
         if (ret == 0)
             break;
@@ -357,7 +354,7 @@ atapi_is_ready(u16 device)
             continue;
 
         if (asc == 0x3a) { /* MEDIUM NOT PRESENT */
-            DEBUGF("Device reports MEDIUM NOT PRESENT\n");
+            dprintf(1, "Device reports MEDIUM NOT PRESENT\n");
             return -1;
         }
 
@@ -386,7 +383,7 @@ atapi_is_ready(u16 device)
         | (u32) buf[2] << 8
         | (u32) buf[3] << 0;
 
-    DEBUGF("sectors=%u\n", sectors);
+    dprintf(6, "sectors=%u\n", sectors);
     if (block_len == 2048)
         sectors <<= 2; /* # of sectors in 512-byte "soft" sector */
     if (sectors != GET_EBDA(ata.devices[device].sectors))
@@ -395,7 +392,7 @@ atapi_is_ready(u16 device)
     return 0;
 }
 
-static u16
+static int
 atapi_is_cdrom(u8 device)
 {
     if (device >= CONFIG_MAX_ATA_DEVICES)
@@ -425,7 +422,7 @@ streq_cs(u8 *s1, char *cs_s2)
     }
 }
 
-u16
+int
 cdrom_boot()
 {
     // Find out the first cdrom
@@ -434,7 +431,7 @@ cdrom_boot()
         if (atapi_is_cdrom(device))
             break;
 
-    u16 ret = atapi_is_ready(device);
+    int ret = atapi_is_ready(device);
     if (ret)
         dprintf(1, "ata_is_ready returned %d\n", ret);
 
@@ -557,7 +554,7 @@ cdrom_boot()
 
     // everything is ok, so from now on, the emulation is active
     SET_EBDA(cdemu.active, 0x01);
-    DEBUGF("cdemu media=%d\n", media);
+    dprintf(6, "cdemu media=%d\n", media);
 
     return 0;
 }

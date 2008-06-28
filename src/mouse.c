@@ -9,9 +9,6 @@
 #include "util.h" // debug_isr
 #include "pic.h" // unmask_pic2
 
-#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
-#define DEBUGF(fmt, args...)
-
 static char panic_msg_keyb_buffer_full[] = "%s: keyboard input buffer full\n";
 
 void

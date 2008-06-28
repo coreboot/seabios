@@ -13,9 +13,6 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // unmask_pic1
 
-#define DEBUGF1(fmt, args...) bprintf(0, fmt , ##args)
-#define DEBUGF(fmt, args...)
-
 #define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
 
 // New diskette parameter table adding 3 parameters from IBM
@@ -553,7 +550,7 @@ floppy_1304(struct bregs *regs, u8 drive)
 static void
 floppy_1305(struct bregs *regs, u8 drive)
 {
-    DEBUGF("floppy f05\n");
+    dprintf(3, "floppy f05\n");
 
     if (check_drive(regs, drive))
         return;
@@ -598,7 +595,7 @@ floppy_1305(struct bregs *regs, u8 drive)
 static void
 floppy_1308(struct bregs *regs, u8 drive)
 {
-    DEBUGF("floppy f08\n");
+    dprintf(3, "floppy f08\n");
 
     u8 drive_type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
     u8 num_floppies = 0;
@@ -690,7 +687,7 @@ floppy_1308(struct bregs *regs, u8 drive)
 static void
 floppy_1315(struct bregs *regs, u8 drive)
 {
-    DEBUGF("floppy f15\n");
+    dprintf(6, "floppy f15\n");
     if (drive > 1) {
         set_fail(regs);
         regs->ah = 0; // only 2 drives supported
@@ -707,7 +704,6 @@ floppy_1315(struct bregs *regs, u8 drive)
 static void
 floppy_1316(struct bregs *regs, u8 drive)
 {
-    DEBUGF("floppy f16\n");
     if (drive > 1) {
         floppy_ret(regs, DISK_RET_EPARAM);
         return;
