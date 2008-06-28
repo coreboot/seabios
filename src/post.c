@@ -329,6 +329,9 @@ _start()
     // Present the user with a bootup menu.
     interactive_bootmenu();
 
+    // Setup bios checksum.
+    *(u8*)0xfffff = -checksum((u8*)0xf0000, 0xffff);
+
     // Prep for boot process.
     make_bios_readonly();
     clear_bss();
