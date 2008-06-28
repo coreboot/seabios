@@ -1,12 +1,14 @@
 Split rombios32.c up into multiple files.
 
-Support parsing of linuxbios/coreboot table.
+Disable a20 on jump to 16bit mode.
 
 Do a pci scan for ide controllers - don't just assume ISA ports are
 available.
 
 The keyboard driver should detect ctrl+alt+del and reboot the
 machine.
+
+Fix keyboard LEDs.
 
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
@@ -44,5 +46,3 @@ Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.
 
 Look at integrating the lgpl vgabios into tree.
-
-Try generating bios tables at compile time.
