@@ -5,10 +5,11 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // GET_BDA
 #include "util.h" // debug_enter
 #include "config.h" // CONFIG_*
 #include "pic.h" // eoi_pic1
+#include "bregs.h" // struct bregs
 
 //--------------------------------------------------------------------------
 // keyboard_panic

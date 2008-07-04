@@ -6,6 +6,7 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "util.h" // dprintf
+#include "config.h" // CONFIG_*
 
 #define CPUID_APIC (1 << 9)
 

@@ -9,6 +9,7 @@
 #include "util.h" // memcpy
 #include "memmap.h" // bios_table_cur_addr
 #include "pci.h" // pci_find_device
+#include "biosvar.h" // GET_EBDA
 
 
 /****************************************************/

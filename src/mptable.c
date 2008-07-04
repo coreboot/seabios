@@ -7,6 +7,7 @@
 
 #include "util.h" // dprintf
 #include "memmap.h" // bios_table_cur_addr
+#include "config.h" // CONFIG_*
 
 static void putb(u8 **pp, int val)
 {

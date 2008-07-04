@@ -6,9 +6,7 @@
 #ifndef __DISK_H
 #define __DISK_H
 
-#include "ioport.h" // outb
-#include "biosvar.h" // struct bregs
-#include "util.h" // set_code_fail
+#include "types.h" // u8
 
 #define DISK_RET_SUCCESS       0x00
 #define DISK_RET_EPARAM        0x01
@@ -93,6 +91,7 @@ struct floppy_ext_dbt_s {
 } PACKED;
 
 // Helper function for setting up a return code.
+struct bregs;
 void __disk_ret(const char *fname, struct bregs *regs, u8 code);
 #define disk_ret(regs, code) \
     __disk_ret(__func__, (regs), (code))

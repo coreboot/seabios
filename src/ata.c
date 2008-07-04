@@ -11,6 +11,7 @@
 #include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
 #include "pic.h" // unmask_pic2
+#include "biosvar.h" // GET_EBDA
 
 #define TIMEOUT 0
 #define BSY 1

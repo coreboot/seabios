@@ -7,6 +7,8 @@
 
 #include "pci.h" // PCIDevice
 #include "util.h" // wbinvd
+#include "config.h" // CONFIG_*
+#include "ioport.h" // outb
 
 asm(
     ".global smm_relocation_start\n"

@@ -7,6 +7,7 @@
 
 #include "biosvar.h" // GET_EBDA
 #include "util.h" // usleep
+#include "bregs.h" // struct bregs
 
 static u8
 check_for_keystroke()

@@ -5,9 +5,10 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // GET_EBDA
 #include "util.h" // debug_isr
 #include "pic.h" // unmask_pic2
+#include "bregs.h" // struct bregs
 
 static char panic_msg_keyb_buffer_full[] = "%s: keyboard input buffer full\n";
 

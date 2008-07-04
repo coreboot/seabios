@@ -6,10 +6,11 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "util.h" // irq_enable
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // GET_EBDA
 #include "config.h" // CONFIG_*
 #include "ata.h" // ata_detect
 #include "disk.h" // cdrom_boot
+#include "bregs.h" // struct bregs
 
 // We need a copy of this string, but we are not actually a PnP BIOS,
 // so make sure it is *not* aligned, so OSes will not see it if they

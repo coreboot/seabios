@@ -10,6 +10,7 @@
 #include "ioport.h" // inb
 #include "memmap.h" // E820_RAM
 #include "pic.h" // eoi_pic2
+#include "bregs.h" // struct bregs
 
 // Use PS2 System Control port A to set A20 enable
 static inline u8

@@ -7,6 +7,7 @@
 
 #include "util.h" // dprintf
 #include "memmap.h" // bios_table_cur_addr
+#include "biosvar.h" // GET_EBDA
 
 
 /****************************************************************

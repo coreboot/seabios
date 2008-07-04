@@ -8,7 +8,8 @@
 
 #include "farptr.h" // GET_VAR
 #include "util.h" // printf
-#include "biosvar.h" // struct bregs
+#include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
 
 #define DEBUG_PORT 0x03f8
 #define DEBUG_TIMEOUT 100000

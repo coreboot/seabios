@@ -5,11 +5,12 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // SET_BDA
 #include "util.h" // debug_enter
 #include "disk.h" // floppy_tick
 #include "cmos.h" // inb_cmos
 #include "pic.h" // unmask_pic1
+#include "bregs.h" // struct bregs
 
 // RTC register flags
 #define RTC_A_UIP 0x80

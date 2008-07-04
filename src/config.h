@@ -64,6 +64,11 @@
 // Start of fixed addresses in 0xf0000 segment.
 #define BUILD_START_FIXED       0xe050
 
+// Important 16-bit segments
+#define SEG_BIOS     0xf000
+#define SEG_EBDA     0x9fc0
+#define SEG_BDA      0x0000
+
 // Debugging levels.  If non-zero and CONFIG_DEBUG_LEVEL is greater
 // than the specified value, then the corresponding irq handler will
 // report every enter event.

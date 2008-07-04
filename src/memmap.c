@@ -6,6 +6,7 @@
 
 #include "memmap.h" // struct e820entry
 #include "util.h" // dprintf.h
+#include "biosvar.h" // SET_EBDA
 
 // Temporary storage used during map building.
 static struct e820entry e820_list[64];

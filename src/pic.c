@@ -5,7 +5,9 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "pic.h"
+#include "pic.h" // get_pic1_isr
+#include "util.h" // dprintf
+#include "config.h" // CONFIG_*
 
 void
 pic_setup()

@@ -8,10 +8,11 @@
 #include "types.h" // u8
 #include "disk.h" // DISK_RET_SUCCESS
 #include "config.h" // CONFIG_FLOPPY_SUPPORT
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // SET_BDA
 #include "util.h" // irq_disable
 #include "cmos.h" // inb_cmos
 #include "pic.h" // unmask_pic1
+#include "bregs.h" // struct bregs
 
 #define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
 

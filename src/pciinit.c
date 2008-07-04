@@ -7,6 +7,7 @@
 
 #include "util.h" // dprintf
 #include "pci.h" // PCIDevice
+#include "biosvar.h" // GET_EBDA
 
 #define PCI_ADDRESS_SPACE_MEM		0x00
 #define PCI_ADDRESS_SPACE_IO		0x01

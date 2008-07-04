@@ -7,6 +7,7 @@
 
 #include "pci.h" // struct pir_header
 #include "util.h" // checksum
+#include "biosvar.h" // SET_EBDA
 
 struct pir_table {
     struct pir_header pir;

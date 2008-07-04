@@ -5,8 +5,9 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // SET_BDA
 #include "util.h" // debug_enter
+#include "bregs.h" // struct bregs
 
 
 /****************************************************************

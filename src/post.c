@@ -18,6 +18,7 @@
 #include "pic.h" // pic_setup
 #include "pci.h" // create_pirtable
 #include "acpi.h" // acpi_bios_init
+#include "bregs.h" // struct bregs
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))

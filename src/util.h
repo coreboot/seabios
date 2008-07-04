@@ -6,8 +6,7 @@
 #ifndef __UTIL_H
 #define __UTIL_H
 
-#include "ioport.h" // outb
-#include "biosvar.h" // struct bregs
+#include "types.h" // u32
 
 static inline void irq_disable(void)
 {
@@ -63,30 +62,9 @@ void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 void *memmove(void *d, const void *s, size_t len);
 
-// Call a function with a specified register state.  Note that on
-// return, the interrupt enable/disable flag may be altered.
-static inline
-void call16(struct bregs *callregs)
-{
-    asm volatile(
-#ifdef MODE16
-        "calll __call16\n"
-#else
-        "calll __call16_from32\n"
-#endif
-        : "+a" (callregs), "+m" (*callregs)
-        :
-        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc");
-}
-
-static inline
-void __call16_int(struct bregs *callregs, u16 offset)
-{
-    callregs->cs = SEG_BIOS;
-    callregs->ip = offset;
-    call16(callregs);
-}
-
+struct bregs;
+inline void call16(struct bregs *callregs);
+inline void __call16_int(struct bregs *callregs, u16 offset);
 #ifdef MODE16
 #define call16_int(nr, callregs) do {                           \
         extern void irq_trampoline_ ##nr ();                    \
@@ -125,42 +103,6 @@ void __debug_isr(const char *fname);
     } while (0)
 #define debug_stub(regs) \
     __debug_stub(__func__, regs)
-
-// Frequently used return codes
-#define RET_EUNSUPPORTED 0x86
-static inline void
-set_success(struct bregs *regs)
-{
-    set_cf(regs, 0);
-}
-
-static inline void
-set_code_success(struct bregs *regs)
-{
-    regs->ah = 0;
-    set_cf(regs, 0);
-}
-
-static inline void
-set_fail_silent(struct bregs *regs)
-{
-    set_cf(regs, 1);
-}
-
-static inline void
-set_code_fail_silent(struct bregs *regs, u8 code)
-{
-    regs->ah = code;
-    set_cf(regs, 1);
-}
-
-void __set_fail(const char *fname, struct bregs *regs);
-void __set_code_fail(const char *fname, struct bregs *regs, u8 code);
-
-#define set_fail(regs) \
-    __set_fail(__func__, (regs))
-#define set_code_fail(regs, code)               \
-    __set_code_fail(__func__, (regs), (code))
 
 // kbd.c
 void handle_15c2(struct bregs *regs);

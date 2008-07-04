@@ -7,9 +7,10 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "farptr.h" // GET_VAR
-#include "biosvar.h" // struct bregs
+#include "bregs.h" // struct bregs
 #include "ioport.h" // outb
 #include "util.h" // irq_enable
+#include "config.h" // CONFIG_*
 
 static void
 out_str(const char *str_cs)

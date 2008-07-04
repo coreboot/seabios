@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "pci.h" // struct pir_header
 #include "acpi.h" // struct rsdp_descriptor
+#include "biosvar.h" // GET_EBDA
 
 
 /****************************************************************
@@ -85,7 +86,7 @@ copy_acpi_rsdp(void *pos)
 
 // Attempt to find (and relocate) any standard bios tables found in a
 // given address range.
-void
+static void
 scan_tables(u32 start, u32 size)
 {
     void *p = (void*)ALIGN(start, 16);

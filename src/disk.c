@@ -6,11 +6,12 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "disk.h" // floppy_13
-#include "biosvar.h" // struct bregs
+#include "biosvar.h" // SET_BDA
 #include "config.h" // CONFIG_*
 #include "util.h" // debug_enter
 #include "ata.h" // ATA_*
 #include "pic.h" // eoi_pic2
+#include "bregs.h" // struct bregs
 
 
 /****************************************************************

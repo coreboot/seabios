@@ -8,6 +8,8 @@
 #include "types.h" // u32
 #include "util.h" // handle_1ab1
 #include "pci.h" // pci_config_readl
+#include "bregs.h" // struct bregs
+#include "biosvar.h" // GET_EBDA
 
 #define RET_FUNC_NOT_SUPPORTED 0x81
 #define RET_BAD_VENDOR_ID      0x83

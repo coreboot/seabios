@@ -8,6 +8,8 @@
 #include "disk.h" // cdrom_13
 #include "util.h" // memset
 #include "ata.h" // ATA_CMD_READ_SECTORS
+#include "bregs.h" // struct bregs
+#include "biosvar.h" // GET_EBDA
 
 
 /****************************************************************

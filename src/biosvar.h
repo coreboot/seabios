@@ -7,7 +7,7 @@
 #define __BIOSVAR_H
 
 #include "types.h" // u8
-#include "farptr.h" // SET_SEG
+#include "farptr.h" // GET_FARVAR
 #include "config.h" // CONFIG_*
 
 
@@ -274,48 +274,14 @@ struct extended_bios_data_area_s {
     struct ipl_s ipl;
 } PACKED;
 
+#define EBDA_SIZE DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)
+#define BASE_MEM_IN_K (640 - EBDA_SIZE)
+
 // Accessor functions
 #define GET_EBDA(var) \
     GET_FARVAR(SEG_EBDA, ((struct extended_bios_data_area_s *)0)->var)
 #define SET_EBDA(var, val) \
     SET_FARVAR(SEG_EBDA, ((struct extended_bios_data_area_s *)0)->var, (val))
-
-
-/****************************************************************
- * Registers saved/restored in romlayout.S
- ****************************************************************/
-
-#define UREG(ER, R, RH, RL) union { u32 ER; struct { u16 R; u16 R ## _hi; }; struct { u8 RL; u8 RH; u8 R ## _hilo; u8 R ## _hihi; }; }
-
-// Layout of registers passed in to irq handlers.  Note that this
-// layout corresponds to code in romlayout.S - don't change it here
-// without also updating the assembler code.
-struct bregs {
-    u16 ds;
-    u16 es;
-    UREG(edi, di, di_hi, di_lo);
-    UREG(esi, si, si_hi, si_lo);
-    UREG(ebx, bx, bh, bl);
-    UREG(edx, dx, dh, dl);
-    UREG(ecx, cx, ch, cl);
-    UREG(eax, ax, ah, al);
-    u16 ip;
-    u16 cs;
-    u16 flags;
-} PACKED;
-
-// bregs flags bitdefs
-#define F_ZF (1<<6)
-#define F_CF (1<<0)
-
-static inline void
-set_cf(struct bregs *regs, int cond)
-{
-    if (cond)
-        regs->flags |= F_CF;
-    else
-        regs->flags &= ~F_CF;
-}
 
 
 /****************************************************************
@@ -331,17 +297,5 @@ struct bios_config_table_s {
 } PACKED;
 
 extern struct bios_config_table_s BIOS_CONFIG_TABLE;
-
-
-/****************************************************************
- * Memory layout info
- ****************************************************************/
-
-#define SEG_BIOS     0xf000
-#define SEG_EBDA     0x9fc0
-#define SEG_BDA      0x0000
-
-#define EBDA_SIZE DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)
-#define BASE_MEM_IN_K (640 - EBDA_SIZE)
 
 #endif // __BIOSVAR_H
