@@ -25,6 +25,7 @@ def calcmaxstack(funcs, func):
         return
     # Find max of all nested calls.
     max = info[0]
+    info[1] = max
     for addr, callfname, usage in info[2]:
         callinfo = funcs[callfname]
         if callinfo[1] is None:
