@@ -190,6 +190,9 @@ void make_bios_readonly();
 // rombios32.c
 void rombios32_init(void);
 
+// smm.c
+void smm_init();
+
 // boot.c
 void printf_bootdev(u16 bootdev);
 

@@ -116,6 +116,23 @@ void cpu_probe(void)
 /****************************************************/
 /* SMP probe */
 
+asm(
+    ".globl smp_ap_boot_code_start\n"
+    ".globl smp_ap_boot_code_end\n"
+    "  .code16\n"
+
+    "smp_ap_boot_code_start:\n"
+    "  xor %ax, %ax\n"
+    "  mov %ax, %ds\n"
+    "  incw " __stringify(BUILD_CPU_COUNT_ADDR) "\n"
+    "1:\n"
+    "  hlt\n"
+    "  jmp 1b\n"
+    "smp_ap_boot_code_end:\n"
+
+    "  .code32\n"
+    );
+
 extern u8 smp_ap_boot_code_start;
 extern u8 smp_ap_boot_code_end;
 
@@ -166,7 +183,6 @@ static u32 pci_bios_mem_addr;
 static u32 pci_bios_bigmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
 static u8 pci_irqs[4] = { 11, 9, 11, 9 };
-static PCIDevice i440_pcidev;
 
 static void pci_set_io_region_addr(PCIDevice d, int region_num, u32 addr)
 {
@@ -231,121 +247,7 @@ static void pci_bios_init_bridges(PCIDevice d)
         outb(elcr[1], 0x4d1);
         dprintf(1, "PIIX3 init: elcr=%02x %02x\n",
                 elcr[0], elcr[1]);
-    } else if (vendor_id == 0x8086 && device_id == 0x1237) {
-        /* i440 PCI bridge */
-        i440_pcidev = d;
     }
-}
-
-asm(
-    ".globl smp_ap_boot_code_start\n"
-    ".globl smp_ap_boot_code_end\n"
-    ".global smm_relocation_start\n"
-    ".global smm_relocation_end\n"
-    ".global smm_code_start\n"
-    ".global smm_code_end\n"
-
-    "  .code16\n"
-    "smp_ap_boot_code_start:\n"
-    "  xor %ax, %ax\n"
-    "  mov %ax, %ds\n"
-    "  incw " __stringify(BUILD_CPU_COUNT_ADDR) "\n"
-    "1:\n"
-    "  hlt\n"
-    "  jmp 1b\n"
-    "smp_ap_boot_code_end:\n"
-
-    /* code to relocate SMBASE to 0xa0000 */
-    "smm_relocation_start:\n"
-    "  mov $0x38000 + 0x7efc, %ebx\n"
-    "  addr32 mov (%ebx), %al\n"  /* revision ID to see if x86_64 or x86 */
-    "  cmp $0x64, %al\n"
-    "  je 1f\n"
-    "  mov $0x38000 + 0x7ef8, %ebx\n"
-    "  jmp 2f\n"
-    "1:\n"
-    "  mov $0x38000 + 0x7f00, %ebx\n"
-    "2:\n"
-    "  movl $0xa0000, %eax\n"
-    "  addr32 movl %eax, (%ebx)\n"
-    /* indicate to the BIOS that the SMM code was executed */
-    "  mov $0x00, %al\n"
-    "  movw $0xb3, %dx\n"
-    "  outb %al, %dx\n"
-    "  rsm\n"
-    "smm_relocation_end:\n"
-
-    /* minimal SMM code to enable or disable ACPI */
-    "smm_code_start:\n"
-    "  movw $0xb2, %dx\n"
-    "  inb %dx, %al\n"
-    "  cmp $0xf0, %al\n"
-    "  jne 1f\n"
-
-    /* ACPI disable */
-    "  mov $" __stringify(BUILD_PM_IO_BASE) " + 0x04, %dx\n" /* PMCNTRL */
-    "  inw %dx, %ax\n"
-    "  andw $~1, %ax\n"
-    "  outw %ax, %dx\n"
-
-    "  jmp 2f\n"
-
-    "1:\n"
-    "  cmp $0xf1, %al\n"
-    "  jne 2f\n"
-
-    /* ACPI enable */
-    "  mov $" __stringify(BUILD_PM_IO_BASE) " + 0x04, %dx\n" /* PMCNTRL */
-    "  inw %dx, %ax\n"
-    "  orw $1, %ax\n"
-    "  outw %ax, %dx\n"
-
-    "2:\n"
-    "  rsm\n"
-    "smm_code_end:\n"
-    "  .code32\n"
-    );
-
-extern u8 smm_relocation_start, smm_relocation_end;
-extern u8 smm_code_start, smm_code_end;
-
-static void smm_init(PCIDevice d)
-{
-    if (!CONFIG_USE_SMM)
-        return;
-
-    /* check if SMM init is already done */
-    u32 value = pci_config_readl(d, 0x58);
-    if (value & (1 << 25))
-        return;
-
-    /* copy the SMM relocation code */
-    memcpy((void *)0x38000, &smm_relocation_start,
-           &smm_relocation_end - &smm_relocation_start);
-
-    /* enable SMI generation when writing to the APMC register */
-    pci_config_writel(d, 0x58, value | (1 << 25));
-
-    /* init APM status port */
-    outb(0x01, 0xb3);
-
-    /* raise an SMI interrupt */
-    outb(0x00, 0xb2);
-
-    /* wait until SMM code executed */
-    while (inb(0xb3) != 0x00)
-        ;
-
-    /* enable the SMM memory window */
-    pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x48);
-
-    /* copy the SMM code */
-    memcpy((void *)0xa8000, &smm_code_start,
-           &smm_code_end - &smm_code_start);
-    wbinvd();
-
-    /* close the SMM memory window and enable normal SMM */
-    pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x08);
 }
 
 static void pci_bios_init_device(PCIDevice d)
@@ -442,7 +344,6 @@ static void pci_bios_init_device(PCIDevice d)
         u32 smb_io_base = BUILD_SMB_IO_BASE;
         pci_config_writel(d, 0x90, smb_io_base | 1);
         pci_config_writeb(d, 0xd2, 0x09); /* enable SMBus io space */
-        smm_init(d);
     }
 }
 
@@ -1133,6 +1034,8 @@ void rombios32_init(void)
     smp_probe();
 
     pci_bios_init();
+
+    smm_init();
 
     create_pirtable();
 
