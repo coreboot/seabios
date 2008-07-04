@@ -1,5 +1,3 @@
-Split rombios32.c up into multiple files.
-
 Disable a20 on jump to 16bit mode.
 
 Do a pci scan for ide controllers - don't just assume ISA ports are

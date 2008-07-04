@@ -194,8 +194,8 @@ u8 checksum(u8 *far_data, u32 len);
 void make_bios_writable();
 void make_bios_readonly();
 
-// rombios32.c
-void rombios32_init(void);
+// pciinit.c
+void pci_bios_setup(void);
 
 // smm.c
 void smm_init();
@@ -205,6 +205,9 @@ int smp_probe(void);
 
 // mptable.c
 void mptable_init(void);
+
+// smbios.c
+void smbios_init(void);
 
 // boot.c
 void printf_bootdev(u16 bootdev);

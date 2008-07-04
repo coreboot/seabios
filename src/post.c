@@ -16,6 +16,8 @@
 #include "disk.h" // floppy_drive_setup
 #include "memmap.h" // add_e820
 #include "pic.h" // pic_setup
+#include "pci.h" // create_pirtable
+#include "acpi.h" // acpi_bios_init
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
@@ -117,6 +119,24 @@ ram_probe(void)
     add_e820((u32)MAKE_FARPTR(SEG_BIOS, 0), 0x10000, E820_RESERVED);
 
     dprintf(1, "ram_size=0x%08x\n", GET_EBDA(ram_size));
+}
+
+static void
+init_bios_tables(void)
+{
+    if (CONFIG_COREBOOT)
+        // XXX - not supported on coreboot yet.
+        return;
+
+    smm_init();
+
+    create_pirtable();
+
+    mptable_init();
+
+    smbios_init();
+
+    acpi_bios_init();
 }
 
 static void
@@ -247,7 +267,9 @@ post()
 
     printf("BIOS - begin\n\n");
 
-    rombios32_init();
+    pci_bios_setup();
+
+    init_bios_tables();
 
     memmap_finalize();
 

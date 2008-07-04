@@ -152,4 +152,8 @@ memmap_finalize()
     SET_EBDA(e820_loc, bios_table_cur_addr);
     SET_EBDA(e820_count, e820_count);
     bios_table_cur_addr += msize;
+
+    dprintf(1, "bios_table_cur_addr: 0x%08x\n", bios_table_cur_addr);
+    if (bios_table_cur_addr > bios_table_end_addr)
+        BX_PANIC("bios_table_end_addr overflow!\n");
 }
