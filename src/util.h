@@ -105,6 +105,7 @@ void __debug_isr(const char *fname);
     __debug_stub(__func__, regs)
 
 // kbd.c
+void kbd_setup();
 void handle_15c2(struct bregs *regs);
 
 // mouse.c

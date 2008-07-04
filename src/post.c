@@ -12,7 +12,6 @@
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
 #include "ata.h" // hard_drive_setup
-#include "kbd.h" // kbd_setup
 #include "disk.h" // floppy_drive_setup
 #include "memmap.h" // add_e820
 #include "pic.h" // pic_setup
