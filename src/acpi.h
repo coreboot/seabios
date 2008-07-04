@@ -5,9 +5,6 @@
 
 void acpi_bios_init(void);
 
-// XXX - move to better header.
-extern int smp_cpus;
-
 #define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
 
 struct rsdp_descriptor         /* Root System Descriptor Pointer */

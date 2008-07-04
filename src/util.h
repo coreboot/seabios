@@ -52,6 +52,13 @@ static inline void wbinvd(void)
     asm volatile("wbinvd");
 }
 
+static inline void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
+{
+    asm("cpuid"
+        : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
+        : "0" (index));
+}
+
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 void *memmove(void *d, const void *s, size_t len);
@@ -192,6 +199,12 @@ void rombios32_init(void);
 
 // smm.c
 void smm_init();
+
+// smpdetect.c
+int smp_probe(void);
+
+// mptable.c
+void mptable_init(void);
 
 // boot.c
 void printf_bootdev(u16 bootdev);

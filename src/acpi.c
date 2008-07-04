@@ -1,4 +1,4 @@
-// Support for enabling/disabling BIOS ram shadowing.
+// Support for generating ACPI tables (on emulators)
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
@@ -228,6 +228,7 @@ acpi_build_processor_ssdt(u8 *ssdt)
 {
     u8 *ssdt_ptr = ssdt;
     int i, length;
+    int smp_cpus = smp_probe();
     int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
 
     ssdt_ptr[9] = 0; // checksum;
@@ -327,6 +328,7 @@ void acpi_bios_init(void)
     ssdt = (void *)(addr);
     addr += acpi_build_processor_ssdt(ssdt);
 
+    int smp_cpus = smp_probe();
     addr = (addr + 7) & ~7;
     madt_addr = addr;
     madt_size = sizeof(*madt) +

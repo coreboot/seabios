@@ -12,7 +12,7 @@ SRCBOTH=output.c util.c floppy.c ata.c system.c mouse.c kbd.c pci.c boot.c \
         serial.c clock.c pic.c
 SRC16=$(SRCBOTH) disk.c cdrom.c apm.c pcibios.c
 SRC32=$(SRCBOTH) post.c shadow.c rombios32.c post_menu.c memmap.c coreboot.c \
-      acpi.c pirtable.c smm.c
+      acpi.c pirtable.c smm.c smpdetect.c mptable.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
