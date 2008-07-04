@@ -40,11 +40,6 @@
 /* define it if the (emulated) hardware supports SMM mode */
 #define CONFIG_USE_SMM 1
 
-/* if true, put the MP float table and ACPI RSDT in EBDA and the MP
-   table in RAM. Unfortunately, Linux has bugs with that, so we prefer
-   to modify the BIOS in shadow RAM */
-#define CONFIG_USE_EBDA_TABLES 0
-
 #define CONFIG_MAX_ATA_INTERFACES 4
 #define CONFIG_MAX_ATA_DEVICES  (CONFIG_MAX_ATA_INTERFACES*2)
 

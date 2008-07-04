@@ -208,20 +208,17 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     memcpy(h->signature, sig, 4);
     h->length = cpu_to_le32(len);
     h->revision = rev;
-#if (CONFIG_QEMU == 1)
-    memcpy(h->oem_id, "QEMU  ", 6);
-    memcpy(h->oem_table_id, "QEMU", 4);
-#else
-    memcpy(h->oem_id, "BOCHS ", 6);
-    memcpy(h->oem_table_id, "BXPC", 4);
-#endif
+    if (CONFIG_QEMU) {
+        memcpy(h->oem_id, "QEMU  ", 6);
+        memcpy(h->oem_table_id, "QEMU", 4);
+        memcpy(h->asl_compiler_id, "QEMU", 4);
+    } else {
+        memcpy(h->oem_id, "BOCHS ", 6);
+        memcpy(h->oem_table_id, "BXPC", 4);
+        memcpy(h->asl_compiler_id, "BXPC", 4);
+    }
     memcpy(h->oem_table_id + 4, sig, 4);
     h->oem_revision = cpu_to_le32(1);
-#if (CONFIG_QEMU == 1)
-    memcpy(h->asl_compiler_id, "QEMU", 4);
-#else
-    memcpy(h->asl_compiler_id, "BXPC", 4);
-#endif
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum = -checksum((void *)h, len);
 }
@@ -302,15 +299,9 @@ void acpi_bios_init(void)
     int i;
 
     /* reserve memory space for tables */
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr = ALIGN(ebda_cur_addr, 16);
-    rsdp = (void *)(ebda_cur_addr);
-    ebda_cur_addr += sizeof(*rsdp);
-#else
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
     rsdp = (void *)(bios_table_cur_addr);
     bios_table_cur_addr += sizeof(*rsdp);
-#endif
 
     addr = base_addr = GET_EBDA(ram_size) - CONFIG_ACPI_DATA_SIZE;
     add_e820(addr, CONFIG_ACPI_DATA_SIZE, E820_ACPI);
@@ -354,11 +345,10 @@ void acpi_bios_init(void)
     /* RSDP */
     memset(rsdp, 0, sizeof(*rsdp));
     memcpy(rsdp->signature, "RSD PTR ", 8);
-#if (CONFIG_QEMU == 1)
-    memcpy(rsdp->oem_id, "QEMU  ", 6);
-#else
-    memcpy(rsdp->oem_id, "BOCHS ", 6);
-#endif
+    if (CONFIG_QEMU)
+        memcpy(rsdp->oem_id, "QEMU  ", 6);
+    else
+        memcpy(rsdp->oem_id, "BOCHS ", 6);
     rsdp->rsdt_physical_address = cpu_to_le32(rsdt_addr);
     rsdp->checksum = -checksum((void *)rsdp, 20);
 

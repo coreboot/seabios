@@ -76,35 +76,32 @@ u32 cpuid_signature;
 u32 cpuid_features;
 u32 cpuid_ext_features;
 u8 bios_uuid[16];
-#if (CONFIG_USE_EBDA_TABLES == 1)
-unsigned long ebda_cur_addr;
-#endif
 
 void uuid_probe(void)
 {
-#if (CONFIG_QEMU == 1)
-    u32 eax, ebx, ecx, edx;
+    // Default to UUID not set
+    memset(bios_uuid, 0, 16);
+
+    if (! CONFIG_QEMU)
+        return;
 
     // check if backdoor port exists
+    u32 eax, ebx, ecx, edx;
     asm volatile ("outl %%eax, %%dx"
-        : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-        : "a" (0x564d5868), "c" (0xa), "d" (0x5658));
-    if (ebx == 0x564d5868) {
-        u32 *uuid_ptr = (u32 *)bios_uuid;
-        // get uuid
-        asm volatile ("outl %%eax, %%dx"
-            : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-            : "a" (0x564d5868), "c" (0x13), "d" (0x5658));
-        uuid_ptr[0] = eax;
-        uuid_ptr[1] = ebx;
-        uuid_ptr[2] = ecx;
-        uuid_ptr[3] = edx;
-    } else
-#endif
-    {
-        // UUID not set
-        memset(bios_uuid, 0, 16);
-    }
+                  : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+                  : "a" (0x564d5868), "c" (0xa), "d" (0x5658));
+    if (ebx != 0x564d5868)
+        return;
+
+    u32 *uuid_ptr = (u32 *)bios_uuid;
+    // get uuid
+    asm volatile ("outl %%eax, %%dx"
+                  : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
+                  : "a" (0x564d5868), "c" (0x13), "d" (0x5658));
+    uuid_ptr[0] = eax;
+    uuid_ptr[1] = ebx;
+    uuid_ptr[2] = ecx;
+    uuid_ptr[3] = edx;
 }
 
 void cpu_probe(void)
@@ -312,45 +309,44 @@ asm(
 extern u8 smm_relocation_start, smm_relocation_end;
 extern u8 smm_code_start, smm_code_end;
 
-#if (CONFIG_USE_SMM == 1)
 static void smm_init(PCIDevice d)
 {
-    u32 value;
+    if (!CONFIG_USE_SMM)
+        return;
 
     /* check if SMM init is already done */
-    value = pci_config_readl(d, 0x58);
-    if ((value & (1 << 25)) == 0) {
+    u32 value = pci_config_readl(d, 0x58);
+    if (value & (1 << 25))
+        return;
 
-        /* copy the SMM relocation code */
-        memcpy((void *)0x38000, &smm_relocation_start,
-               &smm_relocation_end - &smm_relocation_start);
+    /* copy the SMM relocation code */
+    memcpy((void *)0x38000, &smm_relocation_start,
+           &smm_relocation_end - &smm_relocation_start);
 
-        /* enable SMI generation when writing to the APMC register */
-        pci_config_writel(d, 0x58, value | (1 << 25));
+    /* enable SMI generation when writing to the APMC register */
+    pci_config_writel(d, 0x58, value | (1 << 25));
 
-        /* init APM status port */
-        outb(0x01, 0xb3);
+    /* init APM status port */
+    outb(0x01, 0xb3);
 
-        /* raise an SMI interrupt */
-        outb(0x00, 0xb2);
+    /* raise an SMI interrupt */
+    outb(0x00, 0xb2);
 
-        /* wait until SMM code executed */
-        while (inb(0xb3) != 0x00)
-            ;
+    /* wait until SMM code executed */
+    while (inb(0xb3) != 0x00)
+        ;
 
-        /* enable the SMM memory window */
-        pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x48);
+    /* enable the SMM memory window */
+    pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x48);
 
-        /* copy the SMM code */
-        memcpy((void *)0xa8000, &smm_code_start,
-               &smm_code_end - &smm_code_start);
-        wbinvd();
+    /* copy the SMM code */
+    memcpy((void *)0xa8000, &smm_code_start,
+           &smm_code_end - &smm_code_start);
+    wbinvd();
 
-        /* close the SMM memory window and enable normal SMM */
-        pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x08);
-    }
+    /* close the SMM memory window and enable normal SMM */
+    pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x08);
 }
-#endif
 
 static void pci_bios_init_device(PCIDevice d)
 {
@@ -446,9 +442,7 @@ static void pci_bios_init_device(PCIDevice d)
         u32 smb_io_base = BUILD_SMB_IO_BASE;
         pci_config_writel(d, 0x90, smb_io_base | 1);
         pci_config_writeb(d, 0xd2, 0x09); /* enable SMBus io space */
-#if (CONFIG_USE_SMM == 1)
         smm_init(d);
-#endif
     }
 }
 
@@ -528,28 +522,20 @@ static void mptable_init(void)
     int ioapic_id, i, len;
     int mp_config_table_size;
 
-#if (CONFIG_QEMU == 1)
-    if (smp_cpus <= 1)
+    if (CONFIG_QEMU && smp_cpus <= 1)
         return;
-#endif
 
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    mp_config_table = (u8 *)(GET_EBDA(ram_size) - CONFIG_ACPI_DATA_SIZE
-                             - MPTABLE_MAX_SIZE);
-#else
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
     mp_config_table = (u8 *)bios_table_cur_addr;
-#endif
     q = mp_config_table;
     putstr(&q, "PCMP"); /* "PCMP signature */
     putle16(&q, 0); /* table length (patched later) */
     putb(&q, 4); /* spec rev */
     putb(&q, 0); /* checksum (patched later) */
-#if (CONFIG_QEMU == 1)
-    putstr(&q, "QEMUCPU "); /* OEM id */
-#else
-    putstr(&q, "BOCHSCPU");
-#endif
+    if (CONFIG_QEMU)
+        putstr(&q, "QEMUCPU "); /* OEM id */
+    else
+        putstr(&q, "BOCHSCPU");
     putstr(&q, "0.1         "); /* vendor id */
     putle32(&q, 0); /* OEM table ptr */
     putle16(&q, 0); /* OEM table size */
@@ -613,18 +599,11 @@ static void mptable_init(void)
 
     mp_config_table_size = q - mp_config_table;
 
-#if (CONFIG_USE_EBDA_TABLES != 1)
     bios_table_cur_addr += mp_config_table_size;
-#endif
 
     /* floating pointer structure */
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr = ALIGN(ebda_cur_addr, 16);
-    float_pointer_struct = (u8 *)ebda_cur_addr;
-#else
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
     float_pointer_struct = (u8 *)bios_table_cur_addr;
-#endif
     q = float_pointer_struct;
     putstr(&q, "_MP_");
     /* pointer to MP config table */
@@ -641,11 +620,7 @@ static void mptable_init(void)
     putb(&q, 0);
     float_pointer_struct[10] = -checksum(float_pointer_struct
                                          , q - float_pointer_struct);
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr += (q - float_pointer_struct);
-#else
     bios_table_cur_addr += (q - float_pointer_struct);
-#endif
     dprintf(1, "MP table addr=0x%08lx MPC table addr=0x%08lx size=0x%x\n",
             (unsigned long)float_pointer_struct,
             (unsigned long)mp_config_table,
@@ -1107,13 +1082,8 @@ void smbios_init(void)
     char *start, *p, *q;
     int memsize = GET_EBDA(ram_size) / (1024 * 1024);
 
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr = ALIGN(ebda_cur_addr, 16);
-    start = (void *)(ebda_cur_addr);
-#else
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
     start = (void *)(bios_table_cur_addr);
-#endif
 
     p = (char *)start + sizeof(struct smbios_entry_point);
 
@@ -1145,11 +1115,7 @@ void smbios_init(void)
         (u32)(start + sizeof(struct smbios_entry_point)),
         nr_structs);
 
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr += (p - (char *)start);
-#else
     bios_table_cur_addr += (p - (char *)start);
-#endif
 
     dprintf(1, "SMBIOS table addr=0x%08lx\n", (unsigned long)start);
 }
@@ -1161,11 +1127,6 @@ void rombios32_init(void)
         return;
 
     dprintf(1, "Starting rombios32\n");
-
-#if (CONFIG_USE_EBDA_TABLES == 1)
-    ebda_cur_addr = ((*(u16 *)(0x40e)) << 4) + 0x380;
-    dprintf(1, "ebda_cur_addr: 0x%08lx\n", ebda_cur_addr);
-#endif
 
     cpu_probe();
 
