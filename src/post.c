@@ -23,6 +23,13 @@
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
 
 static void
+set_irq(int vector, u32 loc)
+{
+    SET_BDA(ivecs[vector].seg, SEG_BIOS);
+    SET_BDA(ivecs[vector].offset, loc - BUILD_BIOS_ADDR);
+}
+
+static void
 init_bda()
 {
     dprintf(3, "init bda\n");
@@ -31,47 +38,45 @@ init_bda()
     SET_BDA(mem_size_kb, BASE_MEM_IN_K);
 
     int i;
-    for (i=0; i<256; i++) {
-        SET_BDA(ivecs[i].seg, SEG_BIOS);
-        SET_BDA(ivecs[i].offset, OFFSET_dummy_iret_handler);
-    }
+    for (i=0; i<256; i++)
+        set_irq(i, OFFSET_dummy_iret_handler);
 
-    SET_BDA(ivecs[0x08].offset, OFFSET_entry_08);
-    SET_BDA(ivecs[0x09].offset, OFFSET_entry_09);
-    //SET_BDA(ivecs[0x0a].offset, OFFSET_entry_hwirq);
-    //SET_BDA(ivecs[0x0b].offset, OFFSET_entry_hwirq);
-    //SET_BDA(ivecs[0x0c].offset, OFFSET_entry_hwirq);
-    //SET_BDA(ivecs[0x0d].offset, OFFSET_entry_hwirq);
-    SET_BDA(ivecs[0x0e].offset, OFFSET_entry_0e);
-    //SET_BDA(ivecs[0x0f].offset, OFFSET_entry_hwirq);
-    SET_BDA(ivecs[0x10].offset, OFFSET_entry_10);
-    SET_BDA(ivecs[0x11].offset, OFFSET_entry_11);
-    SET_BDA(ivecs[0x12].offset, OFFSET_entry_12);
-    SET_BDA(ivecs[0x13].offset, OFFSET_entry_13);
-    SET_BDA(ivecs[0x14].offset, OFFSET_entry_14);
-    SET_BDA(ivecs[0x15].offset, OFFSET_entry_15);
-    SET_BDA(ivecs[0x16].offset, OFFSET_entry_16);
-    SET_BDA(ivecs[0x17].offset, OFFSET_entry_17);
-    SET_BDA(ivecs[0x18].offset, OFFSET_entry_18);
-    SET_BDA(ivecs[0x19].offset, OFFSET_entry_19);
-    SET_BDA(ivecs[0x1a].offset, OFFSET_entry_1a);
-    SET_BDA(ivecs[0x1c].offset, OFFSET_entry_1c);
-    SET_BDA(ivecs[0x40].offset, OFFSET_entry_40);
-    SET_BDA(ivecs[0x70].offset, OFFSET_entry_70);
-    //SET_BDA(ivecs[0x71].offset, OFFSET_entry_hwirq);
-    //SET_BDA(ivecs[0x72].offset, OFFSET_entry_hwirq);
-    //SET_BDA(ivecs[0x73].offset, OFFSET_entry_hwirq);
-    SET_BDA(ivecs[0x74].offset, OFFSET_entry_74);
-    SET_BDA(ivecs[0x75].offset, OFFSET_entry_75);
-    SET_BDA(ivecs[0x76].offset, OFFSET_entry_76);
-    //SET_BDA(ivecs[0x77].offset, OFFSET_entry_hwirq);
+    set_irq(0x08, OFFSET_entry_08);
+    set_irq(0x09, OFFSET_entry_09);
+    //set_irq(0x0a, OFFSET_entry_hwirq);
+    //set_irq(0x0b, OFFSET_entry_hwirq);
+    //set_irq(0x0c, OFFSET_entry_hwirq);
+    //set_irq(0x0d, OFFSET_entry_hwirq);
+    set_irq(0x0e, OFFSET_entry_0e);
+    //set_irq(0x0f, OFFSET_entry_hwirq);
+    set_irq(0x10, OFFSET_entry_10);
+    set_irq(0x11, OFFSET_entry_11);
+    set_irq(0x12, OFFSET_entry_12);
+    set_irq(0x13, OFFSET_entry_13);
+    set_irq(0x14, OFFSET_entry_14);
+    set_irq(0x15, OFFSET_entry_15);
+    set_irq(0x16, OFFSET_entry_16);
+    set_irq(0x17, OFFSET_entry_17);
+    set_irq(0x18, OFFSET_entry_18);
+    set_irq(0x19, OFFSET_entry_19);
+    set_irq(0x1a, OFFSET_entry_1a);
+    set_irq(0x1c, OFFSET_entry_1c);
+    set_irq(0x40, OFFSET_entry_40);
+    set_irq(0x70, OFFSET_entry_70);
+    //set_irq(0x71, OFFSET_entry_hwirq);
+    //set_irq(0x72, OFFSET_entry_hwirq);
+    //set_irq(0x73, OFFSET_entry_hwirq);
+    set_irq(0x74, OFFSET_entry_74);
+    set_irq(0x75, OFFSET_entry_75);
+    set_irq(0x76, OFFSET_entry_76);
+    //set_irq(0x77, OFFSET_entry_hwirq);
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_BDA(ivecs[0x79].seg, 0);
     SET_BDA(ivecs[0x79].offset, 0);
 
-    SET_BDA(ivecs[0x1E].offset, OFFSET_diskette_param_table2);
+    set_irq(0x1E, OFFSET_diskette_param_table2);
 }
 
 static void
@@ -116,7 +121,7 @@ ram_probe(void)
 
     // Mark known areas as reserved.
     add_e820((u32)MAKE_FARPTR(SEG_EBDA, 0), EBDA_SIZE * 1024, E820_RESERVED);
-    add_e820((u32)MAKE_FARPTR(SEG_BIOS, 0), 0x10000, E820_RESERVED);
+    add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
     dprintf(1, "ram_size=0x%08x\n", GET_EBDA(ram_size));
 }
@@ -181,7 +186,8 @@ callrom(u16 seg, u16 offset)
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.es = SEG_BIOS;
-    br.di = OFFSET_pnp_string + 1; // starts 1 past for alignment
+    // starts 1 past for alignment
+    br.di = OFFSET_pnp_string - BUILD_BIOS_ADDR + 1;
     br.cs = seg;
     br.ip = offset;
     call16(&br);
@@ -352,7 +358,8 @@ _start()
     interactive_bootmenu();
 
     // Setup bios checksum.
-    *(u8*)0xfffff = -checksum((u8*)0xf0000, 0xffff);
+    *(u8*)OFFSET_bios_checksum = -checksum((u8*)BUILD_BIOS_ADDR
+                                           , BUILD_BIOS_SIZE - 1);
 
     // Prep for boot process.
     make_bios_readonly();
@@ -371,8 +378,8 @@ asm(
     "post32:\n"
     "cli\n"
     "cld\n"
-    "lidtl " __stringify(0xf0000 | OFFSET_pmode_IDT_info) "\n"
-    "lgdtl " __stringify(0xf0000 | OFFSET_rombios32_gdt_48) "\n"
+    "lidtl " __stringify(OFFSET_pmode_IDT_info) "\n"
+    "lgdtl " __stringify(OFFSET_rombios32_gdt_48) "\n"
     "movl $" __stringify(BUILD_STACK_ADDR) ", %esp\n"
     "ljmp $0x10, $_start\n"
     );

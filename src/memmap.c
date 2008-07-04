@@ -132,8 +132,8 @@ u32 bios_table_cur_addr, bios_table_end_addr;
 void
 memmap_setup()
 {
-    bios_table_cur_addr = 0xf0000 | OFFSET_freespace2_start;
-    bios_table_end_addr = 0xf0000 | OFFSET_freespace2_end;
+    bios_table_cur_addr = OFFSET_freespace2_start;
+    bios_table_end_addr = OFFSET_freespace2_end;
     dprintf(1, "bios_table_addr: 0x%08x end=0x%08x\n",
             bios_table_cur_addr, bios_table_end_addr);
 }

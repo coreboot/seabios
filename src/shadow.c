@@ -24,7 +24,8 @@ copy_bios(PCIDevice d)
     int v = pci_config_readb(d, 0x59);
     v |= 0x30;
     pci_config_writeb(d, 0x59, v);
-    memcpy((void *)0x000f0000, (void *)BUILD_BIOS_TMP_ADDR, 0x10000);
+    memcpy((void *)BUILD_BIOS_ADDR, (void *)BUILD_BIOS_TMP_ADDR
+           , BUILD_BIOS_SIZE);
 }
 
 // Make the BIOS code segment area (0xf0000) writable.
@@ -45,14 +46,15 @@ make_bios_writable()
     }
 
     // Copy the bios to a temporary area.
-    memcpy((void *)BUILD_BIOS_TMP_ADDR, (void *)0x000f0000, 0x10000);
+    memcpy((void *)BUILD_BIOS_TMP_ADDR, (void *)BUILD_BIOS_ADDR
+           , BUILD_BIOS_SIZE);
 
     // Enable shadowing and copy bios.
-    if (IN_RANGE((u32)copy_bios, 0xf0000, 0x10000)) {
+    if (IN_RANGE((u32)copy_bios, BUILD_BIOS_ADDR, BUILD_BIOS_SIZE)) {
         // Jump to shadow enable function - use the copy in the
         // temporary storage area so that memory does not change under
         // the executing code.
-        u32 pos = (u32)copy_bios - 0xf0000 + BUILD_BIOS_TMP_ADDR;
+        u32 pos = (u32)copy_bios - BUILD_BIOS_ADDR + BUILD_BIOS_TMP_ADDR;
         void (*func)(PCIDevice) = (void*)pos;
         func(d);
     } else {
@@ -60,7 +62,7 @@ make_bios_writable()
     }
 
     // Clear the temporary area.
-    memset((void *)BUILD_BIOS_TMP_ADDR, 0, 0x10000);
+    memset((void *)BUILD_BIOS_TMP_ADDR, 0, BUILD_BIOS_SIZE);
 }
 
 // Make the BIOS code segment area (0xf0000) read-only.

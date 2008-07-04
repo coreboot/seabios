@@ -98,7 +98,8 @@ $(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(TABLEASM)
 
 $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rombios16.lds
 	@echo "  Linking $@"
-	$(Q)ld -T $(OUT)rombios16.lds $< -o $@
+	$(Q)ld -T $(OUT)rombios16.lds $< -o $@.16
+	$(Q)objcopy --change-addresses 0xf0000 $@.16 $@
 
 $(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 

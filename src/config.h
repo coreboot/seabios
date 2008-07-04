@@ -54,6 +54,8 @@
 #define BUILD_CPU_COUNT_ADDR    0xf000
 #define BUILD_AP_BOOT_ADDR      0x10000
 #define BUILD_BSS_ADDR          0x40000
+#define BUILD_BIOS_ADDR         0xf0000
+#define BUILD_BIOS_SIZE         0x10000
  /* 64 KB used to copy the BIOS to shadow RAM */
 #define BUILD_BIOS_TMP_ADDR     0x30000
 

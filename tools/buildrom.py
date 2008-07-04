@@ -58,14 +58,15 @@ def main():
     if size32 > freespace:
         print "32bit code too large (%d vs %d)" % (size32, freespace)
         sys.exit(1)
+    spos -= 0xf0000
     if data16[spos:spos+size32] != '\0'*size32:
-        print "Non zero data in 16bit freespace (%d to %d)" % (
+        print "Non zero data in 16bit freespace (0x%x to 0x%x)" % (
             spos, spos+size32)
         sys.exit(1)
     outrom = data16[:spos] + data32 + data16[spos+size32:]
 
     # Fixup initial jump to 32 bit code
-    jmppos = int(o16['OFFSET_set_entry32'], 16)
+    jmppos = int(o16['OFFSET_set_entry32'], 16) - 0xf0000
     start32 = int(o32['OFFSET__start'], 16)
     outrom = alteraddr(outrom, jmppos+2, start32)
 

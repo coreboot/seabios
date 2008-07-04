@@ -207,7 +207,7 @@ __call16_from32:
         movl %eax, %cr0
 
         // far jump to flush CPU queue after transition to real mode
-        ljmpw $0xf000, $2f
+        ljmpw $SEG_BIOS, $2f
 
 2:
         // restore IDT to normal real-mode defaults
@@ -238,7 +238,7 @@ __call16:
         pushl %eax
 
         // Setup for iretw call
-        pushw $0xf000
+        pushw $SEG_BIOS
         pushw $1f               // return point
         pushw 0x20(%eax)        // flags
         pushl 0x1c(%eax)        // CS:IP
@@ -515,7 +515,7 @@ dummy_iret_handler:
         IRQ_ENTRY_ARG 05
 
         ORG 0xfff0 // Power-up Entry Point
-        ljmpw $0xf000, $post16
+        ljmpw $SEG_BIOS, $post16
 
         ORG 0xfff5
         // BIOS build date
@@ -523,6 +523,9 @@ dummy_iret_handler:
 
         ORG 0xfffe
         .byte CONFIG_MODEL_ID
+
+        .globl bios_checksum
+bios_checksum:
         .byte 0x00
 
         .end

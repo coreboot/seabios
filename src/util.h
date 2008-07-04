@@ -73,7 +73,7 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
 #else
 #include "../out/rom16.offset.auto.h"
 #define call16_int(nr, callregs)                                \
-    __call16_int((callregs), OFFSET_irq_trampoline_ ##nr )
+    __call16_int((callregs), OFFSET_irq_trampoline_ ##nr - BUILD_BIOS_ADDR)
 #endif
 
 // output.c

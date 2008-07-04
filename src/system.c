@@ -170,7 +170,7 @@ handle_1587(struct bregs *regs)
         "movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to real mode
-        "ljmpw $0xf000, $2f\n"
+        "ljmpw $" __stringify(SEG_BIOS) ", $2f\n"
         "2:\n"
 
         // restore IDT to normal real-mode defaults

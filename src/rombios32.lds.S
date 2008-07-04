@@ -13,7 +13,7 @@ OUTPUT_ARCH("i386")
 ENTRY(post32);
 SECTIONS
 {
-        . = (OFFSET_bios16c_end | 0xf0000);
+        . = OFFSET_bios16c_end;
         . = ALIGN(16);
         _text32_start = . ;
         .text     : { *(.text)    }
@@ -23,7 +23,7 @@ SECTIONS
         __bss_start = . ;
         .bss      : { *(.bss) *(COMMON) }
         __bss_end = . ;
-        __call16_from32 = (0xf0000 | OFFSET___call16_from32) ;
+        __call16_from32 = OFFSET___call16_from32;
         /DISCARD/ : { *(.stab)
                      *(.stabstr)
                      *(.comment)
