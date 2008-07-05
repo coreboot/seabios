@@ -165,8 +165,8 @@ transition32:
         movl  %eax, %cr0
 
         // start protected mode code
-        // ljmpl $PROTECTED_MODE_CS, $(1f | 0xf0000)
-        .word 0xea66, 1f, 0x000f, PROTECTED_MODE_CS
+        .set __trans32, (BUILD_BIOS_ADDR + 1f)
+        ljmpl $PROTECTED_MODE_CS, $__trans32
 
         .code32
 1:
