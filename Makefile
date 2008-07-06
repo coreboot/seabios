@@ -81,13 +81,6 @@ $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $<"
 	$(Q)$(CPP) -P $< -o $@
 
-$(OUT)%.bin: $(OUT)%.o
-	@echo "  Extracting binary $@"
-	$(Q)objcopy -O binary $< $@
-
-$(OUT)%.offset.auto.h: $(OUT)%.o
-	@echo "  Generating symbol offset header $@"
-	$(Q)nm $< | ./tools/defsyms.py $@
 
 $(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
@@ -96,20 +89,30 @@ $(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(TABLEASM)
 	@echo "  Generating 16bit layout of $@"
 	$(Q)$(CC) $(CFLAGS16) -c $< -o $@
 
-$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rombios16.lds
+$(OUT)romlayout32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
+
+$(OUT)rom32.notreloc.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
+	@echo "  Linking (no relocs) $@"
+	$(Q)ld -r -T $(OUT)rombios32.lds $< -o $@.raw
+	$(Q)objcopy --prefix-symbols=_code32_ $@.raw $@
+
+$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.notreloc.o $(OUT)rombios16.lds
 	@echo "  Linking $@"
-	$(Q)ld -T $(OUT)rombios16.lds $< -o $@.16
-	$(Q)objcopy --change-addresses 0xf0000 $@.16 $@
+	$(Q)ld -T $(OUT)rombios16.lds -R $(OUT)rom32.notreloc.o $< -o $@
 
-$(OUT)romlayout32.o: $(OUT)rom16.offset.auto.h ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
-
-$(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
+$(OUT)rom32.o: $(OUT)rom16.o $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking $@"
-	$(Q)ld -T $(OUT)rombios32.lds $< -o $@
+	$(Q)ld -T $(OUT)rombios32.lds $(OUT)rom16.o $(OUT)romlayout32.o -o $@
+	$(Q)nm $@ | ./tools/checkrom.py
 
-$(OUT)bios.bin: $(OUT)rom16.bin $(OUT)rom32.bin $(OUT)rom16.offset.auto.h $(OUT)rom32.offset.auto.h
-	@echo "  Building $@"
-	$(Q)./tools/buildrom.py
+$(OUT)bios.bin.elf: $(OUT)rom32.o
+	@echo "  Stripping $<"
+	$(Q)strip $< -o $@
+
+$(OUT)bios.bin: $(OUT)bios.bin.elf
+	@echo "  Extracting binary $@"
+	$(Q)objcopy -O binary $< $@
+
 
 ####### Generic rules
 clean:

@@ -124,16 +124,11 @@
  ****************************************************************/
 
         ORG 0xe05b
-        .globl post16
 post16:
         // init the stack pointer
         RESET_STACK
 
-        // Set entry point of rombios32 code - the actual address
-        // is altered later in the build process.
-        .globl set_entry32
-set_entry32:
-        pushl $0xf0000000
+        pushl $_code32__start
 
         cld
 
@@ -184,7 +179,7 @@ transition32:
 // Call a 16bit function from 32bit mode.
 // %eax = address of struct bregs
 // Clobbers: all gp registers, flags, stack registers, cr0, idt/gdt
-        .globl __call16_from32
+        .global __call16_from32
 __call16_from32:
         pushl %eax
 
@@ -232,7 +227,7 @@ __call16_from32:
 // Call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs
 // Clobbers: all gp registers, es
-        .globl __call16
+        .global __call16
 __call16:
         // Save eax
         pushl %eax
@@ -283,7 +278,7 @@ __call16:
 
 
 // APM trampolines
-        .globl apm16protected_entry
+        .global apm16protected_entry
 apm16protected_entry:
         pushfw          // save flags
         pushl %eax      // dummy
@@ -293,7 +288,7 @@ apm16protected_entry:
         lretw
 
         .code32
-        .globl apm32protected_entry
+        .global apm32protected_entry
 apm32protected_entry:
         pushfw
         pushw %cs       // Setup for long jump to 16bit mode
@@ -328,6 +323,7 @@ apm32protected_entry:
 // Set base to f0000 to correspond to beginning of BIOS,
 // in case I actually define an IDT later
 // Set limit to 0
+        .global pmode_IDT_info
 pmode_IDT_info:
         .word 0x0000  // limit 15:00
         .long 0xf0000 // base 16:47
@@ -341,6 +337,7 @@ rmode_IDT_info:
         .word 0x03ff  // limit 15:00
         .long 0       // base 16:47
 
+        .global rombios32_gdt_48
 rombios32_gdt_48:
         .word 0x30
         .word rombios32_gdt
@@ -366,7 +363,7 @@ rombios32_gdt:
 
         // Define an entry point for an interrupt (no args passed).
         .macro IRQ_ENTRY num
-        .globl entry_\num
+        .global entry_\num
         entry_\num :
         cli         // In case something far-calls instead of using "int"
         ENTRY handle_\num
@@ -375,7 +372,7 @@ rombios32_gdt:
 
         // Define an entry point for an interrupt (can read/modify args).
         .macro IRQ_ENTRY_ARG num
-        .globl entry_\num
+        .global entry_\num
         entry_\num :
         cli         // In case something far-calls instead of using "int"
         ENTRY_ARG handle_\num
@@ -415,19 +412,19 @@ rombios32_gdt:
         IRQ_ENTRY 75
 
         // int 18/19 are special - they reset the stack and do not return.
-        .globl entry_19
+        .global entry_19
 entry_19:
         RESET_STACK
         ENTRY handle_19
 
-        .globl entry_18
+        .global entry_18
 entry_18:
         RESET_STACK
         ENTRY handle_18
 
         // IRQ trampolines
         .macro IRQ_TRAMPOLINE num
-        .globl irq_trampoline_0x\num
+        .global irq_trampoline_0x\num
         irq_trampoline_0x\num :
         int $0x\num
         lretw
@@ -476,7 +473,7 @@ entry_hwirq:
         // XXX int 1D
         iretw
 
-        .globl freespace2_start, freespace2_end
+        .global freespace2_start, freespace2_end
 freespace2_start:
 
         ORG 0xf841
@@ -507,7 +504,7 @@ freespace2_end:
         .ascii "(c) 2002 MandrakeSoft S.A. Written by Kevin Lawton & the Bochs team."
 
         ORG 0xff53
-        .globl dummy_iret_handler
+        .global dummy_iret_handler
 dummy_iret_handler:
         iretw
 
@@ -524,7 +521,7 @@ dummy_iret_handler:
         ORG 0xfffe
         .byte CONFIG_MODEL_ID
 
-        .globl bios_checksum
+        .global bios_checksum
 bios_checksum:
         .byte 0x00
 

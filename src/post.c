@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "ioport.h" // PORT_*
-#include "../out/rom16.offset.auto.h" // OFFSET_*
 #include "config.h" // CONFIG_*
 #include "cmos.h" // CMOS_*
 #include "util.h" // memset
@@ -23,11 +22,35 @@
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
 
 static void
-set_irq(int vector, u32 loc)
+set_irq(int vector, void *loc)
 {
     SET_BDA(ivecs[vector].seg, SEG_BIOS);
-    SET_BDA(ivecs[vector].offset, loc - BUILD_BIOS_ADDR);
+    SET_BDA(ivecs[vector].offset, (u32)loc - BUILD_BIOS_ADDR);
 }
+
+// Symbols defined in romlayout.S
+extern void dummy_iret_handler();
+extern void entry_08();
+extern void entry_09();
+extern void entry_hwirq();
+extern void entry_0e();
+extern void entry_10();
+extern void entry_11();
+extern void entry_12();
+extern void entry_13();
+extern void entry_14();
+extern void entry_15();
+extern void entry_16();
+extern void entry_17();
+extern void entry_18();
+extern void entry_19();
+extern void entry_1a();
+extern void entry_1c();
+extern void entry_40();
+extern void entry_70();
+extern void entry_74();
+extern void entry_75();
+extern void entry_76();
 
 static void
 init_bda()
@@ -39,44 +62,44 @@ init_bda()
 
     int i;
     for (i=0; i<256; i++)
-        set_irq(i, OFFSET_dummy_iret_handler);
+        set_irq(i, &dummy_iret_handler);
 
-    set_irq(0x08, OFFSET_entry_08);
-    set_irq(0x09, OFFSET_entry_09);
-    //set_irq(0x0a, OFFSET_entry_hwirq);
-    //set_irq(0x0b, OFFSET_entry_hwirq);
-    //set_irq(0x0c, OFFSET_entry_hwirq);
-    //set_irq(0x0d, OFFSET_entry_hwirq);
-    set_irq(0x0e, OFFSET_entry_0e);
-    //set_irq(0x0f, OFFSET_entry_hwirq);
-    set_irq(0x10, OFFSET_entry_10);
-    set_irq(0x11, OFFSET_entry_11);
-    set_irq(0x12, OFFSET_entry_12);
-    set_irq(0x13, OFFSET_entry_13);
-    set_irq(0x14, OFFSET_entry_14);
-    set_irq(0x15, OFFSET_entry_15);
-    set_irq(0x16, OFFSET_entry_16);
-    set_irq(0x17, OFFSET_entry_17);
-    set_irq(0x18, OFFSET_entry_18);
-    set_irq(0x19, OFFSET_entry_19);
-    set_irq(0x1a, OFFSET_entry_1a);
-    set_irq(0x1c, OFFSET_entry_1c);
-    set_irq(0x40, OFFSET_entry_40);
-    set_irq(0x70, OFFSET_entry_70);
-    //set_irq(0x71, OFFSET_entry_hwirq);
-    //set_irq(0x72, OFFSET_entry_hwirq);
-    //set_irq(0x73, OFFSET_entry_hwirq);
-    set_irq(0x74, OFFSET_entry_74);
-    set_irq(0x75, OFFSET_entry_75);
-    set_irq(0x76, OFFSET_entry_76);
-    //set_irq(0x77, OFFSET_entry_hwirq);
+    set_irq(0x08, &entry_08);
+    set_irq(0x09, &entry_09);
+    //set_irq(0x0a, &entry_hwirq);
+    //set_irq(0x0b, &entry_hwirq);
+    //set_irq(0x0c, &entry_hwirq);
+    //set_irq(0x0d, &entry_hwirq);
+    set_irq(0x0e, &entry_0e);
+    //set_irq(0x0f, &entry_hwirq);
+    set_irq(0x10, &entry_10);
+    set_irq(0x11, &entry_11);
+    set_irq(0x12, &entry_12);
+    set_irq(0x13, &entry_13);
+    set_irq(0x14, &entry_14);
+    set_irq(0x15, &entry_15);
+    set_irq(0x16, &entry_16);
+    set_irq(0x17, &entry_17);
+    set_irq(0x18, &entry_18);
+    set_irq(0x19, &entry_19);
+    set_irq(0x1a, &entry_1a);
+    set_irq(0x1c, &entry_1c);
+    set_irq(0x40, &entry_40);
+    set_irq(0x70, &entry_70);
+    //set_irq(0x71, &entry_hwirq);
+    //set_irq(0x72, &entry_hwirq);
+    //set_irq(0x73, &entry_hwirq);
+    set_irq(0x74, &entry_74);
+    set_irq(0x75, &entry_75);
+    set_irq(0x76, &entry_76);
+    //set_irq(0x77, &entry_hwirq);
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_BDA(ivecs[0x79].seg, 0);
     SET_BDA(ivecs[0x79].offset, 0);
 
-    set_irq(0x1E, OFFSET_diskette_param_table2);
+    set_irq(0x1E, &diskette_param_table2);
 }
 
 static void
@@ -187,7 +210,8 @@ callrom(u16 seg, u16 offset)
     memset(&br, 0, sizeof(br));
     br.es = SEG_BIOS;
     // starts 1 past for alignment
-    br.di = OFFSET_pnp_string - BUILD_BIOS_ADDR + 1;
+    extern char pnp_string[];
+    br.di = (u32)pnp_string - BUILD_BIOS_ADDR + 1;
     br.cs = seg;
     br.ip = offset;
     call16(&br);
@@ -358,8 +382,8 @@ _start()
     interactive_bootmenu();
 
     // Setup bios checksum.
-    *(u8*)OFFSET_bios_checksum = -checksum((u8*)BUILD_BIOS_ADDR
-                                           , BUILD_BIOS_SIZE - 1);
+    extern char bios_checksum;
+    bios_checksum = -checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE - 1);
 
     // Prep for boot process.
     make_bios_readonly();
@@ -372,14 +396,19 @@ _start()
     call16_int(0x19, &br);
 }
 
+// Ughh - some older gcc compilers have a bug which causes VISIBLE32
+// functions to not be exported as a global variable - force _start
+// to be global here.
+asm(".global _start");
+
 // Externally visible 32bit entry point.
 asm(
     ".global post32\n"
     "post32:\n"
     "cli\n"
     "cld\n"
-    "lidtl " __stringify(OFFSET_pmode_IDT_info) "\n"
-    "lgdtl " __stringify(OFFSET_rombios32_gdt_48) "\n"
+    "lidtl pmode_IDT_info\n"
+    "lgdtl rombios32_gdt_48\n"
     "movl $" __stringify(BUILD_STACK_ADDR) ", %esp\n"
     "ljmp $0x10, $_start\n"
     );

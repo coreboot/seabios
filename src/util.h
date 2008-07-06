@@ -65,16 +65,10 @@ void *memmove(void *d, const void *s, size_t len);
 struct bregs;
 inline void call16(struct bregs *callregs);
 inline void __call16_int(struct bregs *callregs, u16 offset);
-#ifdef MODE16
 #define call16_int(nr, callregs) do {                           \
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
-#else
-#include "../out/rom16.offset.auto.h"
-#define call16_int(nr, callregs)                                \
-    __call16_int((callregs), OFFSET_irq_trampoline_ ##nr - BUILD_BIOS_ADDR)
-#endif
 
 // output.c
 void debug_serial_setup();

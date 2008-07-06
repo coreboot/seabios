@@ -49,8 +49,8 @@ static inline u8 readb(const void *addr)
 }
 
 asm(
-    ".globl smp_ap_boot_code_start\n"
-    ".globl smp_ap_boot_code_end\n"
+    ".global smp_ap_boot_code_start\n"
+    ".global smp_ap_boot_code_end\n"
     "  .code16\n"
 
     "smp_ap_boot_code_start:\n"
