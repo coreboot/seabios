@@ -12,11 +12,6 @@
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
 
-// We need a copy of this string, but we are not actually a PnP BIOS,
-// so make sure it is *not* aligned, so OSes will not see it if they
-// scan.
-char pnp_string[] VISIBLE16 __attribute__((aligned (2))) = " $PnP";
-
 //--------------------------------------------------------------------------
 // print_boot_device
 //   displays the boot device

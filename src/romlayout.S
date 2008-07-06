@@ -364,6 +364,15 @@ rombios32_gdt:
         // 16 bit data segment base=0x0 limit=0xffff (REAL_MODE_DS)
         .word 0xffff, 0, 0x9300, 0x0000
 
+// We need a copy of this string in the 0xf000 segment, but we are not
+// actually a PnP BIOS, so make sure it is *not* aligned, so OSes will
+// not see it if they scan.
+        .global pnp_string
+        .balign 2
+        .byte 0
+pnp_string:
+        .ascii "$PnP"
+
 
 /****************************************************************
  * Interrupt entry points

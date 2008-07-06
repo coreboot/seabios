@@ -211,7 +211,7 @@ callrom(u16 seg, u16 offset)
     br.es = SEG_BIOS;
     // starts 1 past for alignment
     extern char pnp_string[];
-    br.di = (u32)pnp_string - BUILD_BIOS_ADDR + 1;
+    br.di = (u32)pnp_string - BUILD_BIOS_ADDR;
     br.cs = seg;
     br.ip = offset;
     call16(&br);
