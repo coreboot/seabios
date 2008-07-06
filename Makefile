@@ -91,20 +91,20 @@ $(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(TABLEASM)
 
 $(OUT)romlayout32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 
-$(OUT)rom32.notreloc.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
+$(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
-	$(Q)ld -r -T $(OUT)rombios32.lds $< -o $@.raw
-	$(Q)objcopy --prefix-symbols=_code32_ $@.raw $@
+	$(Q)ld -r -T $(OUT)rombios32.lds $< -o $@
 
-$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.notreloc.o $(OUT)rombios16.lds
+$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)rombios16.lds
 	@echo "  Linking $@"
-	$(Q)ld -T $(OUT)rombios16.lds -R $(OUT)rom32.notreloc.o $< -o $@
+	$(Q)objcopy --prefix-symbols=_code32_ $(OUT)rom32.o $(OUT)rom32.rename.o
+	$(Q)ld -T $(OUT)rombios16.lds -R $(OUT)rom32.rename.o $< -o $@
 
-$(OUT)rom32.o: $(OUT)rom16.o $(OUT)romlayout32.o $(OUT)rombios32.lds
+$(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios.lds
 	@echo "  Linking $@"
-	$(Q)ld -T $(OUT)rombios32.lds $(OUT)rom16.o $(OUT)romlayout32.o -o $@
+	$(Q)ld -T $(OUT)rombios.lds $(OUT)rom16.o $(OUT)rom32.o -o $@
 
-$(OUT)bios.bin.elf: $(OUT)rom32.o
+$(OUT)bios.bin.elf: $(OUT)rom.o
 	@echo "  Prepping $@"
 	$(Q)nm $< | ./tools/checkrom.py
 	$(Q)strip $< -o $@

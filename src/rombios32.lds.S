@@ -1,4 +1,4 @@
-// Linker definitions for 16 and 32 bit code
+// Linker definitions for 32 bit code
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 //
@@ -8,37 +8,25 @@
 
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH("i386")
-ENTRY(post32);
 SECTIONS
 {
-        .text BUILD_BIOS_ADDR : {
-                code32_start = . ;
+        . = BUILD_BIOS_ADDR ;
+        code32_start = . ;
+        .text : {
                 *(.text)
-
-                . = ALIGN(16) ;
                 code32_rodata = . ;
                 *(.rodata*)
-
-                . = ALIGN(16) ;
                 code32_data = . ;
                 *(.data)
-                code32_end = . ;
-
                 . = ALIGN(16) ;
-                code16_start = . ;
-                *(.text16)
-                code16_end = . ;
-                freespace1_start = . ;
-
-                . = BUILD_START_FIXED ;
-                freespace1_end = . ;
-                *(.text16.fixed.addr)
                 }
+        code32_end = . ;
 
-        .bss BUILD_BSS_ADDR : {
-                 __bss_start = . ;
+        . = BUILD_BSS_ADDR ;
+        __bss_start = . ;
+        .bss : {
                  *(.bss)
                  *(COMMON)
-                 __bss_end = . ;
                  }
+        __bss_end = . ;
 }
