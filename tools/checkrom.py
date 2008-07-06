@@ -17,8 +17,11 @@ def main():
         except:
             pass
 
-    if syms['code16_start'] != syms['_code32_code16_start']:
-        print "Error!  16bit code moved during linking"
+    c16s = syms['code16_start']
+    c32s = syms['_code32_code16_start']
+    if c16s != c32s:
+        print "Error!  16bit code moved during linking (0x%x vs 0x%x)" % (
+            c32s, c16s)
         sys.exit(1)
 
     size16 = syms['code16_end'] - syms['code16_start']

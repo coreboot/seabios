@@ -14,7 +14,13 @@ SECTIONS
         .text BUILD_BIOS_ADDR : {
                 code32_start = . ;
                 *(.text)
+
+                . = ALIGN(16) ;
+                code32_rodata = . ;
                 *(.rodata*)
+
+                . = ALIGN(16) ;
+                code32_data = . ;
                 *(.data)
                 code32_end = . ;
 

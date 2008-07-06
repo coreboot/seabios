@@ -103,10 +103,10 @@ $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.notreloc.o $(OUT)rombios16.lds
 $(OUT)rom32.o: $(OUT)rom16.o $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking $@"
 	$(Q)ld -T $(OUT)rombios32.lds $(OUT)rom16.o $(OUT)romlayout32.o -o $@
-	$(Q)nm $@ | ./tools/checkrom.py
 
 $(OUT)bios.bin.elf: $(OUT)rom32.o
-	@echo "  Stripping $<"
+	@echo "  Prepping $@"
+	$(Q)nm $< | ./tools/checkrom.py
 	$(Q)strip $< -o $@
 
 $(OUT)bios.bin: $(OUT)bios.bin.elf
