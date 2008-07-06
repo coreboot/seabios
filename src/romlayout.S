@@ -110,6 +110,7 @@
         xorw %ax, %ax
         movw %ax, %ss
         movl $ BUILD_STACK_ADDR , %esp
+        cld
         .endm
 
         // Specify a location in the fixed part of bios area.
@@ -129,8 +130,6 @@ post16:
         RESET_STACK
 
         pushl $_code32__start
-
-        cld
 
         // Fall through to transition32 function below
 
@@ -432,12 +431,14 @@ pnp_string:
         .global entry_19
 entry_19:
         RESET_STACK
-        ENTRY handle_19
+        pushl $_code32_handle_19
+        jmp transition32
 
         .global entry_18
 entry_18:
         RESET_STACK
-        ENTRY handle_18
+        pushl $_code32_handle_18
+        jmp transition32
 
         // IRQ trampolines
         .macro IRQ_TRAMPOLINE num

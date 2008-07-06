@@ -77,8 +77,6 @@ print_boot_failure(u16 type, u8 reason)
 static void
 try_boot(u16 seq_nr)
 {
-    irq_enable();
-
     SET_EBDA(ipl.sequence, seq_nr);
 
     u32 bootdev = GET_EBDA(ipl.bootorder);
@@ -193,7 +191,7 @@ do_boot(u16 seq_nr)
 }
 
 // Boot Failure recovery: try the next device.
-void VISIBLE16
+void VISIBLE32
 handle_18()
 {
     debug_serial_setup();
@@ -203,7 +201,7 @@ handle_18()
 }
 
 // INT 19h Boot Load Service Entry Point
-void VISIBLE16
+void VISIBLE32
 handle_19()
 {
     debug_serial_setup();
