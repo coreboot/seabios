@@ -160,8 +160,7 @@ transition32:
         movl  %eax, %cr0
 
         // start protected mode code
-        .set __trans32, (BUILD_BIOS_ADDR + 1f)
-        ljmpl $PROTECTED_MODE_CS, $__trans32
+        ljmpl $PROTECTED_MODE_CS, $(BUILD_BIOS_ADDR + 1f)
 
         .code32
 1:
@@ -307,6 +306,17 @@ apm32protected_entry:
         addl $4, %esp   // pop call address
         popfw
         lretl
+
+// 32bit elf entry point
+        .global post32
+post32:
+        cli
+        cld
+        lidtl (BUILD_BIOS_ADDR + pmode_IDT_info)
+        lgdtl (BUILD_BIOS_ADDR + rombios32_gdt_48)
+        movl $BUILD_STACK_ADDR, %esp
+        ljmpl $PROTECTED_MODE_CS, $_code32__start
+
         .code16gcc
 
 
@@ -323,7 +333,6 @@ apm32protected_entry:
 // Set base to f0000 to correspond to beginning of BIOS,
 // in case I actually define an IDT later
 // Set limit to 0
-        .global pmode_IDT_info
 pmode_IDT_info:
         .word 0x0000  // limit 15:00
         .long 0xf0000 // base 16:47
@@ -337,7 +346,6 @@ rmode_IDT_info:
         .word 0x03ff  // limit 15:00
         .long 0       // base 16:47
 
-        .global rombios32_gdt_48
 rombios32_gdt_48:
         .word 0x30
         .word rombios32_gdt

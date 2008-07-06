@@ -400,15 +400,3 @@ _start()
 // functions to not be exported as a global variable - force _start
 // to be global here.
 asm(".global _start");
-
-// Externally visible 32bit entry point.
-asm(
-    ".global post32\n"
-    "post32:\n"
-    "cli\n"
-    "cld\n"
-    "lidtl pmode_IDT_info\n"
-    "lgdtl rombios32_gdt_48\n"
-    "movl $" __stringify(BUILD_STACK_ADDR) ", %esp\n"
-    "ljmp $0x10, $_start\n"
-    );
