@@ -79,12 +79,12 @@ set_code_fail_silent(struct bregs *regs, u8 code)
 }
 
 #define set_fail(regs) \
-    __set_fail(__func__, (regs))
+    __set_fail(__func__, __LINE__, (regs))
 #define set_code_fail(regs, code)               \
-    __set_code_fail(__func__, (regs), (code))
+    __set_code_fail(__func__, __LINE__, (regs), (code))
 
-// util.c
-void __set_fail(const char *fname, struct bregs *regs);
-void __set_code_fail(const char *fname, struct bregs *regs, u8 code);
+// output.c
+void __set_fail(const char *fname, int lineno, struct bregs *regs);
+void __set_code_fail(const char *fname, int lineno, struct bregs *regs, u8 code);
 
 #endif // bregs.h

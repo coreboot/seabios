@@ -83,17 +83,3 @@ memmove(void *d, const void *s, size_t len)
 
     return d;
 }
-
-void
-__set_fail(const char *fname, struct bregs *regs)
-{
-    __debug_fail(fname, regs);
-    set_fail_silent(regs);
-}
-
-void
-__set_code_fail(const char *fname, struct bregs *regs, u8 code)
-{
-    __debug_fail(fname, regs);
-    set_code_fail_silent(regs, code);
-}

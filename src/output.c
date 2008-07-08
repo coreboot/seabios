@@ -250,14 +250,14 @@ printf(const char *fmt, ...)
 }
 
 static void
-dump_regs(const char *fname, const char *type, struct bregs *regs)
+dump_regs(struct bregs *regs)
 {
     if (!regs) {
-        dprintf(1, "%s %s: NULL\n", type, fname);
+        dprintf(1, "  NULL\n");
         return;
     }
-    dprintf(1, "%s %s: a=%x b=%x c=%x d=%x si=%x di=%x\n"
-            , type, fname, regs->eax, regs->ebx, regs->ecx, regs->edx
+    dprintf(1, "  a=%x b=%x c=%x d=%x si=%x di=%x\n"
+            , regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
     dprintf(1, "  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
             , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
@@ -274,18 +274,29 @@ __debug_isr(const char *fname)
 void
 __debug_enter(const char *fname, struct bregs *regs)
 {
-    // XXX - implement run time suppression test
-    dump_regs(fname, "enter", regs);
+    dprintf(1, "enter %s:\n", fname);
+    dump_regs(regs);
 }
 
 void
-__debug_fail(const char *fname, struct bregs *regs)
+__debug_stub(const char *fname, int lineno, struct bregs *regs)
 {
-    dump_regs(fname, "fail", regs);
+    dprintf(1, "stub %s:%d:\n", fname, lineno);
+    dump_regs(regs);
 }
 
 void
-__debug_stub(const char *fname, struct bregs *regs)
+__set_fail(const char *fname, int lineno, struct bregs *regs)
 {
-    dump_regs(fname, "stub", regs);
+    dprintf(1, "fail %s:%d:\n", fname, lineno);
+    dump_regs(regs);
+    set_fail_silent(regs);
+}
+
+void
+__set_code_fail(const char *fname, int lineno, struct bregs *regs, u8 code)
+{
+    dprintf(1, "fail %s:%d(%x):\n", fname, lineno, code);
+    dump_regs(regs);
+    set_code_fail_silent(regs, code);
 }

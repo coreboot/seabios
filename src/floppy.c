@@ -155,7 +155,7 @@ floppy_prepare_controller(u8 drive)
     }
 }
 
-static u8
+static int
 floppy_pio(u8 *cmd, u8 cmdlen)
 {
     floppy_prepare_controller(cmd[1] & 1);
@@ -171,7 +171,7 @@ floppy_pio(u8 *cmd, u8 cmdlen)
         if (!GET_BDA(floppy_motor_counter)) {
             irq_disable();
             floppy_reset_controller();
-            return DISK_RET_ETIMEOUT;
+            return -1;
         }
         v = GET_BDA(floppy_recalibration_status);
         if (v & FRS_TIMEOUT)
@@ -186,7 +186,20 @@ floppy_pio(u8 *cmd, u8 cmdlen)
     return 0;
 }
 
-static u8
+#define floppy_ret(regs, code) \
+    __floppy_ret(__func__, __LINE__, (regs), (code))
+
+void
+__floppy_ret(const char *fname, int lineno, struct bregs *regs, u8 code)
+{
+    SET_BDA(floppy_last_status, code);
+    if (code)
+        __set_code_fail(fname, lineno, regs, code);
+    else
+        set_code_success(regs);
+}
+
+static int
 floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
 {
     // es:bx = pointer to where to place information from diskette
@@ -202,8 +215,10 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
 
     // check for 64K boundary overrun
     u16 last_addr = base_address + count;
-    if (last_addr < base_address)
-        return DISK_RET_EBOUNDARY;
+    if (last_addr < base_address) {
+        floppy_ret(regs, DISK_RET_EBOUNDARY);
+        return -1;
+    }
 
     u8 mode_register = 0x4a; // single mode, increment, autoinit disable,
     if (cmd[0] == 0xe6)
@@ -228,9 +243,11 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
 
     outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
 
-    u8 ret = floppy_pio(cmd, cmdlen);
-    if (ret)
-        return ret;
+    int ret = floppy_pio(cmd, cmdlen);
+    if (ret) {
+        floppy_ret(regs, DISK_RET_ETIMEOUT);
+        return -1;
+    }
 
     // check port 3f4 for accessibility to status bytes
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
@@ -362,40 +379,20 @@ floppy_media_sense(u8 drive)
     return rv;
 }
 
-#define floppy_ret(regs, code) \
-    __floppy_ret(__func__, (regs), (code))
-
-void
-__floppy_ret(const char *fname, struct bregs *regs, u8 code)
-{
-    SET_BDA(floppy_last_status, code);
-    if (code)
-        __set_code_fail(fname, regs, code);
-    else
-        set_code_success(regs);
-}
-
-static inline void
-floppy_fail(struct bregs *regs, u8 code)
-{
-    floppy_ret(regs, code);
-    regs->al = 0; // no sectors read
-}
-
-static u16
+static int
 check_drive(struct bregs *regs, u8 drive)
 {
     // see if drive exists
     if (drive > 1 || !get_drive_type(drive)) {
         // XXX - return type doesn't match
-        floppy_fail(regs, DISK_RET_ETIMEOUT);
-        return 1;
+        floppy_ret(regs, DISK_RET_ETIMEOUT);
+        return -1;
     }
 
     // see if media in drive, and type is known
     if (floppy_media_known(drive) == 0 && floppy_media_sense(drive) == 0) {
-        floppy_fail(regs, DISK_RET_EMEDIA);
-        return 1;
+        floppy_ret(regs, DISK_RET_EMEDIA);
+        return -1;
     }
     return 0;
 }
@@ -430,7 +427,7 @@ static void
 floppy_1302(struct bregs *regs, u8 drive)
 {
     if (check_drive(regs, drive))
-        return;
+        goto fail;
 
     u8 num_sectors = regs->al;
     u8 track       = regs->ch;
@@ -439,8 +436,8 @@ floppy_1302(struct bregs *regs, u8 drive)
 
     if (head > 1 || sector == 0 || num_sectors == 0
         || track > 79 || num_sectors > 72) {
-        floppy_fail(regs, DISK_RET_EPARAM);
-        return;
+        floppy_ret(regs, DISK_RET_EPARAM);
+        goto fail;
     }
 
     // send read-normal-data command (9 bytes) to controller
@@ -455,21 +452,22 @@ floppy_1302(struct bregs *regs, u8 drive)
     data[7] = 0; // Gap length
     data[8] = 0xff; // Gap length
 
-    u16 ret = floppy_cmd(regs, (num_sectors * 512) - 1, data, 9);
-    if (ret) {
-        floppy_fail(regs, ret);
-        return;
-    }
+    int ret = floppy_cmd(regs, (num_sectors * 512) - 1, data, 9);
+    if (ret)
+        goto fail;
 
     if (data[0] & 0xc0) {
-        floppy_fail(regs, DISK_RET_ECONTROLLER);
-        return;
+        floppy_ret(regs, DISK_RET_ECONTROLLER);
+        goto fail;
     }
 
     // ??? should track be new val from return_status[3] ?
     set_diskette_current_cyl(drive, track);
     // AL = number of sectors read (same value as passed)
     floppy_ret(regs, DISK_RET_SUCCESS);
+    return;
+fail:
+    regs->al = 0; // no sectors read
 }
 
 // Write Diskette Sectors
@@ -477,7 +475,7 @@ static void
 floppy_1303(struct bregs *regs, u8 drive)
 {
     if (check_drive(regs, drive))
-        return;
+        goto fail;
 
     u8 num_sectors = regs->al;
     u8 track       = regs->ch;
@@ -486,8 +484,8 @@ floppy_1303(struct bregs *regs, u8 drive)
 
     if (head > 1 || sector == 0 || num_sectors == 0
         || track > 79 || num_sectors > 72) {
-        floppy_fail(regs, DISK_RET_EPARAM);
-        return;
+        floppy_ret(regs, DISK_RET_EPARAM);
+        goto fail;
     }
 
     // send write-normal-data command (9 bytes) to controller
@@ -502,17 +500,14 @@ floppy_1303(struct bregs *regs, u8 drive)
     data[7] = 0; // Gap length
     data[8] = 0xff; // Gap length
 
-    u8 ret = floppy_cmd(regs, (num_sectors * 512) - 1, data, 9);
-    if (ret) {
-        floppy_fail(regs, ret);
-        return;
-    }
+    int ret = floppy_cmd(regs, (num_sectors * 512) - 1, data, 9);
+    if (ret)
+        goto fail;
 
     if (data[0] & 0xc0) {
         if (data[1] & 0x02) {
-            set_fail(regs);
-            regs->ax = 0x0300;
-            return;
+            floppy_ret(regs, DISK_RET_EWRITEPROTECT);
+            goto fail;
         }
         BX_PANIC("int13_diskette_function: read error\n");
     }
@@ -521,6 +516,9 @@ floppy_1303(struct bregs *regs, u8 drive)
     set_diskette_current_cyl(drive, track);
     // AL = number of sectors read (same value as passed)
     floppy_ret(regs, DISK_RET_SUCCESS);
+    return;
+fail:
+    regs->al = 0; // no sectors read
 }
 
 // Verify Diskette Sectors
@@ -528,7 +526,7 @@ static void
 floppy_1304(struct bregs *regs, u8 drive)
 {
     if (check_drive(regs, drive))
-        return;
+        goto fail;
 
     u8 num_sectors = regs->al;
     u8 track       = regs->ch;
@@ -537,14 +535,17 @@ floppy_1304(struct bregs *regs, u8 drive)
 
     if (head > 1 || sector == 0 || num_sectors == 0
         || track > 79 || num_sectors > 72) {
-        floppy_fail(regs, DISK_RET_EPARAM);
-        return;
+        floppy_ret(regs, DISK_RET_EPARAM);
+        goto fail;
     }
 
     // ??? should track be new val from return_status[3] ?
     set_diskette_current_cyl(drive, track);
     // AL = number of sectors verified (same value as passed)
     floppy_ret(regs, DISK_RET_SUCCESS);
+    return;
+fail:
+    regs->al = 0; // no sectors read
 }
 
 // format diskette track
@@ -560,7 +561,7 @@ floppy_1305(struct bregs *regs, u8 drive)
     u8 head        = regs->dh;
 
     if (head > 1 || num_sectors == 0 || num_sectors > 18) {
-        floppy_fail(regs, DISK_RET_EPARAM);
+        floppy_ret(regs, DISK_RET_EPARAM);
         return;
     }
 
@@ -573,16 +574,13 @@ floppy_1305(struct bregs *regs, u8 drive)
     data[4] = 0; // Gap length
     data[5] = 0xf6; // Fill byte
 
-    u8 ret = floppy_cmd(regs, (num_sectors * 4) - 1, data, 6);
-    if (ret) {
-        floppy_fail(regs, ret);
+    int ret = floppy_cmd(regs, (num_sectors * 4) - 1, data, 6);
+    if (ret)
         return;
-    }
 
     if (data[0] & 0xc0) {
         if (data[1] & 0x02) {
-            set_fail(regs);
-            regs->ax = 0x0300;
+            floppy_ret(regs, DISK_RET_EWRITEPROTECT);
             return;
         }
         BX_PANIC("int13_diskette_function: read error\n");
