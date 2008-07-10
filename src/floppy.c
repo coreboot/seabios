@@ -203,19 +203,11 @@ static int
 floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
 {
     // es:bx = pointer to where to place information from diskette
-    // port 04: DMA-1 base and current address, channel 2
-    // port 05: DMA-1 base and current count, channel 2
-    u16 page = regs->es >> 12;   // upper 4 bits
-    u16 base_es = regs->es << 4; // lower 16bits contributed by ES
-    u16 base_address = base_es + regs->bx; // lower 16 bits of address
-    // contributed by ES:BX
-    if (base_address < base_es)
-        // in case of carry, adjust page by 1
-        page++;
+    u32 addr = (u32)MAKE_FARPTR(regs->es, regs->bx);
 
     // check for 64K boundary overrun
-    u16 last_addr = base_address + count;
-    if (last_addr < base_address) {
+    u32 last_addr = addr + count;
+    if ((addr >> 16) != (last_addr >> 16)) {
         floppy_ret(regs, DISK_RET_EBOUNDARY);
         return -1;
     }
@@ -228,8 +220,8 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
     //DEBUGF("floppy dma c2\n");
     outb(0x06, PORT_DMA1_MASK_REG);
     outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
-    outb(base_address, PORT_DMA_ADDR_2);
-    outb(base_address>>8, PORT_DMA_ADDR_2);
+    outb(addr, PORT_DMA_ADDR_2);
+    outb(addr>>8, PORT_DMA_ADDR_2);
     outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
     outb(count, PORT_DMA_CNT_2);
     outb(count>>8, PORT_DMA_CNT_2);
@@ -239,7 +231,7 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
     outb(mode_register, PORT_DMA1_MODE_REG);
 
     // port 81: DMA-1 Page Register, channel 2
-    outb(page, PORT_DMA_PAGE_2);
+    outb(addr>>16, PORT_DMA_PAGE_2);
 
     outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
 
@@ -611,7 +603,7 @@ floppy_1308(struct bregs *regs, u8 drive)
         regs->es = 0;
         regs->di = 0;
         regs->dl = num_floppies;
-        set_success(regs);
+        set_fail(regs);
         return;
     }
 
@@ -680,6 +672,7 @@ floppy_1308(struct bregs *regs, u8 drive)
     regs->es = SEG_BIOS;
     regs->di = (u32)&diskette_param_table2;
     /* disk status not changed upon success */
+    set_success(regs);
 }
 
 // read diskette drive type
