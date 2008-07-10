@@ -80,12 +80,11 @@ int
 pci_find_class(u32 classid, int index, PCIDevice *dev)
 {
     int devfn, bus;
-    u32 id = classid << 8;
     for (bus=0; bus < MAX_BUS; bus++) {
         for (devfn=0; devfn<0x100; devfn++) {
             PCIDevice d = pci_bd(bus, devfn);
             u32 v = pci_config_readl(d, 0x08);
-            if (v != id)
+            if ((v>>8) != classid)
                 continue;
             if (index) {
                 index--;
