@@ -26,16 +26,21 @@
 #define CONFIG_PS2_MOUSE 1
 #define CONFIG_ATA 1
 #define CONFIG_KBD_CALL_INT15_4F 1
+// Support for booting from a CD
 #define CONFIG_CDROM_BOOT 1
+// Support for emulating a boot CD as a floppy/harddrive
 #define CONFIG_CDROM_EMU 1
-// Support generation of a PIR table in 0xf000 segment (for emulators)
-#define CONFIG_PIRTABLE 1
-// Support generation of ACPI PIR tables (for emulators)
-#define CONFIG_ACPI 1
 // Support int 1a/b1 PCI BIOS calls
 #define CONFIG_PCIBIOS 1
 // Support int 15/53 APM BIOS calls
 #define CONFIG_APMBIOS 1
+
+// Support generation of a PIR table in 0xf000 segment (for emulators)
+#define CONFIG_PIRTABLE 1
+// Support generation of MPTable (for emulators)
+#define CONFIG_MPTABLE 1
+// Support generation of ACPI tables (for emulators)
+#define CONFIG_ACPI 1
 
 /* define it if the (emulated) hardware supports SMM mode */
 #define CONFIG_USE_SMM 1

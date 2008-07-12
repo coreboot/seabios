@@ -49,6 +49,9 @@ static void putle32(u8 **pp, int val)
 void
 mptable_init(void)
 {
+    if (! CONFIG_MPTABLE)
+        return;
+
     u8 *mp_config_table, *q, *float_pointer_struct;
     int ioapic_id, i, len;
     int mp_config_table_size;
