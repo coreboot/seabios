@@ -208,3 +208,7 @@ handle_19()
     debug_enter(NULL, DEBUG_HDL_19);
     do_boot(0);
 }
+
+// Ughh - some older gcc compilers have a bug which causes VISIBLE32
+// functions to not be exported as a global variables.
+asm(".global handle_18, handle_19");
