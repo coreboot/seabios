@@ -29,12 +29,14 @@ def main():
 
     size16 = syms['code16_end'] - syms['code16_start']
     size32 = syms['code32_end'] - syms['code32_start']
+    totalc = size16+size32
     sizefree = syms['freespace1_end'] - syms['freespace1_start']
     tablefree = syms['freespace2_end'] - syms['freespace2_start']
     print "16bit C-code size: %d" % size16
     print "32bit C-code size: %d" % size32
-    print "Total C-code size: %d" % (size16+size32)
-    print "Free C-code space: %d" % sizefree
+    print "Total C-code size: %d  Free space: %d  Percent used: %.1f%%" % (
+        totalc, sizefree
+        , (totalc / float(size16+size32+sizefree)) * 100.0)
     print "BIOS table space:  %d" % tablefree
 
 if __name__ == '__main__':
