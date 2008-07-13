@@ -369,29 +369,29 @@ clear_usertimer()
 int
 usleep(u32 count)
 {
-#ifdef MODE16
-    // In 16bit mode, use the rtc to wait for the specified time.
-    u8 statusflag = 0;
-    int ret = set_usertimer(count, GET_SEG(SS), (u32)&statusflag);
-    if (ret)
-        return -1;
-    irq_enable();
-    while (!statusflag)
-        cpu_relax();
-    irq_disable();
-    return 0;
-#else
-    // In 32bit mode, we need to call into 16bit mode to sleep.
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.ah = 0x86;
-    br.cx = count >> 16;
-    br.dx = count;
-    call16_int(0x15, &br);
-    if (br.flags & F_CF)
-        return -1;
-    return 0;
-#endif
+    if (MODE16) {
+        // In 16bit mode, use the rtc to wait for the specified time.
+        u8 statusflag = 0;
+        int ret = set_usertimer(count, GET_SEG(SS), (u32)&statusflag);
+        if (ret)
+            return -1;
+        irq_enable();
+        while (!statusflag)
+            cpu_relax();
+        irq_disable();
+        return 0;
+    } else {
+        // In 32bit mode, we need to call into 16bit mode to sleep.
+        struct bregs br;
+        memset(&br, 0, sizeof(br));
+        br.ah = 0x86;
+        br.cx = count >> 16;
+        br.dx = count;
+        call16_int(0x15, &br);
+        if (br.flags & F_CF)
+            return -1;
+        return 0;
+    }
 }
 
 #define RET_ECLOCKINUSE  0x83

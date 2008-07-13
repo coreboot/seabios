@@ -22,7 +22,7 @@ union u64_u32_u {
 };
 
 #define __VISIBLE __attribute__((externally_visible))
-#ifdef MODE16
+#if MODE16 == 1
 // Notes a function as externally visible in the 16bit code chunk.
 #define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit code chunk.

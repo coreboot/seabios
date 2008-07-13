@@ -15,7 +15,7 @@ inline void
 call16(struct bregs *callregs)
 {
     asm volatile(
-#ifdef MODE16
+#if MODE16 == 1
         "calll __call16\n"
 #else
         "calll __call16_from32\n"

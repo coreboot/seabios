@@ -133,7 +133,7 @@ extern void __force_link_error__unknown_type();
 #define MAKE_FARPTR(seg,off) ((void*)(((seg)<<4)+(off)))
 
 
-#ifdef MODE16
+#if MODE16 == 1
 
 // Definitions when in 16 bit mode.
 #define GET_FARVAR(seg, var) __GET_FARVAR((seg), (var))

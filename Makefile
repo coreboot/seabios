@@ -27,8 +27,8 @@ COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
-CFLAGS = $(COMMONCFLAGS) -g
-CFLAGS16INC = $(COMMONCFLAGS) -DMODE16 -fno-jump-tables -fno-defer-pop \
+CFLAGS = $(COMMONCFLAGS) -g -DMODE16=0
+CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -fno-jump-tables -fno-defer-pop \
               $(call cc-option,$(CC),--param large-stack-frame=8,)
 CFLAGS16 = $(CFLAGS16INC) -g
 
