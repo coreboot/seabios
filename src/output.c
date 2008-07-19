@@ -1,4 +1,4 @@
-// Raw screen writing code.
+// Raw screen writing and debug output code.
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 //
@@ -33,6 +33,7 @@ debug_serial_setup()
                 , oldparam, oldier, newparam, newier);
 }
 
+// Write a character to the serial port.
 static void
 debug_serial(char c)
 {
@@ -44,9 +45,13 @@ debug_serial(char c)
     outb(c, DEBUG_PORT);
 }
 
+// Show a character on the screen.
 static void
 screenc(u8 c)
 {
+    if (MODE16)
+        // printf is only used in 32bit code.
+        return;
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.ah = 0x0e;
@@ -54,7 +59,7 @@ screenc(u8 c)
     call16_int(0x10, &br);
 }
 
-// Write a charcter to the framebuffer.
+// Output a character.
 static void
 putc(u16 action, char c)
 {
@@ -78,7 +83,7 @@ putc(u16 action, char c)
     }
 }
 
-// Write a string to the framebuffer.
+// Ouptut a string.
 static void
 puts(u16 action, const char *s)
 {
@@ -86,7 +91,7 @@ puts(u16 action, const char *s)
         putc(action, *s);
 }
 
-// Write a string to the framebuffer.
+// Output a string that is in the CS segment.
 static void
 puts_cs(u16 action, const char *s)
 {
@@ -98,7 +103,7 @@ puts_cs(u16 action, const char *s)
     }
 }
 
-// Write an unsigned integer to the screen.
+// Output an unsigned integer.
 static void
 putuint(u16 action, u32 val)
 {
@@ -115,7 +120,7 @@ putuint(u16 action, u32 val)
     puts(action, d);
 }
 
-// Write a single digit hex character to the screen.
+// Output a single digit hex character.
 static inline void
 putsinglehex(u16 action, u32 val)
 {
@@ -126,7 +131,7 @@ putsinglehex(u16 action, u32 val)
     putc(action, val);
 }
 
-// Write an integer in hexadecimal to the screen.
+// Output an integer in hexadecimal.
 static void
 puthex(u16 action, u32 val)
 {

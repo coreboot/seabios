@@ -1,3 +1,5 @@
+Clean up timer code.  Don't use PORT_DIAG as delay mechanism.
+
 Disable a20 on jump to 16bit mode.
 
 Do a pci scan for ide controllers - don't just assume ISA ports are
@@ -34,13 +36,24 @@ Code assumes ebda segment is static - it doesn't read 0x40e.
 The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
 
-Fix makefiles so that they rebuild the required files automatically.
-
 Cleanup setting of ES on GET/SET_BDA
+
+Audit code for 16bit protected mode accesses.
+
+Support 1ab1 from 16bit protected mode.
+
+Verify option roms wont stomp on seabios stack and bss.
 
 Possibly implement 32bit pcibios support.
 
 Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.
 
+See if it is possible to handle interrupts while in 32bit mode.
+
 Look at integrating the lgpl vgabios into tree.
+
+Look at usb booting specs.  Look at possibly supporting usb
+keyboard/mice.
+
+Add a graphical boot splash screen?

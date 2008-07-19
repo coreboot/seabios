@@ -374,7 +374,7 @@ set_leds()
 {
     u8 shift_flags = GET_BDA(kbd_flag0);
     u8 led_flags = GET_BDA(kbd_led);
-    if (((shift_flags >> 4) & 0x07) ^ ((led_flags & 0x07) == 0))
+    if ((((shift_flags >> 4) & 0x07) ^ (led_flags & 0x07)) == 0)
         return;
 
     outb(0xed, PORT_PS2_DATA);

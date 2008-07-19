@@ -16,7 +16,7 @@ pic_setup()
     // Send ICW1 (select OCW1 + will send ICW4)
     outb(0x11, PORT_PIC1_CMD);
     outb(0x11, PORT_PIC2_CMD);
-    // Send ICW2 (base irqs: 0x08-0x0f for irq0-7, 0x70-0x78 for irq8-15)
+    // Send ICW2 (base irqs: 0x08-0x0f for irq0-7, 0x70-0x77 for irq8-15)
     outb(0x08, PORT_PIC1_DATA);
     outb(0x70, PORT_PIC2_DATA);
     // Send ICW3 (cascaded pic ids)

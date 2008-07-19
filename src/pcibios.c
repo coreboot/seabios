@@ -23,6 +23,7 @@ handle_1ab101(struct bregs *regs)
     regs->ax = 0x0001;
     regs->bx = 0x0210;
     regs->cx = 0;
+    // XXX - regs->cl should equal max bus number.
     regs->edx = 0x20494350; // "PCI "
     // XXX - bochs bios code sets edi to point to 32bit code - but no
     // reference to this in spec.

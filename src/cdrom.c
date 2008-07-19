@@ -435,11 +435,7 @@ cdrom_boot()
 
     int ret = atapi_is_ready(device);
     if (ret)
-        dprintf(1, "ata_is_ready returned %d\n", ret);
-
-    // if not found
-    if (device >= CONFIG_MAX_ATA_DEVICES)
-        return 2;
+        dprintf(1, "atapi_is_ready returned %d\n", ret);
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];

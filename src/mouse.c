@@ -384,7 +384,8 @@ int74_function()
     u8 mouse_flags_1 = GET_EBDA(mouse_flag1);
     u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
 
-    if ((mouse_flags_2 & 0x80) != 0x80)
+    if (! (mouse_flags_2 & 0x80))
+        // far call handler not installed
         return;
 
     u8 package_count = mouse_flags_2 & 0x07;
@@ -402,9 +403,6 @@ int74_function()
     u16 X      = GET_EBDA(mouse_data[1]);
     u16 Y      = GET_EBDA(mouse_data[2]);
     SET_EBDA(mouse_flag1, 0);
-    // check if far call handler installed
-    if (! (mouse_flags_2 & 0x80))
-        return;
 
     u32 func = GET_EBDA(far_call_pointer);
     asm volatile(

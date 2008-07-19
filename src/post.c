@@ -273,6 +273,20 @@ rom_scan(u32 start, u32 end)
     }
 }
 
+// Call into vga code to turn on console.
+static void
+vga_setup()
+{
+    dprintf(1, "Scan for VGA option rom\n");
+    rom_scan(0xc0000, 0xc7800);
+
+    dprintf(1, "Turning on vga console\n");
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ax = 0x0003;
+    call16_int(0x10, &br);
+}
+
 // Main setup code.
 static void
 post()
@@ -292,8 +306,7 @@ post()
 
     ram_probe();
 
-    dprintf(1, "Scan for VGA option rom\n");
-    rom_scan(0xc0000, 0xc7800);
+    vga_setup();
 
     printf("BIOS - begin\n\n");
 

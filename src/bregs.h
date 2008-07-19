@@ -7,6 +7,8 @@
 #ifndef __BREGS_H
 #define __BREGS_H
 
+#include "types.h" // u16
+
 
 /****************************************************************
  * Registers saved/restored in romlayout.S
