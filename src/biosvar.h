@@ -258,6 +258,8 @@ struct extended_bios_data_area_s {
     // 0x5d
     u8 other2[0xC4];
 
+    u8 ps2ctr;
+
     // Physical memory available.
     u32 ram_size;
     u16 e820_count;

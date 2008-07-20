@@ -9,8 +9,7 @@
 #include "util.h" // debug_isr
 #include "pic.h" // unmask_pic2
 #include "bregs.h" // struct bregs
-
-static char panic_msg_keyb_buffer_full[] = "%s: keyboard input buffer full\n";
+#include "ps2port.h" // aux_command
 
 void
 mouse_setup()
@@ -24,75 +23,6 @@ mouse_setup()
     unmask_pic2(PIC2_IRQ12);
 }
 
-static void
-set_kbd_command_byte(u8 command_byte)
-{
-    if (inb(PORT_PS2_STATUS) & 0x02)
-        BX_PANIC(panic_msg_keyb_buffer_full, "setkbdcomm");
-    outb(0xD4, PORT_PS2_STATUS);
-
-    outb(0x60, PORT_PS2_STATUS); // write command byte
-    outb(command_byte, PORT_PS2_DATA);
-}
-
-static u8
-inhibit_mouse_int_and_events()
-{
-    // Turn off IRQ generation and aux data line
-    if (inb(PORT_PS2_STATUS) & 0x02)
-        BX_PANIC(panic_msg_keyb_buffer_full,"inhibmouse");
-    outb(0x20, PORT_PS2_STATUS); // get command byte
-    while ((inb(PORT_PS2_STATUS) & 0x01) != 0x01)
-        ;
-    u8 prev_command_byte = inb(PORT_PS2_DATA);
-    u8 command_byte = prev_command_byte;
-    //while ( (inb(PORT_PS2_STATUS) & 0x02) );
-    if ( inb(PORT_PS2_STATUS) & 0x02 )
-        BX_PANIC(panic_msg_keyb_buffer_full,"inhibmouse");
-    command_byte &= 0xfd; // turn off IRQ 12 generation
-    command_byte |= 0x20; // disable mouse serial clock line
-    outb(0x60, PORT_PS2_STATUS); // write command byte
-    outb(command_byte, PORT_PS2_DATA);
-    return prev_command_byte;
-}
-
-static void
-enable_mouse_int_and_events()
-{
-    // Turn on IRQ generation and aux data line
-    if ( inb(PORT_PS2_STATUS) & 0x02 )
-        BX_PANIC(panic_msg_keyb_buffer_full,"enabmouse");
-    outb(0x20, PORT_PS2_STATUS); // get command byte
-    while ((inb(PORT_PS2_STATUS) & 0x01) != 0x01)
-        ;
-    u8 command_byte = inb(PORT_PS2_DATA);
-    //while ( (inb(PORT_PS2_STATUS) & 0x02) );
-    if (inb(PORT_PS2_STATUS) & 0x02)
-        BX_PANIC(panic_msg_keyb_buffer_full,"enabmouse");
-    command_byte |= 0x02; // turn on IRQ 12 generation
-    command_byte &= 0xdf; // enable mouse serial clock line
-    outb(0x60, PORT_PS2_STATUS); // write command byte
-    outb(command_byte, PORT_PS2_DATA);
-}
-
-static void
-send_to_mouse_ctrl(u8 sendbyte)
-{
-    // wait for chance to write to ctrl
-    if (inb(PORT_PS2_STATUS) & 0x02)
-        BX_PANIC(panic_msg_keyb_buffer_full,"sendmouse");
-    outb(0xD4, PORT_PS2_STATUS);
-    outb(sendbyte, PORT_PS2_DATA);
-}
-
-static void
-get_mouse_data(u8 *data)
-{
-    while ((inb(PORT_PS2_STATUS) & 0x21) != 0x21)
-        ;
-    *data = inb(PORT_PS2_DATA);
-}
-
 #define RET_SUCCESS      0x00
 #define RET_EINVFUNCTION 0x01
 #define RET_EINVINPUT    0x02
@@ -100,18 +30,27 @@ get_mouse_data(u8 *data)
 #define RET_ENEEDRESEND  0x04
 #define RET_ENOHANDLER   0x05
 
+static int
+disable_mouse()
+{
+    u8 ps2ctr = GET_EBDA(ps2ctr);
+    ps2ctr |= I8042_CTR_AUXDIS;
+    ps2ctr &= ~I8042_CTR_AUXINT;
+    SET_EBDA(ps2ctr, ps2ctr);
+
+    return aux_command(PSMOUSE_CMD_DISABLE, NULL);
+}
+
 // Disable Mouse
 static void
 mouse_15c20000(struct bregs *regs)
 {
-    inhibit_mouse_int_and_events(); // disable IRQ12 and packets
-    send_to_mouse_ctrl(0xF5); // disable mouse command
-    u8 mouse_data1;
-    get_mouse_data(&mouse_data1);
-    set_code_success(regs);
+    int ret = disable_mouse();
+    if (ret)
+        set_code_fail(regs, RET_ENEEDRESEND);
+    else
+        set_code_success(regs);
 }
-
-#define BX_DEBUG_INT15(args...)
 
 // Enable Mouse
 static void
@@ -119,20 +58,20 @@ mouse_15c20001(struct bregs *regs)
 {
     u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
     if ((mouse_flags_2 & 0x80) == 0) {
-        BX_DEBUG_INT15("INT 15h C2 Enable Mouse, no far call handler\n");
         set_code_fail(regs, RET_ENOHANDLER);
         return;
     }
-    inhibit_mouse_int_and_events(); // disable IRQ12 and packets
-    send_to_mouse_ctrl(0xF4); // enable mouse command
-    u8 mouse_data1;
-    get_mouse_data(&mouse_data1);
-    if (mouse_data1 == 0xFA) {
-        enable_mouse_int_and_events(); // turn IRQ12 and packet generation on
+
+    u8 ps2ctr = GET_EBDA(ps2ctr);
+    ps2ctr &= ~I8042_CTR_AUXDIS;
+    ps2ctr |= I8042_CTR_AUXINT;
+    SET_EBDA(ps2ctr, ps2ctr);
+
+    int ret = aux_command(PSMOUSE_CMD_ENABLE, NULL);
+    if (ret)
+        set_code_fail(regs, RET_ENEEDRESEND);
+    else
         set_code_success(regs);
-        return;
-    }
-    set_code_fail(regs, RET_ENEEDRESEND);
 }
 
 static void
@@ -156,24 +95,14 @@ mouse_15c200(struct bregs *regs)
 static void
 mouse_15c201(struct bregs *regs)
 {
-    inhibit_mouse_int_and_events(); // disable IRQ12 and packets
-    send_to_mouse_ctrl(0xFF); // reset mouse command
-    u8 mouse_data1, mouse_data2, mouse_data3;
-    get_mouse_data(&mouse_data3);
-    // if no mouse attached, it will return RESEND
-    if (mouse_data3 == 0xfe) {
+    u8 param[2];
+    int ret = aux_command(PSMOUSE_CMD_RESET_BAT, param);
+    if (ret) {
         set_code_fail(regs, RET_ENEEDRESEND);
         return;
     }
-    if (mouse_data3 != 0xfa)
-        BX_PANIC("Mouse reset returned %02x (should be ack)\n"
-                 , (unsigned)mouse_data3);
-    get_mouse_data(&mouse_data1);
-    get_mouse_data(&mouse_data2);
-    // turn IRQ12 and packet generation on
-    enable_mouse_int_and_events();
-    regs->bl = mouse_data1;
-    regs->bh = mouse_data2;
+    regs->bl = param[0];
+    regs->bh = param[1];
     set_code_success(regs);
 }
 
@@ -181,19 +110,17 @@ mouse_15c201(struct bregs *regs)
 static void
 mouse_15c202(struct bregs *regs)
 {
-    if (regs->bh >= 7) {
-        set_code_fail(regs, RET_EUNSUPPORTED);
+    static u8 sample_rates[7] = {10, 20, 40, 60, 80, 100, 200};
+    if (regs->bh >= ARRAY_SIZE(sample_rates)) {
+        set_code_fail(regs, RET_EINVINPUT);
         return;
     }
-    u8 mouse_data1 = regs->bh * 20;
-    if (!mouse_data1)
-        mouse_data1 = 10;
-    send_to_mouse_ctrl(0xF3); // set sample rate command
-    u8 mouse_data2;
-    get_mouse_data(&mouse_data2);
-    send_to_mouse_ctrl(mouse_data1);
-    get_mouse_data(&mouse_data2);
-    set_code_success(regs);
+    u8 mouse_data1 = GET_VAR(CS, sample_rates[regs->bh]);
+    int ret = aux_command(PSMOUSE_CMD_SETRATE, &mouse_data1);
+    if (ret)
+        set_code_fail(regs, RET_ENEEDRESEND);
+    else
+        set_code_success(regs);
 }
 
 // Set Resolution
@@ -205,38 +132,29 @@ mouse_15c203(struct bregs *regs)
     //      1 =  50 dpi, 2 counts per millimeter
     //      2 = 100 dpi, 4 counts per millimeter
     //      3 = 200 dpi, 8 counts per millimeter
-    u8 comm_byte = inhibit_mouse_int_and_events(); // disable IRQ12 and packets
     if (regs->bh >= 4) {
-        set_code_fail(regs, RET_EUNSUPPORTED);
-        goto done;
+        set_code_fail(regs, RET_EINVINPUT);
+        return;
     }
-    send_to_mouse_ctrl(0xE8); // set resolution command
-    u8 mouse_data1;
-    get_mouse_data(&mouse_data1);
-    if (mouse_data1 != 0xfa)
-        BX_PANIC("Mouse status returned %02x (should be ack)\n"
-                 , (unsigned)mouse_data1);
-    send_to_mouse_ctrl(regs->bh);
-    get_mouse_data(&mouse_data1);
-    if (mouse_data1 != 0xfa)
-        BX_PANIC("Mouse status returned %02x (should be ack)\n"
-                 , (unsigned)mouse_data1);
-    set_code_success(regs);
-
-done:
-    set_kbd_command_byte(comm_byte); // restore IRQ12 and serial enable
+    u8 param = regs->bh;
+    int ret = aux_command(PSMOUSE_CMD_SETRES, &param);
+    if (ret)
+        set_code_fail(regs, RET_ENEEDRESEND);
+    else
+        set_code_success(regs);
 }
 
 // Get Device ID
 static void
 mouse_15c204(struct bregs *regs)
 {
-    inhibit_mouse_int_and_events(); // disable IRQ12 and packets
-    send_to_mouse_ctrl(0xF2); // get mouse ID command
-    u8 mouse_data1, mouse_data2;
-    get_mouse_data(&mouse_data1);
-    get_mouse_data(&mouse_data2);
-    regs->bh = mouse_data2;
+    u8 param[2];
+    int ret = aux_command(PSMOUSE_CMD_GETID, param);
+    if (ret) {
+        set_code_fail(regs, RET_ENEEDRESEND);
+        return;
+    }
+    regs->bh = param[0];
     set_code_success(regs);
 }
 
@@ -259,55 +177,44 @@ mouse_15c205(struct bregs *regs)
 static void
 mouse_15c20600(struct bregs *regs)
 {
-    u8 comm_byte = inhibit_mouse_int_and_events(); // disable IRQ12 and packets
-    send_to_mouse_ctrl(0xE9); // get mouse info command
-    u8 mouse_data1, mouse_data2, mouse_data3;
-    get_mouse_data(&mouse_data1);
-    if (mouse_data1 != 0xfa)
-        BX_PANIC("Mouse status returned %02x (should be ack)\n"
-                 , (unsigned)mouse_data1);
-    get_mouse_data(&mouse_data1);
-    get_mouse_data(&mouse_data2);
-    get_mouse_data(&mouse_data3);
-    regs->bl = mouse_data1;
-    regs->cl = mouse_data2;
-    regs->dl = mouse_data3;
+    u8 param[3];
+    int ret = aux_command(PSMOUSE_CMD_GETINFO, param);
+    if (ret) {
+        set_code_fail(regs, RET_ENEEDRESEND);
+        return;
+    }
+    regs->bl = param[0];
+    regs->cl = param[1];
+    regs->dl = param[2];
     set_code_success(regs);
-    set_kbd_command_byte(comm_byte); // restore IRQ12 and serial enable
-}
-
-static void
-set_scaling(struct bregs *regs, u8 cmd)
-{
-    u8 comm_byte = inhibit_mouse_int_and_events(); // disable IRQ12 and packets
-    send_to_mouse_ctrl(0xE6);
-    u8 mouse_data1;
-    get_mouse_data(&mouse_data1);
-    if (mouse_data1 != 0xFA)
-        set_code_fail(regs, RET_EUNSUPPORTED);
-    else
-        set_code_success(regs);
-    set_kbd_command_byte(comm_byte); // restore IRQ12 and serial enable
 }
 
 // Set Scaling Factor to 1:1
 static void
 mouse_15c20601(struct bregs *regs)
 {
-    set_scaling(regs, 0xE6);
+    int ret = aux_command(PSMOUSE_CMD_SETSCALE11, NULL);
+    if (ret)
+        set_code_fail(regs, RET_ENEEDRESEND);
+    else
+        set_code_success(regs);
 }
 
 // Set Scaling Factor to 2:1
 static void
 mouse_15c20602(struct bregs *regs)
 {
-    set_scaling(regs, 0xE7);
+    int ret = aux_command(PSMOUSE_CMD_SETSCALE21, NULL);
+    if (ret)
+        set_code_fail(regs, RET_ENEEDRESEND);
+    else
+        set_code_success(regs);
 }
 
 static void
 mouse_15c206XX(struct bregs *regs)
 {
-    BX_PANIC("INT 15h C2 AL=6, BH=%02x\n", regs->bh);
+    set_code_fail(regs, RET_EINVFUNCTION);
 }
 
 // Return Status & Set Scaling Factor...
@@ -327,19 +234,19 @@ static void
 mouse_15c207(struct bregs *regs)
 {
     u32 farptr = (regs->es << 16) | regs->bx;
-    SET_EBDA(far_call_pointer, farptr);
     u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
     if (! farptr) {
         /* remove handler */
         if ((mouse_flags_2 & 0x80) != 0) {
             mouse_flags_2 &= ~0x80;
-            inhibit_mouse_int_and_events(); // disable IRQ12 and packets
+            disable_mouse();
         }
     } else {
         /* install handler */
         mouse_flags_2 |= 0x80;
     }
     SET_EBDA(mouse_flag2, mouse_flags_2);
+    SET_EBDA(far_call_pointer, farptr);
     set_code_success(regs);
 }
 
@@ -359,6 +266,8 @@ handle_15c2(struct bregs *regs)
         return;
     }
 
+    irq_enable();
+
     switch (regs->al) {
     case 0x00: mouse_15c200(regs); break;
     case 0x01: mouse_15c201(regs); break;
@@ -376,9 +285,10 @@ static void
 int74_function()
 {
     u8 v = inb(PORT_PS2_STATUS);
-    if ((v & 0x21) != 0x21)
+    if ((v & 0x21) != 0x21) {
+        dprintf(1, "int74 but no mouse data.\n");
         return;
-
+    }
     v = inb(PORT_PS2_DATA);
 
     u8 mouse_flags_1 = GET_EBDA(mouse_flag1);

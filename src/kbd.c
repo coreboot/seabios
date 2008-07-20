@@ -10,142 +10,73 @@
 #include "config.h" // CONFIG_*
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
+#include "ps2port.h" // i8042_flush
 
-//--------------------------------------------------------------------------
-// keyboard_panic
-//--------------------------------------------------------------------------
-static void
-keyboard_panic(u16 status)
-{
-    // If you're getting a 993 keyboard panic here,
-    // please see the comment in keyboard_init
-
-    BX_PANIC("Keyboard error:%u\n",status);
-}
-
-static void
-kbd_flush(u8 code)
-{
-    u16 max = 0xffff;
-    while ((inb(PORT_PS2_STATUS) & 0x02) && (--max > 0))
-        outb(code, PORT_DIAG);
-    if (!max && code != 0xff)
-        keyboard_panic(code);
-}
-
-static void
-kbd_waitdata(u8 code)
-{
-    u16 max = 0xffff;
-    while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
-        outb(code, PORT_DIAG);
-    if (!max)
-        keyboard_panic(code);
-}
-
-//--------------------------------------------------------------------------
-// keyboard_init
-//--------------------------------------------------------------------------
-// this file is based on LinuxBIOS implementation of keyboard.c
 static void
 keyboard_init()
 {
     if (CONFIG_COREBOOT)
         // Coreboot already does low-level keyboard init.
-        return;
-
-    /* ------------------- Flush buffers ------------------------*/
-    /* Wait until buffer is empty */
-    kbd_flush(0xff);
+        goto end;
 
     /* flush incoming keys */
-    u16 max=0x2000;
-    while (--max > 0) {
-        outb(0x00, PORT_DIAG);
-        if (inb(PORT_PS2_STATUS) & 0x01) {
-            inb(PORT_PS2_DATA);
-            max = 0x2000;
-        }
+    int ret = i8042_flush();
+    if (ret)
+        return;
+
+    // Controller self-test.
+    u8 param[2];
+    ret = i8042_command(I8042_CMD_CTL_TEST, param);
+    if (ret)
+        return;
+    if (param[0] != 0x55) {
+        dprintf(1, "i8042 self test failed (got %x not 0x55\n", param[0]);
+        return;
     }
 
-    // Due to timer issues, and if the IPS setting is > 15000000,
-    // the incoming keys might not be flushed here. That will
-    // cause a panic a few lines below.  See sourceforge bug report :
-    // [ 642031 ] FATAL: Keyboard RESET error:993
+    // Controller keyboard test.
+    ret = i8042_command(I8042_CMD_KBD_TEST, param);
+    if (ret)
+        return;
+    if (param[0] != 0x00) {
+        dprintf(1, "i8042 keyboard test failed (got %x not 0x00\n", param[0]);
+        return;
+    }
 
-    /* ------------------- controller side ----------------------*/
-    /* send cmd = 0xAA, self test 8042 */
-    outb(0xaa, PORT_PS2_STATUS);
+    // Enable keyboard and mouse ports.
+    ret = i8042_command(I8042_CMD_KBD_ENABLE, NULL);
+    if (ret)
+        return;
+    ret = i8042_command(I8042_CMD_AUX_ENABLE, NULL);
+    if (ret)
+        return;
 
-    kbd_flush(0x00);
-    kbd_waitdata(0x01);
-
-    /* read self-test result, 0x55 should be returned from 0x60 */
-    if (inb(PORT_PS2_DATA) != 0x55)
-        keyboard_panic(991);
-
-    /* send cmd = 0xAB, keyboard interface test */
-    outb(0xab, PORT_PS2_STATUS);
-
-    kbd_flush(0x10);
-    kbd_waitdata(0x11);
-
-    /* read keyboard interface test result, */
-    /* 0x00 should be returned form 0x60 */
-    if (inb(PORT_PS2_DATA) != 0x00)
-        keyboard_panic(992);
-
-    /* Enable Keyboard clock */
-    outb(0xae, PORT_PS2_STATUS);
-    outb(0xa8, PORT_PS2_STATUS);
 
     /* ------------------- keyboard side ------------------------*/
-    /* reset kerboard and self test  (keyboard side) */
-    outb(0xff, PORT_PS2_DATA);
-
-    kbd_flush(0x20);
-    kbd_waitdata(0x21);
-
-    /* keyboard should return ACK */
-    if (inb(PORT_PS2_DATA) != 0xfa)
-        keyboard_panic(993);
-
-    kbd_waitdata(0x31);
-
-    if (inb(PORT_PS2_DATA) != 0xaa)
-        keyboard_panic(994);
+    /* reset keyboard and self test  (keyboard side) */
+    ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
+    if (ret)
+        return;
+    if (param[0] != 0xaa) {
+        dprintf(1, "keyboard self test failed (got %x not 0xaa\n", param[0]);
+        return;
+    }
 
     /* Disable keyboard */
-    outb(0xf5, PORT_PS2_DATA);
+    ret = kbd_command(ATKBD_CMD_RESET_DIS, NULL);
+    if (ret)
+        return;
 
-    kbd_flush(0x40);
-    kbd_waitdata(0x41);
-
-    /* keyboard should return ACK */
-    if (inb(PORT_PS2_DATA) != 0xfa)
-        keyboard_panic(995);
-
-    /* Write Keyboard Mode */
-    outb(0x60, PORT_PS2_STATUS);
-
-    kbd_flush(0x50);
-
-    /* send cmd: scan code convert, disable mouse, enable IRQ 1 */
-    outb(0x61, PORT_PS2_DATA);
-
-    kbd_flush(0x60);
+end:
+    // Keyboard Mode: scan code convert, disable mouse, enable IRQ 1
+    SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
 
     /* Enable keyboard */
-    outb(0xf4, PORT_PS2_DATA);
+    ret = kbd_command(ATKBD_CMD_ENABLE, NULL);
+    if (ret)
+        return;
 
-    kbd_flush(0x70);
-    kbd_waitdata(0x71);
-
-    /* keyboard should return ACK */
-    if (inb(PORT_PS2_DATA) != 0xfa)
-        keyboard_panic(996);
-
-    outb(0x77, PORT_DIAG);
+    dprintf(1, "keyboard initialized\n");
 }
 
 void
@@ -286,29 +217,13 @@ handle_1609(struct bregs *regs)
 static void
 handle_160a(struct bregs *regs)
 {
-    outb(0xf2, PORT_PS2_DATA);
-    /* Wait for data */
-    u16 max=0xffff;
-    while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
-        outb(0x00, PORT_DIAG);
-    if (!max)
-        return;
-    if (inb(PORT_PS2_DATA) != 0xfa) {
+    u8 param[2];
+    int ret = kbd_command(ATKBD_CMD_GETID, param);
+    if (ret) {
         regs->bx = 0;
         return;
     }
-    u16 kbd_code = 0;
-    u8 count = 2;
-    do {
-        max=0xffff;
-        while ( ((inb(PORT_PS2_STATUS) & 0x01) == 0) && (--max>0) )
-            outb(0x00, PORT_DIAG);
-        if (max>0x0) {
-            kbd_code >>= 8;
-            kbd_code |= (inb(PORT_PS2_DATA) << 8);
-        }
-    } while (--count>0);
-    regs->bx = kbd_code;
+    regs->bx = (param[1] << 8) | param[0];
 }
 
 // read MF-II keyboard input
@@ -372,23 +287,18 @@ handle_16a2(struct bregs *regs)
 static void
 set_leds()
 {
-    u8 shift_flags = GET_BDA(kbd_flag0);
-    u8 led_flags = GET_BDA(kbd_led);
-    if ((((shift_flags >> 4) & 0x07) ^ (led_flags & 0x07)) == 0)
+    u8 shift_flags = (GET_BDA(kbd_flag0) >> 4) & 0x07;
+    u8 kbd_led = GET_BDA(kbd_led);
+    u8 led_flags = kbd_led & 0x07;
+    if (shift_flags == led_flags)
         return;
 
-    outb(0xed, PORT_PS2_DATA);
-    while ((inb(PORT_PS2_STATUS) & 0x01) == 0)
-        outb(0x21, PORT_DIAG);
-    if (inb(PORT_PS2_DATA) == 0xfa) {
-        led_flags &= 0xf8;
-        led_flags |= (shift_flags >> 4) & 0x07;
-        outb(led_flags & 0x07, PORT_PS2_DATA);
-        while ((inb(PORT_PS2_STATUS) & 0x01) == 0)
-            outb(0x21, PORT_DIAG);
-        inb(PORT_PS2_DATA);
-        SET_BDA(kbd_led, led_flags);
-    }
+    int ret = kbd_command(ATKBD_CMD_SETLEDS, &shift_flags);
+    if (ret)
+        // Error
+        return;
+    kbd_led = (kbd_led & ~0x07) | shift_flags;
+    SET_BDA(kbd_led, kbd_led);
 }
 
 // INT 16h Keyboard Service Entry Point
@@ -397,9 +307,9 @@ handle_16(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_16);
 
-    set_leds();
-
     irq_enable();
+
+    set_leds();
 
     switch (regs->ah) {
     case 0x00: handle_1600(regs); break;
@@ -707,15 +617,14 @@ handle_09()
 {
     debug_isr(DEBUG_ISR_09);
 
-    // disable keyboard
-    outb(0xad, PORT_PS2_STATUS);
-
-    // Make sure there really is a keyboard irq pending.
-    if (! (get_pic1_isr() & PIC1_IRQ1))
-        goto done;
-
     // read key from keyboard controller
+    u8 v = inb(PORT_PS2_STATUS);
+    if ((v & 0x21) != 0x01) {
+        dprintf(1, "int09 but no keyboard data.\n");
+        goto done;
+    }
     u8 key = inb(PORT_PS2_DATA);
+
     irq_enable();
     if (CONFIG_KBD_CALL_INT15_4F) {
         // allow for keyboard intercept
@@ -732,9 +641,7 @@ handle_09()
     process_key(key);
 
     irq_disable();
-    eoi_pic1();
 
 done:
-    // enable keyboard
-    outb(0xae, PORT_PS2_STATUS);
+    eoi_pic1();
 }
