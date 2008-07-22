@@ -225,10 +225,12 @@ bvprintf(u16 action, const char *fmt, va_list args)
 void
 BX_PANIC(const char *fmt, ...)
 {
-    va_list args;
-    va_start(args, fmt);
-    bvprintf(0, fmt, args);
-    va_end(args);
+    if (CONFIG_DEBUG_LEVEL) {
+        va_list args;
+        va_start(args, fmt);
+        bvprintf(0, fmt, args);
+        va_end(args);
+    }
 
     // XXX - use PANIC PORT.
     irq_disable();
