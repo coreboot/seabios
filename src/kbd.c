@@ -288,6 +288,12 @@ handle_16a2(struct bregs *regs)
 }
 
 static void
+handle_16XX(struct bregs *regs)
+{
+    debug_stub(regs);
+}
+
+static void
 set_leds()
 {
     u8 shift_flags = (GET_BDA(kbd_flag0) >> 4) & 0x07;
@@ -329,6 +335,7 @@ handle_16(struct bregs *regs)
     case 0x92: handle_1692(regs); break;
     case 0xa2: handle_16a2(regs); break;
     case 0x6f: handle_166f(regs); break;
+    default:   handle_16XX(regs); break;
     }
 }
 
