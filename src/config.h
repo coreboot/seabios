@@ -22,9 +22,13 @@
 // Send debugging information to serial port
 #define CONFIG_DEBUG_SERIAL 0
 
+// Support for int13 floppy drive access
 #define CONFIG_FLOPPY_SUPPORT 1
+// Support for int15c2 mouse calls
 #define CONFIG_PS2_MOUSE 1
+// Support for IDE disk code
 #define CONFIG_ATA 1
+// Support calling int155f on each keyboard press
 #define CONFIG_KBD_CALL_INT15_4F 1
 // Support for booting from a CD
 #define CONFIG_CDROM_BOOT 1
@@ -34,6 +38,16 @@
 #define CONFIG_PCIBIOS 1
 // Support int 15/53 APM BIOS calls
 #define CONFIG_APMBIOS 1
+// Support int 19/18 system bootup support
+#define CONFIG_BOOT 1
+// Support int 14 parallel port calls
+#define CONFIG_SERIAL 1
+// Support int 17 parallel port calls
+#define CONFIG_LPT 1
+// Support int 16 keyboard calls
+#define CONFIG_KEYBOARD 1
+// Support an interactive boot menu at end of post.
+#define CONFIG_BOOTMENU 1
 
 // Support generation of a PIR table in 0xf000 segment (for emulators)
 #define CONFIG_PIRTABLE 1
@@ -41,6 +55,8 @@
 #define CONFIG_MPTABLE 1
 // Support generation of ACPI tables (for emulators)
 #define CONFIG_ACPI 1
+// Support bios callbacks specific to via vgabios.
+#define CONFIG_VGAHOOKS 1
 
 /* define it if the (emulated) hardware supports SMM mode */
 #define CONFIG_USE_SMM 1

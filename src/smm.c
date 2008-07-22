@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outb
 
+#if CONFIG_USE_SMM
 asm(
     ".global smm_relocation_start\n"
     ".global smm_relocation_end\n"
@@ -67,6 +68,7 @@ asm(
     "smm_code_end:\n"
     "  .code32\n"
     );
+#endif
 
 extern u8 smm_relocation_start, smm_relocation_end;
 extern u8 smm_code_start, smm_code_end;

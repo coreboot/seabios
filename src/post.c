@@ -170,6 +170,8 @@ init_bios_tables(void)
 static void
 init_boot_vectors()
 {
+    if (! CONFIG_BOOT)
+        return;
     dprintf(3, "init boot device ordering\n");
 
     // Floppy drive
@@ -257,6 +259,9 @@ rom_scan(u32 start, u32 end)
             continue;
         // Found a device that thinks it can boot the system.  Record
         // its BEV and product name string.
+
+        if (! CONFIG_BOOT)
+            continue;
 
         if (ebda->ipl.count >= ARRAY_SIZE(ebda->ipl.table))
             continue;

@@ -77,6 +77,9 @@ print_boot_failure(u16 type, u8 reason)
 static void
 try_boot(u16 seq_nr)
 {
+    if (! CONFIG_BOOT)
+        BX_PANIC("Boot support not compiled in.\n");
+
     SET_EBDA(ipl.sequence, seq_nr);
 
     u32 bootdev = GET_EBDA(ipl.bootorder);

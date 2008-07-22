@@ -42,6 +42,9 @@ udelay_and_check_for_keystroke(u32 usec, int count)
 void
 interactive_bootmenu()
 {
+    if (! CONFIG_BOOTMENU)
+        return;
+
     while (check_for_keystroke())
         get_keystroke();
 

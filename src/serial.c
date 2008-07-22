@@ -31,7 +31,10 @@ detect_serial(u16 port, u8 timeout, u8 count)
 void
 serial_setup()
 {
+    if (! CONFIG_SERIAL)
+        return;
     dprintf(3, "init serial\n");
+
     u16 count = 0;
     count += detect_serial(0x3f8, 0x0a, count);
     count += detect_serial(0x2f8, 0x0a, count);
@@ -151,6 +154,10 @@ void VISIBLE16
 handle_14(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_14);
+    if (! CONFIG_SERIAL) {
+        handle_14XX(regs);
+        return;
+    }
 
     irq_enable();
 
@@ -186,7 +193,10 @@ detect_parport(u16 port, u8 timeout, u8 count)
 void
 lpt_setup()
 {
+    if (! CONFIG_LPT)
+        return;
     dprintf(3, "init lpt\n");
+
     u16 count = 0;
     count += detect_parport(0x378, 0x14, count);
     count += detect_parport(0x278, 0x14, count);
@@ -280,6 +290,10 @@ void VISIBLE16
 handle_17(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_17);
+    if (! CONFIG_LPT) {
+        handle_17XX(regs);
+        return;
+    }
 
     irq_enable();
 

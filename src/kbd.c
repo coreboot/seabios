@@ -92,6 +92,9 @@ kbd_setup()
     SET_BDA(kbd_buf_end_offset
             , x + FIELD_SIZEOF(struct bios_data_area_s, kbd_buf));
 
+    if (! CONFIG_KEYBOARD)
+        return;
+
     keyboard_init();
 
     // Enable IRQ1 (handle_09)
@@ -306,6 +309,8 @@ void VISIBLE16
 handle_16(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_16);
+    if (! CONFIG_KEYBOARD)
+        return;
 
     irq_enable();
 
@@ -616,6 +621,8 @@ void VISIBLE16
 handle_09()
 {
     debug_isr(DEBUG_ISR_09);
+    if (! CONFIG_KEYBOARD)
+        goto done;
 
     // read key from keyboard controller
     u8 v = inb(PORT_PS2_STATUS);

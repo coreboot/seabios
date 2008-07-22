@@ -20,6 +20,7 @@
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M
 // floppy here
+#if MODE16 == 1
 struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
     .dbt = {
         .specify1       = 0xAF,
@@ -38,6 +39,7 @@ struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
     .data_rate      = 0,    // data transfer rate
     .drive_type     = 4,    // drive type in cmos
 };
+#endif
 
 void
 floppy_drive_setup()
@@ -739,6 +741,9 @@ void VISIBLE16
 handle_0e()
 {
     debug_isr(DEBUG_ISR_0e);
+    if (! CONFIG_FLOPPY_SUPPORT)
+        goto done;
+
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
         outb(0x08, PORT_FD_DATA); // sense interrupt status
         while ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
@@ -747,15 +752,20 @@ handle_0e()
             inb(PORT_FD_DATA);
         } while ((inb(PORT_FD_STATUS) & 0xc0) == 0xc0);
     }
-    eoi_pic1();
     // diskette interrupt has occurred
     SETBITS_BDA(floppy_recalibration_status, FRS_TIMEOUT);
+
+done:
+    eoi_pic1();
 }
 
 // Called from int08 handler.
 void
 floppy_tick()
 {
+    if (! CONFIG_FLOPPY_SUPPORT)
+        return;
+
     // time to turn off drive(s)?
     u8 fcount = GET_BDA(floppy_motor_counter);
     if (fcount) {

@@ -335,10 +335,13 @@ void VISIBLE16
 handle_74()
 {
     debug_isr(DEBUG_ISR_74);
+    if (! CONFIG_PS2_MOUSE)
+        goto done;
 
     irq_enable();
     int74_function();
     irq_disable();
 
+done:
     eoi_pic2();
 }
