@@ -46,6 +46,8 @@
 #define CONFIG_LPT 1
 // Support int 16 keyboard calls
 #define CONFIG_KEYBOARD 1
+// Support finding and running option roms during post.
+#define CONFIG_OPTIONROMS 1
 // Support an interactive boot menu at end of post.
 #define CONFIG_BOOTMENU 1
 

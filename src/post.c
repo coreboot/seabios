@@ -225,6 +225,9 @@ callrom(u16 seg, u16 offset)
 static void
 rom_scan(u32 start, u32 end)
 {
+    if (! CONFIG_OPTIONROMS)
+        return;
+
     u8 *p = (u8*)start;
     for (; p <= (u8*)end; p += 2048) {
         u8 *rom = p;
