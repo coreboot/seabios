@@ -55,7 +55,7 @@ keyboard_init()
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
     ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
-    if (ret)
+    if (ret < 0)
         return;
     if (param[0] != 0xaa) {
         dprintf(1, "keyboard self test failed (got %x not 0xaa\n", param[0]);

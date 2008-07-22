@@ -207,8 +207,12 @@ ps2_command(int aux, int command, u8 *param)
     // Receive parameters (if any).
     for (i = 0; i < receive; i++) {
         ret = i8042_wait_read();
-        if (ret)
+        if (ret) {
+            // On a receive timeout, return the item number that the
+            // transfer failed on.
+            ret = i + 1;
             goto fail;
+        }
         param[i] = inb(PORT_PS2_DATA);
     }
 
@@ -226,7 +230,7 @@ kbd_command(int command, u8 *param)
 {
     int ret = ps2_command(0, command, param);
     if (ret)
-        dprintf(2, "keyboard command %x failed\n", command);
+        dprintf(2, "keyboard command %x failed (ret=%d)\n", command, ret);
     return ret;
 }
 
@@ -235,6 +239,6 @@ aux_command(int command, u8 *param)
 {
     int ret = ps2_command(1, command, param);
     if (ret)
-        dprintf(2, "mouse command %x failed\n", command);
+        dprintf(2, "mouse command %x failed (ret=%d)\n", command, ret);
     return ret;
 }
