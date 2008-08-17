@@ -210,8 +210,10 @@ callrom(u16 seg, u16 offset)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    // XXX - should set br.ax to PCI Bus/DevFn
+    br.bx = 0xffff;
+    br.dx = 0xffff;
     br.es = SEG_BIOS;
-    // starts 1 past for alignment
     extern char pnp_string[];
     br.di = (u32)pnp_string - BUILD_BIOS_ADDR;
     br.cs = seg;
