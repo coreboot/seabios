@@ -154,4 +154,7 @@ void interactive_bootmenu();
 // coreboot.c
 void coreboot_fill_map();
 
+// vgahooks.c
+void handle_155f();
+
 #endif // util.h
