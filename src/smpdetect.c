@@ -54,12 +54,12 @@ asm(
     "  .code16\n"
 
     "smp_ap_boot_code_start:\n"
-    "  xor %ax, %ax\n"
-    "  mov %ax, %ds\n"
-    "  incw " __stringify(BUILD_CPU_COUNT_ADDR) "\n"
-    "1:\n"
-    "  hlt\n"
-    "  jmp 1b\n"
+    // Increament the counter at BUILD_CPU_COUNT_ADDR
+    "  xorw %ax, %ax\n"
+    "  movw %ax, %ds\n"
+    "  lock incw " __stringify(BUILD_CPU_COUNT_ADDR) "\n"
+    // Halt the processor.
+    "  ljmpl $" __stringify(SEG_BIOS) ", $(permanent_halt - " __stringify(BUILD_BIOS_ADDR) ")\n"
     "smp_ap_boot_code_end:\n"
 
     "  .code32\n"

@@ -318,6 +318,16 @@ post32:
 
         .code16gcc
 
+// Shutdown a CPU.  We want this in the 0xf000 section to ensure that
+// the code wont be overwritten with something else.  (Should
+// something spurious wake up the CPU, we want to be sure that the hlt
+// insn will still be present and will shutdown the CPU.)
+        .global permanent_halt
+permanent_halt:
+        cli
+1:      hlt
+        jmp 1b
+
 
 /****************************************************************
  * GDT and IDT tables
