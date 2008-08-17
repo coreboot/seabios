@@ -47,6 +47,9 @@ floppy_drive_setup()
     if (! CONFIG_FLOPPY_SUPPORT)
         return;
     dprintf(3, "init floppy drives\n");
+    if (CONFIG_COREBOOT)
+        // XXX - disable floppies on coreboot for now.
+        outb_cmos(0, CMOS_FLOPPY_DRIVE_TYPE);
     u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
     u8 out = 0;
     u8 num_floppies = 0;
