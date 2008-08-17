@@ -8,8 +8,7 @@
 #include "pci.h" // PCIDevice
 #include "ioport.h" // outl
 #include "util.h" // dprintf
-
-#define MAX_BUS 1
+#include "config.h" // CONFIG_*
 
 void pci_config_writel(PCIDevice d, u32 addr, u32 val)
 {
@@ -58,7 +57,7 @@ pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev)
 {
     int devfn, bus;
     u32 id = (devid << 16) | vendid;
-    for (bus=0; bus < MAX_BUS; bus++) {
+    for (bus=0; bus < CONFIG_PCI_BUS_COUNT; bus++) {
         for (devfn=0; devfn<0x100; devfn++) {
             PCIDevice d = pci_bd(bus, devfn);
             u32 v = pci_config_readl(d, 0x00);
@@ -80,7 +79,7 @@ int
 pci_find_class(u32 classid, int index, PCIDevice *dev)
 {
     int devfn, bus;
-    for (bus=0; bus < MAX_BUS; bus++) {
+    for (bus=0; bus < CONFIG_PCI_BUS_COUNT; bus++) {
         for (devfn=0; devfn<0x100; devfn++) {
             PCIDevice d = pci_bd(bus, devfn);
             u32 v = pci_config_readl(d, 0x08);
