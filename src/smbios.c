@@ -20,7 +20,7 @@ uuid_probe(u8 *bios_uuid)
     // Default to UUID not set
     memset(bios_uuid, 0, 16);
 
-    if (! CONFIG_QEMU)
+    if (! CONFIG_UUID_BACKDOOR)
         return;
 
     // check if backdoor port exists
@@ -506,6 +506,9 @@ smbios_type_127_init(void *start)
 void
 smbios_init(void)
 {
+    if (! CONFIG_SMBIOS)
+        return;
+
     unsigned cpu_num, nr_structs = 0, max_struct_size = 0;
     char *start, *p, *q;
     int memsize = GET_EBDA(ram_size) / (1024 * 1024);

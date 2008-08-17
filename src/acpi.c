@@ -209,15 +209,9 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     memcpy(h->signature, sig, 4);
     h->length = cpu_to_le32(len);
     h->revision = rev;
-    if (CONFIG_QEMU) {
-        memcpy(h->oem_id, "QEMU  ", 6);
-        memcpy(h->oem_table_id, "QEMU", 4);
-        memcpy(h->asl_compiler_id, "QEMU", 4);
-    } else {
-        memcpy(h->oem_id, "BOCHS ", 6);
-        memcpy(h->oem_table_id, "BXPC", 4);
-        memcpy(h->asl_compiler_id, "BXPC", 4);
-    }
+    memcpy(h->oem_id, CONFIG_APPNAME6, 6);
+    memcpy(h->oem_table_id, CONFIG_APPNAME4, 4);
+    memcpy(h->asl_compiler_id, CONFIG_APPNAME4, 4);
     memcpy(h->oem_table_id + 4, sig, 4);
     h->oem_revision = cpu_to_le32(1);
     h->asl_compiler_revision = cpu_to_le32(1);
@@ -348,10 +342,7 @@ void acpi_bios_init(void)
     /* RSDP */
     memset(rsdp, 0, sizeof(*rsdp));
     memcpy(rsdp->signature, "RSD PTR ", 8);
-    if (CONFIG_QEMU)
-        memcpy(rsdp->oem_id, "QEMU  ", 6);
-    else
-        memcpy(rsdp->oem_id, "BOCHS ", 6);
+    memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
     rsdp->rsdt_physical_address = cpu_to_le32(rsdt_addr);
     rsdp->checksum = -checksum((void *)rsdp, 20);
 

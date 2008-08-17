@@ -3,15 +3,14 @@
 
 // Configuration definitions.
 
-/* Dont support QEMU BIOS by default.
- * Change CONFIG_QEMU to 1 to support QEMU. */
-#define CONFIG_QEMU 0
-
-#if (QEMU_SUPPORT == 1)
-#define CONFIG_APPNAME "QEMU"
-#else
-#define CONFIG_APPNAME "Bochs"
-#endif
+//#define CONFIG_APPNAME  "QEMU"
+//#define CONFIG_CPUNAME8 "QEMUCPU "
+//#define CONFIG_APPNAME6 "QEMU  "
+//#define CONFIG_APPNAME4 "QEMU"
+#define CONFIG_APPNAME  "Bochs"
+#define CONFIG_CPUNAME8 "BOCHSCPU"
+#define CONFIG_APPNAME6 "BOCHS "
+#define CONFIG_APPNAME4 "BXPC"
 
 // Configure as a coreboot payload.
 #define CONFIG_COREBOOT 0
@@ -55,6 +54,10 @@
 #define CONFIG_PIRTABLE 1
 // Support generation of MPTable (for emulators)
 #define CONFIG_MPTABLE 1
+// Support generation of SM BIOS tables (for emulators)
+#define CONFIG_SMBIOS 1
+// Support finding a UUID (for smbios) via "magic" outl sequence.
+#define CONFIG_UUID_BACKDOOR 1
 // Support generation of ACPI tables (for emulators)
 #define CONFIG_ACPI 1
 // Support bios callbacks specific to via vgabios.

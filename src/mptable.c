@@ -57,7 +57,8 @@ mptable_init(void)
     int mp_config_table_size;
 
     int smp_cpus = smp_probe();
-    if (CONFIG_QEMU && smp_cpus <= 1)
+    if (smp_cpus <= 1)
+        // Building an mptable on uniprocessor machines confuses some OSes.
         return;
 
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
@@ -67,10 +68,7 @@ mptable_init(void)
     putle16(&q, 0); /* table length (patched later) */
     putb(&q, 4); /* spec rev */
     putb(&q, 0); /* checksum (patched later) */
-    if (CONFIG_QEMU)
-        putstr(&q, "QEMUCPU "); /* OEM id */
-    else
-        putstr(&q, "BOCHSCPU");
+    putstr(&q, CONFIG_CPUNAME8); /* OEM id */
     putstr(&q, "0.1         "); /* vendor id */
     putle32(&q, 0); /* OEM table ptr */
     putle16(&q, 0); /* OEM table size */
