@@ -1,4 +1,4 @@
-// 16bit code to load disk image and start system boot.
+// Code to load disk image and start system boot.
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
@@ -107,8 +107,8 @@ try_boot(u16 seq_nr)
     u8 bootdrv = 0;
     struct bregs cr;
     switch(type) {
-    case IPL_TYPE_FLOPPY: /* FDD */
-    case IPL_TYPE_HARDDISK: /* HDD */
+    case IPL_TYPE_FLOPPY:
+    case IPL_TYPE_HARDDISK:
 
         bootdrv = (type == IPL_TYPE_HARDDISK) ? 0x80 : 0x00;
         bootseg = 0x07c0;
@@ -213,5 +213,5 @@ handle_19()
 }
 
 // Ughh - some older gcc compilers have a bug which causes VISIBLE32
-// functions to not be exported as a global variables.
+// functions to not be exported as global variables.
 asm(".global handle_18, handle_19");

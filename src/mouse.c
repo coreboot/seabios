@@ -97,7 +97,7 @@ mouse_15c201(struct bregs *regs)
 {
     u8 param[2];
     int ret = aux_command(PSMOUSE_CMD_RESET_BAT, param);
-    if (ret < 0) {
+    if (ret != 0 && ret != 2) {
         set_code_fail(regs, RET_ENEEDRESEND);
         return;
     }

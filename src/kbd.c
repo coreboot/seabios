@@ -30,7 +30,7 @@ keyboard_init()
     if (ret)
         return;
     if (param[0] != 0x55) {
-        dprintf(1, "i8042 self test failed (got %x not 0x55\n", param[0]);
+        dprintf(1, "i8042 self test failed (got %x not 0x55)\n", param[0]);
         return;
     }
 
@@ -39,7 +39,7 @@ keyboard_init()
     if (ret)
         return;
     if (param[0] != 0x00) {
-        dprintf(1, "i8042 keyboard test failed (got %x not 0x00\n", param[0]);
+        dprintf(1, "i8042 keyboard test failed (got %x not 0x00)\n", param[0]);
         return;
     }
 
@@ -55,10 +55,10 @@ keyboard_init()
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
     ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
-    if (ret < 0)
+    if (ret != 0 && ret != 2)
         return;
     if (param[0] != 0xaa) {
-        dprintf(1, "keyboard self test failed (got %x not 0xaa\n", param[0]);
+        dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
         return;
     }
 

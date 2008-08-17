@@ -10,6 +10,11 @@ machine.
 
 Fix keyboard LEDs.
 
+Improve option rom handling.  A real bios can copy the option roms
+from PCI space.  Also, there is no handling for BCVs today.
+
+Clean up and clarify usage/scope of .bss and .data variables.
+
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
   * bochs cvs (1.209)         -- all changes synched
@@ -50,6 +55,9 @@ Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.
 
 See if it is possible to handle interrupts while in 32bit mode.
+
+Add a kconfig style configuration program instead of requiring users
+to modify config.h.
 
 Look at integrating the lgpl vgabios into tree.
 

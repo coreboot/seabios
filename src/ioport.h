@@ -41,7 +41,7 @@
 #define PORT_FD_DIR            0x03f7
 #define PORT_PCI_CMD           0x0cf8
 #define PORT_PCI_DATA          0x0cfc
-#define PORT_BIOS_DEBUG        0x0403
+#define PORT_BIOS_DEBUG        0x0402
 #define PORT_BIOS_APM          0x8900
 
 // PORT_KBD_CTRLB bitdefs
