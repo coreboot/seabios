@@ -309,8 +309,7 @@ void acpi_bios_init(void)
     fadt = (void *)(addr);
     addr += sizeof(*fadt);
 
-    /* XXX: FACS should be in RAM */
-    addr = (addr + 63) & ~63; /* 64 byte alignment for FACS */
+    addr = ALIGN(addr, 64);
     facs_addr = addr;
     facs = (void *)(addr);
     addr += sizeof(*facs);
@@ -324,7 +323,7 @@ void acpi_bios_init(void)
     addr += acpi_build_processor_ssdt(ssdt);
 
     int smp_cpus = smp_probe();
-    addr = (addr + 7) & ~7;
+    addr = ALIGN(addr, 8);
     madt_addr = addr;
     madt_size = sizeof(*madt) +
         sizeof(struct madt_processor_apic) * smp_cpus +

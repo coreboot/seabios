@@ -144,7 +144,7 @@ static void pci_bios_init_device(PCIDevice d)
         /* default memory mappings */
         for(i = 0; i < PCI_NUM_REGIONS; i++) {
             int ofs;
-            u32 val, size ;
+            u32 val, size;
 
             if (i == PCI_ROM_SLOT)
                 ofs = 0x30;
@@ -160,7 +160,7 @@ static void pci_bios_init_device(PCIDevice d)
                     paddr = &pci_bios_bigmem_addr;
                 else
                     paddr = &pci_bios_mem_addr;
-                *paddr = (*paddr + size - 1) & ~(size - 1);
+                *paddr = ALIGN(*paddr, size);
                 pci_set_io_region_addr(d, i, *paddr);
                 *paddr += size;
             }
