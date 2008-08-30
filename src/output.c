@@ -148,7 +148,7 @@ puthex(u16 action, u32 val)
 static inline int
 isdigit(u8 c)
 {
-    return c - '0' < 10;
+    return ((u8)(c - '0')) < 10;
 }
 
 static void
