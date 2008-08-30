@@ -22,6 +22,8 @@ uuid_probe(u8 *bios_uuid)
 
     if (! CONFIG_UUID_BACKDOOR)
         return;
+    if (CONFIG_COREBOOT)
+        return;
 
     // check if backdoor port exists
     u32 eax, ebx, ecx, edx;

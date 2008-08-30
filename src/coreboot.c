@@ -217,6 +217,11 @@ coreboot_fill_map()
     add_e820(0, 16*1024, E820_RAM);
 
     SET_EBDA(ram_size, maxram);
+
+    // XXX - just create dummy smbios table for now - should detect if
+    // smbios/dmi table is found from coreboot and use that instead.
+    smbios_init();
+
     return;
 
 fail:
