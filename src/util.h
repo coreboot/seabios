@@ -60,6 +60,7 @@ static inline void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
 
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
+void *memcpy_far(void *far_d1, const void *far_s1, size_t len);
 void *memmove(void *d, const void *s, size_t len);
 
 struct bregs;

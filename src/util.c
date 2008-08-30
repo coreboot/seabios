@@ -53,7 +53,7 @@ memset(void *s, int c, size_t n)
 }
 
 void *
-memcpy(void *far_d1, const void *far_s1, size_t len)
+memcpy_far(void *far_d1, const void *far_s1, size_t len)
 {
     u8 *d = far_d1;
     u8 *s = (u8*)far_s1;
@@ -65,6 +65,15 @@ memcpy(void *far_d1, const void *far_s1, size_t len)
     }
 
     return far_d1;
+}
+
+void *
+memcpy(void *d1, const void *s1, size_t len)
+{
+    u8 *d = (u8*)d1, *s = (u8*)s1;
+    while (len--)
+        *d++ = *s++;
+    return d1;
 }
 
 void *

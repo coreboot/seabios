@@ -276,7 +276,7 @@ handle_15e820(struct bregs *regs)
     }
 
     struct e820entry *e = &((struct e820entry *)GET_EBDA(e820_loc))[regs->bx];
-    memcpy(MAKE_FARPTR(regs->es, regs->di), e, sizeof(*e));
+    memcpy_far(MAKE_FARPTR(regs->es, regs->di), e, sizeof(*e));
     if (regs->bx == count-1)
         regs->ebx = 0;
     else
