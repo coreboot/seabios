@@ -8,11 +8,21 @@ typedef struct PCIDevice {
     u8 devfn;
 } PCIDevice;
 
-static inline PCIDevice
-pci_bd(u8 bus, u8 devfn)
-{
+static inline PCIDevice pci_bd(u8 bus, u8 devfn) {
     struct PCIDevice d = {bus, devfn};
     return d;
+}
+static inline u16 pci_to_bdf(PCIDevice d) {
+    return (d.bus << 8) | d.devfn;
+}
+static inline u8 pci_bdf_to_bus(u16 bdf) {
+    return bdf >> 8;
+}
+static inline u8 pci_bdf_to_dev(u16 bdf) {
+    return (bdf >> 3) & 0x1f;
+}
+static inline u8 pci_bdf_to_fn(u16 bdf) {
+    return bdf & 0x07;
 }
 
 void pci_config_writel(PCIDevice d, u32 addr, u32 val);
@@ -23,7 +33,8 @@ u16 pci_config_readw(PCIDevice d, u32 addr);
 u8 pci_config_readb(PCIDevice d, u32 addr);
 
 int pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev);
-int pci_find_class(u32 classid, int index, PCIDevice *dev);
+int pci_find_classprog(u32 classprog, int index, PCIDevice *dev);
+int pci_find_class(u16 classid, int index, PCIDevice *dev);
 
 // pirtable.c
 void create_pirtable();
@@ -38,7 +49,14 @@ void create_pirtable();
 #define PCI_COMMAND		0x04	/* 16 bits */
 #define  PCI_COMMAND_IO		0x1	/* Enable response in I/O space */
 #define  PCI_COMMAND_MEMORY	0x2	/* Enable response in Memory space */
+#define PCI_CLASS_PROG          0x09
 #define PCI_CLASS_DEVICE        0x0a    /* Device class */
+#define PCI_BASE_ADDR_0         0x10
+#define PCI_BASE_ADDR_1         0x14
+#define PCI_BASE_ADDR_2         0x18
+#define PCI_BASE_ADDR_3         0x1c
+#define PCI_BASE_ADDR_4         0x20
+#define PCI_BASE_ADDR_5         0x24
 #define PCI_INTERRUPT_LINE	0x3c	/* 8 bits */
 #define PCI_INTERRUPT_PIN	0x3d	/* 8 bits */
 #define PCI_MIN_GNT		0x3e	/* 8 bits */

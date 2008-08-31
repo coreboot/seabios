@@ -60,7 +60,7 @@ pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev)
     for (bus=0; bus < CONFIG_PCI_BUS_COUNT; bus++) {
         for (devfn=0; devfn<0x100; devfn++) {
             PCIDevice d = pci_bd(bus, devfn);
-            u32 v = pci_config_readl(d, 0x00);
+            u32 v = pci_config_readl(d, PCI_VENDOR_ID);
             if (v != id)
                 continue;
             if (index) {
@@ -75,15 +75,39 @@ pci_find_device(u16 vendid, u16 devid, int index, PCIDevice *dev)
     return -1;
 }
 
+// Search for a device with the specified class id and prog-if.
 int
-pci_find_class(u32 classid, int index, PCIDevice *dev)
+pci_find_classprog(u32 classprog, int index, PCIDevice *dev)
 {
     int devfn, bus;
     for (bus=0; bus < CONFIG_PCI_BUS_COUNT; bus++) {
         for (devfn=0; devfn<0x100; devfn++) {
             PCIDevice d = pci_bd(bus, devfn);
             u32 v = pci_config_readl(d, 0x08);
-            if ((v>>8) != classid)
+            if ((v>>8) != classprog)
+                continue;
+            if (index) {
+                index--;
+                continue;
+            }
+            // Found it.
+            *dev = d;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+// Search for a device with the specified class id.
+int
+pci_find_class(u16 classid, int index, PCIDevice *dev)
+{
+    int devfn, bus;
+    for (bus=0; bus < CONFIG_PCI_BUS_COUNT; bus++) {
+        for (devfn=0; devfn<0x100; devfn++) {
+            PCIDevice d = pci_bd(bus, devfn);
+            u16 v = pci_config_readw(d, PCI_CLASS_DEVICE);
+            if (v != classid)
                 continue;
             if (index) {
                 index--;

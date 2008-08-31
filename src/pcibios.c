@@ -49,7 +49,7 @@ static void
 handle_1ab103(struct bregs *regs)
 {
     PCIDevice d;
-    int ret = pci_find_class(regs->ecx, regs->si, &d);
+    int ret = pci_find_classprog(regs->ecx, regs->si, &d);
     if (ret) {
         set_code_fail(regs, RET_DEVICE_NOT_FOUND);
         return;
