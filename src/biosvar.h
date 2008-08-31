@@ -142,9 +142,9 @@ struct dpte_s {
 };
 
 struct ata_channel_s {
-    u8  iface;        // ISA or PCI
     u16 iobase1;      // IO Base 1
     u16 iobase2;      // IO Base 2
+    u16 pci_bdf;
     u8  irq;          // IRQ
 };
 

@@ -12,6 +12,7 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // unmask_pic2
 #include "biosvar.h" // GET_EBDA
+#include "pci.h" // pci_find_class
 
 #define TIMEOUT 0
 #define BSY 1
@@ -773,8 +774,8 @@ init_drive_ata(int driveid)
         BX_PANIC("ata-detect: Failed to detect ATA device\n");
 
     u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode       = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-    u16 blksize   = *(u16*)&buffer[10];
+    u8 mode       = buffer[48*2] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u16 blksize   = IDE_SECTOR_SIZE;
 
     u16 cylinders = *(u16*)&buffer[1*2]; // word 1
     u16 heads     = *(u16*)&buffer[3*2]; // word 3
@@ -838,6 +839,8 @@ ata_detect()
 
         u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
         u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+        if (!iobase1)
+            break;
 
         // Disable interrupts
         outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
@@ -903,33 +906,53 @@ ata_init()
         SET_EBDA(ata.idmap[1][device], CONFIG_MAX_ATA_DEVICES);
     }
 
-#if CONFIG_MAX_ATA_INTERFACES > 0
-    SET_EBDA(ata.channels[0].iface, ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[0].iobase1, 0x1f0);
-    SET_EBDA(ata.channels[0].iobase2, 0x3f0);
-    SET_EBDA(ata.channels[0].irq, 14);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 1
-    SET_EBDA(ata.channels[1].iface, ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[1].iobase1, 0x170);
-    SET_EBDA(ata.channels[1].iobase2, 0x370);
-    SET_EBDA(ata.channels[1].irq, 15);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 2
-    SET_EBDA(ata.channels[2].iface, ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[2].iobase1, 0x1e8);
-    SET_EBDA(ata.channels[2].iobase2, 0x3e0);
-    SET_EBDA(ata.channels[2].irq, 12);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 3
-    SET_EBDA(ata.channels[3].iface, ATA_IFACE_ISA);
-    SET_EBDA(ata.channels[3].iobase1, 0x168);
-    SET_EBDA(ata.channels[3].iobase2, 0x360);
-    SET_EBDA(ata.channels[3].irq, 11);
-#endif
-#if CONFIG_MAX_ATA_INTERFACES > 4
-#error Please fill the ATA interface informations
-#endif
+    // Scan PCI bus for ATA adapters
+    int count=0, index=0;
+    u16 classid = 0x0180; // SATA first
+    while (count<CONFIG_MAX_ATA_INTERFACES-1) {
+        PCIDevice d;
+        int ret = pci_find_class(classid, index, &d);
+        if (ret) {
+            if (classid == 0x0101)
+                // Done
+                break;
+            classid = 0x0101; // PATA controllers
+            index = 0;
+            continue;
+        }
+        index++;
+
+        u8 irq = pci_config_readb(d, PCI_INTERRUPT_LINE);
+        SET_EBDA(ata.channels[count].irq, irq);
+        SET_EBDA(ata.channels[count].pci_bdf, pci_to_bdf(d));
+
+        u8 prog_if = pci_config_readb(d, PCI_CLASS_PROG);
+        u32 port1, port2;
+
+        if (classid != 0x0101 || prog_if & 1) {
+            port1 = pci_config_readl(d, PCI_BASE_ADDR_0) & ~3;
+            port2 = pci_config_readl(d, PCI_BASE_ADDR_1) & ~3;
+        } else {
+            port1 = 0x1f0;
+            port2 = 0x3f0;
+        }
+        SET_EBDA(ata.channels[count].iobase1, port1);
+        SET_EBDA(ata.channels[count].iobase2, port2);
+        dprintf(1, "ATA controller %d at %x/%x\n", count, port1, port2);
+        count++;
+
+        if (classid != 0x0101 || prog_if & 4) {
+            port1 = pci_config_readl(d, PCI_BASE_ADDR_2) & ~3;
+            port2 = pci_config_readl(d, PCI_BASE_ADDR_3) & ~3;
+        } else {
+            port1 = 0x170;
+            port2 = 0x370;
+        }
+        dprintf(1, "ATA controller %d at %x/%x\n", count, port1, port2);
+        SET_EBDA(ata.channels[count].iobase1, port1);
+        SET_EBDA(ata.channels[count].iobase2, port2);
+        count++;
+    }
 }
 
 void

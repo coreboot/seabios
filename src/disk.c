@@ -12,6 +12,7 @@
 #include "ata.h" // ATA_*
 #include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
+#include "pci.h" // pci_bdf_to_bus
 
 
 /****************************************************************
@@ -134,6 +135,9 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     u16 offset = GET_INT13EXT(regs, offset);
     void *far_buffer = MAKE_FARPTR(segment, offset);
     u16 count = GET_INT13EXT(regs, count);
+
+    dprintf(DEBUG_HDL_13, "extacc lba=%d buf=%p count=%d\n"
+            , (u32)lba, far_buffer, count);
 
     irq_enable();
 
@@ -356,7 +360,7 @@ disk_1348(struct bregs *regs, u8 device)
     u16 size = GET_INT13DPT(regs, size);
 
     // Buffer is too small
-    if (size < 0x1a) {
+    if (size < 26) {
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
@@ -370,7 +374,10 @@ disk_1348(struct bregs *regs, u8 device)
     u64 lba     = GET_EBDA(ata.devices[device].sectors);
     u16 blksize = GET_EBDA(ata.devices[device].blksize);
 
-    SET_INT13DPT(regs, size, 0x1a);
+    dprintf(DEBUG_HDL_13, "disk_1348 size=%d t=%d chs=%d,%d,%d lba=%d bs=%d\n"
+            , size, type, npc, nph, npspt, (u32)lba, blksize);
+
+    SET_INT13DPT(regs, size, 26);
     if (type == ATA_TYPE_ATA) {
         if (lba > (u64)npspt*nph*0x3fff) {
             SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
@@ -393,14 +400,14 @@ disk_1348(struct bregs *regs, u8 device)
     }
     SET_INT13DPT(regs, blksize, blksize);
 
-    if (size < 0x1e) {
+    if (size < 30) {
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
 
     // EDD 2.x
 
-    SET_INT13DPT(regs, size, 0x1e);
+    SET_INT13DPT(regs, size, 30);
 
     SET_INT13DPT(regs, dpte_segment, SEG_EBDA);
     SET_INT13DPT(regs, dpte_offset
@@ -408,88 +415,83 @@ disk_1348(struct bregs *regs, u8 device)
 
     // Fill in dpte
     u8 channel = device / 2;
+    u8 slave = device % 2;
     u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
     u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
     u8 irq = GET_EBDA(ata.channels[channel].irq);
     u8 mode = GET_EBDA(ata.devices[device].mode);
 
-    u16 options;
+    u16 options = 0;
     if (type == ATA_TYPE_ATA) {
         u8 translation = GET_EBDA(ata.devices[device].translation);
-        options  = (translation==ATA_TRANSLATION_NONE?0:1)<<3; // chs translation
-        options |= (translation==ATA_TRANSLATION_LBA?1:0)<<9;
-        options |= (translation==ATA_TRANSLATION_RECHS?3:0)<<9;
+        if (translation != ATA_TRANSLATION_NONE) {
+            options |= 1<<3; // CHS translation
+            if (translation == ATA_TRANSLATION_LBA)
+                options |= 1<<9;
+            if (translation == ATA_TRANSLATION_RECHS)
+                options |= 3<<9;
+        }
     } else {
         // ATAPI
-        options  = (1<<5); // removable device
-        options |= (1<<6); // atapi device
+        options |= 1<<5; // removable device
+        options |= 1<<6; // atapi device
     }
-    options |= (1<<4); // lba translation
-    options |= (mode==ATA_MODE_PIO32?1:0)<<7;
+    options |= 1<<4; // lba translation
+    if (mode == ATA_MODE_PIO32)
+        options |= 1<<7;
 
     SET_EBDA(ata.dpte.iobase1, iobase1);
     SET_EBDA(ata.dpte.iobase2, iobase2 + ATA_CB_DC);
-    SET_EBDA(ata.dpte.prefix, (0xe | (device % 2))<<4 );
-    SET_EBDA(ata.dpte.unused, 0xcb );
-    SET_EBDA(ata.dpte.irq, irq );
-    SET_EBDA(ata.dpte.blkcount, 1 );
-    SET_EBDA(ata.dpte.dma, 0 );
-    SET_EBDA(ata.dpte.pio, 0 );
+    SET_EBDA(ata.dpte.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
+                               | ATA_CB_DH_LBA));
+    SET_EBDA(ata.dpte.unused, 0xcb);
+    SET_EBDA(ata.dpte.irq, irq);
+    SET_EBDA(ata.dpte.blkcount, 1);
+    SET_EBDA(ata.dpte.dma, 0);
+    SET_EBDA(ata.dpte.pio, 0);
     SET_EBDA(ata.dpte.options, options);
     SET_EBDA(ata.dpte.reserved, 0);
-    if (size >= 0x42)
-        SET_EBDA(ata.dpte.revision, 0x11);
-    else
-        SET_EBDA(ata.dpte.revision, 0x10);
+    SET_EBDA(ata.dpte.revision, 0x11);
 
     u8 *p = MAKE_FARPTR(SEG_EBDA
                         , offsetof(struct extended_bios_data_area_s, ata.dpte));
-    u8 sum = checksum(p, 15);
-    SET_EBDA(ata.dpte.checksum, ~sum);
+    SET_EBDA(ata.dpte.checksum, -checksum(p, 15));
 
-    if (size < 0x42) {
+    if (size < 66) {
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
 
     // EDD 3.x
-    channel = device / 2;
-    u8 iface = GET_EBDA(ata.channels[channel].iface);
-    iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-
-    SET_INT13DPT(regs, size, 0x42);
     SET_INT13DPT(regs, key, 0xbedd);
-    SET_INT13DPT(regs, dpi_length, 0x24);
+    SET_INT13DPT(regs, dpi_length, 36);
     SET_INT13DPT(regs, reserved1, 0);
     SET_INT13DPT(regs, reserved2, 0);
 
-    if (iface==ATA_IFACE_ISA) {
-        SET_INT13DPT(regs, host_bus[0], 'I');
-        SET_INT13DPT(regs, host_bus[1], 'S');
-        SET_INT13DPT(regs, host_bus[2], 'A');
-        SET_INT13DPT(regs, host_bus[3], 0);
-    } else {
-        // FIXME PCI
-    }
+    SET_INT13DPT(regs, host_bus[0], 'P');
+    SET_INT13DPT(regs, host_bus[1], 'C');
+    SET_INT13DPT(regs, host_bus[2], 'I');
+    SET_INT13DPT(regs, host_bus[3], 0);
+
+    u32 bdf = GET_EBDA(ata.channels[channel].pci_bdf);
+    u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
+                | (pci_bdf_to_fn(bdf) << 16));
+    SET_INT13DPT(regs, iface_path, path);
+
     SET_INT13DPT(regs, iface_type[0], 'A');
     SET_INT13DPT(regs, iface_type[1], 'T');
     SET_INT13DPT(regs, iface_type[2], 'A');
     SET_INT13DPT(regs, iface_type[3], 0);
+    SET_INT13DPT(regs, iface_type[4], 0);
+    SET_INT13DPT(regs, iface_type[5], 0);
+    SET_INT13DPT(regs, iface_type[6], 0);
+    SET_INT13DPT(regs, iface_type[7], 0);
 
-    if (iface==ATA_IFACE_ISA) {
-        SET_INT13DPT(regs, iface_path[0], iobase1);
-        SET_INT13DPT(regs, iface_path[2], 0);
-        SET_INT13DPT(regs, iface_path[4], 0L);
-    } else {
-        // FIXME PCI
-    }
-    SET_INT13DPT(regs, device_path[0], device%2);
-    SET_INT13DPT(regs, device_path[1], 0);
-    SET_INT13DPT(regs, device_path[2], 0);
-    SET_INT13DPT(regs, device_path[4], 0L);
+    SET_INT13DPT(regs, device_path, device%2);
 
-    sum = checksum(MAKE_FARPTR(regs->ds, 30), 34);
-    SET_INT13DPT(regs, checksum, ~sum);
+    SET_INT13DPT(regs, checksum, -checksum(MAKE_FARPTR(regs->ds, 30), 35));
+
+    disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 // IBM/MS extended media change

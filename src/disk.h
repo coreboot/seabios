@@ -56,8 +56,8 @@ struct int13dpt_s {
     u16 reserved2;
     u8  host_bus[4];
     u8  iface_type[8];
-    u8  iface_path[8];
-    u8  device_path[8];
+    u64 iface_path;
+    u64 device_path;
     u8  reserved3;
     u8  checksum;
 } PACKED;
