@@ -54,7 +54,7 @@ interactive_bootmenu()
     if (! check_for_keystroke())
         return;
     u8 scan_code = get_keystroke();
-    if (scan_code != 0x58)
+    if (scan_code != 0x86)
         /* not F12 */
         return;
 
