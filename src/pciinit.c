@@ -16,8 +16,6 @@
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
 
-#define PCI_DEVICES_MAX 64
-
 static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
 static u32 pci_bios_bigmem_addr;
@@ -68,7 +66,8 @@ static void pci_bios_init_bridges(PCIDevice d)
     vendor_id = pci_config_readw(d, PCI_VENDOR_ID);
     device_id = pci_config_readw(d, PCI_DEVICE_ID);
 
-    if (vendor_id == 0x8086 && device_id == 0x7000) {
+    if (vendor_id == PCI_VENDOR_ID_INTEL
+        && device_id == PCI_DEVICE_ID_INTEL_82371SB_0) {
         int i, irq;
         u8 elcr[2];
 
@@ -103,7 +102,8 @@ static void pci_bios_init_device(PCIDevice d)
             d.bus, d.devfn, vendor_id, device_id);
     switch(class) {
     case 0x0101:
-        if (vendor_id == 0x8086 && device_id == 0x7010) {
+        if (vendor_id == PCI_VENDOR_ID_INTEL
+            && device_id == PCI_DEVICE_ID_INTEL_82371SB_1) {
             /* PIIX3 IDE */
             pci_config_writew(d, 0x40, 0x8000); // enable IDE0
             pci_config_writew(d, 0x42, 0x8000); // enable IDE1
@@ -124,7 +124,7 @@ static void pci_bios_init_device(PCIDevice d)
         break;
     case 0x0800:
         /* PIC */
-        if (vendor_id == 0x1014) {
+        if (vendor_id == PCI_VENDOR_ID_IBM) {
             /* IBM */
             if (device_id == 0x0046 || device_id == 0xFFFF) {
                 /* MPIC & MPIC2 */
@@ -133,7 +133,7 @@ static void pci_bios_init_device(PCIDevice d)
         }
         break;
     case 0xff00:
-        if (vendor_id == 0x0106b &&
+        if (vendor_id == PCI_VENDOR_ID_APPLE &&
             (device_id == 0x0017 || device_id == 0x0022)) {
             /* macio bridge */
             pci_set_io_region_addr(d, 0, 0x80800000);
@@ -176,7 +176,8 @@ static void pci_bios_init_device(PCIDevice d)
         pci_config_writeb(d, PCI_INTERRUPT_LINE, pic_irq);
     }
 
-    if (vendor_id == 0x8086 && device_id == 0x7113) {
+    if (vendor_id == PCI_VENDOR_ID_INTEL
+        && device_id == PCI_DEVICE_ID_INTEL_82371AB_3) {
         /* PIIX4 Power Management device (for ACPI) */
         u32 pm_io_base = BUILD_PM_IO_BASE;
         pci_config_writel(d, 0x40, pm_io_base | 1);

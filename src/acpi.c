@@ -279,7 +279,8 @@ void acpi_bios_init(void)
 
     // This code is hardcoded for PIIX4 Power Management device.
     PCIDevice d;
-    int ret = pci_find_device(0x8086, 0x7113, 0, &d);
+    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3
+                              , 0, &d);
     if (ret)
         // Device not found
         return;

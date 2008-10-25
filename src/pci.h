@@ -62,6 +62,15 @@ void create_pirtable();
 #define PCI_MIN_GNT		0x3e	/* 8 bits */
 #define PCI_MAX_LAT		0x3f	/* 8 bits */
 
+#define PCI_VENDOR_ID_INTEL             0x8086
+#define PCI_VENDOR_ID_IBM               0x1014
+#define PCI_VENDOR_ID_APPLE             0x106b
+
+#define PCI_DEVICE_ID_INTEL_82441       0x1237
+#define PCI_DEVICE_ID_INTEL_82371SB_0   0x7000
+#define PCI_DEVICE_ID_INTEL_82371SB_1   0x7010
+#define PCI_DEVICE_ID_INTEL_82371AB_3   0x7113
+
 
 /****************************************************************
  * PIR table

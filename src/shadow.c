@@ -39,7 +39,8 @@ make_bios_writable()
 
     // Locate chip controlling ram shadowing.
     PCIDevice d;
-    int ret = pci_find_device(0x8086, 0x1237, 0, &d);
+    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
+                              , 0, &d);
     if (ret) {
         dprintf(1, "Unable to unlock ram - bridge not found\n");
         return;
@@ -75,7 +76,8 @@ make_bios_readonly()
     dprintf(3, "locking shadow ram\n");
 
     PCIDevice d;
-    int ret = pci_find_device(0x8086, 0x1237, 0, &d);
+    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
+                              , 0, &d);
     if (ret) {
         dprintf(1, "Unable to lock ram - bridge not found\n");
         return;
