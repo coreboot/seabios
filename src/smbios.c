@@ -258,8 +258,8 @@ smbios_type_0_init(void *start)
     p->bios_release_date_str = 2;
     p->bios_rom_size = 0; /* FIXME */
 
-    memset(p->bios_characteristics, 0, 7);
-    p->bios_characteristics[7] = 0x08; /* BIOS characteristics not supported */
+    memset(p->bios_characteristics, 0, sizeof(p->bios_characteristics));
+    p->bios_characteristics[0] = 0x08; /* BIOS characteristics not supported */
     p->bios_characteristics_extension_bytes[0] = 0;
     p->bios_characteristics_extension_bytes[1] = 0;
 
