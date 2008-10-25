@@ -29,7 +29,7 @@ uuid_probe(u8 *bios_uuid)
     u32 eax, ebx, ecx, edx;
     asm volatile ("outl %%eax, %%dx"
                   : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-                  : "a" (0x564d5868), "c" (0xa), "d" (0x5658));
+                  : "a" (0x564d5868), "b" (0), "c" (0xa), "d" (0x5658));
     if (ebx != 0x564d5868)
         return;
 
@@ -67,14 +67,14 @@ struct smbios_entry_point {
 	u32 structure_table_address;
 	u16 number_of_structures;
 	u8 smbios_bcd_revision;
-} __attribute__((__packed__));
+} PACKED;
 
 /* This goes at the beginning of every SMBIOS structure. */
 struct smbios_structure_header {
 	u8 type;
 	u8 length;
 	u16 handle;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 0 - BIOS Information */
 struct smbios_type_0 {
@@ -90,7 +90,7 @@ struct smbios_type_0 {
 	u8 system_bios_minor_release;
 	u8 embedded_controller_major_release;
 	u8 embedded_controller_minor_release;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 1 - System Information */
 struct smbios_type_1 {
@@ -103,7 +103,7 @@ struct smbios_type_1 {
 	u8 wake_up_type;
 	u8 sku_number_str;
 	u8 family_str;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 3 - System Enclosure (v2.3) */
 struct smbios_type_3 {
@@ -122,7 +122,7 @@ struct smbios_type_3 {
     u8 number_of_power_cords;
     u8 contained_element_count;
     // contained elements follow
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 4 - Processor Information (v2.0) */
 struct smbios_type_4 {
@@ -139,7 +139,7 @@ struct smbios_type_4 {
 	u16 current_speed;
 	u8 status;
 	u8 processor_upgrade;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 16 - Physical Memory Array
  *   Associated with one type 17 (Memory Device).
@@ -152,7 +152,7 @@ struct smbios_type_16 {
 	u32 maximum_capacity;
 	u16 memory_error_information_handle;
 	u16 number_of_memory_devices;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 17 - Memory Device
  *   Associated with one type 19
@@ -170,7 +170,7 @@ struct smbios_type_17 {
 	u8 bank_locator_str;
 	u8 memory_type;
 	u16 type_detail;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 19 - Memory Array Mapped Address */
 struct smbios_type_19 {
@@ -179,7 +179,7 @@ struct smbios_type_19 {
 	u32 ending_address;
 	u16 memory_array_handle;
 	u8 partition_width;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 20 - Memory Device Mapped Address */
 struct smbios_type_20 {
@@ -191,19 +191,19 @@ struct smbios_type_20 {
 	u8 partition_row_position;
 	u8 interleave_position;
 	u8 interleaved_data_depth;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 32 - System Boot Information */
 struct smbios_type_32 {
 	struct smbios_structure_header header;
 	u8 reserved[6];
 	u8 boot_status;
-} __attribute__((__packed__));
+} PACKED;
 
 /* SMBIOS type 127 -- End-of-table */
 struct smbios_type_127 {
 	struct smbios_structure_header header;
-} __attribute__((__packed__));
+} PACKED;
 
 
 /****************************************************************
