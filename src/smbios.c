@@ -139,6 +139,9 @@ struct smbios_type_4 {
 	u16 current_speed;
 	u8 status;
 	u8 processor_upgrade;
+	u16 l1_cache_handle;
+	u16 l2_cache_handle;
+	u16 l3_cache_handle;
 } PACKED;
 
 /* SMBIOS type 16 - Physical Memory Array
@@ -363,6 +366,10 @@ smbios_type_4_init(void *start, unsigned int cpu_number)
 
     p->status = 0x41; /* socket populated, CPU enabled */
     p->processor_upgrade = 0x01; /* other */
+
+    p->l1_cache_handle = 0xffff; /* cache information structure not provided */
+    p->l2_cache_handle = 0xffff;
+    p->l3_cache_handle = 0xffff;
 
     start += sizeof(struct smbios_type_4);
 
