@@ -14,6 +14,27 @@
  * UUID probe
  ****************************************************************/
 
+#define QEMU_CFG_SIGNATURE  0x00
+#define QEMU_CFG_ID         0x01
+#define QEMU_CFG_UUID       0x02
+
+static void
+qemu_cfg_read(u8 *buf, u16 f, int len)
+{
+    outw(f, PORT_QEMU_CFG_CTL);
+    while (len--)
+        *(buf++) = inb(PORT_QEMU_CFG_DATA);
+}
+
+static int
+qemu_cfg_port_probe()
+{
+    u8 sig[4] = "QEMU";
+    u8 buf[4];
+    qemu_cfg_read(buf, QEMU_CFG_SIGNATURE, 4);
+    return *(u32*)buf == *(u32*)sig;
+}
+
 static void
 uuid_probe(u8 *bios_uuid)
 {
@@ -24,24 +45,11 @@ uuid_probe(u8 *bios_uuid)
         return;
     if (CONFIG_COREBOOT)
         return;
-
-    // check if backdoor port exists
-    u32 eax, ebx, ecx, edx;
-    asm volatile ("outl %%eax, %%dx"
-                  : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-                  : "a" (0x564d5868), "b" (0), "c" (0xa), "d" (0x5658));
-    if (ebx != 0x564d5868)
+    if (! qemu_cfg_port_probe())
+        // Feature not available
         return;
 
-    u32 *uuid_ptr = (u32 *)bios_uuid;
-    // get uuid
-    asm volatile ("outl %%eax, %%dx"
-                  : "=a" (eax), "=b" (ebx), "=c" (ecx), "=d" (edx)
-                  : "a" (0x564d5868), "c" (0x13), "d" (0x5658));
-    uuid_ptr[0] = eax;
-    uuid_ptr[1] = ebx;
-    uuid_ptr[2] = ecx;
-    uuid_ptr[3] = edx;
+    qemu_cfg_read(bios_uuid, QEMU_CFG_UUID, 16);
 }
 
 

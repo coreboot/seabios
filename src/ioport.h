@@ -42,6 +42,8 @@
 #define PORT_PCI_CMD           0x0cf8
 #define PORT_PCI_DATA          0x0cfc
 #define PORT_BIOS_DEBUG        0x0402
+#define PORT_QEMU_CFG_CTL      0x0510
+#define PORT_QEMU_CFG_DATA     0x0511
 #define PORT_BIOS_APM          0x8900
 
 // PORT_KBD_CTRLB bitdefs
