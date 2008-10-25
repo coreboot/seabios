@@ -67,11 +67,12 @@ static void pci_bios_init_bridges(PCIDevice d)
     device_id = pci_config_readw(d, PCI_DEVICE_ID);
 
     if (vendor_id == PCI_VENDOR_ID_INTEL
-        && device_id == PCI_DEVICE_ID_INTEL_82371SB_0) {
+        && (device_id == PCI_DEVICE_ID_INTEL_82371SB_0
+            || device_id == PCI_DEVICE_ID_INTEL_82371AB_0)) {
         int i, irq;
         u8 elcr[2];
 
-        /* PIIX3 bridge */
+        /* PIIX3/PIIX4 PCI to ISA bridge */
 
         elcr[0] = 0x00;
         elcr[1] = 0x00;
@@ -84,7 +85,7 @@ static void pci_bios_init_bridges(PCIDevice d)
         }
         outb(elcr[0], 0x4d0);
         outb(elcr[1], 0x4d1);
-        dprintf(1, "PIIX3 init: elcr=%02x %02x\n",
+        dprintf(1, "PIIX3/PIIX4 init: elcr=%02x %02x\n",
                 elcr[0], elcr[1]);
     }
 }
@@ -103,8 +104,9 @@ static void pci_bios_init_device(PCIDevice d)
     switch(class) {
     case 0x0101:
         if (vendor_id == PCI_VENDOR_ID_INTEL
-            && device_id == PCI_DEVICE_ID_INTEL_82371SB_1) {
-            /* PIIX3 IDE */
+            && (device_id == PCI_DEVICE_ID_INTEL_82371SB_1
+                || device_id == PCI_DEVICE_ID_INTEL_82371AB)) {
+            /* PIIX3/PIIX4 IDE */
             pci_config_writew(d, 0x40, 0x8000); // enable IDE0
             pci_config_writew(d, 0x42, 0x8000); // enable IDE1
             goto default_map;
