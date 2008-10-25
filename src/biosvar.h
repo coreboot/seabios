@@ -48,13 +48,20 @@ struct bios_data_area_s {
     u8 floppy_motor_counter;
     u8 floppy_last_status;
     u8 floppy_return_status[7];
-    u8 other_49[0x7];
+    u8 video_mode;
+    u16 video_cols;
+    u16 video_pagesize;
+    u16 video_pagestart;
     // 40:50
-    u8 other_50[0x10];
+    u16 cursor_pos[8];
     // 40:60
-    u8 other_60[0x7];
+    u16 cursor_type;
+    u8 video_page;
+    u16 crtc_address;
+    u8 video_msr;
+    u8 video_pal;
     u32 jump_cs_ip;
-    u8 dummy;
+    u8 other_6b;
     u32 timer_counter;
     // 40:70
     u8 timer_rollover;
@@ -69,7 +76,12 @@ struct bios_data_area_s {
     // 40:80
     u16 kbd_buf_start_offset;
     u16 kbd_buf_end_offset;
-    u8 other_84[7];
+    u8 video_rows;
+    u16 char_height;
+    u8 video_ctl;
+    u8 video_switches;
+    u8 modeset_ctl;
+    u8 dcc_index;
     u8 floppy_last_data_rate;
     u8 disk_status_controller;
     u8 disk_error_controller;
