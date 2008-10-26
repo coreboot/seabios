@@ -18,7 +18,7 @@ cvs tip.
   * bochs cvs 20081016:           -- better post resume support
   * coreboot (r3348):    20060708 -- no noteworthy enhancements
   * qemu (r5536):        20080603 -- has cmos smp count
-  * kvm (45a442c):       20071016 -- acpi dsdt changes, e820 vmx
+  * kvm (1a33292):       20071016 -- acpi dsdt changes, e820 vmx
     pages, setup mtrrs, clear tsc, acpi intsrcovr table, different pci
     irqs, smbios always uses 16 cpus, no acpi ssdt, fadt->gpe0_blk set
   * virtualbox (r13560): 20061231 -- lots of mouse changes, logo,

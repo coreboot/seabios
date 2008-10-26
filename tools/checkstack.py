@@ -13,8 +13,8 @@ import sys
 import re
 
 # List of functions we can assume are never called.
-#IGNORE = ['screenc', 'BX_PANIC', '__dprintf']
-IGNORE = ['screenc', 'BX_PANIC']
+#IGNORE = ['BX_PANIC', '__dprintf']
+IGNORE = ['BX_PANIC']
 
 # Find out maximum stack usage for a function
 def calcmaxstack(funcs, funcaddr):

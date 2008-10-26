@@ -578,7 +578,7 @@ get_ata_version(u8 *buffer)
 static void
 init_drive_atapi(int driveid)
 {
-    SET_EBDA(ata.devices[driveid].type,ATA_TYPE_ATAPI);
+    SET_EBDA(ata.devices[driveid].type, ATA_TYPE_ATAPI);
 
     // Temporary values to do the transfer
     SET_EBDA(ata.devices[driveid].device,ATA_DEVICE_CDROM);
@@ -821,7 +821,7 @@ init_drive_ata(int driveid)
 static void
 init_drive_unknown(int driveid)
 {
-    SET_EBDA(ata.devices[driveid].type,ATA_TYPE_UNKNOWN);
+    SET_EBDA(ata.devices[driveid].type, ATA_TYPE_UNKNOWN);
 
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;

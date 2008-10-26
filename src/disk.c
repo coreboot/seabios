@@ -487,7 +487,7 @@ disk_1348(struct bregs *regs, u8 device)
     SET_INT13DPT(regs, iface_type[6], 0);
     SET_INT13DPT(regs, iface_type[7], 0);
 
-    SET_INT13DPT(regs, device_path, device%2);
+    SET_INT13DPT(regs, device_path, slave);
 
     SET_INT13DPT(regs, checksum, -checksum(MAKE_FARPTR(regs->ds, 30), 35));
 
