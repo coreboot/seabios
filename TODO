@@ -2,29 +2,28 @@ Clean up timer code.  Don't use PORT_DIAG as delay mechanism.
 
 Disable a20 on jump to 16bit mode.
 
-Do a pci scan for ide controllers - don't just assume ISA ports are
-available.
-
 The keyboard driver should detect ctrl+alt+del and reboot the
 machine.
 
 Fix keyboard LEDs.
 
 Improve option rom handling.  A real bios can copy the option roms
-from PCI space.  Also, there is no handling for BCVs today.
+from PCI space.  Also, there is no handling for BCVs today.  Verify
+option roms wont stomp on seabios stack and bss.
 
 Clean up and clarify usage/scope of .bss and .data variables.
 
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
-  * bochs cvs (1.209)         -- all changes synched
-  * coreboot (r3348): 1.163   -- no noteworthy enhancements
-  * qemu (r4675): 1.207       -- supports >4Gig memory
-  * kvm (45a442c): 1.182      -- >4gig, e820 vmx pages, enable cache?,
-    wrmsr in smp_start and rombios32, acpi insrcovr table
-  * virtualbox (r9404): 1.176 -- f11/f12 kbd, lots of mouse changes,
-    logo, set text mode?, int 1589, floppy data rate?,
-    dummy_isr_function, int19 calls post
+  * bochs cvs 20081016:           -- better post resume support
+  * coreboot (r3348):    20060708 -- no noteworthy enhancements
+  * qemu (r5536):        20080603 -- has cmos smp count
+  * kvm (45a442c):       20071016 -- acpi dsdt changes, e820 vmx
+    pages, setup mtrrs, clear tsc, acpi intsrcovr table, different pci
+    irqs, smbios always uses 16 cpus, no acpi ssdt, fadt->gpe0_blk set
+  * virtualbox (r13560): 20061231 -- lots of mouse changes, logo,
+    scsi/etherboot hooks, int 1589, floppy data rate?, int19 calls
+    post
 
 Look into ways to reduce stack usage.  Alter ISRs so that they do not
 enable irqs.  Only call out to other bios functions after minimizing
@@ -43,11 +42,8 @@ is unnecessary.
 
 Cleanup setting of ES on GET/SET_BDA
 
-Audit code for 16bit protected mode accesses.
-
-Support 1ab1 from 16bit protected mode.
-
-Verify option roms wont stomp on seabios stack and bss.
+Audit code for 16bit protected mode accesses.  Support 1ab1 from 16bit
+protected mode.
 
 Possibly implement 32bit pcibios support.
 
