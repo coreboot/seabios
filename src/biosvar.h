@@ -273,7 +273,8 @@ struct extended_bios_data_area_s {
     u8 ps2ctr;
 
     // Physical memory available.
-    u32 ram_size;
+    u32 ram_size;        // Amount of continuous ram under 4Gig
+    u64 ram_size_over4G; // Amount of continuous ram >4Gig
     u16 e820_count;
     u32 e820_loc;
     u32 pir_loc;

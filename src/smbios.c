@@ -389,7 +389,7 @@ smbios_type_4_init(void *start, unsigned int cpu_number)
 
 /* Type 16 -- Physical Memory Array */
 static void *
-smbios_type_16_init(void *start, u32 memsize)
+smbios_type_16_init(void *start)
 {
     struct smbios_type_16 *p = (struct smbios_type_16*)start;
 
@@ -400,7 +400,8 @@ smbios_type_16_init(void *start, u32 memsize)
     p->location = 0x01; /* other */
     p->use = 0x03; /* system memory */
     p->error_correction = 0x01; /* other */
-    p->maximum_capacity = memsize * 1024;
+    u64 memsize = GET_EBDA(ram_size) + GET_EBDA(ram_size_over4G);
+    p->maximum_capacity = memsize / 1024;
     p->memory_error_information_handle = 0xfffe; /* none provided */
     p->number_of_memory_devices = 1;
 
@@ -412,7 +413,7 @@ smbios_type_16_init(void *start, u32 memsize)
 
 /* Type 17 -- Memory Device */
 static void *
-smbios_type_17_init(void *start, u32 memory_size_mb)
+smbios_type_17_init(void *start)
 {
     struct smbios_type_17 *p = (struct smbios_type_17 *)start;
 
@@ -425,7 +426,8 @@ smbios_type_17_init(void *start, u32 memory_size_mb)
     p->data_width = 64;
     /* truncate memory_size_mb to 16 bits and clear most significant
        bit [indicates size in MB] */
-    p->size = (u16) memory_size_mb & 0x7fff;
+    u64 memsize = GET_EBDA(ram_size) + GET_EBDA(ram_size_over4G);
+    p->size = (u16) (memsize / (1024*1024)) & 0x7fff;
     p->form_factor = 0x09; /* DIMM */
     p->device_set = 0;
     p->device_locator_str = 1;
@@ -443,7 +445,7 @@ smbios_type_17_init(void *start, u32 memory_size_mb)
 
 /* Type 19 -- Memory Array Mapped Address */
 static void *
-smbios_type_19_init(void *start, u32 memory_size_mb)
+smbios_type_19_init(void *start)
 {
     struct smbios_type_19 *p = (struct smbios_type_19 *)start;
 
@@ -452,7 +454,12 @@ smbios_type_19_init(void *start, u32 memory_size_mb)
     p->header.handle = 0x1300;
 
     p->starting_address = 0;
-    p->ending_address = (memory_size_mb-1) * 1024;
+    u64 memsize = GET_EBDA(ram_size_over4G);
+    if (memsize)
+        memsize += 0x100000000ull;
+    else
+        memsize = GET_EBDA(ram_size);
+    p->ending_address = memsize / 1024 - 1;
     p->memory_array_handle = 0x1000;
     p->partition_width = 1;
 
@@ -464,7 +471,7 @@ smbios_type_19_init(void *start, u32 memory_size_mb)
 
 /* Type 20 -- Memory Device Mapped Address */
 static void *
-smbios_type_20_init(void *start, u32 memory_size_mb)
+smbios_type_20_init(void *start)
 {
     struct smbios_type_20 *p = (struct smbios_type_20 *)start;
 
@@ -473,7 +480,12 @@ smbios_type_20_init(void *start, u32 memory_size_mb)
     p->header.handle = 0x1400;
 
     p->starting_address = 0;
-    p->ending_address = (memory_size_mb-1)*1024;
+    u64 memsize = GET_EBDA(ram_size_over4G);
+    if (memsize)
+        memsize += 0x100000000ull;
+    else
+        memsize = GET_EBDA(ram_size);
+    p->ending_address = memsize / 1024 - 1;
     p->memory_device_handle = 0x1100;
     p->memory_array_mapped_address_handle = 0x1300;
     p->partition_row_position = 1;
@@ -528,7 +540,6 @@ smbios_init(void)
 
     unsigned cpu_num, nr_structs = 0, max_struct_size = 0;
     char *start, *p, *q;
-    int memsize = GET_EBDA(ram_size) / (1024 * 1024);
 
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
     start = (void *)(bios_table_cur_addr);
@@ -549,10 +560,10 @@ smbios_init(void)
     int smp_cpus = smp_probe();
     for (cpu_num = 1; cpu_num <= smp_cpus; cpu_num++)
         add_struct(smbios_type_4_init(p, cpu_num));
-    add_struct(smbios_type_16_init(p, memsize));
-    add_struct(smbios_type_17_init(p, memsize));
-    add_struct(smbios_type_19_init(p, memsize));
-    add_struct(smbios_type_20_init(p, memsize));
+    add_struct(smbios_type_16_init(p));
+    add_struct(smbios_type_17_init(p));
+    add_struct(smbios_type_19_init(p));
+    add_struct(smbios_type_20_init(p));
     add_struct(smbios_type_32_init(p));
     add_struct(smbios_type_127_init(p));
 

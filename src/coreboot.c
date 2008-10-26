@@ -197,7 +197,7 @@ coreboot_fill_map()
     if (!cbm)
         goto fail;
 
-    u64 maxram = 0;
+    u64 maxram = 0, maxram_over4G = 0;
     int i, count = MEM_RANGE_COUNT(cbm);
     for (i=0; i<count; i++) {
         struct cb_memory_range *m = &cbm->map[i];
@@ -205,18 +205,24 @@ coreboot_fill_map()
         if (type == CB_MEM_TABLE) {
             type = E820_RESERVED;
             scan_tables(m->start, m->size);
+        } else if (type == E820_ACPI || type == E820_RAM) {
+            u64 end = m->start + m->size;
+            if (end > 0x100000000ull) {
+                end -= 0x100000000ull;
+                if (end > maxram_over4G)
+                    maxram_over4G = end;
+            } else if (end > maxram)
+                maxram = end;
         }
-        if ((type == E820_ACPI || type == E820_RAM)
-            && (m->start + m->size) > maxram)
-            maxram = m->start + m->size;
         add_e820(m->start, m->size, type);
     }
+
+    SET_EBDA(ram_size, maxram);
+    SET_EBDA(ram_size_over4G, maxram_over4G);
 
     // Ughh - coreboot likes to set a map at 0x0000-0x1000, but this
     // confuses grub.  So, override it.
     add_e820(0, 16*1024, E820_RAM);
-
-    SET_EBDA(ram_size, maxram);
 
     // XXX - just create dummy smbios table for now - should detect if
     // smbios/dmi table is found from coreboot and use that instead.
