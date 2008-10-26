@@ -126,6 +126,11 @@
 
         ORG 0xe05b
 post16:
+        // enable cache
+        movl %cr0, %eax
+        andl $0x9fffffff, %eax
+        movl %eax, %cr0
+
         // init the stack pointer
         RESET_STACK
 
