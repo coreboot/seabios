@@ -158,4 +158,8 @@ void coreboot_fill_map();
 // vgahooks.c
 void handle_155f();
 
+// optionroms.c
+void vga_setup();
+void optionrom_setup();
+
 #endif // util.h

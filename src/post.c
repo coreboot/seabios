@@ -211,99 +211,6 @@ init_boot_vectors()
     }
 }
 
-// Execute a given option rom.
-static void
-callrom(u16 seg, u16 offset)
-{
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    // XXX - should set br.ax to PCI Bus/DevFn
-    br.bx = 0xffff;
-    br.dx = 0xffff;
-    br.es = SEG_BIOS;
-    extern char pnp_string[];
-    br.di = (u32)pnp_string - BUILD_BIOS_ADDR;
-    br.cs = seg;
-    br.ip = offset;
-    call16(&br);
-
-    debug_serial_setup();
-}
-
-// Find and run any "option roms" found in the given address range.
-static void
-rom_scan(u32 start, u32 end)
-{
-    if (! CONFIG_OPTIONROMS)
-        return;
-
-    u8 *p = (u8*)start;
-    for (; p <= (u8*)end; p += 2048) {
-        u8 *rom = p;
-        if (*(u16*)rom != 0xaa55)
-            continue;
-        u32 len = rom[2] * 512;
-        u8 sum = checksum(rom, len);
-        if (sum != 0) {
-            dprintf(1, "Found option rom with bad checksum:"
-                    " loc=%p len=%d sum=%x\n"
-                    , rom, len, sum);
-            continue;
-        }
-        p = (u8*)(((u32)p + len) / 2048 * 2048);
-        dprintf(1, "Running option rom at %p\n", rom+3);
-        callrom(FARPTR_TO_SEG(rom), FARPTR_TO_OFFSET(rom + 3));
-
-        if (GET_BDA(ebda_seg) != SEG_EBDA)
-            BX_PANIC("Option rom at %p attempted to move ebda from %x to %x\n"
-                     , rom, SEG_EBDA, GET_BDA(ebda_seg));
-
-        // Look at the ROM's PnP Expansion header.  Properly, we're supposed
-        // to init all the ROMs and then go back and build an IPL table of
-        // all the bootable devices, but we can get away with one pass.
-        if (rom[0x1a] != '$' || rom[0x1b] != 'P'
-            || rom[0x1c] != 'n' || rom[0x1d] != 'P')
-            continue;
-        // 0x1A is also the offset into the expansion header of...
-        // the Bootstrap Entry Vector, or zero if there is none.
-        u16 entry = *(u16*)&rom[0x1a+0x1a];
-        if (!entry)
-            continue;
-        // Found a device that thinks it can boot the system.  Record
-        // its BEV and product name string.
-
-        if (! CONFIG_BOOT)
-            continue;
-
-        if (ebda->ipl.count >= ARRAY_SIZE(ebda->ipl.table))
-            continue;
-
-        struct ipl_entry_s *ip = &ebda->ipl.table[ebda->ipl.count];
-        ip->type = IPL_TYPE_BEV;
-        ip->vector = (FARPTR_TO_SEG(rom) << 16) | entry;
-
-        u16 desc = *(u16*)&rom[0x1a+0x10];
-        if (desc)
-            ip->description = (u32)MAKE_FARPTR(FARPTR_TO_SEG(rom), desc);
-
-        ebda->ipl.count++;
-    }
-}
-
-// Call into vga code to turn on console.
-static void
-vga_setup()
-{
-    dprintf(1, "Scan for VGA option rom\n");
-    rom_scan(0xc0000, 0xc7800);
-
-    dprintf(1, "Turning on vga console\n");
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.ax = 0x0003;
-    call16_int(0x10, &br);
-}
-
 // Main setup code.
 static void
 post()
@@ -313,24 +220,19 @@ post()
 
     pic_setup();
     timer_setup();
+    mathcp_setup();
+
+    vga_setup();
+
     kbd_setup();
     lpt_setup();
     serial_setup();
     mouse_setup();
-    mathcp_setup();
 
     memmap_setup();
-
     ram_probe();
-
-    vga_setup();
-
-    printf("BIOS - begin\n\n");
-
     pci_bios_setup();
-
     init_bios_tables();
-
     memmap_finalize();
 
     floppy_drive_setup();
@@ -338,8 +240,7 @@ post()
 
     init_boot_vectors();
 
-    dprintf(1, "Scan for option roms\n");
-    rom_scan(0xc8000, 0xe0000);
+    optionrom_setup();
 }
 
 // Clear .bss section for C code.
