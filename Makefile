@@ -57,7 +57,7 @@ ifdef AVOIDCOMBINE
 DEPHACK=
 define whole-compile
 @echo "  Compiling whole program $3"
-$(Q)/bin/echo -e '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
+$(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
 $(Q)$(CC) $1 -c $3.tmp.c -o $3
 endef
 else
@@ -94,32 +94,32 @@ $(OUT)romlayout32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC3
 
 $(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
-	$(Q)ld -r -T $(OUT)rombios32.lds $< -o $@
+	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
 
 $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)rombios16.lds
 	@echo "  Linking $@"
-	$(Q)objcopy --prefix-symbols=_code32_ $(OUT)rom32.o $(OUT)rom32.rename.o
-	$(Q)ld -T $(OUT)rombios16.lds -R $(OUT)rom32.rename.o $< -o $@
+	$(Q)$(OBJCOPY) --prefix-symbols=_code32_ $(OUT)rom32.o $(OUT)rom32.rename.o
+	$(Q)$(LD) -T $(OUT)rombios16.lds -R $(OUT)rom32.rename.o $< -o $@
 
 $(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios.lds
 	@echo "  Linking $@"
-	$(Q)ld -T $(OUT)rombios.lds $(OUT)rom16.o $(OUT)rom32.o -o $@
+	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.o $(OUT)rom32.o -o $@
 
 $(OUT)bios.bin.elf: $(OUT)rom.o
 	@echo "  Prepping $@"
-	$(Q)nm $< | ./tools/checkrom.py
-	$(Q)strip $< -o $@
+	$(Q)$(NM) $< | ./tools/checkrom.py
+	$(Q)$(STRIP) $< -o $@
 
 $(OUT)bios.bin: $(OUT)bios.bin.elf
 	@echo "  Extracting binary $@"
-	$(Q)objcopy -O binary $< $@
+	$(Q)$(OBJCOPY) -O binary $< $@
 
 
 ####### Generic rules
 clean:
-	rm -rf $(OUT)
+	$(Q)rm -rf $(OUT)
 
 $(OUT):
-	mkdir $@
+	$(Q)mkdir $@
 
 -include $(OUT)*.d
