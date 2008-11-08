@@ -43,6 +43,10 @@ else
 Q=@
 endif
 
+OBJCOPY=objcopy
+NM=nm
+STRIP=strip
+
 .PHONY : all FORCE
 
 vpath %.c src
