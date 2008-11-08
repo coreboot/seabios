@@ -8,10 +8,6 @@
 #include "util.h" // dprintf.h
 #include "biosvar.h" // SET_EBDA
 
-// Temporary storage used during map building.
-static struct e820entry e820_list[64];
-static int e820_count;
-
 // Remove an entry from the e820_list.
 static void
 remove_e820(int i)
@@ -25,7 +21,7 @@ remove_e820(int i)
 static void
 insert_e820(int i, u64 start, u64 size, u32 type)
 {
-    if (e820_count >= ARRAY_SIZE(e820_list)) {
+    if (e820_count >= CONFIG_MAX_E820) {
         dprintf(1, "Overflowed e820 list!\n");
         return;
     }
@@ -139,6 +135,15 @@ memmap_setup()
     bios_table_end_addr = (u32)&freespace2_end;
     dprintf(1, "bios_table_addr: 0x%08x end=0x%08x\n",
             bios_table_cur_addr, bios_table_end_addr);
+
+    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 4);
+    u32 msize = CONFIG_MAX_E820 * sizeof(e820_list[0]);
+    if (bios_table_cur_addr + msize > bios_table_end_addr) {
+        dprintf(1, "No room for e820 map!\n");
+        return;
+    }
+    e820_list = (void*)bios_table_cur_addr;
+    bios_table_cur_addr += msize;
 }
 
 // Copy the temporary e820 map info to its permanent location.
@@ -146,16 +151,6 @@ void
 memmap_finalize()
 {
     dump_map();
-
-    u32 msize = e820_count * sizeof(e820_list[0]);
-    if (bios_table_cur_addr + msize > bios_table_end_addr) {
-        dprintf(1, "No room for e820 map!\n");
-        return;
-    }
-    memcpy((void*)bios_table_cur_addr, e820_list, msize);
-    SET_EBDA(e820_loc, bios_table_cur_addr);
-    SET_EBDA(e820_count, e820_count);
-    bios_table_cur_addr += msize;
 
     dprintf(1, "final bios_table_addr: 0x%08x (used %d%%)\n"
             , bios_table_cur_addr

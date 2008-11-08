@@ -64,6 +64,8 @@
 #define CONFIG_ACPI 1
 // Support bios callbacks specific to via vgabios.
 #define CONFIG_VGAHOOKS 1
+// Maximum number of map entries in the e820 map
+#define CONFIG_MAX_E820 32
 
 /* define it if the (emulated) hardware supports SMM mode */
 #define CONFIG_USE_SMM 1
