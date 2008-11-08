@@ -41,40 +41,6 @@ void create_pirtable();
 
 
 /****************************************************************
- * PCI definitions
- ****************************************************************/
-
-#define PCI_VENDOR_ID		0x00	/* 16 bits */
-#define PCI_DEVICE_ID		0x02	/* 16 bits */
-#define PCI_COMMAND		0x04	/* 16 bits */
-#define  PCI_COMMAND_IO		0x1	/* Enable response in I/O space */
-#define  PCI_COMMAND_MEMORY	0x2	/* Enable response in Memory space */
-#define PCI_CLASS_PROG          0x09
-#define PCI_CLASS_DEVICE        0x0a    /* Device class */
-#define PCI_BASE_ADDR_0         0x10
-#define PCI_BASE_ADDR_1         0x14
-#define PCI_BASE_ADDR_2         0x18
-#define PCI_BASE_ADDR_3         0x1c
-#define PCI_BASE_ADDR_4         0x20
-#define PCI_BASE_ADDR_5         0x24
-#define PCI_INTERRUPT_LINE	0x3c	/* 8 bits */
-#define PCI_INTERRUPT_PIN	0x3d	/* 8 bits */
-#define PCI_MIN_GNT		0x3e	/* 8 bits */
-#define PCI_MAX_LAT		0x3f	/* 8 bits */
-
-#define PCI_VENDOR_ID_INTEL             0x8086
-#define PCI_VENDOR_ID_IBM               0x1014
-#define PCI_VENDOR_ID_APPLE             0x106b
-
-#define PCI_DEVICE_ID_INTEL_82441       0x1237
-#define PCI_DEVICE_ID_INTEL_82371SB_0   0x7000
-#define PCI_DEVICE_ID_INTEL_82371SB_1   0x7010
-#define PCI_DEVICE_ID_INTEL_82371AB_0   0x7110
-#define PCI_DEVICE_ID_INTEL_82371AB     0x7111
-#define PCI_DEVICE_ID_INTEL_82371AB_3   0x7113
-
-
-/****************************************************************
  * PIR table
  ****************************************************************/
 

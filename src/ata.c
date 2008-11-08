@@ -13,6 +13,8 @@
 #include "pic.h" // unmask_pic2
 #include "biosvar.h" // GET_EBDA
 #include "pci.h" // pci_find_class
+#include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
+#include "pci_regs.h" // PCI_INTERRUPT_LINE
 
 #define TIMEOUT 0
 #define BSY 1
@@ -908,12 +910,12 @@ ata_init()
 
     // Scan PCI bus for ATA adapters
     int count=0, index=0;
-    u16 classid = 0x0180; // SATA first
+    u16 classid = PCI_CLASS_STORAGE_OTHER; // SATA first
     while (count<CONFIG_MAX_ATA_INTERFACES-1) {
         PCIDevice d;
         int ret = pci_find_class(classid, index, &d);
         if (ret) {
-            if (classid == 0x0101)
+            if (classid == PCI_CLASS_STORAGE_IDE)
                 // Done
                 break;
             classid = 0x0101; // PATA controllers
@@ -930,8 +932,8 @@ ata_init()
         u32 port1, port2;
 
         if (classid != 0x0101 || prog_if & 1) {
-            port1 = pci_config_readl(d, PCI_BASE_ADDR_0) & ~3;
-            port2 = pci_config_readl(d, PCI_BASE_ADDR_1) & ~3;
+            port1 = pci_config_readl(d, PCI_BASE_ADDRESS_0) & ~3;
+            port2 = pci_config_readl(d, PCI_BASE_ADDRESS_1) & ~3;
         } else {
             port1 = 0x1f0;
             port2 = 0x3f0;
@@ -942,8 +944,8 @@ ata_init()
         count++;
 
         if (classid != 0x0101 || prog_if & 4) {
-            port1 = pci_config_readl(d, PCI_BASE_ADDR_2) & ~3;
-            port2 = pci_config_readl(d, PCI_BASE_ADDR_3) & ~3;
+            port1 = pci_config_readl(d, PCI_BASE_ADDRESS_2) & ~3;
+            port2 = pci_config_readl(d, PCI_BASE_ADDRESS_3) & ~3;
         } else {
             port1 = 0x170;
             port2 = 0x370;

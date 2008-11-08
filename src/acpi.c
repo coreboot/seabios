@@ -10,6 +10,8 @@
 #include "memmap.h" // bios_table_cur_addr
 #include "pci.h" // pci_find_device
 #include "biosvar.h" // GET_EBDA
+#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "pci_regs.h" // PCI_INTERRUPT_LINE
 
 
 /****************************************************/

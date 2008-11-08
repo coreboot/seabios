@@ -9,6 +9,7 @@
 #include "util.h" // wbinvd
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outb
+#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 
 #if CONFIG_USE_SMM
 asm(

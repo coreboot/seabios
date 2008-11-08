@@ -8,6 +8,7 @@
 #include "util.h" // memcpy
 #include "pci.h" // pci_config_writeb
 #include "config.h" // CONFIG_*
+#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 
 // Test if 'addr' is in the range from 'start'..'start+size'
 #define IN_RANGE(addr, start, size) ({   \

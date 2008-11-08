@@ -9,6 +9,7 @@
 #include "ioport.h" // outl
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
+#include "pci_regs.h" // PCI_VENDOR_ID
 
 void pci_config_writel(PCIDevice d, u32 addr, u32 val)
 {
