@@ -16,6 +16,8 @@ SECTIONS
                 *(.text)
                 *(.rodata*)
                 *(.data)
+                *(.bss)
+                *(COMMON)
                 }
         freespace1_start = . ;
         code16_end = . ;

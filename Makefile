@@ -98,7 +98,7 @@ $(OUT)romlayout32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC3
 
 $(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
+	$(Q)$(LD) -r -d -T $(OUT)rombios32.lds $< -o $@
 
 $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)rombios16.lds
 	@echo "  Linking $@"
