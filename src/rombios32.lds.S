@@ -19,14 +19,10 @@ SECTIONS
                 code32_data = . ;
                 *(.data)
                 . = ALIGN(16) ;
+                __bss_start = . ;
+                *(.bss)
+                *(COMMON)
+                __bss_end = . ;
                 }
         code32_end = . ;
-
-        . = BUILD_BSS_ADDR ;
-        __bss_start = . ;
-        .bss : {
-                 *(.bss)
-                 *(COMMON)
-                 }
-        __bss_end = . ;
 }

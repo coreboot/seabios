@@ -303,8 +303,8 @@ _start()
     dprintf(1, "Start bios\n");
 
     // Setup for .bss and .data sections
-    clear_bss();
     make_bios_writable();
+    clear_bss();
 
     // Perform main setup code.
     post();
@@ -318,7 +318,6 @@ _start()
 
     // Prep for boot process.
     make_bios_readonly();
-    clear_bss();
 
     // Invoke int 19 to start boot process.
     dprintf(3, "Jump to int19\n");

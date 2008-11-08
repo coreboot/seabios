@@ -22,8 +22,4 @@ SECTIONS
                 final_code16_fixed_start = . ;
                 *(.text16.fixed.addr)
                 }
-
-        .bss __bss_start : {
-                *(.bss)
-                }
 }
