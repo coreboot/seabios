@@ -13,27 +13,21 @@
 extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
 
 // Low level macros for reading/writing memory via a segment selector.
-#define READ8_SEG(SEG, var) ({                          \
-    typeof(var) __value;                                \
-    __asm__("movb %%" #SEG ":%1, %b0" : "=Qi"(__value)  \
-            : "m"(var), "m"(__segment_ ## SEG));        \
-    __value; })
-#define READ16_SEG(SEG, var) ({                         \
-    typeof(var) __value;                                \
-    __asm__("movw %%" #SEG ":%1, %w0" : "=ri"(__value)  \
-            : "m"(var), "m"(__segment_ ## SEG));        \
-    __value; })
-#define READ32_SEG(SEG, var) ({                         \
-    typeof(var) __value;                                \
-    __asm__("movl %%" #SEG ":%1, %0" : "=ri"(__value)   \
-            : "m"(var), "m"(__segment_ ## SEG));        \
-    __value; })
-#define READ64_SEG(SEG, var) ({                                 \
-    union u64_u32_u __value;                                    \
-    union u64_u32_u *__r64_ptr = (union u64_u32_u *)&(var);     \
-    __value.hi = READ32_SEG(SEG, __r64_ptr->hi);                \
-    __value.lo = READ32_SEG(SEG, __r64_ptr->lo);                \
-    __value.val; })
+#define READ8_SEG(SEG, value, var)                      \
+    __asm__("movb %%" #SEG ":%1, %b0" : "=Qi"(value)    \
+            : "m"(var), "m"(__segment_ ## SEG))
+#define READ16_SEG(SEG, value, var)                     \
+    __asm__("movw %%" #SEG ":%1, %w0" : "=ri"(value)    \
+            : "m"(var), "m"(__segment_ ## SEG))
+#define READ32_SEG(SEG, value, var)                     \
+    __asm__("movl %%" #SEG ":%1, %0" : "=ri"(value)     \
+            : "m"(var), "m"(__segment_ ## SEG))
+#define READ64_SEG(SEG, value, var) do {                                \
+        union u64_u32_u *__w64_ptr = (union u64_u32_u *)&(value);       \
+        union u64_u32_u *__r64_ptr = (union u64_u32_u *)&(var);         \
+        READ32_SEG(SEG, __w64_ptr->hi, __r64_ptr->hi);                  \
+        READ32_SEG(SEG, __w64_ptr->lo, __r64_ptr->lo);                  \
+    } while (0)
 #define WRITE8_SEG(SEG, var, value)                             \
     __asm__("movb %b1, %%" #SEG ":%0" : "=m"(var)               \
             : "Q"(value), "m"(__segment_ ## SEG))
@@ -65,39 +59,31 @@ extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
 // access method.
 extern void __force_link_error__unknown_type();
 
-#define __GET_VAR(seg, var) ({                                          \
-    typeof(var) __val;                                                  \
-    if (__builtin_types_compatible_p(typeof(__val), u8)                 \
-        || __builtin_types_compatible_p(typeof(__val), s8))             \
-        __val = READ8_SEG(seg, var);                                    \
-    else if (__builtin_types_compatible_p(typeof(__val), u16)           \
-             || __builtin_types_compatible_p(typeof(__val), s16))       \
-        __val = READ16_SEG(seg, var);                                   \
-    else if (__builtin_types_compatible_p(typeof(__val), u32)           \
-             || __builtin_types_compatible_p(typeof(__val), s32))       \
-        __val = READ32_SEG(seg, var);                                   \
-    else if (__builtin_types_compatible_p(typeof(__val), u64)           \
-             || __builtin_types_compatible_p(typeof(__val), s64))       \
-        __val = READ64_SEG(seg, var);                                   \
-    else                                                                \
-        __force_link_error__unknown_type();                             \
+#define __GET_VAR(seg, var) ({                  \
+    typeof(var) __val;                          \
+    if (sizeof(__val) == 1)                     \
+        READ8_SEG(seg, __val, var);             \
+    else if (sizeof(__val) == 2)                \
+        READ16_SEG(seg, __val, var);            \
+    else if (sizeof(__val) == 4)                \
+        READ32_SEG(seg, __val, var);            \
+    else if (sizeof(__val) == 8)                \
+        READ64_SEG(seg, __val, var);            \
+    else                                        \
+        __force_link_error__unknown_type();     \
     __val; })
 
-#define __SET_VAR(seg, var, val) do {                                   \
-        if (__builtin_types_compatible_p(typeof(var), u8)               \
-            || __builtin_types_compatible_p(typeof(var), s8))           \
-            WRITE8_SEG(seg, var, (val));                                \
-        else if (__builtin_types_compatible_p(typeof(var), u16)         \
-                 || __builtin_types_compatible_p(typeof(var), s16))     \
-            WRITE16_SEG(seg, var, (val));                               \
-        else if (__builtin_types_compatible_p(typeof(var), u32)         \
-                 || __builtin_types_compatible_p(typeof(var), s32))     \
-            WRITE32_SEG(seg, var, (val));                               \
-        else if (__builtin_types_compatible_p(typeof(var), u64)         \
-                 || __builtin_types_compatible_p(typeof(var), s64))     \
-            WRITE64_SEG(seg, var, (val));                               \
-        else                                                            \
-            __force_link_error__unknown_type();                         \
+#define __SET_VAR(seg, var, val) do {           \
+        if (sizeof(var) == 1)                   \
+            WRITE8_SEG(seg, var, (val));        \
+        else if (sizeof(var) == 2)              \
+            WRITE16_SEG(seg, var, (val));       \
+        else if (sizeof(var) == 4)              \
+            WRITE32_SEG(seg, var, (val));       \
+        else if (sizeof(var) == 8)              \
+            WRITE64_SEG(seg, var, (val));       \
+        else                                    \
+            __force_link_error__unknown_type(); \
     } while (0)
 
 // Macros for accessing a variable in another segment.  (They
