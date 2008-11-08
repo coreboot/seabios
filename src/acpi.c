@@ -277,6 +277,8 @@ void acpi_bios_init(void)
     if (! CONFIG_ACPI)
         return;
 
+    dprintf(3, "init ACPI tables\n");
+
     // This code is hardcoded for PIIX4 Power Management device.
     PCIDevice d;
     int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3

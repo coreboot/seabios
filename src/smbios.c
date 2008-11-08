@@ -538,6 +538,8 @@ smbios_init(void)
     if (! CONFIG_SMBIOS)
         return;
 
+    dprintf(3, "init SMBIOS tables\n");
+
     unsigned cpu_num, nr_structs = 0, max_struct_size = 0;
     char *start, *p, *q;
 

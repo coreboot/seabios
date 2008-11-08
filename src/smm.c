@@ -79,6 +79,8 @@ smm_init()
     if (!CONFIG_USE_SMM)
         return;
 
+    dprintf(3, "init smm\n");
+
     // This code is hardcoded for PIIX4 Power Management device.
     PCIDevice i440_pcidev, d;
     int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3

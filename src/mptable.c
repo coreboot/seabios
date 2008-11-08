@@ -52,6 +52,8 @@ mptable_init(void)
     if (! CONFIG_MPTABLE)
         return;
 
+    dprintf(3, "init MPTable\n");
+
     u8 *mp_config_table, *q, *float_pointer_struct;
     int ioapic_id, i, len;
     int mp_config_table_size;
