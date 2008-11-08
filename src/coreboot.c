@@ -34,7 +34,7 @@ copy_pir(void *pos)
     }
     dprintf(1, "Copying PIR from %p to %x\n", pos, bios_table_cur_addr);
     memcpy((void*)bios_table_cur_addr, pos, p->size);
-    SET_EBDA(pir_loc, bios_table_cur_addr);
+    SET_EBDA(pir_loc, (void*)bios_table_cur_addr);
     bios_table_cur_addr += p->size;
 }
 
@@ -56,7 +56,6 @@ copy_mptable(void *pos)
     }
     dprintf(1, "Copying MPTABLE from %p to %x\n", pos, bios_table_cur_addr);
     memcpy((void*)bios_table_cur_addr, pos, length);
-    SET_EBDA(pir_loc, bios_table_cur_addr);
     bios_table_cur_addr += length;
 }
 

@@ -130,7 +130,7 @@ rom_scan(u32 start, u32 end)
 
         u16 desc = pnp->productname;
         if (desc)
-            ip->description = (u32)MAKE_FARPTR(FARPTR_TO_SEG(rom), desc);
+            ip->description = MAKE_FARPTR(FARPTR_TO_SEG(rom), desc);
 
         ebda->ipl.count++;
     }

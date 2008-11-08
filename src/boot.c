@@ -34,11 +34,11 @@ printf_bootdev(u16 bootdev)
     printf("%s", drivetypes[type]);
 
     /* print product string if BEV */
-    void *far_description = (void*)GET_EBDA(ipl.table[bootdev].description);
+    char *far_description = GET_EBDA(ipl.table[bootdev].description);
     if (type == 4 && far_description != 0) {
         char description[33];
         /* first 32 bytes are significant */
-        memcpy_far(MAKE_FARPTR(GET_SEG(SS), &description), far_description, 32);
+        memcpy_far(MAKE_FARPTR(GET_SEG(SS), description), far_description, 32);
         /* terminate string */
         description[32] = 0;
         printf(" [%.s]", description);

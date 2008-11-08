@@ -111,7 +111,7 @@ handle_1ab10d(struct bregs *regs)
 static void
 handle_1ab10e(struct bregs *regs)
 {
-    struct pir_header *pirtable_far = (struct pir_header*)GET_EBDA(pir_loc);
+    struct pir_header *pirtable_far = GET_EBDA(pir_loc);
     if (! pirtable_far) {
         set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
         return;

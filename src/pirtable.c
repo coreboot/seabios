@@ -96,5 +96,5 @@ create_pirtable()
 
     PIR_TABLE.pir.signature = PIR_SIGNATURE;
     PIR_TABLE.pir.checksum = -checksum((u8*)&PIR_TABLE, sizeof(PIR_TABLE));
-    SET_EBDA(pir_loc, (u32)&PIR_TABLE);
+    SET_EBDA(pir_loc, &PIR_TABLE.pir);
 }
