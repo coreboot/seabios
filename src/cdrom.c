@@ -432,6 +432,9 @@ cdrom_boot()
     for (device=0; device<CONFIG_MAX_ATA_DEVICES; device++)
         if (atapi_is_cdrom(device))
             break;
+    if (device >= CONFIG_MAX_ATA_DEVICES)
+        // cdrom not found
+        return 2;
 
     int ret = atapi_is_ready(device);
     if (ret)
