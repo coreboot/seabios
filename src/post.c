@@ -303,6 +303,8 @@ _start()
     debug_serial_setup();
     dprintf(1, "Start bios\n");
 
+    pci_bus_setup();
+
     // Setup for .bss and .data sections
     make_bios_writable();
     clear_bss();

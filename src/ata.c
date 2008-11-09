@@ -909,31 +909,29 @@ ata_init()
     }
 
     // Scan PCI bus for ATA adapters
-    int count=0, index=0;
+    int count=0, bdf=-1;
     u16 classid = PCI_CLASS_STORAGE_OTHER; // SATA first
     while (count<CONFIG_MAX_ATA_INTERFACES-1) {
-        PCIDevice d;
-        int ret = pci_find_class(classid, index, &d);
-        if (ret) {
+        bdf = pci_find_class(classid, bdf+1);
+        if (bdf < 0) {
             if (classid == PCI_CLASS_STORAGE_IDE)
                 // Done
                 break;
-            classid = 0x0101; // PATA controllers
-            index = 0;
+            classid = PCI_CLASS_STORAGE_IDE; // PATA controllers
+            bdf = -1;
             continue;
         }
-        index++;
 
-        u8 irq = pci_config_readb(d, PCI_INTERRUPT_LINE);
+        u8 irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
         SET_EBDA(ata.channels[count].irq, irq);
-        SET_EBDA(ata.channels[count].pci_bdf, pci_to_bdf(d));
+        SET_EBDA(ata.channels[count].pci_bdf, bdf);
 
-        u8 prog_if = pci_config_readb(d, PCI_CLASS_PROG);
+        u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
         u32 port1, port2;
 
-        if (classid != 0x0101 || prog_if & 1) {
-            port1 = pci_config_readl(d, PCI_BASE_ADDRESS_0) & ~3;
-            port2 = pci_config_readl(d, PCI_BASE_ADDRESS_1) & ~3;
+        if (classid != PCI_CLASS_STORAGE_IDE || prog_if & 1) {
+            port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) & ~3;
+            port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_1) & ~3;
         } else {
             port1 = 0x1f0;
             port2 = 0x3f0;
@@ -943,9 +941,9 @@ ata_init()
         dprintf(1, "ATA controller %d at %x/%x\n", count, port1, port2);
         count++;
 
-        if (classid != 0x0101 || prog_if & 4) {
-            port1 = pci_config_readl(d, PCI_BASE_ADDRESS_2) & ~3;
-            port2 = pci_config_readl(d, PCI_BASE_ADDRESS_3) & ~3;
+        if (classid != PCI_CLASS_STORAGE_IDE || prog_if & 4) {
+            port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_2) & ~3;
+            port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_3) & ~3;
         } else {
             port1 = 0x170;
             port2 = 0x370;

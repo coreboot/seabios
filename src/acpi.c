@@ -282,10 +282,9 @@ void acpi_bios_init(void)
     dprintf(3, "init ACPI tables\n");
 
     // This code is hardcoded for PIIX4 Power Management device.
-    PCIDevice d;
-    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3
-                              , 0, &d);
-    if (ret)
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3
+                              , 0);
+    if (bdf < 0)
         // Device not found
         return;
 
@@ -364,7 +363,7 @@ void acpi_bios_init(void)
     fadt->dsdt = cpu_to_le32(dsdt_addr);
     fadt->model = 1;
     fadt->reserved1 = 0;
-    int pm_sci_int = pci_config_readb(d, PCI_INTERRUPT_LINE);
+    int pm_sci_int = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
     fadt->sci_int = cpu_to_le16(pm_sci_int);
     fadt->smi_cmd = cpu_to_le32(BUILD_SMI_CMD_IO_ADDR);
     fadt->acpi_enable = 0xf1;

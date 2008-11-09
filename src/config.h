@@ -35,8 +35,6 @@
 #define CONFIG_CDROM_EMU 1
 // Support int 1a/b1 PCI BIOS calls
 #define CONFIG_PCIBIOS 1
-// Maximum number of PCI busses.
-#define CONFIG_PCI_BUS_COUNT 2
 // Support int 15/53 APM BIOS calls
 #define CONFIG_APMBIOS 1
 // Support int 19/18 system bootup support

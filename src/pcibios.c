@@ -22,7 +22,7 @@ handle_1ab101(struct bregs *regs)
 {
     regs->al = 0x01; // Flags - "Config Mechanism #1" supported.
     regs->bx = 0x0210; // PCI version 2.10
-    regs->cl = CONFIG_PCI_BUS_COUNT - 1;
+    regs->cl = pci_bdf_to_bus(GET_VAR(CS, MaxBDF) - 1);
     regs->edx = 0x20494350; // "PCI "
     // XXX - bochs bios code sets edi to point to 32bit code - but no
     // reference to this in spec.
@@ -33,14 +33,17 @@ handle_1ab101(struct bregs *regs)
 static void
 handle_1ab102(struct bregs *regs)
 {
-    PCIDevice d;
-    int ret = pci_find_device(regs->dx, regs->cx, regs->si, &d);
-    if (ret) {
-        set_code_fail(regs, RET_DEVICE_NOT_FOUND);
-        return;
-    }
-    regs->bh = d.bus;
-    regs->bl = d.devfn;
+    int bdf = -1;
+    int count = regs->si;
+    do {
+        bdf = pci_find_device(regs->dx, regs->cx, bdf+1);
+        if (bdf < 0) {
+            set_code_fail(regs, RET_DEVICE_NOT_FOUND);
+            return;
+        }
+    } while (count--);
+
+    regs->bx = bdf;
     set_code_success(regs);
 }
 
@@ -48,14 +51,17 @@ handle_1ab102(struct bregs *regs)
 static void
 handle_1ab103(struct bregs *regs)
 {
-    PCIDevice d;
-    int ret = pci_find_classprog(regs->ecx, regs->si, &d);
-    if (ret) {
-        set_code_fail(regs, RET_DEVICE_NOT_FOUND);
-        return;
-    }
-    regs->bh = d.bus;
-    regs->bl = d.devfn;
+    int bdf = -1;
+    int count = regs->si;
+    do {
+        bdf = pci_find_classprog(regs->ecx, bdf+1);
+        if (bdf < 0) {
+            set_code_fail(regs, RET_DEVICE_NOT_FOUND);
+            return;
+        }
+    } while (count--);
+
+    regs->bx = bdf;
     set_code_success(regs);
 }
 
@@ -63,7 +69,7 @@ handle_1ab103(struct bregs *regs)
 static void
 handle_1ab108(struct bregs *regs)
 {
-    regs->cl = pci_config_readb(pci_bd(regs->bh, regs->bl), regs->di);
+    regs->cl = pci_config_readb(regs->bx, regs->di);
     set_code_success(regs);
 }
 
@@ -71,7 +77,7 @@ handle_1ab108(struct bregs *regs)
 static void
 handle_1ab109(struct bregs *regs)
 {
-    regs->cx = pci_config_readw(pci_bd(regs->bh, regs->bl), regs->di);
+    regs->cx = pci_config_readw(regs->bx, regs->di);
     set_code_success(regs);
 }
 
@@ -79,7 +85,7 @@ handle_1ab109(struct bregs *regs)
 static void
 handle_1ab10a(struct bregs *regs)
 {
-    regs->ecx = pci_config_readl(pci_bd(regs->bh, regs->bl), regs->di);
+    regs->ecx = pci_config_readl(regs->bx, regs->di);
     set_code_success(regs);
 }
 
@@ -87,7 +93,7 @@ handle_1ab10a(struct bregs *regs)
 static void
 handle_1ab10b(struct bregs *regs)
 {
-    pci_config_writeb(pci_bd(regs->bh, regs->bl), regs->di, regs->cl);
+    pci_config_writeb(regs->bx, regs->di, regs->cl);
     set_code_success(regs);
 }
 
@@ -95,7 +101,7 @@ handle_1ab10b(struct bregs *regs)
 static void
 handle_1ab10c(struct bregs *regs)
 {
-    pci_config_writew(pci_bd(regs->bh, regs->bl), regs->di, regs->cx);
+    pci_config_writew(regs->bx, regs->di, regs->cx);
     set_code_success(regs);
 }
 
@@ -103,7 +109,7 @@ handle_1ab10c(struct bregs *regs)
 static void
 handle_1ab10d(struct bregs *regs)
 {
-    pci_config_writel(pci_bd(regs->bh, regs->bl), regs->di, regs->ecx);
+    pci_config_writel(regs->bx, regs->di, regs->ecx);
     set_code_success(regs);
 }
 

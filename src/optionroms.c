@@ -162,13 +162,11 @@ add_ipl(struct rom_header *rom, struct pnp_data *pnp)
 
 // Check if an option rom is at a hardcoded location for a device.
 static struct rom_header *
-lookup_hardcode(PCIDevice d)
+lookup_hardcode(u16 bdf)
 {
-    if (OPTIONROM_BDF_1
-        && OPTIONROM_BDF_1 == pci_to_bdf(d))
+    if (OPTIONROM_BDF_1 && OPTIONROM_BDF_1 == bdf)
         return (struct rom_header *)OPTIONROM_MEM_1;
-    else if (OPTIONROM_BDF_2
-        && OPTIONROM_BDF_2 == pci_to_bdf(d))
+    else if (OPTIONROM_BDF_2 && OPTIONROM_BDF_2 == bdf)
         return (struct rom_header *)OPTIONROM_MEM_2;
     // XXX - check LAR when in coreboot?
     return NULL;
@@ -176,18 +174,18 @@ lookup_hardcode(PCIDevice d)
 
 // Map the option rom of a given PCI device.
 static struct rom_header *
-map_optionrom(PCIDevice d)
+map_optionrom(u16 bdf)
 {
-    u32 orig = pci_config_readl(d, PCI_ROM_ADDRESS);
-    pci_config_writel(d, PCI_ROM_ADDRESS, ~PCI_ROM_ADDRESS_ENABLE);
-    u32 sz = pci_config_readl(d, PCI_ROM_ADDRESS);
+    u32 orig = pci_config_readl(bdf, PCI_ROM_ADDRESS);
+    pci_config_writel(bdf, PCI_ROM_ADDRESS, ~PCI_ROM_ADDRESS_ENABLE);
+    u32 sz = pci_config_readl(bdf, PCI_ROM_ADDRESS);
 
     if (!sz || sz == 0xffffffff)
         goto fail;
 
     // Looks like a rom - map it to just above end of memory.
     u32 mappos = ALIGN(GET_EBDA(ram_size), OPTION_ROM_ALIGN);
-    pci_config_writel(d, PCI_ROM_ADDRESS, mappos | PCI_ROM_ADDRESS_ENABLE);
+    pci_config_writel(bdf, PCI_ROM_ADDRESS, mappos | PCI_ROM_ADDRESS_ENABLE);
 
     struct rom_header *rom = (struct rom_header *)mappos;
     if (rom->signature != OPTION_ROM_SIGNATURE)
@@ -196,17 +194,17 @@ map_optionrom(PCIDevice d)
     return rom;
 fail:
     // Not valid - restore original and exit.
-    pci_config_writel(d, PCI_ROM_ADDRESS, orig);
+    pci_config_writel(bdf, PCI_ROM_ADDRESS, orig);
     return NULL;
 }
 
 // Attempt to map and initialize the option rom on a given PCI device.
 static struct rom_header *
-init_optionrom(PCIDevice d)
+init_optionrom(u16 bdf)
 {
-    struct rom_header *rom = lookup_hardcode(d);
+    struct rom_header *rom = lookup_hardcode(bdf);
     if (! rom)
-        rom = map_optionrom(d);
+        rom = map_optionrom(bdf);
     if (! rom)
         // No ROM present.
         return NULL;
@@ -214,12 +212,12 @@ init_optionrom(PCIDevice d)
     u32 romsize = rom->size * 512;
     if (next_rom + romsize > BUILD_BIOS_ADDR) {
         // Option rom doesn't fit.
-        dprintf(1, "Option rom %x doesn't fit.", pci_to_bdf(d));
-        pci_config_writel(d, PCI_ROM_ADDRESS, next_rom);
+        dprintf(1, "Option rom %x doesn't fit.", bdf);
+        pci_config_writel(bdf, PCI_ROM_ADDRESS, next_rom);
         return NULL;
     }
     memcpy((void*)next_rom, rom, romsize);
-    pci_config_writel(d, PCI_ROM_ADDRESS, next_rom);
+    pci_config_writel(bdf, PCI_ROM_ADDRESS, next_rom);
     rom = (struct rom_header *)next_rom;
 
     if (! is_valid_rom(rom))
@@ -227,7 +225,7 @@ init_optionrom(PCIDevice d)
 
     if (get_pnp_rom(rom))
         // Init the PnP rom.
-        callrom(rom, OPTION_ROM_INITVECTOR, pci_to_bdf(d));
+        callrom(rom, OPTION_ROM_INITVECTOR, bdf);
 
     next_rom += ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
 
@@ -265,15 +263,13 @@ optionrom_setup()
         }
     } else {
         // Find and deploy PCI roms.
-        int devfn, bus;
-        for (bus=0; bus < CONFIG_PCI_BUS_COUNT; bus++) {
-            for (devfn=0; devfn<0x100; devfn++) {
-                PCIDevice d = pci_bd(bus, devfn);
-                u16 v = pci_config_readw(d, PCI_CLASS_DEVICE);
-                if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA)
-                    continue;
-                init_optionrom(d);
-            }
+        int max = GET_VAR(CS, MaxBDF);
+        int bdf;
+        for (bdf=0; bdf < max; bdf++) {
+            u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
+            if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA)
+                continue;
+            init_optionrom(bdf);
         }
     }
 
@@ -327,16 +323,15 @@ vga_setup()
         next_rom += ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
     } else {
         // Find and deploy PCI VGA rom.
-        PCIDevice d;
-        int ret = pci_find_class(PCI_CLASS_DISPLAY_VGA, 0, &d);
-        if (ret)
+        int bdf = pci_find_class(PCI_CLASS_DISPLAY_VGA, 0);
+        if (bdf < 0)
             // Device not found
             return;
 
-        struct rom_header *rom = init_optionrom(d);
+        struct rom_header *rom = init_optionrom(bdf);
         if (rom && !get_pnp_rom(rom))
             // Call rom even if it isn't a pnp rom.
-            callrom(rom, OPTION_ROM_INITVECTOR, pci_to_bdf(d));
+            callrom(rom, OPTION_ROM_INITVECTOR, bdf);
     }
 
     dprintf(1, "Turning on vga console\n");

@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "pci.h" // PCIDevice
+#include "pci.h" // pci_config_writel
 #include "util.h" // wbinvd
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outb
@@ -83,19 +83,18 @@ smm_init()
     dprintf(3, "init smm\n");
 
     // This code is hardcoded for PIIX4 Power Management device.
-    PCIDevice i440_pcidev, d;
-    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3
-                              , 0, &d);
-    if (ret)
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3
+                              , 0);
+    if (bdf < 0)
         // Device not found
         return;
-    ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
-                          , 0, &i440_pcidev);
-    if (ret)
+    int i440_bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
+                                   , 0);
+    if (i440_bdf < 0)
         return;
 
     /* check if SMM init is already done */
-    u32 value = pci_config_readl(d, 0x58);
+    u32 value = pci_config_readl(bdf, 0x58);
     if (value & (1 << 25))
         return;
 
@@ -104,7 +103,7 @@ smm_init()
            &smm_relocation_end - &smm_relocation_start);
 
     /* enable SMI generation when writing to the APMC register */
-    pci_config_writel(d, 0x58, value | (1 << 25));
+    pci_config_writel(bdf, 0x58, value | (1 << 25));
 
     /* init APM status port */
     outb(0x01, 0xb3);
@@ -117,13 +116,12 @@ smm_init()
         ;
 
     /* enable the SMM memory window */
-    pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x48);
+    pci_config_writeb(i440_bdf, 0x72, 0x02 | 0x48);
 
     /* copy the SMM code */
-    memcpy((void *)0xa8000, &smm_code_start,
-           &smm_code_end - &smm_code_start);
+    memcpy((void *)0xa8000, &smm_code_start, &smm_code_end - &smm_code_start);
     wbinvd();
 
     /* close the SMM memory window and enable normal SMM */
-    pci_config_writeb(i440_pcidev, 0x72, 0x02 | 0x08);
+    pci_config_writeb(i440_bdf, 0x72, 0x02 | 0x08);
 }

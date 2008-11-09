@@ -20,11 +20,11 @@
 
 // Enable shadowing and copy bios.
 static void
-copy_bios(PCIDevice d)
+copy_bios(u16 bdf)
 {
-    int v = pci_config_readb(d, 0x59);
+    int v = pci_config_readb(bdf, 0x59);
     v |= 0x30;
-    pci_config_writeb(d, 0x59, v);
+    pci_config_writeb(bdf, 0x59, v);
     memcpy((void *)BUILD_BIOS_ADDR, (void *)BUILD_BIOS_TMP_ADDR
            , BUILD_BIOS_SIZE);
 }
@@ -39,10 +39,8 @@ make_bios_writable()
     dprintf(3, "enabling shadow ram\n");
 
     // Locate chip controlling ram shadowing.
-    PCIDevice d;
-    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
-                              , 0, &d);
-    if (ret) {
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441, 0);
+    if (bdf < 0) {
         dprintf(1, "Unable to unlock ram - bridge not found\n");
         return;
     }
@@ -57,10 +55,10 @@ make_bios_writable()
         // temporary storage area so that memory does not change under
         // the executing code.
         u32 pos = (u32)copy_bios - BUILD_BIOS_ADDR + BUILD_BIOS_TMP_ADDR;
-        void (*func)(PCIDevice) = (void*)pos;
-        func(d);
+        void (*func)(u16 bdf) = (void*)pos;
+        func(bdf);
     } else {
-        copy_bios(d);
+        copy_bios(bdf);
     }
 
     // Clear the temporary area.
@@ -76,16 +74,14 @@ make_bios_readonly()
 
     dprintf(3, "locking shadow ram\n");
 
-    PCIDevice d;
-    int ret = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
-                              , 0, &d);
-    if (ret) {
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441, 0);
+    if (bdf < 0) {
         dprintf(1, "Unable to lock ram - bridge not found\n");
         return;
     }
 
     wbinvd();
-    int v = pci_config_readb(d, 0x59);
+    int v = pci_config_readb(bdf, 0x59);
     v = (v & 0x0f) | (0x10);
-    pci_config_writeb(d, 0x59, v);
+    pci_config_writeb(bdf, 0x59, v);
 }
