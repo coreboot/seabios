@@ -49,6 +49,8 @@
 #define CONFIG_KEYBOARD 1
 // Support finding and running option roms during post.
 #define CONFIG_OPTIONROMS 1
+// Set if option roms are already copied to 0xc0000-0xf0000
+#define CONFIG_OPTIONROMS_DEPLOYED 1
 // Support an interactive boot menu at end of post.
 #define CONFIG_BOOTMENU 1
 

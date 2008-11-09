@@ -222,6 +222,9 @@ post()
     timer_setup();
     mathcp_setup();
 
+    memmap_setup();
+    ram_probe();
+
     vga_setup();
 
     kbd_setup();
@@ -229,8 +232,6 @@ post()
     serial_setup();
     mouse_setup();
 
-    memmap_setup();
-    ram_probe();
     pci_bios_setup();
     init_bios_tables();
     memmap_finalize();
