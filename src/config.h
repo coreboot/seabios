@@ -95,10 +95,16 @@
 // Start of fixed addresses in 0xf0000 segment.
 #define BUILD_START_FIXED       0xe050
 
-// Important 16-bit segments
+// Important real-mode segments
 #define SEG_BIOS     0xf000
 #define SEG_EBDA     0x9fc0
 #define SEG_BDA      0x0000
+
+// Segment definitions in 32bit mode.
+#define SEG32_MODE32_CS (2 << 3) // 0x10
+#define SEG32_MODE32_DS (3 << 3) // 0x18
+#define SEG32_MODE16_CS (4 << 3) // 0x20
+#define SEG32_MODE16_DS (5 << 3) // 0x28
 
 // Debugging levels.  If non-zero and CONFIG_DEBUG_LEVEL is greater
 // than the specified value, then the corresponding irq handler will

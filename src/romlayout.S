@@ -7,11 +7,6 @@
 
 #include "config.h"
 
-#define PROTECTED_MODE_CS (2 << 3) // 0x10
-#define PROTECTED_MODE_DS (3 << 3) // 0x18
-#define REAL_MODE_CS      (4 << 3) // 0x20
-#define REAL_MODE_DS      (5 << 3) // 0x28
-
 
 /****************************************************************
  * Include of 16bit C code
@@ -164,12 +159,12 @@ transition32:
         movl  %eax, %cr0
 
         // start protected mode code
-        ljmpl $PROTECTED_MODE_CS, $(BUILD_BIOS_ADDR + 1f)
+        ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 1f)
 
         .code32
 1:
         // init data segments
-        movl $PROTECTED_MODE_DS, %eax
+        movl $SEG32_MODE32_DS, %eax
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
@@ -187,12 +182,12 @@ __call16_from32:
         pushl %eax
 
         // Jump to 16bit mode
-        ljmpw $REAL_MODE_CS, $1f
+        ljmpw $SEG32_MODE16_CS, $1f
 
         .code16gcc
 1:
         // restore data segment limits to 0xffff
-        movw $REAL_MODE_DS, %ax
+        movw $SEG32_MODE16_DS, %ax
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
@@ -319,7 +314,7 @@ post32:
         lidtl (BUILD_BIOS_ADDR + pmode_IDT_info)
         lgdtl (BUILD_BIOS_ADDR + rombios32_gdt_48)
         movl $BUILD_STACK_ADDR, %esp
-        ljmpl $PROTECTED_MODE_CS, $_code32__start
+        ljmpl $SEG32_MODE32_CS, $_code32__start
 
         .code16gcc
 
@@ -369,13 +364,13 @@ rombios32_gdt_48:
 rombios32_gdt:
         .word 0, 0, 0, 0
         .word 0, 0, 0, 0
-        // 32 bit flat code segment (PROTECTED_MODE_CS)
+        // 32 bit flat code segment (SEG32_MODE32_CS)
         .word 0xffff, 0, 0x9b00, 0x00cf
-        // 32 bit flat data segment (PROTECTED_MODE_DS)
+        // 32 bit flat data segment (SEG32_MODE32_DS)
         .word 0xffff, 0, 0x9300, 0x00cf
-        // 16 bit code segment base=0xf0000 limit=0xffff (REAL_MODE_CS)
+        // 16 bit code segment base=0xf0000 limit=0xffff (SEG32_MODE16_CS)
         .word 0xffff, 0, 0x9b0f, 0x0000
-        // 16 bit data segment base=0x0 limit=0xffff (REAL_MODE_DS)
+        // 16 bit data segment base=0x0 limit=0xffff (SEG32_MODE16_DS)
         .word 0xffff, 0, 0x9300, 0x0000
 
 // We need a copy of this string in the 0xf000 segment, but we are not
