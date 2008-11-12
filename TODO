@@ -1,7 +1,5 @@
 Clean up timer code.  Don't use PORT_DIAG as delay mechanism.
 
-Disable a20 on jump to 16bit mode.
-
 The keyboard driver should detect ctrl+alt+del and reboot the
 machine.
 

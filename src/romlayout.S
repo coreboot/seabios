@@ -181,11 +181,6 @@ transition32:
 __call16_from32:
         pushl %eax
 
-        // Jump to 16bit mode
-        ljmpw $SEG32_MODE16_CS, $1f
-
-        .code16gcc
-1:
         // restore data segment limits to 0xffff
         movw $SEG32_MODE16_DS, %ax
         movw %ax, %ds
@@ -194,6 +189,16 @@ __call16_from32:
         movw %ax, %fs
         movw %ax, %gs
 
+        // disable a20
+        inb $0x92, %al
+        andb $~0x02, %al
+        outb %al, $0x92
+
+        // Jump to 16bit mode
+        ljmpw $SEG32_MODE16_CS, $1f
+
+        .code16gcc
+1:
         // reset PE bit in CR0
         movl %cr0, %eax
         andb $0xfe, %al
