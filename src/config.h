@@ -63,7 +63,7 @@
 // Support generation of ACPI tables (for emulators)
 #define CONFIG_ACPI 1
 // Support bios callbacks specific to via vgabios.
-#define CONFIG_VGAHOOKS 1
+#define CONFIG_VGAHOOKS 0
 // Maximum number of map entries in the e820 map
 #define CONFIG_MAX_E820 32
 
@@ -80,7 +80,7 @@
 #define CONFIG_BIOS_REVISION 0x01
 
 // Various memory addresses used by the code.
-#define BUILD_STACK_ADDR        0xfffe
+#define BUILD_STACK_ADDR        0x7c00
 #define BUILD_CPU_COUNT_ADDR    0xf000
 #define BUILD_AP_BOOT_ADDR      0x10000
 #define BUILD_BIOS_ADDR         0xf0000

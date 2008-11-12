@@ -7,12 +7,6 @@ machine.
 
 Fix keyboard LEDs.
 
-Improve option rom handling.  A real bios can copy the option roms
-from PCI space.  Also, there is no handling for BCVs today.  Verify
-option roms wont stomp on seabios stack and bss.
-
-Clean up and clarify usage/scope of .bss and .data variables.
-
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
   * bochs cvs 20081016:           -- better post resume support
