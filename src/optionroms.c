@@ -176,10 +176,13 @@ lookup_hardcode(u16 bdf)
 static struct rom_header *
 map_optionrom(u16 bdf)
 {
+    dprintf(6, "Attempting to map option rom on dev %x\n", bdf);
+
     u32 orig = pci_config_readl(bdf, PCI_ROM_ADDRESS);
     pci_config_writel(bdf, PCI_ROM_ADDRESS, ~PCI_ROM_ADDRESS_ENABLE);
     u32 sz = pci_config_readl(bdf, PCI_ROM_ADDRESS);
 
+    dprintf(6, "Option rom sizing returned %x %x\n", orig, sz);
     if (!sz || sz == 0xffffffff)
         goto fail;
 
@@ -188,9 +191,12 @@ map_optionrom(u16 bdf)
     pci_config_writel(bdf, PCI_ROM_ADDRESS, mappos | PCI_ROM_ADDRESS_ENABLE);
 
     struct rom_header *rom = (struct rom_header *)mappos;
-    if (rom->signature != OPTION_ROM_SIGNATURE)
+    if (rom->signature != OPTION_ROM_SIGNATURE) {
+        dprintf(6, "No option rom signature (got %x)\n", rom->signature);
         goto fail;
+    }
 
+    dprintf(6, "Card %x option rom mapped at %p\n", bdf, rom);
     return rom;
 fail:
     // Not valid - restore original and exit.
@@ -202,6 +208,7 @@ fail:
 static struct rom_header *
 init_optionrom(u16 bdf)
 {
+    dprintf(4, "Attempting to init PCI bdf %x\n", bdf);
     struct rom_header *rom = lookup_hardcode(bdf);
     if (! rom)
         rom = map_optionrom(bdf);
@@ -212,10 +219,11 @@ init_optionrom(u16 bdf)
     u32 romsize = rom->size * 512;
     if (next_rom + romsize > BUILD_BIOS_ADDR) {
         // Option rom doesn't fit.
-        dprintf(1, "Option rom %x doesn't fit.", bdf);
+        dprintf(1, "Option rom %x doesn't fit.\n", bdf);
         pci_config_writel(bdf, PCI_ROM_ADDRESS, next_rom);
         return NULL;
     }
+    dprintf(4, "Copying option rom from %p to %x\n", rom, next_rom);
     memcpy((void*)next_rom, rom, romsize);
     pci_config_writel(bdf, PCI_ROM_ADDRESS, next_rom);
     rom = (struct rom_header *)next_rom;
