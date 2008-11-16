@@ -144,9 +144,9 @@ handle_1587(struct bregs *regs)
         "lgdtw %%es:0x8(%%si)\n"
         "lidtw %%cs:pmode_IDT_info\n"
 
-        // set PE bit in CR0
+        // Enable protected mode
         "movl %%cr0, %%eax\n"
-        "orb $0x01, %%al\n"
+        "orl $" __stringify(CR0_PE) ", %%eax\n"
         "movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to protected mode
@@ -164,9 +164,9 @@ handle_1587(struct bregs *regs)
         "xorw %%di, %%di\n"
         "rep movsw\n"
 
-        // reset PG bit in CR0 ???
+        // Disable protected mode
         "movl %%cr0, %%eax\n"
-        "andb $0xfe, %%al\n"
+        "andl $~" __stringify(CR0_PE) ", %%eax\n"
         "movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to real mode

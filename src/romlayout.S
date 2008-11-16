@@ -7,6 +7,7 @@
 
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_A20
+#include "bregs.h" // CR0_*
 
 
 /****************************************************************
@@ -124,7 +125,7 @@
 post16:
         // enable cache
         movl %cr0, %eax
-        andl $0x9fffffff, %eax
+        andl $~(CR0_CD|CR0_NW), %eax
         movl %eax, %cr0
 
         // init the stack pointer
@@ -154,10 +155,10 @@ transition32:
         lidt %cs:pmode_IDT_info
         lgdt %cs:rombios32_gdt_48
 
-        // set PE bit in CR0
-        movl  %cr0, %eax
-        orb   $0x01, %al
-        movl  %eax, %cr0
+        // Enable protected mode
+        movl %cr0, %eax
+        orl $CR0_PE, %eax
+        movl %eax, %cr0
 
         // start protected mode code
         ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 1f)
@@ -200,9 +201,9 @@ __call16_from32:
 
         .code16gcc
 1:
-        // reset PE bit in CR0
+        // Disable protected mode
         movl %cr0, %eax
-        andb $0xfe, %al
+        andl $~CR0_PE, %eax
         movl %eax, %cr0
 
         // far jump to flush CPU queue after transition to real mode

@@ -7,12 +7,24 @@
 #ifndef __BREGS_H
 #define __BREGS_H
 
-#include "types.h" // u16
+// CPU flag bitdefs
+#define F_ZF (1<<6)
+#define F_CF (1<<0)
 
+// CR0 flags
+#define CR0_PG (1<<31) // Paging
+#define CR0_CD (1<<30) // Cache disable
+#define CR0_NW (1<<29) // Not Write-through
+#define CR0_PE (1<<0)  // Protection enable
+
+
+#ifndef __ASSEMBLY__
 
 /****************************************************************
  * Registers saved/restored in romlayout.S
  ****************************************************************/
+
+#include "types.h" // u16
 
 #define UREG(ER, R, RH, RL) union { u32 ER; struct { u16 R; u16 R ## _hi; }; struct { u8 RL; u8 RH; u8 R ## _hilo; u8 R ## _hihi; }; }
 
@@ -37,10 +49,6 @@ struct bregs {
 /****************************************************************
  * Helper functions
  ****************************************************************/
-
-// bregs flags bitdefs
-#define F_ZF (1<<6)
-#define F_CF (1<<0)
 
 static inline void
 set_cf(struct bregs *regs, int cond)
@@ -88,5 +96,7 @@ set_code_fail_silent(struct bregs *regs, u8 code)
 // output.c
 void __set_fail(const char *fname, int lineno, struct bregs *regs);
 void __set_code_fail(const char *fname, int lineno, struct bregs *regs, u8 code);
+
+#endif // !__ASSEMBLY__
 
 #endif // bregs.h
