@@ -938,7 +938,8 @@ ata_init()
         }
         SET_EBDA(ata.channels[count].iobase1, port1);
         SET_EBDA(ata.channels[count].iobase2, port2);
-        dprintf(1, "ATA controller %d at %x/%x\n", count, port1, port2);
+        dprintf(1, "ATA controller %d at %x/%x (dev %x class %x/%x)\n"
+                , count, port1, port2, bdf, classid, prog_if);
         count++;
 
         if (classid != PCI_CLASS_STORAGE_IDE || prog_if & 4) {
@@ -948,7 +949,8 @@ ata_init()
             port1 = 0x170;
             port2 = 0x370;
         }
-        dprintf(1, "ATA controller %d at %x/%x\n", count, port1, port2);
+        dprintf(1, "ATA controller %d at %x/%x (dev %x class %x/%x)\n"
+                , count, port1, port2, bdf, classid, prog_if);
         SET_EBDA(ata.channels[count].iobase1, port1);
         SET_EBDA(ata.channels[count].iobase2, port2);
         count++;
