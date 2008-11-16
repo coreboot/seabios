@@ -8,6 +8,7 @@
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_A20
 #include "bregs.h" // CR0_*
+#include "../out/asm-offsets.h" // BREGS_*
 
 
 /****************************************************************
@@ -240,17 +241,18 @@ __call16:
         // Setup for iretw call
         pushw $SEG_BIOS
         pushw $1f               // return point
-        pushw 0x20(%eax)        // flags
-        pushl 0x1c(%eax)        // CS:IP
+        pushw BREGS_flags(%eax) // flags
+        pushl BREGS_ip(%eax)    // CS:IP
 
         // Load calling registers.
-        movl 0x04(%eax), %edi
-        movl 0x08(%eax), %esi
-        movl 0x0c(%eax), %ebx
-        movl 0x10(%eax), %edx
-        movl 0x14(%eax), %ecx
-        movw 0x02(%eax), %es    // XXX - should load %ds too
-        movl 0x18(%eax), %eax
+        movl BREGS_edi(%eax), %edi
+        movl BREGS_esi(%eax), %esi
+        movl BREGS_ebx(%eax), %ebx
+        movl BREGS_edx(%eax), %edx
+        movl BREGS_ecx(%eax), %ecx
+        movw BREGS_es(%eax), %es
+        movw BREGS_ds(%eax), %ds
+        movl %ss:BREGS_eax(%eax), %eax
 
         // Invoke call
         iretw                   // XXX - just do a lcalll
@@ -259,20 +261,21 @@ __call16:
         pushfw
         pushl %eax
         movl 0x06(%esp), %eax
-        movl %ecx, %ss:0x14(%eax)       // Save %ecx
+        movl %ecx, %ss:BREGS_ecx(%eax)
+        movw %ds, %ss:BREGS_ds(%eax)
         movw %ss, %cx
-        movw %cx, %ds                   // Restore %ds == %ss
+        movw %cx, %ds           // Restore %ds == %ss
         popl %ecx
-        movl %ecx, 0x18(%eax)           // Save %eax
+        movl %ecx, BREGS_eax(%eax)
         popw %cx
-        movw %cx, 0x20(%eax)            // Save flags
+        movw %cx, BREGS_flags(%eax)
 
         // Store remaining registers
-        movw %es, 0x02(%eax)
-        movl %edi, 0x04(%eax)
-        movl %esi, 0x08(%eax)
-        movl %ebx, 0x0c(%eax)
-        movl %edx, 0x10(%eax)
+        movw %es, BREGS_es(%eax)
+        movl %edi, BREGS_edi(%eax)
+        movl %esi, BREGS_esi(%eax)
+        movl %ebx, BREGS_ebx(%eax)
+        movl %edx, BREGS_edx(%eax)
 
         // Remove %eax
         popl %eax

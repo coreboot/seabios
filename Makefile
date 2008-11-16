@@ -86,11 +86,14 @@ $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $<"
 	$(Q)$(CPP) -P -D__ASSEMBLY__ $< -o $@
 
+$(OUT)asm-offsets.h: $(OUT)asm-offsets.16.s
+	@echo "  Generating offset file $@"
+	$(Q)./tools/gen-offsets.sh $< $@
 
 $(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
 TABLEASM=$(addprefix $(OUT), $(patsubst %.c,%.proc.16.s,$(TABLESRC)))
-$(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(TABLEASM)
+$(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(OUT)asm-offsets.h $(TABLEASM)
 	@echo "  Generating 16bit layout of $@"
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
