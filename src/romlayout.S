@@ -5,7 +5,8 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "config.h"
+#include "config.h" // CONFIG_*
+#include "ioport.h" // PORT_A20
 
 
 /****************************************************************
@@ -145,9 +146,9 @@ transition32:
         cli
 
         // enable a20
-        inb $0x92, %al
-        orb $0x02, %al
-        outb %al, $0x92
+        inb $PORT_A20, %al
+        orb $A20_ENABLE_BIT, %al
+        outb %al, $PORT_A20
 
         // Set segment descriptors
         lidt %cs:pmode_IDT_info
@@ -190,9 +191,9 @@ __call16_from32:
         movw %ax, %gs
 
         // disable a20
-        inb $0x92, %al
-        andb $~0x02, %al
-        outb %al, $0x92
+        inb $PORT_A20, %al
+        andb $~A20_ENABLE_BIT, %al
+        outb %al, $PORT_A20
 
         // Jump to 16bit mode
         ljmpw $SEG32_MODE16_CS, $1f

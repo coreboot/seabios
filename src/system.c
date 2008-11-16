@@ -19,12 +19,12 @@ set_a20(u8 cond)
     // get current setting first
     u8 newval, oldval = inb(PORT_A20);
     if (cond)
-        newval = oldval | 0x02;
+        newval = oldval | A20_ENABLE_BIT;
     else
-        newval = oldval & ~0x02;
+        newval = oldval & ~A20_ENABLE_BIT;
     outb(newval, PORT_A20);
 
-    return (newval & 0x02) != 0;
+    return (oldval & A20_ENABLE_BIT) != 0;
 }
 
 static void
@@ -44,7 +44,7 @@ handle_152401(struct bregs *regs)
 static void
 handle_152402(struct bregs *regs)
 {
-    regs->al = !!(inb(PORT_A20) & 0x20);
+    regs->al = (inb(PORT_A20) & A20_ENABLE_BIT) != 0;
     set_code_success(regs);
 }
 

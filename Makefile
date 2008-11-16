@@ -84,7 +84,7 @@ $(OUT)%.16.s: %.c
 
 $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $<"
-	$(Q)$(CPP) -P $< -o $@
+	$(Q)$(CPP) -P -D__ASSEMBLY__ $< -o $@
 
 
 $(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
@@ -92,7 +92,7 @@ $(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC
 TABLEASM=$(addprefix $(OUT), $(patsubst %.c,%.proc.16.s,$(TABLESRC)))
 $(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(TABLEASM)
 	@echo "  Generating 16bit layout of $@"
-	$(Q)$(CC) $(CFLAGS16) -c $< -o $@
+	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
 $(OUT)romlayout32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 

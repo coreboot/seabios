@@ -6,8 +6,6 @@
 #ifndef __IOPORT_H
 #define __IOPORT_H
 
-#include "types.h" // u8
-
 #define PORT_DMA_ADDR_2        0x0004
 #define PORT_DMA_CNT_2         0x0005
 #define PORT_DMA1_MASK_REG     0x000a
@@ -46,9 +44,12 @@
 #define PORT_QEMU_CFG_DATA     0x0511
 #define PORT_BIOS_APM          0x8900
 
-// PORT_KBD_CTRLB bitdefs
-#define KBD_REFRESH (1<<4)
+// PORT_A20 bitdefs
+#define A20_ENABLE_BIT 0x02
 
+#ifndef __ASSEMBLY__
+
+#include "types.h" // u8
 
 static inline void outb(u8 value, u16 port) {
     __asm__ __volatile__("outb %b0, %w1" : : "a"(value), "Nd"(port));
@@ -100,5 +101,7 @@ static inline void outsl(u16 port, u32 *data, u32 count) {
     asm volatile("rep outsl %%es:(%%si), (%%dx)"
                  : "+c"(count), "+S"(data) : "d"(port) : "memory");
 }
+
+#endif // !__ASSEMBLY__
 
 #endif // ioport.h
