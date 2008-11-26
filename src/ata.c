@@ -10,7 +10,7 @@
 #include "ioport.h" // inb
 #include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
-#include "pic.h" // unmask_pic2
+#include "pic.h" // enable_hwirq
 #include "biosvar.h" // GET_EBDA
 #include "pci.h" // pci_find_class
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
@@ -972,6 +972,5 @@ hard_drive_setup()
 
     SET_BDA(disk_control_byte, 0xc0);
 
-    // Enable IRQ14 (handle_76)
-    unmask_pic2(PIC2_IRQ14);
+    enable_hwirq(14, entry_76);
 }

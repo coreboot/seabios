@@ -9,7 +9,7 @@
 #include "util.h" // debug_enter
 #include "disk.h" // floppy_tick
 #include "cmos.h" // inb_cmos
-#include "pic.h" // unmask_pic1
+#include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
 
 // RTC register flags
@@ -55,8 +55,8 @@ timer_setup()
     SET_BDA(timer_counter, ticks);
     SET_BDA(timer_rollover, 0);
 
-    // Enable IRQ0 (handle_08)
-    unmask_pic1(PIC1_IRQ0);
+    enable_hwirq(0, entry_08);
+    enable_hwirq(8, entry_70);
 }
 
 static void
@@ -239,7 +239,6 @@ handle_1a06(struct bregs *regs)
     outb_cmos(regs->dh, CMOS_RTC_SECONDS_ALARM);
     outb_cmos(regs->cl, CMOS_RTC_MINUTES_ALARM);
     outb_cmos(regs->ch, CMOS_RTC_HOURS_ALARM);
-    unmask_pic2(PIC2_IRQ8); // enable IRQ 8
     // enable Status Reg B alarm bit, clear halt clock bit
     outb_cmos((val8 & ~RTC_B_SET) | RTC_B_AIE, CMOS_STATUS_B);
     set_success(regs);
@@ -346,8 +345,6 @@ set_usertimer(u32 usecs, u16 seg, u16 offset)
     SET_BDA(ptr_user_wait_complete_flag, (seg << 16) | offset);
     SET_BDA(user_wait_timeout, usecs);
 
-    // Unmask IRQ8 so INT70 will get through.
-    unmask_pic2(PIC2_IRQ8);
     // Turn on the Periodic Interrupt timer
     u8 bRegister = inb_cmos(CMOS_STATUS_B);
     outb_cmos(bRegister | RTC_B_PIE, CMOS_STATUS_B);
@@ -396,8 +393,7 @@ usleep(u32 count)
 
 #define RET_ECLOCKINUSE  0x83
 
-// Wait for CX:DX microseconds. currently using the
-// refresh request port 0x61 bit4, toggling every 15usec
+// Wait for CX:DX microseconds
 void
 handle_1586(struct bregs *regs)
 {

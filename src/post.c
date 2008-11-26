@@ -21,36 +21,17 @@
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 #define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
 
-static void
-set_irq(int vector, void *loc)
+void
+__set_irq(int vector, void *loc)
 {
     SET_BDA(ivecs[vector].seg, SEG_BIOS);
     SET_BDA(ivecs[vector].offset, (u32)loc - BUILD_BIOS_ADDR);
 }
 
-// Symbols defined in romlayout.S
-extern void dummy_iret_handler();
-extern void entry_08();
-extern void entry_09();
-extern void entry_hwirq();
-extern void entry_0e();
-extern void entry_10();
-extern void entry_11();
-extern void entry_12();
-extern void entry_13();
-extern void entry_14();
-extern void entry_15();
-extern void entry_16();
-extern void entry_17();
-extern void entry_18();
-extern void entry_19();
-extern void entry_1a();
-extern void entry_1c();
-extern void entry_40();
-extern void entry_70();
-extern void entry_74();
-extern void entry_75();
-extern void entry_76();
+#define set_irq(vector, func) do {              \
+        extern void func (void);                \
+        __set_irq(vector, func);                \
+    } while (0)
 
 static void
 init_bda()
@@ -60,46 +41,38 @@ init_bda()
 
     SET_BDA(mem_size_kb, BASE_MEM_IN_K);
 
+    // Initialize all vectors to a dummy handler.
     int i;
     for (i=0; i<256; i++)
-        set_irq(i, &dummy_iret_handler);
+        set_irq(i, dummy_iret_handler);
 
-    set_irq(0x08, &entry_08);
-    set_irq(0x09, &entry_09);
-    //set_irq(0x0a, &entry_hwirq);
-    //set_irq(0x0b, &entry_hwirq);
-    //set_irq(0x0c, &entry_hwirq);
-    //set_irq(0x0d, &entry_hwirq);
-    set_irq(0x0e, &entry_0e);
-    //set_irq(0x0f, &entry_hwirq);
-    set_irq(0x10, &entry_10);
-    set_irq(0x11, &entry_11);
-    set_irq(0x12, &entry_12);
-    set_irq(0x13, &entry_13);
-    set_irq(0x14, &entry_14);
-    set_irq(0x15, &entry_15);
-    set_irq(0x16, &entry_16);
-    set_irq(0x17, &entry_17);
-    set_irq(0x18, &entry_18);
-    set_irq(0x19, &entry_19);
-    set_irq(0x1a, &entry_1a);
-    set_irq(0x1c, &entry_1c);
-    set_irq(0x40, &entry_40);
-    set_irq(0x70, &entry_70);
-    //set_irq(0x71, &entry_hwirq);
-    //set_irq(0x72, &entry_hwirq);
-    //set_irq(0x73, &entry_hwirq);
-    set_irq(0x74, &entry_74);
-    set_irq(0x75, &entry_75);
-    set_irq(0x76, &entry_76);
-    //set_irq(0x77, &entry_hwirq);
+    // Initialize all hw vectors to a default hw handler.
+    for (i=0x08; i<=0x0f; i++)
+        set_irq(i, entry_hwirq);
+    for (i=0x70; i<=0x77; i++)
+        set_irq(i, entry_hwirq);
+
+    // Initialize software handlers.
+    set_irq(0x10, entry_10);
+    set_irq(0x11, entry_11);
+    set_irq(0x12, entry_12);
+    set_irq(0x13, entry_13);
+    set_irq(0x14, entry_14);
+    set_irq(0x15, entry_15);
+    set_irq(0x16, entry_16);
+    set_irq(0x17, entry_17);
+    set_irq(0x18, entry_18);
+    set_irq(0x19, entry_19);
+    set_irq(0x1a, entry_1a);
+    set_irq(0x1c, entry_1c);
+    set_irq(0x40, entry_40);
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_BDA(ivecs[0x79].seg, 0);
     SET_BDA(ivecs[0x79].offset, 0);
 
-    set_irq(0x1E, &diskette_param_table2);
+    __set_irq(0x1E, &diskette_param_table2);
 }
 
 static void

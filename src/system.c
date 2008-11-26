@@ -383,8 +383,7 @@ mathcp_setup()
     dprintf(3, "math cp init\n");
     // 80x87 coprocessor installed
     SETBITS_BDA(equipment_list_flags, 0x02);
-    // Enable IRQ13 (handle_75)
-    unmask_pic2(PIC2_IRQ13);
+    enable_hwirq(13, entry_75);
 }
 
 // INT 75 - IRQ13 - MATH COPROCESSOR EXCEPTION

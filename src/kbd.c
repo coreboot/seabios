@@ -97,8 +97,7 @@ kbd_setup()
 
     keyboard_init();
 
-    // Enable IRQ1 (handle_09)
-    unmask_pic1(PIC1_IRQ1);
+    enable_hwirq(1, entry_09);
 }
 
 static u8

@@ -76,6 +76,28 @@ get_pic2_isr()
     return inb(PORT_PIC2_CMD);
 }
 
+// post.c
+void __set_irq(int vector, void *loc);
+
+static inline void
+__enable_hwirq(int hwirq, void (*func)(void))
+{
+    int vector;
+    if (hwirq < 8) {
+        unmask_pic1(1 << hwirq);
+        vector = 0x08 + hwirq;
+    } else {
+        unmask_pic2(1 << (hwirq - 8));
+        vector = 0x70 + hwirq - 8;
+    }
+    __set_irq(vector, func);
+}
+
+#define enable_hwirq(irq, func) do {            \
+        extern void func (void);                \
+        __enable_hwirq(irq, func);              \
+    } while (0)
+
 void pic_setup();
 
 #endif // pic.h

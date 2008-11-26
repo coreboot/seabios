@@ -7,7 +7,7 @@
 
 #include "biosvar.h" // GET_EBDA
 #include "util.h" // debug_isr
-#include "pic.h" // unmask_pic2
+#include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
 #include "ps2port.h" // aux_command
 
@@ -19,8 +19,7 @@ mouse_setup()
     dprintf(3, "init mouse\n");
     // pointing device installed
     SETBITS_BDA(equipment_list_flags, 0x04);
-    // Enable IRQ12 (handle_74)
-    unmask_pic2(PIC2_IRQ12);
+    enable_hwirq(12, entry_74);
 }
 
 #define RET_SUCCESS      0x00

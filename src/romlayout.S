@@ -481,6 +481,7 @@ entry_18:
         ORG 0xe82e
         IRQ_ENTRY_ARG 16
 
+        .global entry_hwirq
 entry_hwirq:
         ENTRY handle_hwirq
 

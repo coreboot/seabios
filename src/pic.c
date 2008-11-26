@@ -49,7 +49,7 @@ handle_hwirq(struct bregs *regs)
         mask_pic2(isr2);
         eoi_pic2();
     } else {
-        if (! (isr1 & 0x2)) // don't ever mask the cascaded irq
+        if (! (isr1 & PIC1_IRQ2)) // don't ever mask the cascaded irq
             mask_pic1(isr1);
         eoi_pic1();
     }
