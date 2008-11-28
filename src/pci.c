@@ -49,7 +49,7 @@ u8 pci_config_readb(u16 bdf, u32 addr)
 }
 
 #if MODE16
-int MaxBDF VISIBLE16;
+int MaxBDF VISIBLE16 = 0x0100;
 #endif
 
 // Find the maximum bus number.
