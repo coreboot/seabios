@@ -58,6 +58,13 @@ static inline void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
         : "0" (index));
 }
 
+static inline u64 rdtscll(void)
+{
+    u64 val;
+    asm volatile("rdtsc" : "=A" (val));
+    return val;
+}
+
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 void *memcpy_far(void *far_d1, const void *far_s1, size_t len);
@@ -114,7 +121,9 @@ void lpt_setup();
 
 // clock.c
 void timer_setup();
-int usleep(u32 count);
+void ndelay(u32 count);
+void udelay(u32 count);
+void mdelay(u32 count);
 void handle_1583(struct bregs *regs);
 void handle_1586(struct bregs *regs);
 

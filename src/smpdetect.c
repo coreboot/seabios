@@ -97,7 +97,7 @@ smp_probe(void)
         u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
         writel(APIC_BASE + APIC_ICR_LOW, 0x000C4600 | sipi_vector);
 
-        usleep(10*1000);
+        mdelay(10);
 
         smp_cpus = readw((void *)BUILD_CPU_COUNT_ADDR);
     }

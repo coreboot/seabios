@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "biosvar.h" // GET_EBDA
-#include "util.h" // usleep
+#include "util.h" // mdelay
 #include "bregs.h" // struct bregs
 
 static u8
@@ -29,11 +29,11 @@ get_keystroke()
 }
 
 static void
-udelay_and_check_for_keystroke(u32 usec, int count)
+mdelay_and_check_for_keystroke(u32 msec, int count)
 {
     int i;
     for (i = 1; i <= count; i++) {
-        usleep(usec);
+        mdelay(msec);
         if (check_for_keystroke())
             break;
     }
@@ -50,7 +50,7 @@ interactive_bootmenu()
 
     printf("Press F12 for boot menu.\n\n");
 
-    udelay_and_check_for_keystroke(500000, 5);
+    mdelay_and_check_for_keystroke(500, 5);
     if (! check_for_keystroke())
         return;
     u8 scan_code = get_keystroke();

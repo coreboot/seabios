@@ -20,13 +20,6 @@
 
 #define I8042_BUFFER_SIZE       16
 
-static void
-udelay(int usecs)
-{
-    // XXX - implement real udelay
-    outb(0x00, PORT_DIAG);
-}
-
 static int
 i8042_wait_read(void)
 {

@@ -85,28 +85,12 @@ pause_await_ide(u8 when_done, u16 iobase1, u16 iobase2, u16 timeout)
     return await_ide(when_done, iobase1, timeout);
 }
 
-// Delay for x nanoseconds
-static void
-nsleep(u32 delay)
-{
-    // XXX - how to implement ndelay?
-    while (delay--)
-        nop();
-}
-
 // Wait for ide state - pause for 400ns first.
 static __always_inline int
 ndelay_await_ide(u8 when_done, u16 iobase1, u16 timeout)
 {
-    nsleep(400);
+    ndelay(400);
     return await_ide(when_done, iobase1, timeout);
-}
-
-// Delay for x milliseconds
-static void
-msleep(u32 delay)
-{
-    usleep(delay * 1000);
 }
 
 // Reset a drive
@@ -133,7 +117,7 @@ ata_reset(int driveid)
     // 8.2.1 (g) -- check for sc==sn==0x01
     // select device
     outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-    msleep(50);
+    mdelay(50);
     u8 sc = inb(iobase1+ATA_CB_SC);
     u8 sn = inb(iobase1+ATA_CB_SN);
 
@@ -199,7 +183,7 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
     outb(cmd->device, iobase1 + ATA_CB_DH);
     if ((device ^ cmd->device) & (1 << 4))
         // Wait for device to become active.
-        msleep(50);
+        mdelay(50);
 
     if (cmd->command & 0x04) {
         outb(0x00, iobase1 + ATA_CB_FR);
@@ -849,7 +833,7 @@ ata_detect()
 
         // Look for device
         outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-        msleep(50);
+        mdelay(50);
         outb(0x55, iobase1+ATA_CB_SC);
         outb(0xaa, iobase1+ATA_CB_SN);
         outb(0xaa, iobase1+ATA_CB_SC);
@@ -870,7 +854,7 @@ ata_detect()
 
         // check for ATA or ATAPI
         outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-        msleep(50);
+        mdelay(50);
         sc = inb(iobase1+ATA_CB_SC);
         sn = inb(iobase1+ATA_CB_SN);
         dprintf(6, "ata_detect(2) drive=%d sc=%x sn=%x\n", driveid, sc, sn);

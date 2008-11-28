@@ -19,6 +19,101 @@
 #define RTC_B_AIE 0x20
 #define RTC_B_UIE 0x10
 
+// Bits for PORT_PS2_CTRLB
+#define PPCB_T2GATE (1<<0)
+#define PPCB_SPKR   (1<<1)
+#define PPCB_T2OUT  (1<<5)
+
+// Bits for PORT_PIT_MODE
+#define PM_SEL_TIMER0   (0<<6)
+#define PM_SEL_TIMER1   (1<<6)
+#define PM_SEL_TIMER2   (2<<6)
+#define PM_SEL_READBACK (3<<6)
+#define PM_ACCESS_LATCH  (0<<4)
+#define PM_ACCESS_LOBYTE (1<<4)
+#define PM_ACCESS_HIBYTE (2<<4)
+#define PM_ACCESS_WORD   (3<<4)
+#define PM_MODE0 (0<<1)
+#define PM_MODE1 (1<<1)
+#define PM_MODE2 (2<<1)
+#define PM_MODE3 (3<<1)
+#define PM_MODE4 (4<<1)
+#define PM_MODE5 (5<<1)
+#define PM_CNT_BINARY (0<<0)
+#define PM_CNT_BCD    (1<<0)
+
+
+/****************************************************************
+ * TSC timer
+ ****************************************************************/
+
+#define PIT_TICK_RATE 1193182 // Underlying HZ of PIT
+#define CALIBRATE_COUNT 0x800 // Approx 1.7ms
+
+extern u32 cpu_khz;
+#if MODE16
+u32 cpu_khz VISIBLE16;
+#endif
+
+static void
+calibrate_tsc()
+{
+    // Setup "timer2"
+    u8 orig = inb(PORT_PS2_CTRLB);
+    outb((orig & ~PPCB_SPKR) | PPCB_T2GATE, PORT_PS2_CTRLB);
+    /* binary, mode 0, LSB/MSB, Ch 2 */
+    outb(PM_SEL_TIMER2|PM_ACCESS_WORD|PM_MODE0|PM_CNT_BINARY, PORT_PIT_MODE);
+    /* LSB of ticks */
+    outb(CALIBRATE_COUNT & 0xFF, PORT_PIT_COUNTER2);
+    /* MSB of ticks */
+    outb(CALIBRATE_COUNT >> 8, PORT_PIT_COUNTER2);
+
+    u64 start = rdtscll();
+    while ((inb(PORT_PS2_CTRLB) & PPCB_T2OUT) == 0)
+        ;
+    u64 end = rdtscll();
+
+    // Restore PORT_PS2_CTRLB
+    outb(orig, PORT_PS2_CTRLB);
+
+    // Store calibrated cpu khz.
+    u64 diff = end - start;
+    dprintf(6, "tsc calibrate start=%u end=%u diff=%u\n"
+            , (u32)start, (u32)end, (u32)diff);
+    u32 hz = diff * PIT_TICK_RATE / CALIBRATE_COUNT;
+    SET_VAR(CS, cpu_khz, hz / 1000);
+
+    dprintf(1, "CPU Mhz=%u\n", hz / 1000000);
+}
+
+static void
+tscsleep(u64 diff)
+{
+    u64 start = rdtscll();
+    u64 end = start + diff;
+    while (rdtscll() < end)
+        cpu_relax();
+}
+
+void
+ndelay(u32 count)
+{
+    u32 khz = GET_VAR(CS, cpu_khz);
+    tscsleep(count * khz / 1000000);
+}
+void
+udelay(u32 count)
+{
+    u32 khz = GET_VAR(CS, cpu_khz);
+    tscsleep(count * khz / 1000);
+}
+void
+mdelay(u32 count)
+{
+    u32 khz = GET_VAR(CS, cpu_khz);
+    tscsleep(count * khz);
+}
+
 
 /****************************************************************
  * Init
@@ -28,7 +123,7 @@ static void
 pit_setup()
 {
     // timer0: binary count, 16bit count, mode 2
-    outb(0x34, PORT_PIT_MODE);
+    outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
     // maximum count of 0000H = 18.2Hz
     outb(0x0, PORT_PIT_COUNTER0);
     outb(0x0, PORT_PIT_COUNTER0);
@@ -44,6 +139,7 @@ void
 timer_setup()
 {
     dprintf(3, "init timer\n");
+    calibrate_tsc();
     pit_setup();
 
     u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
@@ -362,46 +458,25 @@ clear_usertimer()
     outb_cmos(bRegister & ~RTC_B_PIE, CMOS_STATUS_B);
 }
 
-// Sleep for n microseconds.
-int
-usleep(u32 count)
-{
-    if (MODE16) {
-        // In 16bit mode, use the rtc to wait for the specified time.
-        u8 statusflag = 0;
-        int ret = set_usertimer(count, GET_SEG(SS), (u32)&statusflag);
-        if (ret)
-            return -1;
-        irq_enable();
-        while (!statusflag)
-            cpu_relax();
-        irq_disable();
-        return 0;
-    } else {
-        // In 32bit mode, we need to call into 16bit mode to sleep.
-        struct bregs br;
-        memset(&br, 0, sizeof(br));
-        br.ah = 0x86;
-        br.cx = count >> 16;
-        br.dx = count;
-        call16_int(0x15, &br);
-        if (br.flags & F_CF)
-            return -1;
-        return 0;
-    }
-}
-
 #define RET_ECLOCKINUSE  0x83
 
 // Wait for CX:DX microseconds
 void
 handle_1586(struct bregs *regs)
 {
-    int ret = usleep((regs->cx << 16) | regs->dx);
-    if (ret)
+    // Use the rtc to wait for the specified time.
+    u8 statusflag = 0;
+    u32 count = (regs->cx << 16) | regs->dx;
+    int ret = set_usertimer(count, GET_SEG(SS), (u32)&statusflag);
+    if (ret) {
         set_code_fail(regs, RET_ECLOCKINUSE);
-    else
-        set_success(regs);
+        return;
+    }
+    irq_enable();
+    while (!statusflag)
+        cpu_relax();
+    irq_disable();
+    set_success(regs);
 }
 
 // Set Interval requested.
