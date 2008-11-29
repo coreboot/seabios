@@ -1,10 +1,3 @@
-Clean up timer code.  Don't use PORT_DIAG as delay mechanism.
-
-The keyboard driver should detect ctrl+alt+del and reboot the
-machine.
-
-Fix keyboard LEDs.
-
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
   * bochs cvs 20081016:           -- better post resume support
@@ -35,7 +28,8 @@ is unnecessary.
 Cleanup setting of ES on GET/SET_BDA
 
 Audit code for 16bit protected mode accesses.  Support 1ab1 from 16bit
-protected mode.
+protected mode.  The BDA is technically at segment 0x0040 (not
+0x0000).
 
 Possibly implement 32bit pcibios support.
 

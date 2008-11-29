@@ -551,6 +551,8 @@ dummy_iret_handler:
         IRQ_ENTRY_ARG 05
 
         ORG 0xfff0 // Power-up Entry Point
+        .global reset_vector
+reset_vector:
         ljmpw $SEG_BIOS, $post16
 
         ORG 0xfff5
