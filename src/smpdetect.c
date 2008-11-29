@@ -105,3 +105,10 @@ smp_probe(void)
 
     return smp_cpus;
 }
+
+// Reset smp_cpus to zero (forces a recheck on reboots).
+void
+smp_probe_setup(void)
+{
+    smp_cpus = 0;
+}

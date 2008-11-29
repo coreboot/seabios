@@ -148,6 +148,7 @@ void smm_init();
 
 // smpdetect.c
 int smp_probe(void);
+void smp_probe_setup(void);
 
 // mptable.c
 void mptable_init(void);

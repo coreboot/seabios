@@ -196,6 +196,7 @@ post()
     mathcp_setup();
 
     pci_bus_setup();
+    smp_probe_setup();
 
     memmap_setup();
     ram_probe();
@@ -217,15 +218,6 @@ post()
     init_boot_vectors();
 
     optionrom_setup();
-}
-
-// Clear .bss section for C code.
-static void
-clear_bss()
-{
-    dprintf(3, "clearing .bss section\n");
-    extern char __bss_start[], __bss_end[];
-    memset(__bss_start, 0, __bss_end - __bss_start);
 }
 
 // Reset DMA controller
@@ -278,9 +270,8 @@ _start()
     debug_serial_setup();
     dprintf(1, "Start bios\n");
 
-    // Setup for .bss and .data sections
+    // Allow writes to modify bios area (0xf0000)
     make_bios_writable();
-    clear_bss();
 
     // Perform main setup code.
     post();

@@ -142,6 +142,7 @@ memmap_setup()
         dprintf(1, "No room for e820 map!\n");
         return;
     }
+    e820_count = 0;
     e820_list = (void*)bios_table_cur_addr;
     bios_table_cur_addr += msize;
 }
