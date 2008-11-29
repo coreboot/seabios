@@ -23,6 +23,7 @@
 static int
 i8042_wait_read(void)
 {
+    dprintf(7, "i8042_wait_read\n");
     int i;
     for (i=0; i<I8042_CTL_TIMEOUT; i++) {
         u8 status = inb(PORT_PS2_STATUS);
@@ -37,6 +38,7 @@ i8042_wait_read(void)
 static int
 i8042_wait_write(void)
 {
+    dprintf(7, "i8042_wait_write\n");
     int i;
     for (i=0; i<I8042_CTL_TIMEOUT; i++) {
         u8 status = inb(PORT_PS2_STATUS);
@@ -51,6 +53,7 @@ i8042_wait_write(void)
 int
 i8042_flush(void)
 {
+    dprintf(7, "i8042_flush\n");
     unsigned long flags = irq_save();
 
     int i;
@@ -104,6 +107,7 @@ __i8042_command(int command, u8 *param)
 int
 i8042_command(int command, u8 *param)
 {
+    dprintf(7, "i8042_command cmd=%x\n", command);
     unsigned long flags = irq_save();
     int ret = __i8042_command(command, param);
     irq_restore(flags);
@@ -115,6 +119,7 @@ i8042_command(int command, u8 *param)
 static int
 i8042_kbd_write(u8 c)
 {
+    dprintf(7, "i8042_kbd_write c=%d\n", c);
     unsigned long flags = irq_save();
 
     int ret = i8042_wait_write();
@@ -143,6 +148,7 @@ i8042_aux_write(u8 c)
 static int
 ps2_sendbyte(int aux, u8 command)
 {
+    dprintf(7, "ps2_sendbyte aux=%d cmd=%x\n", aux, command);
     int ret;
     if (aux)
         ret = i8042_aux_write(command);
@@ -192,7 +198,7 @@ ps2_command(int aux, int command, u8 *param)
     // Send parameters (if any).
     int i;
     for (i = 0; i < send; i++) {
-        ret = ps2_sendbyte(aux, command);
+        ret = ps2_sendbyte(aux, param[i]);
         if (ret)
             goto fail;
     }
@@ -221,6 +227,7 @@ fail:
 int
 kbd_command(int command, u8 *param)
 {
+    dprintf(7, "kbd_command cmd=%x\n", command);
     int ret = ps2_command(0, command, param);
     if (ret)
         dprintf(2, "keyboard command %x failed (ret=%d)\n", command, ret);
@@ -230,6 +237,7 @@ kbd_command(int command, u8 *param)
 int
 aux_command(int command, u8 *param)
 {
+    dprintf(7, "aux_command cmd=%x\n", command);
     int ret = ps2_command(1, command, param);
     if (ret)
         dprintf(2, "mouse command %x failed (ret=%d)\n", command, ret);
