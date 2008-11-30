@@ -189,18 +189,6 @@ static void pci_bios_init_device(u16 bdf)
     }
 }
 
-static void pci_for_each_device(void (*init_func)(u16 bdf))
-{
-    int max = GET_VAR(CS, MaxBDF);
-    int bdf;
-    for (bdf = 0; bdf < max; bdf++) {
-        u16 vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
-        u16 device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
-        if (vendor_id != 0xffff || device_id != 0xffff)
-            init_func(bdf);
-    }
-}
-
 void
 pci_bios_setup(void)
 {
@@ -214,7 +202,11 @@ pci_bios_setup(void)
     if (pci_bios_bigmem_addr < 0x90000000)
         pci_bios_bigmem_addr = 0x90000000;
 
-    pci_for_each_device(pci_bios_init_bridges);
-
-    pci_for_each_device(pci_bios_init_device);
+    int bdf, max;
+    foreachpci(bdf, max, 0) {
+        pci_bios_init_bridges(bdf);
+    }
+    foreachpci(bdf, max, 0) {
+        pci_bios_init_device(bdf);
+    }
 }

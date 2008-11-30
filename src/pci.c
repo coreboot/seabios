@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "pci.h" // MaxBDF
+#include "pci.h" // pci_config_writel
 #include "ioport.h" // outl
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
@@ -48,37 +48,42 @@ u8 pci_config_readb(u16 bdf, u32 addr)
     return inb(PORT_PCI_DATA + (addr & 3));
 }
 
-#if MODE16
-int MaxBDF VISIBLE16 = 0x0100;
-#endif
-
-// Find the maximum bus number.
-void
-pci_bus_setup()
+int
+pci_next(int bdf, int *pmax)
 {
-    dprintf(3, "Scan for max PCI bus\n");
+    if (pci_bdf_to_fn(bdf) == 1
+        && (pci_config_readb(bdf-1, PCI_HEADER_TYPE) & 0x80) == 0)
+        // Last found device wasn't a multi-function device - skip to
+        // the next device.
+        bdf += 7;
 
-    int max = 0x0100;
-    int bdf;
-    for (bdf=0; bdf < max; bdf++) {
-        u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
-        if (v == 0xffffffff || v == 0x00000000
-            || v == 0x0000ffff || v == 0xffff0000)
-            // No device present.
-            continue;
-        v = pci_config_readb(bdf, PCI_HEADER_TYPE);
-        v &= 0x7f;
-        if (v != PCI_HEADER_TYPE_BRIDGE && v != PCI_HEADER_TYPE_CARDBUS)
-            // Not a bridge
-            continue;
+    int max = *pmax;
+    for (;;) {
+        if (bdf >= max)
+            return -1;
+
+        u16 v = pci_config_readw(bdf, PCI_VENDOR_ID);
+        if (v != 0x0000 && v != 0xffff)
+            // Device is present.
+            break;
+
+        if (pci_bdf_to_fn(bdf) == 0)
+            bdf += 8;
+        else
+            bdf += 1;
+    }
+
+    // Check if found device is a bridge.
+    u32 v = pci_config_readb(bdf, PCI_HEADER_TYPE);
+    v &= 0x7f;
+    if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
         v = pci_config_readl(bdf, PCI_PRIMARY_BUS);
         int newmax = (v & 0xff00) + 0x0100;
         if (newmax > max)
-            max = newmax;
+            *pmax = newmax;
     }
-    SET_VAR(CS, MaxBDF, max);
 
-    dprintf(1, "Found %d PCI buses\n", pci_bdf_to_bus(max));
+    return bdf;
 }
 
 // Search for a device with the specified vendor and device ids.
@@ -86,9 +91,8 @@ int
 pci_find_device(u16 vendid, u16 devid, int start_bdf)
 {
     u32 id = (devid << 16) | vendid;
-    int max = GET_VAR(CS, MaxBDF);
-    int bdf;
-    for (bdf=start_bdf; bdf < max; bdf++) {
+    int bdf, max;
+    foreachpci(bdf, max, start_bdf) {
         u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
         if (v != id)
             continue;
@@ -102,9 +106,8 @@ pci_find_device(u16 vendid, u16 devid, int start_bdf)
 int
 pci_find_classprog(u32 classprog, int start_bdf)
 {
-    int max = GET_VAR(CS, MaxBDF);
-    int bdf;
-    for (bdf=start_bdf; bdf < max; bdf++) {
+    int bdf, max;
+    foreachpci(bdf, max, start_bdf) {
         u32 v = pci_config_readl(bdf, PCI_CLASS_REVISION);
         if ((v>>8) != classprog)
             continue;
@@ -118,9 +121,8 @@ pci_find_classprog(u32 classprog, int start_bdf)
 int
 pci_find_class(u16 classid, int start_bdf)
 {
-    int max = GET_VAR(CS, MaxBDF);
-    int bdf;
-    for (bdf=start_bdf; bdf < max; bdf++) {
+    int bdf, max;
+    foreachpci(bdf, max, start_bdf) {
         u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
         if (v != classid)
             continue;

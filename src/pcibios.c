@@ -20,9 +20,14 @@
 static void
 handle_1ab101(struct bregs *regs)
 {
+    // Find max bus.
+    int bdf, max;
+    foreachpci(bdf, max, 0) {
+    }
+
     regs->al = 0x01; // Flags - "Config Mechanism #1" supported.
     regs->bx = 0x0210; // PCI version 2.10
-    regs->cl = pci_bdf_to_bus(GET_VAR(CS, MaxBDF) - 1);
+    regs->cl = pci_bdf_to_bus(max - 1);
     regs->edx = 0x20494350; // "PCI "
     // XXX - bochs bios code sets edi to point to 32bit code - but no
     // reference to this in spec.

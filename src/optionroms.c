@@ -271,9 +271,8 @@ optionrom_setup()
         }
     } else {
         // Find and deploy PCI roms.
-        int max = GET_VAR(CS, MaxBDF);
-        int bdf;
-        for (bdf=0; bdf < max; bdf++) {
+        int bdf, max;
+        foreachpci(bdf, max, 0) {
             u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
             if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA)
                 continue;

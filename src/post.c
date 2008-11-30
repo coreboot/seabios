@@ -195,7 +195,6 @@ post()
     timer_setup();
     mathcp_setup();
 
-    pci_bus_setup();
     smp_probe_setup();
 
     memmap_setup();
