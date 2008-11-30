@@ -74,6 +74,7 @@ struct pnp_data {
 #define OPTION_ROM_SIGNATURE 0xaa55
 #define OPTION_ROM_ALIGN 2048
 #define OPTION_ROM_INITVECTOR offsetof(struct rom_header, initVector[0])
+#define PCI_ROM_SIGNATURE 0x52494350 // PCIR
 
 // Next available position for an option rom.
 static u32 next_rom;
@@ -99,6 +100,7 @@ callrom(struct rom_header *rom, u16 offset, u16 bdf)
     br.di = (u32)pnp_string - BUILD_BIOS_ADDR;
     br.cs = seg;
     br.ip = offset;
+    // XXX - should call option rom in "big real mode".
     call16(&br);
 
     debug_serial_setup();
@@ -160,14 +162,29 @@ add_ipl(struct rom_header *rom, struct pnp_data *pnp)
     ebda->ipl.count++;
 }
 
+// Copy a rom to its permanent location below 1MiB
+static struct rom_header *
+copy_rom(struct rom_header *rom)
+{
+    u32 romsize = rom->size * 512;
+    if (next_rom + romsize > BUILD_BIOS_ADDR) {
+        // Option rom doesn't fit.
+        dprintf(1, "Option rom %p doesn't fit.\n", rom);
+        return NULL;
+    }
+    dprintf(4, "Copying option rom from %p to %x\n", rom, next_rom);
+    memcpy((void*)next_rom, rom, romsize);
+    return (struct rom_header *)next_rom;
+}
+
 // Check if an option rom is at a hardcoded location for a device.
 static struct rom_header *
 lookup_hardcode(u16 bdf)
 {
     if (OPTIONROM_BDF_1 && OPTIONROM_BDF_1 == bdf)
-        return (struct rom_header *)OPTIONROM_MEM_1;
+        return copy_rom((struct rom_header *)OPTIONROM_MEM_1);
     else if (OPTIONROM_BDF_2 && OPTIONROM_BDF_2 == bdf)
-        return (struct rom_header *)OPTIONROM_MEM_2;
+        return copy_rom((struct rom_header *)OPTIONROM_MEM_2);
     // XXX - check LAR when in coreboot?
     return NULL;
 }
@@ -183,20 +200,46 @@ map_optionrom(u16 bdf)
     u32 sz = pci_config_readl(bdf, PCI_ROM_ADDRESS);
 
     dprintf(6, "Option rom sizing returned %x %x\n", orig, sz);
+    orig &= ~PCI_ROM_ADDRESS_ENABLE;
     if (!sz || sz == 0xffffffff)
         goto fail;
 
-    // Looks like a rom - map it to just above end of memory.
-    u32 mappos = ALIGN(GET_EBDA(ram_size), OPTION_ROM_ALIGN);
-    pci_config_writel(bdf, PCI_ROM_ADDRESS, mappos | PCI_ROM_ADDRESS_ENABLE);
+    // Looks like a rom - enable it.
+    pci_config_writel(bdf, PCI_ROM_ADDRESS, orig | PCI_ROM_ADDRESS_ENABLE);
 
-    struct rom_header *rom = (struct rom_header *)mappos;
-    if (rom->signature != OPTION_ROM_SIGNATURE) {
-        dprintf(6, "No option rom signature (got %x)\n", rom->signature);
-        goto fail;
+    u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
+    struct rom_header *rom = (struct rom_header *)orig;
+    for (;;) {
+        dprintf(5, "Inspecting possible rom at %p (vd=%x bdf=%x)\n"
+                , rom, vendev, bdf);
+        if (rom->signature != OPTION_ROM_SIGNATURE) {
+            dprintf(6, "No option rom signature (got %x)\n", rom->signature);
+            goto fail;
+        }
+        if (!rom->pcioffset) {
+            dprintf(6, "No PCI offset\n");
+            goto fail;
+        }
+        struct pci_data *pci = (struct pci_data *)((u32)rom + rom->pcioffset);
+        if (pci->signature != PCI_ROM_SIGNATURE) {
+            dprintf(6, "Invalid pci signature (got %x)\n", pci->signature);
+            goto fail;
+        }
+        u32 vd = (pci->device << 16) | pci->vendor;
+        if (vd == vendev && pci->type == 0)
+            // A match
+            break;
+        dprintf(6, "Didn't match vendev (got %x) or type (got %d)\n"
+                , vd, pci->type);
+        if (pci->indicator & 0x80) {
+            dprintf(6, "No more images left\n");
+            goto fail;
+        }
+        rom = (struct rom_header *)((u32)rom + pci->ilen * 512);
     }
 
-    dprintf(6, "Card %x option rom mapped at %p\n", bdf, rom);
+    rom = copy_rom(rom);
+    pci_config_writel(bdf, PCI_ROM_ADDRESS, orig);
     return rom;
 fail:
     // Not valid - restore original and exit.
@@ -215,18 +258,6 @@ init_optionrom(u16 bdf)
     if (! rom)
         // No ROM present.
         return NULL;
-
-    u32 romsize = rom->size * 512;
-    if (next_rom + romsize > BUILD_BIOS_ADDR) {
-        // Option rom doesn't fit.
-        dprintf(1, "Option rom %x doesn't fit.\n", bdf);
-        pci_config_writel(bdf, PCI_ROM_ADDRESS, next_rom);
-        return NULL;
-    }
-    dprintf(4, "Copying option rom from %p to %x\n", rom, next_rom);
-    memcpy((void*)next_rom, rom, romsize);
-    pci_config_writel(bdf, PCI_ROM_ADDRESS, next_rom);
-    rom = (struct rom_header *)next_rom;
 
     if (! is_valid_rom(rom))
         return NULL;
