@@ -895,7 +895,7 @@ ata_init()
     // Scan PCI bus for ATA adapters
     int count=0;
     int bdf, max;
-    foreachpci(bdf, max, 0) {
+    foreachpci(bdf, max) {
         if (pci_config_readw(bdf, PCI_CLASS_DEVICE) != PCI_CLASS_STORAGE_IDE)
             continue;
 

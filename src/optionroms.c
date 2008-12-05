@@ -303,7 +303,7 @@ optionrom_setup()
     } else {
         // Find and deploy PCI roms.
         int bdf, max;
-        foreachpci(bdf, max, 0) {
+        foreachpci(bdf, max) {
             u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
             if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA)
                 continue;
@@ -361,7 +361,7 @@ vga_setup()
         next_rom += ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
     } else {
         // Find and deploy PCI VGA rom.
-        int bdf = pci_find_class(PCI_CLASS_DISPLAY_VGA, 0);
+        int bdf = pci_find_class(PCI_CLASS_DISPLAY_VGA);
         if (bdf < 0)
             // Device not found
             return;

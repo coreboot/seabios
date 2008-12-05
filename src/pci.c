@@ -88,11 +88,11 @@ pci_next(int bdf, int *pmax)
 
 // Search for a device with the specified vendor and device ids.
 int
-pci_find_device(u16 vendid, u16 devid, int start_bdf)
+pci_find_device(u16 vendid, u16 devid)
 {
     u32 id = (devid << 16) | vendid;
     int bdf, max;
-    foreachpci(bdf, max, start_bdf) {
+    foreachpci(bdf, max) {
         u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
         if (v != id)
             continue;
@@ -102,27 +102,12 @@ pci_find_device(u16 vendid, u16 devid, int start_bdf)
     return -1;
 }
 
-// Search for a device with the specified class id and prog-if.
-int
-pci_find_classprog(u32 classprog, int start_bdf)
-{
-    int bdf, max;
-    foreachpci(bdf, max, start_bdf) {
-        u32 v = pci_config_readl(bdf, PCI_CLASS_REVISION);
-        if ((v>>8) != classprog)
-            continue;
-        // Found it.
-        return bdf;
-    }
-    return -1;
-}
-
 // Search for a device with the specified class id.
 int
-pci_find_class(u16 classid, int start_bdf)
+pci_find_class(u16 classid)
 {
     int bdf, max;
-    foreachpci(bdf, max, start_bdf) {
+    foreachpci(bdf, max) {
         u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
         if (v != classid)
             continue;

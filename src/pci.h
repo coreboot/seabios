@@ -23,14 +23,13 @@ u32 pci_config_readl(u16 bdf, u32 addr);
 u16 pci_config_readw(u16 bdf, u32 addr);
 u8 pci_config_readb(u16 bdf, u32 addr);
 
-int pci_find_device(u16 vendid, u16 devid, int start_bdf);
-int pci_find_classprog(u32 classprog, int start_bdf);
-int pci_find_class(u16 classid, int start_bdf);
+int pci_find_device(u16 vendid, u16 devid);
+int pci_find_class(u16 classid);
 
 int pci_next(int bdf, int *pmax);
-#define foreachpci(BDF, MAX, START)                     \
-    for (MAX=0x0100, BDF=pci_next((START), &MAX)        \
-         ; BDF >= 0                                     \
+#define foreachpci(BDF, MAX)                    \
+    for (MAX=0x0100, BDF=pci_next(0, &MAX)      \
+         ; BDF >= 0                             \
          ; BDF=pci_next(BDF+1, &MAX))
 
 // pirtable.c

@@ -83,13 +83,13 @@ smm_init()
     dprintf(3, "init smm\n");
 
     // This code is hardcoded for PIIX4 Power Management device.
-    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3
-                              , 0);
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL
+                              , PCI_DEVICE_ID_INTEL_82371AB_3);
     if (bdf < 0)
         // Device not found
         return;
-    int i440_bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441
-                                   , 0);
+    int i440_bdf = pci_find_device(PCI_VENDOR_ID_INTEL
+                                   , PCI_DEVICE_ID_INTEL_82441);
     if (i440_bdf < 0)
         return;
 

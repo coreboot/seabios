@@ -10,6 +10,7 @@
 #include "pci.h" // pci_config_readl
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_EBDA
+#include "pci_regs.h" // PCI_VENDOR_ID
 
 #define RET_FUNC_NOT_SUPPORTED 0x81
 #define RET_BAD_VENDOR_ID      0x83
@@ -22,7 +23,7 @@ handle_1ab101(struct bregs *regs)
 {
     // Find max bus.
     int bdf, max;
-    foreachpci(bdf, max, 0) {
+    foreachpci(bdf, max) {
     }
 
     regs->al = 0x01; // Flags - "Config Mechanism #1" supported.
@@ -38,36 +39,40 @@ handle_1ab101(struct bregs *regs)
 static void
 handle_1ab102(struct bregs *regs)
 {
-    int bdf = -1;
+    u32 id = (regs->cx << 16) | regs->dx;
     int count = regs->si;
-    do {
-        bdf = pci_find_device(regs->dx, regs->cx, bdf+1);
-        if (bdf < 0) {
-            set_code_fail(regs, RET_DEVICE_NOT_FOUND);
-            return;
-        }
-    } while (count--);
-
-    regs->bx = bdf;
-    set_code_success(regs);
+    int bdf, max;
+    foreachpci(bdf, max) {
+        u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
+        if (v != id)
+            continue;
+        if (count--)
+            continue;
+        regs->bx = bdf;
+        set_code_success(regs);
+        return;
+    }
+    set_code_fail(regs, RET_DEVICE_NOT_FOUND);
 }
 
 // find class code
 static void
 handle_1ab103(struct bregs *regs)
 {
-    int bdf = -1;
     int count = regs->si;
-    do {
-        bdf = pci_find_classprog(regs->ecx, bdf+1);
-        if (bdf < 0) {
-            set_code_fail(regs, RET_DEVICE_NOT_FOUND);
-            return;
-        }
-    } while (count--);
-
-    regs->bx = bdf;
-    set_code_success(regs);
+    u32 classprog = regs->ecx;
+    int bdf, max;
+    foreachpci(bdf, max) {
+        u32 v = pci_config_readl(bdf, PCI_CLASS_REVISION);
+        if ((v>>8) != classprog)
+            continue;
+        if (count--)
+            continue;
+        regs->bx = bdf;
+        set_code_success(regs);
+        return;
+    }
+    set_code_fail(regs, RET_DEVICE_NOT_FOUND);
 }
 
 // read configuration byte

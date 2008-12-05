@@ -203,10 +203,10 @@ pci_bios_setup(void)
         pci_bios_bigmem_addr = 0x90000000;
 
     int bdf, max;
-    foreachpci(bdf, max, 0) {
+    foreachpci(bdf, max) {
         pci_bios_init_bridges(bdf);
     }
-    foreachpci(bdf, max, 0) {
+    foreachpci(bdf, max) {
         pci_bios_init_device(bdf);
     }
 }
