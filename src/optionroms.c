@@ -96,8 +96,7 @@ callrom(struct rom_header *rom, u16 offset, u16 bdf)
     br.di = (u32)pnp_string - BUILD_BIOS_ADDR;
     br.cs = seg;
     br.ip = offset;
-    // XXX - should call option rom in "big real mode".
-    call16(&br);
+    call16big(&br);
 
     debug_serial_setup();
 

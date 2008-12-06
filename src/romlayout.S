@@ -153,15 +153,15 @@ transition32:
         outb %al, $PORT_A20
 
         // Set segment descriptors
-        lidt %cs:pmode_IDT_info
-        lgdt %cs:rombios32_gdt_48
+        lidtw %cs:pmode_IDT_info
+        lgdtw %cs:rombios32_gdt_48
 
         // Enable protected mode
         movl %cr0, %eax
         orl $CR0_PE, %eax
         movl %eax, %cr0
 
-        // start protected mode code
+        // start 32bit protected mode code
         ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 1f)
 
         .code32
@@ -171,7 +171,6 @@ transition32:
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
-        xorl %eax, %eax
         movw %ax, %fs
         movw %ax, %gs
 
@@ -180,12 +179,12 @@ transition32:
 // Call a 16bit function from 32bit mode.
 // %eax = address of struct bregs
 // Clobbers: all gp registers, flags, stack registers, cr0, idt/gdt
-        .global __call16_from32
+        .global __call16_from32, __call16big_from32
 __call16_from32:
         pushl %eax
 
         // restore data segment limits to 0xffff
-        movw $SEG32_MODE16_DS, %ax
+        movl $SEG32_MODE16_DS, %eax
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
@@ -200,6 +199,18 @@ __call16_from32:
         // Jump to 16bit mode
         ljmpw $SEG32_MODE16_CS, $1f
 
+__call16big_from32:
+        pushl %eax
+
+        movl $SEG32_MODE16BIG_DS, %eax
+        movw %ax, %ds
+        movw %ax, %es
+        movw %ax, %ss
+        movw %ax, %fs
+        movw %ax, %gs
+
+        ljmpl $SEG32_MODE16BIG_CS, $(BUILD_BIOS_ADDR + 1f)
+
         .code16gcc
 1:
         // Disable protected mode
@@ -212,7 +223,7 @@ __call16_from32:
 
 2:
         // restore IDT to normal real-mode defaults
-        lidt %cs:rmode_IDT_info
+        lidtw %cs:rmode_IDT_info
 
         // Clear segment registers
         xorw %ax, %ax
@@ -366,9 +377,8 @@ rmode_IDT_info:
         .long 0       // base 16:47
 
 rombios32_gdt_48:
-        .word 0x30
-        .word rombios32_gdt
-        .word 0x000f
+        .word (rombios32_gdt_end - rombios32_gdt)
+        .long (BUILD_BIOS_ADDR + rombios32_gdt)
 
         .balign 8
 rombios32_gdt:
@@ -382,6 +392,11 @@ rombios32_gdt:
         .word 0xffff, 0, 0x9b0f, 0x0000
         // 16 bit data segment base=0x0 limit=0xffff (SEG32_MODE16_DS)
         .word 0xffff, 0, 0x9300, 0x0000
+        // 16 bit code segment base=0 limit=0xffffffff (SEG32_MODE16BIG_CS)
+        .word 0xffff, 0, 0x9b00, 0x008f
+        // 16 bit data segment base=0 limit=0xffffffff (SEG32_MODE16BIG_DS)
+        .word 0xffff, 0, 0x9300, 0x008f
+rombios32_gdt_end:
 
 // We need a copy of this string in the 0xf000 segment, but we are not
 // actually a PnP BIOS, so make sure it is *not* aligned, so OSes will

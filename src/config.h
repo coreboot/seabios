@@ -106,11 +106,13 @@
 #define SEG_EBDA     0x9fc0
 #define SEG_BDA      0x0000
 
-// Segment definitions in 32bit mode.
-#define SEG32_MODE32_CS (2 << 3) // 0x10
-#define SEG32_MODE32_DS (3 << 3) // 0x18
-#define SEG32_MODE16_CS (4 << 3) // 0x20
-#define SEG32_MODE16_DS (5 << 3) // 0x28
+// Segment definitions in protected mode (see rombios32_gdt in romlayout.S)
+#define SEG32_MODE32_CS    (2 << 3)
+#define SEG32_MODE32_DS    (3 << 3)
+#define SEG32_MODE16_CS    (4 << 3)
+#define SEG32_MODE16_DS    (5 << 3)
+#define SEG32_MODE16BIG_CS (6 << 3)
+#define SEG32_MODE16BIG_DS (7 << 3)
 
 // Debugging levels.  If non-zero and CONFIG_DEBUG_LEVEL is greater
 // than the specified value, then the corresponding irq handler will

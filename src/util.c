@@ -26,6 +26,20 @@ call16(struct bregs *callregs)
 }
 
 inline void
+call16big(struct bregs *callregs)
+{
+#if MODE16 == 1
+    extern void __force_link_error__only_in_32bit_mode();
+    __force_link_error__only_in_32bit_mode();
+#endif
+    asm volatile(
+        "calll __call16big_from32\n"
+        : "+a" (callregs), "+m" (*callregs)
+        :
+        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc");
+}
+
+inline void
 __call16_int(struct bregs *callregs, u16 offset)
 {
     callregs->cs = SEG_BIOS;
