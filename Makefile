@@ -75,36 +75,36 @@ endif
 
 
 $(OUT)%.proc.16.s: $(OUT)%.16.s
-	@echo "  Moving data sections to text in $<"
+	@echo "  Moving data sections to text in $@"
 	$(Q)sed 's/\t\.section\t\.rodata.*// ; s/\t\.data//' < $< > $@
 
 $(OUT)%.16.s: %.c
-	@echo "  Generating assembler for $<"
+	@echo "  Compiling to assembler $@"
 	$(Q)$(CC) $(CFLAGS16INC) $(DEPHACK) -S -c $< -o $@
 
 $(OUT)%.lds: %.lds.S
-	@echo "  Precompiling $<"
+	@echo "  Precompiling $@"
 	$(Q)$(CPP) -P -D__ASSEMBLY__ $< -o $@
 
 $(OUT)asm-offsets.h: $(OUT)asm-offsets.16.s
 	@echo "  Generating offset file $@"
 	$(Q)./tools/gen-offsets.sh $< $@
 
-$(OUT)blob.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
+$(OUT)ccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
 TABLEASM=$(addprefix $(OUT), $(patsubst %.c,%.proc.16.s,$(TABLESRC)))
-$(OUT)romlayout16.o: romlayout.S $(OUT)blob.16.s $(OUT)asm-offsets.h $(TABLEASM)
-	@echo "  Generating 16bit layout of $@"
-	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
+$(OUT)romlayout16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h $(TABLEASM)
+	@echo "  Compiling (16bit) $@"
+	$(Q)$(CC) $(CFLAGS16INC) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)romlayout32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
+$(OUT)ccode32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 
-$(OUT)rom32.o: $(OUT)romlayout32.o $(OUT)rombios32.lds
+$(OUT)rom32.o: $(OUT)ccode32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
 	$(Q)$(LD) -r -d -T $(OUT)rombios32.lds $< -o $@
 
 $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)rombios16.lds
-	@echo "  Linking $@"
+	@echo "  Linking (16bit) $@"
 	$(Q)$(OBJCOPY) --prefix-symbols=_code32_ $(OUT)rom32.o $(OUT)rom32.rename.o
 	$(Q)$(LD) -T $(OUT)rombios16.lds -R $(OUT)rom32.rename.o $< -o $@
 
