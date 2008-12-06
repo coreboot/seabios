@@ -27,7 +27,7 @@
 #define CONFIG_PS2_MOUSE 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
-// Support calling int155f on each keyboard press
+// Support calling int155f on each keyboard event
 #define CONFIG_KBD_CALL_INT15_4F 1
 // Support for booting from a CD
 #define CONFIG_CDROM_BOOT 1
@@ -39,7 +39,7 @@
 #define CONFIG_APMBIOS 1
 // Support int 19/18 system bootup support
 #define CONFIG_BOOT 1
-// Support int 14 parallel port calls
+// Support int 14 serial port calls
 #define CONFIG_SERIAL 1
 // Support int 17 parallel port calls
 #define CONFIG_LPT 1
@@ -49,6 +49,12 @@
 #define CONFIG_OPTIONROMS 1
 // Set if option roms are already copied to 0xc0000-0xf0000
 #define CONFIG_OPTIONROMS_DEPLOYED 1
+// When option roms are not pre-deployed, SeaBIOS can copy an optionrom
+// from flash for up to 2 devices.
+#define OPTIONROM_BDF_1 0x0000
+#define OPTIONROM_MEM_1 0x00000000
+#define OPTIONROM_BDF_2 0x0000
+#define OPTIONROM_MEM_2 0x00000000
 // Support an interactive boot menu at end of post.
 #define CONFIG_BOOTMENU 1
 

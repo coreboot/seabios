@@ -65,16 +65,12 @@ struct pnp_data {
     u16 staticresource;
 } PACKED;
 
-#define OPTIONROM_BDF_1 0x0000
-#define OPTIONROM_MEM_1 0x00000000
-#define OPTIONROM_BDF_2 0x0000
-#define OPTIONROM_MEM_2 0x00000000
-
 #define OPTION_ROM_START 0xc0000
 #define OPTION_ROM_SIGNATURE 0xaa55
 #define OPTION_ROM_ALIGN 2048
 #define OPTION_ROM_INITVECTOR offsetof(struct rom_header, initVector[0])
 #define PCI_ROM_SIGNATURE 0x52494350 // PCIR
+#define PCIROM_CODETYPE_X86 0
 
 // Next available position for an option rom.
 static u32 next_rom;
@@ -136,6 +132,16 @@ get_pnp_rom(struct rom_header *rom)
     return pnp;
 }
 
+// Check if a valid option rom has a pci struct; return it if so.
+static struct pci_data *
+get_pci_rom(struct rom_header *rom)
+{
+    struct pci_data *pci = (struct pci_data *)((u32)rom + rom->pcioffset);
+    if (pci->signature != PCI_ROM_SIGNATURE)
+        return NULL;
+    return pci;
+}
+
 // Add a BEV vector for a given pnp compatible option rom.
 static void
 add_ipl(struct rom_header *rom, struct pnp_data *pnp)
@@ -195,6 +201,12 @@ map_optionrom(u16 bdf)
 {
     dprintf(6, "Attempting to map option rom on dev %x\n", bdf);
 
+    u8 htype = pci_config_readb(bdf, PCI_HEADER_TYPE);
+    if ((htype & 0x7f) != PCI_HEADER_TYPE_NORMAL) {
+        dprintf(6, "Skipping non-normal pci device (type=%x)\n", htype);
+        return NULL;
+    }
+
     u32 orig = pci_config_readl(bdf, PCI_ROM_ADDRESS);
     pci_config_writel(bdf, PCI_ROM_ADDRESS, ~PCI_ROM_ADDRESS_ENABLE);
     u32 sz = pci_config_readl(bdf, PCI_ROM_ADDRESS);
@@ -203,6 +215,11 @@ map_optionrom(u16 bdf)
     orig &= ~PCI_ROM_ADDRESS_ENABLE;
     if (!sz || sz == 0xffffffff)
         goto fail;
+
+    if (orig < 16*1024*1024) {
+        dprintf(6, "Preset rom address doesn't look valid\n");
+        goto fail;
+    }
 
     // Looks like a rom - enable it.
     pci_config_writel(bdf, PCI_ROM_ADDRESS, orig | PCI_ROM_ADDRESS_ENABLE);
@@ -216,17 +233,14 @@ map_optionrom(u16 bdf)
             dprintf(6, "No option rom signature (got %x)\n", rom->signature);
             goto fail;
         }
-        if (!rom->pcioffset) {
-            dprintf(6, "No PCI offset\n");
+        struct pci_data *pci = get_pci_rom(rom);
+        if (! pci) {
+            dprintf(6, "No valid pci signature found\n");
             goto fail;
         }
-        struct pci_data *pci = (struct pci_data *)((u32)rom + rom->pcioffset);
-        if (pci->signature != PCI_ROM_SIGNATURE) {
-            dprintf(6, "Invalid pci signature (got %x)\n", pci->signature);
-            goto fail;
-        }
+
         u32 vd = (pci->device << 16) | pci->vendor;
-        if (vd == vendev && pci->type == 0)
+        if (vd == vendev && pci->type == PCIROM_CODETYPE_X86)
             // A match
             break;
         dprintf(6, "Didn't match vendev (got %x) or type (got %d)\n"
@@ -305,7 +319,8 @@ optionrom_setup()
         int bdf, max;
         foreachpci(bdf, max) {
             u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
-            if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA)
+            if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA
+                || (CONFIG_ATA && v == PCI_CLASS_STORAGE_IDE))
                 continue;
             init_optionrom(bdf);
         }
