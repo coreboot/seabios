@@ -48,27 +48,21 @@ static inline u8 readb(const void *addr)
     return *(volatile const u8 *)addr;
 }
 
+extern void smp_ap_boot_code();
+extern u32 smp_cpus;
+#if MODE16
+u32 smp_cpus VISIBLE16;
 asm(
-    ".global smp_ap_boot_code_start\n"
-    ".global smp_ap_boot_code_end\n"
-    "  .code16\n"
-
-    "smp_ap_boot_code_start:\n"
-    // Increament the counter at BUILD_CPU_COUNT_ADDR
-    "  xorw %ax, %ax\n"
+    "  .global smp_ap_boot_code\n"
+    "smp_ap_boot_code:\n"
+    // Increament the cpu counter
+    "  movw $" __stringify(SEG_BIOS) ", %ax\n"
     "  movw %ax, %ds\n"
-    "  lock incw " __stringify(BUILD_CPU_COUNT_ADDR) "\n"
+    "  lock incl smp_cpus\n"
     // Halt the processor.
-    "  ljmpl $" __stringify(SEG_BIOS) ", $(permanent_halt - " __stringify(BUILD_BIOS_ADDR) ")\n"
-    "smp_ap_boot_code_end:\n"
-
-    "  .code32\n"
+    "  jmp permanent_halt\n"
     );
-
-extern u8 smp_ap_boot_code_start;
-extern u8 smp_ap_boot_code_end;
-
-static int smp_cpus;
+#endif
 
 /* find the number of CPUs by launching a SIPI to them */
 int
@@ -77,33 +71,43 @@ smp_probe(void)
     if (smp_cpus)
         return smp_cpus;
 
-    smp_cpus = 1;
-
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
-    if (cpuid_features & CPUID_APIC) {
-        /* enable local APIC */
-        u32 val = readl(APIC_BASE + APIC_SVR);
-        val |= APIC_ENABLED;
-        writel(APIC_BASE + APIC_SVR, val);
-
-        writew((void *)BUILD_CPU_COUNT_ADDR, 1);
-        /* copy AP boot code */
-        memcpy((void *)BUILD_AP_BOOT_ADDR, &smp_ap_boot_code_start,
-               &smp_ap_boot_code_end - &smp_ap_boot_code_start);
-
-        /* broadcast SIPI */
-        writel(APIC_BASE + APIC_ICR_LOW, 0x000C4500);
-        u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
-        writel(APIC_BASE + APIC_ICR_LOW, 0x000C4600 | sipi_vector);
-
-        mdelay(10);
-
-        smp_cpus = readw((void *)BUILD_CPU_COUNT_ADDR);
+    if (! (cpuid_features & CPUID_APIC)) {
+        // No apic - only the main cpu is present.
+        smp_cpus = 1;
+        return 1;
     }
-    dprintf(1, "Found %d cpu(s)\n", smp_cpus);
 
-    return smp_cpus;
+    // Init the counter.
+    writel(&smp_cpus, 1);
+
+    // Setup jump trampoline to counter code.
+    u64 old = *(u64*)BUILD_AP_BOOT_ADDR;
+    // ljmpw $SEG_BIOS, $(smp_ap_boot_code - BUILD_BIOS_ADDR)
+    u64 new = (0xea | ((u64)SEG_BIOS<<24)
+               | (((u32)smp_ap_boot_code - BUILD_BIOS_ADDR) << 8));
+    *(u64*)BUILD_AP_BOOT_ADDR = new;
+
+    // enable local APIC
+    u32 val = readl(APIC_BASE + APIC_SVR);
+    writel(APIC_BASE + APIC_SVR, val | APIC_ENABLED);
+
+    // broadcast SIPI
+    writel(APIC_BASE + APIC_ICR_LOW, 0x000C4500);
+    u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
+    writel(APIC_BASE + APIC_ICR_LOW, 0x000C4600 | sipi_vector);
+
+    // Wait for other CPUs to process the SIPI.
+    mdelay(10);
+
+    // Restore memory.
+    writel(APIC_BASE + APIC_SVR, val);
+    *(u64*)BUILD_AP_BOOT_ADDR = old;
+
+    u32 count = readl(&smp_cpus);
+    dprintf(1, "Found %d cpu(s)\n", count);
+    return count;
 }
 
 // Reset smp_cpus to zero (forces a recheck on reboots).

@@ -9,10 +9,10 @@ OUT=out/
 
 # Source files
 SRCBOTH=output.c util.c floppy.c ata.c system.c mouse.c kbd.c pci.c \
-        serial.c clock.c pic.c cdrom.c ps2port.c
+        serial.c clock.c pic.c cdrom.c ps2port.c smpdetect.c
 SRC16=$(SRCBOTH) disk.c apm.c pcibios.c vgahooks.c
 SRC32=$(SRCBOTH) post.c shadow.c post_menu.c memmap.c coreboot.c boot.c \
-      acpi.c pirtable.c smm.c smpdetect.c mptable.c smbios.c pciinit.c \
+      acpi.c pirtable.c smm.c mptable.c smbios.c pciinit.c \
       optionroms.c
 TABLESRC=font.c cbt.c floppy_dbt.c
 
