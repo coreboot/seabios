@@ -93,9 +93,9 @@
 // 64 KB used to copy the BIOS to shadow RAM
 #define BUILD_BIOS_TMP_ADDR     0x30000
 
-#define BUILD_PM_IO_BASE        0xb000
-#define BUILD_SMB_IO_BASE       0xb100
-#define BUILD_SMI_CMD_IO_ADDR   0xb2
+#define BUILD_SMM_INIT_ADDR     0x38000
+#define BUILD_SMM_ADDR          0xa8000
+#define BUILD_SMM_SIZE          0x8000
 
 // Start of fixed addresses in 0xf0000 segment.
 #define BUILD_START_FIXED       0xe050

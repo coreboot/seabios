@@ -28,6 +28,8 @@
 #define PORT_A20               0x0092
 #define PORT_PIC2_CMD          0x00a0
 #define PORT_PIC2_DATA         0x00a1
+#define PORT_SMI_CMD           0x00b2
+#define PORT_SMI_STATUS        0x00b3
 #define PORT_DMA2_MASK_REG     0x00d4
 #define PORT_DMA2_MODE_REG     0x00d6
 #define PORT_DMA2_MASTER_CLEAR 0x00da
@@ -42,6 +44,8 @@
 #define PORT_BIOS_DEBUG        0x0402
 #define PORT_QEMU_CFG_CTL      0x0510
 #define PORT_QEMU_CFG_DATA     0x0511
+#define PORT_ACPI_PM_BASE      0xb000
+#define PORT_SMB_BASE          0xb100
 #define PORT_BIOS_APM          0x8900
 
 // PORT_A20 bitdefs

@@ -365,12 +365,12 @@ void acpi_bios_init(void)
     fadt->reserved1 = 0;
     int pm_sci_int = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
     fadt->sci_int = cpu_to_le16(pm_sci_int);
-    fadt->smi_cmd = cpu_to_le32(BUILD_SMI_CMD_IO_ADDR);
+    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
     fadt->acpi_enable = 0xf1;
     fadt->acpi_disable = 0xf0;
-    fadt->pm1a_evt_blk = cpu_to_le32(BUILD_PM_IO_BASE);
-    fadt->pm1a_cnt_blk = cpu_to_le32(BUILD_PM_IO_BASE + 0x04);
-    fadt->pm_tmr_blk = cpu_to_le32(BUILD_PM_IO_BASE + 0x08);
+    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
+    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
+    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
     fadt->pm1_evt_len = 4;
     fadt->pm1_cnt_len = 2;
     fadt->pm_tmr_len = 4;

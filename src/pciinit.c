@@ -180,11 +180,9 @@ static void pci_bios_init_device(u16 bdf)
     if (vendor_id == PCI_VENDOR_ID_INTEL
         && device_id == PCI_DEVICE_ID_INTEL_82371AB_3) {
         /* PIIX4 Power Management device (for ACPI) */
-        u32 pm_io_base = BUILD_PM_IO_BASE;
-        pci_config_writel(bdf, 0x40, pm_io_base | 1);
+        pci_config_writel(bdf, 0x40, PORT_ACPI_PM_BASE | 1);
         pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
-        u32 smb_io_base = BUILD_SMB_IO_BASE;
-        pci_config_writel(bdf, 0x90, smb_io_base | 1);
+        pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
         pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
     }
 }
