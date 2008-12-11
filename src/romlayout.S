@@ -8,6 +8,7 @@
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_A20
 #include "bregs.h" // CR0_*
+#include "cmos.h" // CMOS_RESET_CODE
 #include "../out/asm-offsets.h" // BREGS_*
 
 
@@ -129,7 +130,14 @@ post16:
         andl $~(CR0_CD|CR0_NW), %eax
         movl %eax, %cr0
 
-        // init the stack pointer
+        // Check for restart indicator.
+        movl $CMOS_RESET_CODE, %eax
+        outb %al, $PORT_CMOS_INDEX
+        inb $PORT_CMOS_DATA, %al
+        cmpb $0x0, %al
+        jnz entry_resume
+
+        // Normal entry point
         RESET_STACK
 
         pushl $_code32__start
@@ -295,6 +303,28 @@ __call16:
 
         retl
 
+// Entry point when a post call looks like a resume.
+entry_resume:
+        // Save old shutdown status.
+        movl %eax, %ebx
+
+        // Clear shutdown status register.
+        movl $CMOS_RESET_CODE, %eax
+        outb %al, $PORT_CMOS_INDEX
+        xorl %eax, %eax
+        outb %al, $PORT_CMOS_DATA
+
+        // Use a stack in EBDA
+        movw $SEG_BDA, %ax
+        movw %ax, %ds
+        movw BDA_ebda_seg, %ss
+        movl $EBDA_resume_stack_top, %esp
+
+        // Call handler.
+        movl %ebx, %eax
+        cld
+        cli
+        jmp handle_resume
 
 // APM trampolines
         .global apm16protected_entry

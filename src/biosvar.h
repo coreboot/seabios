@@ -60,7 +60,8 @@ struct bios_data_area_s {
     u16 crtc_address;
     u8 video_msr;
     u8 video_pal;
-    u32 jump_cs_ip;
+    u16 jump_ip;
+    u16 jump_cs;
     u8 other_6b;
     u32 timer_counter;
     // 40:70
@@ -272,6 +273,7 @@ struct extended_bios_data_area_s {
     // 0x5d
     u8 other2[0xC4];
 
+    // 0x121 - Begin custom storage.
     u8 ps2ctr;
 
     // Physical memory available.
@@ -280,13 +282,16 @@ struct extended_bios_data_area_s {
     struct pir_header *pir_loc;
 
     // ATA Driver data
-    struct ata_s   ata;
+    struct ata_s ata;
 
     // El Torito Emulation data
     struct cdemu_s cdemu;
 
     // Initial program load
     struct ipl_s ipl;
+
+    // Resume stack
+    u8 resume_stack[128] __aligned(8);
 } PACKED;
 
 #define EBDA_SIZE DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)

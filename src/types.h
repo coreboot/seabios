@@ -42,6 +42,7 @@ union u64_u32_u {
 #define NULL ((void *)0)
 
 #define PACKED __attribute__((packed))
+#define __aligned(x) __attribute__((aligned(x)))
 
 #define barrier() __asm__ __volatile__("": : :"memory")
 

@@ -6,8 +6,6 @@
 #ifndef __CMOS_H
 #define __CMOS_H
 
-#include "ioport.h" // inb, outb
-
 #define CMOS_RTC_SECONDS         0x00
 #define CMOS_RTC_SECONDS_ALARM   0x01
 #define CMOS_RTC_MINUTES         0x02
@@ -50,6 +48,10 @@
 #define CFD_144MB    4
 #define CFD_288MB    5
 
+#ifndef __ASSEMBLY__
+
+#include "ioport.h" // inb, outb
+
 static inline u8
 inb_cmos(u8 reg)
 {
@@ -63,5 +65,7 @@ outb_cmos(u8 val, u8 reg)
     outb(reg, PORT_CMOS_INDEX);
     outb(val, PORT_CMOS_DATA);
 }
+
+#endif // !__ASSEMBLY__
 
 #endif // cmos.h

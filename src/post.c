@@ -219,52 +219,11 @@ post()
     optionrom_setup();
 }
 
-// Reset DMA controller
-static void
-init_dma()
-{
-    // first reset the DMA controllers
-    outb(0, PORT_DMA1_MASTER_CLEAR);
-    outb(0, PORT_DMA2_MASTER_CLEAR);
-
-    // then initialize the DMA controllers
-    outb(0xc0, PORT_DMA2_MODE_REG);
-    outb(0x00, PORT_DMA2_MASK_REG);
-}
-
-// Check if the machine was setup with a special restart vector.
-static void
-check_restart_status()
-{
-    // Get and then clear CMOS shutdown status.
-    u8 status = inb_cmos(CMOS_RESET_CODE);
-    outb_cmos(0, CMOS_RESET_CODE);
-
-    if (status == 0x00 || status == 0x09 || status >= 0x0d)
-        // Normal post
-        return;
-
-    if (status != 0x05) {
-        BX_PANIC("Unimplemented shutdown status: %02x\n", status);
-        return;
-    }
-
-    // XXX - this is supposed to jump without changing any memory -
-    // but the stack has been altered by the time the code gets here.
-    eoi_pic2();
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.cs = GET_BDA(jump_cs_ip) >> 16;
-    br.ip = GET_BDA(jump_cs_ip);
-    call16(&br);
-}
-
 // 32-bit entry point.
 void VISIBLE32
 _start()
 {
     init_dma();
-    check_restart_status();
 
     debug_serial_setup();
     dprintf(1, "Start bios\n");

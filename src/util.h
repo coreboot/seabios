@@ -173,4 +173,10 @@ void handle_155f();
 void vga_setup();
 void optionrom_setup();
 
+// resume.c
+void init_dma();
+
+// romlayout.S
+void reset_vector() __attribute__ ((noreturn));
+
 #endif // util.h

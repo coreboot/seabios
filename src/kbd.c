@@ -338,9 +338,6 @@ handle_16(struct bregs *regs)
     }
 }
 
-// 16bit reset vector declared in romlayout.S
-void reset_vector() __attribute__ ((noreturn));
-
 #define none 0
 #define MAX_SCAN_CODE 0x58
 
