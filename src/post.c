@@ -136,8 +136,6 @@ init_bios_tables(void)
         // XXX - not supported on coreboot yet.
         return;
 
-    smm_init();
-
     create_pirtable();
 
     mptable_init();
@@ -208,6 +206,8 @@ post()
     mouse_setup();
 
     pci_bios_setup();
+    smm_init();
+
     init_bios_tables();
     memmap_finalize();
 

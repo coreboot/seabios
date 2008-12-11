@@ -77,6 +77,9 @@ extern u8 smm_code_start, smm_code_end;
 void
 smm_init()
 {
+    if (CONFIG_COREBOOT)
+        // SMM only supported on emulators.
+        return;
     if (!CONFIG_USE_SMM)
         return;
 
