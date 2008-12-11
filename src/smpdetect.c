@@ -55,7 +55,7 @@ u32 smp_cpus VISIBLE16;
 asm(
     "  .global smp_ap_boot_code\n"
     "smp_ap_boot_code:\n"
-    // Increament the cpu counter
+    // Increment the cpu counter
     "  movw $" __stringify(SEG_BIOS) ", %ax\n"
     "  movw %ax, %ds\n"
     "  lock incl smp_cpus\n"

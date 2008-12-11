@@ -174,7 +174,7 @@ handle_1587(struct bregs *regs)
         "2:\n"
 
         // restore IDT to normal real-mode defaults
-        "lidt %%cs:rmode_IDT_info\n"
+        "lidtw %%cs:rmode_IDT_info\n"
 
         // Restore %ds (from %ss)
         "movw %%ss, %%ax\n"

@@ -11,10 +11,6 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_COMMAND
 
-#define PCI_ADDRESS_SPACE_MEM		0x00
-#define PCI_ADDRESS_SPACE_IO		0x01
-#define PCI_ADDRESS_SPACE_MEM_PREFETCH	0x08
-
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
 
@@ -29,10 +25,10 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
     u16 cmd;
     u32 ofs, old_addr;
 
-    if ( region_num == PCI_ROM_SLOT ) {
-        ofs = 0x30;
-    }else{
-        ofs = 0x10 + region_num * 4;
+    if (region_num == PCI_ROM_SLOT) {
+        ofs = PCI_ROM_ADDRESS;
+    } else {
+        ofs = PCI_BASE_ADDRESS_0 + region_num * 4;
     }
 
     old_addr = pci_config_readl(bdf, ofs);
@@ -42,12 +38,12 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 
     /* enable memory mappings */
     cmd = pci_config_readw(bdf, PCI_COMMAND);
-    if ( region_num == PCI_ROM_SLOT )
-        cmd |= 2;
-    else if (old_addr & PCI_ADDRESS_SPACE_IO)
-        cmd |= 1;
+    if (region_num == PCI_ROM_SLOT)
+        cmd |= PCI_COMMAND_MEMORY;
+    else if (old_addr & PCI_BASE_ADDRESS_SPACE_IO)
+        cmd |= PCI_COMMAND_IO;
     else
-        cmd |= 2;
+        cmd |= PCI_COMMAND_MEMORY;
     pci_config_writew(bdf, PCI_COMMAND, cmd);
 }
 
@@ -101,7 +97,7 @@ static void pci_bios_init_device(u16 bdf)
     dprintf(1, "PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_devfn(bdf), vendor_id, device_id);
     switch(class) {
-    case 0x0101:
+    case PCI_CLASS_STORAGE_IDE:
         if (vendor_id == PCI_VENDOR_ID_INTEL
             && (device_id == PCI_DEVICE_ID_INTEL_82371SB_1
                 || device_id == PCI_DEVICE_ID_INTEL_82371AB)) {
@@ -117,13 +113,13 @@ static void pci_bios_init_device(u16 bdf)
             pci_set_io_region_addr(bdf, 3, 0x374);
         }
         break;
-    case 0x0300:
+    case PCI_CLASS_DISPLAY_VGA:
         if (vendor_id != 0x1234)
             goto default_map;
         /* VGA: map frame buffer to default Bochs VBE address */
         pci_set_io_region_addr(bdf, 0, 0xE0000000);
         break;
-    case 0x0800:
+    case PCI_CLASS_SYSTEM_PIC:
         /* PIC */
         if (vendor_id == PCI_VENDOR_ID_IBM) {
             /* IBM */
@@ -143,19 +139,19 @@ static void pci_bios_init_device(u16 bdf)
     default:
     default_map:
         /* default memory mappings */
-        for(i = 0; i < PCI_NUM_REGIONS; i++) {
+        for (i = 0; i < PCI_NUM_REGIONS; i++) {
             int ofs;
             u32 val, size;
 
             if (i == PCI_ROM_SLOT)
-                ofs = 0x30;
+                ofs = PCI_ROM_ADDRESS;
             else
-                ofs = 0x10 + i * 4;
+                ofs = PCI_BASE_ADDRESS_0 + i * 4;
             pci_config_writel(bdf, ofs, 0xffffffff);
             val = pci_config_readl(bdf, ofs);
             if (val != 0) {
                 size = (~(val & ~0xf)) + 1;
-                if (val & PCI_ADDRESS_SPACE_IO)
+                if (val & PCI_BASE_ADDRESS_SPACE_IO)
                     paddr = &pci_bios_io_addr;
                 else if (size >= 0x04000000)
                     paddr = &pci_bios_bigmem_addr;

@@ -147,7 +147,7 @@ memmap_setup()
     bios_table_cur_addr += msize;
 }
 
-// Copy the temporary e820 map info to its permanent location.
+// Report on final memory locations.
 void
 memmap_finalize()
 {
