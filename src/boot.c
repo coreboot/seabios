@@ -143,7 +143,7 @@ try_boot(u16 seq_nr)
     case IPL_TYPE_CDROM: {
         /* CD-ROM */
         if (! CONFIG_CDROM_BOOT)
-            break;
+            return;
         int status = cdrom_boot();
         if (status) {
             printf("CDROM boot failure code : %04x\n", status);
