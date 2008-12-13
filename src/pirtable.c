@@ -12,7 +12,7 @@
 struct pir_table {
     struct pir_header pir;
     struct pir_slot slots[6];
-} PACKED PIR_TABLE __attribute__((aligned(16))) = {
+} PACKED PIR_TABLE __aligned(16) = {
 #if CONFIG_PIRTABLE
     .pir = {
         .version = 0x0100,

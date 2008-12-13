@@ -27,7 +27,7 @@
 // INT 16/AH=09h (keyboard functionality) supported
 #define CBT_F2_INT1609  (1<<6)
 
-struct bios_config_table_s BIOS_CONFIG_TABLE = {
+struct bios_config_table_s BIOS_CONFIG_TABLE __aligned(1) = {
     .size     = sizeof(BIOS_CONFIG_TABLE) - 2,
     .model    = CONFIG_MODEL_ID,
     .submodel = CONFIG_SUBMODEL_ID,

@@ -14,8 +14,10 @@ SECTIONS
         code16_start = . ;
         .text16 : {
                 *(.text)
+                code16_rodata = . ;
                 *(.rodata*)
                 *(.data)
+                code16_bss = . ;
                 *(.bss)
                 *(COMMON)
                 }

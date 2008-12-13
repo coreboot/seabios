@@ -304,6 +304,7 @@ __call16:
         retl
 
 // Entry point when a post call looks like a resume.
+// %eax = shutdown status from cmos
 entry_resume:
         // Save old shutdown status.
         movl %eax, %ebx
@@ -393,6 +394,7 @@ permanent_halt:
 // Set base to f0000 to correspond to beginning of BIOS,
 // in case I actually define an IDT later
 // Set limit to 0
+        .type pmode_IDT_info, @object
 pmode_IDT_info:
         .word 0x0000  // limit 15:00
         .long 0xf0000 // base 16:47
@@ -402,15 +404,18 @@ pmode_IDT_info:
 // Set to typical real-mode values.
 // base  = 000000
 // limit =   03ff
+        .type rmode_IDT_info, @object
 rmode_IDT_info:
         .word 0x03ff  // limit 15:00
         .long 0       // base 16:47
 
+        .type rombios32_gdt_48, @object
 rombios32_gdt_48:
         .word (rombios32_gdt_end - rombios32_gdt)
         .long (BUILD_BIOS_ADDR + rombios32_gdt)
 
         .balign 8
+        .type rombios32_gdt, @object
 rombios32_gdt:
         .word 0, 0, 0, 0
         .word 0, 0, 0, 0
@@ -432,6 +437,7 @@ rombios32_gdt_end:
 // actually a PnP BIOS, so make sure it is *not* aligned, so OSes will
 // not see it if they scan.
         .global pnp_string
+        .type pnp_string, @object
         .balign 2
         .byte 0
 pnp_string:
@@ -463,20 +469,19 @@ pnp_string:
         ORG 0xe2c3
         IRQ_ENTRY nmi
 
-        IRQ_ENTRY_ARG 13
-        IRQ_ENTRY_ARG 12
-        IRQ_ENTRY_ARG 11
-        IRQ_ENTRY 76
-        IRQ_ENTRY 1c
-        IRQ_ENTRY 70
-
         ORG 0xe3fe
+        .global entry_13_official
+entry_13_official:
         jmp entry_13
 
         ORG 0xe401
+        .type __fdpt, @object
+__fdpt:
         // XXX - Fixed Disk Parameter Table
 
         ORG 0xe6f2
+        .global entry_19_official
+entry_19_official:
         jmp entry_19
 
         ORG 0xe6f5
@@ -484,16 +489,76 @@ pnp_string:
         .text
 
         ORG 0xe729
+        .type __brgt, @object
+__brgt:
         // XXX - Baud Rate Generator Table
 
         ORG 0xe739
         IRQ_ENTRY_ARG 14
 
+        ORG 0xe82e
+        IRQ_ENTRY_ARG 16
+
+        ORG 0xe987
+        IRQ_ENTRY 09
+
+        ORG 0xec59
+        IRQ_ENTRY_ARG 40
+
+        ORG 0xef57
+        IRQ_ENTRY 0e
+
+        ORG 0xefc7
+.include "out/floppy_dbt.proc.16.s"
+        .text
+
+        ORG 0xefd2
+        IRQ_ENTRY_ARG 17
+
+        ORG 0xf045
+__int10_0x0f:
+        // XXX - INT 10 Functions 0-Fh Entry Point
+        iretw
+
+        ORG 0xf065
+        IRQ_ENTRY_ARG 10
+
+        ORG 0xf0a4
+        .type __int1d, @object
+__int1d:
+        // XXX - INT 1D - SYSTEM DATA - VIDEO PARAMETER TABLES
+        .space 0x58
+
+        .global freespace2_start, freespace2_end
+freespace2_start:
+
+        ORG 0xf841
+freespace2_end:
+        .global entry_12_official
+entry_12_official:
+        jmp entry_12
+
+        ORG 0xf84d
+        .global entry_11_official
+entry_11_official:
+        jmp entry_11
+
+        ORG 0xf859
+        IRQ_ENTRY_ARG 15
+
+        // Fit other misc defs if the freespace between 0xf859-0xfa6e
+
+        IRQ_ENTRY_ARG 13
+        IRQ_ENTRY_ARG 12
+        IRQ_ENTRY_ARG 11
+        IRQ_ENTRY 76
+        IRQ_ENTRY 1c
+        IRQ_ENTRY 70
         IRQ_ENTRY 74
         IRQ_ENTRY 75
+        IRQ_ENTRY hwirq
 
         // int 18/19 are special - they reset the stack and do not return.
-        .global entry_19
 entry_19:
         RESET_STACK
         pushl $_code32_handle_19
@@ -523,53 +588,6 @@ entry_18:
         IRQ_TRAMPOLINE 1c
         IRQ_TRAMPOLINE 4a
 
-        ORG 0xe82e
-        IRQ_ENTRY_ARG 16
-
-        .global entry_hwirq
-entry_hwirq:
-        ENTRY handle_hwirq
-
-        ORG 0xe987
-        IRQ_ENTRY 09
-
-        ORG 0xec59
-        IRQ_ENTRY_ARG 40
-
-        ORG 0xef57
-        IRQ_ENTRY 0e
-
-        ORG 0xefc7
-.include "out/floppy_dbt.proc.16.s"
-        .text
-
-        ORG 0xefd2
-        IRQ_ENTRY_ARG 17
-
-        ORG 0xf045
-        // XXX int 10
-        iretw
-
-        ORG 0xf065
-        IRQ_ENTRY_ARG 10
-
-        ORG 0xf0a4
-        // XXX int 1D
-        iretw
-
-        .global freespace2_start, freespace2_end
-freespace2_start:
-
-        ORG 0xf841
-freespace2_end:
-        jmp entry_12
-
-        ORG 0xf84d
-        jmp entry_11
-
-        ORG 0xf859
-        IRQ_ENTRY_ARG 15
-
         ORG 0xfa6e
 .include "out/font.proc.16.s"
         .text
@@ -581,11 +599,14 @@ freespace2_end:
         IRQ_ENTRY 08
 
         ORG 0xfef3
+__initvector:
         // XXX - Initial Interrupt Vector Offsets Loaded by POST
 
         ORG 0xff00
+        .type __copyright, @object
+__copyright:
         // XXX - BIOS_COPYRIGHT_STRING
-        .ascii "(c) 2002 MandrakeSoft S.A. Written by Kevin Lawton & the Bochs team."
+        .asciz "(c) 2002 MandrakeSoft S.A. Written by Kevin Lawton & the Bochs team."
 
         ORG 0xff53
         .global dummy_iret_handler
@@ -601,13 +622,18 @@ reset_vector:
         ljmpw $SEG_BIOS, $post16
 
         ORG 0xfff5
+        .type __biosdate, @object
+__biosdate:
         // BIOS build date
         .ascii "06/23/99"
 
         ORG 0xfffe
+        .type __model_id, @object
+__model_id:
         .byte CONFIG_MODEL_ID
 
         .global bios_checksum
+        .type bios_checksum, @object
 bios_checksum:
         .byte 0x00
 

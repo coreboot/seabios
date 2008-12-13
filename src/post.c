@@ -54,15 +54,15 @@ init_bda()
 
     // Initialize software handlers.
     set_irq(0x10, entry_10);
-    set_irq(0x11, entry_11);
-    set_irq(0x12, entry_12);
-    set_irq(0x13, entry_13);
+    set_irq(0x11, entry_11_official);
+    set_irq(0x12, entry_12_official);
+    set_irq(0x13, entry_13_official);
     set_irq(0x14, entry_14);
     set_irq(0x15, entry_15);
     set_irq(0x16, entry_16);
     set_irq(0x17, entry_17);
     set_irq(0x18, entry_18);
-    set_irq(0x19, entry_19);
+    set_irq(0x19, entry_19_official);
     set_irq(0x1a, entry_1a);
     set_irq(0x1c, entry_1c);
     set_irq(0x40, entry_40);

@@ -16,13 +16,11 @@ SECTIONS
                 *(.text)
                 code32_rodata = . ;
                 *(.rodata*)
-                code32_data = . ;
                 *(.data)
                 . = ALIGN(16) ;
-                __bss_start = . ;
+                code32_bss = . ;
                 *(.bss)
                 *(COMMON)
-                __bss_end = . ;
                 }
         code32_end = . ;
 }
