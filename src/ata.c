@@ -37,10 +37,9 @@
 static int
 await_ide(u8 when_done, u16 base, u16 timeout)
 {
-    u32 time=0, last=0;
+    u64 end = calc_future_tsc(timeout);
     for (;;) {
         u8 status = inb(base+ATA_CB_STAT);
-        time++;
         u8 result = 0;
         if (when_done == BSY)
             result = status & ATA_CB_STAT_BSY;
@@ -55,20 +54,13 @@ await_ide(u8 when_done, u16 base, u16 timeout)
 
         if (result)
             return status;
-        // mod 2048 each 16 ms
-        if (time>>16 != last) {
-            last = time >>16;
-            dprintf(6, "await_ide: (TIMEOUT,BSY,!BSY,!BSY_DRQ"
-                    ",!BSY_!DRQ,!BSY_RDY) %d time= %d timeout= %d\n"
-                    , when_done, time>>11, timeout);
-        }
         if (status & ATA_CB_STAT_ERR) {
             dprintf(1, "await_ide: ERROR (TIMEOUT,BSY,!BSY,!BSY_DRQ"
-                    ",!BSY_!DRQ,!BSY_RDY) %d status=%x time= %d timeout= %d\n"
-                    , when_done, status, time>>11, timeout);
+                    ",!BSY_!DRQ,!BSY_RDY) %d status=%x timeout=%d\n"
+                    , when_done, status, timeout);
             return -1;
         }
-        if (timeout == 0 || (time>>11) > timeout)
+        if (rdtscll() >= end)
             break;
     }
     dprintf(1, "IDE time out\n");

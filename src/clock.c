@@ -114,10 +114,41 @@ mdelay(u32 count)
     tscsleep(count * khz);
 }
 
+// Return the TSC value that is 'msecs' time in the future.
+u64
+calc_future_tsc(u32 msecs)
+{
+    u32 khz = GET_VAR(CS, cpu_khz);
+    return rdtscll() + ((u64)khz * msecs);
+}
+
 
 /****************************************************************
  * Init
  ****************************************************************/
+
+static int
+rtc_updating()
+{
+    // This function checks to see if the update-in-progress bit
+    // is set in CMOS Status Register A.  If not, it returns 0.
+    // If it is set, it tries to wait until there is a transition
+    // to 0, and will return 0 if such a transition occurs.  A -1
+    // is returned only after timing out.  The maximum period
+    // that this bit should be set is constrained to 244useconds, so
+    // we wait for 1 msec max.
+
+    if ((inb_cmos(CMOS_STATUS_A) & 0x80) == 0)
+        return 0;
+    u64 end = calc_future_tsc(1);
+    do {
+        if ((inb_cmos(CMOS_STATUS_A) & 0x80) == 0)
+            return 0;
+    } while (rdtscll() <= end);
+
+    // update-in-progress never transitioned to 0
+    return -1;
+}
 
 static void
 pit_setup()
@@ -142,6 +173,7 @@ timer_setup()
     calibrate_tsc();
     pit_setup();
 
+    rtc_updating();
     u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
     u32 ticks = (seconds * 18206507) / 1000000;
     u32 minutes = bcd2bin(inb_cmos(CMOS_RTC_MINUTES));
@@ -168,26 +200,6 @@ init_rtc()
 /****************************************************************
  * Standard clock functions
  ****************************************************************/
-
-static u8
-rtc_updating()
-{
-    // This function checks to see if the update-in-progress bit
-    // is set in CMOS Status Register A.  If not, it returns 0.
-    // If it is set, it tries to wait until there is a transition
-    // to 0, and will return 0 if such a transition occurs.  A 1
-    // is returned only after timing out.  The maximum period
-    // that this bit should be set is constrained to 244useconds.
-    // The count I use below guarantees coverage or more than
-    // this time, with any reasonable IPS setting.
-
-    u16 count = 25000;
-    while (--count != 0) {
-        if ( (inb_cmos(CMOS_STATUS_A) & 0x80) == 0 )
-            return 0;
-    }
-    return 1; // update-in-progress never transitioned to 0
-}
 
 // get current clock count
 static void
