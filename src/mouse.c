@@ -114,7 +114,7 @@ mouse_15c202(struct bregs *regs)
         set_code_fail(regs, RET_EINVINPUT);
         return;
     }
-    u8 mouse_data1 = GET_VAR(CS, sample_rates[regs->bh]);
+    u8 mouse_data1 = GET_GLOBAL(sample_rates[regs->bh]);
     int ret = aux_command(PSMOUSE_CMD_SETRATE, &mouse_data1);
     if (ret)
         set_code_fail(regs, RET_ENEEDRESEND);

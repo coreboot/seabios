@@ -11,6 +11,7 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
+#include "biosvar.h" // GET_GLOBAL
 
 // RTC register flags
 #define RTC_A_UIP 0x80
@@ -81,7 +82,7 @@ calibrate_tsc()
     dprintf(6, "tsc calibrate start=%u end=%u diff=%u\n"
             , (u32)start, (u32)end, (u32)diff);
     u32 hz = diff * PIT_TICK_RATE / CALIBRATE_COUNT;
-    SET_VAR(CS, cpu_khz, hz / 1000);
+    SET_GLOBAL(cpu_khz, hz / 1000);
 
     dprintf(1, "CPU Mhz=%u\n", hz / 1000000);
 }
@@ -98,19 +99,19 @@ tscsleep(u64 diff)
 void
 ndelay(u32 count)
 {
-    u32 khz = GET_VAR(CS, cpu_khz);
+    u32 khz = GET_GLOBAL(cpu_khz);
     tscsleep(count * khz / 1000000);
 }
 void
 udelay(u32 count)
 {
-    u32 khz = GET_VAR(CS, cpu_khz);
+    u32 khz = GET_GLOBAL(cpu_khz);
     tscsleep(count * khz / 1000);
 }
 void
 mdelay(u32 count)
 {
-    u32 khz = GET_VAR(CS, cpu_khz);
+    u32 khz = GET_GLOBAL(cpu_khz);
     tscsleep(count * khz);
 }
 
@@ -118,7 +119,7 @@ mdelay(u32 count)
 u64
 calc_future_tsc(u32 msecs)
 {
-    u32 khz = GET_VAR(CS, cpu_khz);
+    u32 khz = GET_GLOBAL(cpu_khz);
     return rdtscll() + ((u64)khz * msecs);
 }
 
@@ -220,6 +221,7 @@ handle_1a01(struct bregs *regs)
     u32 ticks = (regs->cx << 16) | regs->dx;
     SET_BDA(timer_counter, ticks);
     SET_BDA(timer_rollover, 0); // reset flag
+    // XXX - should use set_code_success()?
     regs->ah = 0;
     set_success(regs);
 }

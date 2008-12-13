@@ -275,13 +275,13 @@ int e820_count VISIBLE16;
 static void
 handle_15e820(struct bregs *regs)
 {
-    int count = GET_VAR(CS, e820_count);
+    int count = GET_GLOBAL(e820_count);
     if (regs->edx != 0x534D4150 || regs->bx >= count) {
         set_code_fail(regs, RET_EUNSUPPORTED);
         return;
     }
 
-    struct e820entry *l = GET_VAR(CS, e820_list);
+    struct e820entry *l = GET_GLOBAL(e820_list);
     memcpy_far(MAKE_FARPTR(regs->es, regs->di), &l[regs->bx], sizeof(l[0]));
     if (regs->bx == count-1)
         regs->ebx = 0;

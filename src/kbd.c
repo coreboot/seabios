@@ -580,35 +580,35 @@ process_key(u8 scancode)
         u8 asciicode;
         struct scaninfo *info = &scan_to_scanascii[scancode];
         if (shift_flags & 0x08) { /* ALT */
-            asciicode = GET_VAR(CS, info->alt);
-            scancode = GET_VAR(CS, info->alt) >> 8;
+            asciicode = GET_GLOBAL(info->alt);
+            scancode = GET_GLOBAL(info->alt) >> 8;
         } else if (shift_flags & 0x04) { /* CONTROL */
-            asciicode = GET_VAR(CS, info->control);
-            scancode = GET_VAR(CS, info->control) >> 8;
+            asciicode = GET_GLOBAL(info->control);
+            scancode = GET_GLOBAL(info->control) >> 8;
         } else if ((mf2_state & 0x02) > 0
                    && scancode >= 0x47 && scancode <= 0x53) {
             /* extended keys handling */
             asciicode = 0xe0;
-            scancode = GET_VAR(CS, info->normal) >> 8;
+            scancode = GET_GLOBAL(info->normal) >> 8;
         } else if (shift_flags & 0x03) { /* LSHIFT + RSHIFT */
             /* check if lock state should be ignored
              * because a SHIFT key are pressed */
 
-            if (shift_flags & GET_VAR(CS, info->lock_flags)) {
-                asciicode = GET_VAR(CS, info->normal);
-                scancode = GET_VAR(CS, info->normal) >> 8;
+            if (shift_flags & GET_GLOBAL(info->lock_flags)) {
+                asciicode = GET_GLOBAL(info->normal);
+                scancode = GET_GLOBAL(info->normal) >> 8;
             } else {
-                asciicode = GET_VAR(CS, info->shift);
-                scancode = GET_VAR(CS, info->shift) >> 8;
+                asciicode = GET_GLOBAL(info->shift);
+                scancode = GET_GLOBAL(info->shift) >> 8;
             }
         } else {
             /* check if lock is on */
-            if (shift_flags & GET_VAR(CS, info->lock_flags)) {
-                asciicode = GET_VAR(CS, info->shift);
-                scancode = GET_VAR(CS, info->shift) >> 8;
+            if (shift_flags & GET_GLOBAL(info->lock_flags)) {
+                asciicode = GET_GLOBAL(info->shift);
+                scancode = GET_GLOBAL(info->shift) >> 8;
             } else {
-                asciicode = GET_VAR(CS, info->normal);
-                scancode = GET_VAR(CS, info->normal) >> 8;
+                asciicode = GET_GLOBAL(info->normal);
+                scancode = GET_GLOBAL(info->normal) >> 8;
             }
         }
         if (scancode==0 && asciicode==0) {

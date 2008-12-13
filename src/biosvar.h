@@ -305,6 +305,22 @@ struct extended_bios_data_area_s {
 
 
 /****************************************************************
+ * Global variables
+ ****************************************************************/
+
+#define GET_GLOBAL(var) \
+    GET_VAR(CS, (var))
+#if MODE16
+extern void __force_link_error__set_global_only_in_32bit();
+#define SET_GLOBAL(var, val)                            \
+    __force_link_error__set_global_only_in_32bit()
+#else
+#define SET_GLOBAL(var, val)                    \
+    do { (var) = (val); } while (0)
+#endif
+
+
+/****************************************************************
  * Bios Config Table
  ****************************************************************/
 

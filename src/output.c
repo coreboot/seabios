@@ -10,6 +10,7 @@
 #include "util.h" // printf
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
+#include "biosvar.h" // GET_GLOBAL
 
 #define DEBUG_PORT 0x03f8
 #define DEBUG_TIMEOUT 100000
@@ -96,7 +97,7 @@ static void
 puts_cs(u16 action, const char *s)
 {
     for (;; s++) {
-        char c = GET_VAR(CS, *(u8*)s);
+        char c = GET_GLOBAL(*(u8*)s);
         if (!c)
             break;
         putc(action, c);
@@ -156,7 +157,7 @@ bvprintf(u16 action, const char *fmt, va_list args)
 {
     const char *s = fmt;
     for (;; s++) {
-        char c = GET_VAR(CS, *(u8*)s);
+        char c = GET_GLOBAL(*(u8*)s);
         if (!c)
             break;
         if (c != '%') {
@@ -165,7 +166,7 @@ bvprintf(u16 action, const char *fmt, va_list args)
         }
         const char *n = s+1;
         for (;;) {
-            c = GET_VAR(CS, *(u8*)n);
+            c = GET_GLOBAL(*(u8*)n);
             if (!isdigit(c))
                 break;
             n++;
@@ -173,7 +174,7 @@ bvprintf(u16 action, const char *fmt, va_list args)
         if (c == 'l') {
             // Ignore long format indicator
             n++;
-            c = GET_VAR(CS, *(u8*)n);
+            c = GET_GLOBAL(*(u8*)n);
         }
         s32 val;
         const char *sarg;
@@ -204,7 +205,7 @@ bvprintf(u16 action, const char *fmt, va_list args)
             break;
         case '.':
             // Hack to support "%.s" - meaning string on stack.
-            if (GET_VAR(CS, *(u8*)(n+1)) != 's')
+            if (GET_GLOBAL(*(u8*)(n+1)) != 's')
                 break;
             n++;
             sarg = va_arg(args, const char *);

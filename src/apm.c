@@ -11,6 +11,7 @@
 #include "ioport.h" // outb
 #include "util.h" // irq_enable
 #include "config.h" // CONFIG_*
+#include "biosvar.h" // GET_GLOBAL
 
 static void
 out_str(const char *str_cs)
@@ -22,7 +23,7 @@ out_str(const char *str_cs)
 
     u8 *s = (u8*)str_cs;
     for (;;) {
-        u8 c = GET_VAR(CS, *s);
+        u8 c = GET_GLOBAL(*s);
         if (!c)
             break;
         outb(c, PORT_BIOS_APM);

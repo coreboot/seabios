@@ -415,7 +415,7 @@ streq_cs(u8 *s1, char *cs_s2)
 {
     u8 *s2 = (u8*)cs_s2;
     for (;;) {
-        if (*s1 != GET_VAR(CS, *s2))
+        if (*s1 != GET_GLOBAL(*s2))
             return 0;
         if (! *s1)
             return 1;
