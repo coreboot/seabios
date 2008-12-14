@@ -395,7 +395,7 @@ void acpi_bios_init(void)
         struct madt_io_apic *io_apic;
 
         memset(madt, 0, madt_size);
-        madt->local_apic_address = cpu_to_le32(0xfee00000);
+        madt->local_apic_address = cpu_to_le32(BUILD_APIC_ADDR);
         madt->flags = cpu_to_le32(1);
         apic = (void *)(madt + 1);
         for(i=0;i<smp_cpus;i++) {
@@ -410,7 +410,7 @@ void acpi_bios_init(void)
         io_apic->type = APIC_IO;
         io_apic->length = sizeof(*io_apic);
         io_apic->io_apic_id = smp_cpus;
-        io_apic->address = cpu_to_le32(0xfec00000);
+        io_apic->address = cpu_to_le32(BUILD_IOAPIC_ADDR);
         io_apic->interrupt = cpu_to_le32(0);
 
         acpi_build_table_header((struct acpi_table_header *)madt,

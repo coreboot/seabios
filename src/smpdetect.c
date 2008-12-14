@@ -10,11 +10,8 @@
 
 #define CPUID_APIC (1 << 9)
 
-#define APIC_BASE    ((u8 *)0xfee00000)
-#define APIC_ICR_LOW 0x300
-#define APIC_SVR     0x0F0
-#define APIC_ID      0x020
-#define APIC_LVT3    0x370
+#define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
+#define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
 
 #define APIC_ENABLED 0x0100
 
@@ -90,19 +87,19 @@ smp_probe(void)
     *(u64*)BUILD_AP_BOOT_ADDR = new;
 
     // enable local APIC
-    u32 val = readl(APIC_BASE + APIC_SVR);
-    writel(APIC_BASE + APIC_SVR, val | APIC_ENABLED);
+    u32 val = readl(APIC_SVR);
+    writel(APIC_SVR, val | APIC_ENABLED);
 
     // broadcast SIPI
-    writel(APIC_BASE + APIC_ICR_LOW, 0x000C4500);
+    writel(APIC_ICR_LOW, 0x000C4500);
     u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
-    writel(APIC_BASE + APIC_ICR_LOW, 0x000C4600 | sipi_vector);
+    writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
 
     // Wait for other CPUs to process the SIPI.
     mdelay(10);
 
     // Restore memory.
-    writel(APIC_BASE + APIC_SVR, val);
+    writel(APIC_SVR, val);
     *(u64*)BUILD_AP_BOOT_ADDR = old;
 
     u32 count = readl(&smp_cpus);

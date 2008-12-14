@@ -75,7 +75,7 @@ mptable_init(void)
     putle32(&q, 0); /* OEM table ptr */
     putle16(&q, 0); /* OEM table size */
     putle16(&q, smp_cpus + 18); /* entry count */
-    putle32(&q, 0xfee00000); /* local APIC addr */
+    putle32(&q, BUILD_APIC_ADDR); /* local APIC addr */
     putle16(&q, 0); /* ext table length */
     putb(&q, 0); /* ext table checksum */
     putb(&q, 0); /* reserved */
@@ -112,7 +112,7 @@ mptable_init(void)
     putb(&q, ioapic_id); /* apic ID */
     putb(&q, 0x11); /* I/O APIC version number */
     putb(&q, 1); /* enable */
-    putle32(&q, 0xfec00000); /* I/O APIC addr */
+    putle32(&q, BUILD_IOAPIC_ADDR); /* I/O APIC addr */
 
     /* irqs */
     for(i = 0; i < 16; i++) {
