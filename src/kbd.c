@@ -123,8 +123,8 @@ enqueue_key(u8 scan_code, u8 ascii_code)
     return 1;
 }
 
-static u8
-dequeue_key(u8 *scan_code, u8 *ascii_code, u8 incr)
+static void
+dequeue_key(struct bregs *regs, int incr, int extended)
 {
     u16 buffer_head;
     u16 buffer_tail;
@@ -134,13 +134,19 @@ dequeue_key(u8 *scan_code, u8 *ascii_code, u8 incr)
 
         if (buffer_head != buffer_tail)
             break;
-        if (!incr)
-            return 0;
+        if (!incr) {
+            regs->flags |= F_ZF;
+            return;
+        }
         cpu_relax();
     }
 
-    *ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+0));
-    *scan_code  = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+1));
+    u8 ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+0));
+    u8 scan_code  = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+1));
+    if ((ascii_code == 0xF0 && scan_code != 0)
+        || (ascii_code == 0xE0 && !extended))
+        ascii_code = 0;
+    regs->ax = (scan_code << 8) | ascii_code;
 
     if (incr) {
         u16 buffer_start = GET_BDA(kbd_buf_start_offset);
@@ -150,38 +156,23 @@ dequeue_key(u8 *scan_code, u8 *ascii_code, u8 incr)
         if (buffer_head >= buffer_end)
             buffer_head = buffer_start;
         SET_BDA(kbd_buf_head, buffer_head);
+
+        regs->flags &= ~F_ZF;
     }
-    return 1;
 }
 
 // read keyboard input
 static void
 handle_1600(struct bregs *regs)
 {
-    u8 scan_code, ascii_code;
-    dequeue_key(&scan_code, &ascii_code, 1);
-    if (scan_code != 0 && ascii_code == 0xF0)
-        ascii_code = 0;
-    else if (ascii_code == 0xE0)
-        ascii_code = 0;
-    regs->ax = (scan_code << 8) | ascii_code;
+    dequeue_key(regs, 1, 0);
 }
 
 // check keyboard status
 static void
 handle_1601(struct bregs *regs)
 {
-    u8 scan_code, ascii_code;
-    if (!dequeue_key(&scan_code, &ascii_code, 0)) {
-        regs->flags |= F_ZF;
-        return;
-    }
-    if (scan_code != 0 && ascii_code == 0xF0)
-        ascii_code = 0;
-    else if (ascii_code == 0xE0)
-        ascii_code = 0;
-    regs->ax = (scan_code << 8) | ascii_code;
-    regs->flags &= ~F_ZF;
+    dequeue_key(regs, 0, 0);
 }
 
 // get shift flag status
@@ -232,26 +223,14 @@ handle_160a(struct bregs *regs)
 static void
 handle_1610(struct bregs *regs)
 {
-    u8 scan_code, ascii_code;
-    dequeue_key(&scan_code, &ascii_code, 1);
-    if (scan_code != 0 && ascii_code == 0xF0)
-        ascii_code = 0;
-    regs->ax = (scan_code << 8) | ascii_code;
+    dequeue_key(regs, 1, 1);
 }
 
 // check MF-II keyboard status
 static void
 handle_1611(struct bregs *regs)
 {
-    u8 scan_code, ascii_code;
-    if (!dequeue_key(&scan_code, &ascii_code, 0)) {
-        regs->flags |= F_ZF;
-        return;
-    }
-    if (scan_code != 0 && ascii_code == 0xF0)
-        ascii_code = 0;
-    regs->ax = (scan_code << 8) | ascii_code;
-    regs->flags &= ~F_ZF;
+    dequeue_key(regs, 0, 1);
 }
 
 // get extended keyboard status
