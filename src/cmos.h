@@ -39,6 +39,7 @@
 #define CMOS_MEM_HIGHMEM_LOW     0x5b
 #define CMOS_MEM_HIGHMEM_MID     0x5c
 #define CMOS_MEM_HIGHMEM_HIGH    0x5d
+#define CMOS_BIOS_SMP_COUNT      0x5f
 
 // CMOS_FLOPPY_DRIVE_TYPE bitdefs
 #define CFD_NO_DRIVE 0

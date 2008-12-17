@@ -7,6 +7,7 @@
 
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
+#include "cmos.h" // CMOS_BIOS_SMP_COUNT
 
 #define CPUID_APIC (1 << 9)
 
@@ -96,10 +97,13 @@ smp_probe(void)
     writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
 
     // Wait for other CPUs to process the SIPI.
-    mdelay(10);
+    if (CONFIG_COREBOOT)
+        mdelay(10);
+    else
+        while (inb_cmos(CMOS_BIOS_SMP_COUNT) + 1 != readl(&smp_cpus))
+            ;
 
     // Restore memory.
-    writel(APIC_SVR, val);
     *(u64*)BUILD_AP_BOOT_ADDR = old;
 
     u32 count = readl(&smp_cpus);
