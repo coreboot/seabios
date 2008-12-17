@@ -9,7 +9,7 @@
 #include "util.h" // mdelay
 #include "bregs.h" // struct bregs
 
-static u8
+static int
 check_for_keystroke()
 {
     struct bregs br;
@@ -19,7 +19,7 @@ check_for_keystroke()
     return !(br.flags & F_ZF);
 }
 
-static u8
+static int
 get_keystroke()
 {
     struct bregs br;
@@ -29,14 +29,26 @@ get_keystroke()
 }
 
 static void
-mdelay_and_check_for_keystroke(u32 msec, int count)
+usleep(u32 usec)
 {
-    int i;
-    for (i = 1; i <= count; i++) {
-        mdelay(msec);
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x86;
+    br.cx = usec >> 16;
+    br.dx = usec;
+    call16_int(0x15, &br);
+}
+
+static int
+timed_check_for_keystroke(int msec)
+{
+    while (msec > 0) {
         if (check_for_keystroke())
-            break;
+            return 1;
+        usleep(50*1000);
+        msec -= 50;
     }
+    return 0;
 }
 
 void
@@ -50,10 +62,9 @@ interactive_bootmenu()
 
     printf("Press F12 for boot menu.\n\n");
 
-    mdelay_and_check_for_keystroke(500, 5);
-    if (! check_for_keystroke())
+    if (!timed_check_for_keystroke(2500))
         return;
-    u8 scan_code = get_keystroke();
+    int scan_code = get_keystroke();
     if (scan_code != 0x86)
         /* not F12 */
         return;
