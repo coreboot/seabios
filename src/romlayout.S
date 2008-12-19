@@ -318,7 +318,9 @@ entry_resume:
         // Use a stack in EBDA
         movw $SEG_BDA, %ax
         movw %ax, %ds
-        movw BDA_ebda_seg, %ss
+        movw BDA_ebda_seg, %ax
+        movw %ax, %ss
+        movw %ax, %ds
         movl $EBDA_resume_stack_top, %esp
 
         // Call handler.
@@ -380,9 +382,52 @@ permanent_halt:
 1:      hlt
         jmp 1b
 
+        // IRQ trampolines
+        .macro IRQ_TRAMPOLINE num
+        .global irq_trampoline_0x\num
+        irq_trampoline_0x\num :
+        int $0x\num
+        lretw
+        .endm
+
+        IRQ_TRAMPOLINE 02
+        IRQ_TRAMPOLINE 10
+        IRQ_TRAMPOLINE 13
+        IRQ_TRAMPOLINE 15
+        IRQ_TRAMPOLINE 16
+        IRQ_TRAMPOLINE 18
+        IRQ_TRAMPOLINE 19
+        IRQ_TRAMPOLINE 1c
+        IRQ_TRAMPOLINE 4a
+
 
 /****************************************************************
- * GDT and IDT tables
+ * Interrupt entry points
+ ****************************************************************/
+
+        // Define an entry point for an interrupt (no args passed).
+        .macro IRQ_ENTRY num
+        .global entry_\num
+        entry_\num :
+        cli         // In case something far-calls instead of using "int"
+        ENTRY handle_\num
+        iretw
+        .endm
+
+        // Define an entry point for an interrupt (can read/modify args).
+        .macro IRQ_ENTRY_ARG num
+        .global entry_\num
+        entry_\num :
+        cli         // In case something far-calls instead of using "int"
+        ENTRY_ARG handle_\num
+        iretw
+        .endm
+
+        ORG 0xe2c3
+        IRQ_ENTRY nmi
+
+/****************************************************************
+ * GDT and IDT tables (between 0xe2c3 - 0xe3fe)
  ****************************************************************/
 
 // Protected mode IDT descriptor
@@ -445,29 +490,8 @@ pnp_string:
 
 
 /****************************************************************
- * Interrupt entry points
+ * Interrupt entry points (continued)
  ****************************************************************/
-
-        // Define an entry point for an interrupt (no args passed).
-        .macro IRQ_ENTRY num
-        .global entry_\num
-        entry_\num :
-        cli         // In case something far-calls instead of using "int"
-        ENTRY handle_\num
-        iretw
-        .endm
-
-        // Define an entry point for an interrupt (can read/modify args).
-        .macro IRQ_ENTRY_ARG num
-        .global entry_\num
-        entry_\num :
-        cli         // In case something far-calls instead of using "int"
-        ENTRY_ARG handle_\num
-        iretw
-        .endm
-
-        ORG 0xe2c3
-        IRQ_ENTRY nmi
 
         ORG 0xe3fe
         .global entry_13_official
@@ -569,24 +593,6 @@ entry_18:
         RESET_STACK
         pushl $_code32_handle_18
         jmp transition32
-
-        // IRQ trampolines
-        .macro IRQ_TRAMPOLINE num
-        .global irq_trampoline_0x\num
-        irq_trampoline_0x\num :
-        int $0x\num
-        lretw
-        .endm
-
-        IRQ_TRAMPOLINE 02
-        IRQ_TRAMPOLINE 10
-        IRQ_TRAMPOLINE 13
-        IRQ_TRAMPOLINE 15
-        IRQ_TRAMPOLINE 16
-        IRQ_TRAMPOLINE 18
-        IRQ_TRAMPOLINE 19
-        IRQ_TRAMPOLINE 1c
-        IRQ_TRAMPOLINE 4a
 
         ORG 0xfa6e
 .include "out/font.proc.16.s"
