@@ -21,7 +21,7 @@
    BSD license) */
 
 #define ACPI_TABLE_HEADER_DEF   /* ACPI common table header */ \
-	u8                            signature [4];          /* ACPI signature (4 ASCII characters) */\
+	u32                            signature;          /* ACPI signature (4 ASCII characters) */\
 	u32                             length;                 /* Length of table, in bytes, including header */\
 	u8                              revision;               /* ACPI Specification minor version # */\
 	u8                              checksum;               /* To make sum of entire table == 0 */\
@@ -40,6 +40,7 @@ struct acpi_table_header         /* ACPI common table header */
 /*
  * ACPI 1.0 Root System Description Table (RSDT)
  */
+#define RSDT_SIGNATURE 0x54445352 // RSDT
 struct rsdt_descriptor_rev1
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
@@ -50,9 +51,10 @@ struct rsdt_descriptor_rev1
 /*
  * ACPI 1.0 Firmware ACPI Control Structure (FACS)
  */
+#define FACS_SIGNATURE 0x53434146 // FACS
 struct facs_descriptor_rev1
 {
-	u8                            signature[4];           /* ACPI Signature */
+	u32                            signature;           /* ACPI Signature */
 	u32                             length;                 /* Length of structure, in bytes */
 	u32                             hardware_signature;     /* Hardware configuration signature */
 	u32                             firmware_waking_vector; /* ACPI OS waking vector */
@@ -66,6 +68,7 @@ struct facs_descriptor_rev1
 /*
  * ACPI 1.0 Fixed ACPI Description Table (FADT)
  */
+#define FACP_SIGNATURE 0x50434146 // FACP
 struct fadt_descriptor_rev1
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
@@ -135,6 +138,7 @@ struct fadt_descriptor_rev1
 
 /* Master MADT */
 
+#define APIC_SIGNATURE 0x43495041 // APIC
 struct multiple_apic_table
 {
 	ACPI_TABLE_HEADER_DEF                           /* ACPI common table header */
@@ -206,20 +210,21 @@ static inline u32 cpu_to_le32(u32 x)
 }
 
 static void acpi_build_table_header(struct acpi_table_header *h,
-                                    char *sig, int len, u8 rev)
+                                    u32 sig, int len, u8 rev)
 {
-    memcpy(h->signature, sig, 4);
+    h->signature = sig;
     h->length = cpu_to_le32(len);
     h->revision = rev;
     memcpy(h->oem_id, CONFIG_APPNAME6, 6);
     memcpy(h->oem_table_id, CONFIG_APPNAME4, 4);
     memcpy(h->asl_compiler_id, CONFIG_APPNAME4, 4);
-    memcpy(h->oem_table_id + 4, sig, 4);
+    memcpy(h->oem_table_id + 4, (void*)&sig, 4);
     h->oem_revision = cpu_to_le32(1);
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum = -checksum((void *)h, len);
 }
 
+#define SSDT_SIGNATURE 0x54445353// SSDT
 static int
 acpi_build_processor_ssdt(u8 *ssdt)
 {
@@ -268,10 +273,12 @@ acpi_build_processor_ssdt(u8 *ssdt)
     }
 
     acpi_build_table_header((struct acpi_table_header *)ssdt,
-                            "SSDT", ssdt_ptr - ssdt, 1);
+                            SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
 
     return ssdt_ptr - ssdt;
 }
+
+struct rsdp_descriptor *RsdpAddr;
 
 /* base_addr must be a multiple of 4KB */
 void acpi_bios_init(void)
@@ -344,10 +351,11 @@ void acpi_bios_init(void)
 
     /* RSDP */
     memset(rsdp, 0, sizeof(*rsdp));
-    memcpy(rsdp->signature, "RSD PTR ", 8);
+    rsdp->signature = RSDP_SIGNATURE;
     memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
     rsdp->rsdt_physical_address = cpu_to_le32(rsdt_addr);
     rsdp->checksum = -checksum((void *)rsdp, 20);
+    RsdpAddr = rsdp;
 
     /* RSDT */
     memset(rsdt, 0, sizeof(*rsdt));
@@ -355,7 +363,7 @@ void acpi_bios_init(void)
     rsdt->table_offset_entry[1] = cpu_to_le32(madt_addr);
     rsdt->table_offset_entry[2] = cpu_to_le32(ssdt_addr);
     acpi_build_table_header((struct acpi_table_header *)rsdt,
-                            "RSDT", sizeof(*rsdt), 1);
+                            RSDT_SIGNATURE, sizeof(*rsdt), 1);
 
     /* FADT */
     memset(fadt, 0, sizeof(*fadt));
@@ -378,12 +386,12 @@ void acpi_bios_init(void)
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
     /* WBINVD + PROC_C1 + PWR_BUTTON + SLP_BUTTON + FIX_RTC */
     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6));
-    acpi_build_table_header((struct acpi_table_header *)fadt, "FACP",
+    acpi_build_table_header((struct acpi_table_header *)fadt, FACP_SIGNATURE,
                             sizeof(*fadt), 1);
 
     /* FACS */
     memset(facs, 0, sizeof(*facs));
-    memcpy(facs->signature, "FACS", 4);
+    facs->signature = FACS_SIGNATURE;
     facs->length = cpu_to_le32(sizeof(*facs));
 
     /* DSDT */
@@ -414,6 +422,34 @@ void acpi_bios_init(void)
         io_apic->interrupt = cpu_to_le32(0);
 
         acpi_build_table_header((struct acpi_table_header *)madt,
-                                "APIC", madt_size, 1);
+                                APIC_SIGNATURE, madt_size, 1);
     }
+}
+
+u32
+find_resume_vector()
+{
+    dprintf(4, "rsdp=%p\n", RsdpAddr);
+    if (!RsdpAddr || RsdpAddr->signature != RSDP_SIGNATURE)
+        return 0;
+    struct rsdt_descriptor_rev1 *rsdt = (void*)RsdpAddr->rsdt_physical_address;
+    dprintf(4, "rsdt=%p\n", rsdt);
+    if (!rsdt || rsdt->signature != RSDT_SIGNATURE)
+        return 0;
+    void *end = (void*)rsdt + rsdt->length;
+    int i;
+    for (i=0; (void*)&rsdt->table_offset_entry[i] < end; i++) {
+        struct fadt_descriptor_rev1 *fadt = (void*)rsdt->table_offset_entry[i];
+        if (!fadt || fadt->signature != FACP_SIGNATURE)
+            continue;
+        dprintf(4, "fadt=%p\n", fadt);
+        struct facs_descriptor_rev1 *facs = (void*)fadt->firmware_ctrl;
+        dprintf(4, "facs=%p\n", facs);
+        if (! facs || facs->signature != FACS_SIGNATURE)
+            return 0;
+        // Found it.
+        dprintf(4, "resume addr=%d\n", facs->firmware_waking_vector);
+        return facs->firmware_waking_vector;
+    }
+    return 0;
 }

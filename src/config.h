@@ -86,19 +86,20 @@
 #define CONFIG_BIOS_REVISION 0x01
 
 // Various memory addresses used by the code.
-#define BUILD_STACK_ADDR        0x7c00
-#define BUILD_AP_BOOT_ADDR      0x10000
-#define BUILD_BIOS_ADDR         0xf0000
-#define BUILD_BIOS_SIZE         0x10000
+#define BUILD_STACK_ADDR          0x7c00
+#define BUILD_S3RESUME_STACK_ADDR 0x1000
+#define BUILD_AP_BOOT_ADDR        0x10000
+#define BUILD_BIOS_ADDR           0xf0000
+#define BUILD_BIOS_SIZE           0x10000
 // 64 KB used to copy the BIOS to shadow RAM
-#define BUILD_BIOS_TMP_ADDR     0x30000
+#define BUILD_BIOS_TMP_ADDR       0x30000
 
-#define BUILD_APIC_ADDR         0xfee00000
-#define BUILD_IOAPIC_ADDR       0xfec00000
+#define BUILD_APIC_ADDR           0xfee00000
+#define BUILD_IOAPIC_ADDR         0xfec00000
 
-#define BUILD_SMM_INIT_ADDR     0x38000
-#define BUILD_SMM_ADDR          0xa8000
-#define BUILD_SMM_SIZE          0x8000
+#define BUILD_SMM_INIT_ADDR       0x38000
+#define BUILD_SMM_ADDR            0xa8000
+#define BUILD_SMM_SIZE            0x8000
 
 // Start of fixed addresses in 0xf0000 segment.
 #define BUILD_START_FIXED       0xe050

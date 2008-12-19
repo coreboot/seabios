@@ -4,12 +4,13 @@
 #include "types.h" // u32
 
 void acpi_bios_init(void);
+u32 find_resume_vector();
 
 #define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
 
 struct rsdp_descriptor         /* Root System Descriptor Pointer */
 {
-	u8                            signature [8];          /* ACPI signature, contains "RSD PTR " */
+	u64                            signature;          /* ACPI signature, contains "RSD PTR " */
 	u8                              checksum;               /* To make sum of struct == 0 */
 	u8                            oem_id [6];             /* OEM identification */
 	u8                              revision;               /* Must be 0 for 1.0, 2 for 2.0 */
@@ -19,6 +20,8 @@ struct rsdp_descriptor         /* Root System Descriptor Pointer */
 	u8                              extended_checksum;      /* Checksum of entire table */
 	u8                            reserved [3];           /* Reserved field must be 0 */
 };
+
+extern struct rsdp_descriptor *RsdpAddr;
 
 // XXX - not really part of acpi.
 struct mptable_floating_s {

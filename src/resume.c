@@ -8,6 +8,8 @@
 #include "ioport.h" // outb
 #include "pic.h" // eoi_pic2
 #include "biosvar.h" // struct bios_data_area_s
+#include "bregs.h" // struct bregs
+#include "acpi.h" // find_resume_vector
 
 // Reset DMA controller
 void
@@ -32,9 +34,21 @@ handle_resume(u8 status)
     dprintf(1, "In resume (status=%d)\n", status);
 
     switch (status) {
+    case 0xfe:
+        // S3 resume request.  Jump to 32bit mode to handle the resume.
+        asm volatile(
+            "movw %%ax, %%ss\n"
+            "movl %0, %%esp\n"
+            "pushl $_code32_s3_resume\n"
+            "jmp transition32\n"
+            : : "i"(BUILD_S3RESUME_STACK_ADDR), "a"(0)
+            );
+        break;
+
     case 0x00:
     case 0x09:
-    case 0x0d ... 0xff:
+    case 0x0d ... 0xfd:
+    case 0xff:
         // Normal post - now that status has been cleared a reset will
         // run regular boot code..
         reset_vector();
@@ -78,4 +92,31 @@ handle_resume(u8 status)
     }
 
     BX_PANIC("Unimplemented shutdown status: %02x\n", status);
+}
+
+void VISIBLE32
+s3_resume()
+{
+    dprintf(1, "In 32bit resume\n");
+
+    smm_init();
+
+    make_bios_readonly();
+
+    u32 s3_resume_vector = find_resume_vector();
+
+    // Invoke the resume vector.
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    if (s3_resume_vector) {
+        dprintf(1, "Jump to resume vector (%x)\n", s3_resume_vector);
+        br.ip = FARPTR_TO_OFFSET(s3_resume_vector);
+        br.cs = FARPTR_TO_SEG(s3_resume_vector);
+    } else {
+        dprintf(1, "No resume vector set!\n");
+        // Jump to the post vector to restart with a normal boot.
+        br.ip = (u32)reset_vector - BUILD_BIOS_ADDR;
+        br.cs = SEG_BIOS;
+    }
+    call16big(&br);
 }

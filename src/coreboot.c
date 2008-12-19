@@ -62,9 +62,11 @@ copy_mptable(void *pos)
 static void
 copy_acpi_rsdp(void *pos)
 {
-    if (*(u64*)pos != RSDP_SIGNATURE)
+    if (RsdpAddr)
         return;
     struct rsdp_descriptor *p = pos;
+    if (p->signature != RSDP_SIGNATURE)
+        return;
     u32 length = 20;
     if (checksum(pos, length) != 0)
         return;
@@ -79,7 +81,8 @@ copy_acpi_rsdp(void *pos)
         return;
     }
     dprintf(1, "Copying ACPI RSDP from %p to %x\n", pos, bios_table_cur_addr);
-    memcpy((void*)bios_table_cur_addr, pos, length);
+    RsdpAddr = (void*)bios_table_cur_addr;
+    memcpy(RsdpAddr, pos, length);
     bios_table_cur_addr += length;
 }
 
@@ -233,6 +236,7 @@ fail:
     // No table found..  Use 16Megs as a dummy value.
     dprintf(1, "Unable to find coreboot table!\n");
     SET_EBDA(ram_size, 16*1024*1024);
+    SET_EBDA(ram_size_over4G, 0);
     add_e820(0, 16*1024*1024, E820_RAM);
     return;
 }
