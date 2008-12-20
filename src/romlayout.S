@@ -580,7 +580,8 @@ entry_11_official:
         IRQ_ENTRY 70
         IRQ_ENTRY 74
         IRQ_ENTRY 75
-        IRQ_ENTRY hwirq
+        IRQ_ENTRY hwpic1
+        IRQ_ENTRY hwpic2
 
         // int 18/19 are special - they reset the stack and do not return.
 entry_19:

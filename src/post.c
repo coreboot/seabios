@@ -48,9 +48,9 @@ init_bda()
 
     // Initialize all hw vectors to a default hw handler.
     for (i=0x08; i<=0x0f; i++)
-        set_irq(i, entry_hwirq);
+        set_irq(i, entry_hwpic1);
     for (i=0x70; i<=0x77; i++)
-        set_irq(i, entry_hwirq);
+        set_irq(i, entry_hwpic2);
 
     // Initialize software handlers.
     set_irq(0x10, entry_10);

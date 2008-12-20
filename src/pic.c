@@ -32,25 +32,22 @@ pic_setup()
 
 // Handler for otherwise unused hardware irqs.
 void VISIBLE16
-handle_hwirq(struct bregs *regs)
+handle_hwpic1(struct bregs *regs)
 {
-    debug_isr(DEBUG_ISR_hwirq);
+    u8 isr = get_pic1_isr();
+    dprintf(DEBUG_ISR_hwpic1, "Got noisy pic1 irq %x\n", isr);
+    isr &= ~PIC1_IRQ2; // don't ever mask the cascaded irq
+    if (isr)
+        mask_pic1(isr);
+    eoi_pic1();
+}
 
-    u8 isr1 = get_pic1_isr();
-    if (! isr1) {
-        dprintf(1, "Got hwirq with no ISR\n");
-        return;
-    }
-
-    u8 isr2 = get_pic2_isr();
-    u16 isr = isr2<<8 | isr1;
-    dprintf(1, "Masking noisy irq %x\n", isr);
-    if (isr2) {
-        mask_pic2(isr2);
-        eoi_pic2();
-    } else {
-        if (! (isr1 & PIC1_IRQ2)) // don't ever mask the cascaded irq
-            mask_pic1(isr1);
-        eoi_pic1();
-    }
+void VISIBLE16
+handle_hwpic2(struct bregs *regs)
+{
+    u8 isr = get_pic2_isr();
+    dprintf(DEBUG_ISR_hwpic2, "Got noisy pic2 irq %x\n", isr);
+    if (isr)
+        mask_pic2(isr);
+    eoi_pic2();
 }
