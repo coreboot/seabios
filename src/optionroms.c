@@ -131,6 +131,18 @@ get_pnp_rom(struct rom_header *rom)
     return pnp;
 }
 
+// Check for multiple pnp option rom headers.
+static struct pnp_data *
+get_pnp_next(struct rom_header *rom, struct pnp_data *pnp)
+{
+    if (! pnp->nextoffset)
+        return NULL;
+    pnp = (struct pnp_data *)((u8*)rom + pnp->nextoffset);
+    if (pnp->signature != *(u32*)pnp_string)
+        return NULL;
+    return pnp;
+}
+
 // Check if a valid option rom has a pci struct; return it if so.
 static struct pci_data *
 get_pci_rom(struct rom_header *rom)
@@ -345,9 +357,13 @@ optionrom_setup()
         if (pnp->bev)
             // Can boot system - add to IPL list.
             add_ipl(rom, pnp);
-        else if (pnp->bcv)
-            // Has BCV - run it now.
-            callrom(rom, pnp->bcv, 0);
+        else
+            // Check for BCV (there may be multiple).
+            while (pnp && pnp->bcv) {
+                // Has BCV - run it now.
+                callrom(rom, pnp->bcv, 0);
+                pnp = get_pnp_next(rom, pnp);
+            }
     }
 }
 
