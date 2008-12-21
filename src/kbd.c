@@ -156,7 +156,7 @@ dequeue_key(struct bregs *regs, int incr, int extended)
         if (buffer_head >= buffer_end)
             buffer_head = buffer_start;
         SET_BDA(kbd_buf_head, buffer_head);
-
+    } else {
         regs->flags &= ~F_ZF;
     }
 }
