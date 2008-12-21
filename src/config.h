@@ -37,6 +37,8 @@
 #define CONFIG_PCIBIOS 1
 // Support int 15/53 APM BIOS calls
 #define CONFIG_APMBIOS 1
+// Support PnP BIOS entry point.
+#define CONFIG_PNPBIOS 1
 // Support int 19/18 system bootup support
 #define CONFIG_BOOT 1
 // Support int 14 serial port calls
@@ -144,5 +146,6 @@
 #define DEBUG_ISR_76 10
 #define DEBUG_ISR_hwpic1 1
 #define DEBUG_ISR_hwpic2 1
+#define DEBUG_HDL_pnp 1
 
 #endif // config.h

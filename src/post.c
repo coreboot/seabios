@@ -198,6 +198,7 @@ post()
     memmap_setup();
     ram_probe();
 
+    pnp_setup();
     vga_setup();
 
     kbd_setup();

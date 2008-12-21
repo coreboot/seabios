@@ -17,9 +17,6 @@
  * Definitions
  ****************************************************************/
 
-// $PnP string with special alignment in romlayout.S
-extern char pnp_string[];
-
 struct rom_header {
     u16 signature;
     u8 size;
@@ -93,7 +90,7 @@ callrom(struct rom_header *rom, u16 offset, u16 bdf)
     br.bx = 0xffff;
     br.dx = 0xffff;
     br.es = SEG_BIOS;
-    br.di = (u32)pnp_string - BUILD_BIOS_ADDR;
+    br.di = get_pnp_offset();
     br.cs = seg;
     br.ip = offset;
     call16big(&br);
@@ -126,7 +123,7 @@ static struct pnp_data *
 get_pnp_rom(struct rom_header *rom)
 {
     struct pnp_data *pnp = (struct pnp_data *)((u8*)rom + rom->pnpoffset);
-    if (pnp->signature != *(u32*)pnp_string)
+    if (pnp->signature != PNP_SIGNATURE)
         return NULL;
     return pnp;
 }
@@ -138,7 +135,7 @@ get_pnp_next(struct rom_header *rom, struct pnp_data *pnp)
     if (! pnp->nextoffset)
         return NULL;
     pnp = (struct pnp_data *)((u8*)rom + pnp->nextoffset);
-    if (pnp->signature != *(u32*)pnp_string)
+    if (pnp->signature != PNP_SIGNATURE)
         return NULL;
     return pnp;
 }

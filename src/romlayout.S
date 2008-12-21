@@ -329,6 +329,35 @@ entry_resume:
         cli
         jmp handle_resume
 
+// PnP trampolines
+        .global entry_pnp_real, entry_pnp_prot
+entry_pnp_prot:
+        pushl %esp
+        jmp 1f
+entry_pnp_real:
+        pushl %esp              // Backup %esp, then clear high bits
+        movzwl %sp, %esp
+1:
+        pushfl                  // Save registers clobbered by C code
+        pushl %eax
+        pushl %ecx
+        pushl %edx
+        pushw %es
+        pushw %ds
+        movw %ss, %cx           // Move %ss to %ds
+        movw %cx, %ds
+        lea 28(%esp), %eax      // %eax points to start of u16 args
+        calll handle_pnp
+        movw %ax, 12(%esp)      // Modify %eax to return %ax
+        popw %ds
+        popw %es
+        popl %edx
+        popl %ecx
+        popl %eax
+        popfl
+        popl %esp
+        lretw
+
 // APM trampolines
         .global apm16protected_entry
 apm16protected_entry:
@@ -477,16 +506,6 @@ rombios32_gdt:
         // 16 bit data segment base=0 limit=0xffffffff (SEG32_MODE16BIG_DS)
         .word 0xffff, 0, 0x9300, 0x008f
 rombios32_gdt_end:
-
-// We need a copy of this string in the 0xf000 segment, but we are not
-// actually a PnP BIOS, so make sure it is *not* aligned, so OSes will
-// not see it if they scan.
-        .global pnp_string
-        .type pnp_string, @object
-        .balign 2
-        .byte 0
-pnp_string:
-        .ascii "$PnP"
 
 
 /****************************************************************

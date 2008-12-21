@@ -177,6 +177,11 @@ void optionrom_setup();
 // resume.c
 void init_dma();
 
+// pnpbios.c
+#define PNP_SIGNATURE 0x506e5024 // $PnP
+u16 get_pnp_offset();
+void pnp_setup();
+
 // romlayout.S
 void reset_vector() __attribute__ ((noreturn));
 
