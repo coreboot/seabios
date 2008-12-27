@@ -96,10 +96,6 @@ callrom(struct rom_header *rom, u16 offset, u16 bdf)
     call16big(&br);
 
     debug_serial_setup();
-
-    if (GET_BDA(ebda_seg) != SEG_EBDA)
-        BX_PANIC("Option rom at %x:%x attempted to move ebda from %x to %x\n"
-                 , seg, offset, SEG_EBDA, GET_BDA(ebda_seg));
 }
 
 // Verify that an option rom looks valid
@@ -154,14 +150,13 @@ get_pci_rom(struct rom_header *rom)
 static void
 add_ipl(struct rom_header *rom, struct pnp_data *pnp)
 {
-#define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
-
     // Found a device that thinks it can boot the system.  Record
     // its BEV and product name string.
 
     if (! CONFIG_BOOT)
         return;
 
+    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     if (ebda->ipl.count >= ARRAY_SIZE(ebda->ipl.table))
         return;
 

@@ -19,7 +19,6 @@
 #include "bregs.h" // struct bregs
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
-#define ebda ((struct extended_bios_data_area_s *)MAKE_FARPTR(SEG_EBDA, 0))
 
 void
 __set_irq(int vector, void *loc)
@@ -38,8 +37,6 @@ init_bda()
 {
     dprintf(3, "init bda\n");
     memset(bda, 0, sizeof(*bda));
-
-    SET_BDA(mem_size_kb, BASE_MEM_IN_K);
 
     // Initialize all vectors to a dummy handler.
     int i;
@@ -78,14 +75,19 @@ init_bda()
 static void
 init_ebda()
 {
+    int esize = DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024);
+    SET_BDA(mem_size_kb, 640 - esize);
+    u16 eseg = FARPTR_TO_SEG((640 - esize) * 1024);
+    SET_BDA(ebda_seg, eseg);
+
+    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     memset(ebda, 0, sizeof(*ebda));
-    ebda->size = EBDA_SIZE;
-    SET_BDA(ebda_seg, SEG_EBDA);
-    SET_BDA(ivecs[0x41].seg, SEG_EBDA);
+    ebda->size = esize;
+    SET_BDA(ivecs[0x41].seg, eseg);
     SET_BDA(ivecs[0x41].offset
             , offsetof(struct extended_bios_data_area_s, fdpt[0]));
-    SET_BDA(ivecs[0x46].seg, SEG_EBDA);
-    SET_BDA(ivecs[0x41].offset
+    SET_BDA(ivecs[0x46].seg, eseg);
+    SET_BDA(ivecs[0x46].offset
             , offsetof(struct extended_bios_data_area_s, fdpt[1]));
 }
 
@@ -123,7 +125,8 @@ ram_probe(void)
     add_e820(0xa0000, 0x50000, E820_HOLE);
 
     // Mark known areas as reserved.
-    add_e820((u32)MAKE_FARPTR(SEG_EBDA, 0), EBDA_SIZE * 1024, E820_RESERVED);
+    add_e820((u32)MAKE_FARPTR(GET_BDA(ebda_seg), 0), GET_EBDA(size) * 1024
+             , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
     dprintf(1, "ram_size=0x%08x\n", GET_EBDA(ram_size));
@@ -153,6 +156,7 @@ init_boot_vectors()
     dprintf(3, "init boot device ordering\n");
 
     // Floppy drive
+    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     struct ipl_entry_s *ip = &ebda->ipl.table[0];
     ip->type = IPL_TYPE_FLOPPY;
     ip++;

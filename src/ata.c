@@ -600,20 +600,21 @@ fill_fdpt(int driveid)
     if (driveid > 1)
         return;
 
-    u16 nlc   = GET_EBDA(ata.devices[driveid].lchs.cylinders);
-    u16 nlh   = GET_EBDA(ata.devices[driveid].lchs.heads);
-    u16 nlspt = GET_EBDA(ata.devices[driveid].lchs.spt);
+    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
+    u16 nlc   = ebda->ata.devices[driveid].lchs.cylinders;
+    u16 nlh   = ebda->ata.devices[driveid].lchs.heads;
+    u16 nlspt = ebda->ata.devices[driveid].lchs.spt;
 
-    u16 npc   = GET_EBDA(ata.devices[driveid].pchs.cylinders);
-    u16 nph   = GET_EBDA(ata.devices[driveid].pchs.heads);
-    u16 npspt = GET_EBDA(ata.devices[driveid].pchs.spt);
+    u16 npc   = ebda->ata.devices[driveid].pchs.cylinders;
+    u16 nph   = ebda->ata.devices[driveid].pchs.heads;
+    u16 npspt = ebda->ata.devices[driveid].pchs.spt;
 
-    SET_EBDA(fdpt[driveid].precompensation, 0xffff);
-    SET_EBDA(fdpt[driveid].drive_control_byte, 0xc0 | ((nph > 8) << 3));
-    SET_EBDA(fdpt[driveid].landing_zone, npc);
-    SET_EBDA(fdpt[driveid].cylinders, nlc);
-    SET_EBDA(fdpt[driveid].heads, nlh);
-    SET_EBDA(fdpt[driveid].sectors, nlspt);
+    ebda->fdpt[driveid].precompensation = 0xffff;
+    ebda->fdpt[driveid].drive_control_byte = 0xc0 | ((nph > 8) << 3);
+    ebda->fdpt[driveid].landing_zone = npc;
+    ebda->fdpt[driveid].cylinders = nlc;
+    ebda->fdpt[driveid].heads = nlh;
+    ebda->fdpt[driveid].sectors = nlspt;
 
     if (nlc == npc && nlh == nph && nlspt == npspt)
         // no logical CHS mapping used, just physical CHS
@@ -622,17 +623,14 @@ fill_fdpt(int driveid)
 
     // complies with Phoenix style Translated Fixed Disk Parameter
     // Table (FDPT)
-    SET_EBDA(fdpt[driveid].phys_cylinders, npc);
-    SET_EBDA(fdpt[driveid].phys_heads, nph);
-    SET_EBDA(fdpt[driveid].phys_sectors, npspt);
-    SET_EBDA(fdpt[driveid].a0h_signature, 0xa0);
+    ebda->fdpt[driveid].phys_cylinders = npc;
+    ebda->fdpt[driveid].phys_heads = nph;
+    ebda->fdpt[driveid].phys_sectors = npspt;
+    ebda->fdpt[driveid].a0h_signature = 0xa0;
 
     // Checksum structure.
-    u8 *p = MAKE_FARPTR(SEG_EBDA, offsetof(struct extended_bios_data_area_s
-                                           , fdpt[driveid]));
-    u8 sum = checksum(p, FIELD_SIZEOF(struct extended_bios_data_area_s
-                                      , fdpt[driveid]) - 1);
-    SET_EBDA(fdpt[driveid].checksum, -sum);
+    u8 sum = checksum((u8*)&ebda->fdpt[driveid], sizeof(ebda->fdpt[driveid])-1);
+    ebda->fdpt[driveid].checksum = -sum;
 }
 
 static u8

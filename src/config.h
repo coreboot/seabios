@@ -108,7 +108,6 @@
 
 // Important real-mode segments
 #define SEG_BIOS     0xf000
-#define SEG_EBDA     0x9fc0
 #define SEG_BDA      0x0000
 
 // Segment definitions in protected mode (see rombios32_gdt in romlayout.S)

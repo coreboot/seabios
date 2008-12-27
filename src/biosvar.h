@@ -294,14 +294,19 @@ struct extended_bios_data_area_s {
     u8 resume_stack[128] __aligned(8);
 } PACKED;
 
-#define EBDA_SIZE DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)
-#define BASE_MEM_IN_K (640 - EBDA_SIZE)
-
 // Accessor functions
 #define GET_EBDA(var) \
-    GET_FARVAR(SEG_EBDA, ((struct extended_bios_data_area_s *)0)->var)
+    GET_FARVAR(GET_BDA(ebda_seg), ((struct extended_bios_data_area_s *)0)->var)
 #define SET_EBDA(var, val) \
-    SET_FARVAR(SEG_EBDA, ((struct extended_bios_data_area_s *)0)->var, (val))
+    SET_FARVAR(GET_BDA(ebda_seg), ((struct extended_bios_data_area_s *)0)->var, (val))
+static inline struct extended_bios_data_area_s *
+get_ebda_ptr()
+{
+    extern void *__force_link_error__get_ebda_ptr_only_in_32bit();
+    if (MODE16)
+        return __force_link_error__get_ebda_ptr_only_in_32bit();
+    return (void*)MAKE_FARPTR(GET_BDA(ebda_seg), 0);
+}
 
 
 /****************************************************************
