@@ -17,6 +17,7 @@
 #include "pci.h" // create_pirtable
 #include "acpi.h" // acpi_bios_init
 #include "bregs.h" // struct bregs
+#include "boot.h" // IPL
 
 #define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
 
@@ -156,8 +157,7 @@ init_boot_vectors()
     dprintf(3, "init boot device ordering\n");
 
     // Floppy drive
-    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
-    struct ipl_entry_s *ip = &ebda->ipl.table[0];
+    struct ipl_entry_s *ip = &IPL.table[0];
     ip->type = IPL_TYPE_FLOPPY;
     ip++;
 
@@ -171,18 +171,18 @@ init_boot_vectors()
         ip++;
     }
 
-    ebda->ipl.count = ip - ebda->ipl.table;
-    ebda->ipl.sequence = 0xffff;
+    IPL.count = ip - IPL.table;
+    SET_EBDA(boot_sequence, 0xffff);
     if (CONFIG_COREBOOT) {
         // XXX - hardcode defaults for coreboot.
-        ebda->ipl.bootorder = 0x00000231;
-        ebda->ipl.checkfloppysig = 1;
+        IPL.bootorder = 0x00000231;
+        IPL.checkfloppysig = 1;
     } else {
         // On emulators, get boot order from nvram.
-        ebda->ipl.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
-                               | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
+        IPL.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
+                         | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
         if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
-            ebda->ipl.checkfloppysig = 1;
+            IPL.checkfloppysig = 1;
     }
 }
 

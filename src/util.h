@@ -160,12 +160,6 @@ void mptable_init(void);
 // smbios.c
 void smbios_init(void);
 
-// boot.c
-void printf_bootdev(u16 bootdev);
-
-// post_menu.c
-void interactive_bootmenu();
-
 // coreboot.c
 void coreboot_fill_map();
 

@@ -6,11 +6,13 @@
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
 #include "bregs.h" // struct bregs
-#include "biosvar.h" // struct ipl_entry_s
+#include "farptr.h" // FARPTR_TO_SEG
+#include "config.h" // CONFIG_*
 #include "util.h" // dprintf
 #include "pci.h" // pci_find_class
 #include "pci_regs.h" // PCI_ROM_ADDRESS
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
+#include "boot.h" // IPL
 
 
 /****************************************************************
@@ -156,11 +158,10 @@ add_ipl(struct rom_header *rom, struct pnp_data *pnp)
     if (! CONFIG_BOOT)
         return;
 
-    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
-    if (ebda->ipl.count >= ARRAY_SIZE(ebda->ipl.table))
+    if (IPL.count >= ARRAY_SIZE(IPL.table))
         return;
 
-    struct ipl_entry_s *ip = &ebda->ipl.table[ebda->ipl.count];
+    struct ipl_entry_s *ip = &IPL.table[IPL.count];
     ip->type = IPL_TYPE_BEV;
     ip->vector = (FARPTR_TO_SEG(rom) << 16) | pnp->bev;
 
@@ -168,7 +169,7 @@ add_ipl(struct rom_header *rom, struct pnp_data *pnp)
     if (desc)
         ip->description = MAKE_FARPTR(FARPTR_TO_SEG(rom), desc);
 
-    ebda->ipl.count++;
+    IPL.count++;
 }
 
 // Copy a rom to its permanent location below 1MiB

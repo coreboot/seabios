@@ -8,6 +8,7 @@
 #include "biosvar.h" // GET_EBDA
 #include "util.h" // mdelay
 #include "bregs.h" // struct bregs
+#include "boot.h" // IPL
 
 static int
 check_for_keystroke()
@@ -74,7 +75,7 @@ interactive_bootmenu()
 
     printf("Select boot device:\n\n");
 
-    int count = GET_EBDA(ipl.count);
+    int count = IPL.count;
     int i;
     for (i = 0; i < count; i++) {
         printf("%d. ", i+1);
@@ -90,8 +91,8 @@ interactive_bootmenu()
         if (scan_code <= count + 1) {
             // Add user choice to the boot order.
             u16 choice = scan_code - 1;
-            u32 bootorder = GET_EBDA(ipl.bootorder);
-            SET_EBDA(ipl.bootorder, (bootorder << 4) | choice);
+            u32 bootorder = IPL.bootorder;
+            IPL.bootorder = (bootorder << 4) | choice;
             break;
         }
     }

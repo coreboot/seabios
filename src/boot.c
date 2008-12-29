@@ -11,6 +11,9 @@
 #include "ata.h" // ata_detect
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
+#include "boot.h" // struct ipl_s
+
+struct ipl_s IPL;
 
 //--------------------------------------------------------------------------
 // print_boot_device
@@ -24,7 +27,7 @@ static const char drivetypes[][10]={
 void
 printf_bootdev(u16 bootdev)
 {
-    u16 type = GET_EBDA(ipl.table[bootdev].type);
+    u16 type = IPL.table[bootdev].type;
 
     /* NIC appears as type 0x80 */
     if (type == IPL_TYPE_BEV)
@@ -34,7 +37,7 @@ printf_bootdev(u16 bootdev)
     printf("%s", drivetypes[type]);
 
     /* print product string if BEV */
-    char *far_description = GET_EBDA(ipl.table[bootdev].description);
+    char *far_description = IPL.table[bootdev].description;
     if (type == 4 && far_description != 0) {
         char description[33];
         /* first 32 bytes are significant */
@@ -80,9 +83,9 @@ try_boot(u16 seq_nr)
     if (! CONFIG_BOOT)
         BX_PANIC("Boot support not compiled in.\n");
 
-    SET_EBDA(ipl.sequence, seq_nr);
+    SET_EBDA(boot_sequence, seq_nr);
 
-    u32 bootdev = GET_EBDA(ipl.bootorder);
+    u32 bootdev = IPL.bootorder;
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
 
@@ -92,7 +95,7 @@ try_boot(u16 seq_nr)
     /* Translate bootdev to an IPL table offset by subtracting 1 */
     bootdev -= 1;
 
-    if (bootdev >= GET_EBDA(ipl.count)) {
+    if (bootdev >= IPL.count) {
         dprintf(1, "Invalid boot device (0x%x)\n", bootdev);
         return;
     }
@@ -101,7 +104,7 @@ try_boot(u16 seq_nr)
      * address, and bootdrv as the boot drive */
     print_boot_device(bootdev);
 
-    u16 type = GET_EBDA(ipl.table[bootdev].type);
+    u16 type = IPL.table[bootdev].type;
 
     u16 bootseg, bootip;
     u8 bootdrv = 0;
@@ -129,7 +132,7 @@ try_boot(u16 seq_nr)
 
         /* Always check the signature on a HDD boot sector; on FDD,
          * only do the check if configured for it */
-        if (type != IPL_TYPE_FLOPPY || GET_EBDA(ipl.checkfloppysig)) {
+        if (type != IPL_TYPE_FLOPPY || IPL.checkfloppysig) {
             if (GET_FARVAR(bootseg, *(u16*)0x1fe) != 0xaa55) {
                 print_boot_failure(type, 0);
                 return;
@@ -161,7 +164,7 @@ try_boot(u16 seq_nr)
     case IPL_TYPE_BEV: {
         /* Expansion ROM with a Bootstrap Entry Vector (a far
          * pointer) */
-        u32 vector = GET_EBDA(ipl.table[bootdev].vector);
+        u32 vector = IPL.table[bootdev].vector;
         bootseg = vector >> 16;
         bootip = vector & 0xffff;
         break;
@@ -199,7 +202,7 @@ handle_18()
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_18);
-    u16 seq = GET_EBDA(ipl.sequence) + 1;
+    u16 seq = GET_EBDA(boot_sequence) + 1;
     do_boot(seq);
 }
 

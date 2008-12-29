@@ -129,31 +129,6 @@ struct bios_data_area_s {
 
 
 /****************************************************************
- * Initial Program Load (IPL)
- ****************************************************************/
-
-struct ipl_entry_s {
-    u16 type;
-    u16 flags;
-    u32 vector;
-    char *description;
-};
-
-struct ipl_s {
-    struct ipl_entry_s table[8];
-    u16 count;
-    u16 sequence;
-    u32 bootorder;
-    u8 checkfloppysig;
-};
-
-#define IPL_TYPE_FLOPPY      0x01
-#define IPL_TYPE_HARDDISK    0x02
-#define IPL_TYPE_CDROM       0x03
-#define IPL_TYPE_BEV         0x80
-
-
-/****************************************************************
  * Extended Bios Data Area (EBDA)
  ****************************************************************/
 
@@ -218,8 +193,7 @@ struct extended_bios_data_area_s {
     // Locks for removable devices
     u8 cdrom_locks[CONFIG_MAX_ATA_DEVICES];
 
-    // Initial program load
-    struct ipl_s ipl;
+    u16 boot_sequence;
 
     // Resume stack
     u8 resume_stack[128] __aligned(8);
