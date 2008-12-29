@@ -51,10 +51,7 @@
 #define PIT_TICK_RATE 1193182 // Underlying HZ of PIT
 #define CALIBRATE_COUNT 0x800 // Approx 1.7ms
 
-extern u32 cpu_khz;
-#if MODE16
-u32 cpu_khz VISIBLE16;
-#endif
+u32 cpu_khz VAR16;
 
 static void
 calibrate_tsc()

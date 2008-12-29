@@ -46,11 +46,9 @@ static inline u8 readb(const void *addr)
     return *(volatile const u8 *)addr;
 }
 
+u32 smp_cpus VAR16;
 extern void smp_ap_boot_code();
-extern u32 smp_cpus;
-#if MODE16
-u32 smp_cpus VISIBLE16;
-asm(
+ASM16(
     "  .global smp_ap_boot_code\n"
     "smp_ap_boot_code:\n"
     // Increment the cpu counter
@@ -60,7 +58,6 @@ asm(
     // Halt the processor.
     "  jmp permanent_halt\n"
     );
-#endif
 
 /* find the number of CPUs by launching a SIPI to them */
 int

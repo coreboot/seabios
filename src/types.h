@@ -22,14 +22,21 @@ union u64_u32_u {
 };
 
 #define __VISIBLE __attribute__((externally_visible))
+
 #if MODE16 == 1
 // Notes a function as externally visible in the 16bit code chunk.
-#define VISIBLE16 __VISIBLE
+# define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit code chunk.
-#define VISIBLE32
+# define VISIBLE32
+// Designate a variable as visible to both 32bit and 16bit code.
+# define VAR16 __VISIBLE
+// Designate top-level assembler as 16bit only.
+# define ASM16(code) asm(code)
 #else
-#define VISIBLE16
-#define VISIBLE32 __VISIBLE
+# define VISIBLE16
+# define VISIBLE32 __VISIBLE
+# define VAR16 __VISIBLE __attribute__((section(".discard.var16"))) __attribute__((weak))
+# define ASM16(code)
 #endif
 
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)

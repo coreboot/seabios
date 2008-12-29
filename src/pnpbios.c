@@ -27,9 +27,8 @@ struct pnpheader {
 extern struct pnpheader PNPHEADER;
 extern const char pnp_string[];
 
-#if MODE16
-# if CONFIG_PNPBIOS
-struct pnpheader PNPHEADER __aligned(16) VISIBLE16 = {
+#if CONFIG_PNPBIOS
+struct pnpheader PNPHEADER __aligned(16) VAR16 = {
     .signature = PNP_SIGNATURE,
     .version = 0x10,
     .length = sizeof(PNPHEADER),
@@ -38,12 +37,11 @@ struct pnpheader PNPHEADER __aligned(16) VISIBLE16 = {
     .real_ds = SEG_BIOS,
     .prot_database = BUILD_BIOS_ADDR,
 };
-# else
+#else
 // We need a copy of this string in the 0xf000 segment, but we are not
 // actually a PnP BIOS, so make sure it is *not* aligned, so OSes will
 // not see it if they scan.
-const char pnp_string[] __aligned(2) VISIBLE16 = " $PnP";
-# endif
+const char pnp_string[] __aligned(2) VAR16 = " $PnP";
 #endif
 
 #define FUNCTION_NOT_SUPPORTED 0x82

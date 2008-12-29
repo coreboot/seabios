@@ -20,8 +20,7 @@
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M
 // floppy here
-#if MODE16 == 1
-struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
+struct floppy_ext_dbt_s diskette_param_table2 VAR16 = {
     .dbt = {
         .specify1       = 0xAF,
         .specify2       = 0x02, // head load time 0000001, DMA used
@@ -39,7 +38,6 @@ struct floppy_ext_dbt_s diskette_param_table2 VISIBLE16 = {
     .data_rate      = 0,    // data transfer rate
     .drive_type     = 4,    // drive type in cmos
 };
-#endif
 
 void
 floppy_drive_setup()

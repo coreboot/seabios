@@ -22,4 +22,5 @@ SECTIONS
                 final_code16_fixed_start = . ;
                 *(.text16.fixed.addr)
                 }
+        /DISCARD/ : { *(.discard.var16) }
 }
