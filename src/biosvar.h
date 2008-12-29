@@ -255,8 +255,6 @@ struct fdpt_s {
     u8 checksum;
 } PACKED;
 
-struct pir_header;
-
 struct extended_bios_data_area_s {
     u8 size;
     u8 reserved1[0x21];
@@ -279,7 +277,6 @@ struct extended_bios_data_area_s {
     // Physical memory available.
     u32 ram_size;        // Amount of continuous ram under 4Gig
     u64 ram_size_over4G; // Amount of continuous ram >4Gig
-    struct pir_header *pir_loc;
 
     // ATA Driver data
     struct ata_s ata;

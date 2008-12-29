@@ -127,15 +127,15 @@ handle_1ab10d(struct bregs *regs)
 static void
 handle_1ab10e(struct bregs *regs)
 {
-    struct pir_header *pirtable_far = GET_EBDA(pir_loc);
-    if (! pirtable_far) {
+    struct pir_header *pirtable_g = (void*)(GET_GLOBAL(PirOffset) + 0);
+    if (! pirtable_g) {
         set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
         return;
     }
 
     // Validate and update size.
     u16 size = GET_FARVAR(regs->es, *(u16*)(regs->di+0));
-    u16 pirsize = (GET_FARPTR(pirtable_far->size)
+    u16 pirsize = (GET_GLOBAL(pirtable_g->size)
                    - sizeof(struct pir_header));
     SET_FARVAR(regs->es, *(u16*)(regs->di+0), pirsize);
     if (size < pirsize) {
@@ -148,10 +148,12 @@ handle_1ab10e(struct bregs *regs)
     u16 destseg = GET_FARVAR(regs->es, *(u16*)(regs->di+4));
 
     // Memcpy pir table slots to dest buffer.
-    memcpy_far(MAKE_FARPTR(destseg, d), pirtable_far, pirsize);
+    memcpy_far(MAKE_FARPTR(destseg, d)
+               , MAKE_FARPTR(SEG_BIOS, pirtable_g)
+               , pirsize);
 
     // XXX - bochs bios sets bx to (1 << 9) | (1 << 11)
-    regs->bx = GET_FARPTR(pirtable_far->exclusive_irqs);
+    regs->bx = GET_GLOBAL(pirtable_g->exclusive_irqs);
     set_code_success(regs);
 }
 

@@ -21,7 +21,7 @@ copy_pir(void *pos)
     struct pir_header *p = pos;
     if (p->signature != PIR_SIGNATURE)
         return;
-    if (GET_EBDA(pir_loc))
+    if (PirOffset)
         return;
     if (p->size < sizeof(*p))
         return;
@@ -34,7 +34,7 @@ copy_pir(void *pos)
     }
     dprintf(1, "Copying PIR from %p to %x\n", pos, bios_table_cur_addr);
     memcpy((void*)bios_table_cur_addr, pos, p->size);
-    SET_EBDA(pir_loc, (void*)bios_table_cur_addr);
+    PirOffset = bios_table_cur_addr - BUILD_BIOS_ADDR;
     bios_table_cur_addr += p->size;
 }
 

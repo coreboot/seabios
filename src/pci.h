@@ -40,6 +40,8 @@ void create_pirtable();
  * PIR table
  ****************************************************************/
 
+extern u16 PirOffset;
+
 struct link_info {
     u8 link;
     u16 bitmap;

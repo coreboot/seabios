@@ -9,11 +9,16 @@
 #include "util.h" // checksum
 #include "biosvar.h" // SET_EBDA
 
+u16 PirOffset VAR16;
+
 struct pir_table {
     struct pir_header pir;
     struct pir_slot slots[6];
-} PACKED PIR_TABLE __aligned(16) = {
-#if CONFIG_PIRTABLE
+} PACKED;
+
+extern struct pir_table PIR_TABLE;
+#if CONFIG_PIRTABLE && !CONFIG_COREBOOT
+struct pir_table PIR_TABLE __aligned(16) VAR16 = {
     .pir = {
         .version = 0x0100,
         .size = sizeof(struct pir_table),
@@ -83,8 +88,8 @@ struct pir_table {
             .slot_nr = 5,
         },
     }
-#endif // CONFIG_PIRTABLE
 };
+#endif // CONFIG_PIRTABLE && !CONFIG_COREBOOT
 
 void
 create_pirtable()
@@ -96,5 +101,5 @@ create_pirtable()
 
     PIR_TABLE.pir.signature = PIR_SIGNATURE;
     PIR_TABLE.pir.checksum = -checksum((u8*)&PIR_TABLE, sizeof(PIR_TABLE));
-    SET_EBDA(pir_loc, &PIR_TABLE.pir);
+    PirOffset = (u32)&PIR_TABLE.pir - BUILD_BIOS_ADDR;
 }
