@@ -7,6 +7,7 @@
 #define __DISK_H
 
 #include "types.h" // u8
+#include "config.h" // CONFIG_*
 
 #define DISK_RET_SUCCESS       0x00
 #define DISK_RET_EPARAM        0x01
@@ -23,6 +24,11 @@
 #define DISK_RET_ETOOMANYLOCKS 0xb4
 #define DISK_RET_EMEDIA        0xC0
 #define DISK_RET_ENOTREADY     0xAA
+
+
+/****************************************************************
+ * Interface structs
+ ****************************************************************/
 
 // Bios disk structures.
 struct int13ext_s {
@@ -96,6 +102,73 @@ void __disk_ret(const char *fname, int lineno, struct bregs *regs, u8 code);
 #define disk_ret(regs, code) \
     __disk_ret(__func__, __LINE__, (regs), (code))
 
+
+/****************************************************************
+ * Global storage
+ ****************************************************************/
+
+struct chs_s {
+    u16 heads;      // # heads
+    u16 cylinders;  // # cylinders
+    u16 spt;        // # sectors / track
+};
+
+struct ata_channel_s {
+    u16 iobase1;      // IO Base 1
+    u16 iobase2;      // IO Base 2
+    u16 pci_bdf;
+    u8  irq;          // IRQ
+};
+
+struct ata_device_s {
+    u8  type;         // Detected type of ata (ata/atapi/none/unknown)
+    u8  device;       // Detected type of attached devices (hd/cd/none)
+    u8  removable;    // Removable device flag
+    u8  mode;         // transfer mode : PIO 16/32 bits - IRQ - ISADMA - PCIDMA
+    u16 blksize;      // block size
+
+    u8  translation;  // type of translation
+    struct chs_s  lchs;         // Logical CHS
+    struct chs_s  pchs;         // Physical CHS
+
+    u64 sectors;      // Total sectors count
+};
+
+struct ata_s {
+    // ATA channels info
+    struct ata_channel_s channels[CONFIG_MAX_ATA_INTERFACES];
+
+    // ATA devices info
+    struct ata_device_s  devices[CONFIG_MAX_ATA_DEVICES];
+    //
+    // map between bios hd/cd id and ata channels
+    u8 hdcount, cdcount;
+    u8 idmap[2][CONFIG_MAX_ATA_DEVICES];
+};
+
+// ElTorito Device Emulation data
+struct cdemu_s {
+    u8  media;
+    u8  emulated_drive;
+    u8  controller_index;
+    u16 device_spec;
+    u32 ilba;
+    u16 buffer_segment;
+    u16 load_segment;
+    u16 sector_count;
+
+    // Virtual device
+    struct chs_s  vdevice;
+};
+
+
+/****************************************************************
+ * Function defs
+ ****************************************************************/
+
+// ata.c
+extern struct ata_s ATA;
+
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_drive_setup();
@@ -107,6 +180,7 @@ void disk_13(struct bregs *regs, u8 device);
 void disk_13XX(struct bregs *regs, u8 device);
 
 // cdrom.c
+extern struct cdemu_s CDEMU;
 int cdrom_read_emu(u16 device, u32 lba, u32 count, void *far_buffer);
 void cdrom_13(struct bregs *regs, u8 device);
 void cdemu_13(struct bregs *regs);

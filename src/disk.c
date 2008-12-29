@@ -42,17 +42,17 @@ __disk_stub(const char *fname, int lineno, struct bregs *regs)
 static void
 basic_access(struct bregs *regs, u8 device, u16 command)
 {
-    u8 type = GET_EBDA(ata.devices[device].type);
+    u8 type = GET_GLOBAL(ATA.devices[device].type);
     u16 nlc, nlh, nlspt;
     if (type == ATA_TYPE_ATA) {
-        nlc   = GET_EBDA(ata.devices[device].lchs.cylinders);
-        nlh   = GET_EBDA(ata.devices[device].lchs.heads);
-        nlspt = GET_EBDA(ata.devices[device].lchs.spt);
+        nlc   = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
+        nlh   = GET_GLOBAL(ATA.devices[device].lchs.heads);
+        nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
     } else {
         // Must be cd emulation.
-        nlc   = GET_EBDA(cdemu.vdevice.cylinders);
-        nlh   = GET_EBDA(cdemu.vdevice.heads);
-        nlspt = GET_EBDA(cdemu.vdevice.spt);
+        nlc   = GET_GLOBAL(CDEMU.vdevice.cylinders);
+        nlh   = GET_GLOBAL(CDEMU.vdevice.heads);
+        nlspt = GET_GLOBAL(CDEMU.vdevice.spt);
     }
 
     u16 count       = regs->al;
@@ -101,7 +101,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     irq_disable();
 
     // Set nb of sector transferred
-    regs->al = GET_EBDA(ata.trsfsectors);
+    regs->al = GET_EBDA(sector_count);
 
     if (status != 0) {
         dprintf(1, "int13_harddisk: function %02x, error %d!\n"
@@ -116,9 +116,9 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 {
     // Get lba and check.
     u64 lba = GET_INT13EXT(regs, lba);
-    u8 type = GET_EBDA(ata.devices[device].type);
+    u8 type = GET_GLOBAL(ATA.devices[device].type);
     if (type == ATA_TYPE_ATA
-        && lba >= GET_EBDA(ata.devices[device].sectors)) {
+        && lba >= GET_GLOBAL(ATA.devices[device].sectors)) {
         dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -149,7 +149,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
     irq_disable();
 
-    SET_INT13EXT(regs, count, GET_EBDA(ata.trsfsectors));
+    SET_INT13EXT(regs, count, GET_EBDA(sector_count));
 
     if (status != 0) {
         dprintf(1, "int13_harddisk: function %02x, error %d!\n"
@@ -216,10 +216,10 @@ static void
 disk_1308(struct bregs *regs, u8 device)
 {
     // Get logical geometry from table
-    u16 nlc = GET_EBDA(ata.devices[device].lchs.cylinders);
-    u16 nlh = GET_EBDA(ata.devices[device].lchs.heads);
-    u16 nlspt = GET_EBDA(ata.devices[device].lchs.spt);
-    u16 count = GET_EBDA(ata.hdcount);
+    u16 nlc = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
+    u16 nlh = GET_GLOBAL(ATA.devices[device].lchs.heads);
+    u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
+    u16 count = GET_GLOBAL(ATA.hdcount);
 
     nlc = nlc - 2; /* 0 based , last sector not used */
     regs->al = 0;
@@ -260,7 +260,7 @@ disk_1310(struct bregs *regs, u8 device)
     // should look at 40:8E also???
 
     // Read the status from controller
-    u8 status = inb(GET_EBDA(ata.channels[device/2].iobase1) + ATA_CB_STAT);
+    u8 status = inb(GET_GLOBAL(ATA.channels[device/2].iobase1) + ATA_CB_STAT);
     if ( (status & ( ATA_CB_STAT_BSY | ATA_CB_STAT_RDY )) == ATA_CB_STAT_RDY )
         disk_ret(regs, DISK_RET_SUCCESS);
     else
@@ -286,9 +286,9 @@ static void
 disk_1315(struct bregs *regs, u8 device)
 {
     // Get logical geometry from table
-    u16 nlc   = GET_EBDA(ata.devices[device].lchs.cylinders);
-    u16 nlh   = GET_EBDA(ata.devices[device].lchs.heads);
-    u16 nlspt = GET_EBDA(ata.devices[device].lchs.spt);
+    u16 nlc   = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
+    u16 nlh   = GET_GLOBAL(ATA.devices[device].lchs.heads);
+    u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
 
     // Compute sector count seen by int13
     u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;
@@ -367,12 +367,12 @@ disk_1348(struct bregs *regs, u8 device)
 
     // EDD 1.x
 
-    u8  type    = GET_EBDA(ata.devices[device].type);
-    u16 npc     = GET_EBDA(ata.devices[device].pchs.cylinders);
-    u16 nph     = GET_EBDA(ata.devices[device].pchs.heads);
-    u16 npspt   = GET_EBDA(ata.devices[device].pchs.spt);
-    u64 lba     = GET_EBDA(ata.devices[device].sectors);
-    u16 blksize = GET_EBDA(ata.devices[device].blksize);
+    u8  type    = GET_GLOBAL(ATA.devices[device].type);
+    u16 npc     = GET_GLOBAL(ATA.devices[device].pchs.cylinders);
+    u16 nph     = GET_GLOBAL(ATA.devices[device].pchs.heads);
+    u16 npspt   = GET_GLOBAL(ATA.devices[device].pchs.spt);
+    u64 lba     = GET_GLOBAL(ATA.devices[device].sectors);
+    u16 blksize = GET_GLOBAL(ATA.devices[device].blksize);
 
     dprintf(DEBUG_HDL_13, "disk_1348 size=%d t=%d chs=%d,%d,%d lba=%d bs=%d\n"
             , size, type, npc, nph, npspt, (u32)lba, blksize);
@@ -411,19 +411,19 @@ disk_1348(struct bregs *regs, u8 device)
 
     SET_INT13DPT(regs, dpte_segment, GET_BDA(ebda_seg));
     SET_INT13DPT(regs, dpte_offset
-                 , offsetof(struct extended_bios_data_area_s, ata.dpte));
+                 , offsetof(struct extended_bios_data_area_s, dpte));
 
     // Fill in dpte
     u8 channel = device / 2;
     u8 slave = device % 2;
-    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    u8 irq = GET_EBDA(ata.channels[channel].irq);
-    u8 mode = GET_EBDA(ata.devices[device].mode);
+    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+    u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
+    u8 irq = GET_GLOBAL(ATA.channels[channel].irq);
+    u8 mode = GET_GLOBAL(ATA.devices[device].mode);
 
     u16 options = 0;
     if (type == ATA_TYPE_ATA) {
-        u8 translation = GET_EBDA(ata.devices[device].translation);
+        u8 translation = GET_GLOBAL(ATA.devices[device].translation);
         if (translation != ATA_TRANSLATION_NONE) {
             options |= 1<<3; // CHS translation
             if (translation == ATA_TRANSLATION_LBA)
@@ -440,22 +440,22 @@ disk_1348(struct bregs *regs, u8 device)
     if (mode == ATA_MODE_PIO32)
         options |= 1<<7;
 
-    SET_EBDA(ata.dpte.iobase1, iobase1);
-    SET_EBDA(ata.dpte.iobase2, iobase2 + ATA_CB_DC);
-    SET_EBDA(ata.dpte.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
+    SET_EBDA(dpte.iobase1, iobase1);
+    SET_EBDA(dpte.iobase2, iobase2 + ATA_CB_DC);
+    SET_EBDA(dpte.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
                                | ATA_CB_DH_LBA));
-    SET_EBDA(ata.dpte.unused, 0xcb);
-    SET_EBDA(ata.dpte.irq, irq);
-    SET_EBDA(ata.dpte.blkcount, 1);
-    SET_EBDA(ata.dpte.dma, 0);
-    SET_EBDA(ata.dpte.pio, 0);
-    SET_EBDA(ata.dpte.options, options);
-    SET_EBDA(ata.dpte.reserved, 0);
-    SET_EBDA(ata.dpte.revision, 0x11);
+    SET_EBDA(dpte.unused, 0xcb);
+    SET_EBDA(dpte.irq, irq);
+    SET_EBDA(dpte.blkcount, 1);
+    SET_EBDA(dpte.dma, 0);
+    SET_EBDA(dpte.pio, 0);
+    SET_EBDA(dpte.options, options);
+    SET_EBDA(dpte.reserved, 0);
+    SET_EBDA(dpte.revision, 0x11);
 
     u8 *p = MAKE_FARPTR(GET_BDA(ebda_seg)
-                        , offsetof(struct extended_bios_data_area_s, ata.dpte));
-    SET_EBDA(ata.dpte.checksum, -checksum(p, 15));
+                        , offsetof(struct extended_bios_data_area_s, dpte));
+    SET_EBDA(dpte.checksum, -checksum(p, 15));
 
     if (size < 66) {
         disk_ret(regs, DISK_RET_SUCCESS);
@@ -473,7 +473,7 @@ disk_1348(struct bregs *regs, u8 device)
     SET_INT13DPT(regs, host_bus[2], 'I');
     SET_INT13DPT(regs, host_bus[3], 0);
 
-    u32 bdf = GET_EBDA(ata.channels[channel].pci_bdf);
+    u32 bdf = GET_GLOBAL(ATA.channels[channel].pci_bdf);
     u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
                 | (pci_bdf_to_fn(bdf) << 16));
     SET_INT13DPT(regs, iface_path, path);
@@ -603,7 +603,7 @@ get_device(struct bregs *regs, u8 iscd, u8 drive)
     }
 
     // Get the ata channel
-    u8 device = GET_EBDA(ata.idmap[iscd][drive]);
+    u8 device = GET_GLOBAL(ATA.idmap[iscd][drive]);
 
     // basic check : device has to be valid
     if (device >= CONFIG_MAX_ATA_DEVICES) {
@@ -661,8 +661,8 @@ handle_13(struct bregs *regs)
             cdemu_134b(regs);
             return;
         }
-        if (GET_EBDA(cdemu.active)) {
-            if (drive == GET_EBDA(cdemu.emulated_drive)) {
+        if (GET_EBDA(cdemu_active)) {
+            if (drive == GET_GLOBAL(CDEMU.emulated_drive)) {
                 cdemu_13(regs);
                 return;
             }

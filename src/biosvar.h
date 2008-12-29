@@ -129,89 +129,6 @@ struct bios_data_area_s {
 
 
 /****************************************************************
- * Hard drive info
- ****************************************************************/
-
-struct chs_s {
-    u16 heads;      // # heads
-    u16 cylinders;  // # cylinders
-    u16 spt;        // # sectors / track
-};
-
-// DPTE definition
-struct dpte_s {
-    u16 iobase1;
-    u16 iobase2;
-    u8  prefix;
-    u8  unused;
-    u8  irq;
-    u8  blkcount;
-    u8  dma;
-    u8  pio;
-    u16 options;
-    u16 reserved;
-    u8  revision;
-    u8  checksum;
-};
-
-struct ata_channel_s {
-    u16 iobase1;      // IO Base 1
-    u16 iobase2;      // IO Base 2
-    u16 pci_bdf;
-    u8  irq;          // IRQ
-};
-
-struct ata_device_s {
-    u8  type;         // Detected type of ata (ata/atapi/none/unknown)
-    u8  device;       // Detected type of attached devices (hd/cd/none)
-    u8  removable;    // Removable device flag
-    u8  lock;         // Locks for removable devices
-    u8  mode;         // transfer mode : PIO 16/32 bits - IRQ - ISADMA - PCIDMA
-    u16 blksize;      // block size
-
-    u8  translation;  // type of translation
-    struct chs_s  lchs;         // Logical CHS
-    struct chs_s  pchs;         // Physical CHS
-
-    u64 sectors;      // Total sectors count
-};
-
-struct ata_s {
-    // ATA channels info
-    struct ata_channel_s channels[CONFIG_MAX_ATA_INTERFACES];
-
-    // ATA devices info
-    struct ata_device_s  devices[CONFIG_MAX_ATA_DEVICES];
-    //
-    // map between bios hd/cd id and ata channels
-    u8 hdcount, cdcount;
-    u8 idmap[2][CONFIG_MAX_ATA_DEVICES];
-
-    // Buffer for DPTE table
-    struct dpte_s dpte;
-
-    // Count of transferred sectors and bytes
-    u16 trsfsectors;
-};
-
-// ElTorito Device Emulation data
-struct cdemu_s {
-    u8  active;
-    u8  media;
-    u8  emulated_drive;
-    u8  controller_index;
-    u16 device_spec;
-    u32 ilba;
-    u16 buffer_segment;
-    u16 load_segment;
-    u16 sector_count;
-
-    // Virtual device
-    struct chs_s  vdevice;
-};
-
-
-/****************************************************************
  * Initial Program Load (IPL)
  ****************************************************************/
 
@@ -239,6 +156,22 @@ struct ipl_s {
 /****************************************************************
  * Extended Bios Data Area (EBDA)
  ****************************************************************/
+
+// DPTE definition
+struct dpte_s {
+    u16 iobase1;
+    u16 iobase2;
+    u8  prefix;
+    u8  unused;
+    u8  irq;
+    u8  blkcount;
+    u8  dma;
+    u8  pio;
+    u16 options;
+    u16 reserved;
+    u8  revision;
+    u8  checksum;
+};
 
 struct fdpt_s {
     u16 cylinders;
@@ -274,11 +207,16 @@ struct extended_bios_data_area_s {
     // 0x121 - Begin custom storage.
     u8 ps2ctr;
 
-    // ATA Driver data
-    struct ata_s ata;
+    u8 cdemu_active;
 
-    // El Torito Emulation data
-    struct cdemu_s cdemu;
+    // Count of transferred sectors and bytes to/from disk
+    u16 sector_count;
+
+    // Buffer for disk DPTE table
+    struct dpte_s dpte;
+
+    // Locks for removable devices
+    u8 cdrom_locks[CONFIG_MAX_ATA_DEVICES];
 
     // Initial program load
     struct ipl_s ipl;
@@ -310,8 +248,10 @@ get_ebda_ptr()
     GET_VAR(CS, (var))
 #if MODE16
 extern void __force_link_error__set_global_only_in_32bit();
-#define SET_GLOBAL(var, val)                            \
-    __force_link_error__set_global_only_in_32bit()
+#define SET_GLOBAL(var, val) do {                       \
+    (void)(val);                                        \
+    __force_link_error__set_global_only_in_32bit();     \
+    } while (0)
 #else
 #define SET_GLOBAL(var, val)                    \
     do { (var) = (val); } while (0)

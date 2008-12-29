@@ -15,6 +15,7 @@
 #include "pci.h" // pci_find_class
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
+#include "disk.h" // struct ata_s
 
 #define TIMEOUT 0
 #define BSY 1
@@ -27,6 +28,8 @@
 #define CDROM_SECTOR_SIZE 2048
 
 #define IDE_TIMEOUT 32000u //32 seconds max for IDE ops
+
+struct ata_s ATA VAR16;
 
 
 /****************************************************************
@@ -91,8 +94,8 @@ ata_reset(int driveid)
 {
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
-    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+    u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
     // Reset
 
@@ -115,7 +118,7 @@ ata_reset(int driveid)
 
     // For predetermined ATA drives - wait for ready.
     if (sc==0x01 && sn==0x01) {
-        u8 type=GET_EBDA(ata.devices[driveid].type);
+        u8 type=GET_GLOBAL(ATA.devices[driveid].type);
         if (type == ATA_TYPE_ATA)
             await_ide(NOT_BSY_RDY, iobase1, IDE_TIMEOUT);
     }
@@ -160,8 +163,8 @@ static int
 send_cmd(int driveid, struct ata_pio_command *cmd)
 {
     u8 channel = driveid / 2;
-    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+    u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
     int status = inb(iobase1 + ATA_CB_STAT);
     if (status & ATA_CB_STAT_BSY)
@@ -244,12 +247,12 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
             , skipfirst, skiplast, far_buffer);
 
     // Reset count of transferred data
-    SET_EBDA(ata.trsfsectors, 0);
+    SET_EBDA(sector_count, 0);
 
     u8 channel  = driveid / 2;
-    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
-    u8 mode     = GET_EBDA(ata.devices[driveid].mode);
+    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+    u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
+    u8 mode     = GET_GLOBAL(ATA.devices[driveid].mode);
     int current = 0;
     int status;
     for (;;) {
@@ -287,7 +290,7 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
             return status;
 
         current++;
-        SET_EBDA(ata.trsfsectors, current);
+        SET_EBDA(sector_count, current);
         if (current == count)
             break;
         status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
@@ -335,10 +338,10 @@ ata_transfer_emu(const struct ata_op_s *op, int before, int after)
     int ret = ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
                            , before*512, after*512, op->far_buffer);
     if (ret) {
-        SET_EBDA(ata.trsfsectors, 0);
+        SET_EBDA(sector_count, 0);
         return ret;
     }
-    SET_EBDA(ata.trsfsectors, vcount);
+    SET_EBDA(sector_count, vcount);
     return 0;
 }
 
@@ -407,8 +410,8 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 {
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
-    u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-    u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+    u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
     struct ata_pio_command cmd;
     cmd.sector_count = 0;
@@ -556,11 +559,11 @@ get_ata_version(u8 *buffer)
 static void
 init_drive_atapi(int driveid)
 {
-    SET_EBDA(ata.devices[driveid].type, ATA_TYPE_ATAPI);
+    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
 
     // Temporary values to do the transfer
-    SET_EBDA(ata.devices[driveid].device,ATA_DEVICE_CDROM);
-    SET_EBDA(ata.devices[driveid].mode, ATA_MODE_PIO16);
+    SET_GLOBAL(ATA.devices[driveid].device,ATA_DEVICE_CDROM);
+    SET_GLOBAL(ATA.devices[driveid].mode, ATA_MODE_PIO16);
 
     // Now we send a IDENTIFY command to ATAPI device
     u8 buffer[0x0200];
@@ -576,19 +579,19 @@ init_drive_atapi(int driveid)
     u8 mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
     u16 blksize  = CDROM_SECTOR_SIZE;
 
-    SET_EBDA(ata.devices[driveid].device, type);
-    SET_EBDA(ata.devices[driveid].removable, removable);
-    SET_EBDA(ata.devices[driveid].mode, mode);
-    SET_EBDA(ata.devices[driveid].blksize, blksize);
+    SET_GLOBAL(ATA.devices[driveid].device, type);
+    SET_GLOBAL(ATA.devices[driveid].removable, removable);
+    SET_GLOBAL(ATA.devices[driveid].mode, mode);
+    SET_GLOBAL(ATA.devices[driveid].blksize, blksize);
 
     // fill cdidmap
-    u8 cdcount = GET_EBDA(ata.cdcount);
-    SET_EBDA(ata.idmap[1][cdcount], driveid);
-    SET_EBDA(ata.cdcount, ++cdcount);
+    u8 cdcount = GET_GLOBAL(ATA.cdcount);
+    SET_GLOBAL(ATA.idmap[1][cdcount], driveid);
+    SET_GLOBAL(ATA.cdcount, ++cdcount);
 
     report_model(driveid, buffer);
     u8 version = get_ata_version(buffer);
-    if (GET_EBDA(ata.devices[driveid].device)==ATA_DEVICE_CDROM)
+    if (GET_GLOBAL(ATA.devices[driveid].device)==ATA_DEVICE_CDROM)
         printf(" ATAPI-%d CD-Rom/DVD-Rom\n", version);
     else
         printf(" ATAPI-%d Device\n", version);
@@ -600,15 +603,15 @@ fill_fdpt(int driveid)
     if (driveid > 1)
         return;
 
+    u16 nlc   = GET_GLOBAL(ATA.devices[driveid].lchs.cylinders);
+    u16 nlh   = GET_GLOBAL(ATA.devices[driveid].lchs.heads);
+    u16 nlspt = GET_GLOBAL(ATA.devices[driveid].lchs.spt);
+
+    u16 npc   = GET_GLOBAL(ATA.devices[driveid].pchs.cylinders);
+    u16 nph   = GET_GLOBAL(ATA.devices[driveid].pchs.heads);
+    u16 npspt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
+
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
-    u16 nlc   = ebda->ata.devices[driveid].lchs.cylinders;
-    u16 nlh   = ebda->ata.devices[driveid].lchs.heads;
-    u16 nlspt = ebda->ata.devices[driveid].lchs.spt;
-
-    u16 npc   = ebda->ata.devices[driveid].pchs.cylinders;
-    u16 nph   = ebda->ata.devices[driveid].pchs.heads;
-    u16 npspt = ebda->ata.devices[driveid].pchs.spt;
-
     ebda->fdpt[driveid].precompensation = 0xffff;
     ebda->fdpt[driveid].drive_control_byte = 0xc0 | ((nph > 8) << 3);
     ebda->fdpt[driveid].landing_zone = npc;
@@ -646,9 +649,9 @@ get_translation(int driveid)
     }
 
     // On COREBOOT, use a heuristic to determine translation type.
-    u16 heads = GET_EBDA(ata.devices[driveid].pchs.heads);
-    u16 cylinders = GET_EBDA(ata.devices[driveid].pchs.cylinders);
-    u16 spt = GET_EBDA(ata.devices[driveid].pchs.spt);
+    u16 heads = GET_GLOBAL(ATA.devices[driveid].pchs.heads);
+    u16 cylinders = GET_GLOBAL(ATA.devices[driveid].pchs.cylinders);
+    u16 spt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
 
     if (cylinders <= 1024 && heads <= 16 && spt <= 63)
         return ATA_TRANSLATION_NONE;
@@ -661,14 +664,14 @@ static void
 setup_translation(int driveid)
 {
     u8 translation = get_translation(driveid);
-    SET_EBDA(ata.devices[driveid].translation, translation);
+    SET_GLOBAL(ATA.devices[driveid].translation, translation);
 
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
-    u16 heads = GET_EBDA(ata.devices[driveid].pchs.heads);
-    u16 cylinders = GET_EBDA(ata.devices[driveid].pchs.cylinders);
-    u16 spt = GET_EBDA(ata.devices[driveid].pchs.spt);
-    u64 sectors = GET_EBDA(ata.devices[driveid].sectors);
+    u16 heads = GET_GLOBAL(ATA.devices[driveid].pchs.heads);
+    u16 cylinders = GET_GLOBAL(ATA.devices[driveid].pchs.cylinders);
+    u16 spt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
+    u64 sectors = GET_GLOBAL(ATA.devices[driveid].sectors);
 
     dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation="
             , channel, slave, cylinders, heads, spt);
@@ -726,19 +729,19 @@ setup_translation(int driveid)
         cylinders = 1024;
     dprintf(1, " LCHS=%d/%d/%d\n", cylinders, heads, spt);
 
-    SET_EBDA(ata.devices[driveid].lchs.heads, heads);
-    SET_EBDA(ata.devices[driveid].lchs.cylinders, cylinders);
-    SET_EBDA(ata.devices[driveid].lchs.spt, spt);
+    SET_GLOBAL(ATA.devices[driveid].lchs.heads, heads);
+    SET_GLOBAL(ATA.devices[driveid].lchs.cylinders, cylinders);
+    SET_GLOBAL(ATA.devices[driveid].lchs.spt, spt);
 }
 
 static void
 init_drive_ata(int driveid)
 {
-    SET_EBDA(ata.devices[driveid].type, ATA_TYPE_ATA);
+    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATA);
 
     // Temporary values to do the transfer
-    SET_EBDA(ata.devices[driveid].device, ATA_DEVICE_HD);
-    SET_EBDA(ata.devices[driveid].mode, ATA_MODE_PIO16);
+    SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
+    SET_GLOBAL(ATA.devices[driveid].mode, ATA_MODE_PIO16);
 
     // Now we send a IDENTIFY command to ATA device
     u8 buffer[0x0200];
@@ -763,28 +766,28 @@ init_drive_ata(int driveid)
     else
         sectors = *(u32*)&buffer[60*2]; // word 60 and word 61
 
-    SET_EBDA(ata.devices[driveid].device, ATA_DEVICE_HD);
-    SET_EBDA(ata.devices[driveid].removable, removable);
-    SET_EBDA(ata.devices[driveid].mode, mode);
-    SET_EBDA(ata.devices[driveid].blksize, blksize);
-    SET_EBDA(ata.devices[driveid].pchs.heads, heads);
-    SET_EBDA(ata.devices[driveid].pchs.cylinders, cylinders);
-    SET_EBDA(ata.devices[driveid].pchs.spt, spt);
-    SET_EBDA(ata.devices[driveid].sectors, sectors);
+    SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
+    SET_GLOBAL(ATA.devices[driveid].removable, removable);
+    SET_GLOBAL(ATA.devices[driveid].mode, mode);
+    SET_GLOBAL(ATA.devices[driveid].blksize, blksize);
+    SET_GLOBAL(ATA.devices[driveid].pchs.heads, heads);
+    SET_GLOBAL(ATA.devices[driveid].pchs.cylinders, cylinders);
+    SET_GLOBAL(ATA.devices[driveid].pchs.spt, spt);
+    SET_GLOBAL(ATA.devices[driveid].sectors, sectors);
 
     // Setup disk geometry translation.
     setup_translation(driveid);
 
     // fill hdidmap
-    u8 hdcount = GET_EBDA(ata.hdcount);
-    SET_EBDA(ata.idmap[0][hdcount], driveid);
-    SET_EBDA(ata.hdcount, ++hdcount);
+    u8 hdcount = GET_GLOBAL(ATA.hdcount);
+    SET_GLOBAL(ATA.idmap[0][hdcount], driveid);
+    SET_GLOBAL(ATA.hdcount, ++hdcount);
 
     // Fill "fdpt" structure.
     fill_fdpt(driveid);
 
     // Report drive info to user.
-    u64 sizeinmb = GET_EBDA(ata.devices[driveid].sectors) >> 11;
+    u64 sizeinmb = GET_GLOBAL(ATA.devices[driveid].sectors) >> 11;
     report_model(driveid, buffer);
     u8 version = get_ata_version(buffer);
     if (sizeinmb < (1 << 16))
@@ -797,7 +800,7 @@ init_drive_ata(int driveid)
 static void
 init_drive_unknown(int driveid)
 {
-    SET_EBDA(ata.devices[driveid].type, ATA_TYPE_UNKNOWN);
+    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_UNKNOWN);
 
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
@@ -813,8 +816,8 @@ ata_detect()
         u8 channel = driveid / 2;
         u8 slave = driveid % 2;
 
-        u16 iobase1 = GET_EBDA(ata.channels[channel].iobase1);
-        u16 iobase2 = GET_EBDA(ata.channels[channel].iobase2);
+        u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+        u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
         if (!iobase1)
             break;
 
@@ -878,8 +881,8 @@ ata_init()
     // hdidmap and cdidmap init.
     u8 device;
     for (device=0; device < CONFIG_MAX_ATA_DEVICES; device++) {
-        SET_EBDA(ata.idmap[0][device], CONFIG_MAX_ATA_DEVICES);
-        SET_EBDA(ata.idmap[1][device], CONFIG_MAX_ATA_DEVICES);
+        SET_GLOBAL(ATA.idmap[0][device], CONFIG_MAX_ATA_DEVICES);
+        SET_GLOBAL(ATA.idmap[1][device], CONFIG_MAX_ATA_DEVICES);
     }
 
     // Scan PCI bus for ATA adapters
@@ -890,8 +893,8 @@ ata_init()
             continue;
 
         u8 irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
-        SET_EBDA(ata.channels[count].irq, irq);
-        SET_EBDA(ata.channels[count].pci_bdf, bdf);
+        SET_GLOBAL(ATA.channels[count].irq, irq);
+        SET_GLOBAL(ATA.channels[count].pci_bdf, bdf);
 
         u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
         u32 port1, port2;
@@ -903,8 +906,8 @@ ata_init()
             port1 = 0x1f0;
             port2 = 0x3f0;
         }
-        SET_EBDA(ata.channels[count].iobase1, port1);
-        SET_EBDA(ata.channels[count].iobase2, port2);
+        SET_GLOBAL(ATA.channels[count].iobase1, port1);
+        SET_GLOBAL(ATA.channels[count].iobase2, port2);
         dprintf(1, "ATA controller %d at %x/%x (dev %x prog_if %x)\n"
                 , count, port1, port2, bdf, prog_if);
         count++;
@@ -918,8 +921,8 @@ ata_init()
         }
         dprintf(1, "ATA controller %d at %x/%x (dev %x prog_if %x)\n"
                 , count, port1, port2, bdf, prog_if);
-        SET_EBDA(ata.channels[count].iobase1, port1);
-        SET_EBDA(ata.channels[count].iobase2, port2);
+        SET_GLOBAL(ATA.channels[count].iobase1, port1);
+        SET_GLOBAL(ATA.channels[count].iobase2, port2);
         count++;
     }
 }
@@ -935,7 +938,7 @@ hard_drive_setup()
     ata_detect();
 
     // Store the device count
-    SET_BDA(disk_count, GET_EBDA(ata.hdcount));
+    SET_BDA(disk_count, GET_GLOBAL(ATA.hdcount));
 
     SET_BDA(disk_control_byte, 0xc0);
 
