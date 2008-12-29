@@ -192,7 +192,7 @@ pci_bios_setup(void)
 
     pci_bios_io_addr = 0xc000;
     pci_bios_mem_addr = 0xf0000000;
-    pci_bios_bigmem_addr = GET_EBDA(ram_size);
+    pci_bios_bigmem_addr = RamSize;
     if (pci_bios_bigmem_addr < 0x90000000)
         pci_bios_bigmem_addr = 0x90000000;
 

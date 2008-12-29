@@ -310,7 +310,7 @@ void acpi_bios_init(void)
     rsdp = (void *)(bios_table_cur_addr);
     bios_table_cur_addr += sizeof(*rsdp);
 
-    addr = base_addr = GET_EBDA(ram_size) - CONFIG_ACPI_DATA_SIZE;
+    addr = base_addr = RamSize - CONFIG_ACPI_DATA_SIZE;
     add_e820(addr, CONFIG_ACPI_DATA_SIZE, E820_ACPI);
     rsdt_addr = addr;
     rsdt = (void *)(addr);

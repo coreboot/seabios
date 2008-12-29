@@ -114,6 +114,8 @@ void handle_15c2(struct bregs *regs);
 void mouse_setup();
 
 // system.c
+extern u32 RamSize;
+extern u64 RamSizeOver4G;
 void mathcp_setup();
 
 // serial.c

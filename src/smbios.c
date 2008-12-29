@@ -400,7 +400,7 @@ smbios_type_16_init(void *start)
     p->location = 0x01; /* other */
     p->use = 0x03; /* system memory */
     p->error_correction = 0x01; /* other */
-    u64 memsize = GET_EBDA(ram_size) + GET_EBDA(ram_size_over4G);
+    u64 memsize = RamSize + RamSizeOver4G;
     p->maximum_capacity = memsize / 1024;
     p->memory_error_information_handle = 0xfffe; /* none provided */
     p->number_of_memory_devices = 1;
@@ -426,7 +426,7 @@ smbios_type_17_init(void *start)
     p->data_width = 64;
     /* truncate memory_size_mb to 16 bits and clear most significant
        bit [indicates size in MB] */
-    u64 memsize = GET_EBDA(ram_size) + GET_EBDA(ram_size_over4G);
+    u64 memsize = RamSize + RamSizeOver4G;
     p->size = (u16) (memsize / (1024*1024)) & 0x7fff;
     p->form_factor = 0x09; /* DIMM */
     p->device_set = 0;
@@ -454,11 +454,11 @@ smbios_type_19_init(void *start)
     p->header.handle = 0x1300;
 
     p->starting_address = 0;
-    u64 memsize = GET_EBDA(ram_size_over4G);
+    u64 memsize = RamSizeOver4G;
     if (memsize)
         memsize += 0x100000000ull;
     else
-        memsize = GET_EBDA(ram_size);
+        memsize = RamSize;
     p->ending_address = memsize / 1024 - 1;
     p->memory_array_handle = 0x1000;
     p->partition_width = 1;
@@ -480,11 +480,11 @@ smbios_type_20_init(void *start)
     p->header.handle = 0x1400;
 
     p->starting_address = 0;
-    u64 memsize = GET_EBDA(ram_size_over4G);
+    u64 memsize = RamSizeOver4G;
     if (memsize)
         memsize += 0x100000000ull;
     else
-        memsize = GET_EBDA(ram_size);
+        memsize = RamSize;
     p->ending_address = memsize / 1024 - 1;
     p->memory_device_handle = 0x1100;
     p->memory_array_mapped_address_handle = 0x1300;

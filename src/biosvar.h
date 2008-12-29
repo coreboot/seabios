@@ -274,10 +274,6 @@ struct extended_bios_data_area_s {
     // 0x121 - Begin custom storage.
     u8 ps2ctr;
 
-    // Physical memory available.
-    u32 ram_size;        // Amount of continuous ram under 4Gig
-    u64 ram_size_over4G; // Amount of continuous ram >4Gig
-
     // ATA Driver data
     struct ata_s ata;
 

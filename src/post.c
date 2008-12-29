@@ -107,14 +107,14 @@ ram_probe(void)
             rs = (((inb_cmos(CMOS_MEM_EXTMEM_LOW) << 10)
                    | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 18))
                   + 1 * 1024 * 1024);
-        SET_EBDA(ram_size, rs);
+        RamSize = rs;
         add_e820(0, rs, E820_RAM);
 
         // Check for memory over 4Gig
         u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
                     | (inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
                     | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
-        SET_EBDA(ram_size_over4G, high);
+        RamSizeOver4G = high;
         add_e820(0x100000000ull, high, E820_RAM);
 
         /* reserve 256KB BIOS area at the end of 4 GB */
@@ -129,7 +129,7 @@ ram_probe(void)
              , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
-    dprintf(1, "ram_size=0x%08x\n", GET_EBDA(ram_size));
+    dprintf(1, "Ram Size=0x%08x\n", RamSize);
 }
 
 static void

@@ -191,7 +191,7 @@ handle_1587(struct bregs *regs)
 static void
 handle_1588(struct bregs *regs)
 {
-    u32 rs = GET_EBDA(ram_size);
+    u32 rs = GET_GLOBAL(RamSize);
 
     // According to Ralf Brown's interrupt the limit should be 15M,
     // but real machines mostly return max. 63M.
@@ -246,7 +246,7 @@ handle_15e801(struct bregs *regs)
     // regs.u.r16.ax = 0;
     // regs.u.r16.bx = 0;
 
-    u32 rs = GET_EBDA(ram_size);
+    u32 rs = GET_GLOBAL(RamSize);
 
     // Get the amount of extended memory (above 1M)
     if (rs > 16*1024*1024) {
@@ -269,6 +269,10 @@ handle_15e801(struct bregs *regs)
 // Info on e820 map location and size.
 struct e820entry *e820_list VAR16;
 int e820_count VAR16;
+// Amount of continuous ram under 4Gig
+u32 RamSize VAR16;
+// Amount of continuous ram >4Gig
+u64 RamSizeOver4G VAR16;
 
 static void
 handle_15e820(struct bregs *regs)

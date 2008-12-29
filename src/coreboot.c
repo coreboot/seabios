@@ -219,8 +219,8 @@ coreboot_fill_map()
         add_e820(m->start, m->size, type);
     }
 
-    SET_EBDA(ram_size, maxram);
-    SET_EBDA(ram_size_over4G, maxram_over4G);
+    RamSize = maxram;
+    RamSizeOver4G = maxram_over4G;
 
     // Ughh - coreboot likes to set a map at 0x0000-0x1000, but this
     // confuses grub.  So, override it.
@@ -235,8 +235,8 @@ coreboot_fill_map()
 fail:
     // No table found..  Use 16Megs as a dummy value.
     dprintf(1, "Unable to find coreboot table!\n");
-    SET_EBDA(ram_size, 16*1024*1024);
-    SET_EBDA(ram_size_over4G, 0);
+    RamSize = 16*1024*1024;
+    RamSizeOver4G = 0;
     add_e820(0, 16*1024*1024, E820_RAM);
     return;
 }
