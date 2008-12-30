@@ -407,9 +407,10 @@ disk_1348(struct bregs *regs, u8 device)
 
     // EDD 2.x
 
+    u16 ebda_seg = get_ebda_seg();
     SET_INT13DPT(regs, size, 30);
 
-    SET_INT13DPT(regs, dpte_segment, GET_BDA(ebda_seg));
+    SET_INT13DPT(regs, dpte_segment, ebda_seg);
     SET_INT13DPT(regs, dpte_offset
                  , offsetof(struct extended_bios_data_area_s, dpte));
 
@@ -440,22 +441,22 @@ disk_1348(struct bregs *regs, u8 device)
     if (mode == ATA_MODE_PIO32)
         options |= 1<<7;
 
-    SET_EBDA(dpte.iobase1, iobase1);
-    SET_EBDA(dpte.iobase2, iobase2 + ATA_CB_DC);
-    SET_EBDA(dpte.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
-                               | ATA_CB_DH_LBA));
-    SET_EBDA(dpte.unused, 0xcb);
-    SET_EBDA(dpte.irq, irq);
-    SET_EBDA(dpte.blkcount, 1);
-    SET_EBDA(dpte.dma, 0);
-    SET_EBDA(dpte.pio, 0);
-    SET_EBDA(dpte.options, options);
-    SET_EBDA(dpte.reserved, 0);
-    SET_EBDA(dpte.revision, 0x11);
+    SET_EBDA2(ebda_seg, dpte.iobase1, iobase1);
+    SET_EBDA2(ebda_seg, dpte.iobase2, iobase2 + ATA_CB_DC);
+    SET_EBDA2(ebda_seg, dpte.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
+                                      | ATA_CB_DH_LBA));
+    SET_EBDA2(ebda_seg, dpte.unused, 0xcb);
+    SET_EBDA2(ebda_seg, dpte.irq, irq);
+    SET_EBDA2(ebda_seg, dpte.blkcount, 1);
+    SET_EBDA2(ebda_seg, dpte.dma, 0);
+    SET_EBDA2(ebda_seg, dpte.pio, 0);
+    SET_EBDA2(ebda_seg, dpte.options, options);
+    SET_EBDA2(ebda_seg, dpte.reserved, 0);
+    SET_EBDA2(ebda_seg, dpte.revision, 0x11);
 
-    u8 *p = MAKE_FARPTR(GET_BDA(ebda_seg)
+    u8 *p = MAKE_FARPTR(ebda_seg
                         , offsetof(struct extended_bios_data_area_s, dpte));
-    SET_EBDA(dpte.checksum, -checksum(p, 15));
+    SET_EBDA2(ebda_seg, dpte.checksum, -checksum(p, 15));
 
     if (size < 66) {
         disk_ret(regs, DISK_RET_SUCCESS);

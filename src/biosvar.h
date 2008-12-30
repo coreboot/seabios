@@ -200,18 +200,25 @@ struct extended_bios_data_area_s {
 } PACKED;
 
 // Accessor functions
-#define GET_EBDA(var) \
-    GET_FARVAR(GET_BDA(ebda_seg), ((struct extended_bios_data_area_s *)0)->var)
-#define SET_EBDA(var, val) \
-    SET_FARVAR(GET_BDA(ebda_seg), ((struct extended_bios_data_area_s *)0)->var, (val))
+static inline u16 get_ebda_seg() {
+    return GET_BDA(ebda_seg);
+}
 static inline struct extended_bios_data_area_s *
 get_ebda_ptr()
 {
     extern void *__force_link_error__get_ebda_ptr_only_in_32bit();
     if (MODE16)
         return __force_link_error__get_ebda_ptr_only_in_32bit();
-    return (void*)MAKE_FARPTR(GET_BDA(ebda_seg), 0);
+    return (void*)MAKE_FARPTR(get_ebda_seg(), 0);
 }
+#define GET_EBDA2(eseg, var)                                            \
+    GET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var)
+#define SET_EBDA2(eseg, var, val)                                       \
+    SET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var, (val))
+#define GET_EBDA(var)                                            \
+    GET_EBDA2(get_ebda_seg(), var)
+#define SET_EBDA(var, val)                                       \
+    SET_EBDA2(get_ebda_seg(), var, (val))
 
 
 /****************************************************************

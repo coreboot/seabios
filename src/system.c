@@ -232,7 +232,7 @@ handle_15c0(struct bregs *regs)
 static void
 handle_15c1(struct bregs *regs)
 {
-    regs->es = GET_BDA(ebda_seg);
+    regs->es = get_ebda_seg();
     set_success(regs);
 }
 

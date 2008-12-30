@@ -29,13 +29,14 @@ cdrom_1315(struct bregs *regs, u8 device)
 static void
 cdrom_134500(struct bregs *regs, u8 device)
 {
-    u8 locks = GET_EBDA(cdrom_locks[device]);
+    u16 ebda_seg = get_ebda_seg();
+    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[device]);
     if (locks == 0xff) {
         regs->al = 1;
         disk_ret(regs, DISK_RET_ETOOMANYLOCKS);
         return;
     }
-    SET_EBDA(cdrom_locks[device], locks + 1);
+    SET_EBDA2(ebda_seg, cdrom_locks[device], locks + 1);
     regs->al = 1;
     disk_ret(regs, DISK_RET_SUCCESS);
 }
@@ -44,14 +45,15 @@ cdrom_134500(struct bregs *regs, u8 device)
 static void
 cdrom_134501(struct bregs *regs, u8 device)
 {
-    u8 locks = GET_EBDA(cdrom_locks[device]);
+    u16 ebda_seg = get_ebda_seg();
+    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[device]);
     if (locks == 0x00) {
         regs->al = 0;
         disk_ret(regs, DISK_RET_ENOTLOCKED);
         return;
     }
     locks--;
-    SET_EBDA(cdrom_locks[device], locks);
+    SET_EBDA2(ebda_seg, cdrom_locks[device], locks);
     regs->al = (locks ? 1 : 0);
     disk_ret(regs, DISK_RET_SUCCESS);
 }

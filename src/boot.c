@@ -83,8 +83,6 @@ try_boot(u16 seq_nr)
     if (! CONFIG_BOOT)
         BX_PANIC("Boot support not compiled in.\n");
 
-    SET_EBDA(boot_sequence, seq_nr);
-
     u32 bootdev = IPL.bootorder;
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
@@ -202,7 +200,9 @@ handle_18()
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_18);
-    u16 seq = GET_EBDA(boot_sequence) + 1;
+    u16 ebda_seg = get_ebda_seg();
+    u16 seq = GET_EBDA2(ebda_seg, boot_sequence) + 1;
+    SET_EBDA2(ebda_seg, boot_sequence, seq);
     do_boot(seq);
 }
 
@@ -212,6 +212,7 @@ handle_19()
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_19);
+    SET_EBDA(boot_sequence, 0);
     do_boot(0);
 }
 

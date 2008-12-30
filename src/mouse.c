@@ -30,12 +30,12 @@ mouse_setup()
 #define RET_ENOHANDLER   0x05
 
 static int
-disable_mouse()
+disable_mouse(u16 ebda_seg)
 {
-    u8 ps2ctr = GET_EBDA(ps2ctr);
+    u8 ps2ctr = GET_EBDA2(ebda_seg, ps2ctr);
     ps2ctr |= I8042_CTR_AUXDIS;
     ps2ctr &= ~I8042_CTR_AUXINT;
-    SET_EBDA(ps2ctr, ps2ctr);
+    SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
 
     return aux_command(PSMOUSE_CMD_DISABLE, NULL);
 }
@@ -44,7 +44,8 @@ disable_mouse()
 static void
 mouse_15c20000(struct bregs *regs)
 {
-    int ret = disable_mouse();
+    u16 ebda_seg = get_ebda_seg();
+    int ret = disable_mouse(ebda_seg);
     if (ret)
         set_code_fail(regs, RET_ENEEDRESEND);
     else
@@ -55,16 +56,17 @@ mouse_15c20000(struct bregs *regs)
 static void
 mouse_15c20001(struct bregs *regs)
 {
-    u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
+    u16 ebda_seg = get_ebda_seg();
+    u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
     if ((mouse_flags_2 & 0x80) == 0) {
         set_code_fail(regs, RET_ENOHANDLER);
         return;
     }
 
-    u8 ps2ctr = GET_EBDA(ps2ctr);
+    u8 ps2ctr = GET_EBDA2(ebda_seg, ps2ctr);
     ps2ctr &= ~I8042_CTR_AUXDIS;
     ps2ctr |= I8042_CTR_AUXINT;
-    SET_EBDA(ps2ctr, ps2ctr);
+    SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
 
     int ret = aux_command(PSMOUSE_CMD_ENABLE, NULL);
     if (ret)
@@ -165,8 +167,9 @@ mouse_15c205(struct bregs *regs)
         set_code_fail(regs, RET_EINTERFACE);
         return;
     }
-    SET_EBDA(mouse_flag1, 0x00);
-    SET_EBDA(mouse_flag2, regs->bh);
+    u16 ebda_seg = get_ebda_seg();
+    SET_EBDA2(ebda_seg, mouse_flag1, 0x00);
+    SET_EBDA2(ebda_seg, mouse_flag2, regs->bh);
 
     // Reset Mouse
     mouse_15c201(regs);
@@ -233,19 +236,20 @@ static void
 mouse_15c207(struct bregs *regs)
 {
     u32 farptr = (regs->es << 16) | regs->bx;
-    u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
+    u16 ebda_seg = get_ebda_seg();
+    u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
     if (! farptr) {
         /* remove handler */
         if ((mouse_flags_2 & 0x80) != 0) {
             mouse_flags_2 &= ~0x80;
-            disable_mouse();
+            disable_mouse(ebda_seg);
         }
     } else {
         /* install handler */
         mouse_flags_2 |= 0x80;
     }
-    SET_EBDA(mouse_flag2, mouse_flags_2);
-    SET_EBDA(far_call_pointer, farptr);
+    SET_EBDA2(ebda_seg, mouse_flag2, mouse_flags_2);
+    SET_EBDA2(ebda_seg, far_call_pointer, farptr);
     set_code_success(regs);
 }
 
@@ -290,8 +294,9 @@ int74_function()
     }
     v = inb(PORT_PS2_DATA);
 
-    u8 mouse_flags_1 = GET_EBDA(mouse_flag1);
-    u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
+    u16 ebda_seg = get_ebda_seg();
+    u8 mouse_flags_1 = GET_EBDA2(ebda_seg, mouse_flag1);
+    u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
 
     if (! (mouse_flags_2 & 0x80))
         // far call handler not installed
@@ -299,21 +304,21 @@ int74_function()
 
     u8 package_count = mouse_flags_2 & 0x07;
     u8 index = mouse_flags_1 & 0x07;
-    SET_EBDA(mouse_data[index], v);
+    SET_EBDA2(ebda_seg, mouse_data[index], v);
 
     if ((index+1) < package_count) {
         mouse_flags_1++;
-        SET_EBDA(mouse_flag1, mouse_flags_1);
+        SET_EBDA2(ebda_seg, mouse_flag1, mouse_flags_1);
         return;
     }
 
     //BX_DEBUG_INT74("int74_function: make_farcall=1\n");
-    u16 status = GET_EBDA(mouse_data[0]);
-    u16 X      = GET_EBDA(mouse_data[1]);
-    u16 Y      = GET_EBDA(mouse_data[2]);
-    SET_EBDA(mouse_flag1, 0);
+    u16 status = GET_EBDA2(ebda_seg, mouse_data[0]);
+    u16 X      = GET_EBDA2(ebda_seg, mouse_data[1]);
+    u16 Y      = GET_EBDA2(ebda_seg, mouse_data[2]);
+    SET_EBDA2(ebda_seg, mouse_flag1, 0);
 
-    u32 func = GET_EBDA(far_call_pointer);
+    u32 func = GET_EBDA2(ebda_seg, far_call_pointer);
     asm volatile(
         "pushl %0\n"
         "pushw %w1\n"  // status

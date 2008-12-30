@@ -126,7 +126,8 @@ ram_probe(void)
     add_e820(0xa0000, 0x50000, E820_HOLE);
 
     // Mark known areas as reserved.
-    add_e820((u32)MAKE_FARPTR(GET_BDA(ebda_seg), 0), GET_EBDA(size) * 1024
+    u16 ebda_seg = get_ebda_seg();
+    add_e820((u32)MAKE_FARPTR(ebda_seg, 0), GET_EBDA2(ebda_seg, size) * 1024
              , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
