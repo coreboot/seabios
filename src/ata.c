@@ -29,7 +29,7 @@
 
 #define IDE_TIMEOUT 32000u //32 seconds max for IDE ops
 
-struct ata_s ATA VAR16;
+struct ata_s ATA VAR16_32;
 
 
 /****************************************************************

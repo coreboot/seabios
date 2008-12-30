@@ -46,7 +46,7 @@ static inline u8 readb(const void *addr)
     return *(volatile const u8 *)addr;
 }
 
-u32 smp_cpus VAR16;
+u32 smp_cpus VAR16_32;
 extern void smp_ap_boot_code();
 ASM16(
     "  .global smp_ap_boot_code\n"

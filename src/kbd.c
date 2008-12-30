@@ -148,17 +148,17 @@ dequeue_key(struct bregs *regs, int incr, int extended)
         ascii_code = 0;
     regs->ax = (scan_code << 8) | ascii_code;
 
-    if (incr) {
-        u16 buffer_start = GET_BDA(kbd_buf_start_offset);
-        u16 buffer_end   = GET_BDA(kbd_buf_end_offset);
-
-        buffer_head += 2;
-        if (buffer_head >= buffer_end)
-            buffer_head = buffer_start;
-        SET_BDA(kbd_buf_head, buffer_head);
-    } else {
+    if (!incr) {
         regs->flags &= ~F_ZF;
+        return;
     }
+    u16 buffer_start = GET_BDA(kbd_buf_start_offset);
+    u16 buffer_end   = GET_BDA(kbd_buf_end_offset);
+
+    buffer_head += 2;
+    if (buffer_head >= buffer_end)
+        buffer_head = buffer_start;
+    SET_BDA(kbd_buf_head, buffer_head);
 }
 
 // read keyboard input
@@ -326,7 +326,7 @@ static struct scaninfo {
     u16 control;
     u16 alt;
     u8 lock_flags;
-} scan_to_scanascii[MAX_SCAN_CODE + 1] = {
+} scan_to_scanascii[MAX_SCAN_CODE + 1] VAR16 = {
     {   none,   none,   none,   none, none },
     { 0x011b, 0x011b, 0x011b, 0x0100, none }, /* escape */
     { 0x0231, 0x0221,   none, 0x7800, none }, /* 1! */

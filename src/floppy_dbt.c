@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "disk.h" // diskette_param_table
+#include "disk.h" // struct floppy_dbt_s
 
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M

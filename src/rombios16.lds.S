@@ -16,10 +16,7 @@ SECTIONS
                 *(.text)
                 code16_rodata = . ;
                 *(.rodata*)
-                *(.data)
-                code16_bss = . ;
-                *(.bss)
-                *(COMMON)
+                *(.data.var16)
                 }
         freespace1_start = . ;
         code16_end = . ;
@@ -31,4 +28,8 @@ SECTIONS
                 *(.text.fixed.addr)
                 }
         code16_fixed_end = . ;
+
+        // Discard regular data sections to force a link error if
+        // 16bit code attempts to access data not marked with VAR16.
+        /DISCARD/ : { *(.data) *(.bss) *(COMMON) }
 }

@@ -28,14 +28,17 @@ union u64_u32_u {
 # define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit code chunk.
 # define VISIBLE32
+// Designate a variable as (only) visible to 16bit code.
+# define VAR16 __attribute__((section(".data.var16")))
 // Designate a variable as visible to both 32bit and 16bit code.
-# define VAR16 __VISIBLE
+# define VAR16_32 VAR16 __VISIBLE
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) asm(code)
 #else
 # define VISIBLE16
 # define VISIBLE32 __VISIBLE
-# define VAR16 __VISIBLE __attribute__((section(".discard.var16"))) __attribute__((weak))
+# define VAR16 __attribute__((section(".discard.var16")))
+# define VAR16_32 VAR16 __VISIBLE __attribute__((weak))
 # define ASM16(code)
 #endif
 

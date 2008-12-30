@@ -46,7 +46,7 @@ getFBSize()
     if (!(reg & 0x80))
         goto err;
 
-    static u8 mem_power[] = {0, 3, 4, 5, 6, 7, 8, 9};
+    static u8 mem_power[] VAR16 = {0, 3, 4, 5, 6, 7, 8, 9};
     return GET_GLOBAL(mem_power[(reg >> 4) & 0x7]);
 err:
     dprintf(1, "Warning: VGA memory size is hardcoded\n");

@@ -11,7 +11,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_EBDA
 
-struct cdemu_s CDEMU VAR16;
+struct cdemu_s CDEMU VAR16_32;
 
 
 /****************************************************************

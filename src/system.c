@@ -267,12 +267,12 @@ handle_15e801(struct bregs *regs)
 }
 
 // Info on e820 map location and size.
-struct e820entry *e820_list VAR16;
-int e820_count VAR16;
+struct e820entry *e820_list VAR16_32;
+int e820_count VAR16_32;
 // Amount of continuous ram under 4Gig
-u32 RamSize VAR16;
+u32 RamSize VAR16_32;
 // Amount of continuous ram >4Gig
-u64 RamSizeOver4G VAR16;
+u64 RamSizeOver4G;
 
 static void
 handle_15e820(struct bregs *regs)

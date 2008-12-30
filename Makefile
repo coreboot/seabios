@@ -76,7 +76,7 @@ endif
 
 $(OUT)%.proc.16.s: $(OUT)%.16.s
 	@echo "  Moving data sections to text in $@"
-	$(Q)sed 's/\t\.section\t\.rodata.*// ; s/\t\.data//' < $< > $@
+	$(Q)sed 's/^\t\.section\t\.\(ro\)\?data.*// ; s/^\t\.data$$//' < $< > $@
 
 $(OUT)%.16.s: %.c
 	@echo "  Compiling to assembler $@"
