@@ -8,7 +8,6 @@
 #include "util.h" // irq_enable
 #include "biosvar.h" // GET_EBDA
 #include "config.h" // CONFIG_*
-#include "ata.h" // ata_detect
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
 #include "boot.h" // struct ipl_s

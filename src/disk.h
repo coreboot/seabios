@@ -104,6 +104,22 @@ void __disk_ret(const char *fname, int lineno, struct bregs *regs, u8 code);
 
 
 /****************************************************************
+ * Disk command request
+ ****************************************************************/
+
+struct disk_op_s {
+    u64 lba;
+    void *far_buffer;
+    u16 count;
+    u8 driveid;
+    u8 command;
+};
+
+#define CMD_CDROM_READ 1
+#define CMD_CDEMU_READ 2
+
+
+/****************************************************************
  * Global storage
  ****************************************************************/
 
@@ -153,6 +169,13 @@ struct ata_s {
 
 // ata.c
 extern struct ata_s ATA;
+int ata_cmd_data(struct disk_op_s *op);
+int cdrom_read(struct disk_op_s *op);
+int cdrom_read_512(struct disk_op_s *op);
+int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
+                   , u32 length, void *far_buffer);
+void ata_reset(int driveid);
+void hard_drive_setup();
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
@@ -165,11 +188,9 @@ void disk_13(struct bregs *regs, u8 device);
 void disk_13XX(struct bregs *regs, u8 device);
 
 // cdrom.c
-int cdrom_read_emu(u16 device, u32 lba, u32 count, void *far_buffer);
 void cdrom_13(struct bregs *regs, u8 device);
 void cdemu_13(struct bregs *regs);
 void cdemu_134b(struct bregs *regs);
 int cdrom_boot();
-
 
 #endif // disk.h

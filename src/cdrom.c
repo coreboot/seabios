@@ -7,9 +7,9 @@
 
 #include "disk.h" // cdrom_13
 #include "util.h" // memset
-#include "ata.h" // ATA_CMD_READ_SECTORS
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_EBDA
+#include "atabits.h" // ATA_TYPE_ATAPI
 
 
 /****************************************************************
@@ -179,15 +179,6 @@ cdrom_13(struct bregs *regs, u8 device)
 /****************************************************************
  * CD emulation
  ****************************************************************/
-
-// Read a series of 512 byte sectors from the cdrom starting at the
-// image offset.
-__always_inline int
-cdrom_read_emu(u16 biosid, u32 vlba, u32 count, void *far_buffer)
-{
-    u32 ilba = GET_EBDA(cdemu.ilba);
-    return cdrom_read_512(biosid, ilba * 4 + vlba, count, far_buffer);
-}
 
 // read disk drive parameters
 static void
@@ -443,8 +434,12 @@ cdrom_boot()
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
-    ret = cdrom_read(device, 0x11, 1
-                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
+    struct disk_op_s dop;
+    dop.driveid = device;
+    dop.lba = 0x11;
+    dop.count = 1;
+    dop.far_buffer = MAKE_FARPTR(GET_SEG(SS), (u32)buffer);
+    ret = cdrom_read(&dop);
     if (ret)
         return 3;
 
@@ -458,8 +453,8 @@ cdrom_boot()
     u32 lba = *(u32*)&buffer[0x47];
 
     // And we read the Boot Catalog
-    ret = cdrom_read(device, lba, 1
-                     , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
+    dop.lba = lba;
+    ret = cdrom_read(&dop);
     if (ret)
         return 7;
 
@@ -497,7 +492,10 @@ cdrom_boot()
     SET_EBDA2(ebda_seg, cdemu.ilba, lba);
 
     // And we read the image in memory
-    ret = cdrom_read_emu(device, 0, nbsectors, MAKE_FARPTR(boot_segment, 0));
+    dop.lba = lba * 4;
+    dop.count = nbsectors;
+    dop.far_buffer = MAKE_FARPTR(boot_segment, 0);
+    ret = cdrom_read_512(&dop);
     if (ret)
         return 12;
 

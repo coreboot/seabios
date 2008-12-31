@@ -5,7 +5,6 @@
 //
 // This file may be distributed under the terms of the GNU GPLv3 license.
 
-#include "ata.h" // ATA_*
 #include "types.h" // u8
 #include "ioport.h" // inb
 #include "util.h" // dprintf
@@ -16,6 +15,7 @@
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "disk.h" // struct ata_s
+#include "atabits.h" // ATA_CB_STAT
 
 #define TIMEOUT 0
 #define BSY 1
@@ -135,13 +135,6 @@ ata_reset(int driveid)
 /****************************************************************
  * ATA send command
  ****************************************************************/
-
-struct ata_op_s {
-    u64 lba;
-    void *far_buffer;
-    u16 driveid;
-    u16 count;
-};
 
 struct ata_pio_command {
     u8 feature;
@@ -318,21 +311,21 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
 }
 
 static noinline int
-ata_transfer_disk(const struct ata_op_s *op, int iswrite)
+ata_transfer_disk(const struct disk_op_s *op)
 {
-    return ata_transfer(op->driveid, iswrite, op->count, IDE_SECTOR_SIZE
-                        , 0, 0, op->far_buffer);
+    return ata_transfer(op->driveid, op->command == ATA_CMD_WRITE_SECTORS
+                        , op->count, IDE_SECTOR_SIZE, 0, 0, op->far_buffer);
 }
 
 static noinline int
-ata_transfer_cdrom(const struct ata_op_s *op)
+ata_transfer_cdrom(const struct disk_op_s *op)
 {
     return ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
                         , 0, 0, op->far_buffer);
 }
 
 static noinline int
-ata_transfer_emu(const struct ata_op_s *op, int before, int after)
+ata_transfer_cdemu(const struct disk_op_s *op, int before, int after)
 {
     int vcount = op->count * 4 - before - after;
     int ret = ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
@@ -351,7 +344,7 @@ ata_transfer_emu(const struct ata_op_s *op, int before, int after)
  ****************************************************************/
 
 static noinline int
-send_cmd_disk(const struct ata_op_s *op, u16 command)
+send_cmd_disk(const struct disk_op_s *op)
 {
     u8 slave = op->driveid % 2;
     u64 lba = op->lba;
@@ -359,7 +352,7 @@ send_cmd_disk(const struct ata_op_s *op, u16 command)
     struct ata_pio_command cmd;
     memset(&cmd, 0, sizeof(cmd));
 
-    cmd.command = command;
+    cmd.command = op->command;
     if (op->count >= (1<<8) || lba + op->count >= (1<<28)) {
         cmd.sector_count2 = op->count >> 8;
         cmd.lba_low2 = lba >> 24;
@@ -383,20 +376,12 @@ send_cmd_disk(const struct ata_op_s *op, u16 command)
 
 // Read/write count blocks from a harddrive.
 __always_inline int
-ata_cmd_data(int driveid, u16 command, u64 lba, u16 count, void *far_buffer)
+ata_cmd_data(struct disk_op_s *op)
 {
-    struct ata_op_s op;
-    op.driveid = driveid;
-    op.lba = lba;
-    op.count = count;
-    op.far_buffer = far_buffer;
-
-    int ret = send_cmd_disk(&op, command);
+    int ret = send_cmd_disk(op);
     if (ret)
         return ret;
-
-    int iswrite = command == ATA_CMD_WRITE_SECTORS;
-    return ata_transfer_disk(&op, iswrite);
+    return ata_transfer_disk(op);
 }
 
 
@@ -438,7 +423,7 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 
 // Low-level cdrom read atapi command transmit function.
 static int
-send_cmd_cdrom(const struct ata_op_s *op)
+send_cmd_cdrom(const struct disk_op_s *op)
 {
     u8 atacmd[12];
     memset(atacmd, 0, sizeof(atacmd));
@@ -457,49 +442,39 @@ send_cmd_cdrom(const struct ata_op_s *op)
 
 // Read sectors from the cdrom.
 __always_inline int
-cdrom_read(int driveid, u32 lba, u32 count, void *far_buffer)
+cdrom_read(struct disk_op_s *op)
 {
-    struct ata_op_s op;
-    op.driveid = driveid;
-    op.lba = lba;
-    op.count = count;
-    op.far_buffer = far_buffer;
-
-    int ret = send_cmd_cdrom(&op);
+    int ret = send_cmd_cdrom(op);
     if (ret)
         return ret;
 
-    return ata_transfer_cdrom(&op);
+    return ata_transfer_cdrom(op);
 }
 
 // Pretend the cdrom has 512 byte sectors (instead of 2048) and read
 // sectors.
 __always_inline int
-cdrom_read_512(int driveid, u32 vlba, u32 vcount, void *far_buffer)
+cdrom_read_512(struct disk_op_s *op)
 {
+    u32 vlba = op->lba;
+    u32 vcount = op->count;
+    u32 lba = op->lba = vlba / 4;
     u32 velba = vlba + vcount - 1;
-    u32 lba = vlba / 4;
     u32 elba = velba / 4;
-    int count = elba - lba + 1;
+    op->count = elba - lba + 1;
     int before = vlba % 4;
     int after = 3 - (velba % 4);
 
-    struct ata_op_s op;
-    op.driveid = driveid;
-    op.lba = lba;
-    op.count = count;
-    op.far_buffer = far_buffer;
-
     dprintf(16, "cdrom_read_512: id=%d vlba=%d vcount=%d buf=%p lba=%d elba=%d"
             " count=%d before=%d after=%d\n"
-            , driveid, vlba, vcount, far_buffer, lba, elba
-            , count, before, after);
+            , op->driveid, vlba, vcount, op->far_buffer, lba, elba
+            , op->count, before, after);
 
-    int ret = send_cmd_cdrom(&op);
+    int ret = send_cmd_cdrom(op);
     if (ret)
         return ret;
 
-    return ata_transfer_emu(&op, before, after);
+    return ata_transfer_cdemu(op, before, after);
 }
 
 // Send a simple atapi command to a drive.
@@ -568,9 +543,13 @@ init_drive_atapi(int driveid)
     // Now we send a IDENTIFY command to ATAPI device
     u8 buffer[0x0200];
     memset(buffer, 0, sizeof(buffer));
-    u16 ret = ata_cmd_data(driveid, ATA_CMD_IDENTIFY_DEVICE_PACKET
-                           , 1, 1
-                           , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
+    struct disk_op_s dop;
+    dop.driveid = driveid;
+    dop.command = ATA_CMD_IDENTIFY_DEVICE_PACKET;
+    dop.count = 1;
+    dop.lba = 1;
+    dop.far_buffer = MAKE_FARPTR(GET_SEG(SS), (u32)buffer);
+    u16 ret = ata_cmd_data(&dop);
     if (ret != 0)
         BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
 
@@ -746,9 +725,13 @@ init_drive_ata(int driveid)
     // Now we send a IDENTIFY command to ATA device
     u8 buffer[0x0200];
     memset(buffer, 0, sizeof(buffer));
-    u16 ret = ata_cmd_data(driveid, ATA_CMD_IDENTIFY_DEVICE
-                           , 1, 1
-                           , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
+    struct disk_op_s dop;
+    dop.driveid = driveid;
+    dop.command = ATA_CMD_IDENTIFY_DEVICE;
+    dop.count = 1;
+    dop.lba = 1;
+    dop.far_buffer = MAKE_FARPTR(GET_SEG(SS), (u32)buffer);
+    u16 ret = ata_cmd_data(&dop);
     if (ret)
         BX_PANIC("ata-detect: Failed to detect ATA device\n");
 

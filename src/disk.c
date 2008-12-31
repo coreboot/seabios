@@ -9,10 +9,10 @@
 #include "biosvar.h" // SET_BDA
 #include "config.h" // CONFIG_*
 #include "util.h" // debug_enter
-#include "ata.h" // ATA_*
 #include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
 #include "pci.h" // pci_bdf_to_bus
+#include "atabits.h" // ATA_CB_STAT
 
 
 /****************************************************************
@@ -39,29 +39,57 @@ __disk_stub(const char *fname, int lineno, struct bregs *regs)
 #define DISK_STUB(regs) \
     __disk_stub(__func__, __LINE__, (regs))
 
+static __always_inline int
+send_disk_op(struct disk_op_s *op)
+{
+    dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
+            , op->driveid, (u32)op->lba, op->far_buffer
+            , op->count, op->command);
+
+    irq_enable();
+
+    int status;
+    if (op->command == CMD_CDEMU_READ)
+        status = cdrom_read_512(op);
+    else if (op->command == CMD_CDROM_READ)
+        status = cdrom_read(op);
+    else
+        status = ata_cmd_data(op);
+
+    irq_disable();
+
+    return status;
+}
+
 static void
 basic_access(struct bregs *regs, u8 device, u16 command)
 {
+    struct disk_op_s dop;
+    dop.lba = 0;
+    dop.driveid = device;
     u8 type = GET_GLOBAL(ATA.devices[device].type);
     u16 nlc, nlh, nlspt;
     if (type == ATA_TYPE_ATA) {
         nlc   = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
         nlh   = GET_GLOBAL(ATA.devices[device].lchs.heads);
         nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
+        dop.command = command;
     } else {
         // Must be cd emulation.
         u16 ebda_seg = get_ebda_seg();
         nlc   = GET_EBDA2(ebda_seg, cdemu.cylinders);
         nlh   = GET_EBDA2(ebda_seg, cdemu.heads);
         nlspt = GET_EBDA2(ebda_seg, cdemu.spt);
+        dop.lba = GET_EBDA2(ebda_seg, cdemu.ilba) * 4;
+        dop.command = CMD_CDEMU_READ;
     }
 
-    u16 count       = regs->al;
+    dop.count       = regs->al;
     u16 cylinder    = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
     u16 sector      = regs->cl & 0x3f;
     u16 head        = regs->dh;
 
-    if (count > 128 || count == 0 || sector == 0) {
+    if (dop.count > 128 || dop.count == 0 || sector == 0) {
         dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -84,22 +112,14 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     }
 
     // translate lchs to lba
-    u32 lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
-               + (u32)sector - 1);
+    dop.lba += (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+                + (u32)sector - 1);
 
     u16 segment = regs->es;
     u16 offset  = regs->bx;
-    void *far_buffer = MAKE_FARPTR(segment, offset);
+    dop.far_buffer = MAKE_FARPTR(segment, offset);
 
-    irq_enable();
-
-    int status;
-    if (type == ATA_TYPE_ATA)
-        status = ata_cmd_data(device, command, lba, count, far_buffer);
-    else
-        status = cdrom_read_emu(device, lba, count, far_buffer);
-
-    irq_disable();
+    int status = send_disk_op(&dop);
 
     // Set nb of sector transferred
     regs->al = GET_EBDA(sector_count);
@@ -115,15 +135,21 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 static void
 extended_access(struct bregs *regs, u8 device, u16 command)
 {
+    struct disk_op_s dop;
     // Get lba and check.
-    u64 lba = GET_INT13EXT(regs, lba);
+    dop.lba = GET_INT13EXT(regs, lba);
+    dop.command = command;
+    dop.driveid = device;
     u8 type = GET_GLOBAL(ATA.devices[device].type);
-    if (type == ATA_TYPE_ATA
-        && lba >= GET_GLOBAL(ATA.devices[device].sectors)) {
-        dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
-                , regs->ah);
-        disk_ret(regs, DISK_RET_EPARAM);
-        return;
+    if (type == ATA_TYPE_ATA) {
+        if (dop.lba >= GET_GLOBAL(ATA.devices[device].sectors)) {
+            dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
+                    , regs->ah);
+            disk_ret(regs, DISK_RET_EPARAM);
+            return;
+        }
+    } else {
+        dop.command = CMD_CDROM_READ;
     }
 
     if (!command) {
@@ -134,21 +160,10 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
     u16 segment = GET_INT13EXT(regs, segment);
     u16 offset = GET_INT13EXT(regs, offset);
-    void *far_buffer = MAKE_FARPTR(segment, offset);
-    u16 count = GET_INT13EXT(regs, count);
+    dop.far_buffer = MAKE_FARPTR(segment, offset);
+    dop.count = GET_INT13EXT(regs, count);
 
-    dprintf(DEBUG_HDL_13, "extacc lba=%d buf=%p count=%d\n"
-            , (u32)lba, far_buffer, count);
-
-    irq_enable();
-
-    int status;
-    if (type == ATA_TYPE_ATA)
-        status = ata_cmd_data(device, command, lba, count, far_buffer);
-    else
-        status = cdrom_read(device, lba, count, far_buffer);
-
-    irq_disable();
+    int status = send_disk_op(&dop);
 
     SET_INT13EXT(regs, count, GET_EBDA(sector_count));
 
