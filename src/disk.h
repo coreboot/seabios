@@ -142,23 +142,8 @@ struct ata_s {
     struct ata_device_s  devices[CONFIG_MAX_ATA_DEVICES];
     //
     // map between bios hd/cd id and ata channels
-    u8 hdcount, cdcount;
+    u8 cdcount;
     u8 idmap[2][CONFIG_MAX_ATA_DEVICES];
-};
-
-// ElTorito Device Emulation data
-struct cdemu_s {
-    u8  media;
-    u8  emulated_drive;
-    u8  controller_index;
-    u16 device_spec;
-    u32 ilba;
-    u16 buffer_segment;
-    u16 load_segment;
-    u16 sector_count;
-
-    // Virtual device
-    struct chs_s  vdevice;
 };
 
 
@@ -180,7 +165,6 @@ void disk_13(struct bregs *regs, u8 device);
 void disk_13XX(struct bregs *regs, u8 device);
 
 // cdrom.c
-extern struct cdemu_s CDEMU;
 int cdrom_read_emu(u16 device, u32 lba, u32 count, void *far_buffer);
 void cdrom_13(struct bregs *regs, u8 device);
 void cdemu_13(struct bregs *regs);

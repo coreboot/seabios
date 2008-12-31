@@ -779,9 +779,9 @@ init_drive_ata(int driveid)
     setup_translation(driveid);
 
     // fill hdidmap
-    u8 hdcount = GET_GLOBAL(ATA.hdcount);
+    u8 hdcount = GET_BDA(hdcount);
     SET_GLOBAL(ATA.idmap[0][hdcount], driveid);
-    SET_GLOBAL(ATA.hdcount, ++hdcount);
+    SET_BDA(hdcount, ++hdcount);
 
     // Fill "fdpt" structure.
     fill_fdpt(driveid);
@@ -936,9 +936,6 @@ hard_drive_setup()
     dprintf(3, "init hard drives\n");
     ata_init();
     ata_detect();
-
-    // Store the device count
-    SET_BDA(disk_count, GET_GLOBAL(ATA.hdcount));
 
     SET_BDA(disk_control_byte, 0xc0);
 

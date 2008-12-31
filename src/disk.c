@@ -50,9 +50,10 @@ basic_access(struct bregs *regs, u8 device, u16 command)
         nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
     } else {
         // Must be cd emulation.
-        nlc   = GET_GLOBAL(CDEMU.vdevice.cylinders);
-        nlh   = GET_GLOBAL(CDEMU.vdevice.heads);
-        nlspt = GET_GLOBAL(CDEMU.vdevice.spt);
+        u16 ebda_seg = get_ebda_seg();
+        nlc   = GET_EBDA2(ebda_seg, cdemu.cylinders);
+        nlh   = GET_EBDA2(ebda_seg, cdemu.heads);
+        nlspt = GET_EBDA2(ebda_seg, cdemu.spt);
     }
 
     u16 count       = regs->al;
@@ -219,7 +220,7 @@ disk_1308(struct bregs *regs, u8 device)
     u16 nlc = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
     u16 nlh = GET_GLOBAL(ATA.devices[device].lchs.heads);
     u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
-    u16 count = GET_GLOBAL(ATA.hdcount);
+    u16 count = GET_BDA(hdcount);
 
     nlc = nlc - 2; /* 0 based , last sector not used */
     regs->al = 0;
@@ -662,8 +663,9 @@ handle_13(struct bregs *regs)
             cdemu_134b(regs);
             return;
         }
-        if (GET_EBDA(cdemu_active)) {
-            if (drive == GET_GLOBAL(CDEMU.emulated_drive)) {
+        u16 ebda_seg = get_ebda_seg();
+        if (GET_EBDA2(ebda_seg, cdemu.active)) {
+            if (drive == GET_EBDA2(ebda_seg, cdemu.emulated_drive)) {
                 cdemu_13(regs);
                 return;
             }

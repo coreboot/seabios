@@ -69,7 +69,7 @@ struct bios_data_area_s {
     u8 break_flag;
     u16 soft_reset_flag;
     u8 disk_last_status;
-    u8 disk_count;
+    u8 hdcount;
     u8 disk_control_byte;
     u8 port_disk;
     u8 lpt_timeout[4];
@@ -148,6 +148,24 @@ struct dpte_s {
     u8  checksum;
 };
 
+// ElTorito Device Emulation data
+struct cdemu_s {
+    u8  active;
+    u8  media;
+    u8  emulated_drive;
+    u8  controller_index;
+    u16 device_spec;
+    u32 ilba;
+    u16 buffer_segment;
+    u16 load_segment;
+    u16 sector_count;
+
+    // Virtual device
+    u16 heads;
+    u16 cylinders;
+    u16 spt;
+};
+
 struct fdpt_s {
     u16 cylinders;
     u8 heads;
@@ -182,7 +200,8 @@ struct extended_bios_data_area_s {
     // 0x121 - Begin custom storage.
     u8 ps2ctr;
 
-    u8 cdemu_active;
+    // El Torito Emulation data
+    struct cdemu_s cdemu;
 
     // Count of transferred sectors and bytes to/from disk
     u16 sector_count;

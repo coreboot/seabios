@@ -152,8 +152,9 @@ try_boot(u16 seq_nr)
             return;
         }
 
-        bootdrv = GET_GLOBAL(CDEMU.emulated_drive);
-        bootseg = GET_GLOBAL(CDEMU.load_segment);
+        u16 ebda_seg = get_ebda_seg();
+        bootdrv = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
+        bootseg = GET_EBDA2(ebda_seg, cdemu.load_segment);
         /* Canonicalize bootseg:bootip */
         bootip = (bootseg & 0x0fff) << 4;
         bootseg &= 0xf000;
