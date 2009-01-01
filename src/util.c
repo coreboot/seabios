@@ -8,6 +8,7 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // SEG_BIOS
 #include "farptr.h" // GET_FARPTR
+#include "biosvar.h" // get_ebda_seg
 
 // Call a function with a specified register state.  Note that on
 // return, the interrupt enable/disable flag may be altered.
@@ -22,21 +23,21 @@ call16(struct bregs *callregs)
 #endif
         : "+a" (callregs), "+m" (*callregs)
         :
-        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc");
+        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc", "memory");
 }
 
 inline void
 call16big(struct bregs *callregs)
 {
-#if MODE16 == 1
-    extern void __force_link_error__only_in_32bit_mode();
-    __force_link_error__only_in_32bit_mode();
-#endif
+    extern void __force_link_error__call16big_only_in_32bit_mode();
+    if (MODE16)
+        __force_link_error__call16big_only_in_32bit_mode();
+
     asm volatile(
         "calll __call16big_from32\n"
         : "+a" (callregs), "+m" (*callregs)
         :
-        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc");
+        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc", "memory");
 }
 
 inline void
@@ -45,6 +46,37 @@ __call16_int(struct bregs *callregs, u16 offset)
     callregs->cs = SEG_BIOS;
     callregs->ip = offset;
     call16(callregs);
+}
+
+// Switch to the extra stack in ebda and call a function.
+inline u32
+stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
+{
+    extern void __force_link_error__stack_hop_only_in_16bit_mode();
+    if (!MODE16)
+        __force_link_error__stack_hop_only_in_16bit_mode();
+
+    u32 ebda_seg = get_ebda_seg();
+    u32 tmp;
+    asm volatile(
+        // Backup current %ss value.
+        "movl %%ss, %4\n"
+        // Copy ebda seg to %ss and %ds
+        "movl %3, %%ss\n"
+        "movl %3, %%ds\n"
+        // Backup %esp and set it to new value
+        "movl %%esp, %3\n"
+        "movl %5, %%esp\n"
+        // Call func
+        "calll %6\n"
+        // Restore segments and stack
+        "movl %3, %%esp\n"
+        "movl %4, %%ss\n"
+        "movl %4, %%ds\n"
+        : "+a" (eax), "+d" (edx), "+c" (ecx), "+r" (ebda_seg), "=r" (tmp)
+        : "i" (EBDA_OFFSET_TOP_STACK), "m" (*(u8*)func)
+        : "cc", "memory");
+    return eax;
 }
 
 // Sum the bytes in the specified area.

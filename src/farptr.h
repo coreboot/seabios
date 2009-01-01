@@ -11,6 +11,7 @@
 // Dummy definitions used to make sure gcc understands dependencies
 // between SET_SEG and GET/READ/WRITE_SEG macros.
 extern u16 __segment_ES, __segment_CS, __segment_DS, __segment_SS;
+extern u16 __segment_FS, __segment_GS;
 
 // Low level macros for reading/writing memory via a segment selector.
 #define READ8_SEG(SEG, value, var)                      \
@@ -98,7 +99,7 @@ extern void __force_link_error__unknown_type();
         SET_VAR(ES, (var), __sfv_val);          \
     } while (0)
 
-// Macros for accesssing a 32bit pointer from 16bit mode.  (They
+// Macros for accesssing a 32bit pointer from 16bit real mode.  (They
 // automatically update the %es segment, break the pointer into
 // segment/offset, and then make the access.)
 #define __GET_FARPTR(ptr) ({                                            \
@@ -116,7 +117,7 @@ extern void __force_link_error__unknown_type();
 // equivalent 16bit segment/offset values.
 #define FARPTR_TO_SEG(p) (((u32)(p)) >> 4)
 #define FARPTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
-#define MAKE_FARPTR(seg,off) ((void*)(((seg)<<4)+(off)))
+#define MAKE_FARPTR(seg,off) ((void*)(((u32)(seg)<<4)+(u32)(off)))
 
 
 #if MODE16 == 1

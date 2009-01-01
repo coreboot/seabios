@@ -321,7 +321,7 @@ entry_resume:
         movw BDA_ebda_seg, %ax
         movw %ax, %ss
         movw %ax, %ds
-        movl $EBDA_resume_stack_top, %esp
+        movl $EBDA_OFFSET_TOP_STACK, %esp
 
         // Call handler.
         movl %ebx, %eax

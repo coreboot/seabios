@@ -25,7 +25,5 @@ void foo(void)
     OFFSET(BDA_ebda_seg, bios_data_area_s, ebda_seg);
 
     COMMENT("EBDA");
-    OFFSET(EBDA_resume_stack_top, extended_bios_data_area_s
-           , resume_stack[FIELD_SIZEOF(struct extended_bios_data_area_s
-                                       , resume_stack)]);
+    DEFINE(EBDA_OFFSET_TOP_STACK, EBDA_OFFSET_TOP_STACK);
 }

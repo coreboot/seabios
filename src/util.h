@@ -138,6 +138,7 @@ void VISIBLE16 handle_1553(struct bregs *regs);
 void handle_1ab1(struct bregs *regs);
 
 // util.c
+inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
 u8 checksum(u8 *far_data, u32 len);
 
 // shadow.c

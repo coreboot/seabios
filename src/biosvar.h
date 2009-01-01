@@ -214,8 +214,8 @@ struct extended_bios_data_area_s {
 
     u16 boot_sequence;
 
-    // Resume stack
-    u8 resume_stack[128] __aligned(8);
+    // Stack space available for code that needs it.
+    u8 extra_stack[512] __aligned(8);
 } PACKED;
 
 // Accessor functions
@@ -234,10 +234,15 @@ get_ebda_ptr()
     GET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var)
 #define SET_EBDA2(eseg, var, val)                                       \
     SET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var, (val))
-#define GET_EBDA(var)                                            \
+#define GET_EBDA(var)                           \
     GET_EBDA2(get_ebda_seg(), var)
-#define SET_EBDA(var, val)                                       \
+#define SET_EBDA(var, val)                      \
     SET_EBDA2(get_ebda_seg(), var, (val))
+
+#define EBDA_OFFSET_TOP_STACK                                   \
+    offsetof(struct extended_bios_data_area_s, extra_stack[     \
+                 FIELD_SIZEOF(struct extended_bios_data_area_s  \
+                              , extra_stack)])
 
 
 /****************************************************************

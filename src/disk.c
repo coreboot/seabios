@@ -39,26 +39,37 @@ __disk_stub(const char *fname, int lineno, struct bregs *regs)
 #define DISK_STUB(regs) \
     __disk_stub(__func__, __LINE__, (regs))
 
-static __always_inline int
-send_disk_op(struct disk_op_s *op)
+static int
+__send_disk_op(struct disk_op_s *op_p, u16 op_s)
 {
+    struct disk_op_s dop;
+    memcpy_far(MAKE_FARPTR(GET_SEG(SS), &dop)
+               , MAKE_FARPTR(op_s, op_p)
+               , sizeof(dop));
+
     dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
-            , op->driveid, (u32)op->lba, op->far_buffer
-            , op->count, op->command);
+            , dop.driveid, (u32)dop.lba, dop.far_buffer
+            , dop.count, dop.command);
 
     irq_enable();
 
     int status;
-    if (op->command == CMD_CDEMU_READ)
-        status = cdrom_read_512(op);
-    else if (op->command == CMD_CDROM_READ)
-        status = cdrom_read(op);
+    if (dop.command == CMD_CDEMU_READ)
+        status = cdrom_read_512(&dop);
+    else if (dop.command == CMD_CDROM_READ)
+        status = cdrom_read(&dop);
     else
-        status = ata_cmd_data(op);
+        status = ata_cmd_data(&dop);
 
     irq_disable();
 
     return status;
+}
+
+static int
+send_disk_op(struct disk_op_s *op)
+{
+    return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
 }
 
 static void
