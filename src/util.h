@@ -65,11 +65,13 @@ static inline u64 rdtscll(void)
     return val;
 }
 
+// util.c
+inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
+u8 checksum(u8 *far_data, u32 len);
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 void *memcpy_far(void *far_d1, const void *far_s1, size_t len);
 void *memmove(void *d, const void *s, size_t len);
-
 struct bregs;
 inline void call16(struct bregs *callregs);
 inline void call16big(struct bregs *callregs);
@@ -78,6 +80,7 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
+inline void call16_simpint(int nr, u32 *eax, u32 *flags);
 
 // output.c
 void debug_serial_setup();
@@ -136,10 +139,6 @@ void VISIBLE16 handle_1553(struct bregs *regs);
 
 // pcibios.c
 void handle_1ab1(struct bregs *regs);
-
-// util.c
-inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
-u8 checksum(u8 *far_data, u32 len);
 
 // shadow.c
 void make_bios_writable();

@@ -319,6 +319,8 @@ int74_function()
     SET_EBDA2(ebda_seg, mouse_flag1, 0);
 
     u32 func = GET_EBDA2(ebda_seg, far_call_pointer);
+
+    irq_enable();
     asm volatile(
         "pushl %0\n"
         "pushw %w1\n"  // status
@@ -328,10 +330,11 @@ int74_function()
         "lcallw *8(%%esp)\n"
         "addl $12, %%esp\n"
         "cld\n"
-        : "+a" (func), "+b" (status), "+c" (X), "+d" (Y)
         :
-        : "esi", "edi", "ebp", "cc"
+        : "r"(func), "r"(status), "r"(X), "r"(Y)
+        : "cc"
         );
+    irq_disable();
 }
 
 // INT74h : PS/2 mouse hardware interrupt
@@ -342,9 +345,7 @@ handle_74()
     if (! CONFIG_PS2_MOUSE)
         goto done;
 
-    irq_enable();
     int74_function();
-    irq_disable();
 
 done:
     eoi_pic2();

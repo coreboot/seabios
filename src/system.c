@@ -399,7 +399,6 @@ handle_75()
     // clear interrupt
     eoi_pic2();
     // legacy nmi call
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    call16_int(0x02, &br);
+    u32 eax=0, flags;
+    call16_simpint(0x02, &eax, &flags);
 }

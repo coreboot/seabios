@@ -418,7 +418,10 @@ static struct scaninfo {
     { 0x8600, 0x8800, 0x8a00, 0x8c00, none }, /* F12 */
 };
 
-static void
+// Handle a scancode read from the ps2 port.  Note that "noinline" is
+// used to make sure the call to call16_simpint in handle_09 doesn't
+// have the overhead of this function's stack.
+static void noinline
 process_key(u8 scancode)
 {
     u8 shift_flags = GET_BDA(kbd_flag0);
@@ -620,22 +623,16 @@ handle_09()
     }
     u8 key = inb(PORT_PS2_DATA);
 
-    irq_enable();
     if (CONFIG_KBD_CALL_INT15_4F) {
         // allow for keyboard intercept
-        struct bregs tr;
-        memset(&tr, 0, sizeof(tr));
-        tr.al = key;
-        tr.ah = 0x4f;
-        tr.flags = F_CF;
-        call16_int(0x15, &tr);
-        if (!(tr.flags & F_CF))
+        u32 eax = (0x4f << 8) | key;
+        u32 flags;
+        call16_simpint(0x15, &eax, &flags);
+        if (!(flags & F_CF))
             goto done;
-        key = tr.al;
+        key = eax;
     }
     process_key(key);
-
-    irq_disable();
 
 done:
     eoi_pic1();

@@ -48,6 +48,25 @@ __call16_int(struct bregs *callregs, u16 offset)
     call16(callregs);
 }
 
+inline void
+call16_simpint(int nr, u32 *eax, u32 *flags)
+{
+    extern void __force_link_error__call16_simpint_only_in_16bit_mode();
+    if (!MODE16)
+        __force_link_error__call16_simpint_only_in_16bit_mode();
+
+    asm volatile(
+        "stc\n"
+        "int %2\n"
+        "pushfl\n"
+        "popl %1\n"
+        "cld\n"
+        "cli\n"
+        : "+a"(*eax), "=r"(*flags)
+        : "i"(nr)
+        : "cc", "memory");
+}
+
 // Switch to the extra stack in ebda and call a function.
 inline u32
 stack_hop(u32 eax, u32 edx, u32 ecx, void *func)

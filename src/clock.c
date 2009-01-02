@@ -411,7 +411,6 @@ void VISIBLE16
 handle_08()
 {
     debug_isr(DEBUG_ISR_08);
-    irq_enable();
 
     floppy_tick();
 
@@ -427,11 +426,8 @@ handle_08()
     SET_BDA(timer_counter, counter);
 
     // chain to user timer tick INT #0x1c
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    call16_int(0x1c, &br);
-
-    irq_disable();
+    u32 eax=0, flags;
+    call16_simpint(0x1c, &eax, &flags);
 
     eoi_pic1();
 }
@@ -541,10 +537,8 @@ handle_70()
         goto done;
     if (registerC & 0x20) {
         // Handle Alarm Interrupt.
-        struct bregs br;
-        memset(&br, 0, sizeof(br));
-        call16_int(0x4a, &br);
-        irq_disable();
+        u32 eax=0, flags;
+        call16_simpint(0x4a, &eax, &flags);
     }
     if (!(registerC & 0x40))
         goto done;
