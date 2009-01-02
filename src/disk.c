@@ -20,24 +20,25 @@
  ****************************************************************/
 
 void
-__disk_ret(const char *fname, int lineno, struct bregs *regs, u8 code)
+__disk_ret(struct bregs *regs, u32 linecode, const char *fname)
 {
+    u8 code = linecode;
     SET_BDA(disk_last_status, code);
     if (code)
-        __set_code_fail(fname, lineno, regs, code);
+        __set_code_fail(regs, linecode, fname);
     else
         set_code_success(regs);
 }
 
 static void
-__disk_stub(const char *fname, int lineno, struct bregs *regs)
+__disk_stub(struct bregs *regs, int lineno, const char *fname)
 {
-    __debug_stub(fname, lineno, regs);
-    __disk_ret(fname, lineno, regs, DISK_RET_SUCCESS);
+    __debug_stub(regs, lineno, fname);
+    __disk_ret(regs, DISK_RET_SUCCESS | (lineno << 8), fname);
 }
 
-#define DISK_STUB(regs) \
-    __disk_stub(__func__, __LINE__, (regs))
+#define DISK_STUB(regs)                         \
+    __disk_stub((regs), __LINE__, __func__)
 
 static int
 __send_disk_op(struct disk_op_s *op_p, u16 op_s)

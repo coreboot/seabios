@@ -271,6 +271,7 @@ dump_regs(struct bregs *regs)
             , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
 }
 
+// Report entry to an Interrupt Service Routine (ISR).
 void
 __debug_isr(const char *fname)
 {
@@ -280,30 +281,38 @@ __debug_isr(const char *fname)
 
 // Function called on handler startup.
 void
-__debug_enter(const char *fname, struct bregs *regs)
+__debug_enter(struct bregs *regs, const char *fname)
 {
     dprintf(1, "enter %s:\n", fname);
     dump_regs(regs);
 }
 
+// Send debugging output info.
 void
-__debug_stub(const char *fname, int lineno, struct bregs *regs)
+__debug_stub(struct bregs *regs, int lineno, const char *fname)
 {
     dprintf(1, "stub %s:%d:\n", fname, lineno);
     dump_regs(regs);
 }
 
+// Report on a handler returning a failure notification to the caller.
 void
-__set_fail(const char *fname, int lineno, struct bregs *regs)
+__set_fail(struct bregs *regs, int lineno, const char *fname)
 {
     dprintf(1, "fail %s:%d:\n", fname, lineno);
     dump_regs(regs);
     set_fail_silent(regs);
 }
 
+// Report on a handler returning a failure code to the caller.  Note,
+// the lineno and return code are encoded in the same parameter as gcc
+// does a better job of scheduling function calls when there are 3 or
+// less parameters.
 void
-__set_code_fail(const char *fname, int lineno, struct bregs *regs, u8 code)
+__set_code_fail(struct bregs *regs, u32 linecode, const char *fname)
 {
+    u8 code = linecode;
+    u32 lineno = linecode >> 8;
     dprintf(1, "fail %s:%d(%x):\n", fname, lineno, code);
     dump_regs(regs);
     set_code_fail_silent(regs, code);

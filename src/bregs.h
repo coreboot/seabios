@@ -8,8 +8,9 @@
 #define __BREGS_H
 
 // CPU flag bitdefs
-#define F_ZF (1<<6)
 #define F_CF (1<<0)
+#define F_ZF (1<<6)
+#define F_IF (1<<9)
 
 // CR0 flags
 #define CR0_PG (1<<31) // Paging
@@ -88,14 +89,14 @@ set_code_fail_silent(struct bregs *regs, u8 code)
     set_cf(regs, 1);
 }
 
-#define set_fail(regs) \
-    __set_fail(__func__, __LINE__, (regs))
-#define set_code_fail(regs, code)               \
-    __set_code_fail(__func__, __LINE__, (regs), (code))
+#define set_fail(regs)                          \
+    __set_fail((regs), __LINE__, __func__)
+#define set_code_fail(regs, code)                               \
+    __set_code_fail((regs), (code) | (__LINE__ << 8), __func__)
 
 // output.c
-void __set_fail(const char *fname, int lineno, struct bregs *regs);
-void __set_code_fail(const char *fname, int lineno, struct bregs *regs, u8 code);
+void __set_fail(struct bregs *regs, int lineno, const char *fname);
+void __set_code_fail(struct bregs *regs, u32 linecode, const char *fname);
 
 #endif // !__ASSEMBLY__
 

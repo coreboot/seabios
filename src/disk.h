@@ -98,9 +98,9 @@ struct floppy_ext_dbt_s {
 
 // Helper function for setting up a return code.
 struct bregs;
-void __disk_ret(const char *fname, int lineno, struct bregs *regs, u8 code);
+void __disk_ret(struct bregs *regs, u32 linecode, const char *fname);
 #define disk_ret(regs, code) \
-    __disk_ret(__func__, __LINE__, (regs), (code))
+    __disk_ret((regs), (code) | (__LINE__ << 8), __func__)
 
 
 /****************************************************************

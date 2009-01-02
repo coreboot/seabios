@@ -188,15 +188,16 @@ floppy_pio(u8 *cmd, u8 cmdlen)
     return 0;
 }
 
-#define floppy_ret(regs, code) \
-    __floppy_ret(__func__, __LINE__, (regs), (code))
+#define floppy_ret(regs, code)                                  \
+    __floppy_ret((regs), (code) | (__LINE__ << 8), __func__)
 
 void
-__floppy_ret(const char *fname, int lineno, struct bregs *regs, u8 code)
+__floppy_ret(struct bregs *regs, u32 linecode, const char *fname)
 {
+    u8 code = linecode;
     SET_BDA(floppy_last_status, code);
     if (code)
-        __set_code_fail(fname, lineno, regs, code);
+        __set_code_fail(regs, linecode, fname);
     else
         set_code_success(regs);
 }
