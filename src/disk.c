@@ -139,6 +139,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
         dprintf(1, "int13_harddisk: function %02x, error %d!\n"
                 , regs->ah, status);
         disk_ret(regs, DISK_RET_EBADTRACK);
+        return;
     }
     disk_ret(regs, DISK_RET_SUCCESS);
 }
