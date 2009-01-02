@@ -12,19 +12,28 @@
 
 
 /****************************************************************
- * Bios Data Area (BDA)
+ * Interupt vector table
  ****************************************************************/
 
 struct ivec {
-    u16 offset;
-    u16 seg;
+    union {
+        struct {
+            u16 offset;
+            u16 seg;
+        };
+        u32 segoff;
+    };
 };
 
+#define SET_IVT(vector, seg, off)                                       \
+    SET_FARVAR(SEG_IVT, ((struct ivec *)0)[vector].segoff, ((seg) << 16) | (off))
+
+
+/****************************************************************
+ * Bios Data Area (BDA)
+ ****************************************************************/
+
 struct bios_data_area_s {
-    // 00:00
-    struct ivec ivecs[256];
-    // 30:00
-//    u8 stack[256];
     // 40:00
     u16 port_com[4];
     u16 port_lpt[3];

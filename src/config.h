@@ -107,8 +107,9 @@
 #define BUILD_START_FIXED       0xe050
 
 // Important real-mode segments
+#define SEG_IVT      0x0000
+#define SEG_BDA      0x0040
 #define SEG_BIOS     0xf000
-#define SEG_BDA      0x0000
 
 // Segment definitions in protected mode (see rombios32_gdt in romlayout.S)
 #define SEG32_MODE32_CS    (2 << 3)

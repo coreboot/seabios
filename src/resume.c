@@ -60,7 +60,7 @@ handle_resume(u8 status)
         // NO BREAK
     case 0x0a:
         // resume execution by jump via 40h:0067h
-#define bda ((struct bios_data_area_s *)0)
+#define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
         asm volatile(
             "movw %%ax, %%ds\n"
             "ljmpw *%0\n"

@@ -18,13 +18,10 @@
 #include "bregs.h" // struct bregs
 #include "boot.h" // IPL
 
-#define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
-
 void
 __set_irq(int vector, void *loc)
 {
-    SET_BDA(ivecs[vector].seg, SEG_BIOS);
-    SET_BDA(ivecs[vector].offset, (u32)loc - BUILD_BIOS_ADDR);
+    SET_IVT(vector, SEG_BIOS, (u32)loc - BUILD_BIOS_ADDR);
 }
 
 #define set_irq(vector, func) do {              \
@@ -33,10 +30,9 @@ __set_irq(int vector, void *loc)
     } while (0)
 
 static void
-init_bda()
+init_ivt()
 {
-    dprintf(3, "init bda\n");
-    memset(bda, 0, sizeof(*bda));
+    dprintf(3, "init ivt\n");
 
     // Initialize all vectors to a dummy handler.
     int i;
@@ -66,15 +62,19 @@ init_bda()
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
-    SET_BDA(ivecs[0x79].seg, 0);
-    SET_BDA(ivecs[0x79].offset, 0);
+    SET_IVT(0x79, 0, 0);
 
     __set_irq(0x1E, &diskette_param_table2);
 }
 
 static void
-init_ebda()
+init_bda()
 {
+    dprintf(3, "init bda\n");
+
+    struct bios_data_area_s *bda = MAKE_FARPTR(SEG_BDA, 0);
+    memset(bda, 0, sizeof(*bda));
+
     int esize = DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024);
     SET_BDA(mem_size_kb, 640 - esize);
     u16 eseg = FARPTR_TO_SEG((640 - esize) * 1024);
@@ -83,12 +83,8 @@ init_ebda()
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = esize;
-    SET_BDA(ivecs[0x41].seg, eseg);
-    SET_BDA(ivecs[0x41].offset
-            , offsetof(struct extended_bios_data_area_s, fdpt[0]));
-    SET_BDA(ivecs[0x46].seg, eseg);
-    SET_BDA(ivecs[0x46].offset
-            , offsetof(struct extended_bios_data_area_s, fdpt[1]));
+    SET_IVT(0x41, eseg, offsetof(struct extended_bios_data_area_s, fdpt[0]));
+    SET_IVT(0x46, eseg, offsetof(struct extended_bios_data_area_s, fdpt[1]));
 }
 
 static void
@@ -190,8 +186,8 @@ init_boot_vectors()
 static void
 post()
 {
+    init_ivt();
     init_bda();
-    init_ebda();
 
     pic_setup();
     timer_setup();

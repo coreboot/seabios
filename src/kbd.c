@@ -83,7 +83,7 @@ void
 kbd_setup()
 {
     dprintf(3, "init keyboard\n");
-    u16 x = offsetof(struct bios_data_area_s, kbd_buf) - 0x400;
+    u16 x = offsetof(struct bios_data_area_s, kbd_buf);
     SET_BDA(kbd_mode, 0x10);
     SET_BDA(kbd_buf_head, x);
     SET_BDA(kbd_buf_tail, x);
@@ -117,8 +117,8 @@ enqueue_key(u8 scan_code, u8 ascii_code)
     if (buffer_tail == buffer_head)
         return 0;
 
-    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+0x400+0), ascii_code);
-    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+0x400+1), scan_code);
+    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+0), ascii_code);
+    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+1), scan_code);
     SET_BDA(kbd_buf_tail, buffer_tail);
     return 1;
 }
@@ -141,8 +141,8 @@ dequeue_key(struct bregs *regs, int incr, int extended)
         cpu_relax();
     }
 
-    u8 ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+0));
-    u8 scan_code  = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0x400+1));
+    u8 ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0));
+    u8 scan_code  = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+1));
     if ((ascii_code == 0xF0 && scan_code != 0)
         || (ascii_code == 0xE0 && !extended))
         ascii_code = 0;
