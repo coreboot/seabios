@@ -33,6 +33,7 @@ handle_resume(u8 status)
     debug_serial_setup();
     dprintf(1, "In resume (status=%d)\n", status);
 
+    struct bios_data_area_s *bda = MAKE_FARPTR(SEG_BDA, 0);
     switch (status) {
     case 0xfe:
         // S3 resume request.  Jump to 32bit mode to handle the resume.
@@ -60,7 +61,6 @@ handle_resume(u8 status)
         // NO BREAK
     case 0x0a:
         // resume execution by jump via 40h:0067h
-#define bda ((struct bios_data_area_s *)MAKE_FARPTR(SEG_BDA, 0))
         asm volatile(
             "movw %%ax, %%ds\n"
             "ljmpw *%0\n"
