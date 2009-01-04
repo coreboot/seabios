@@ -23,7 +23,7 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
                -mpreferred-stack-boundary=2 -mrtd \
                -ffreestanding -fwhole-program -fomit-frame-pointer \
-               -fno-delete-null-pointer-checks
+               -fno-delete-null-pointer-checks -Wno-strict-aliasing
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
