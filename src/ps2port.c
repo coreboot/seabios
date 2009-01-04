@@ -64,7 +64,8 @@ i8042_flush(void)
             return 0;
         }
         udelay(50);
-        inb(PORT_PS2_DATA);
+        u8 data = inb(PORT_PS2_DATA);
+        dprintf(7, "i8042 flushed %x\n", data);
     }
 
     irq_restore(flags);
@@ -99,6 +100,7 @@ __i8042_command(int command, u8 *param)
         if (ret)
             return ret;
         param[i] = inb(PORT_PS2_DATA);
+        dprintf(7, "i8042 param=%x\n", param[i]);
     }
 
     return 0;
@@ -146,6 +148,33 @@ i8042_aux_write(u8 c)
 #define PS2_RET_NAK             0xfe
 
 static int
+ps2_recvbyte(int aux, int needack, int timeout)
+{
+    u64 end = calc_future_tsc(timeout);
+    for (;;) {
+        if (rdtscll() >= end) {
+            dprintf(1, "ps2_recvbyte timeout\n");
+            return -1;
+        }
+
+        u8 status = inb(PORT_PS2_STATUS);
+        if (! (status & I8042_STR_OBF))
+            continue;
+        u8 data = inb(PORT_PS2_DATA);
+        dprintf(7, "ps2 read %x\n", data);
+
+        if ((!!(status & I8042_STR_AUXDATA) != aux)
+            || (needack && data != PS2_RET_ACK)) {
+            // This data not for us - XXX - just discard it for now.
+            dprintf(1, "Discarding ps2 data %x\n", data);
+            continue;
+        }
+
+        return data;
+    }
+}
+
+static int
 ps2_sendbyte(int aux, u8 command)
 {
     dprintf(7, "ps2_sendbyte aux=%d cmd=%x\n", aux, command);
@@ -158,14 +187,9 @@ ps2_sendbyte(int aux, u8 command)
         return ret;
 
     // Read ack.
-    ret = i8042_wait_read();
-    if (ret)
+    ret = ps2_recvbyte(aux, 1, 200);
+    if (ret < 0)
         return ret;
-    u8 ack = inb(PORT_PS2_DATA);
-    if (ack != PS2_RET_ACK) {
-        dprintf(1, "Missing ack (got %x not %x)\n", ack, PS2_RET_ACK);
-        return -1;
-    }
 
     return 0;
 }
@@ -205,14 +229,14 @@ ps2_command(int aux, int command, u8 *param)
 
     // Receive parameters (if any).
     for (i = 0; i < receive; i++) {
-        ret = i8042_wait_read();
-        if (ret) {
+        u8 data = ps2_recvbyte(aux, 0, 200);
+        if (data < 0) {
             // On a receive timeout, return the item number that the
             // transfer failed on.
             ret = i + 1;
             goto fail;
         }
-        param[i] = inb(PORT_PS2_DATA);
+        param[i] = data;
     }
 
 fail:

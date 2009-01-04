@@ -111,7 +111,7 @@ mouse_15c201(struct bregs *regs)
 static void
 mouse_15c202(struct bregs *regs)
 {
-    static u8 sample_rates[7] = {10, 20, 40, 60, 80, 100, 200};
+    static u8 VAR16 sample_rates[7] = {10, 20, 40, 60, 80, 100, 200};
     if (regs->bh >= ARRAY_SIZE(sample_rates)) {
         set_code_fail(regs, RET_EINVINPUT);
         return;
@@ -285,15 +285,8 @@ handle_15c2(struct bregs *regs)
 }
 
 static void
-int74_function()
+process_mouse(u8 data)
 {
-    u8 v = inb(PORT_PS2_STATUS);
-    if ((v & 0x21) != 0x21) {
-        dprintf(1, "int74 but no mouse data.\n");
-        return;
-    }
-    v = inb(PORT_PS2_DATA);
-
     u16 ebda_seg = get_ebda_seg();
     u8 mouse_flags_1 = GET_EBDA2(ebda_seg, mouse_flag1);
     u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
@@ -304,7 +297,7 @@ int74_function()
 
     u8 package_count = mouse_flags_2 & 0x07;
     u8 index = mouse_flags_1 & 0x07;
-    SET_EBDA2(ebda_seg, mouse_data[index], v);
+    SET_EBDA2(ebda_seg, mouse_data[index], data);
 
     if ((index+1) < package_count) {
         mouse_flags_1++;
@@ -345,7 +338,15 @@ handle_74()
     if (! CONFIG_PS2_MOUSE)
         goto done;
 
-    int74_function();
+    u8 v = inb(PORT_PS2_STATUS);
+    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
+        != (I8042_STR_OBF|I8042_STR_AUXDATA)) {
+        dprintf(1, "mouse irq but no mouse data.\n");
+        goto done;
+    }
+    v = inb(PORT_PS2_DATA);
+
+    process_mouse(v);
 
 done:
     eoi_pic2();

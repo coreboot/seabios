@@ -617,8 +617,8 @@ handle_09()
 
     // read key from keyboard controller
     u8 v = inb(PORT_PS2_STATUS);
-    if ((v & 0x21) != 0x01) {
-        dprintf(1, "int09 but no keyboard data.\n");
+    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA)) != I8042_STR_OBF) {
+        dprintf(1, "keyboard irq but no keyboard data.\n");
         goto done;
     }
     u8 key = inb(PORT_PS2_DATA);
