@@ -197,6 +197,21 @@ struct madt_io_apic
 			  * lines start */
 };
 
+#if CONFIG_KVM
+/* IRQs 5,9,10,11 */
+#define PCI_ISA_IRQ_MASK    0x0e20
+#else
+#define PCI_ISA_IRQ_MASK    0x0000
+#endif
+
+struct madt_intsrcovr {
+    APIC_HEADER_DEF
+    u8  bus;
+    u8  source;
+    u32 gsi;
+    u16 flags;
+} PACKED;
+
 #include "acpi-dsdt.hex"
 
 static inline u16 cpu_to_le16(u16 x)
@@ -398,32 +413,44 @@ void acpi_bios_init(void)
     memcpy(dsdt, AmlCode, sizeof(AmlCode));
 
     /* MADT */
-    {
-        struct madt_processor_apic *apic;
-        struct madt_io_apic *io_apic;
-
-        memset(madt, 0, madt_size);
-        madt->local_apic_address = cpu_to_le32(BUILD_APIC_ADDR);
-        madt->flags = cpu_to_le32(1);
-        apic = (void *)(madt + 1);
-        for(i=0;i<smp_cpus;i++) {
-            apic->type = APIC_PROCESSOR;
-            apic->length = sizeof(*apic);
-            apic->processor_id = i;
-            apic->local_apic_id = i;
-            apic->flags = cpu_to_le32(1);
-            apic++;
-        }
-        io_apic = (void *)apic;
-        io_apic->type = APIC_IO;
-        io_apic->length = sizeof(*io_apic);
-        io_apic->io_apic_id = smp_cpus;
-        io_apic->address = cpu_to_le32(BUILD_IOAPIC_ADDR);
-        io_apic->interrupt = cpu_to_le32(0);
-
-        acpi_build_table_header((struct acpi_table_header *)madt,
-                                APIC_SIGNATURE, madt_size, 1);
+    memset(madt, 0, madt_size);
+    madt->local_apic_address = cpu_to_le32(BUILD_APIC_ADDR);
+    madt->flags = cpu_to_le32(1);
+    struct madt_processor_apic *apic = (void *)(madt + 1);
+    for(i=0;i<smp_cpus;i++) {
+        apic->type = APIC_PROCESSOR;
+        apic->length = sizeof(*apic);
+        apic->processor_id = i;
+        apic->local_apic_id = i;
+        apic->flags = cpu_to_le32(1);
+        apic++;
     }
+    struct madt_io_apic *io_apic = (void *)apic;
+    io_apic->type = APIC_IO;
+    io_apic->length = sizeof(*io_apic);
+    io_apic->io_apic_id = smp_cpus;
+    io_apic->address = cpu_to_le32(BUILD_IOAPIC_ADDR);
+    io_apic->interrupt = cpu_to_le32(0);
+
+    struct madt_intsrcovr *intsrcovr = (struct madt_intsrcovr*)(io_apic + 1);
+    for (i = 0; i < 16; i++) {
+        if (PCI_ISA_IRQ_MASK & (1 << i)) {
+            memset(intsrcovr, 0, sizeof(*intsrcovr));
+            intsrcovr->type   = APIC_XRUPT_OVERRIDE;
+            intsrcovr->length = sizeof(*intsrcovr);
+            intsrcovr->source = i;
+            intsrcovr->gsi    = i;
+            intsrcovr->flags  = 0xd; /* active high, level triggered */
+        } else {
+            /* No need for a INT source override structure. */
+            continue;
+        }
+        intsrcovr++;
+        madt_size += sizeof(struct madt_intsrcovr);
+    }
+
+    acpi_build_table_header((struct acpi_table_header *)madt,
+                            APIC_SIGNATURE, madt_size, 1);
 }
 
 u32

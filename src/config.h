@@ -12,6 +12,8 @@
 #define CONFIG_APPNAME6 "BOCHS "
 #define CONFIG_APPNAME4 "BXPC"
 
+// Configure for use with KVM.
+#define CONFIG_KVM 0
 // Configure as a coreboot payload.
 #define CONFIG_COREBOOT 0
 

@@ -178,6 +178,9 @@ void init_dma();
 u16 get_pnp_offset();
 void pnp_setup();
 
+// mtrr.c
+void mtrr_setup(void);
+
 // romlayout.S
 void reset_vector() __attribute__ ((noreturn));
 

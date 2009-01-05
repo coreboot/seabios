@@ -18,7 +18,13 @@ static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
 static u32 pci_bios_bigmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
-static u8 pci_irqs[4] = { 11, 9, 11, 9 };
+static u8 pci_irqs[4] = {
+#if CONFIG_KVM
+    10, 10, 11, 11
+#else
+    11, 9, 11, 9
+#endif
+};
 
 static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 {
@@ -176,6 +182,11 @@ static void pci_bios_init_device(u16 bdf)
     if (vendor_id == PCI_VENDOR_ID_INTEL
         && device_id == PCI_DEVICE_ID_INTEL_82371AB_3) {
         /* PIIX4 Power Management device (for ACPI) */
+
+        if (CONFIG_KVM)
+            // acpi sci is hardwired to 9
+            pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
+
         pci_config_writel(bdf, 0x40, PORT_ACPI_PM_BASE | 1);
         pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
         pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
