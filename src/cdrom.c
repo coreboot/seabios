@@ -3,7 +3,7 @@
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
-// This file may be distributed under the terms of the GNU GPLv3 license.
+// This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "disk.h" // cdrom_13
 #include "util.h" // memset

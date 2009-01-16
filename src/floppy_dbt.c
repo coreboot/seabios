@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
-// This file may be distributed under the terms of the GNU GPLv3 license.
+// This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "disk.h" // struct floppy_dbt_s
 

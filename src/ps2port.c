@@ -1,9 +1,9 @@
 // Support for handling the PS/2 mouse/keyboard ports.
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
-// Based on code Copyright (c) 1999-2004 Vojtech Pavlik
+// Several ideas taken from code Copyright (c) 1999-2004 Vojtech Pavlik
 //
-// This file may be distributed under the terms of the GNU GPLv3 license.
+// This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "ioport.h" // inb
 #include "util.h" // dprintf

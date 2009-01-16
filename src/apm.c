@@ -4,7 +4,7 @@
 // Copyright (C) 2005 Struan Bartlett
 // Copyright (C) 2004 Fabrice Bellard
 //
-// This file may be distributed under the terms of the GNU GPLv3 license.
+// This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "farptr.h" // GET_VAR
 #include "bregs.h" // struct bregs

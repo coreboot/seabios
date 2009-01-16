@@ -2,7 +2,7 @@
 //
 // Copyright (C) 2006 Fabrice Bellard
 //
-// This file may be distributed under the terms of the GNU GPLv3 license.
+// This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_EBDA
