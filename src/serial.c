@@ -243,6 +243,7 @@ handle_1700(struct bregs *regs)
     outb(val8 | 0x01, addr+2); // send strobe
     nop();
     outb(val8 & ~0x01, addr+2);
+    // XXX - implement better timeout code.
     while (((inb(addr+1) & 0x40) == 0x40) && (timeout))
         timeout--;
 

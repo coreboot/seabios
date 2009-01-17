@@ -65,7 +65,7 @@ i8042_flush(void)
         }
         udelay(50);
         u8 data = inb(PORT_PS2_DATA);
-        dprintf(7, "i8042 flushed %x\n", data);
+        dprintf(7, "i8042 flushed %x (status=%x)\n", data, status);
     }
 
     irq_restore(flags);
@@ -166,7 +166,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
         if ((!!(status & I8042_STR_AUXDATA) != aux)
             || (needack && data != PS2_RET_ACK)) {
             // This data not for us - XXX - just discard it for now.
-            dprintf(1, "Discarding ps2 data %x\n", data);
+            dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
             continue;
         }
 
