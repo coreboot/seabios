@@ -245,8 +245,7 @@ _start()
     interactive_bootmenu();
 
     // Setup bios checksum.
-    extern char bios_checksum;
-    bios_checksum = -checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE - 1);
+    BiosChecksum = -checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE - 1);
 
     // Prep for boot process.
     make_bios_readonly();

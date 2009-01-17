@@ -32,6 +32,8 @@ union u64_u32_u {
 # define VAR16 __attribute__((section(".data16." __FILE__ "." __stringify(__LINE__))))
 // Designate a variable as visible to both 32bit and 16bit code.
 # define VAR16_32 VAR16 __VISIBLE
+// Designate a variable at a specific 16bit address
+# define VAR16FIXED(addr) __aligned(1) __VISIBLE  __attribute__((section(".fixedaddr." __stringify(addr))))
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) asm(".section .text.asm." __FILE__ "." __stringify(__LINE__) "\n\t" code)
 #else
@@ -39,6 +41,7 @@ union u64_u32_u {
 # define VISIBLE32 __VISIBLE
 # define VAR16 __attribute__((section(".discard.var16")))
 # define VAR16_32 VAR16 __VISIBLE __attribute__((weak))
+# define VAR16FIXED(addr) VAR16_32
 # define ASM16(code)
 #endif
 

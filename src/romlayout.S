@@ -451,88 +451,21 @@ permanent_halt:
         ORG 0xe2c3
         IRQ_ENTRY nmi
 
-/****************************************************************
- * GDT and IDT tables (between 0xe2c3 - 0xe3fe)
- ****************************************************************/
-
-// Protected mode IDT descriptor
-//
-// I just make the limit 0, so the machine will shutdown
-// if an exception occurs during protected mode memory
-// transfers.
-//
-// Set base to f0000 to correspond to beginning of BIOS,
-// in case I actually define an IDT later
-// Set limit to 0
-        .type pmode_IDT_info, @object
-pmode_IDT_info:
-        .word 0x0000  // limit 15:00
-        .long 0xf0000 // base 16:47
-
-// Real mode IDT descriptor
-//
-// Set to typical real-mode values.
-// base  = 000000
-// limit =   03ff
-        .type rmode_IDT_info, @object
-rmode_IDT_info:
-        .word 0x03ff  // limit 15:00
-        .long 0       // base 16:47
-
-        .type rombios32_gdt_48, @object
-rombios32_gdt_48:
-        .word (rombios32_gdt_end - rombios32_gdt)
-        .long (BUILD_BIOS_ADDR + rombios32_gdt)
-
-        //.balign 8
-        .type rombios32_gdt, @object
-rombios32_gdt:
-        .word 0, 0, 0, 0
-        .word 0, 0, 0, 0
-        // 32 bit flat code segment (SEG32_MODE32_CS)
-        .word 0xffff, 0, 0x9b00, 0x00cf
-        // 32 bit flat data segment (SEG32_MODE32_DS)
-        .word 0xffff, 0, 0x9300, 0x00cf
-        // 16 bit code segment base=0xf0000 limit=0xffff (SEG32_MODE16_CS)
-        .word 0xffff, 0, 0x9b0f, 0x0000
-        // 16 bit data segment base=0x0 limit=0xffff (SEG32_MODE16_DS)
-        .word 0xffff, 0, 0x9300, 0x0000
-        // 16 bit code segment base=0 limit=0xffffffff (SEG32_MODE16BIG_CS)
-        .word 0xffff, 0, 0x9b00, 0x008f
-        // 16 bit data segment base=0 limit=0xffffffff (SEG32_MODE16BIG_DS)
-        .word 0xffff, 0, 0x9300, 0x008f
-rombios32_gdt_end:
-
-
-/****************************************************************
- * Interrupt entry points (continued)
- ****************************************************************/
-
         ORG 0xe3fe
         .global entry_13_official
 entry_13_official:
         jmp entry_13
 
-        ORG 0xe401
-        .type __fdpt, @object
-__fdpt:
-        // XXX - Fixed Disk Parameter Table
-        .space 16
+        // 0xe401 - OldFDPT in disk.c
 
         ORG 0xe6f2
         .global entry_19_official
 entry_19_official:
         jmp entry_19
 
-        ORG 0xe6f5
-.include "out/cbt.proc.16.s"
-        .text
+        // 0xe6f5 - BIOS_CONFIG_TABLE in misc.c
 
-        ORG 0xe729
-        .type __brgt, @object
-__brgt:
-        // XXX - Baud Rate Generator Table
-        .space 16
+        // 0xe729 - BaudTable in serial.c
 
         ORG 0xe739
         IRQ_ENTRY_ARG 14
@@ -549,9 +482,7 @@ __brgt:
         ORG 0xef57
         IRQ_ENTRY 0e
 
-        ORG 0xefc7
-.include "out/floppy_dbt.proc.16.s"
-        .text
+        // 0xefc7 - diskette_param_table in floppy.c
 
         ORG 0xefd2
         IRQ_ENTRY_ARG 17
@@ -564,11 +495,7 @@ __int10_0x0f:
         ORG 0xf065
         IRQ_ENTRY_ARG 10
 
-        ORG 0xf0a4
-        .type __int1d, @object
-__int1d:
-        // XXX - INT 1D - SYSTEM DATA - VIDEO PARAMETER TABLES
-        .space 0x58
+        // 0xf0a4 - VideoParams in misc.c
 
         ORG 0xf841
         .global entry_12_official
@@ -608,9 +535,7 @@ entry_18:
         pushl $_code32_handle_18
         jmp transition32
 
-        ORG 0xfa6e
-.include "out/font.proc.16.s"
-        .text
+        // 0xfa6e - vgafont8 in font.c
 
         ORG 0xfe6e
         IRQ_ENTRY_ARG 1a
@@ -618,16 +543,9 @@ entry_18:
         ORG 0xfea5
         IRQ_ENTRY 08
 
-        ORG 0xfef3
-__initvector:
-        // XXX - Initial Interrupt Vector Offsets Loaded by POST
-        .space 13
+        // 0xfef3 - InitVectors in misc.c
 
-        ORG 0xff00
-        .type __copyright, @object
-__copyright:
-        // XXX - BIOS_COPYRIGHT_STRING
-        .asciz "(c) 2002 MandrakeSoft S.A. Written by Kevin Lawton & the Bochs team."
+        // 0xff00 - BiosCopyright in misc.c
 
         ORG 0xff53
         .global dummy_iret_handler
@@ -642,20 +560,10 @@ dummy_iret_handler:
 reset_vector:
         ljmpw $SEG_BIOS, $post16
 
-        ORG 0xfff5
-        .type __biosdate, @object
-__biosdate:
-        // BIOS build date
-        .ascii "06/23/99"
+        // 0xfff5 - BiosDate in misc.c
 
-        ORG 0xfffe
-        .type __model_id, @object
-__model_id:
-        .byte CONFIG_MODEL_ID
+        // 0xfffe - BiosModelId in misc.c
 
-        .global bios_checksum
-        .type bios_checksum, @object
-bios_checksum:
-        .byte 0x00
+        // 0xffff - BiosChecksum in misc.c
 
         .end

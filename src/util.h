@@ -184,4 +184,7 @@ void mtrr_setup(void);
 // romlayout.S
 void reset_vector() __attribute__ ((noreturn));
 
+// misc.c
+extern u8 BiosChecksum;
+
 #endif // util.h

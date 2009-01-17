@@ -15,18 +15,18 @@
  * Interupt vector table
  ****************************************************************/
 
-struct ivec {
+struct rmode_IVT {
     union {
         struct {
             u16 offset;
             u16 seg;
         };
         u32 segoff;
-    };
+    } ivec[256];
 };
 
 #define SET_IVT(vector, seg, off)                                       \
-    SET_FARVAR(SEG_IVT, ((struct ivec *)0)[vector].segoff, ((seg) << 16) | (off))
+    SET_FARVAR(SEG_IVT, ((struct rmode_IVT *)0)->ivec[vector].segoff, ((seg) << 16) | (off))
 
 
 /****************************************************************
@@ -284,6 +284,6 @@ struct bios_config_table_s {
     u8 feature1, feature2, feature3, feature4, feature5;
 } PACKED;
 
-extern struct bios_config_table_s BIOS_CONFIG_TABLE;
+extern struct bios_config_table_s BIOS_CONFIG_TABLE __aligned(1);
 
 #endif // __BIOSVAR_H

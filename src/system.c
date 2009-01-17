@@ -1,4 +1,4 @@
-// 16bit system callbacks
+// Handler for int 0x15 "system" calls
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
@@ -269,10 +269,6 @@ handle_15e801(struct bregs *regs)
 // Info on e820 map location and size.
 struct e820entry *e820_list VAR16_32;
 int e820_count VAR16_32;
-// Amount of continuous ram under 4Gig
-u32 RamSize VAR16_32;
-// Amount of continuous ram >4Gig
-u64 RamSizeOver4G;
 
 static void
 handle_15e820(struct bregs *regs)
@@ -339,66 +335,4 @@ handle_15(struct bregs *regs)
     case 0xe8: handle_15e8(regs); break;
     default:   handle_15XX(regs); break;
     }
-}
-
-// INT 12h Memory Size Service Entry Point
-void VISIBLE16
-handle_12(struct bregs *regs)
-{
-    debug_enter(regs, DEBUG_HDL_12);
-    regs->ax = GET_BDA(mem_size_kb);
-}
-
-// INT 11h Equipment List Service Entry Point
-void VISIBLE16
-handle_11(struct bregs *regs)
-{
-    debug_enter(regs, DEBUG_HDL_11);
-    regs->ax = GET_BDA(equipment_list_flags);
-}
-
-// INT 05h Print Screen Service Entry Point
-void VISIBLE16
-handle_05(struct bregs *regs)
-{
-    debug_enter(regs, DEBUG_HDL_05);
-}
-
-// INT 10h Video Support Service Entry Point
-void VISIBLE16
-handle_10(struct bregs *regs)
-{
-    debug_enter(regs, DEBUG_HDL_10);
-    // dont do anything, since the VGA BIOS handles int10h requests
-}
-
-void VISIBLE16
-handle_nmi()
-{
-    debug_isr(DEBUG_ISR_nmi);
-    BX_PANIC("NMI Handler called\n");
-}
-
-void
-mathcp_setup()
-{
-    dprintf(3, "math cp init\n");
-    // 80x87 coprocessor installed
-    SETBITS_BDA(equipment_list_flags, 0x02);
-    enable_hwirq(13, entry_75);
-}
-
-// INT 75 - IRQ13 - MATH COPROCESSOR EXCEPTION
-void VISIBLE16
-handle_75()
-{
-    debug_isr(DEBUG_ISR_75);
-
-    // clear irq13
-    outb(0, PORT_MATH_CLEAR);
-    // clear interrupt
-    eoi_pic2();
-    // legacy nmi call
-    u32 eax=0, flags;
-    call16_simpint(0x02, &eax, &flags);
 }

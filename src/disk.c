@@ -712,3 +712,6 @@ handle_76()
     SET_BDA(disk_interrupt_flag, 0xff);
     eoi_pic2();
 }
+
+// Old Fixed Disk Parameter Table (newer tables are in the ebda).
+struct fdpt_s OldFDPT VAR16FIXED(0xe401);

@@ -111,12 +111,12 @@
 #define SEG_BIOS     0xf000
 
 // Segment definitions in protected mode (see rombios32_gdt in romlayout.S)
-#define SEG32_MODE32_CS    (2 << 3)
-#define SEG32_MODE32_DS    (3 << 3)
-#define SEG32_MODE16_CS    (4 << 3)
-#define SEG32_MODE16_DS    (5 << 3)
-#define SEG32_MODE16BIG_CS (6 << 3)
-#define SEG32_MODE16BIG_DS (7 << 3)
+#define SEG32_MODE32_CS    (1 << 3)
+#define SEG32_MODE32_DS    (2 << 3)
+#define SEG32_MODE16_CS    (3 << 3)
+#define SEG32_MODE16_DS    (4 << 3)
+#define SEG32_MODE16BIG_CS (5 << 3)
+#define SEG32_MODE16BIG_DS (6 << 3)
 
 // Debugging levels.  If non-zero and CONFIG_DEBUG_LEVEL is greater
 // than the specified value, then the corresponding irq handler will
