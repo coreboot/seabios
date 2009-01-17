@@ -107,7 +107,7 @@ $(OUT)rom32.o: $(OUT)ccode32.o $(OUT)rombios32.lds
 
 $(OUT)romlayout.lds: $(OUT)romlayout16.o
 	@echo "  Building layout information $@"
-	$(Q)$(OBJDUMP) -h $< | ./tools/layoutrom.py > $@
+	$(Q)$(OBJDUMP) -h $< | ./tools/layoutrom.py $@
 
 $(OUT)rombios16.lds: $(OUT)romlayout.lds
 

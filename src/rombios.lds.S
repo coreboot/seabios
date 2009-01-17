@@ -15,8 +15,8 @@ SECTIONS
                 *(.text)
 
                 . = code16_start ;
-                final_code16_start = . ;
                 *(.text16)
+                final_code16_end = . ;
                 }
         /DISCARD/ : { *(.discard*) }
 }

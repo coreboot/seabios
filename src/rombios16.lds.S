@@ -11,6 +11,7 @@ OUTPUT_ARCH("i386")
 SECTIONS
 {
         . = ( _code32_code32_end - BUILD_BIOS_ADDR ) ;
+        . = ALIGN(16) ;
         code16_start = . ;
         .text16 : {
 

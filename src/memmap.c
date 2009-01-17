@@ -123,7 +123,7 @@ add_e820(u64 start, u64 size, u32 type)
 }
 
 // Symbols defined in romlayout.S
-extern char freespace2_start, freespace2_end;
+extern char freespace1_start, freespace1_end;
 
 u32 bios_table_cur_addr, bios_table_end_addr;
 
@@ -131,8 +131,8 @@ u32 bios_table_cur_addr, bios_table_end_addr;
 void
 memmap_setup()
 {
-    bios_table_cur_addr = (u32)&freespace2_start;
-    bios_table_end_addr = (u32)&freespace2_end;
+    bios_table_cur_addr = (u32)&freespace1_start;
+    bios_table_end_addr = (u32)&freespace1_end;
     dprintf(1, "bios_table_addr: 0x%08x end=0x%08x\n",
             bios_table_cur_addr, bios_table_end_addr);
 
@@ -155,8 +155,8 @@ memmap_finalize()
 
     dprintf(1, "final bios_table_addr: 0x%08x (used %d%%)\n"
             , bios_table_cur_addr
-            , (100 * (bios_table_cur_addr - (u32)&freespace2_start)
-               / ((u32)&freespace2_end - (u32)&freespace2_start)));
+            , (100 * (bios_table_cur_addr - (u32)&freespace1_start)
+               / ((u32)&freespace1_end - (u32)&freespace1_start)));
     if (bios_table_cur_addr > bios_table_end_addr)
         BX_PANIC("bios_table_end_addr overflow!\n");
 }

@@ -487,7 +487,7 @@ rombios32_gdt_48:
         .word (rombios32_gdt_end - rombios32_gdt)
         .long (BUILD_BIOS_ADDR + rombios32_gdt)
 
-        .balign 8
+        //.balign 8
         .type rombios32_gdt, @object
 rombios32_gdt:
         .word 0, 0, 0, 0
@@ -520,6 +520,7 @@ entry_13_official:
         .type __fdpt, @object
 __fdpt:
         // XXX - Fixed Disk Parameter Table
+        .space 16
 
         ORG 0xe6f2
         .global entry_19_official
@@ -534,6 +535,7 @@ entry_19_official:
         .type __brgt, @object
 __brgt:
         // XXX - Baud Rate Generator Table
+        .space 16
 
         ORG 0xe739
         IRQ_ENTRY_ARG 14
@@ -571,11 +573,7 @@ __int1d:
         // XXX - INT 1D - SYSTEM DATA - VIDEO PARAMETER TABLES
         .space 0x58
 
-        .global freespace2_start, freespace2_end
-freespace2_start:
-
         ORG 0xf841
-freespace2_end:
         .global entry_12_official
 entry_12_official:
         jmp entry_12
@@ -626,6 +624,7 @@ entry_18:
         ORG 0xfef3
 __initvector:
         // XXX - Initial Interrupt Vector Offsets Loaded by POST
+        .space 13
 
         ORG 0xff00
         .type __copyright, @object

@@ -17,24 +17,22 @@ def main():
         except:
             pass
 
-    c16s = syms['code16_start'] + 0xf0000
-    c32s = syms['final_code16_start']
-    if c16s != c32s:
+    c16e = syms['code16_end'] + 0xf0000
+    f16e = syms['final_code16_end']
+    if c16e != f16e:
         print "Error!  16bit code moved during linking (0x%x vs 0x%x)" % (
-            c32s, c16s)
+            c16e, f16e)
         sys.exit(1)
 
     sizefree = syms['freespace1_end'] - syms['freespace1_start']
     size16 = syms['code16_end'] - syms['code16_start'] - sizefree
     size32 = syms['code32_end'] - syms['code32_start']
     totalc = size16+size32
-    tablefree = syms['freespace2_end'] - syms['freespace2_start']
     print "16bit size: %d" % size16
     print "32bit size: %d" % size32
     print "Total size: %d  Free space: %d  Percent used: %.1f%%" % (
         totalc, sizefree
         , (totalc / float(size16+size32+sizefree)) * 100.0)
-    print "BIOS table space:  %d" % tablefree
 
 if __name__ == '__main__':
     main()
