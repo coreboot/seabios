@@ -114,8 +114,7 @@
 
         // Specify a location in the fixed part of bios area.
         .macro ORG addr
-        .section .text.fixed.addr
-        .org \addr - BUILD_START_FIXED
+        .section .fixedaddr.\addr
         .endm
 
 

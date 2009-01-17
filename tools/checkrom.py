@@ -19,22 +19,19 @@ def main():
 
     c16s = syms['code16_start'] + 0xf0000
     c32s = syms['final_code16_start']
-    f16s = syms['code16_fixed_start'] + 0xf0000
-    f32s = syms['final_code16_fixed_start']
-    if c16s != c32s or f16s != f32s:
-        print ("Error!  16bit code moved during linking"
-               " (0x%x vs 0x%x, 0x%x vs 0x%x)" % (
-                c32s, c16s, f16s, f32s))
+    if c16s != c32s:
+        print "Error!  16bit code moved during linking (0x%x vs 0x%x)" % (
+            c32s, c16s)
         sys.exit(1)
 
-    size16 = syms['code16_end'] - syms['code16_start']
+    sizefree = syms['freespace1_end'] - syms['freespace1_start']
+    size16 = syms['code16_end'] - syms['code16_start'] - sizefree
     size32 = syms['code32_end'] - syms['code32_start']
     totalc = size16+size32
-    sizefree = syms['freespace1_end'] - syms['freespace1_start']
     tablefree = syms['freespace2_end'] - syms['freespace2_start']
-    print "16bit C-code size: %d" % size16
-    print "32bit C-code size: %d" % size32
-    print "Total C-code size: %d  Free space: %d  Percent used: %.1f%%" % (
+    print "16bit size: %d" % size16
+    print "32bit size: %d" % size32
+    print "Total size: %d  Free space: %d  Percent used: %.1f%%" % (
         totalc, sizefree
         , (totalc / float(size16+size32+sizefree)) * 100.0)
     print "BIOS table space:  %d" % tablefree

@@ -13,23 +13,15 @@ SECTIONS
         . = ( _code32_code32_end - BUILD_BIOS_ADDR ) ;
         code16_start = . ;
         .text16 : {
-                *(.text)
-                code16_rodata = . ;
-                *(.rodata*)
-                *(.data.var16)
-                }
-        freespace1_start = . ;
-        code16_end = . ;
 
-        . = BUILD_START_FIXED ;
-        code16_fixed_start = . ;
-        freespace1_end = . ;
-        .text16.fixed.addr : {
-                *(.text.fixed.addr)
+// The actual placement of the 16bit sections is determined by the
+// script tools/layoutrom.py
+#include "../out/romlayout.lds"
+
                 }
-        code16_fixed_end = . ;
+        code16_end = . ;
 
         // Discard regular data sections to force a link error if
         // 16bit code attempts to access data not marked with VAR16.
-        /DISCARD/ : { *(.data) *(.bss) *(COMMON) }
+        /DISCARD/ : { *(.text*) *(.rodata*) *(.data*) *(.bss*) *(COMMON) }
 }

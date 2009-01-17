@@ -17,10 +17,6 @@ SECTIONS
                 . = code16_start ;
                 final_code16_start = . ;
                 *(.text16)
-
-                . = code16_fixed_start ;
-                final_code16_fixed_start = . ;
-                *(.text16.fixed.addr)
                 }
-        /DISCARD/ : { *(.discard.var16) }
+        /DISCARD/ : { *(.discard*) }
 }

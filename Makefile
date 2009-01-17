@@ -31,6 +31,7 @@ COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 override CFLAGS = $(COMMONCFLAGS) -g -DMODE16=0
 CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -fno-jump-tables -fno-defer-pop \
               $(call cc-option,$(CC),--param large-stack-frame=4,)
+CFLAGS16INC += -ffunction-sections -fdata-sections
 CFLAGS16 = $(CFLAGS16INC) -g
 
 TABLETMP=$(addprefix $(OUT), $(patsubst %.c,%.16.s,$(TABLESRC)))
@@ -44,6 +45,7 @@ Q=@
 endif
 
 OBJCOPY=objcopy
+OBJDUMP=objdump
 NM=nm
 STRIP=strip
 
@@ -102,6 +104,12 @@ $(OUT)ccode32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),
 $(OUT)rom32.o: $(OUT)ccode32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
 	$(Q)$(LD) -r -d -T $(OUT)rombios32.lds $< -o $@
+
+$(OUT)romlayout.lds: $(OUT)romlayout16.o
+	@echo "  Building layout information $@"
+	$(Q)$(OBJDUMP) -h $< | ./tools/layoutrom.py > $@
+
+$(OUT)rombios16.lds: $(OUT)romlayout.lds
 
 $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)rombios16.lds
 	@echo "  Linking (16bit) $@"
