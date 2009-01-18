@@ -187,7 +187,8 @@ ps2_sendbyte(int aux, u8 command)
         return ret;
 
     // Read ack.
-    ret = ps2_recvbyte(aux, 1, 200);
+    int timeout = command == ATKBD_CMD_RESET_BAT ? 1000 : 200;
+    ret = ps2_recvbyte(aux, 1, timeout);
     if (ret < 0)
         return ret;
 
@@ -229,11 +230,22 @@ ps2_command(int aux, int command, u8 *param)
 
     // Receive parameters (if any).
     for (i = 0; i < receive; i++) {
-        int data = ps2_recvbyte(aux, 0, 200);
+        int timeout = 500;
+        if (command == ATKBD_CMD_RESET_BAT) {
+            // Reset is special wrt timeouts.
+            if (i==0)
+                timeout = 4000;
+            else
+                timeout = 100;
+        }
+        int data = ps2_recvbyte(aux, 0, timeout);
         if (data < 0) {
-            // On a receive timeout, return the item number that the
-            // transfer failed on.
-            ret = i + 1;
+            if (command == ATKBD_CMD_RESET_BAT && i==1) {
+                // Some devices only respond with one byte on reset.
+                param[i] = 0;
+                break;
+            }
+            ret = -1;
             goto fail;
         }
         param[i] = data;
@@ -254,7 +266,7 @@ kbd_command(int command, u8 *param)
     dprintf(7, "kbd_command cmd=%x\n", command);
     int ret = ps2_command(0, command, param);
     if (ret)
-        dprintf(2, "keyboard command %x failed (ret=%d)\n", command, ret);
+        dprintf(2, "keyboard command %x failed\n", command);
     return ret;
 }
 
@@ -264,6 +276,6 @@ aux_command(int command, u8 *param)
     dprintf(7, "aux_command cmd=%x\n", command);
     int ret = ps2_command(1, command, param);
     if (ret)
-        dprintf(2, "mouse command %x failed (ret=%d)\n", command, ret);
+        dprintf(2, "mouse command %x failed\n", command);
     return ret;
 }

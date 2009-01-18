@@ -15,10 +15,6 @@
 static void
 keyboard_init()
 {
-    if (CONFIG_COREBOOT)
-        // Coreboot already does low-level keyboard init.
-        goto end;
-
     /* flush incoming keys */
     int ret = i8042_flush();
     if (ret)
@@ -55,7 +51,7 @@ keyboard_init()
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
     ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
-    if (ret != 0 && ret != 2)
+    if (ret)
         return;
     if (param[0] != 0xaa) {
         dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
@@ -67,7 +63,12 @@ keyboard_init()
     if (ret)
         return;
 
-end:
+    // Set scancode command (mode 2)
+    param[0] = 0x02;
+    ret = kbd_command(ATKBD_CMD_SSCANSET, param);
+    if (ret)
+        return;
+
     // Keyboard Mode: scan code convert, disable mouse, enable IRQ 1
     SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
 

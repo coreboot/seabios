@@ -19,6 +19,7 @@
 
 // Keyboard commands
 #define ATKBD_CMD_SETLEDS       0x10ed
+#define ATKBD_CMD_SSCANSET      0x10f0
 #define ATKBD_CMD_GETID         0x02f2
 #define ATKBD_CMD_ENABLE        0x00f4
 #define ATKBD_CMD_RESET_DIS     0x00f5
