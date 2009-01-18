@@ -74,13 +74,14 @@
 #define CONFIG_ACPI 1
 // Support bios callbacks specific to via vgabios.
 #define CONFIG_VGAHOOKS 0
+// Support S3 resume handler.
+#define CONFIG_S3_RESUME 1
+// define it if the (emulated) hardware supports SMM mode
+#define CONFIG_USE_SMM 1
 // Maximum number of map entries in the e820 map
 #define CONFIG_MAX_E820 32
 // Space to reserve in f-segment for run-time built bios tables.
 #define CONFIG_MAX_BIOSTABLE 512
-
-/* define it if the (emulated) hardware supports SMM mode */
-#define CONFIG_USE_SMM 1
 
 #define CONFIG_MAX_ATA_INTERFACES 4
 #define CONFIG_MAX_ATA_DEVICES  (CONFIG_MAX_ATA_INTERFACES*2)
@@ -112,7 +113,7 @@
 #define SEG_BDA      0x0040
 #define SEG_BIOS     0xf000
 
-// Segment definitions in protected mode (see rombios32_gdt in romlayout.S)
+// Segment definitions in protected mode (see rombios32_gdt in misc.c)
 #define SEG32_MODE32_CS    (1 << 3)
 #define SEG32_MODE32_DS    (2 << 3)
 #define SEG32_MODE16_CS    (3 << 3)

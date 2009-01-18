@@ -36,16 +36,18 @@ handle_resume(u8 status)
     struct bios_data_area_s *bda = MAKE_FARPTR(SEG_BDA, 0);
     switch (status) {
     case 0xfe:
-        // S3 resume request.  Jump to 32bit mode to handle the resume.
-        asm volatile(
-            "movw %%ax, %%ss\n"
-            "movl %0, %%esp\n"
-            "pushl $_code32_s3_resume\n"
-            "jmp transition32\n"
-            : : "i"(BUILD_S3RESUME_STACK_ADDR), "a"(0)
-            );
-        break;
-
+        if (CONFIG_S3_RESUME) {
+            // S3 resume request.  Jump to 32bit mode to handle the resume.
+            asm volatile(
+                "movw %%ax, %%ss\n"
+                "movl %0, %%esp\n"
+                "pushl $_code32_s3_resume\n"
+                "jmp transition32\n"
+                : : "i"(BUILD_S3RESUME_STACK_ADDR), "a"(0)
+                );
+            break;
+        }
+        // NO BREAK
     case 0x00:
     case 0x09:
     case 0x0d ... 0xfd:
@@ -97,6 +99,9 @@ handle_resume(u8 status)
 void VISIBLE32
 s3_resume()
 {
+    if (!CONFIG_S3_RESUME)
+        BX_PANIC("S3 resume support not compiled in.\n");
+
     dprintf(1, "In 32bit resume\n");
 
     smm_init();
