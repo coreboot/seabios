@@ -229,7 +229,7 @@ ps2_command(int aux, int command, u8 *param)
 
     // Receive parameters (if any).
     for (i = 0; i < receive; i++) {
-        u8 data = ps2_recvbyte(aux, 0, 200);
+        int data = ps2_recvbyte(aux, 0, 200);
         if (data < 0) {
             // On a receive timeout, return the item number that the
             // transfer failed on.
