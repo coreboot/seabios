@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h"
+#include "config.h" // BUILD_BIOS_ADDR
 
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH("i386")
