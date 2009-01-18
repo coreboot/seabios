@@ -34,10 +34,10 @@ init_ivt()
 {
     dprintf(3, "init ivt\n");
 
-    // Initialize all vectors to a dummy handler.
+    // Initialize all vectors to the default handler.
     int i;
     for (i=0; i<256; i++)
-        set_irq(i, dummy_iret_handler);
+        set_irq(i, entry_iret_official);
 
     // Initialize all hw vectors to a default hw handler.
     for (i=0x08; i<=0x0f; i++)

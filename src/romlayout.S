@@ -112,9 +112,10 @@
         cld
         .endm
 
-        // Specify a location in the fixed part of bios area.
-        .macro ORG addr
-        .section .fixedaddr.\addr
+        // Declare a function
+        .macro DECLFUNC func
+        .section .text.asm.\func
+        .global \func
         .endm
 
 
@@ -122,8 +123,8 @@
  * POST handler
  ****************************************************************/
 
-        ORG 0xe05b
-post16:
+        DECLFUNC entry_post
+entry_post:
         // enable cache
         movl %cr0, %eax
         andl $~(CR0_CD|CR0_NW), %eax
@@ -134,14 +135,37 @@ post16:
         outb %al, $PORT_CMOS_INDEX
         inb $PORT_CMOS_DATA, %al
         cmpb $0x0, %al
-        jnz entry_resume
+        jnz 1f
 
         // Normal entry point
         RESET_STACK
-
         pushl $_code32__start
+        jmp transition32
 
-        // Fall through to transition32 function below
+        // Entry point when a post call looks like a resume.
+1:
+        // Save old shutdown status.
+        movl %eax, %ebx
+
+        // Clear shutdown status register.
+        movl $CMOS_RESET_CODE, %eax
+        outb %al, $PORT_CMOS_INDEX
+        xorl %eax, %eax
+        outb %al, $PORT_CMOS_DATA
+
+        // Use a stack in EBDA
+        movw $SEG_BDA, %ax
+        movw %ax, %ds
+        movw BDA_ebda_seg, %ax
+        movw %ax, %ss
+        movw %ax, %ds
+        movl $EBDA_OFFSET_TOP_STACK, %esp
+
+        // Call handler.
+        movl %ebx, %eax
+        cld
+        cli
+        jmp handle_resume
 
 
 /****************************************************************
@@ -150,6 +174,7 @@ post16:
 
 // Place CPU into 32bit mode from 16bit mode.
 // Clobbers: %eax, flags, stack registers, cr0, idt/gdt
+        DECLFUNC transition32
 transition32:
         // Disable irqs
         cli
@@ -186,7 +211,8 @@ transition32:
 // Call a 16bit function from 32bit mode.
 // %eax = address of struct bregs
 // Clobbers: all gp registers, flags, stack registers, cr0, idt/gdt
-        .global __call16_from32, __call16big_from32
+        DECLFUNC __call16_from32
+        .global __call16big_from32
 __call16_from32:
         pushl %eax
 
@@ -251,7 +277,7 @@ __call16big_from32:
 // Call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs
 // Clobbers: all gp registers, es
-        .global __call16
+        DECLFUNC __call16
 __call16:
         // Save eax
         pushl %eax
@@ -302,34 +328,9 @@ __call16:
 
         retl
 
-// Entry point when a post call looks like a resume.
-// %eax = shutdown status from cmos
-entry_resume:
-        // Save old shutdown status.
-        movl %eax, %ebx
-
-        // Clear shutdown status register.
-        movl $CMOS_RESET_CODE, %eax
-        outb %al, $PORT_CMOS_INDEX
-        xorl %eax, %eax
-        outb %al, $PORT_CMOS_DATA
-
-        // Use a stack in EBDA
-        movw $SEG_BDA, %ax
-        movw %ax, %ds
-        movw BDA_ebda_seg, %ax
-        movw %ax, %ss
-        movw %ax, %ds
-        movl $EBDA_OFFSET_TOP_STACK, %esp
-
-        // Call handler.
-        movl %ebx, %eax
-        cld
-        cli
-        jmp handle_resume
-
 // PnP trampolines
-        .global entry_pnp_real, entry_pnp_prot
+        DECLFUNC entry_pnp_real
+        .global entry_pnp_prot
 entry_pnp_prot:
         pushl %esp
         jmp 1f
@@ -358,7 +359,7 @@ entry_pnp_real:
         lretw
 
 // APM trampolines
-        .global apm16protected_entry
+        DECLFUNC apm16protected_entry
 apm16protected_entry:
         pushfw          // save flags
         pushl %eax      // dummy
@@ -368,7 +369,7 @@ apm16protected_entry:
         lretw
 
         .code32
-        .global apm32protected_entry
+        DECLFUNC apm32protected_entry
 apm32protected_entry:
         pushfw
         pushw %cs       // Setup for long jump to 16bit mode
@@ -389,7 +390,7 @@ apm32protected_entry:
         lretl
 
 // 32bit elf entry point
-        .global post32
+        DECLFUNC post32
 post32:
         cli
         cld
@@ -404,7 +405,7 @@ post32:
 // the code wont be overwritten with something else.  (Should
 // something spurious wake up the CPU, we want to be sure that the hlt
 // insn will still be present and will shutdown the CPU.)
-        .global permanent_halt
+        DECLFUNC permanent_halt
 permanent_halt:
         cli
 1:      hlt
@@ -412,7 +413,7 @@ permanent_halt:
 
         // IRQ trampolines
         .macro IRQ_TRAMPOLINE num
-        .global irq_trampoline_0x\num
+        DECLFUNC irq_trampoline_0x\num
         irq_trampoline_0x\num :
         int $0x\num
         lretw
@@ -447,6 +448,54 @@ permanent_halt:
         ENTRY_ARG handle_\num
         iretw
         .endm
+
+        // Macros that put each handler into its own section
+        .macro DECL_IRQ_ENTRY num
+        .section .text.asm.entry_\num
+        IRQ_ENTRY \num
+        .endm
+        .macro DECL_IRQ_ENTRY_ARG num
+        .section .text.asm.entry_\num
+        IRQ_ENTRY_ARG \num
+        .endm
+
+        DECL_IRQ_ENTRY_ARG 13
+        DECL_IRQ_ENTRY_ARG 12
+        DECL_IRQ_ENTRY_ARG 11
+        DECL_IRQ_ENTRY 76
+        DECL_IRQ_ENTRY 1c
+        DECL_IRQ_ENTRY 70
+        DECL_IRQ_ENTRY 74
+        DECL_IRQ_ENTRY 75
+        DECL_IRQ_ENTRY hwpic1
+        DECL_IRQ_ENTRY hwpic2
+
+        // int 18/19 are special - they reset the stack and do not return.
+        DECLFUNC entry_19
+entry_19:
+        RESET_STACK
+        pushl $_code32_handle_19
+        jmp transition32
+
+        DECLFUNC entry_18
+entry_18:
+        RESET_STACK
+        pushl $_code32_handle_18
+        jmp transition32
+
+
+/****************************************************************
+ * Fixed position entry points
+ ****************************************************************/
+
+        // Specify a location in the fixed part of bios area.
+        .macro ORG addr
+        .section .fixedaddr.\addr
+        .endm
+
+        ORG 0xe05b
+entry_post_official:
+        jmp entry_post
 
         ORG 0xe2c3
         IRQ_ENTRY nmi
@@ -488,7 +537,7 @@ entry_19_official:
         IRQ_ENTRY_ARG 17
 
         ORG 0xf045
-__int10_0x0f:
+entry_10_0x0f:
         // XXX - INT 10 Functions 0-Fh Entry Point
         iretw
 
@@ -510,31 +559,6 @@ entry_11_official:
         ORG 0xf859
         IRQ_ENTRY_ARG 15
 
-        // Fit other misc defs if the freespace between 0xf859-0xfa6e
-
-        IRQ_ENTRY_ARG 13
-        IRQ_ENTRY_ARG 12
-        IRQ_ENTRY_ARG 11
-        IRQ_ENTRY 76
-        IRQ_ENTRY 1c
-        IRQ_ENTRY 70
-        IRQ_ENTRY 74
-        IRQ_ENTRY 75
-        IRQ_ENTRY hwpic1
-        IRQ_ENTRY hwpic2
-
-        // int 18/19 are special - they reset the stack and do not return.
-entry_19:
-        RESET_STACK
-        pushl $_code32_handle_19
-        jmp transition32
-
-        .global entry_18
-entry_18:
-        RESET_STACK
-        pushl $_code32_handle_18
-        jmp transition32
-
         // 0xfa6e - vgafont8 in font.c
 
         ORG 0xfe6e
@@ -548,8 +572,8 @@ entry_18:
         // 0xff00 - BiosCopyright in misc.c
 
         ORG 0xff53
-        .global dummy_iret_handler
-dummy_iret_handler:
+        .global entry_iret_official
+entry_iret_official:
         iretw
 
         ORG 0xff54
@@ -558,7 +582,7 @@ dummy_iret_handler:
         ORG 0xfff0 // Power-up Entry Point
         .global reset_vector
 reset_vector:
-        ljmpw $SEG_BIOS, $post16
+        ljmpw $SEG_BIOS, $entry_post_official
 
         // 0xfff5 - BiosDate in misc.c
 
