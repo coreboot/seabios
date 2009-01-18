@@ -29,6 +29,8 @@ def alignpos(pos, alignbytes):
     mask = alignbytes - 1
     return (pos + mask) & ~mask
 
+MAXPOS = 0x10000
+
 def doLayout(sections, outname):
     textsections = []
     rodatasections = []
@@ -66,7 +68,7 @@ def doLayout(sections, outname):
         fixedsectioninfo = fixedsections[i]
         addr, section, extrasectionslist = fixedsectioninfo
         if i == len(fixedsections) - 1:
-            nextaddr = 0x10000
+            nextaddr = MAXPOS
         else:
             nextaddr = fixedsections[i+1][0]
         avail = nextaddr - addr - section[0]
@@ -75,6 +77,7 @@ def doLayout(sections, outname):
     # Attempt to fit other sections into fixed area
     fixedAddr.sort()
     canrelocate.sort()
+    unused = 0
     for freespace, fixedsectioninfo in fixedAddr:
         fixedaddr, fixedsection, extrasections = fixedsectioninfo
         addpos = fixedaddr + fixedsection[0]
@@ -85,14 +88,19 @@ def doLayout(sections, outname):
             canfit = None
             for fixedaddrinfo in canrelocate:
                 fitsection, inlist = fixedaddrinfo
-                fitnextaddr = alignpos(addpos, fitsection[1]) + fitsection[0]
-#                print "Test %s - %x vs %x" % (
-#                    fitsection[2], fitnextaddr, nextfixedaddr)
-                if fitnextaddr > nextfixedaddr:
-                    # Can't fit.
+                fitsize, fitalign, fitname = fitsection
+                if addpos + fitsize > nextfixedaddr:
+                    # Can't fit and nothing else will fit.
                     break
+                fitnextaddr = alignpos(addpos, fitalign) + fitsize
+#                print "Test %s - %x vs %x" % (
+#                    fitname, fitnextaddr, nextfixedaddr)
+                if fitnextaddr > nextfixedaddr:
+                    # This item can't fit.
+                    continue
                 canfit = (fitnextaddr, fixedaddrinfo)
             if canfit is None:
+                unused += nextfixedaddr - addpos
                 break
             # Found a section that can fit.
             fitnextaddr, fixedaddrinfo = canfit
@@ -101,8 +109,16 @@ def doLayout(sections, outname):
             inlist.remove(fitsection)
             extrasections.append(fitsection)
             addpos = fitnextaddr
+            unused += alignpos(addpos, fitsection[1]) - addpos
 #            print "    Adding %s (size %d align %d)" % (
 #                fitsection[2], fitsection[0], fitsection[1])
+
+    firstfixed = fixedsections[0][0]
+    total = MAXPOS-firstfixed
+    totalused = total - unused
+    print "Fixed space: 0x%x-0x%x  total: %d  used: %d  Percent used: %.1f%%" % (
+        firstfixed, MAXPOS, total, totalused,
+        (float(totalused) / total) * 100.0)
 
     # Write regular sections
     output = open(outname, 'wb')
