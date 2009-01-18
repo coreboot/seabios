@@ -70,6 +70,9 @@ __send_disk_op(struct disk_op_s *op_p, u16 op_s)
 static int
 send_disk_op(struct disk_op_s *op)
 {
+    if (! CONFIG_ATA)
+        return -1;
+
     return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
 }
 
