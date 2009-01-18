@@ -76,6 +76,8 @@
 #define CONFIG_VGAHOOKS 0
 // Maximum number of map entries in the e820 map
 #define CONFIG_MAX_E820 32
+// Space to reserve in f-segment for run-time built bios tables.
+#define CONFIG_MAX_BIOSTABLE 512
 
 /* define it if the (emulated) hardware supports SMM mode */
 #define CONFIG_USE_SMM 1

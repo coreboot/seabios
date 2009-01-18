@@ -122,29 +122,16 @@ add_e820(u64 start, u64 size, u32 type)
     //dump_map();
 }
 
-// Symbols defined in romlayout.S
-extern char freespace1_start, freespace1_end;
-
-u32 bios_table_cur_addr, bios_table_end_addr;
-
 // Prep for memmap stuff - init bios table locations.
 void
 memmap_setup()
 {
-    bios_table_cur_addr = (u32)&freespace1_start;
-    bios_table_end_addr = (u32)&freespace1_end;
+    bios_table_cur_addr = (u32)BiosTableSpace;
+    bios_table_end_addr = bios_table_cur_addr + CONFIG_MAX_BIOSTABLE;
     dprintf(1, "bios_table_addr: 0x%08x end=0x%08x\n",
             bios_table_cur_addr, bios_table_end_addr);
 
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 4);
-    u32 msize = CONFIG_MAX_E820 * sizeof(e820_list[0]);
-    if (bios_table_cur_addr + msize > bios_table_end_addr) {
-        dprintf(1, "No room for e820 map!\n");
-        return;
-    }
     e820_count = 0;
-    e820_list = (void*)bios_table_cur_addr;
-    bios_table_cur_addr += msize;
 }
 
 // Report on final memory locations.
@@ -155,8 +142,8 @@ memmap_finalize()
 
     dprintf(1, "final bios_table_addr: 0x%08x (used %d%%)\n"
             , bios_table_cur_addr
-            , (100 * (bios_table_cur_addr - (u32)&freespace1_start)
-               / ((u32)&freespace1_end - (u32)&freespace1_start)));
+            , (100 * (bios_table_cur_addr - (u32)&BiosTableSpace)
+               / CONFIG_MAX_BIOSTABLE));
     if (bios_table_cur_addr > bios_table_end_addr)
         BX_PANIC("bios_table_end_addr overflow!\n");
 }

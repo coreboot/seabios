@@ -21,10 +21,11 @@ void memmap_setup();
 void memmap_finalize();
 
 // e820 map storage (defined in system.c)
-extern struct e820entry *e820_list;
+extern struct e820entry e820_list[];
 extern int e820_count;
 
-// Space for exported bios tables.
+// Space for exported bios tables (defined in misc.c)
 extern u32 bios_table_cur_addr, bios_table_end_addr;
+extern char BiosTableSpace[];
 
 #endif // e820map.h

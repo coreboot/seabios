@@ -267,7 +267,7 @@ handle_15e801(struct bregs *regs)
 }
 
 // Info on e820 map location and size.
-struct e820entry *e820_list VAR16_32;
+struct e820entry e820_list[CONFIG_MAX_E820] VAR16_32;
 int e820_count VAR16_32;
 
 static void
@@ -279,14 +279,15 @@ handle_15e820(struct bregs *regs)
         return;
     }
 
-    struct e820entry *l = GET_GLOBAL(e820_list);
-    memcpy_far(MAKE_FARPTR(regs->es, regs->di), &l[regs->bx], sizeof(l[0]));
+    memcpy_far(MAKE_FARPTR(regs->es, regs->di)
+               , MAKE_FARPTR(SEG_BIOS, &e820_list[regs->bx])
+               , sizeof(e820_list[0]));
     if (regs->bx == count-1)
         regs->ebx = 0;
     else
         regs->ebx++;
     regs->eax = 0x534D4150;
-    regs->ecx = sizeof(l[0]);
+    regs->ecx = sizeof(e820_list[0]);
     set_success(regs);
 }
 
