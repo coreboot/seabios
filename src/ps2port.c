@@ -175,7 +175,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
 }
 
 static int
-ps2_sendbyte(int aux, u8 command)
+ps2_sendbyte(int aux, u8 command, int timeout)
 {
     dprintf(7, "ps2_sendbyte aux=%d cmd=%x\n", aux, command);
     int ret;
@@ -187,7 +187,6 @@ ps2_sendbyte(int aux, u8 command)
         return ret;
 
     // Read ack.
-    int timeout = command == ATKBD_CMD_RESET_BAT ? 1000 : 200;
     ret = ps2_recvbyte(aux, 1, timeout);
     if (ret < 0)
         return ret;
@@ -215,41 +214,48 @@ ps2_command(int aux, int command, u8 *param)
     if (ret)
         return ret;
 
-    // Send command.
-    ret = ps2_sendbyte(aux, command);
-    if (ret)
-        goto fail;
+    if (command == ATKBD_CMD_RESET_BAT) {
+        // Reset is special wrt timeouts.
 
-    // Send parameters (if any).
-    int i;
-    for (i = 0; i < send; i++) {
-        ret = ps2_sendbyte(aux, param[i]);
+        // Send command.
+        ret = ps2_sendbyte(aux, command, 1000);
         if (ret)
             goto fail;
+
+        // Receive parameters.
+        ret = ps2_recvbyte(aux, 0, 4000);
+        if (ret < 0)
+            goto fail;
+        param[0] = ret;
+        ret = ps2_recvbyte(aux, 0, 100);
+        if (ret < 0)
+            // Some devices only respond with one byte on reset.
+            ret = 0;
+        param[1] = ret;
+    } else {
+        // Send command.
+        ret = ps2_sendbyte(aux, command, 200);
+        if (ret)
+            goto fail;
+
+        // Send parameters (if any).
+        int i;
+        for (i = 0; i < send; i++) {
+            ret = ps2_sendbyte(aux, param[i], 200);
+            if (ret)
+                goto fail;
+        }
+
+        // Receive parameters (if any).
+        for (i = 0; i < receive; i++) {
+            ret = ps2_recvbyte(aux, 0, 500);
+            if (ret < 0)
+                goto fail;
+            param[i] = ret;
+        }
     }
 
-    // Receive parameters (if any).
-    for (i = 0; i < receive; i++) {
-        int timeout = 500;
-        if (command == ATKBD_CMD_RESET_BAT) {
-            // Reset is special wrt timeouts.
-            if (i==0)
-                timeout = 4000;
-            else
-                timeout = 100;
-        }
-        int data = ps2_recvbyte(aux, 0, timeout);
-        if (data < 0) {
-            if (command == ATKBD_CMD_RESET_BAT && i==1) {
-                // Some devices only respond with one byte on reset.
-                param[i] = 0;
-                break;
-            }
-            ret = -1;
-            goto fail;
-        }
-        param[i] = data;
-    }
+    ret = 0;
 
 fail:
     // Restore interrupts and keyboard/mouse.
