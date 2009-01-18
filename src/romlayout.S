@@ -157,6 +157,7 @@ entry_post:
         movw $SEG_BDA, %ax
         movw %ax, %ds
         movw BDA_ebda_seg, %ax
+        // XXX - should verify ebda_seg looks sane.
         movw %ax, %ss
         movw %ax, %ds
         movl $EBDA_OFFSET_TOP_STACK, %esp
@@ -268,10 +269,11 @@ __call16big_from32:
 
         popl %eax
 
-        // Set __call16 return address to be transition32
-        pushl $transition32
+        // Make call.
+        calll __call16
 
-        // Fall through to __call16
+        // Return via transition32
+        jmp transition32
 
 
 // Call a 16bit function from 16bit mode with a specified cpu register state
