@@ -158,8 +158,8 @@ entry_post:
         movw %ax, %ds
         movw BDA_ebda_seg, %ax
         // XXX - should verify ebda_seg looks sane.
-        movw %ax, %ss
         movw %ax, %ds
+        movw %ax, %ss
         movl $EBDA_OFFSET_TOP_STACK, %esp
 
         // Call handler.

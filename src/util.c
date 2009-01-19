@@ -75,25 +75,24 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
     if (!MODE16)
         __force_link_error__stack_hop_only_in_16bit_mode();
 
-    u32 ebda_seg = get_ebda_seg();
-    u32 tmp;
+    u16 ebda_seg = get_ebda_seg(), bkup_ss;
+    u32 bkup_esp;
     asm volatile(
-        // Backup current %ss value.
-        "movl %%ss, %4\n"
-        // Copy ebda seg to %ss and %ds
-        "movl %3, %%ss\n"
-        "movl %3, %%ds\n"
-        // Backup %esp and set it to new value
-        "movl %%esp, %3\n"
+        // Backup current %ss/%esp values.
+        "movw %%ss, %w3\n"
+        "movl %%esp, %4\n"
+        // Copy ebda seg to %ds/%ss and set %esp
+        "movw %w6, %%ds\n"
+        "movw %w6, %%ss\n"
         "movl %5, %%esp\n"
         // Call func
-        "calll %6\n"
+        "calll %7\n"
         // Restore segments and stack
-        "movl %3, %%esp\n"
-        "movl %4, %%ss\n"
-        "movl %4, %%ds\n"
-        : "+a" (eax), "+d" (edx), "+c" (ecx), "+r" (ebda_seg), "=r" (tmp)
-        : "i" (EBDA_OFFSET_TOP_STACK), "m" (*(u8*)func)
+        "movw %w3, %%ds\n"
+        "movw %w3, %%ss\n"
+        "movl %4, %%esp\n"
+        : "+a" (eax), "+d" (edx), "+c" (ecx), "=&r" (bkup_ss), "=&r" (bkup_esp)
+        : "i" (EBDA_OFFSET_TOP_STACK), "r" (ebda_seg), "m" (*(u8*)func)
         : "cc", "memory");
     return eax;
 }
