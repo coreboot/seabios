@@ -77,10 +77,11 @@ def doLayout(sections, outname):
     # Attempt to fit other sections into fixed area
     fixedAddr.sort()
     canrelocate.sort()
-    unused = 0
+    totalused = 0
     for freespace, fixedsectioninfo in fixedAddr:
         fixedaddr, fixedsection, extrasections = fixedsectioninfo
         addpos = fixedaddr + fixedsection[0]
+        totalused += fixedsection[0]
         nextfixedaddr = addpos + freespace
 #        print "Filling section %x uses %d, next=%x, available=%d" % (
 #            fixedaddr, fixedsection[0], nextfixedaddr, freespace)
@@ -100,7 +101,6 @@ def doLayout(sections, outname):
                     continue
                 canfit = (fitnextaddr, fixedaddrinfo)
             if canfit is None:
-                unused += nextfixedaddr - addpos
                 break
             # Found a section that can fit.
             fitnextaddr, fixedaddrinfo = canfit
@@ -109,13 +109,13 @@ def doLayout(sections, outname):
             inlist.remove(fitsection)
             extrasections.append(fitsection)
             addpos = fitnextaddr
-            unused += alignpos(addpos, fitsection[1]) - addpos
-#            print "    Adding %s (size %d align %d)" % (
-#                fitsection[2], fitsection[0], fitsection[1])
+            totalused += fitsection[0]
+#            print "    Adding %s (size %d align %d) pos=%x avail=%d" % (
+#                fitsection[2], fitsection[0], fitsection[1]
+#                , fitnextaddr, nextfixedaddr - fitnextaddr)
 
     firstfixed = fixedsections[0][0]
     total = MAXPOS-firstfixed
-    totalused = total - unused
     print "Fixed space: 0x%x-0x%x  total: %d  used: %d  Percent used: %.1f%%" % (
         firstfixed, MAXPOS, total, totalused,
         (float(totalused) / total) * 100.0)
