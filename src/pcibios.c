@@ -149,7 +149,7 @@ handle_1ab10e(struct bregs *regs)
 
     // Memcpy pir table slots to dest buffer.
     memcpy_far(MAKE_FARPTR(destseg, d)
-               , MAKE_FARPTR(SEG_BIOS, pirtable_g)
+               , MAKE_FARPTR(SEG_BIOS, pirtable_g->slots)
                , pirsize);
 
     // XXX - bochs bios sets bx to (1 << 9) | (1 << 11)
