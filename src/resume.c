@@ -33,17 +33,16 @@ handle_resume(u8 status)
     debug_serial_setup();
     dprintf(1, "In resume (status=%d)\n", status);
 
-    struct bios_data_area_s *bda = MAKE_FARPTR(SEG_BDA, 0);
     switch (status) {
     case 0xfe:
         if (CONFIG_S3_RESUME) {
             // S3 resume request.  Jump to 32bit mode to handle the resume.
             asm volatile(
-                "movw %%ax, %%ss\n"
+                "movw %w1, %%ss\n"
                 "movl %0, %%esp\n"
                 "pushl $_code32_s3_resume\n"
                 "jmp transition32\n"
-                : : "i"(BUILD_S3RESUME_STACK_ADDR), "a"(0)
+                : : "i"(BUILD_S3RESUME_STACK_ADDR), "r"(0)
                 );
             break;
         }
@@ -62,33 +61,32 @@ handle_resume(u8 status)
         eoi_pic2();
         // NO BREAK
     case 0x0a:
+#define BDA_JUMP_IP (((struct bios_data_area_s *)0)->jump_ip)
         // resume execution by jump via 40h:0067h
         asm volatile(
-            "movw %%ax, %%ds\n"
+            "movw %w1, %%ds\n"
             "ljmpw *%0\n"
-            : : "m"(bda->jump_ip), "a"(SEG_BDA)
+            : : "m"(BDA_JUMP_IP), "r"(SEG_BDA)
             );
         break;
 
     case 0x0b:
         // resume execution via IRET via 40h:0067h
         asm volatile(
-            "movw %%ax, %%ds\n"
-            "movw %0, %%sp\n"
-            "movw %1, %%ss\n"
+            "movw %w1, %%ds\n"
+            "lssw %0, %%sp\n"
             "iretw\n"
-            : : "m"(bda->jump_ip), "m"(bda->jump_cs), "a"(SEG_BDA)
+            : : "m"(BDA_JUMP_IP), "r"(SEG_BDA)
             );
         break;
 
     case 0x0c:
         // resume execution via RETF via 40h:0067h
         asm volatile(
-            "movw %%ax, %%ds\n"
-            "movw %0, %%sp\n"
-            "movw %1, %%ss\n"
+            "movw %w1, %%ds\n"
+            "lssw %0, %%sp\n"
             "lretw\n"
-            : : "m"(bda->jump_ip), "m"(bda->jump_cs), "a"(SEG_BDA)
+            : : "m"(BDA_JUMP_IP), "r"(SEG_BDA)
             );
         break;
     }
