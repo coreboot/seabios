@@ -237,7 +237,7 @@ get_ebda_ptr()
     extern void *__force_link_error__get_ebda_ptr_only_in_32bit();
     if (MODE16)
         return __force_link_error__get_ebda_ptr_only_in_32bit();
-    return (void*)MAKE_FARPTR(get_ebda_seg(), 0);
+    return MAKE_FLATPTR(get_ebda_seg(), 0);
 }
 #define GET_EBDA2(eseg, var)                                            \
     GET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var)

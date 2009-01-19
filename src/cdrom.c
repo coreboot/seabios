@@ -307,7 +307,7 @@ atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
     atacmd[0] = ATA_CMD_REQUEST_SENSE;
     atacmd[4] = sizeof(buffer);
     int ret = ata_cmd_packet(device, atacmd, sizeof(atacmd), sizeof(buffer)
-                             , MAKE_FARPTR(GET_SEG(SS), (u32)buffer));
+                             , MAKE_FLATPTR(GET_SEG(SS), buffer));
     if (ret != 0)
         return ret;
 
@@ -343,7 +343,7 @@ atapi_is_ready(u16 device)
             return -1;
         }
         int ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
-                                 , MAKE_FARPTR(GET_SEG(SS), (u32)buf));
+                                 , MAKE_FLATPTR(GET_SEG(SS), buf));
         if (ret == 0)
             break;
 
@@ -438,7 +438,7 @@ cdrom_boot()
     dop.driveid = device;
     dop.lba = 0x11;
     dop.count = 1;
-    dop.far_buffer = MAKE_FARPTR(GET_SEG(SS), (u32)buffer);
+    dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
     ret = cdrom_read(&dop);
     if (ret)
         return 3;
@@ -494,7 +494,7 @@ cdrom_boot()
     // And we read the image in memory
     dop.lba = lba * 4;
     dop.count = nbsectors;
-    dop.far_buffer = MAKE_FARPTR(boot_segment, 0);
+    dop.buf_fl = MAKE_FLATPTR(boot_segment, 0);
     ret = cdrom_read_512(&dop);
     if (ret)
         return 12;

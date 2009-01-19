@@ -148,9 +148,9 @@ handle_1ab10e(struct bregs *regs)
     u16 destseg = GET_FARVAR(regs->es, *(u16*)(regs->di+4));
 
     // Memcpy pir table slots to dest buffer.
-    memcpy_far(MAKE_FARPTR(destseg, d)
-               , MAKE_FARPTR(SEG_BIOS, pirtable_g->slots)
-               , pirsize);
+    memcpy_fl(MAKE_FLATPTR(destseg, d)
+              , MAKE_FLATPTR(SEG_BIOS, pirtable_g->slots)
+              , pirsize);
 
     // XXX - bochs bios sets bx to (1 << 9) | (1 << 11)
     regs->bx = GET_GLOBAL(pirtable_g->exclusive_irqs);

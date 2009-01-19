@@ -99,25 +99,25 @@ extern void __force_link_error__unknown_type();
         SET_VAR(ES, (var), __sfv_val);          \
     } while (0)
 
-// Macros for accesssing a 32bit pointer from 16bit real mode.  (They
-// automatically update the %es segment, break the pointer into
-// segment/offset, and then make the access.)
-#define __GET_FARPTR(ptr) ({                                            \
-    typeof(&(ptr)) __ptr = &(ptr);                                      \
-    GET_FARVAR(FARPTR_TO_SEG(__ptr)                                     \
-               , *(typeof(__ptr))FARPTR_TO_OFFSET(__ptr)); })
-#define __SET_FARPTR(ptr, val) do {                                     \
-        typeof (&(ptr)) __ptr = &(ptr);                                 \
-        SET_FARVAR(FARPTR_TO_SEG(__ptr)                                 \
-                   , *(typeof(__ptr))FARPTR_TO_OFFSET(__ptr)            \
-                   , (val));                                            \
+// Macros for accesssing a 32bit flat mode pointer from 16bit real
+// mode.  (They automatically update the %es segment, break the
+// pointer into segment/offset, and then make the access.)
+#define __GET_FLATPTR(ptr) ({                                   \
+    typeof(&(ptr)) __ptr = &(ptr);                              \
+    GET_FARVAR(FLATPTR_TO_SEG(__ptr)                            \
+               , *(typeof(__ptr))FLATPTR_TO_OFFSET(__ptr)); })
+#define __SET_FLATPTR(ptr, val) do {                            \
+        typeof (&(ptr)) __ptr = &(ptr);                         \
+        SET_FARVAR(FLATPTR_TO_SEG(__ptr)                        \
+                   , *(typeof(__ptr))FLATPTR_TO_OFFSET(__ptr)   \
+                   , (val));                                    \
     } while (0)
 
-// Macros for converting to/from 32bit style pointers to their
+// Macros for converting to/from 32bit flat mode pointers to their
 // equivalent 16bit segment/offset values.
-#define FARPTR_TO_SEG(p) (((u32)(p)) >> 4)
-#define FARPTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
-#define MAKE_FARPTR(seg,off) ((void*)(((u32)(seg)<<4)+(u32)(off)))
+#define FLATPTR_TO_SEG(p) (((u32)(p)) >> 4)
+#define FLATPTR_TO_OFFSET(p) (((u32)(p)) & 0xf)
+#define MAKE_FLATPTR(seg,off) ((void*)(((u32)(seg)<<4)+(u32)(off)))
 
 
 #if MODE16 == 1
@@ -129,54 +129,54 @@ extern void __force_link_error__unknown_type();
 #define SET_VAR(seg, var, val) __SET_VAR(seg, (var), (val))
 #define SET_SEG(SEG, value) __SET_SEG(SEG, (value))
 #define GET_SEG(SEG) __GET_SEG(SEG)
-#define GET_FARPTR(ptr) __GET_FARPTR(ptr)
-#define SET_FARPTR(ptr, val) __SET_FARPTR((ptr), (val))
+#define GET_FLATPTR(ptr) __GET_FLATPTR(ptr)
+#define SET_FLATPTR(ptr, val) __SET_FLATPTR((ptr), (val))
 
-static inline void insb_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, FARPTR_TO_SEG(farptr));
-    insb(port, (u8*)FARPTR_TO_OFFSET(farptr), count);
+static inline void insb_fl(u16 port, void *ptr_fl, u16 count) {
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    insb(port, (u8*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
-static inline void insw_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, FARPTR_TO_SEG(farptr));
-    insw(port, (u16*)FARPTR_TO_OFFSET(farptr), count);
+static inline void insw_fl(u16 port, void *ptr_fl, u16 count) {
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    insw(port, (u16*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
-static inline void insl_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, FARPTR_TO_SEG(farptr));
-    insl(port, (u32*)FARPTR_TO_OFFSET(farptr), count);
+static inline void insl_fl(u16 port, void *ptr_fl, u16 count) {
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    insl(port, (u32*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
-static inline void outsb_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, FARPTR_TO_SEG(farptr));
-    outsb(port, (u8*)FARPTR_TO_OFFSET(farptr), count);
+static inline void outsb_fl(u16 port, void *ptr_fl, u16 count) {
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    outsb(port, (u8*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
-static inline void outsw_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, FARPTR_TO_SEG(farptr));
-    outsw(port, (u16*)FARPTR_TO_OFFSET(farptr), count);
+static inline void outsw_fl(u16 port, void *ptr_fl, u16 count) {
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    outsw(port, (u16*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
-static inline void outsl_far(u16 port, void *farptr, u16 count) {
-    SET_SEG(ES, FARPTR_TO_SEG(farptr));
-    outsl(port, (u32*)FARPTR_TO_OFFSET(farptr), count);
+static inline void outsl_fl(u16 port, void *ptr_fl, u16 count) {
+    SET_SEG(ES, FLATPTR_TO_SEG(ptr_fl));
+    outsl(port, (u32*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
 
 #else
 
 // In 32-bit mode there is no need to mess with the segments.
 #define GET_FARVAR(seg, var) \
-    (*((typeof(&(var)))MAKE_FARPTR((seg), (u32)&(var))))
+    (*((typeof(&(var)))MAKE_FLATPTR((seg), &(var))))
 #define SET_FARVAR(seg, var, val) \
     do { GET_FARVAR((seg), (var)) = (val); } while (0)
 #define GET_VAR(seg, var) (var)
 #define SET_VAR(seg, var, val) do { (var) = (val); } while (0)
 #define SET_SEG(SEG, value) ((void)(value))
 #define GET_SEG(SEG) 0
-#define GET_FARPTR(ptr) (ptr)
-#define SET_FARPTR(ptr, val) do { (ptr) = (val); } while (0)
+#define GET_FLATPTR(ptr) (ptr)
+#define SET_FLATPTR(ptr, val) do { (ptr) = (val); } while (0)
 
-#define insb_far(port, farptr, count) insb(port, farptr, count)
-#define insw_far(port, farptr, count) insw(port, farptr, count)
-#define insl_far(port, farptr, count) insl(port, farptr, count)
-#define outsb_far(port, farptr, count) outsb(port, farptr, count)
-#define outsw_far(port, farptr, count) outsw(port, farptr, count)
-#define outsl_far(port, farptr, count) outsl(port, farptr, count)
+#define insb_fl(port, ptr_fl, count) insb(port, ptr_fl, count)
+#define insw_fl(port, ptr_fl, count) insw(port, ptr_fl, count)
+#define insl_fl(port, ptr_fl, count) insl(port, ptr_fl, count)
+#define outsb_fl(port, ptr_fl, count) outsb(port, ptr_fl, count)
+#define outsw_fl(port, ptr_fl, count) outsw(port, ptr_fl, count)
+#define outsl_fl(port, ptr_fl, count) outsl(port, ptr_fl, count)
 
 #endif
 

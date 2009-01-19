@@ -72,12 +72,12 @@ init_bda()
 {
     dprintf(3, "init bda\n");
 
-    struct bios_data_area_s *bda = MAKE_FARPTR(SEG_BDA, 0);
+    struct bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
     memset(bda, 0, sizeof(*bda));
 
     int esize = DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024);
     SET_BDA(mem_size_kb, 640 - esize);
-    u16 eseg = FARPTR_TO_SEG((640 - esize) * 1024);
+    u16 eseg = FLATPTR_TO_SEG((640 - esize) * 1024);
     SET_BDA(ebda_seg, eseg);
 
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
@@ -122,7 +122,7 @@ ram_probe(void)
 
     // Mark known areas as reserved.
     u16 ebda_seg = get_ebda_seg();
-    add_e820((u32)MAKE_FARPTR(ebda_seg, 0), GET_EBDA2(ebda_seg, size) * 1024
+    add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA2(ebda_seg, size) * 1024
              , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 

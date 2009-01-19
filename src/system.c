@@ -279,9 +279,9 @@ handle_15e820(struct bregs *regs)
         return;
     }
 
-    memcpy_far(MAKE_FARPTR(regs->es, regs->di)
-               , MAKE_FARPTR(SEG_BIOS, &e820_list[regs->bx])
-               , sizeof(e820_list[0]));
+    memcpy_fl(MAKE_FLATPTR(regs->es, regs->di)
+              , MAKE_FLATPTR(SEG_BIOS, &e820_list[regs->bx])
+              , sizeof(e820_list[0]));
     if (regs->bx == count-1)
         regs->ebx = 0;
     else

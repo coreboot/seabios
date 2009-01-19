@@ -223,7 +223,7 @@ static int
 floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
 {
     // es:bx = pointer to where to place information from diskette
-    u32 addr = (u32)MAKE_FARPTR(regs->es, regs->bx);
+    u32 addr = (u32)MAKE_FLATPTR(regs->es, regs->bx);
 
     // check for 64K boundary overrun
     u32 last_addr = addr + count;

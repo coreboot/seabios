@@ -7,7 +7,7 @@
 #include "util.h" // usleep
 #include "bregs.h" // struct bregs
 #include "config.h" // SEG_BIOS
-#include "farptr.h" // GET_FARPTR
+#include "farptr.h" // GET_FLATPTR
 #include "biosvar.h" // get_ebda_seg
 
 // Call a function with a specified register state.  Note that on
@@ -99,12 +99,12 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
 
 // Sum the bytes in the specified area.
 u8
-checksum(u8 *far_data, u32 len)
+checksum(u8 *buf_fl, u32 len)
 {
     u32 i;
     u8 sum = 0;
     for (i=0; i<len; i++)
-        sum += GET_FARPTR(far_data[i]);
+        sum += GET_FLATPTR(buf_fl[i]);
     return sum;
 }
 
@@ -117,18 +117,18 @@ memset(void *s, int c, size_t n)
 }
 
 void *
-memcpy_far(void *far_d1, const void *far_s1, size_t len)
+memcpy_fl(void *d_fl, const void *s_fl, size_t len)
 {
-    u8 *d = far_d1;
-    u8 *s = (u8*)far_s1;
+    u8 *d = d_fl;
+    u8 *s = (u8*)s_fl;
 
     while (len--) {
-        SET_FARPTR(*d, GET_FARPTR(*s));
+        SET_FLATPTR(*d, GET_FLATPTR(*s));
         d++;
         s++;
     }
 
-    return far_d1;
+    return d_fl;
 }
 
 void *

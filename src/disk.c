@@ -44,12 +44,12 @@ static int
 __send_disk_op(struct disk_op_s *op_p, u16 op_s)
 {
     struct disk_op_s dop;
-    memcpy_far(MAKE_FARPTR(GET_SEG(SS), &dop)
-               , MAKE_FARPTR(op_s, op_p)
-               , sizeof(dop));
+    memcpy_fl(MAKE_FLATPTR(GET_SEG(SS), &dop)
+              , MAKE_FLATPTR(op_s, op_p)
+              , sizeof(dop));
 
     dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
-            , dop.driveid, (u32)dop.lba, dop.far_buffer
+            , dop.driveid, (u32)dop.lba, dop.buf_fl
             , dop.count, dop.command);
 
     irq_enable();
@@ -132,7 +132,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 
     u16 segment = regs->es;
     u16 offset  = regs->bx;
-    dop.far_buffer = MAKE_FARPTR(segment, offset);
+    dop.buf_fl = MAKE_FLATPTR(segment, offset);
 
     int status = send_disk_op(&dop);
 
@@ -176,7 +176,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
     u16 segment = GET_INT13EXT(regs, segment);
     u16 offset = GET_INT13EXT(regs, offset);
-    dop.far_buffer = MAKE_FARPTR(segment, offset);
+    dop.buf_fl = MAKE_FLATPTR(segment, offset);
     dop.count = GET_INT13EXT(regs, count);
 
     int status = send_disk_op(&dop);
@@ -486,7 +486,7 @@ disk_1348(struct bregs *regs, u8 device)
     SET_EBDA2(ebda_seg, dpte.reserved, 0);
     SET_EBDA2(ebda_seg, dpte.revision, 0x11);
 
-    u8 *p = MAKE_FARPTR(ebda_seg
+    u8 *p = MAKE_FLATPTR(ebda_seg
                         , offsetof(struct extended_bios_data_area_s, dpte));
     SET_EBDA2(ebda_seg, dpte.checksum, -checksum(p, 15));
 
@@ -522,7 +522,7 @@ disk_1348(struct bregs *regs, u8 device)
 
     SET_INT13DPT(regs, device_path, slave);
 
-    SET_INT13DPT(regs, checksum, -checksum(MAKE_FARPTR(regs->ds, 30), 35));
+    SET_INT13DPT(regs, checksum, -checksum(MAKE_FLATPTR(regs->ds, 30), 35));
 
     disk_ret(regs, DISK_RET_SUCCESS);
 }

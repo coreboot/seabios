@@ -137,7 +137,7 @@ struct descloc_s {
 // Real mode IDT descriptor
 struct descloc_s rmode_IDT_info VAR16_32 = {
     .length = sizeof(struct rmode_IVT) - 1,
-    .addr = (u32)MAKE_FARPTR(SEG_IVT, 0),
+    .addr = (u32)MAKE_FLATPTR(SEG_IVT, 0),
 };
 
 // Dummy IDT that forces a machine shutdown if an irq happens in
@@ -147,7 +147,7 @@ u8 dummy_IDT VAR16_32;
 // Protected mode IDT descriptor
 struct descloc_s pmode_IDT_info VAR16_32 = {
     .length = sizeof(dummy_IDT) - 1,
-    .addr = (u32)MAKE_FARPTR(SEG_BIOS, &dummy_IDT),
+    .addr = (u32)MAKE_FLATPTR(SEG_BIOS, &dummy_IDT),
 };
 
 // GDT
@@ -171,7 +171,7 @@ u64 rombios32_gdt[] VAR16_32 __aligned(8) = {
 // GDT descriptor
 struct descloc_s rombios32_gdt_48 VAR16_32 = {
     .length = sizeof(rombios32_gdt) - 1,
-    .addr = (u32)MAKE_FARPTR(SEG_BIOS, rombios32_gdt),
+    .addr = (u32)MAKE_FLATPTR(SEG_BIOS, rombios32_gdt),
 };
 
 

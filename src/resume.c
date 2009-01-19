@@ -113,8 +113,8 @@ s3_resume()
     memset(&br, 0, sizeof(br));
     if (s3_resume_vector) {
         dprintf(1, "Jump to resume vector (%x)\n", s3_resume_vector);
-        br.ip = FARPTR_TO_OFFSET(s3_resume_vector);
-        br.cs = FARPTR_TO_SEG(s3_resume_vector);
+        br.ip = FLATPTR_TO_OFFSET(s3_resume_vector);
+        br.cs = FLATPTR_TO_SEG(s3_resume_vector);
     } else {
         dprintf(1, "No resume vector set!\n");
         // Jump to the post vector to restart with a normal boot.

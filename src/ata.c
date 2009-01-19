@@ -232,12 +232,12 @@ insx_discard(int mode, int iobase1, int bytes)
 // large number of parameters would consume a lot of stack space.
 static __always_inline int
 ata_transfer(int driveid, int iswrite, int count, int blocksize
-             , int skipfirst, int skiplast, void *far_buffer)
+             , int skipfirst, int skiplast, void *buf_fl)
 {
     dprintf(16, "ata_transfer id=%d write=%d count=%d bs=%d"
             " skipf=%d skipl=%d buf=%p\n"
             , driveid, iswrite, count, blocksize
-            , skipfirst, skiplast, far_buffer);
+            , skipfirst, skiplast, buf_fl);
 
     // Reset count of transferred data
     SET_EBDA(sector_count, 0);
@@ -259,20 +259,20 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
 
         if (iswrite) {
             // Write data to controller
-            dprintf(16, "Write sector id=%d dest=%p\n", driveid, far_buffer);
+            dprintf(16, "Write sector id=%d dest=%p\n", driveid, buf_fl);
             if (mode == ATA_MODE_PIO32)
-                outsl_far(iobase1, far_buffer, bsize / 4);
+                outsl_fl(iobase1, buf_fl, bsize / 4);
             else
-                outsw_far(iobase1, far_buffer, bsize / 2);
+                outsw_fl(iobase1, buf_fl, bsize / 2);
         } else {
             // Read data from controller
-            dprintf(16, "Read sector id=%d dest=%p\n", driveid, far_buffer);
+            dprintf(16, "Read sector id=%d dest=%p\n", driveid, buf_fl);
             if (mode == ATA_MODE_PIO32)
-                insl_far(iobase1, far_buffer, bsize / 4);
+                insl_fl(iobase1, buf_fl, bsize / 4);
             else
-                insw_far(iobase1, far_buffer, bsize / 2);
+                insw_fl(iobase1, buf_fl, bsize / 2);
         }
-        far_buffer += bsize;
+        buf_fl += bsize;
 
         if (skiplast && current == count-1)
             insx_discard(mode, iobase1, skiplast);
@@ -314,14 +314,14 @@ static noinline int
 ata_transfer_disk(const struct disk_op_s *op)
 {
     return ata_transfer(op->driveid, op->command == ATA_CMD_WRITE_SECTORS
-                        , op->count, IDE_SECTOR_SIZE, 0, 0, op->far_buffer);
+                        , op->count, IDE_SECTOR_SIZE, 0, 0, op->buf_fl);
 }
 
 static noinline int
 ata_transfer_cdrom(const struct disk_op_s *op)
 {
     return ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
-                        , 0, 0, op->far_buffer);
+                        , 0, 0, op->buf_fl);
 }
 
 static noinline int
@@ -329,7 +329,7 @@ ata_transfer_cdemu(const struct disk_op_s *op, int before, int after)
 {
     int vcount = op->count * 4 - before - after;
     int ret = ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
-                           , before*512, after*512, op->far_buffer);
+                           , before*512, after*512, op->buf_fl);
     if (ret) {
         SET_EBDA(sector_count, 0);
         return ret;
@@ -412,7 +412,7 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
         return ret;
 
     // Send command to device
-    outsw_far(iobase1, MAKE_FARPTR(GET_SEG(SS), (u32)cmdbuf), cmdlen / 2);
+    outsw_fl(iobase1, MAKE_FLATPTR(GET_SEG(SS), cmdbuf), cmdlen / 2);
 
     int status = pause_await_ide(NOT_BSY_DRQ, iobase1, iobase2, IDE_TIMEOUT);
     if (status < 0)
@@ -467,7 +467,7 @@ cdrom_read_512(struct disk_op_s *op)
 
     dprintf(16, "cdrom_read_512: id=%d vlba=%d vcount=%d buf=%p lba=%d elba=%d"
             " count=%d before=%d after=%d\n"
-            , op->driveid, vlba, vcount, op->far_buffer, lba, elba
+            , op->driveid, vlba, vcount, op->buf_fl, lba, elba
             , op->count, before, after);
 
     int ret = send_cmd_cdrom(op);
@@ -480,13 +480,13 @@ cdrom_read_512(struct disk_op_s *op)
 // Send a simple atapi command to a drive.
 int
 ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
-               , u32 length, void *far_buffer)
+               , u32 length, void *buf_fl)
 {
     int ret = send_atapi_cmd(driveid, cmdbuf, cmdlen, length);
     if (ret)
         return ret;
 
-    return ata_transfer(driveid, 0, 1, length, 0, 0, far_buffer);
+    return ata_transfer(driveid, 0, 1, length, 0, 0, buf_fl);
 }
 
 
@@ -548,7 +548,7 @@ init_drive_atapi(int driveid)
     dop.command = ATA_CMD_IDENTIFY_DEVICE_PACKET;
     dop.count = 1;
     dop.lba = 1;
-    dop.far_buffer = MAKE_FARPTR(GET_SEG(SS), (u32)buffer);
+    dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
     u16 ret = ata_cmd_data(&dop);
     if (ret != 0)
         BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
@@ -730,7 +730,7 @@ init_drive_ata(int driveid)
     dop.command = ATA_CMD_IDENTIFY_DEVICE;
     dop.count = 1;
     dop.lba = 1;
-    dop.far_buffer = MAKE_FARPTR(GET_SEG(SS), (u32)buffer);
+    dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
     u16 ret = ata_cmd_data(&dop);
     if (ret)
         BX_PANIC("ata-detect: Failed to detect ATA device\n");

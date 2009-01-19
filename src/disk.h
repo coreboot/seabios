@@ -109,7 +109,7 @@ void __disk_ret(struct bregs *regs, u32 linecode, const char *fname);
 
 struct disk_op_s {
     u64 lba;
-    void *far_buffer;
+    void *buf_fl;
     u16 count;
     u8 driveid;
     u8 command;
@@ -173,7 +173,7 @@ int ata_cmd_data(struct disk_op_s *op);
 int cdrom_read(struct disk_op_s *op);
 int cdrom_read_512(struct disk_op_s *op);
 int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
-                   , u32 length, void *far_buffer);
+                   , u32 length, void *buf_fl);
 void ata_reset(int driveid);
 void hard_drive_setup();
 

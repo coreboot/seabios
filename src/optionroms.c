@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "bregs.h" // struct bregs
-#include "farptr.h" // FARPTR_TO_SEG
+#include "farptr.h" // FLATPTR_TO_SEG
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
 #include "pci.h" // pci_find_class
@@ -83,7 +83,7 @@ static u32 next_rom;
 static void
 callrom(struct rom_header *rom, u16 offset, u16 bdf)
 {
-    u16 seg = FARPTR_TO_SEG(rom);
+    u16 seg = FLATPTR_TO_SEG(rom);
     dprintf(1, "Running option rom at %x:%x\n", seg, offset);
 
     struct bregs br;
@@ -163,11 +163,11 @@ add_ipl(struct rom_header *rom, struct pnp_data *pnp)
 
     struct ipl_entry_s *ip = &IPL.table[IPL.count];
     ip->type = IPL_TYPE_BEV;
-    ip->vector = (FARPTR_TO_SEG(rom) << 16) | pnp->bev;
+    ip->vector = (FLATPTR_TO_SEG(rom) << 16) | pnp->bev;
 
     u16 desc = pnp->productname;
     if (desc)
-        ip->description = MAKE_FARPTR(FARPTR_TO_SEG(rom), desc);
+        ip->description = MAKE_FLATPTR(FLATPTR_TO_SEG(rom), desc);
 
     IPL.count++;
 }

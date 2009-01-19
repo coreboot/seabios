@@ -67,10 +67,10 @@ static inline u64 rdtscll(void)
 
 // util.c
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
-u8 checksum(u8 *far_data, u32 len);
+u8 checksum(u8 *buf_fl, u32 len);
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
-void *memcpy_far(void *far_d1, const void *far_s1, size_t len);
+void *memcpy_fl(void *d_fl, const void *s_fl, size_t len);
 void *memmove(void *d, const void *s, size_t len);
 struct bregs;
 inline void call16(struct bregs *callregs);
