@@ -49,10 +49,10 @@ extern u16 __segment_FS, __segment_GS;
 // Low level macros for getting/setting a segment register.
 #define __SET_SEG(SEG, value)                                   \
     __asm__("movw %w1, %%" #SEG : "=m"(__segment_ ## SEG)       \
-            : "r"(value))
+            : "rm"(value))
 #define __GET_SEG(SEG) ({                                       \
     u16 __seg;                                                  \
-    __asm__("movw %%" #SEG ", %w0" : "=r"(__seg)                \
+    __asm__("movw %%" #SEG ", %w0" : "=rm"(__seg)               \
             : "m"(__segment_ ## SEG));                          \
     __seg;})
 
