@@ -99,13 +99,20 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
 
 // Sum the bytes in the specified area.
 u8
-checksum(u8 *buf_fl, u32 len)
+checksum_far(u16 buf_seg, u8 *buf_far, u32 len)
 {
+    SET_SEG(ES, buf_seg);
     u32 i;
     u8 sum = 0;
     for (i=0; i<len; i++)
-        sum += GET_FLATPTR(buf_fl[i]);
+        sum += GET_VAR(ES, buf_far[i]);
     return sum;
+}
+
+u8
+checksum(u8 *buf, u32 len)
+{
+    return checksum_far(GET_SEG(SS), buf, len);
 }
 
 void *
@@ -116,19 +123,19 @@ memset(void *s, int c, size_t n)
     return s;
 }
 
-void *
-memcpy_fl(void *d_fl, const void *s_fl, size_t len)
+inline void
+memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
 {
-    u8 *d = d_fl;
-    u8 *s = (u8*)s_fl;
-
-    while (len--) {
-        SET_FLATPTR(*d, GET_FLATPTR(*s));
-        d++;
-        s++;
-    }
-
-    return d_fl;
+    SET_SEG(ES, d_seg);
+    u16 bkup_ds;
+    asm volatile(
+        "movw %%ds, %w0\n"
+        "movw %w4, %%ds\n"
+        "rep movsb (%%si),%%es:(%%di)\n"
+        "movw %w0, %%ds\n"
+        : "=&r"(bkup_ds), "+c"(len), "+S"(s_far), "+D"(d_far)
+        : "r"(s_seg)
+        : "cc", "memory");
 }
 
 void *

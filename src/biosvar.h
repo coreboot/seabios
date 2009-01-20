@@ -258,8 +258,12 @@ get_ebda_ptr()
  * Global variables
  ****************************************************************/
 
-#define GET_GLOBAL(var) \
-    GET_VAR(CS, (var))
+#define GLOBAL_SEGREG CS
+static inline u16 get_global_seg() {
+    return GET_SEG(GLOBAL_SEGREG);
+}
+#define GET_GLOBAL(var)                         \
+    GET_VAR(GLOBAL_SEGREG, (var))
 #define SET_GLOBAL(var, val) do {                                       \
         extern void __force_link_error__set_global_only_in_32bit();     \
         if (MODE16)                                                     \

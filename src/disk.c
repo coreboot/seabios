@@ -41,12 +41,12 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
     __disk_stub((regs), __LINE__, __func__)
 
 static int
-__send_disk_op(struct disk_op_s *op_p, u16 op_s)
+__send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 {
     struct disk_op_s dop;
-    memcpy_fl(MAKE_FLATPTR(GET_SEG(SS), &dop)
-              , MAKE_FLATPTR(op_s, op_p)
-              , sizeof(dop));
+    memcpy_far(GET_SEG(SS), &dop
+               , op_seg, op_far
+               , sizeof(dop));
 
     dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
             , dop.driveid, (u32)dop.lba, dop.buf_fl
@@ -486,9 +486,9 @@ disk_1348(struct bregs *regs, u8 device)
     SET_EBDA2(ebda_seg, dpte.reserved, 0);
     SET_EBDA2(ebda_seg, dpte.revision, 0x11);
 
-    u8 *p = MAKE_FLATPTR(ebda_seg
-                        , offsetof(struct extended_bios_data_area_s, dpte));
-    SET_EBDA2(ebda_seg, dpte.checksum, -checksum(p, 15));
+    u8 sum = checksum_far(
+        ebda_seg, (void*)offsetof(struct extended_bios_data_area_s, dpte), 15);
+    SET_EBDA2(ebda_seg, dpte.checksum, -sum);
 
     if (size < 66) {
         disk_ret(regs, DISK_RET_SUCCESS);
@@ -522,7 +522,7 @@ disk_1348(struct bregs *regs, u8 device)
 
     SET_INT13DPT(regs, device_path, slave);
 
-    SET_INT13DPT(regs, checksum, -checksum(MAKE_FLATPTR(regs->ds, 30), 35));
+    SET_INT13DPT(regs, checksum, -checksum_far(regs->ds, (void*)30, 35));
 
     disk_ret(regs, DISK_RET_SUCCESS);
 }
