@@ -4,9 +4,8 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // usleep
+#include "util.h" // call16
 #include "bregs.h" // struct bregs
-#include "config.h" // SEG_BIOS
 #include "farptr.h" // GET_FLATPTR
 #include "biosvar.h" // get_ebda_seg
 
@@ -43,7 +42,10 @@ call16big(struct bregs *callregs)
 inline void
 __call16_int(struct bregs *callregs, u16 offset)
 {
-    callregs->cs = SEG_BIOS;
+    if (MODE16)
+        callregs->cs = GET_SEG(CS);
+    else
+        callregs->cs = SEG_BIOS;
     callregs->ip = offset;
     call16(callregs);
 }

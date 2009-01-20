@@ -285,7 +285,7 @@ __call16:
         pushl %eax
 
         // Setup for iretw call
-        pushw $SEG_BIOS
+        pushw %cs
         pushw $1f               // return point
         pushw BREGS_flags(%eax) // flags
         pushl BREGS_ip(%eax)    // CS:IP
