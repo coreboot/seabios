@@ -552,9 +552,11 @@ process_key(u8 scancode)
         if (scancode & 0x80)
             // toss key releases
             break;
-        if (scancode == 0x53 && (shift_flags & 0x0c) == 0x0c)
+        if (scancode == 0x53 && (shift_flags & 0x0c) == 0x0c) {
             // Ctrl+alt+del - reset machine.
+            SET_BDA(soft_reset_flag, 0x1234);
             reset_vector();
+        }
         if (scancode > MAX_SCAN_CODE) {
             dprintf(1, "KBD: int09h_handler(): unknown scancode read: 0x%02x!\n"
                     , scancode);
