@@ -133,22 +133,27 @@ handle_1ab10e(struct bregs *regs)
         return;
     }
 
+    struct param_s {
+        u16 size;
+        u16 buf_off;
+        u16 buf_seg;
+    } *param_far = (void*)(regs->di+0);
+
     // Validate and update size.
-    u16 size = GET_FARVAR(regs->es, *(u16*)(regs->di+0));
-    u16 pirsize = (GET_GLOBAL(pirtable_g->size)
-                   - sizeof(struct pir_header));
-    SET_FARVAR(regs->es, *(u16*)(regs->di+0), pirsize);
-    if (size < pirsize) {
+    u16 bufsize = GET_FARVAR(regs->es, param_far->size);
+    u16 pirsize = GET_GLOBAL(pirtable_g->size) - sizeof(struct pir_header);
+    SET_FARVAR(regs->es, param_far->size, pirsize);
+    if (bufsize < pirsize) {
         set_code_fail(regs, RET_BUFFER_TOO_SMALL);
         return;
     }
 
     // Get dest buffer.
-    void *d_far = (void*)(GET_FARVAR(regs->es, *(u16*)(regs->di+2)) + 0);
-    u16 d_seg = GET_FARVAR(regs->es, *(u16*)(regs->di+4));
+    void *buf_far = (void*)(GET_FARVAR(regs->es, param_far->buf_off)+0);
+    u16 buf_seg = GET_FARVAR(regs->es, param_far->buf_seg);
 
     // Memcpy pir table slots to dest buffer.
-    memcpy_far(d_seg, d_far
+    memcpy_far(buf_seg, buf_far
                , get_global_seg(), pirtable_g->slots
                , pirsize);
 
