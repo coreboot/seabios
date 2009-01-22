@@ -522,7 +522,8 @@ disk_1348(struct bregs *regs, u8 device)
 
     SET_INT13DPT(regs, device_path, slave);
 
-    SET_INT13DPT(regs, checksum, -checksum_far(regs->ds, (void*)30, 35));
+    SET_INT13DPT(regs, checksum
+                 , -checksum_far(regs->ds, (void*)(regs->si+30), 35));
 
     disk_ret(regs, DISK_RET_SUCCESS);
 }
