@@ -54,10 +54,14 @@ vpath %.S src
 
 ################ Build rules
 
+ifndef AVOIDCOMBINE
+AVOIDCOMBINE=$(shell CC=$(CC) tools/test-combine.sh)
+endif
+
 # Do a whole file compile - two methods are supported.  The first
 # involves including all the content textually via #include
 # directives.  The second method uses gcc's "-combine" option.
-ifdef AVOIDCOMBINE
+ifeq "$(AVOIDCOMBINE)" "1"
 define whole-compile
 @echo "  Compiling whole program $3"
 $(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
