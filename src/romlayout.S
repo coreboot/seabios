@@ -465,7 +465,6 @@ permanent_halt:
         DECL_IRQ_ENTRY_ARG 12
         DECL_IRQ_ENTRY_ARG 11
         DECL_IRQ_ENTRY 76
-        DECL_IRQ_ENTRY 1c
         DECL_IRQ_ENTRY 70
         DECL_IRQ_ENTRY 74
         DECL_IRQ_ENTRY 75

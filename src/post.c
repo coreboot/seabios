@@ -57,7 +57,6 @@ init_ivt()
     set_irq(0x18, entry_18);
     set_irq(0x19, entry_19_official);
     set_irq(0x1a, entry_1a);
-    set_irq(0x1c, entry_1c);
     set_irq(0x40, entry_40);
 
     // set vector 0x79 to zero

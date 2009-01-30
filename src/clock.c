@@ -399,13 +399,6 @@ handle_1a(struct bregs *regs)
     }
 }
 
-// User Timer Tick
-void VISIBLE16
-handle_1c()
-{
-    debug_isr(DEBUG_ISR_1c);
-}
-
 // INT 08h System Timer ISR Entry Point
 void VISIBLE16
 handle_08()
