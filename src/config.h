@@ -145,8 +145,8 @@
 #define DEBUG_ISR_74 9
 #define DEBUG_ISR_75 1
 #define DEBUG_ISR_76 10
-#define DEBUG_ISR_hwpic1 1
-#define DEBUG_ISR_hwpic2 1
+#define DEBUG_ISR_hwpic1 5
+#define DEBUG_ISR_hwpic2 5
 #define DEBUG_HDL_pnp 1
 
 #endif // config.h

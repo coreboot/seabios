@@ -34,20 +34,13 @@ pic_setup()
 void VISIBLE16
 handle_hwpic1(struct bregs *regs)
 {
-    u8 isr = get_pic1_isr();
-    dprintf(DEBUG_ISR_hwpic1, "Got noisy pic1 irq %x\n", isr);
-    isr &= ~PIC1_IRQ2; // don't ever mask the cascaded irq
-    if (isr)
-        mask_pic1(isr);
+    dprintf(DEBUG_ISR_hwpic1, "handle_hwpic1 irq=%x\n", get_pic1_isr());
     eoi_pic1();
 }
 
 void VISIBLE16
 handle_hwpic2(struct bregs *regs)
 {
-    u8 isr = get_pic2_isr();
-    dprintf(DEBUG_ISR_hwpic2, "Got noisy pic2 irq %x\n", isr);
-    if (isr)
-        mask_pic2(isr);
+    dprintf(DEBUG_ISR_hwpic2, "handle_hwpic2 irq=%x\n", get_pic2_isr());
     eoi_pic2();
 }
