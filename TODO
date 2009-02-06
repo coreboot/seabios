@@ -1,42 +1,34 @@
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
-  * bochs cvs 20081016:           -- better post resume support
+  * bochs cvs 20081208:           -- synched
   * coreboot (r3348):    20060708 -- no noteworthy enhancements
-  * qemu (r5536):        20080603 -- has cmos smp count
-  * kvm (1a33292):       20071016 -- acpi dsdt changes, e820 vmx
+  * qemu (r6125):        20080603 -- acpi hpet table
+  * kvm (1a33292):       20081016 -- acpi dsdt changes, e820 vmx
     pages, setup mtrrs, clear tsc, acpi intsrcovr table, different pci
     irqs, smbios always uses 16 cpus, no acpi ssdt, fadt->gpe0_blk set
   * virtualbox (r13560): 20061231 -- lots of mouse changes, logo,
     scsi/etherboot hooks, int 1589, floppy data rate?, int19 calls
     post
 
-Look into ways to reduce stack usage.  Alter ISRs so that they do not
-enable irqs.  Only call out to other bios functions after minimizing
-stack usage.
+Possibly introduce a data type for the many seg/off pairs.
 
 Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
 setup properly with respect to irqs.
 
-Audit statements where a 32bit intermediary changes meaning of a 16bit
-comparison.
-
-Code assumes ebda segment is static - it doesn't read 0x40e.
-
 The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
-
-Cleanup setting of ES on GET/SET_BDA
-
-Audit code for 16bit protected mode accesses.  Support 1ab1 from 16bit
-protected mode.  The BDA is technically at segment 0x0040 (not
-0x0000).
 
 Possibly implement 32bit pcibios support.
 
 Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.
 
-See if it is possible to handle interrupts while in 32bit mode.
+Implement bios post memory manager (PMM)?
+
+Add support for calling BCVs (and registering ATA drives) in a user
+selectable manor.
+
+Possibly add option to eliminate tsc based delays on emulators.
 
 Add a kconfig style configuration program instead of requiring users
 to modify config.h.
