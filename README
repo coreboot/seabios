@@ -63,7 +63,7 @@ temporary and final files.
 
 Build overview:
 
-The 16bit code is compiled via gcc to assembler (file out/blob.16.s).
+The 16bit code is compiled via gcc to assembler (file out/ccode.16.s).
 The gcc "-fwhole-program" option is used to optimize the process so
 that gcc can efficiently compile and discard unneeded code.  (In the
 code, one can use the macros 'VISIBLE16' and 'VISIBLE32' to instruct a
@@ -72,8 +72,6 @@ symbol to be outputted in 16bit and 32bit mode respectively.)
 This resulting assembler code is pulled into romlayout.S.  The gas
 option ".code16gcc" is used prior to including the gcc generated
 assembler - this option enables gcc to generate valid 16 bit code.
-The romlayout.S also defines all the mandatory bios visible memory
-locations.
 
 The post code (post.c) is entered, via the function _start(), in 32bit
 mode.  The 16bit post vector (in romlayout.S) transitions the cpu into
@@ -106,22 +104,34 @@ the GET_VAR and SET_VAR macros (or one of the helper macros described
 below).  This is due to the 16bit segment nature of the X86 cpu when
 it is in "real mode".  The C entry code will set DS and SS to point to
 the stack segment.  Variables not on the stack need to be accessed via
-an explicit segment register.  Global constants (loaded into 0xf000)
-can be accessed via the CS segment register.  Any other access
-requires altering one of the other segment registers (usually ES) and
-then accessing the variable via that segment register.
+an explicit segment register.  Any other access requires altering one
+of the other segment registers (usually ES) and then accessing the
+variable via that segment register.
 
 There are three low-level ways to access a remote variable:
-GET/SET_VAR, GET/SET_FARVAR, and GET/SET_FARPTR.  The first set takes
+GET/SET_VAR, GET/SET_FARVAR, and GET/SET_FLATPTR.  The first set takes
 an explicit segment descriptor (eg, "CS") and offset.  The second set
-will take a segment id and offset, set ES to the segment, and then
+will take a segment id and offset, set ES to the segment id, and then
 make the access via the ES segment.  The last method is similar to the
-second, except it takes a pointer that would be valid in 32-bit mode
-instead of a segment/offset pair.
+second, except it takes a pointer that would be valid in 32-bit flat
+mode instead of a segment/offset pair.
 
-Most BIOS variables are stored in the "BDA" or "EBDA" memory areas.
-Because this is common, two sets of helper macros (GET/SET_BDA and
-GET/SET_EBDA) are available to simplify these accesses.
+Most BIOS variables are stored in global variables, the "BDA", or
+"EBDA" memory areas.  Because this is common, three sets of helper
+macros (GET/SET_GLOBAL, GET/SET_BDA, and GET/SET_EBDA) are available
+to simplify these accesses.
+
+Global variables defined in the C code can be read in 16bit mode if
+the variable declaration is marked with VAR16 or VAR16_32.  The
+GET_GLOBAL macro will then allow read access to the variable.  Global
+variables are stored in the 0xf000 segment, and their values are
+persistent across soft resets.  Because the f-segment is marked
+read-only during run-time, the 16bit code is not permitted to change
+the value of 16bit variables (use of the SET_GLOBAL macro from 16bit
+mode will cause a link error).  Code running in 32bit mode can not
+access variables with VAR16, but can access variables marked with
+VAR16_32 or with no marking at all.  The 32bit code can use the
+GET/SET_GLOBAL macros, but they are not required.
 
 
 GCC 16 bit stack limitations:
@@ -136,15 +146,16 @@ stack space available for bios calls.  However, Freedos has been
 observed to call into the bios with less than 150 bytes available.
 
 Note that the post code and boot code (irq 18/19) do not have a stack
-limitation because the entry points for these functions reset the
-stack to a known state.  Only the general purpose 16-bit service entry
-points are affected.
+limitation because the entry points for these functions transition the
+cpu to 32bit mode and reset the stack to a known state.  Only the
+general purpose 16-bit service entry points are affected.
 
 There are some ways to reduce stack usage: making sure functions are
 tail-recursive often helps, reducing the number of parameters passed
 to functions often helps, sometimes reordering variable declarations
 helps, inlining of functions can sometimes help, and passing of packed
-structures can also help.
+structures can also help.  It is also possible to transition to/from
+an extra stack stored in the EBDA using the stack_hop helper function.
 
 Some useful stats: the overhead for the entry to a bios handler that
 takes a 'struct bregs' is 38 bytes of stack space (6 bytes from
