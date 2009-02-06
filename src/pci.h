@@ -15,6 +15,9 @@ static inline u8 pci_bdf_to_dev(u16 bdf) {
 static inline u8 pci_bdf_to_fn(u16 bdf) {
     return bdf & 0x07;
 }
+static inline u16 pci_to_bdf(int bus, int dev, int fn) {
+    return (bus<<8) | (dev<<3) | fn;
+}
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val);
 void pci_config_writew(u16 bdf, u32 addr, u16 val);
