@@ -192,6 +192,12 @@ void
 coreboot_fill_map()
 {
     dprintf(3, "Attempting to find coreboot table\n");
+
+    // Init variables set in coreboot table memory scan.
+    PirOffset = 0;
+    RsdpAddr = 0;
+
+    // Find coreboot table.
     struct cb_header *cbh = find_cb_header(0, 0x1000);
     if (!cbh)
         goto fail;

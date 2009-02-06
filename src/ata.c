@@ -861,6 +861,8 @@ ata_detect()
 static void
 ata_init()
 {
+    memset(&ATA, 0, sizeof(ATA));
+
     // hdidmap and cdidmap init.
     u8 device;
     for (device=0; device < CONFIG_MAX_ATA_DEVICES; device++) {

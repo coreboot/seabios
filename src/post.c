@@ -156,6 +156,8 @@ init_boot_vectors()
         return;
     dprintf(3, "init boot device ordering\n");
 
+    memset(&IPL, 0, sizeof(IPL));
+
     // Floppy drive
     struct ipl_entry_s *ip = &IPL.table[0];
     ip->type = IPL_TYPE_FLOPPY;
