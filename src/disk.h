@@ -104,6 +104,40 @@ void __disk_ret(struct bregs *regs, u32 linecode, const char *fname);
 
 
 /****************************************************************
+ * Master boot record
+ ****************************************************************/
+
+struct packed_chs_s {
+    u8 heads;
+    u8 sptcyl;
+    u8 cyllow;
+};
+
+struct partition_s {
+    u8 status;
+    struct packed_chs_s first;
+    u8 type;
+    struct packed_chs_s last;
+    u32 lba;
+    u32 count;
+} PACKED;
+
+struct mbr_s {
+    u8 code[440];
+    // 0x01b8
+    u32 diskseg;
+    // 0x01bc
+    u16 null;
+    // 0x01be
+    struct partition_s partitions[4];
+    // 0x01fe
+    u16 signature;
+} PACKED;
+
+#define MBR_SIGNATURE 0xaa55
+
+
+/****************************************************************
  * Disk command request
  ****************************************************************/
 

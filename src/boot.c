@@ -130,7 +130,8 @@ try_boot(u16 seq_nr)
         /* Always check the signature on a HDD boot sector; on FDD,
          * only do the check if configured for it */
         if (type != IPL_TYPE_FLOPPY || IPL.checkfloppysig) {
-            if (GET_FARVAR(bootseg, *(u16*)0x1fe) != 0xaa55) {
+            struct mbr_s *mbr = (void*)0;
+            if (GET_FARVAR(bootseg, mbr->signature) != MBR_SIGNATURE) {
                 print_boot_failure(type, 0);
                 return;
             }

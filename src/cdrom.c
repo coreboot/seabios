@@ -519,38 +519,38 @@ cdrom_boot()
         // Floppy emulation
         SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0x00);
         SETBITS_BDA(equipment_list_flags, 0x41);
+
+        switch (media) {
+        case 0x01:  // 1.2M floppy
+            SET_EBDA2(ebda_seg, cdemu.spt, 15);
+            SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
+            SET_EBDA2(ebda_seg, cdemu.heads, 2);
+            break;
+        case 0x02:  // 1.44M floppy
+            SET_EBDA2(ebda_seg, cdemu.spt, 18);
+            SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
+            SET_EBDA2(ebda_seg, cdemu.heads, 2);
+            break;
+        case 0x03:  // 2.88M floppy
+            SET_EBDA2(ebda_seg, cdemu.spt, 36);
+            SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
+            SET_EBDA2(ebda_seg, cdemu.heads, 2);
+            break;
+        }
     } else {
         // Harddrive emulation
         SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0x80);
         SET_BDA(hdcount, GET_BDA(hdcount) + 1);
-    }
 
-    // Remember the media type
-    switch (media) {
-    case 0x01:  // 1.2M floppy
-        SET_EBDA2(ebda_seg, cdemu.spt, 15);
-        SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
-        SET_EBDA2(ebda_seg, cdemu.heads, 2);
-        break;
-    case 0x02:  // 1.44M floppy
-        SET_EBDA2(ebda_seg, cdemu.spt, 18);
-        SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
-        SET_EBDA2(ebda_seg, cdemu.heads, 2);
-        break;
-    case 0x03:  // 2.88M floppy
-        SET_EBDA2(ebda_seg, cdemu.spt, 36);
-        SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
-        SET_EBDA2(ebda_seg, cdemu.heads, 2);
-        break;
-    case 0x04: { // Harddrive
-        u16 spt = GET_FARVAR(boot_segment,*(u8*)(446+6));
-        u16 cyl = (spt << 2) + GET_FARVAR(boot_segment,*(u8*)(446+7)) + 1;
-        u16 heads = GET_FARVAR(boot_segment,*(u8*)(446+5)) + 1;
-        SET_EBDA2(ebda_seg, cdemu.spt, spt & 0x3f);
-        SET_EBDA2(ebda_seg, cdemu.cylinders, cyl);
-        SET_EBDA2(ebda_seg, cdemu.heads, heads);
-        break;
-    }
+        // Peak at partition table to get chs.
+        struct mbr_s *mbr = (void*)0;
+        u8 sptcyl = GET_FARVAR(boot_segment, mbr->partitions[0].last.sptcyl);
+        u8 cyllow = GET_FARVAR(boot_segment, mbr->partitions[0].last.cyllow);
+        u8 heads = GET_FARVAR(boot_segment, mbr->partitions[0].last.heads);
+
+        SET_EBDA2(ebda_seg, cdemu.spt, sptcyl & 0x3f);
+        SET_EBDA2(ebda_seg, cdemu.cylinders, ((sptcyl<<2)&0x300) + cyllow + 1);
+        SET_EBDA2(ebda_seg, cdemu.heads, heads + 1);
     }
 
     // everything is ok, so from now on, the emulation is active
