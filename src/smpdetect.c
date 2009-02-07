@@ -56,7 +56,8 @@ ASM16(
     "  movw %ax, %ds\n"
     "  lock incl smp_cpus\n"
     // Halt the processor.
-    "  jmp permanent_halt\n"
+    "1:hlt\n"
+    "  jmp 1b\n"
     );
 
 /* find the number of CPUs by launching a SIPI to them */
