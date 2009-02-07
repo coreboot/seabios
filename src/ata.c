@@ -795,7 +795,7 @@ static void
 ata_detect()
 {
     // Device detection
-    int driveid, last_reset_driveid;
+    int driveid, last_reset_driveid=-1;
     for(driveid=0; driveid<CONFIG_MAX_ATA_DEVICES; driveid++) {
         u8 channel = driveid / 2;
         u8 slave = driveid % 2;
