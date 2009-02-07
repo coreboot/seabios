@@ -56,34 +56,41 @@ struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7) = {
     .startup_time   = 0x08,
 };
 
+u8 FloppyCount VAR16_32;
+u8 FloppyTypes[2] VAR16_32;
+
 void
 floppy_drive_setup()
 {
     if (! CONFIG_FLOPPY_SUPPORT)
         return;
     dprintf(3, "init floppy drives\n");
-    if (CONFIG_COREBOOT)
-        // XXX - disable floppies on coreboot for now.
-        outb_cmos(0, CMOS_FLOPPY_DRIVE_TYPE);
-    u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
-    u8 out = 0;
-    u8 num_floppies = 0;
+    FloppyCount = 0;
+    FloppyTypes[0] = FloppyTypes[1] = 0;
 
-    if (type & 0xf0) {
-        out |= 0x07;
-        num_floppies++;
-    }
-    if (type & 0x0f) {
-        out |= 0x70;
-        num_floppies++;
+    u8 out = 0;
+    if (CONFIG_COREBOOT) {
+        // XXX - disable floppies on coreboot for now.
+    } else {
+        u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
+        if (type & 0xf0) {
+            out |= 0x07;
+            FloppyTypes[0] = type >> 4;
+            FloppyCount++;
+        }
+        if (type & 0x0f) {
+            out |= 0x70;
+            FloppyTypes[1] = type & 0x0f;
+            FloppyCount++;
+        }
     }
     SET_BDA(floppy_harddisk_info, out);
 
     // Update equipment word bits for floppy
-    if (num_floppies == 1)
+    if (FloppyCount == 1)
         // 1 drive, ready for boot
         SETBITS_BDA(equipment_list_flags, 0x01);
-    else if (num_floppies == 2)
+    else if (FloppyCount == 2)
         // 2 drives, ready for boot
         SETBITS_BDA(equipment_list_flags, 0x41);
 
@@ -99,18 +106,6 @@ set_diskette_current_cyl(u8 drive, u8 cyl)
         SET_BDA(floppy_track1, cyl);
     else
         SET_BDA(floppy_track0, cyl);
-}
-
-static u16
-get_drive_type(u8 drive)
-{
-    // check CMOS to see if drive exists
-    u8 drive_type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
-    if (drive == 0)
-        drive_type >>= 4;
-    else
-        drive_type &= 0x0f;
-    return drive_type;
 }
 
 static u16
@@ -262,8 +257,10 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
     }
 
     // check port 3f4 for accessibility to status bytes
-    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
-        BX_PANIC("int13_diskette: ctrl not ready\n");
+    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
+        floppy_ret(regs, DISK_RET_ECONTROLLER);
+        return -1;
+    }
 
     // read 7 return status bytes from controller
     u8 i;
@@ -328,7 +325,7 @@ floppy_media_sense(u8 drive)
     //    110 reserved
     //    111 all other formats/drives
 
-    switch (get_drive_type(drive)) {
+    switch (GET_GLOBAL(FloppyTypes[drive])) {
     case 1:
         // 360K 5.25" drive
         config_data = 0x00; // 0000 0000
@@ -395,7 +392,7 @@ static int
 check_drive(struct bregs *regs, u8 drive)
 {
     // see if drive exists
-    if (drive > 1 || !get_drive_type(drive)) {
+    if (drive > 1 || !GET_GLOBAL(FloppyTypes[drive])) {
         // XXX - return type doesn't match
         floppy_ret(regs, DISK_RET_ETIMEOUT);
         return -1;
@@ -417,7 +414,7 @@ floppy_1300(struct bregs *regs, u8 drive)
         floppy_ret(regs, DISK_RET_EPARAM);
         return;
     }
-    if (!get_drive_type(drive)) {
+    if (!GET_GLOBAL(FloppyTypes[drive])) {
         floppy_ret(regs, DISK_RET_ETIMEOUT);
         return;
     }
@@ -517,11 +514,11 @@ floppy_1303(struct bregs *regs, u8 drive)
         goto fail;
 
     if (data[0] & 0xc0) {
-        if (data[1] & 0x02) {
+        if (data[1] & 0x02)
             floppy_ret(regs, DISK_RET_EWRITEPROTECT);
-            goto fail;
-        }
-        BX_PANIC("int13_diskette_function: read error\n");
+        else
+            floppy_ret(regs, DISK_RET_ECONTROLLER);
+        goto fail;
     }
 
     // ??? should track be new val from return_status[3] ?
@@ -591,11 +588,11 @@ floppy_1305(struct bregs *regs, u8 drive)
         return;
 
     if (data[0] & 0xc0) {
-        if (data[1] & 0x02) {
+        if (data[1] & 0x02)
             floppy_ret(regs, DISK_RET_EWRITEPROTECT);
-            return;
-        }
-        BX_PANIC("int13_diskette_function: read error\n");
+        else
+            floppy_ret(regs, DISK_RET_ECONTROLLER);
+        return;
     }
 
     set_diskette_current_cyl(drive, 0);
@@ -608,84 +605,60 @@ floppy_1308(struct bregs *regs, u8 drive)
 {
     dprintf(3, "floppy f08\n");
 
-    u8 drive_type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
-    u8 num_floppies = 0;
-    if (drive_type & 0xf0)
-        num_floppies++;
-    if (drive_type & 0x0f)
-        num_floppies++;
-
+    regs->ax = 0;
+    regs->dx = GET_GLOBAL(FloppyCount);
     if (drive > 1) {
-        regs->ax = 0;
         regs->bx = 0;
         regs->cx = 0;
-        regs->dx = 0;
         regs->es = 0;
         regs->di = 0;
-        regs->dl = num_floppies;
         set_fail(regs);
         return;
     }
 
-    if (drive == 0)
-        drive_type >>= 4;
-    else
-        drive_type &= 0x0f;
-
-    regs->bh = 0;
-    regs->bl = drive_type;
-    regs->ah = 0;
-    regs->al = 0;
-    regs->dl = num_floppies;
+    u8 drive_type = GET_GLOBAL(FloppyTypes[drive]);
+    regs->bx = drive_type;
 
     switch (drive_type) {
+    default: // ?
+        dprintf(1, "floppy: int13: bad floppy type\n");
+        // NO BREAK
     case 0: // none
         regs->cx = 0;
         regs->dh = 0; // max head #
         break;
-
     case 1: // 360KB, 5.25"
         regs->cx = 0x2709; // 40 tracks, 9 sectors
         regs->dh = 1; // max head #
         break;
-
     case 2: // 1.2MB, 5.25"
         regs->cx = 0x4f0f; // 80 tracks, 15 sectors
         regs->dh = 1; // max head #
         break;
-
     case 3: // 720KB, 3.5"
         regs->cx = 0x4f09; // 80 tracks, 9 sectors
         regs->dh = 1; // max head #
         break;
-
     case 4: // 1.44MB, 3.5"
         regs->cx = 0x4f12; // 80 tracks, 18 sectors
         regs->dh = 1; // max head #
         break;
-
     case 5: // 2.88MB, 3.5"
         regs->cx = 0x4f24; // 80 tracks, 36 sectors
         regs->dh = 1; // max head #
         break;
-
     case 6: // 160k, 5.25"
         regs->cx = 0x2708; // 40 tracks, 8 sectors
         regs->dh = 0; // max head #
         break;
-
     case 7: // 180k, 5.25"
         regs->cx = 0x2709; // 40 tracks, 9 sectors
         regs->dh = 0; // max head #
         break;
-
     case 8: // 320k, 5.25"
         regs->cx = 0x2708; // 40 tracks, 8 sectors
         regs->dh = 1; // max head #
         break;
-
-    default: // ?
-        BX_PANIC("floppy: int13: bad floppy type\n");
     }
 
     /* set es & di to point to 11 byte diskette param table in ROM */
@@ -706,7 +679,7 @@ floppy_1315(struct bregs *regs, u8 drive)
         // set_diskette_ret_status here ???
         return;
     }
-    u8 drive_type = get_drive_type(drive);
+    u8 drive_type = GET_GLOBAL(FloppyTypes[drive]);
 
     regs->ah = (drive_type != 0);
     set_success(regs);
