@@ -99,8 +99,7 @@ struct bios_data_area_s {
     u8 floppy_harddisk_info;
     // 40:90
     u8 floppy_media_state[4];
-    u8 floppy_track0;
-    u8 floppy_track1;
+    u8 floppy_track[2];
     u8 kbd_mode;
     u8 kbd_led;
     u32 ptr_user_wait_complete_flag;

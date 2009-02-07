@@ -99,25 +99,24 @@ floppy_drive_setup()
     enable_hwirq(6, entry_0e);
 }
 
-static inline void
-set_diskette_current_cyl(u8 drive, u8 cyl)
+#define floppy_ret(regs, code)                                  \
+    __floppy_ret((regs), (code) | (__LINE__ << 8), __func__)
+
+void
+__floppy_ret(struct bregs *regs, u32 linecode, const char *fname)
 {
-    if (drive)
-        SET_BDA(floppy_track1, cyl);
+    u8 code = linecode;
+    SET_BDA(floppy_last_status, code);
+    if (code)
+        __set_code_fail(regs, linecode, fname);
     else
-        SET_BDA(floppy_track0, cyl);
+        set_code_success(regs);
 }
 
-static u16
-floppy_media_known(u8 drive)
-{
-    if (!(GET_BDA(floppy_recalibration_status) & (1<<drive)))
-        return 0;
-    u8 v = GET_BDA(floppy_media_state[drive]);
-    if (!(v & FMS_MEDIA_DRIVE_ESTABLISHED))
-        return 0;
-    return 1;
-}
+
+/****************************************************************
+ * Low-level floppy IO
+ ****************************************************************/
 
 static void
 floppy_reset_controller()
@@ -130,6 +129,28 @@ floppy_reset_controller()
     // Wait for controller to come out of reset
     while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
         ;
+}
+
+static int
+wait_floppy_irq()
+{
+    irq_enable();
+    u8 v;
+    for (;;) {
+        if (!GET_BDA(floppy_motor_counter)) {
+            irq_disable();
+            return -1;
+        }
+        v = GET_BDA(floppy_recalibration_status);
+        if (v & FRS_TIMEOUT)
+            break;
+        cpu_relax();
+    }
+    irq_disable();
+
+    v &= ~FRS_TIMEOUT;
+    SET_BDA(floppy_recalibration_status, v);
+    return 0;
 }
 
 static void
@@ -153,20 +174,8 @@ floppy_prepare_controller(u8 drive)
     while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
         ;
 
-    if (prev_reset == 0) {
-        irq_enable();
-        u8 v;
-        for (;;) {
-            v = GET_BDA(floppy_recalibration_status);
-            if (v & FRS_TIMEOUT)
-                break;
-            cpu_relax();
-        }
-        irq_disable();
-
-        v &= ~FRS_TIMEOUT;
-        SET_BDA(floppy_recalibration_status, v);
-    }
+    if (!prev_reset)
+        wait_floppy_irq();
 }
 
 static int
@@ -179,39 +188,13 @@ floppy_pio(u8 *cmd, u8 cmdlen)
     for (i=0; i<cmdlen; i++)
         outb(cmd[i], PORT_FD_DATA);
 
-    irq_enable();
-    u8 v;
-    for (;;) {
-        if (!GET_BDA(floppy_motor_counter)) {
-            irq_disable();
-            floppy_reset_controller();
-            return -1;
-        }
-        v = GET_BDA(floppy_recalibration_status);
-        if (v & FRS_TIMEOUT)
-            break;
-        cpu_relax();
+    int ret = wait_floppy_irq();
+    if (ret) {
+        floppy_reset_controller();
+        return -1;
     }
-    irq_disable();
-
-    v &= ~FRS_TIMEOUT;
-    SET_BDA(floppy_recalibration_status, v);
 
     return 0;
-}
-
-#define floppy_ret(regs, code)                                  \
-    __floppy_ret((regs), (code) | (__LINE__ << 8), __func__)
-
-void
-__floppy_ret(struct bregs *regs, u32 linecode, const char *fname)
-{
-    u8 code = linecode;
-    SET_BDA(floppy_last_status, code);
-    if (code)
-        __set_code_fail(regs, linecode, fname);
-    else
-        set_code_success(regs);
 }
 
 static int
@@ -273,6 +256,17 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
     return 0;
 }
 
+
+/****************************************************************
+ * Floppy media sense
+ ****************************************************************/
+
+static inline void
+set_diskette_current_cyl(u8 drive, u8 cyl)
+{
+    SET_BDA(floppy_track[drive], cyl);
+}
+
 static void
 floppy_drive_recal(u8 drive)
 {
@@ -286,14 +280,9 @@ floppy_drive_recal(u8 drive)
     set_diskette_current_cyl(drive, 0);
 }
 
-static u16
+static int
 floppy_media_sense(u8 drive)
 {
-    u16 rv;
-    u8 config_data, media_state;
-
-    floppy_drive_recal(drive);
-
     // for now cheat and get drive type from CMOS,
     // assume media is same as drive type
 
@@ -325,6 +314,8 @@ floppy_media_sense(u8 drive)
     //    110 reserved
     //    111 all other formats/drives
 
+    u16 rv;
+    u8 config_data, media_state;
     switch (GET_GLOBAL(FloppyTypes[drive])) {
     case 1:
         // 360K 5.25" drive
@@ -393,18 +384,31 @@ check_drive(struct bregs *regs, u8 drive)
 {
     // see if drive exists
     if (drive > 1 || !GET_GLOBAL(FloppyTypes[drive])) {
-        // XXX - return type doesn't match
         floppy_ret(regs, DISK_RET_ETIMEOUT);
         return -1;
     }
 
-    // see if media in drive, and type is known
-    if (floppy_media_known(drive) == 0 && floppy_media_sense(drive) == 0) {
+    if ((GET_BDA(floppy_recalibration_status) & (1<<drive))
+        && (GET_BDA(floppy_media_state[drive]) & FMS_MEDIA_DRIVE_ESTABLISHED))
+        // Media is known.
+        return 0;
+
+    // Recalibrate drive.
+    floppy_drive_recal(drive);
+
+    // Sense media.
+    int ret = floppy_media_sense(drive);
+    if (!ret) {
         floppy_ret(regs, DISK_RET_EMEDIA);
         return -1;
     }
     return 0;
 }
+
+
+/****************************************************************
+ * Floppy int13 handlers
+ ****************************************************************/
 
 // diskette controller reset
 static void
@@ -726,6 +730,11 @@ floppy_13(struct bregs *regs, u8 drive)
     default:   floppy_13XX(regs, drive); break;
     }
 }
+
+
+/****************************************************************
+ * HW irqs
+ ****************************************************************/
 
 // INT 0Eh Diskette Hardware ISR Entry Point
 void VISIBLE16
