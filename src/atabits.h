@@ -111,7 +111,6 @@
 #define ATA_IFACE_PCI     0x01
 
 #define ATA_TYPE_NONE     0x00
-#define ATA_TYPE_UNKNOWN  0x01
 #define ATA_TYPE_ATA      0x02
 #define ATA_TYPE_ATAPI    0x03
 

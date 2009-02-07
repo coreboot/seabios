@@ -37,55 +37,51 @@ struct ata_s ATA VAR16_32;
  ****************************************************************/
 
 // Wait for the specified ide state
-static int
-await_ide(u8 when_done, u16 base, u16 timeout)
+static inline int
+await_ide(u8 mask, u8 flags, u16 base, u16 timeout)
 {
     u64 end = calc_future_tsc(timeout);
     for (;;) {
         u8 status = inb(base+ATA_CB_STAT);
-        u8 result = 0;
-        if (when_done == BSY)
-            result = status & ATA_CB_STAT_BSY;
-        else if (when_done == NOT_BSY)
-            result = !(status & ATA_CB_STAT_BSY);
-        else if (when_done == NOT_BSY_DRQ)
-            result = !(status & ATA_CB_STAT_BSY) && (status & ATA_CB_STAT_DRQ);
-        else if (when_done == NOT_BSY_NOT_DRQ)
-            result = !(status & ATA_CB_STAT_BSY) && !(status & ATA_CB_STAT_DRQ);
-        else if (when_done == NOT_BSY_RDY)
-            result = !(status & ATA_CB_STAT_BSY) && (status & ATA_CB_STAT_RDY);
-
-        if (result)
+        if ((status & mask) == flags)
             return status;
-        if (status & ATA_CB_STAT_ERR) {
-            dprintf(1, "await_ide: ERROR (TIMEOUT,BSY,!BSY,!BSY_DRQ"
-                    ",!BSY_!DRQ,!BSY_RDY) %d status=%x timeout=%d\n"
-                    , when_done, status, timeout);
+        if (rdtscll() >= end) {
+            dprintf(1, "IDE time out\n");
             return -1;
         }
-        if (rdtscll() >= end)
-            break;
     }
-    dprintf(1, "IDE time out\n");
-    return -2;
+}
+
+// Wait for the device to be not-busy.
+static int
+await_not_bsy(u16 base)
+{
+    return await_ide(ATA_CB_STAT_BSY, 0, base, IDE_TIMEOUT);
+}
+
+// Wait for the device to be ready.
+static int
+await_rdy(u16 base)
+{
+    return await_ide(ATA_CB_STAT_RDY, ATA_CB_STAT_RDY, base, IDE_TIMEOUT);
 }
 
 // Wait for ide state - pauses for one ata cycle first.
 static __always_inline int
-pause_await_ide(u8 when_done, u16 iobase1, u16 iobase2, u16 timeout)
+pause_await_not_bsy(u16 iobase1, u16 iobase2)
 {
     // Wait one PIO transfer cycle.
     inb(iobase2 + ATA_CB_ASTAT);
 
-    return await_ide(when_done, iobase1, timeout);
+    return await_not_bsy(iobase1);
 }
 
 // Wait for ide state - pause for 400ns first.
 static __always_inline int
-ndelay_await_ide(u8 when_done, u16 iobase1, u16 timeout)
+ndelay_await_not_bsy(u16 iobase1)
 {
     ndelay(400);
-    return await_ide(when_done, iobase1, timeout);
+    return await_not_bsy(iobase1);
 }
 
 // Reset a drive
@@ -97,38 +93,45 @@ ata_reset(int driveid)
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
-    // Reset
-
-    // 8.2.1 (a) -- set SRST in DC
+    dprintf(6, "ata_reset driveid=%d\n", driveid);
+    // Pulse SRST
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN | ATA_CB_DC_SRST, iobase2+ATA_CB_DC);
-
-    // 8.2.1 (b) -- wait for BSY
-    int status = await_ide(BSY, iobase1, 20);
-    dprintf(6, "ata_reset(1) status=%x\n", status);
-
-    // 8.2.1 (f) -- clear SRST
+    udelay(5);
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
+    mdelay(2);
 
-    // 8.2.1 (g) -- check for sc==sn==0x01
-    // select device
-    outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-    mdelay(50);
-    u8 sc = inb(iobase1+ATA_CB_SC);
-    u8 sn = inb(iobase1+ATA_CB_SN);
-
-    // For predetermined ATA drives - wait for ready.
-    if (sc==0x01 && sn==0x01) {
-        u8 type=GET_GLOBAL(ATA.devices[driveid].type);
-        if (type == ATA_TYPE_ATA)
-            await_ide(NOT_BSY_RDY, iobase1, IDE_TIMEOUT);
+    // wait for device to become not busy.
+    int status = await_not_bsy(iobase1);
+    if (status < 0)
+        goto done;
+    if (slave) {
+        // Change device.
+        u64 end = calc_future_tsc(IDE_TIMEOUT);
+        for (;;) {
+            outb(ATA_CB_DH_DEV1, iobase1 + ATA_CB_DH);
+            status = await_not_bsy(iobase1);
+            if (status < 0)
+                goto done;
+            if (inb(iobase1 + ATA_CB_DH) == ATA_CB_DH_DEV1)
+                break;
+            // Change drive request failed to take effect - retry.
+            if (rdtscll() >= end) {
+                dprintf(1, "ata_reset slave time out\n");
+                goto done;
+            }
+        }
     }
 
-    // 8.2.1 (h) -- wait for not BSY
-    status = await_ide(NOT_BSY, iobase1, IDE_TIMEOUT);
-    dprintf(6, "ata_reset(2) status=%x\n", status);
+    // On a user-reset request, wait for RDY if it is an ATA device.
+    u8 type=GET_GLOBAL(ATA.devices[driveid].type);
+    if (type == ATA_TYPE_ATA)
+        status = await_rdy(iobase1);
 
+done:
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
+
+    dprintf(6, "ata_reset exit status=%x\n", status);
 }
 
 
@@ -156,22 +159,27 @@ static int
 send_cmd(int driveid, struct ata_pio_command *cmd)
 {
     u8 channel = driveid / 2;
+    u8 slave = driveid % 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
-
-    int status = inb(iobase1 + ATA_CB_STAT);
-    if (status & ATA_CB_STAT_BSY)
-        return -3;
 
     // Disable interrupts
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
 
     // Select device
-    u8 device = inb(iobase1 + ATA_CB_DH);
-    outb(cmd->device, iobase1 + ATA_CB_DH);
-    if ((device ^ cmd->device) & (1 << 4))
-        // Wait for device to become active.
-        mdelay(50);
+    int status = await_not_bsy(iobase1);
+    if (status < 0)
+        return status;
+    u8 newdh = ((cmd->device & ~ATA_CB_DH_DEV1)
+                | (slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0));
+    u8 olddh = inb(iobase1 + ATA_CB_DH);
+    outb(newdh, iobase1 + ATA_CB_DH);
+    if ((olddh ^ newdh) & (1<<4)) {
+        // Was a device change - wait for device to become not busy.
+        status = await_not_bsy(iobase1);
+        if (status < 0)
+            return status;
+    }
 
     if (cmd->command & 0x04) {
         outb(0x00, iobase1 + ATA_CB_FR);
@@ -187,17 +195,17 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
     outb(cmd->lba_high, iobase1 + ATA_CB_CH);
     outb(cmd->command, iobase1 + ATA_CB_CMD);
 
-    status = ndelay_await_ide(NOT_BSY_DRQ, iobase1, IDE_TIMEOUT);
+    status = ndelay_await_not_bsy(iobase1);
     if (status < 0)
         return status;
 
     if (status & ATA_CB_STAT_ERR) {
-        dprintf(6, "send_cmd : read error\n");
+        dprintf(6, "send_cmd : read error (status=%02x err=%02x)\n"
+                , status, inb(iobase1 + ATA_CB_ERR));
         return -4;
     }
     if (!(status & ATA_CB_STAT_DRQ)) {
-        dprintf(6, "send_cmd : DRQ not set (status %02x)\n"
-                , (unsigned) status);
+        dprintf(6, "send_cmd : DRQ not set (status %02x)\n", status);
         return -5;
     }
 
@@ -277,7 +285,7 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
         if (skiplast && current == count-1)
             insx_discard(mode, iobase1, skiplast);
 
-        status = pause_await_ide(NOT_BSY, iobase1, iobase2, IDE_TIMEOUT);
+        status = pause_await_not_bsy(iobase1, iobase2);
         if (status < 0)
             // Error
             return status;
@@ -286,22 +294,20 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
         SET_EBDA(sector_count, current);
         if (current == count)
             break;
-        status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ
-                   | ATA_CB_STAT_ERR);
-        if (status != (ATA_CB_STAT_RDY | ATA_CB_STAT_DRQ)) {
+        status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR);
+        if (status != ATA_CB_STAT_DRQ) {
             dprintf(6, "ata_transfer : more sectors left (status %02x)\n"
-                    , (unsigned) status);
+                    , status);
             return -6;
         }
     }
 
-    status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_RDY | ATA_CB_STAT_DF
-               | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR);
+    status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_DF | ATA_CB_STAT_DRQ
+               | ATA_CB_STAT_ERR);
     if (!iswrite)
         status &= ~ATA_CB_STAT_DF;
-    if (status != ATA_CB_STAT_RDY ) {
-        dprintf(6, "ata_transfer : no sectors left (status %02x)\n"
-                , (unsigned) status);
+    if (status != 0) {
+        dprintf(6, "ata_transfer : no sectors left (status %02x)\n", status);
         return -7;
     }
 
@@ -346,7 +352,6 @@ ata_transfer_cdemu(const struct disk_op_s *op, int before, int after)
 static noinline int
 send_cmd_disk(const struct disk_op_s *op)
 {
-    u8 slave = op->driveid % 2;
     u64 lba = op->lba;
 
     struct ata_pio_command cmd;
@@ -368,8 +373,7 @@ send_cmd_disk(const struct disk_op_s *op)
     cmd.lba_low = lba;
     cmd.lba_mid = lba >> 8;
     cmd.lba_high = lba >> 16;
-    cmd.device = ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
-                  | ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
+    cmd.device = ((lba >> 24) & 0xf) | ATA_CB_DH_LBA;
 
     return send_cmd(op->driveid, &cmd);
 }
@@ -394,7 +398,6 @@ static __always_inline int
 send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 {
     u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
@@ -404,7 +407,7 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
     cmd.lba_low = 0;
     cmd.lba_mid = blocksize;
     cmd.lba_high = blocksize >> 8;
-    cmd.device = slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0;
+    cmd.device = 0;
     cmd.command = ATA_CMD_PACKET;
 
     int ret = send_cmd(driveid, &cmd);
@@ -414,9 +417,19 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
     // Send command to device
     outsw_fl(iobase1, MAKE_FLATPTR(GET_SEG(SS), cmdbuf), cmdlen / 2);
 
-    int status = pause_await_ide(NOT_BSY_DRQ, iobase1, iobase2, IDE_TIMEOUT);
+    int status = pause_await_not_bsy(iobase1, iobase2);
     if (status < 0)
         return status;
+
+    if (status & ATA_CB_STAT_ERR) {
+        dprintf(6, "send_atapi_cmd : read error (status=%02x err=%02x)\n"
+                , status, inb(iobase1 + ATA_CB_ERR));
+        return -2;
+    }
+    if (!(status & ATA_CB_STAT_DRQ)) {
+        dprintf(6, "send_atapi_cmd : DRQ not set (status %02x)\n", status);
+        return -3;
+    }
 
     return 0;
 }
@@ -531,16 +544,10 @@ get_ata_version(u8 *buffer)
     return version;
 }
 
-static void
+static int
 init_drive_atapi(int driveid)
 {
-    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
-
-    // Temporary values to do the transfer
-    SET_GLOBAL(ATA.devices[driveid].device,ATA_DEVICE_CDROM);
-    SET_GLOBAL(ATA.devices[driveid].mode, ATA_MODE_PIO16);
-
-    // Now we send a IDENTIFY command to ATAPI device
+    // Send an IDENTIFY_DEVICE_PACKET command to device
     u8 buffer[0x0200];
     memset(buffer, 0, sizeof(buffer));
     struct disk_op_s dop;
@@ -549,9 +556,12 @@ init_drive_atapi(int driveid)
     dop.count = 1;
     dop.lba = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
-    u16 ret = ata_cmd_data(&dop);
-    if (ret != 0)
-        BX_PANIC("ata-detect: Failed to detect ATAPI device\n");
+    int ret = ata_cmd_data(&dop);
+    if (ret)
+        return ret;
+
+    // Success - setup as ATAPI.
+    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
 
     u8 type      = buffer[1] & 0x1f;
     u8 removable = (buffer[0] & 0x80) ? 1 : 0;
@@ -574,6 +584,8 @@ init_drive_atapi(int driveid)
         printf(" ATAPI-%d CD-Rom/DVD-Rom\n", version);
     else
         printf(" ATAPI-%d Device\n", version);
+
+    return 0;
 }
 
 static void
@@ -713,16 +725,10 @@ setup_translation(int driveid)
     SET_GLOBAL(ATA.devices[driveid].lchs.spt, spt);
 }
 
-static void
+static int
 init_drive_ata(int driveid)
 {
-    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATA);
-
-    // Temporary values to do the transfer
-    SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
-    SET_GLOBAL(ATA.devices[driveid].mode, ATA_MODE_PIO16);
-
-    // Now we send a IDENTIFY command to ATA device
+    // Send an IDENTIFY_DEVICE command to device
     u8 buffer[0x0200];
     memset(buffer, 0, sizeof(buffer));
     struct disk_op_s dop;
@@ -731,9 +737,12 @@ init_drive_ata(int driveid)
     dop.count = 1;
     dop.lba = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
-    u16 ret = ata_cmd_data(&dop);
+    int ret = ata_cmd_data(&dop);
     if (ret)
-        BX_PANIC("ata-detect: Failed to detect ATA device\n");
+        return ret;
+
+    // Success - setup as ATA.
+    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATA);
 
     u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
     u8 mode       = buffer[48*2] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
@@ -778,38 +787,25 @@ init_drive_ata(int driveid)
     else
         printf(" ATA-%d Hard-Disk (%u GiBytes)\n", version
                , (u32)(sizeinmb >> 10));
-}
 
-static void
-init_drive_unknown(int driveid)
-{
-    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_UNKNOWN);
-
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
-    printf("ata%d %s: Unknown device\n", channel, slave ? " slave" : "master");
+    return 0;
 }
 
 static void
 ata_detect()
 {
     // Device detection
-    int driveid;
+    int driveid, last_reset_driveid;
     for(driveid=0; driveid<CONFIG_MAX_ATA_DEVICES; driveid++) {
         u8 channel = driveid / 2;
         u8 slave = driveid % 2;
 
         u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
-        u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
         if (!iobase1)
             break;
 
-        // Disable interrupts
-        outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
-
         // Look for device
         outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-        mdelay(50);
         outb(0x55, iobase1+ATA_CB_SC);
         outb(0xaa, iobase1+ATA_CB_SN);
         outb(0xaa, iobase1+ATA_CB_SC);
@@ -817,42 +813,39 @@ ata_detect()
         outb(0x55, iobase1+ATA_CB_SC);
         outb(0xaa, iobase1+ATA_CB_SN);
 
-        // If we found something
+        // Check if ioport registers look valid.
         u8 sc = inb(iobase1+ATA_CB_SC);
         u8 sn = inb(iobase1+ATA_CB_SN);
-        dprintf(6, "ata_detect(1) drive=%d sc=%x sn=%x\n", driveid, sc, sn);
-
+        dprintf(6, "ata_detect drive=%d sc=%x sn=%x\n", driveid, sc, sn);
         if (sc != 0x55 || sn != 0xaa)
             continue;
 
         // reset the channel
-        ata_reset(driveid);
-
-        // check for ATA or ATAPI
-        outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-        mdelay(50);
-        sc = inb(iobase1+ATA_CB_SC);
-        sn = inb(iobase1+ATA_CB_SN);
-        dprintf(6, "ata_detect(2) drive=%d sc=%x sn=%x\n", driveid, sc, sn);
-        if (sc!=0x01 || sn!=0x01) {
-            init_drive_unknown(driveid);
-            continue;
+        if (slave && driveid == last_reset_driveid + 1) {
+            // The drive was just reset - no need to reset it again.
+        } else {
+            ata_reset(driveid);
+            last_reset_driveid = driveid;
         }
-        u8 cl = inb(iobase1+ATA_CB_CL);
-        u8 ch = inb(iobase1+ATA_CB_CH);
-        u8 st = inb(iobase1+ATA_CB_STAT);
-        dprintf(6, "ata_detect(3) drive=%d sc=%x sn=%x cl=%x ch=%x st=%x\n"
-                , driveid, sc, sn, cl, ch, st);
 
-        if (cl==0x14 && ch==0xeb)
-            init_drive_atapi(driveid);
-        else if (cl==0x00 && ch==0x00 && st!=0x00)
-            init_drive_ata(driveid);
-        else if (cl==0xff && ch==0xff)
-            // None
+        // check for ATAPI
+        int ret = init_drive_atapi(driveid);
+        if (!ret)
+            // Found an ATAPI drive.
             continue;
-        else
-            init_drive_unknown(driveid);
+
+        u8 st = inb(iobase1+ATA_CB_STAT);
+        if (!st)
+            // Status not set - can't be a valid drive.
+            continue;
+
+        // Wait for RDY.
+        ret = await_rdy(iobase1);
+        if (ret < 0)
+            continue;
+
+        // check for ATA.
+        init_drive_ata(driveid);
     }
 
     printf("\n");
