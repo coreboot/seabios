@@ -83,6 +83,7 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
 inline void call16_simpint(int nr, u32 *eax, u32 *flags);
+int get_keystroke(int msec);
 
 // output.c
 void debug_serial_setup();

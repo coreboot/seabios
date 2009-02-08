@@ -11,19 +11,87 @@
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
 #include "boot.h" // struct ipl_s
+#include "cmos.h" // inb_cmos
 
 struct ipl_s IPL;
 
-//--------------------------------------------------------------------------
-// print_boot_device
-//   displays the boot device
-//--------------------------------------------------------------------------
+
+/****************************************************************
+ * IPL handlers
+ ****************************************************************/
+
+void
+boot_setup()
+{
+    if (! CONFIG_BOOT)
+        return;
+    dprintf(3, "init boot device ordering\n");
+
+    memset(&IPL, 0, sizeof(IPL));
+
+    // Floppy drive
+    struct ipl_entry_s *ip = &IPL.table[0];
+    ip->type = IPL_TYPE_FLOPPY;
+    ip++;
+
+    // First HDD
+    ip->type = IPL_TYPE_HARDDISK;
+    ip++;
+
+    // CDROM
+    if (CONFIG_CDROM_BOOT) {
+        ip->type = IPL_TYPE_CDROM;
+        ip++;
+    }
+
+    IPL.count = ip - IPL.table;
+    SET_EBDA(boot_sequence, 0xffff);
+    if (CONFIG_COREBOOT) {
+        // XXX - hardcode defaults for coreboot.
+        IPL.bootorder = 0x00000231;
+        IPL.checkfloppysig = 1;
+    } else {
+        // On emulators, get boot order from nvram.
+        IPL.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
+                         | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
+        if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
+            IPL.checkfloppysig = 1;
+    }
+}
+
+// Add a BEV vector for a given pnp compatible option rom.
+void
+add_bev(u16 seg, u16 bev, u16 desc)
+{
+    // Found a device that thinks it can boot the system.  Record
+    // its BEV and product name string.
+
+    if (! CONFIG_BOOT)
+        return;
+
+    if (IPL.count >= ARRAY_SIZE(IPL.table))
+        return;
+
+    struct ipl_entry_s *ip = &IPL.table[IPL.count];
+    ip->type = IPL_TYPE_BEV;
+    ip->vector = (seg << 16) | bev;
+    if (desc)
+        ip->description = MAKE_FLATPTR(seg, desc);
+
+    IPL.count++;
+}
+
+
+/****************************************************************
+ * Printing helpers
+ ****************************************************************/
 
 static const char drivetypes[][10]={
     "", "Floppy", "Hard Disk", "CD-Rom", "Network"
 };
 
-void
+// display a device name
+static void
 printf_bootdev(u16 bootdev)
 {
     u16 type = IPL.table[bootdev].type;
@@ -31,8 +99,10 @@ printf_bootdev(u16 bootdev)
     /* NIC appears as type 0x80 */
     if (type == IPL_TYPE_BEV)
         type = 0x4;
-    if (type == 0 || type > 0x4)
-        BX_PANIC("Bad drive type\n");
+    if (type == 0 || type > 0x4) {
+        printf("Unknown");
+        return;
+    }
     printf("%s", drivetypes[type]);
 
     /* print product string if BEV */
@@ -47,6 +117,7 @@ printf_bootdev(u16 bootdev)
     }
 }
 
+// display the boot device
 static void
 print_boot_device(u16 bootdev)
 {
@@ -55,16 +126,10 @@ print_boot_device(u16 bootdev)
     printf("...\n");
 }
 
-//--------------------------------------------------------------------------
-// print_boot_failure
-//   displays the reason why boot failed
-//--------------------------------------------------------------------------
+// display the reason why a boot failed
 static void
 print_boot_failure(u16 type, u8 reason)
 {
-    if (type == 0 || type > 0x3)
-        BX_PANIC("Bad drive type\n");
-
     printf("Boot failed");
     if (type < 4) {
         /* Report the reason too */
@@ -75,6 +140,61 @@ print_boot_failure(u16 type, u8 reason)
     }
     printf("\n\n");
 }
+
+
+/****************************************************************
+ * Boot menu
+ ****************************************************************/
+
+void
+interactive_bootmenu()
+{
+    if (! CONFIG_BOOTMENU)
+        return;
+
+    while (get_keystroke(0) >= 0)
+        ;
+
+    printf("Press F12 for boot menu.\n\n");
+
+    int scan_code = get_keystroke(2500);
+    if (scan_code != 0x86)
+        /* not F12 */
+        return;
+
+    while (get_keystroke(0) >= 0)
+        ;
+
+    printf("Select boot device:\n\n");
+
+    int count = IPL.count;
+    int i;
+    for (i = 0; i < count; i++) {
+        printf("%d. ", i+1);
+        printf_bootdev(i);
+        printf("\n");
+    }
+
+    for (;;) {
+        scan_code = get_keystroke(1000);
+        if (scan_code == 0x01)
+            // ESC
+            break;
+        if (scan_code >= 0 && scan_code <= count + 1) {
+            // Add user choice to the boot order.
+            u16 choice = scan_code - 1;
+            u32 bootorder = IPL.bootorder;
+            IPL.bootorder = (bootorder << 4) | choice;
+            break;
+        }
+    }
+    printf("\n");
+}
+
+
+/****************************************************************
+ * Boot code (int 18/19)
+ ****************************************************************/
 
 static void
 try_boot(u16 seq_nr)

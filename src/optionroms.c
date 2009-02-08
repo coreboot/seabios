@@ -148,30 +148,6 @@ get_pci_rom(struct rom_header *rom)
     return pci;
 }
 
-// Add a BEV vector for a given pnp compatible option rom.
-static void
-add_ipl(struct rom_header *rom, struct pnp_data *pnp)
-{
-    // Found a device that thinks it can boot the system.  Record
-    // its BEV and product name string.
-
-    if (! CONFIG_BOOT)
-        return;
-
-    if (IPL.count >= ARRAY_SIZE(IPL.table))
-        return;
-
-    struct ipl_entry_s *ip = &IPL.table[IPL.count];
-    ip->type = IPL_TYPE_BEV;
-    ip->vector = (FLATPTR_TO_SEG(rom) << 16) | pnp->bev;
-
-    u16 desc = pnp->productname;
-    if (desc)
-        ip->description = MAKE_FLATPTR(FLATPTR_TO_SEG(rom), desc);
-
-    IPL.count++;
-}
-
 // Copy a rom to its permanent location below 1MiB
 static struct rom_header *
 copy_rom(struct rom_header *rom)
@@ -349,7 +325,7 @@ optionrom_setup()
         // PnP rom.
         if (pnp->bev)
             // Can boot system - add to IPL list.
-            add_ipl(rom, pnp);
+            add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname);
         else
             // Check for BCV (there may be multiple).
             while (pnp && pnp->bcv) {

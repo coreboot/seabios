@@ -12,7 +12,7 @@ SRCBOTH=output.c util.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
         serial.c clock.c pic.c cdrom.c ps2port.c smpdetect.c resume.c \
         pnpbios.c pirtable.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c vgahooks.c font.c
-SRC32=$(SRCBOTH) post.c shadow.c post_menu.c memmap.c coreboot.c boot.c \
+SRC32=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \

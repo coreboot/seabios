@@ -165,3 +165,50 @@ memmove(void *d, const void *s, size_t len)
 
     return d;
 }
+
+// Wait for 'usec' microseconds with irqs enabled.
+static void
+usleep(u32 usec)
+{
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x86;
+    br.cx = usec >> 16;
+    br.dx = usec;
+    call16_int(0x15, &br);
+}
+
+// See if a keystroke is pending in the keyboard buffer.
+static int
+check_for_keystroke()
+{
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 1;
+    call16_int(0x16, &br);
+    return !(br.flags & F_ZF);
+}
+
+// Return a keystroke - waiting forever if necessary.
+static int
+get_raw_keystroke()
+{
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    call16_int(0x16, &br);
+    return br.ah;
+}
+
+// Read a keystroke - waiting up to 'msec' milliseconds.
+int
+get_keystroke(int msec)
+{
+    for (;;) {
+        if (check_for_keystroke())
+            return get_raw_keystroke();
+        if (msec <= 0)
+            return -1;
+        usleep(50*1000);
+        msec -= 50;
+    }
+}

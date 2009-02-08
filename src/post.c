@@ -149,45 +149,6 @@ init_bios_tables(void)
     acpi_bios_init();
 }
 
-static void
-init_boot_vectors()
-{
-    if (! CONFIG_BOOT)
-        return;
-    dprintf(3, "init boot device ordering\n");
-
-    memset(&IPL, 0, sizeof(IPL));
-
-    // Floppy drive
-    struct ipl_entry_s *ip = &IPL.table[0];
-    ip->type = IPL_TYPE_FLOPPY;
-    ip++;
-
-    // First HDD
-    ip->type = IPL_TYPE_HARDDISK;
-    ip++;
-
-    // CDROM
-    if (CONFIG_CDROM_BOOT) {
-        ip->type = IPL_TYPE_CDROM;
-        ip++;
-    }
-
-    IPL.count = ip - IPL.table;
-    SET_EBDA(boot_sequence, 0xffff);
-    if (CONFIG_COREBOOT) {
-        // XXX - hardcode defaults for coreboot.
-        IPL.bootorder = 0x00000231;
-        IPL.checkfloppysig = 1;
-    } else {
-        // On emulators, get boot order from nvram.
-        IPL.bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
-                         | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
-        if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
-            IPL.checkfloppysig = 1;
-    }
-}
-
 // Main setup code.
 static void
 post()
@@ -219,10 +180,10 @@ post()
     init_bios_tables();
     memmap_finalize();
 
+    boot_setup();
+
     floppy_drive_setup();
     hard_drive_setup();
-
-    init_boot_vectors();
 
     optionrom_setup();
 }

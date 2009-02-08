@@ -33,9 +33,8 @@ struct ipl_s {
 
 // boot.c
 extern struct ipl_s IPL;
-void printf_bootdev(u16 bootdev);
-
-// post_menu.c
+void boot_setup();
+void add_bev(u16 seg, u16 bev, u16 desc);
 void interactive_bootmenu();
 
 #endif // __BOOT_H
