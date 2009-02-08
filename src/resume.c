@@ -91,14 +91,14 @@ handle_resume(u8 status)
         break;
     }
 
-    BX_PANIC("Unimplemented shutdown status: %02x\n", status);
+    panic("Unimplemented shutdown status: %02x\n", status);
 }
 
 void VISIBLE32
 s3_resume()
 {
     if (!CONFIG_S3_RESUME)
-        BX_PANIC("S3 resume support not compiled in.\n");
+        panic("S3 resume support not compiled in.\n");
 
     dprintf(1, "In 32bit resume\n");
 

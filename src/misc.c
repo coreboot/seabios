@@ -58,7 +58,7 @@ void VISIBLE16
 handle_nmi()
 {
     debug_isr(DEBUG_ISR_nmi);
-    BX_PANIC("NMI Handler called\n");
+    panic("NMI Handler called\n");
 }
 
 void

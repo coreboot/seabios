@@ -145,5 +145,5 @@ memmap_finalize()
             , (100 * (bios_table_cur_addr - (u32)&BiosTableSpace)
                / CONFIG_MAX_BIOSTABLE));
     if (bios_table_cur_addr > bios_table_end_addr)
-        BX_PANIC("bios_table_end_addr overflow!\n");
+        panic("bios_table_end_addr overflow!\n");
 }

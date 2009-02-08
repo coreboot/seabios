@@ -217,14 +217,14 @@ static void
 do_boot(u16 seq_nr)
 {
     if (! CONFIG_BOOT)
-        BX_PANIC("Boot support not compiled in.\n");
+        panic("Boot support not compiled in.\n");
 
     u32 bootdev = IPL.bootorder;
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
 
     if (bootdev == 0)
-        BX_PANIC("No bootable device.\n");
+        panic("No bootable device.\n");
 
     /* Translate bootdev to an IPL table offset by subtracting 1 */
     bootdev -= 1;

@@ -224,7 +224,7 @@ bvprintf(u16 action, const char *fmt, va_list args)
 }
 
 void
-BX_PANIC(const char *fmt, ...)
+panic(const char *fmt, ...)
 {
     if (CONFIG_DEBUG_LEVEL) {
         va_list args;

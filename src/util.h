@@ -88,7 +88,7 @@ int get_keystroke(int msec);
 
 // output.c
 void debug_serial_setup();
-void BX_PANIC(const char *fmt, ...)
+void panic(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)))
     __attribute__ ((noreturn));
 void printf(const char *fmt, ...)
