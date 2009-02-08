@@ -166,6 +166,17 @@ memmove(void *d, const void *s, size_t len)
     return d;
 }
 
+// Copy a string - truncating it if necessary.
+char *
+strtcpy(char *dest, const char *src, size_t len)
+{
+    char *d = dest;
+    while (len-- && *src != '\0')
+        *d++ = *src++;
+    *d = '\0';
+    return dest;
+}
+
 // Wait for 'usec' microseconds with irqs enabled.
 static void
 usleep(u32 usec)
