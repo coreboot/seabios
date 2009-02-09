@@ -14,6 +14,7 @@
 #include "pci.h" // pci_find_class
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
+#include "boot.h" // add_bcv_hd
 #include "disk.h" // struct ata_s
 #include "atabits.h" // ATA_CB_STAT
 
@@ -504,128 +505,8 @@ ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
 
 
 /****************************************************************
- * ATA detect and init
+ * Disk geometry translation
  ****************************************************************/
-
-static void
-report_model(int driveid, u8 *buffer)
-{
-    u8 model[41];
-
-    // Read model name
-    int i;
-    for (i=0; i<40; i+=2) {
-        model[i] = buffer[i+54+1];
-        model[i+1] = buffer[i+54];
-    }
-
-    // Reformat
-    model[40] = 0x00;
-    for (i=39; i>0; i--) {
-        if (model[i] != 0x20)
-            break;
-        model[i] = 0x00;
-    }
-
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
-    // XXX - model on stack not %cs
-    printf("ata%d %s: %s", channel, slave ? " slave" : "master", model);
-}
-
-static u8
-get_ata_version(u8 *buffer)
-{
-    u16 ataversion = *(u16*)&buffer[160];
-    u8 version;
-    for (version=15; version>0; version--)
-        if (ataversion & (1<<version))
-            break;
-    return version;
-}
-
-static int
-init_drive_atapi(int driveid)
-{
-    // Send an IDENTIFY_DEVICE_PACKET command to device
-    u8 buffer[0x0200];
-    memset(buffer, 0, sizeof(buffer));
-    struct disk_op_s dop;
-    dop.driveid = driveid;
-    dop.command = ATA_CMD_IDENTIFY_DEVICE_PACKET;
-    dop.count = 1;
-    dop.lba = 1;
-    dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
-    int ret = ata_cmd_data(&dop);
-    if (ret)
-        return ret;
-
-    // Success - setup as ATAPI.
-    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
-
-    u8 type      = buffer[1] & 0x1f;
-    u8 removable = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-    u16 blksize  = CDROM_SECTOR_SIZE;
-
-    SET_GLOBAL(ATA.devices[driveid].device, type);
-    SET_GLOBAL(ATA.devices[driveid].removable, removable);
-    SET_GLOBAL(ATA.devices[driveid].mode, mode);
-    SET_GLOBAL(ATA.devices[driveid].blksize, blksize);
-
-    // fill cdidmap
-    u8 cdcount = GET_GLOBAL(ATA.cdcount);
-    SET_GLOBAL(ATA.idmap[1][cdcount], driveid);
-    SET_GLOBAL(ATA.cdcount, ++cdcount);
-
-    report_model(driveid, buffer);
-    u8 version = get_ata_version(buffer);
-    if (GET_GLOBAL(ATA.devices[driveid].device)==ATA_DEVICE_CDROM)
-        printf(" ATAPI-%d CD-Rom/DVD-Rom\n", version);
-    else
-        printf(" ATAPI-%d Device\n", version);
-
-    return 0;
-}
-
-static void
-fill_fdpt(int driveid)
-{
-    if (driveid > 1)
-        return;
-
-    u16 nlc   = GET_GLOBAL(ATA.devices[driveid].lchs.cylinders);
-    u16 nlh   = GET_GLOBAL(ATA.devices[driveid].lchs.heads);
-    u16 nlspt = GET_GLOBAL(ATA.devices[driveid].lchs.spt);
-
-    u16 npc   = GET_GLOBAL(ATA.devices[driveid].pchs.cylinders);
-    u16 nph   = GET_GLOBAL(ATA.devices[driveid].pchs.heads);
-    u16 npspt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
-
-    struct extended_bios_data_area_s *ebda = get_ebda_ptr();
-    ebda->fdpt[driveid].precompensation = 0xffff;
-    ebda->fdpt[driveid].drive_control_byte = 0xc0 | ((nph > 8) << 3);
-    ebda->fdpt[driveid].landing_zone = npc;
-    ebda->fdpt[driveid].cylinders = nlc;
-    ebda->fdpt[driveid].heads = nlh;
-    ebda->fdpt[driveid].sectors = nlspt;
-
-    if (nlc == npc && nlh == nph && nlspt == npspt)
-        // no logical CHS mapping used, just physical CHS
-        // use Standard Fixed Disk Parameter Table (FDPT)
-        return;
-
-    // complies with Phoenix style Translated Fixed Disk Parameter
-    // Table (FDPT)
-    ebda->fdpt[driveid].phys_cylinders = npc;
-    ebda->fdpt[driveid].phys_heads = nph;
-    ebda->fdpt[driveid].phys_sectors = npspt;
-    ebda->fdpt[driveid].a0h_signature = 0xa0;
-
-    // Checksum structure.
-    u8 sum = checksum((u8*)&ebda->fdpt[driveid], sizeof(ebda->fdpt[driveid])-1);
-    ebda->fdpt[driveid].checksum = -sum;
-}
 
 static u8
 get_translation(int driveid)
@@ -725,6 +606,87 @@ setup_translation(int driveid)
     SET_GLOBAL(ATA.devices[driveid].lchs.spt, spt);
 }
 
+
+/****************************************************************
+ * ATA detect and init
+ ****************************************************************/
+
+static void
+extract_model(int driveid, u8 *buffer)
+{
+    char *model = ATA.devices[driveid].model;
+    int maxsize = ARRAY_SIZE(ATA.devices[driveid].model);
+
+    // Read model name
+    int i;
+    for (i=0; i<maxsize; i+=2) {
+        model[i] = buffer[i+54+1];
+        model[i+1] = buffer[i+54];
+    }
+    model[maxsize-1] = 0x00;
+
+    // Trim trailing spaces
+    for (i=maxsize-2; i>0 && model[i] == 0x20; i--)
+        model[i] = 0x00;
+}
+
+static u8
+get_ata_version(u8 *buffer)
+{
+    u16 ataversion = *(u16*)&buffer[160];
+    u8 version;
+    for (version=15; version>0; version--)
+        if (ataversion & (1<<version))
+            break;
+    return version;
+}
+
+static int
+init_drive_atapi(int driveid)
+{
+    // Send an IDENTIFY_DEVICE_PACKET command to device
+    u8 buffer[0x0200];
+    memset(buffer, 0, sizeof(buffer));
+    struct disk_op_s dop;
+    dop.driveid = driveid;
+    dop.command = ATA_CMD_IDENTIFY_DEVICE_PACKET;
+    dop.count = 1;
+    dop.lba = 1;
+    dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
+    int ret = ata_cmd_data(&dop);
+    if (ret)
+        return ret;
+
+    // Success - setup as ATAPI.
+    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
+
+    u8 type      = buffer[1] & 0x1f;
+    u8 removable = (buffer[0] & 0x80) ? 1 : 0;
+    u8 mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u16 blksize  = CDROM_SECTOR_SIZE;
+
+    SET_GLOBAL(ATA.devices[driveid].device, type);
+    SET_GLOBAL(ATA.devices[driveid].removable, removable);
+    SET_GLOBAL(ATA.devices[driveid].mode, mode);
+    SET_GLOBAL(ATA.devices[driveid].blksize, blksize);
+
+    // fill cdidmap
+    u8 cdcount = GET_GLOBAL(ATA.cdcount);
+    SET_GLOBAL(ATA.idmap[1][cdcount], driveid);
+    SET_GLOBAL(ATA.cdcount, cdcount+1);
+
+    // Report drive info to user.
+    u8 channel = driveid / 2;
+    u8 slave = driveid % 2;
+    u8 version = get_ata_version(buffer);
+    extract_model(driveid, buffer);
+    printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
+           , ATA.devices[driveid].model, version
+           , type == ATA_DEVICE_CDROM ? "CD-Rom/DVD-Rom" : "Device");
+
+    return 0;
+}
+
 static int
 init_drive_ata(int driveid)
 {
@@ -770,23 +732,21 @@ init_drive_ata(int driveid)
     // Setup disk geometry translation.
     setup_translation(driveid);
 
-    // fill hdidmap
-    u8 hdcount = GET_BDA(hdcount);
-    SET_GLOBAL(ATA.idmap[0][hdcount], driveid);
-    SET_BDA(hdcount, ++hdcount);
-
-    // Fill "fdpt" structure.
-    fill_fdpt(driveid);
-
     // Report drive info to user.
-    u64 sizeinmb = GET_GLOBAL(ATA.devices[driveid].sectors) >> 11;
-    report_model(driveid, buffer);
+    u8 channel = driveid / 2;
+    u8 slave = driveid % 2;
     u8 version = get_ata_version(buffer);
+    extract_model(driveid, buffer);
+    char *model = ATA.devices[driveid].model;
+    printf("ata%d-%d: %s ATA-%d Hard-Disk ", channel, slave, model, version);
+    u64 sizeinmb = sectors >> 11;
     if (sizeinmb < (1 << 16))
-        printf(" ATA-%d Hard-Disk (%u MiBytes)\n", version, (u32)sizeinmb);
+        printf("(%u MiBytes)\n", (u32)sizeinmb);
     else
-        printf(" ATA-%d Hard-Disk (%u GiBytes)\n", version
-               , (u32)(sizeinmb >> 10));
+        printf("(%u GiBytes)\n", (u32)(sizeinmb >> 10));
+
+    // Register with bcv system.
+    add_bcv_hd(driveid, model);
 
     return 0;
 }
@@ -918,4 +878,63 @@ hard_drive_setup()
     SET_BDA(disk_control_byte, 0xc0);
 
     enable_hwirq(14, entry_76);
+}
+
+
+/****************************************************************
+ * Drive mapping
+ ****************************************************************/
+
+// Fill in Fixed Disk Parameter Table (located in ebda).
+static void
+fill_fdpt(int driveid)
+{
+    if (driveid > 1)
+        return;
+
+    u16 nlc   = GET_GLOBAL(ATA.devices[driveid].lchs.cylinders);
+    u16 nlh   = GET_GLOBAL(ATA.devices[driveid].lchs.heads);
+    u16 nlspt = GET_GLOBAL(ATA.devices[driveid].lchs.spt);
+
+    u16 npc   = GET_GLOBAL(ATA.devices[driveid].pchs.cylinders);
+    u16 nph   = GET_GLOBAL(ATA.devices[driveid].pchs.heads);
+    u16 npspt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
+
+    struct fdpt_s *fdpt = &get_ebda_ptr()->fdpt[driveid];
+    fdpt->precompensation = 0xffff;
+    fdpt->drive_control_byte = 0xc0 | ((nph > 8) << 3);
+    fdpt->landing_zone = npc;
+    fdpt->cylinders = nlc;
+    fdpt->heads = nlh;
+    fdpt->sectors = nlspt;
+
+    if (nlc == npc && nlh == nph && nlspt == npspt)
+        // no logical CHS mapping used, just physical CHS
+        // use Standard Fixed Disk Parameter Table (FDPT)
+        return;
+
+    // complies with Phoenix style Translated Fixed Disk Parameter
+    // Table (FDPT)
+    fdpt->phys_cylinders = npc;
+    fdpt->phys_heads = nph;
+    fdpt->phys_sectors = npspt;
+    fdpt->a0h_signature = 0xa0;
+
+    // Checksum structure.
+    u8 sum = checksum((u8*)fdpt, sizeof(*fdpt)-1);
+    fdpt->checksum = -sum;
+}
+
+// Map a drive (that was registered via add_bcv_hd)
+void
+map_drive(int driveid)
+{
+    // fill hdidmap
+    u8 hdcount = GET_BDA(hdcount);
+    dprintf(1, "Mapping driveid %d to %d\n", driveid, hdcount);
+    SET_GLOBAL(ATA.idmap[0][hdcount], driveid);
+    SET_BDA(hdcount, hdcount + 1);
+
+    // Fill "fdpt" structure.
+    fill_fdpt(hdcount);
 }

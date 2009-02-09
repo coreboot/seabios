@@ -171,6 +171,7 @@ void coreboot_fill_map();
 void handle_155f();
 
 // optionroms.c
+void call_bcv(u16 seg, u16 ip);
 void vga_setup();
 void optionrom_setup();
 

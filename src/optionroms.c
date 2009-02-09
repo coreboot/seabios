@@ -100,6 +100,13 @@ callrom(struct rom_header *rom, u16 offset, u16 bdf)
     debug_serial_setup();
 }
 
+// Execute a BCV option rom registered via add_bcv().
+void
+call_bcv(u16 seg, u16 ip)
+{
+    callrom(MAKE_FLATPTR(seg, 0), ip, 0);
+}
+
 // Verify that an option rom looks valid
 static int
 is_valid_rom(struct rom_header *rom)
@@ -318,8 +325,8 @@ optionrom_setup()
         pos += ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
         struct pnp_data *pnp = get_pnp_rom(rom);
         if (! pnp) {
-            // Legacy rom - run init vector now.
-            callrom(rom, OPTION_ROM_INITVECTOR, 0);
+            // Legacy rom.
+            add_bcv(FLATPTR_TO_SEG(rom), OPTION_ROM_INITVECTOR, 0);
             continue;
         }
         // PnP rom.
@@ -329,8 +336,7 @@ optionrom_setup()
         else
             // Check for BCV (there may be multiple).
             while (pnp && pnp->bcv) {
-                // Has BCV - run it now.
-                callrom(rom, pnp->bcv, 0);
+                add_bcv(FLATPTR_TO_SEG(rom), pnp->bcv, pnp->productname);
                 pnp = get_pnp_next(rom, pnp);
             }
     }

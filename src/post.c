@@ -203,8 +203,8 @@ _start()
     // Perform main setup code.
     post();
 
-    // Present the user with a bootup menu.
-    interactive_bootmenu();
+    // Run BCVs
+    boot_prep();
 
     // Setup bios checksum.
     BiosChecksum = -checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE - 1);

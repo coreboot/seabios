@@ -17,7 +17,7 @@ struct ipl_s IPL;
 
 
 /****************************************************************
- * IPL handlers
+ * IPL and BCV handlers
  ****************************************************************/
 
 void
@@ -30,7 +30,7 @@ boot_setup()
     memset(&IPL, 0, sizeof(IPL));
 
     // Floppy drive
-    struct ipl_entry_s *ie = &IPL.table[0];
+    struct ipl_entry_s *ie = &IPL.bev[0];
     ie->type = IPL_TYPE_FLOPPY;
     ie->description = "Floppy";
     ie++;
@@ -47,7 +47,8 @@ boot_setup()
         ie++;
     }
 
-    IPL.count = ie - IPL.table;
+    IPL.bevcount = ie - IPL.bev;
+    IPL.bcv_override = -1;
     SET_EBDA(boot_sequence, 0xffff);
     if (CONFIG_COREBOOT) {
         // XXX - hardcode defaults for coreboot.
@@ -66,30 +67,108 @@ boot_setup()
 void
 add_bev(u16 seg, u16 bev, u16 desc)
 {
-    // Found a device that thinks it can boot the system.  Record
-    // its BEV and product name string.
-
     if (! CONFIG_BOOT)
         return;
-
-    if (IPL.count >= ARRAY_SIZE(IPL.table))
+    if (IPL.bevcount >= ARRAY_SIZE(IPL.bev))
         return;
 
-    struct ipl_entry_s *ie = &IPL.table[IPL.count];
+    struct ipl_entry_s *ie = &IPL.bev[IPL.bevcount++];
     ie->type = IPL_TYPE_BEV;
     ie->vector = (seg << 16) | bev;
+    const char *d = "Unknown";
     if (desc)
-        ie->description = MAKE_FLATPTR(seg, desc);
+        d = MAKE_FLATPTR(seg, desc);
+    ie->description = d;
+}
 
-    IPL.count++;
+// Add a bcv entry for an expansion card harddrive or legacy option rom
+void
+add_bcv(u16 seg, u16 ip, u16 desc)
+{
+    if (! CONFIG_BOOT)
+        return;
+    if (IPL.bcvcount >= ARRAY_SIZE(IPL.bcv))
+        return;
+
+    struct ipl_entry_s *ie = &IPL.bcv[IPL.bcvcount++];
+    ie->type = IPL_TYPE_BEV;
+    ie->vector = (seg << 16) | ip;
+    const char *d = "Legacy option rom";
+    if (desc)
+        d = MAKE_FLATPTR(seg, desc);
+    ie->description = d;
+}
+
+// Add a bcv entry for an ata harddrive
+void
+add_bcv_hd(int driveid, const char *desc)
+{
+    if (! CONFIG_BOOT)
+        return;
+    if (IPL.bcvcount >= ARRAY_SIZE(IPL.bcv))
+        return;
+
+    struct ipl_entry_s *ie = &IPL.bcv[IPL.bcvcount++];
+    ie->type = IPL_TYPE_HARDDISK;
+    ie->vector = driveid;
+    ie->description = desc;
 }
 
 
 /****************************************************************
- * Boot menu
+ * Boot menu and BCV execution
  ****************************************************************/
 
-void
+// Show a generic menu item
+static int
+menu_show_default(struct ipl_entry_s *ie, int menupos)
+{
+    char desc[33];
+    printf("%d. %s\n", menupos
+           , strtcpy(desc, ie->description, ARRAY_SIZE(desc)));
+    return 1;
+}
+
+// Show floppy menu item - but only if there exists a floppy drive.
+static int
+menu_show_floppy(struct ipl_entry_s *ie, int menupos)
+{
+    if (!FloppyCount)
+        return 0;
+    return menu_show_default(ie, menupos);
+}
+
+// Show menu items from BCV list.
+static int
+menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
+{
+    int i;
+    for (i = 0; i < IPL.bcvcount; i++) {
+        struct ipl_entry_s *ie = &IPL.bcv[i];
+        switch (ie->type) {
+        case IPL_TYPE_HARDDISK:
+            printf("%d. ata%d-%d %s\n", menupos + i
+                   , ie->vector / 2, ie->vector %2, ie->description);
+            break;
+        default:
+            menu_show_default(ie, menupos+i);
+            break;
+        }
+    }
+    return IPL.bcvcount;
+}
+
+// Show cdrom menu item - but only if there exists a cdrom drive.
+static int
+menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
+{
+    if (!ATA.cdcount)
+        return 0;
+    return menu_show_default(ie, menupos);
+}
+
+// Show IPL option menu.
+static void
 interactive_bootmenu()
 {
     if (! CONFIG_BOOTMENU)
@@ -110,13 +189,28 @@ interactive_bootmenu()
 
     printf("Select boot device:\n\n");
 
-    int count = IPL.count;
+    int subcount[ARRAY_SIZE(IPL.bev)];
+    int menupos = 1;
     int i;
-    for (i = 0; i < count; i++) {
-        struct ipl_entry_s *ie = &IPL.table[i];
-        char desc[33];
-        printf("%d. %s\n", i+1
-               , strtcpy(desc, ie->description, ARRAY_SIZE(desc)));
+    for (i = 0; i < IPL.bevcount; i++) {
+        struct ipl_entry_s *ie = &IPL.bev[i];
+        int sc = 1;
+        switch (ie->type) {
+        case IPL_TYPE_FLOPPY:
+            sc = menu_show_floppy(ie, menupos);
+            break;
+        case IPL_TYPE_HARDDISK:
+            sc = menu_show_harddisk(ie, menupos);
+            break;
+        case IPL_TYPE_CDROM:
+            sc = menu_show_cdrom(ie, menupos);
+            break;
+        default:
+            sc = menu_show_default(ie, menupos);
+            break;
+        }
+        subcount[i] = sc;
+        menupos += sc;
     }
 
     for (;;) {
@@ -124,15 +218,60 @@ interactive_bootmenu()
         if (scan_code == 0x01)
             // ESC
             break;
-        if (scan_code >= 0 && scan_code <= count + 1) {
-            // Add user choice to the boot order.
-            u16 choice = scan_code - 1;
-            u32 bootorder = IPL.bootorder;
-            IPL.bootorder = (bootorder << 4) | choice;
-            break;
+        if (scan_code < 1 || scan_code > menupos)
+            continue;
+        int choice = scan_code - 1;
+
+        // Find out which IPL this was for.
+        int bev = 0;
+        while (choice > subcount[bev]) {
+            choice -= subcount[bev];
+            bev++;
         }
+
+        // A harddrive request enables a BCV order.
+        if (IPL.bev[bev].type == IPL_TYPE_HARDDISK)
+            IPL.bcv_override = choice-1;
+
+        // Add user choice to the boot order.
+        IPL.bootorder = (IPL.bootorder << 4) | (bev+1);
+        break;
     }
     printf("\n");
+}
+
+// Run the specified bcv.
+static void
+run_bcv(struct ipl_entry_s *ie)
+{
+    switch (ie->type) {
+    case IPL_TYPE_HARDDISK:
+        map_drive(ie->vector);
+        break;
+    case IPL_TYPE_BEV:
+        call_bcv(ie->vector >> 16, ie->vector & 0xffff);
+        break;
+    }
+}
+
+// Prepare for boot - show menu and run bcvs.
+void
+boot_prep()
+{
+    if (! CONFIG_BOOT)
+        return;
+
+    // Allow user to modify BCV/IPL order.
+    interactive_bootmenu();
+
+    // Run BCVs
+    int override = IPL.bcv_override;
+    if (override >= 0)
+        run_bcv(&IPL.bcv[override]);
+    int i;
+    for (i=0; i<IPL.bcvcount; i++)
+        if (i != override)
+            run_bcv(&IPL.bcv[i]);
 }
 
 
@@ -140,6 +279,7 @@ interactive_bootmenu()
  * Boot code (int 18/19)
  ****************************************************************/
 
+// Jump to a bootup entry point.
 static void
 call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 {
@@ -229,14 +369,14 @@ do_boot(u16 seq_nr)
     /* Translate bootdev to an IPL table offset by subtracting 1 */
     bootdev -= 1;
 
-    if (bootdev >= IPL.count) {
+    if (bootdev >= IPL.bevcount) {
         dprintf(1, "Invalid boot device (0x%x)\n", bootdev);
         goto fail;
     }
 
     /* Do the loading, and set up vector as a far pointer to the boot
      * address, and bootdrv as the boot drive */
-    struct ipl_entry_s *ie = &IPL.table[bootdev];
+    struct ipl_entry_s *ie = &IPL.bev[bootdev];
     char desc[33];
     printf("Booting from %s...\n"
            , strtcpy(desc, ie->description, ARRAY_SIZE(desc)));

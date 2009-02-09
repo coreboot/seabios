@@ -177,6 +177,8 @@ struct ata_device_s {
     u8  mode;         // transfer mode : PIO 16/32 bits - IRQ - ISADMA - PCIDMA
     u16 blksize;      // block size
 
+    char model[41];
+
     u8  translation;  // type of translation
     struct chs_s  lchs;         // Logical CHS
     struct chs_s  pchs;         // Physical CHS
@@ -210,8 +212,10 @@ int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *buf_fl);
 void ata_reset(int driveid);
 void hard_drive_setup();
+void map_drive(int driveid);
 
 // floppy.c
+extern u8 FloppyCount;
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_drive_setup();
 void floppy_13(struct bregs *regs, u8 drive);
