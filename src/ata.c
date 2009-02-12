@@ -612,16 +612,17 @@ setup_translation(int driveid)
  ****************************************************************/
 
 static void
-extract_model(int driveid, u8 *buffer)
+extract_model(int driveid, u16 *buffer)
 {
     char *model = ATA.devices[driveid].model;
     int maxsize = ARRAY_SIZE(ATA.devices[driveid].model);
 
     // Read model name
     int i;
-    for (i=0; i<maxsize; i+=2) {
-        model[i] = buffer[i+54+1];
-        model[i+1] = buffer[i+54];
+    for (i=0; i<maxsize/2; i++) {
+        u16 v = buffer[27+i];
+        model[i*2] = v >> 8;
+        model[i*2+1] = v & 0xff;
     }
     model[maxsize-1] = 0x00;
 
@@ -631,9 +632,9 @@ extract_model(int driveid, u8 *buffer)
 }
 
 static u8
-get_ata_version(u8 *buffer)
+get_ata_version(u16 *buffer)
 {
-    u16 ataversion = *(u16*)&buffer[160];
+    u16 ataversion = buffer[80];
     u8 version;
     for (version=15; version>0; version--)
         if (ataversion & (1<<version))
@@ -645,7 +646,7 @@ static int
 init_drive_atapi(int driveid)
 {
     // Send an IDENTIFY_DEVICE_PACKET command to device
-    u8 buffer[0x0200];
+    u16 buffer[256];
     memset(buffer, 0, sizeof(buffer));
     struct disk_op_s dop;
     dop.driveid = driveid;
@@ -660,9 +661,9 @@ init_drive_atapi(int driveid)
     // Success - setup as ATAPI.
     SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
 
-    u8 type      = buffer[1] & 0x1f;
+    u8 type      = (buffer[0] >> 8) & 0x1f;
     u8 removable = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode      = buffer[96] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u8 mode      = buffer[48] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
     u16 blksize  = CDROM_SECTOR_SIZE;
 
     SET_GLOBAL(ATA.devices[driveid].device, type);
@@ -691,7 +692,7 @@ static int
 init_drive_ata(int driveid)
 {
     // Send an IDENTIFY_DEVICE command to device
-    u8 buffer[0x0200];
+    u16 buffer[256];
     memset(buffer, 0, sizeof(buffer));
     struct disk_op_s dop;
     dop.driveid = driveid;
@@ -707,18 +708,18 @@ init_drive_ata(int driveid)
     SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATA);
 
     u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode       = buffer[48*2] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
+    u8 mode       = buffer[48] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
     u16 blksize   = IDE_SECTOR_SIZE;
 
-    u16 cylinders = *(u16*)&buffer[1*2]; // word 1
-    u16 heads     = *(u16*)&buffer[3*2]; // word 3
-    u16 spt       = *(u16*)&buffer[6*2]; // word 6
+    u16 cylinders = buffer[1];
+    u16 heads     = buffer[3];
+    u16 spt       = buffer[6];
 
     u64 sectors;
-    if (*(u16*)&buffer[83*2] & (1 << 10)) // word 83 - lba48 support
-        sectors = *(u64*)&buffer[100*2]; // word 100-103
+    if (buffer[83] & (1 << 10)) // word 83 - lba48 support
+        sectors = *(u64*)&buffer[100]; // word 100-103
     else
-        sectors = *(u32*)&buffer[60*2]; // word 60 and word 61
+        sectors = *(u32*)&buffer[60]; // word 60 and word 61
 
     SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
     SET_GLOBAL(ATA.devices[driveid].removable, removable);
