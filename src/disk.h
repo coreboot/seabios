@@ -176,6 +176,7 @@ struct ata_device_s {
     u8  removable;    // Removable device flag
     u8  mode;         // transfer mode : PIO 16/32 bits - IRQ - ISADMA - PCIDMA
     u16 blksize;      // block size
+    u8  version;      // ATA/ATAPI version
 
     char model[41];
 

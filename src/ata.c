@@ -611,13 +611,15 @@ setup_translation(int driveid)
  * ATA detect and init
  ****************************************************************/
 
+// Extract common information from IDENTIFY commands.
 static void
-extract_model(int driveid, u16 *buffer)
+extract_identify(int driveid, u16 *buffer)
 {
-    char *model = ATA.devices[driveid].model;
-    int maxsize = ARRAY_SIZE(ATA.devices[driveid].model);
+    dprintf(3, "Identify w0=%x w2=%x\n", buffer[0], buffer[2]);
 
     // Read model name
+    char *model = ATA.devices[driveid].model;
+    int maxsize = ARRAY_SIZE(ATA.devices[driveid].model);
     int i;
     for (i=0; i<maxsize/2; i++) {
         u16 v = buffer[27+i];
@@ -626,20 +628,23 @@ extract_model(int driveid, u16 *buffer)
     }
     model[maxsize-1] = 0x00;
 
-    // Trim trailing spaces
+    // Trim trailing spaces from model name.
     for (i=maxsize-2; i>0 && model[i] == 0x20; i--)
         model[i] = 0x00;
-}
 
-static u8
-get_ata_version(u16 *buffer)
-{
+    // Extract ATA/ATAPI version.
     u16 ataversion = buffer[80];
     u8 version;
     for (version=15; version>0; version--)
         if (ataversion & (1<<version))
             break;
-    return version;
+    ATA.devices[driveid].version = version;
+
+    // Common flags.
+    SET_GLOBAL(ATA.devices[driveid].removable, (buffer[0] & 0x80) ? 1 : 0);
+    // XXX - what is buffer[48]?
+    SET_GLOBAL(ATA.devices[driveid].mode
+               , buffer[48] ? ATA_MODE_PIO32 : ATA_MODE_PIO16);
 }
 
 static int
@@ -659,17 +664,10 @@ init_drive_atapi(int driveid)
         return ret;
 
     // Success - setup as ATAPI.
+    extract_identify(driveid, buffer);
     SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
-
-    u8 type      = (buffer[0] >> 8) & 0x1f;
-    u8 removable = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode      = buffer[48] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-    u16 blksize  = CDROM_SECTOR_SIZE;
-
-    SET_GLOBAL(ATA.devices[driveid].device, type);
-    SET_GLOBAL(ATA.devices[driveid].removable, removable);
-    SET_GLOBAL(ATA.devices[driveid].mode, mode);
-    SET_GLOBAL(ATA.devices[driveid].blksize, blksize);
+    SET_GLOBAL(ATA.devices[driveid].device, (buffer[0] >> 8) & 0x1f);
+    SET_GLOBAL(ATA.devices[driveid].blksize, CDROM_SECTOR_SIZE);
 
     // fill cdidmap
     u8 cdcount = GET_GLOBAL(ATA.cdcount);
@@ -679,11 +677,10 @@ init_drive_atapi(int driveid)
     // Report drive info to user.
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
-    u8 version = get_ata_version(buffer);
-    extract_model(driveid, buffer);
     printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
-           , ATA.devices[driveid].model, version
-           , type == ATA_DEVICE_CDROM ? "CD-Rom/DVD-Rom" : "Device");
+           , ATA.devices[driveid].model, ATA.devices[driveid].version
+           , (ATA.devices[driveid].type == ATA_DEVICE_CDROM
+              ? "CD-Rom/DVD-Rom" : "Device"));
 
     return 0;
 }
@@ -705,29 +702,20 @@ init_drive_ata(int driveid)
         return ret;
 
     // Success - setup as ATA.
+    extract_identify(driveid, buffer);
     SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATA);
+    SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
+    SET_GLOBAL(ATA.devices[driveid].blksize, IDE_SECTOR_SIZE);
 
-    u8 removable  = (buffer[0] & 0x80) ? 1 : 0;
-    u8 mode       = buffer[48] ? ATA_MODE_PIO32 : ATA_MODE_PIO16;
-    u16 blksize   = IDE_SECTOR_SIZE;
-
-    u16 cylinders = buffer[1];
-    u16 heads     = buffer[3];
-    u16 spt       = buffer[6];
+    SET_GLOBAL(ATA.devices[driveid].pchs.cylinders, buffer[1]);
+    SET_GLOBAL(ATA.devices[driveid].pchs.heads, buffer[3]);
+    SET_GLOBAL(ATA.devices[driveid].pchs.spt, buffer[6]);
 
     u64 sectors;
     if (buffer[83] & (1 << 10)) // word 83 - lba48 support
         sectors = *(u64*)&buffer[100]; // word 100-103
     else
         sectors = *(u32*)&buffer[60]; // word 60 and word 61
-
-    SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
-    SET_GLOBAL(ATA.devices[driveid].removable, removable);
-    SET_GLOBAL(ATA.devices[driveid].mode, mode);
-    SET_GLOBAL(ATA.devices[driveid].blksize, blksize);
-    SET_GLOBAL(ATA.devices[driveid].pchs.heads, heads);
-    SET_GLOBAL(ATA.devices[driveid].pchs.cylinders, cylinders);
-    SET_GLOBAL(ATA.devices[driveid].pchs.spt, spt);
     SET_GLOBAL(ATA.devices[driveid].sectors, sectors);
 
     // Setup disk geometry translation.
@@ -736,10 +724,9 @@ init_drive_ata(int driveid)
     // Report drive info to user.
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
-    u8 version = get_ata_version(buffer);
-    extract_model(driveid, buffer);
     char *model = ATA.devices[driveid].model;
-    printf("ata%d-%d: %s ATA-%d Hard-Disk ", channel, slave, model, version);
+    printf("ata%d-%d: %s ATA-%d Hard-Disk ", channel, slave, model
+           , ATA.devices[driveid].version);
     u64 sizeinmb = sectors >> 11;
     if (sizeinmb < (1 << 16))
         printf("(%u MiBytes)\n", (u32)sizeinmb);
@@ -934,7 +921,7 @@ map_drive(int driveid)
 {
     // fill hdidmap
     u8 hdcount = GET_BDA(hdcount);
-    dprintf(1, "Mapping driveid %d to %d\n", driveid, hdcount);
+    dprintf(3, "Mapping driveid %d to %d\n", driveid, hdcount);
     SET_GLOBAL(ATA.idmap[0][hdcount], driveid);
     SET_BDA(hdcount, hdcount + 1);
 
