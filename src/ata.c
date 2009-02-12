@@ -829,6 +829,8 @@ ata_init()
     foreachpci(bdf, max) {
         if (pci_config_readw(bdf, PCI_CLASS_DEVICE) != PCI_CLASS_STORAGE_IDE)
             continue;
+        if (count >= ARRAY_SIZE(ATA.channels))
+            break;
 
         u8 irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
         SET_GLOBAL(ATA.channels[count].irq, irq);
