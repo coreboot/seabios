@@ -299,16 +299,15 @@ cdemu_134b(struct bregs *regs)
 
 // Request SENSE
 static int
-atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
+atapi_get_sense(int device, u8 *asc, u8 *ascq)
 {
-    u8 buffer[18];
-    u8 atacmd[12];
+    u8 atacmd[12], buffer[18];
     memset(atacmd, 0, sizeof(atacmd));
     atacmd[0] = ATA_CMD_REQUEST_SENSE;
     atacmd[4] = sizeof(buffer);
     int ret = ata_cmd_packet(device, atacmd, sizeof(atacmd), sizeof(buffer)
                              , MAKE_FLATPTR(GET_SEG(SS), buffer));
-    if (ret != 0)
+    if (ret)
         return ret;
 
     *asc = buffer[12];
@@ -317,41 +316,55 @@ atapi_get_sense(u16 device, u8 *asc, u8 *ascq)
     return 0;
 }
 
+// Request capacity
+static int
+atapi_read_capacity(int device, u32 *blksize, u32 *sectors)
+{
+    u8 packet[12], buf[8];
+    memset(packet, 0, sizeof(packet));
+    packet[0] = 0x25; /* READ CAPACITY */
+    int ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
+                             , MAKE_FLATPTR(GET_SEG(SS), buf));
+    if (ret)
+        return ret;
+
+    *blksize = (((u32)buf[4] << 24) | ((u32)buf[5] << 16)
+                | ((u32)buf[6] << 8) | ((u32)buf[7] << 0));
+    *sectors = (((u32)buf[0] << 24) | ((u32)buf[1] << 16)
+                | ((u32)buf[2] << 8) | ((u32)buf[3] << 0));
+
+    return 0;
+}
+
 static int
 atapi_is_ready(u16 device)
 {
-    if (GET_GLOBAL(ATA.devices[device].type) != ATA_TYPE_ATAPI) {
-        printf("not implemented for non-ATAPI device\n");
-        return -1;
-    }
+    dprintf(6, "atapi_is_ready (device=%d)\n", device);
 
-    dprintf(6, "ata_detect_medium: begin\n");
-    u8 packet[12];
-    memset(packet, 0, sizeof(packet));
-    packet[0] = 0x25; /* READ CAPACITY */
-
-    /* Retry READ CAPACITY 50 times unless MEDIUM NOT PRESENT
-     * is reported by the device. If the device reports "IN PROGRESS",
+    /* Retry READ CAPACITY for 5 seconds unless MEDIUM NOT PRESENT is
+     * reported by the device.  If the device reports "IN PROGRESS",
      * 30 seconds is added. */
-    u8 buf[8];
-    u32 timeout = 5000;
-    u32 time = 0;
-    u8 in_progress = 0;
-    for (;; time+=100) {
-        if (time >= timeout) {
+    u32 blksize, sectors;
+    int in_progress = 0;
+    u64 end = calc_future_tsc(5000);
+    for (;;) {
+        if (rdtscll() > end) {
             dprintf(1, "read capacity failed\n");
             return -1;
         }
-        int ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
-                                 , MAKE_FLATPTR(GET_SEG(SS), buf));
-        if (ret == 0)
+
+        int ret = atapi_read_capacity(device, &blksize, &sectors);
+        if (!ret)
+            // Success
             break;
 
-        u8 asc=0, ascq=0;
+        u8 asc, ascq;
         ret = atapi_get_sense(device, &asc, &ascq);
-        if (!ret)
+        if (ret)
+            // Error - retry.
             continue;
 
+        // Sense succeeded.
         if (asc == 0x3a) { /* MEDIUM NOT PRESENT */
             dprintf(1, "Device reports MEDIUM NOT PRESENT\n");
             return -1;
@@ -361,25 +374,15 @@ atapi_is_ready(u16 device)
             /* IN PROGRESS OF BECOMING READY */
             printf("Waiting for device to detect medium... ");
             /* Allow 30 seconds more */
-            timeout = 30000;
+            end = calc_future_tsc(30000);
             in_progress = 1;
         }
     }
 
-    u32 block_len = (u32) buf[4] << 24
-        | (u32) buf[5] << 16
-        | (u32) buf[6] << 8
-        | (u32) buf[7] << 0;
-
-    if (block_len != GET_GLOBAL(ATA.devices[device].blksize)) {
-        printf("Unsupported sector size %u\n", block_len);
+    if (blksize != GET_GLOBAL(ATA.devices[device].blksize)) {
+        printf("Unsupported sector size %u\n", blksize);
         return -1;
     }
-
-    u32 sectors = (u32) buf[0] << 24
-        | (u32) buf[1] << 16
-        | (u32) buf[2] << 8
-        | (u32) buf[3] << 0;
 
     dprintf(6, "sectors=%u\n", sectors);
     printf("%dMB medium detected\n", sectors>>(20-11));
