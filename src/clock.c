@@ -15,10 +15,15 @@
 
 // RTC register flags
 #define RTC_A_UIP 0x80
-#define RTC_B_SET 0x80
-#define RTC_B_PIE 0x40
-#define RTC_B_AIE 0x20
-#define RTC_B_UIE 0x10
+
+#define RTC_B_SET  0x80
+#define RTC_B_PIE  0x40
+#define RTC_B_AIE  0x20
+#define RTC_B_UIE  0x10
+#define RTC_B_BIN  0x04
+#define RTC_B_24HR 0x02
+#define RTC_B_DSE  0x01
+
 
 // Bits for PORT_PS2_CTRLB
 #define PPCB_T2GATE (1<<0)
@@ -89,7 +94,7 @@ tscsleep(u64 diff)
 {
     u64 start = rdtscll();
     u64 end = start + diff;
-    while (rdtscll() < end)
+    while (rdtscll() <= end)
         cpu_relax();
 }
 
@@ -136,11 +141,11 @@ rtc_updating()
     // that this bit should be set is constrained to 244useconds, so
     // we wait for 1 msec max.
 
-    if ((inb_cmos(CMOS_STATUS_A) & 0x80) == 0)
+    if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
         return 0;
     u64 end = calc_future_tsc(1);
     do {
-        if ((inb_cmos(CMOS_STATUS_A) & 0x80) == 0)
+        if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
             return 0;
     } while (rdtscll() <= end);
 
@@ -158,6 +163,16 @@ pit_setup()
     outb(0x0, PORT_PIT_COUNTER0);
 }
 
+static void
+init_rtc()
+{
+    outb_cmos(0x26, CMOS_STATUS_A);       // 976.5625us updates
+    u8 regB = inb_cmos(CMOS_STATUS_B);
+    outb_cmos((regB & RTC_B_DSE) | RTC_B_24HR, CMOS_STATUS_B);
+    inb_cmos(CMOS_STATUS_C);
+    inb_cmos(CMOS_STATUS_D);
+}
+
 static u32
 bcd2bin(u8 val)
 {
@@ -171,6 +186,7 @@ timer_setup()
     calibrate_tsc();
     pit_setup();
 
+    init_rtc();
     rtc_updating();
     u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
     u32 ticks = (seconds * 18206507) / 1000000;
@@ -183,15 +199,6 @@ timer_setup()
 
     enable_hwirq(0, entry_08);
     enable_hwirq(8, entry_70);
-}
-
-static void
-init_rtc()
-{
-    outb_cmos(0x26, CMOS_STATUS_A);
-    outb_cmos(0x02, CMOS_STATUS_B);
-    inb_cmos(CMOS_STATUS_C);
-    inb_cmos(CMOS_STATUS_D);
 }
 
 
@@ -235,7 +242,7 @@ handle_1a02(struct bregs *regs)
     regs->dh = inb_cmos(CMOS_RTC_SECONDS);
     regs->cl = inb_cmos(CMOS_RTC_MINUTES);
     regs->ch = inb_cmos(CMOS_RTC_HOURS);
-    regs->dl = inb_cmos(CMOS_STATUS_B) & 0x01;
+    regs->dl = inb_cmos(CMOS_STATUS_B) & RTC_B_DSE;
     regs->ah = 0;
     regs->al = regs->ch;
     set_success(regs);
@@ -263,7 +270,8 @@ handle_1a03(struct bregs *regs)
     outb_cmos(regs->cl, CMOS_RTC_MINUTES);
     outb_cmos(regs->ch, CMOS_RTC_HOURS);
     // Set Daylight Savings time enabled bit to requested value
-    u8 val8 = (inb_cmos(CMOS_STATUS_B) & 0x60) | 0x02 | (regs->dl & 0x01);
+    u8 val8 = ((inb_cmos(CMOS_STATUS_B) & (RTC_B_PIE|RTC_B_AIE))
+               | RTC_B_24HR | (regs->dl & RTC_B_DSE));
     outb_cmos(val8, CMOS_STATUS_B);
     regs->ah = 0;
     regs->al = val8; // val last written to Reg B
@@ -282,7 +290,14 @@ handle_1a04(struct bregs *regs)
     regs->cl = inb_cmos(CMOS_RTC_YEAR);
     regs->dh = inb_cmos(CMOS_RTC_MONTH);
     regs->dl = inb_cmos(CMOS_RTC_DAY_MONTH);
-    regs->ch = inb_cmos(CMOS_CENTURY);
+    if (CONFIG_COREBOOT) {
+        if (regs->cl > 0x80)
+            regs->ch = 0x19;
+        else
+            regs->ch = 0x20;
+    } else {
+        regs->ch = inb_cmos(CMOS_CENTURY);
+    }
     regs->al = regs->ch;
     set_success(regs);
 }
@@ -309,7 +324,8 @@ handle_1a05(struct bregs *regs)
     outb_cmos(regs->cl, CMOS_RTC_YEAR);
     outb_cmos(regs->dh, CMOS_RTC_MONTH);
     outb_cmos(regs->dl, CMOS_RTC_DAY_MONTH);
-    outb_cmos(regs->ch, CMOS_CENTURY);
+    if (!CONFIG_COREBOOT)
+        outb_cmos(regs->ch, CMOS_CENTURY);
     // clear halt-clock bit
     u8 val8 = inb_cmos(CMOS_STATUS_B) & ~RTC_B_SET;
     outb_cmos(val8, CMOS_STATUS_B);
@@ -334,7 +350,7 @@ handle_1a06(struct bregs *regs)
     // My assumption: RegB = ((RegB & 01111111b) | 00100000b)
     u8 val8 = inb_cmos(CMOS_STATUS_B); // Get Status Reg B
     regs->ax = 0;
-    if (val8 & 0x20) {
+    if (val8 & RTC_B_AIE) {
         // Alarm interrupt enabled already
         set_fail(regs);
         return;
@@ -528,12 +544,12 @@ handle_70()
 
     if (!(registerB & (RTC_B_PIE|RTC_B_AIE)))
         goto done;
-    if (registerC & 0x20) {
+    if (registerC & RTC_B_AIE) {
         // Handle Alarm Interrupt.
         u32 eax=0, flags;
         call16_simpint(0x4a, &eax, &flags);
     }
-    if (!(registerC & 0x40))
+    if (!(registerC & RTC_B_PIE))
         goto done;
 
     // Handle Periodic Interrupt.
@@ -554,7 +570,7 @@ handle_70()
         clear_usertimer();
     } else {
         // Continue waiting.
-        time -= 0x3D1;
+        time -= 977;
         SET_BDA(user_wait_timeout, time);
     }
 

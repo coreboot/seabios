@@ -46,7 +46,7 @@ await_ide(u8 mask, u8 flags, u16 base, u16 timeout)
         u8 status = inb(base+ATA_CB_STAT);
         if ((status & mask) == flags)
             return status;
-        if (rdtscll() >= end) {
+        if (rdtscll() > end) {
             dprintf(1, "IDE time out\n");
             return -1;
         }
@@ -116,7 +116,7 @@ ata_reset(int driveid)
             if (inb(iobase1 + ATA_CB_DH) == ATA_CB_DH_DEV1)
                 break;
             // Change drive request failed to take effect - retry.
-            if (rdtscll() >= end) {
+            if (rdtscll() > end) {
                 dprintf(1, "ata_reset slave time out\n");
                 goto done;
             }

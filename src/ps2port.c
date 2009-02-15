@@ -152,7 +152,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
 {
     u64 end = calc_future_tsc(timeout);
     for (;;) {
-        if (rdtscll() >= end) {
+        if (rdtscll() > end) {
             dprintf(1, "ps2_recvbyte timeout\n");
             return -1;
         }
