@@ -101,18 +101,18 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
 
 // Sum the bytes in the specified area.
 u8
-checksum_far(u16 buf_seg, u8 *buf_far, u32 len)
+checksum_far(u16 buf_seg, void *buf_far, u32 len)
 {
     SET_SEG(ES, buf_seg);
     u32 i;
     u8 sum = 0;
     for (i=0; i<len; i++)
-        sum += GET_VAR(ES, buf_far[i]);
+        sum += GET_VAR(ES, ((u8*)buf_far)[i]);
     return sum;
 }
 
 u8
-checksum(u8 *buf, u32 len)
+checksum(void *buf, u32 len)
 {
     return checksum_far(GET_SEG(SS), buf, len);
 }

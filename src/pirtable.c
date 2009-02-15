@@ -100,6 +100,6 @@ create_pirtable()
     dprintf(3, "init PIR table\n");
 
     PIR_TABLE.pir.signature = PIR_SIGNATURE;
-    PIR_TABLE.pir.checksum = -checksum((u8*)&PIR_TABLE, sizeof(PIR_TABLE));
+    PIR_TABLE.pir.checksum = -checksum(&PIR_TABLE, sizeof(PIR_TABLE));
     PirOffset = (u32)&PIR_TABLE.pir - BUILD_BIOS_ADDR;
 }

@@ -911,7 +911,7 @@ fill_fdpt(int driveid)
     fdpt->a0h_signature = 0xa0;
 
     // Checksum structure.
-    u8 sum = checksum((u8*)fdpt, sizeof(*fdpt)-1);
+    u8 sum = checksum(fdpt, sizeof(*fdpt)-1);
     fdpt->checksum = -sum;
 }
 

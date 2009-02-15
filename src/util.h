@@ -67,8 +67,8 @@ static inline u64 rdtscll(void)
 
 // util.c
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
-u8 checksum_far(u16 buf_seg, u8 *buf_far, u32 len);
-u8 checksum(u8 *buf, u32 len);
+u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
+u8 checksum(void *buf, u32 len);
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 inline void memcpy_far(u16 d_seg, void *d_far

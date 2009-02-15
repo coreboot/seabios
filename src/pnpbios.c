@@ -99,5 +99,5 @@ pnp_setup()
 
     PNPHEADER.real_ip = (u32)entry_pnp_real - BUILD_BIOS_ADDR;
     PNPHEADER.prot_ip = (u32)entry_pnp_prot - BUILD_BIOS_ADDR;
-    PNPHEADER.checksum = -checksum((u8*)&PNPHEADER, sizeof(PNPHEADER));
+    PNPHEADER.checksum = -checksum(&PNPHEADER, sizeof(PNPHEADER));
 }
