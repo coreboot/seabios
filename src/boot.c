@@ -363,8 +363,12 @@ do_boot(u16 seq_nr)
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
 
-    if (bootdev == 0)
-        panic("No bootable device.\n");
+    if (bootdev == 0) {
+        printf("No bootable device.\n");
+        // Loop with irqs enabled - this allows ctrl+alt+delete to work.
+        for (;;)
+            usleep(1000000);
+    }
 
     /* Translate bootdev to an IPL table offset by subtracting 1 */
     bootdev -= 1;

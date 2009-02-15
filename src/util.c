@@ -178,7 +178,7 @@ strtcpy(char *dest, const char *src, size_t len)
 }
 
 // Wait for 'usec' microseconds with irqs enabled.
-static void
+void
 usleep(u32 usec)
 {
     struct bregs br;
