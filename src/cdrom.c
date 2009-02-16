@@ -389,21 +389,6 @@ atapi_is_ready(u16 device)
     return 0;
 }
 
-static int
-atapi_is_cdrom(u8 device)
-{
-    if (device >= CONFIG_MAX_ATA_DEVICES)
-        return 0;
-
-    if (GET_GLOBAL(ATA.devices[device].type) != ATA_TYPE_ATAPI)
-        return 0;
-
-    if (GET_GLOBAL(ATA.devices[device].device) != ATA_DEVICE_CDROM)
-        return 0;
-
-    return 1;
-}
-
 // Compare a string on the stack to one in the code segment.
 static int
 streq_cs(u8 *s1, char *cs_s2)
@@ -420,25 +405,23 @@ streq_cs(u8 *s1, char *cs_s2)
 }
 
 int
-cdrom_boot()
+cdrom_boot(int cdid)
 {
-    // Find out the first cdrom
-    u8 device;
-    for (device=0; device<CONFIG_MAX_ATA_DEVICES; device++)
-        if (atapi_is_cdrom(device))
-            break;
-    if (device >= CONFIG_MAX_ATA_DEVICES)
-        // cdrom not found
+    // Verify device is a cdrom.
+    if (cdid >= ATA.cdcount)
+        return 1;
+    int driveid = GET_GLOBAL(ATA.idmap[1][cdid]);
+    if (GET_GLOBAL(ATA.devices[driveid].device) != ATA_DEVICE_CDROM)
         return 2;
 
-    int ret = atapi_is_ready(device);
+    int ret = atapi_is_ready(driveid);
     if (ret)
         dprintf(1, "atapi_is_ready returned %d\n", ret);
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
     struct disk_op_s dop;
-    dop.driveid = device;
+    dop.driveid = driveid;
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
@@ -479,8 +462,8 @@ cdrom_boot()
     u8 media = buffer[0x21];
     SET_EBDA2(ebda_seg, cdemu.media, media);
 
-    SET_EBDA2(ebda_seg, cdemu.controller_index, device/2);
-    SET_EBDA2(ebda_seg, cdemu.device_spec, device%2);
+    SET_EBDA2(ebda_seg, cdemu.controller_index, driveid/2);
+    SET_EBDA2(ebda_seg, cdemu.device_spec, driveid%2);
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)
@@ -504,11 +487,7 @@ cdrom_boot()
 
     if (media == 0) {
         // No emulation requested - return success.
-
-        // FIXME ElTorito Hardcoded. cdrom is hardcoded as device 0xE0.
-        // Win2000 cd boot needs to know it booted from cd
-        SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0xE0);
-
+        SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0xE0 + cdid);
         return 0;
     }
 

@@ -230,6 +230,6 @@ void disk_13XX(struct bregs *regs, u8 device);
 void cdrom_13(struct bregs *regs, u8 device);
 void cdemu_13(struct bregs *regs);
 void cdemu_134b(struct bregs *regs);
-int cdrom_boot();
+int cdrom_boot(int cdid);
 
 #endif // disk.h

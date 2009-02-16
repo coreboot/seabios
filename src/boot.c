@@ -48,7 +48,6 @@ boot_setup()
     }
 
     IPL.bevcount = ie - IPL.bev;
-    IPL.bcv_override = -1;
     SET_EBDA(boot_sequence, 0xffff);
     if (CONFIG_COREBOOT) {
         // XXX - hardcode defaults for coreboot.
@@ -148,7 +147,7 @@ menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
         switch (ie->type) {
         case IPL_TYPE_HARDDISK:
             printf("%d. ata%d-%d %s\n", menupos + i
-                   , ie->vector / 2, ie->vector %2, ie->description);
+                   , ie->vector / 2, ie->vector % 2, ie->description);
             break;
         default:
             menu_show_default(ie, menupos+i);
@@ -162,9 +161,13 @@ menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
 static int
 menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
 {
-    if (!ATA.cdcount)
-        return 0;
-    return menu_show_default(ie, menupos);
+    int i;
+    for (i = 0; i < ATA.cdcount; i++) {
+        int driveid = ATA.idmap[1][i];
+        printf("%d. CD-Rom [ata%d-%d %s]\n", menupos + i
+               , driveid / 2, driveid % 2, ATA.devices[driveid].model);
+    }
+    return ATA.cdcount;
 }
 
 // Show IPL option menu.
@@ -229,9 +232,16 @@ interactive_bootmenu()
             bev++;
         }
 
-        // A harddrive request enables a BCV order.
-        if (IPL.bev[bev].type == IPL_TYPE_HARDDISK)
+        switch (IPL.bev[bev].type) {
+        case IPL_TYPE_HARDDISK:
+            // A harddrive request enables a BCV order.
             IPL.bcv_override = choice-1;
+            break;
+        case IPL_TYPE_CDROM:
+            // Select cdrom to boot from.
+            IPL.cdrom_override = choice-1;
+            break;
+        }
 
         // Add user choice to the boot order.
         IPL.bootorder = (IPL.bootorder << 4) | (bev+1);
@@ -266,7 +276,7 @@ boot_prep()
 
     // Run BCVs
     int override = IPL.bcv_override;
-    if (override >= 0)
+    if (override < IPL.bcvcount)
         run_bcv(&IPL.bcv[override]);
     int i;
     for (i=0; i<IPL.bcvcount; i++)
@@ -337,7 +347,7 @@ boot_cdrom()
 {
     if (! CONFIG_CDROM_BOOT)
         return;
-    int status = cdrom_boot();
+    int status = cdrom_boot(IPL.cdrom_override);
     if (status) {
         printf("Boot failed: Could not read from CDROM (code %04x)\n", status);
         return;

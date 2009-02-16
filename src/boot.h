@@ -18,7 +18,7 @@ struct ipl_s {
     struct ipl_entry_s bev[8];
     struct ipl_entry_s bcv[8];
     int bevcount, bcvcount;
-    int bcv_override;
+    int bcv_override, cdrom_override;
     u32 bootorder;
     int checkfloppysig;
 };
