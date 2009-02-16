@@ -138,12 +138,12 @@ rtc_updating()
     // If it is set, it tries to wait until there is a transition
     // to 0, and will return 0 if such a transition occurs.  A -1
     // is returned only after timing out.  The maximum period
-    // that this bit should be set is constrained to 244useconds, so
-    // we wait for 1 msec max.
+    // that this bit should be set is constrained to (1984+244)
+    // useconds, so we wait for 3 msec max.
 
     if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
         return 0;
-    u64 end = calc_future_tsc(1);
+    u64 end = calc_future_tsc(3);
     do {
         if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
             return 0;
@@ -166,7 +166,7 @@ pit_setup()
 static void
 init_rtc()
 {
-    outb_cmos(0x26, CMOS_STATUS_A);       // 976.5625us updates
+    outb_cmos(0x26, CMOS_STATUS_A);    // 32,768Khz src, 976.5625us updates
     u8 regB = inb_cmos(CMOS_STATUS_B);
     outb_cmos((regB & RTC_B_DSE) | RTC_B_24HR, CMOS_STATUS_B);
     inb_cmos(CMOS_STATUS_C);
