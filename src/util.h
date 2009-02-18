@@ -113,6 +113,7 @@ void __debug_isr(const char *fname);
     } while (0)
 #define debug_stub(regs)                        \
     __debug_stub((regs), __LINE__, __func__)
+void hexdump(void *d, int len);
 
 // kbd.c
 void kbd_setup();

@@ -257,6 +257,26 @@ printf(const char *fmt, ...)
     va_end(args);
 }
 
+void
+hexdump(void *d, int len)
+{
+    int count=0;
+    while (len) {
+        if (count % 8 == 0) {
+            putc(0, '\n');
+            puthex(0, count*4);
+            putc(0, ':');
+        } else {
+            putc(0, ' ');
+        }
+        puthex(0, *(u32*)d);
+        count++;
+        len-=4;
+        d+=4;
+    }
+    putc(0, '\n');
+}
+
 static void
 dump_regs(struct bregs *regs)
 {
