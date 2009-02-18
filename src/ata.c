@@ -679,7 +679,7 @@ init_drive_atapi(int driveid)
     u8 slave = driveid % 2;
     printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
            , ATA.devices[driveid].model, ATA.devices[driveid].version
-           , (ATA.devices[driveid].type == ATA_DEVICE_CDROM
+           , (ATA.devices[driveid].device == ATA_DEVICE_CDROM
               ? "CD-Rom/DVD-Rom" : "Device"));
 
     return 0;
