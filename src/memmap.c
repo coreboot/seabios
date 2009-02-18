@@ -126,6 +126,7 @@ add_e820(u64 start, u64 size, u32 type)
 void
 memmap_setup()
 {
+    memset(BiosTableSpace, 0, CONFIG_MAX_BIOSTABLE);
     bios_table_cur_addr = (u32)BiosTableSpace;
     bios_table_end_addr = bios_table_cur_addr + CONFIG_MAX_BIOSTABLE;
     dprintf(1, "bios_table_addr: 0x%08x end=0x%08x\n",
