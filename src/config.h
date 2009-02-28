@@ -25,12 +25,10 @@
 
 // Support for int13 floppy drive access
 #define CONFIG_FLOPPY_SUPPORT 1
-// Support for int15c2 mouse calls
-#define CONFIG_PS2_MOUSE 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
-// Support calling int155f on each keyboard event
-#define CONFIG_KBD_CALL_INT15_4F 1
+// Use 32bit PIO accesses on ATA (minor optimization on PCI transfers)
+#define CONFIG_ATA_PIO32 0
 // Support for booting from a CD
 #define CONFIG_CDROM_BOOT 1
 // Support for emulating a boot CD as a floppy/harddrive
@@ -49,6 +47,10 @@
 #define CONFIG_LPT 1
 // Support int 16 keyboard calls
 #define CONFIG_KEYBOARD 1
+// Support calling int155f on each keyboard event
+#define CONFIG_KBD_CALL_INT15_4F 1
+// Support for int15c2 mouse calls
+#define CONFIG_PS2_MOUSE 1
 // Support finding and running option roms during post.
 #define CONFIG_OPTIONROMS 1
 // Set if option roms are already copied to 0xc0000-0xf0000

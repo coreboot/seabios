@@ -452,7 +452,6 @@ disk_1348(struct bregs *regs, u8 device)
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
     u8 irq = GET_GLOBAL(ATA.channels[channel].irq);
-    u8 mode = GET_GLOBAL(ATA.devices[device].mode);
 
     u16 options = 0;
     if (type == ATA_TYPE_ATA) {
@@ -470,7 +469,7 @@ disk_1348(struct bregs *regs, u8 device)
         options |= 1<<6; // atapi device
     }
     options |= 1<<4; // lba translation
-    if (mode == ATA_MODE_PIO32)
+    if (CONFIG_ATA_PIO32)
         options |= 1<<7;
 
     SET_EBDA2(ebda_seg, dpte.iobase1, iobase1);

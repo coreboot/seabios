@@ -220,10 +220,10 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
 
 // Read and discard x number of bytes from an io channel.
 static void
-insx_discard(int mode, int iobase1, int bytes)
+insx_discard(int iobase1, int bytes)
 {
     int count, i;
-    if (mode == ATA_MODE_PIO32) {
+    if (CONFIG_ATA_PIO32) {
         count = bytes / 4;
         for (i=0; i<count; i++)
             inl(iobase1);
@@ -254,13 +254,12 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
     u8 channel  = driveid / 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
-    u8 mode     = GET_GLOBAL(ATA.devices[driveid].mode);
     int current = 0;
     int status;
     for (;;) {
         int bsize = blocksize;
         if (skipfirst && current == 0) {
-            insx_discard(mode, iobase1, skipfirst);
+            insx_discard(iobase1, skipfirst);
             bsize -= skipfirst;
         }
         if (skiplast && current == count-1)
@@ -269,14 +268,14 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
         if (iswrite) {
             // Write data to controller
             dprintf(16, "Write sector id=%d dest=%p\n", driveid, buf_fl);
-            if (mode == ATA_MODE_PIO32)
+            if (CONFIG_ATA_PIO32)
                 outsl_fl(iobase1, buf_fl, bsize / 4);
             else
                 outsw_fl(iobase1, buf_fl, bsize / 2);
         } else {
             // Read data from controller
             dprintf(16, "Read sector id=%d dest=%p\n", driveid, buf_fl);
-            if (mode == ATA_MODE_PIO32)
+            if (CONFIG_ATA_PIO32)
                 insl_fl(iobase1, buf_fl, bsize / 4);
             else
                 insw_fl(iobase1, buf_fl, bsize / 2);
@@ -284,7 +283,7 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
         buf_fl += bsize;
 
         if (skiplast && current == count-1)
-            insx_discard(mode, iobase1, skiplast);
+            insx_discard(iobase1, skiplast);
 
         status = pause_await_not_bsy(iobase1, iobase2);
         if (status < 0)
@@ -642,9 +641,6 @@ extract_identify(int driveid, u16 *buffer)
 
     // Common flags.
     SET_GLOBAL(ATA.devices[driveid].removable, (buffer[0] & 0x80) ? 1 : 0);
-    // XXX - what is buffer[48]?
-    SET_GLOBAL(ATA.devices[driveid].mode
-               , buffer[48] ? ATA_MODE_PIO32 : ATA_MODE_PIO16);
 }
 
 static int
