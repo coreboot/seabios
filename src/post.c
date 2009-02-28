@@ -16,6 +16,7 @@
 #include "pci.h" // create_pirtable
 #include "acpi.h" // acpi_bios_init
 #include "bregs.h" // struct bregs
+#include "mptable.h" // mptable_init
 #include "boot.h" // IPL
 
 void

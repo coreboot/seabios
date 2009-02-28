@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "pci.h" // struct pir_header
 #include "acpi.h" // struct rsdp_descriptor
+#include "mptable.h" // MPTABLE_SIGNATURE
 #include "biosvar.h" // GET_EBDA
 
 
@@ -42,7 +43,7 @@ static void
 copy_mptable(void *pos)
 {
     struct mptable_floating_s *p = pos;
-    if (p->signature != MPTABLE_SIGNAURE)
+    if (p->signature != MPTABLE_SIGNATURE)
         return;
     if (!p->physaddr)
         return;

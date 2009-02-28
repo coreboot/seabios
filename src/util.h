@@ -160,9 +160,6 @@ void smm_init();
 int smp_probe(void);
 void smp_probe_setup(void);
 
-// mptable.c
-void mptable_init(void);
-
 // smbios.c
 void smbios_init(void);
 

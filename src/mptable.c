@@ -8,43 +8,7 @@
 #include "util.h" // dprintf
 #include "memmap.h" // bios_table_cur_addr
 #include "config.h" // CONFIG_*
-
-static void putb(u8 **pp, int val)
-{
-    u8 *q;
-    q = *pp;
-    *q++ = val;
-    *pp = q;
-}
-
-static void putstr(u8 **pp, const char *str)
-{
-    u8 *q;
-    q = *pp;
-    while (*str)
-        *q++ = *str++;
-    *pp = q;
-}
-
-static void putle16(u8 **pp, int val)
-{
-    u8 *q;
-    q = *pp;
-    *q++ = val;
-    *q++ = val >> 8;
-    *pp = q;
-}
-
-static void putle32(u8 **pp, int val)
-{
-    u8 *q;
-    q = *pp;
-    *q++ = val;
-    *q++ = val >> 8;
-    *q++ = val >> 16;
-    *q++ = val >> 24;
-    *pp = q;
-}
+#include "mptable.h" // MPTABLE_SIGNATURE
 
 void
 mptable_init(void)
@@ -54,110 +18,88 @@ mptable_init(void)
 
     dprintf(3, "init MPTable\n");
 
-    u8 *mp_config_table, *q, *float_pointer_struct;
-    int ioapic_id, i, len;
-    int mp_config_table_size;
-
     int smp_cpus = smp_probe();
     if (smp_cpus <= 1)
         // Building an mptable on uniprocessor machines confuses some OSes.
         return;
 
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    mp_config_table = (u8 *)bios_table_cur_addr;
-    q = mp_config_table;
-    putstr(&q, "PCMP"); /* "PCMP signature */
-    putle16(&q, 0); /* table length (patched later) */
-    putb(&q, 4); /* spec rev */
-    putb(&q, 0); /* checksum (patched later) */
-    putstr(&q, CONFIG_CPUNAME8); /* OEM id */
-    putstr(&q, "0.1         "); /* vendor id */
-    putle32(&q, 0); /* OEM table ptr */
-    putle16(&q, 0); /* OEM table size */
-    putle16(&q, smp_cpus + 18); /* entry count */
-    putle32(&q, BUILD_APIC_ADDR); /* local APIC addr */
-    putle16(&q, 0); /* ext table length */
-    putb(&q, 0); /* ext table checksum */
-    putb(&q, 0); /* reserved */
+    u32 start = ALIGN(bios_table_cur_addr, 16);
+    int length = (sizeof(struct mptable_floating_s)
+                  + sizeof(struct mptable_config_s)
+                  + sizeof(struct mpt_cpu) * smp_cpus
+                  + sizeof(struct mpt_bus)
+                  + sizeof(struct mpt_ioapic)
+                  + sizeof(struct mpt_intsrc) * 16);
+    if (start + length > bios_table_end_addr) {
+        dprintf(1, "No room for MPTABLE!\n");
+        return;
+    }
 
-    for(i = 0; i < smp_cpus; i++) {
-        putb(&q, 0); /* entry type = processor */
-        putb(&q, i); /* APIC id */
-        putb(&q, 0x11); /* local APIC version number */
-        if (i == 0)
-            putb(&q, 3); /* cpu flags: enabled, bootstrap cpu */
-        else
-            putb(&q, 1); /* cpu flags: enabled */
-        putb(&q, 0); /* cpu signature */
-        putb(&q, 6);
-        putb(&q, 0);
-        putb(&q, 0);
-        putle16(&q, 0x201); /* feature flags */
-        putle16(&q, 0);
+    /* floating pointer structure */
+    struct mptable_floating_s *floating = (void*)start;
+    memset(floating, 0, sizeof(*floating));
+    struct mptable_config_s *config = (void*)&floating[1];
+    floating->signature = MPTABLE_SIGNATURE;
+    floating->physaddr = (u32)config;
+    floating->length = 1;
+    floating->spec_rev = 4;
+    floating->checksum = -checksum(floating, sizeof(*floating));
 
-        putle16(&q, 0); /* reserved */
-        putle16(&q, 0);
-        putle16(&q, 0);
-        putle16(&q, 0);
+    // Config structure.
+    memset(config, 0, sizeof(*config));
+    config->signature = MPCONFIG_SIGNATURE;
+    config->length = length - sizeof(*floating);
+    config->spec = 4;
+    memcpy(config->oemid, CONFIG_CPUNAME8, sizeof(config->oemid));
+    memcpy(config->productid, "0.1         ", sizeof(config->productid));
+    config->entrycount = smp_cpus + 2 + 16;
+    config->lapic = BUILD_APIC_ADDR;
+
+    // CPU definitions.
+    struct mpt_cpu *cpus = (void*)&config[1];
+    int i;
+    for (i = 0; i < smp_cpus; i++) {
+        struct mpt_cpu *cpu = &cpus[i];
+        memset(cpu, 0, sizeof(*cpu));
+        cpu->type = MPT_TYPE_CPU;
+        cpu->apicid = i;
+        cpu->apicver = 0x11;
+        /* cpu flags: enabled, bootstrap cpu */
+        cpu->cpuflag = (i == 0 ? 3 : 1);
+        cpu->cpufeature = 0x600;
+        cpu->featureflag = 0x201;
     }
 
     /* isa bus */
-    putb(&q, 1); /* entry type = bus */
-    putb(&q, 0); /* bus ID */
-    putstr(&q, "ISA   ");
+    struct mpt_bus *bus = (void*)&cpus[smp_cpus];
+    memset(bus, 0, sizeof(*bus));
+    bus->type = MPT_TYPE_BUS;
+    memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
 
     /* ioapic */
-    ioapic_id = smp_cpus;
-    putb(&q, 2); /* entry type = I/O APIC */
-    putb(&q, ioapic_id); /* apic ID */
-    putb(&q, 0x11); /* I/O APIC version number */
-    putb(&q, 1); /* enable */
-    putle32(&q, BUILD_IOAPIC_ADDR); /* I/O APIC addr */
+    u8 ioapic_id = smp_cpus;
+    struct mpt_ioapic *ioapic = (void*)&bus[1];
+    memset(ioapic, 0, sizeof(*ioapic));
+    ioapic->type = MPT_TYPE_IOAPIC;
+    ioapic->apicid = ioapic_id;
+    ioapic->apicver = 0x11;
+    ioapic->flags = 1; // enable
+    ioapic->apicaddr = BUILD_IOAPIC_ADDR;
 
     /* irqs */
+    struct mpt_intsrc *intsrcs = (void *)&ioapic[1];
     for(i = 0; i < 16; i++) {
-        putb(&q, 3); /* entry type = I/O interrupt */
-        putb(&q, 0); /* interrupt type = vectored interrupt */
-        putb(&q, 0); /* flags: po=0, el=0 */
-        putb(&q, 0);
-        putb(&q, 0); /* source bus ID = ISA */
-        putb(&q, i); /* source bus IRQ */
-        putb(&q, ioapic_id); /* dest I/O APIC ID */
-        putb(&q, i); /* dest I/O APIC interrupt in */
+        struct mpt_intsrc *isrc = &intsrcs[i];
+        memset(isrc, 0, sizeof(*isrc));
+        isrc->type = MPT_TYPE_INTSRC;
+        isrc->srcbusirq = i;
+        isrc->dstapic = ioapic_id;
+        isrc->dstirq = i;
     }
-    /* patch length */
-    len = q - mp_config_table;
-    mp_config_table[4] = len;
-    mp_config_table[5] = len >> 8;
 
-    mp_config_table[7] = -checksum(mp_config_table, q - mp_config_table);
+    // Set checksum.
+    config->checksum = -checksum(config, config->length);
 
-    mp_config_table_size = q - mp_config_table;
-
-    bios_table_cur_addr += mp_config_table_size;
-
-    /* floating pointer structure */
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    float_pointer_struct = (u8 *)bios_table_cur_addr;
-    q = float_pointer_struct;
-    putstr(&q, "_MP_");
-    /* pointer to MP config table */
-    putle32(&q, (unsigned long)mp_config_table);
-
-    putb(&q, 1); /* length in 16 byte units */
-    putb(&q, 4); /* MP spec revision */
-    putb(&q, 0); /* checksum (patched later) */
-    putb(&q, 0); /* MP feature byte 1 */
-
-    putb(&q, 0);
-    putb(&q, 0);
-    putb(&q, 0);
-    putb(&q, 0);
-    float_pointer_struct[10] = -checksum(float_pointer_struct
-                                         , q - float_pointer_struct);
-    bios_table_cur_addr += (q - float_pointer_struct);
-    dprintf(1, "MP table addr=0x%08lx MPC table addr=0x%08lx size=0x%x\n",
-            (unsigned long)float_pointer_struct,
-            (unsigned long)mp_config_table,
-            mp_config_table_size);
+    dprintf(1, "MP table addr=0x%x MPC table addr=0x%x size=0x%x\n",
+            (u32)floating, (u32)config, length);
 }
