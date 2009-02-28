@@ -314,38 +314,33 @@ floppy_media_sense(u8 drive)
     //    110 reserved
     //    111 all other formats/drives
 
-    u16 rv;
+    int rv = 0;
     u8 config_data, media_state;
     switch (GET_GLOBAL(FloppyTypes[drive])) {
     case 1:
         // 360K 5.25" drive
         config_data = 0x00; // 0000 0000
         media_state = 0x25; // 0010 0101
-        rv = 1;
         break;
     case 2:
         // 1.2 MB 5.25" drive
         config_data = 0x00; // 0000 0000
         media_state = 0x25; // 0010 0101   // need double stepping??? (bit 5)
-        rv = 1;
         break;
     case 3:
         // 720K 3.5" drive
         config_data = 0x00; // 0000 0000 ???
         media_state = 0x17; // 0001 0111
-        rv = 1;
         break;
     case 4:
         // 1.44 MB 3.5" drive
         config_data = 0x00; // 0000 0000
         media_state = 0x17; // 0001 0111
-        rv = 1;
         break;
     case 5:
         // 2.88 MB 3.5" drive
         config_data = 0xCC; // 1100 1100
         media_state = 0xD7; // 1101 0111
-        rv = 1;
         break;
     //
     // Extended floppy size uses special cmos setting
@@ -353,25 +348,22 @@ floppy_media_sense(u8 drive)
         // 160k 5.25" drive
         config_data = 0x00; // 0000 0000
         media_state = 0x27; // 0010 0111
-        rv = 1;
         break;
     case 7:
         // 180k 5.25" drive
         config_data = 0x00; // 0000 0000
         media_state = 0x27; // 0010 0111
-        rv = 1;
         break;
     case 8:
         // 320k 5.25" drive
         config_data = 0x00; // 0000 0000
         media_state = 0x27; // 0010 0111
-        rv = 1;
         break;
     default:
         // not recognized
         config_data = 0x00; // 0000 0000
         media_state = 0x00; // 0000 0000
-        rv = 0;
+        rv = -1;
     }
 
     SET_BDA(floppy_last_data_rate, config_data);
@@ -398,7 +390,7 @@ check_drive(struct bregs *regs, u8 drive)
 
     // Sense media.
     int ret = floppy_media_sense(drive);
-    if (!ret) {
+    if (ret) {
         floppy_ret(regs, DISK_RET_EMEDIA);
         return -1;
     }
