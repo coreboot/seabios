@@ -34,6 +34,7 @@ mptable_init(void)
         dprintf(1, "No room for MPTABLE!\n");
         return;
     }
+    bios_table_cur_addr = start + length;
 
     /* floating pointer structure */
     struct mptable_floating_s *floating = (void*)start;
