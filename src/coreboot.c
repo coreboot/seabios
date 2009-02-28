@@ -51,13 +51,20 @@ copy_mptable(void *pos)
         return;
     u32 length = p->length * 16;
     bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    if (bios_table_cur_addr + length > bios_table_end_addr) {
+    u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
+    if (bios_table_cur_addr + length + mpclength > bios_table_end_addr) {
         dprintf(1, "No room to copy MPTABLE!\n");
         return;
     }
-    dprintf(1, "Copying MPTABLE from %p to %x\n", pos, bios_table_cur_addr);
+    dprintf(1, "Copying MPTABLE from %p/%x to %x\n"
+            , pos, p->physaddr, bios_table_cur_addr);
     memcpy((void*)bios_table_cur_addr, pos, length);
-    bios_table_cur_addr += length;
+    struct mptable_floating_s *newp = (void*)bios_table_cur_addr;
+    newp->physaddr = bios_table_cur_addr + length;
+    newp->checksum = 0;
+    newp->checksum = -checksum(newp, sizeof(*newp));
+    memcpy((void*)bios_table_cur_addr + length, (void*)p->physaddr, mpclength);
+    bios_table_cur_addr += length + mpclength;
 }
 
 static void
