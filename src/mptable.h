@@ -16,7 +16,7 @@ struct mptable_floating_s {
     u8 reserved[3];
 };
 
-#define MPCONFIG_SIGNATURE 0x50434d50  // "PCMP"
+#define MPCONFIG_SIGNATURE 0x504d4350  // "PCMP"
 
 struct mptable_config_s {
     u32 signature;
