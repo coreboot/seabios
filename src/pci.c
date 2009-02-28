@@ -10,7 +10,6 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "pci_regs.h" // PCI_VENDOR_ID
-#include "farptr.h" // SET_VAR
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val)
 {
@@ -59,8 +58,15 @@ pci_next(int bdf, int *pmax)
 
     int max = *pmax;
     for (;;) {
-        if (bdf >= max)
-            return -1;
+        if (bdf >= max) {
+            if (CONFIG_PCI_ROOT1 && bdf <= (CONFIG_PCI_ROOT1 << 8))
+                bdf = CONFIG_PCI_ROOT1 << 8;
+            else if (CONFIG_PCI_ROOT2 && bdf <= (CONFIG_PCI_ROOT2 << 8))
+                bdf = CONFIG_PCI_ROOT2 << 8;
+            else
+            	return -1;
+            *pmax = max = bdf + 0x0100;
+        }
 
         u16 v = pci_config_readw(bdf, PCI_VENDOR_ID);
         if (v != 0x0000 && v != 0xffff)

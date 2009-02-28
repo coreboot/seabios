@@ -51,6 +51,10 @@
 #define CONFIG_KBD_CALL_INT15_4F 1
 // Support for int15c2 mouse calls
 #define CONFIG_PS2_MOUSE 1
+// If the target machine has multiple independent root buses, the
+// extra buses may be specified here.
+#define CONFIG_PCI_ROOT1 0x00
+#define CONFIG_PCI_ROOT2 0x00
 // Support finding and running option roms during post.
 #define CONFIG_OPTIONROMS 1
 // Set if option roms are already copied to 0xc0000-0xf0000
