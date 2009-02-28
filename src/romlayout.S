@@ -174,9 +174,11 @@ entry_post:
  ****************************************************************/
 
 // Place CPU into 32bit mode from 16bit mode.
-// Clobbers: %eax, flags, stack registers, cr0, idt/gdt
+// Clobbers: flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
 transition32:
+        pushl %eax
+
         // Disable irqs
         cli
 
@@ -207,11 +209,12 @@ transition32:
         movw %ax, %fs
         movw %ax, %gs
 
+        popl %eax
         retl
 
 // Call a 16bit function from 32bit mode.
 // %eax = address of struct bregs
-// Clobbers: all gp registers, flags, stack registers, cr0, idt/gdt
+// Clobbers: %e[bcd]x, %e[ds]i, flags, segment registers, idt/gdt
         DECLFUNC __call16_from32
         .global __call16big_from32
 __call16_from32:
@@ -278,10 +281,11 @@ __call16big_from32:
 
 // Call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs
-// Clobbers: all gp registers, es
+// Clobbers: %e[bcd]x, %e[ds]i, flags
         DECLFUNC __call16
 __call16:
-        // Save eax
+        // Save %eax, %ebp
+        pushl %ebp
         pushl %eax
 
         // Setup for iretw call
@@ -323,8 +327,9 @@ __call16:
         movl %ebx, BREGS_ebx(%eax)
         movl %edx, BREGS_edx(%eax)
 
-        // Remove %eax
+        // Remove %eax, restore %ebp
         popl %eax
+        popl %ebp
 
         cld
 
@@ -403,7 +408,7 @@ post32:
 
         .code16gcc
 
-        // IRQ trampolines
+// IRQ trampolines
         .macro IRQ_TRAMPOLINE num
         DECLFUNC irq_trampoline_0x\num
         irq_trampoline_0x\num :

@@ -22,7 +22,7 @@ call16(struct bregs *callregs)
 #endif
         : "+a" (callregs), "+m" (*callregs)
         :
-        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc", "memory");
+        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
 }
 
 inline void
@@ -36,7 +36,7 @@ call16big(struct bregs *callregs)
         "calll __call16big_from32\n"
         : "+a" (callregs), "+m" (*callregs)
         :
-        : "ebx", "ecx", "edx", "esi", "edi", "ebp", "cc", "memory");
+        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
 }
 
 inline void
