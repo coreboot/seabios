@@ -62,8 +62,8 @@ call16_simpint(int nr, u32 *eax, u32 *flags)
         "int %2\n"
         "pushfl\n"
         "popl %1\n"
-        "cld\n"
         "cli\n"
+        "cld\n"
         : "+a"(*eax), "=r"(*flags)
         : "i"(nr)
         : "cc", "memory");

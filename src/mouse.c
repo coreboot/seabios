@@ -313,8 +313,9 @@ process_mouse(u8 data)
 
     u32 func = GET_EBDA2(ebda_seg, far_call_pointer);
 
-    irq_enable();
     asm volatile(
+        "sti\n"
+
         "pushl %0\n"
         "pushw %w1\n"  // status
         "pushw %w2\n"  // X
@@ -322,12 +323,13 @@ process_mouse(u8 data)
         "pushw $0\n"   // Z
         "lcallw *8(%%esp)\n"
         "addl $12, %%esp\n"
+
+        "cli\n"
         "cld\n"
         :
         : "r"(func), "r"(status), "r"(X), "r"(Y)
         : "cc"
         );
-    irq_disable();
 }
 
 // INT74h : PS/2 mouse hardware interrupt

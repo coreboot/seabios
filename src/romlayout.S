@@ -28,6 +28,7 @@
         // call into C.  It sets up %ds, backs up %es, and backs up
         // those registers that are call clobbered by the C compiler.
         .macro ENTRY cfunc
+        cli         // In case something far-calls instead of using "int"
         cld
         pushl %eax              // Save registers clobbered by C code
         pushl %ecx
@@ -52,6 +53,7 @@
         // to point to the backup.  On return, the registers are
         // restored from the structure.
         .macro ENTRY_ARG cfunc
+        cli
         cld
         pushl %eax              // Save registers (matches struct bregs)
         pushl %ecx
@@ -80,6 +82,7 @@
 
         // As above, but don't mangle %esp
         .macro ENTRY_ARG_ESP cfunc
+        cli
         cld
         pushl %eax              // Save registers (matches struct bregs)
         pushl %ecx
@@ -103,13 +106,14 @@
         popl %eax
         .endm
 
-        // Macro to reset the 16bit stack
+        // Reset stack, transition to 32bit mode, and call a C function.
         // Clobbers %ax
-        .macro RESET_STACK
+        .macro ENTRY_INTO32 cfunc
         xorw %ax, %ax
         movw %ax, %ss
         movl $ BUILD_STACK_ADDR , %esp
-        cld
+        pushl $ \cfunc
+        jmp transition32
         .endm
 
         // Declare a function
@@ -125,10 +129,14 @@
 
         DECLFUNC entry_post
 entry_post:
-        // enable cache
+        // Enable cache
         movl %cr0, %eax
         andl $~(CR0_CD|CR0_NW), %eax
         movl %eax, %cr0
+
+        // Disable interrupts
+        cli
+        cld
 
         // Check for restart indicator.
         movl $CMOS_RESET_CODE, %eax
@@ -138,9 +146,7 @@ entry_post:
         jnz 1f
 
         // Normal entry point
-        RESET_STACK
-        pushl $_code32__start
-        jmp transition32
+        ENTRY_INTO32 _code32__start
 
         // Entry point when a post call looks like a resume.
 1:
@@ -164,8 +170,6 @@ entry_post:
 
         // Call handler.
         movl %ebx, %eax
-        cld
-        cli
         jmp handle_resume
 
 
@@ -175,12 +179,10 @@ entry_post:
 
 // Place CPU into 32bit mode from 16bit mode.
 // Clobbers: flags, segment registers, cr0, idt/gdt
+// Require: interrupts must be disabled
         DECLFUNC transition32
 transition32:
         pushl %eax
-
-        // Disable irqs
-        cli
 
         // enable a20
         inb $PORT_A20, %al
@@ -331,6 +333,7 @@ __call16:
         popl %eax
         popl %ebp
 
+        cli
         cld
 
         retl
@@ -432,7 +435,6 @@ post32:
         .macro IRQ_ENTRY num
         .global entry_\num
         entry_\num :
-        cli         // In case something far-calls instead of using "int"
         ENTRY handle_\num
         iretw
         .endm
@@ -441,7 +443,6 @@ post32:
         .macro IRQ_ENTRY_ARG num
         .global entry_\num
         entry_\num :
-        cli         // In case something far-calls instead of using "int"
         ENTRY_ARG handle_\num
         iretw
         .endm
@@ -466,18 +467,18 @@ post32:
         DECL_IRQ_ENTRY hwpic1
         DECL_IRQ_ENTRY hwpic2
 
-        // int 18/19 are special - they reset the stack and do not return.
+        // int 18/19 are special - they reset stack and call into 32bit mode.
         DECLFUNC entry_19
 entry_19:
-        RESET_STACK
-        pushl $_code32_handle_19
-        jmp transition32
+        cli
+        cld
+        ENTRY_INTO32 _code32_handle_19
 
         DECLFUNC entry_18
 entry_18:
-        RESET_STACK
-        pushl $_code32_handle_18
-        jmp transition32
+        cli
+        cld
+        ENTRY_INTO32 _code32_handle_18
 
 
 /****************************************************************
