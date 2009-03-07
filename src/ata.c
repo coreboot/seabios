@@ -68,7 +68,7 @@ await_rdy(u16 base)
 }
 
 // Wait for ide state - pauses for one ata cycle first.
-static __always_inline int
+static inline int
 pause_await_not_bsy(u16 iobase1, u16 iobase2)
 {
     // Wait one PIO transfer cycle.
@@ -78,7 +78,7 @@ pause_await_not_bsy(u16 iobase1, u16 iobase2)
 }
 
 // Wait for ide state - pause for 400ns first.
-static __always_inline int
+static inline int
 ndelay_await_not_bsy(u16 iobase1)
 {
     ndelay(400);
@@ -349,7 +349,7 @@ ata_transfer_cdemu(const struct disk_op_s *op, int before, int after)
  * ATA hard drive functions
  ****************************************************************/
 
-static noinline int
+static int
 send_cmd_disk(const struct disk_op_s *op)
 {
     u64 lba = op->lba;
@@ -379,7 +379,7 @@ send_cmd_disk(const struct disk_op_s *op)
 }
 
 // Read/write count blocks from a harddrive.
-__always_inline int
+int
 ata_cmd_data(struct disk_op_s *op)
 {
     int ret = send_cmd_disk(op);
@@ -394,7 +394,7 @@ ata_cmd_data(struct disk_op_s *op)
  ****************************************************************/
 
 // Low-level atapi command transmit function.
-static __always_inline int
+static int
 send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 {
     u8 channel = driveid / 2;
@@ -454,7 +454,7 @@ send_cmd_cdrom(const struct disk_op_s *op)
 }
 
 // Read sectors from the cdrom.
-__always_inline int
+int
 cdrom_read(struct disk_op_s *op)
 {
     int ret = send_cmd_cdrom(op);
@@ -466,7 +466,7 @@ cdrom_read(struct disk_op_s *op)
 
 // Pretend the cdrom has 512 byte sectors (instead of 2048) and read
 // sectors.
-__always_inline int
+int
 cdrom_read_512(struct disk_op_s *op)
 {
     u32 vlba = op->lba;
