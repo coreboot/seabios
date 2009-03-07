@@ -47,6 +47,7 @@ init_ivt()
         set_irq(i, entry_hwpic2);
 
     // Initialize software handlers.
+    set_irq(0x02, entry_02);
     set_irq(0x10, entry_10);
     set_irq(0x11, entry_11_official);
     set_irq(0x12, entry_12_official);

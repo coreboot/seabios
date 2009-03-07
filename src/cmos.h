@@ -56,6 +56,7 @@
 static inline u8
 inb_cmos(u8 reg)
 {
+    reg |= NMI_DISABLE_BIT;
     outb(reg, PORT_CMOS_INDEX);
     return inb(PORT_CMOS_DATA);
 }
@@ -63,6 +64,7 @@ inb_cmos(u8 reg)
 static inline void
 outb_cmos(u8 val, u8 reg)
 {
+    reg |= NMI_DISABLE_BIT;
     outb(reg, PORT_CMOS_INDEX);
     outb(val, PORT_CMOS_DATA);
 }

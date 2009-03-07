@@ -54,11 +54,11 @@ handle_10(struct bregs *regs)
     // dont do anything, since the VGA BIOS handles int10h requests
 }
 
+// NMI handler
 void VISIBLE16
-handle_nmi()
+handle_02()
 {
-    debug_isr(DEBUG_ISR_nmi);
-    panic("NMI Handler called\n");
+    debug_isr(DEBUG_ISR_02);
 }
 
 void

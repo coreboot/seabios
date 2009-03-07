@@ -139,7 +139,7 @@ entry_post:
         cld
 
         // Check for restart indicator.
-        movl $CMOS_RESET_CODE, %eax
+        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
         outb %al, $PORT_CMOS_INDEX
         inb $PORT_CMOS_DATA, %al
         cmpb $0x0, %al
@@ -154,7 +154,7 @@ entry_post:
         movl %eax, %ebx
 
         // Clear shutdown status register.
-        movl $CMOS_RESET_CODE, %eax
+        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
         outb %al, $PORT_CMOS_INDEX
         xorl %eax, %eax
         outb %al, $PORT_CMOS_DATA
@@ -192,6 +192,11 @@ transition32:
         // Set segment descriptors
         lidtw %cs:pmode_IDT_info
         lgdtw %cs:rombios32_gdt_48
+
+        // Disable nmi
+        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
+        outb %al, $PORT_CMOS_INDEX
+        inb $PORT_CMOS_DATA, %al
 
         // Enable protected mode
         movl %cr0, %eax
@@ -495,7 +500,7 @@ entry_post_official:
         jmp entry_post
 
         ORG 0xe2c3
-        IRQ_ENTRY nmi
+        IRQ_ENTRY 02
 
         ORG 0xe3fe
         .global entry_13_official

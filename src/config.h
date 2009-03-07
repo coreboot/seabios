@@ -130,7 +130,7 @@
 // Debugging levels.  If non-zero and CONFIG_DEBUG_LEVEL is greater
 // than the specified value, then the corresponding irq handler will
 // report every enter event.
-#define DEBUG_ISR_nmi 1
+#define DEBUG_ISR_02 1
 #define DEBUG_HDL_05 1
 #define DEBUG_ISR_08 20
 #define DEBUG_ISR_09 9

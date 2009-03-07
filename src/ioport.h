@@ -51,6 +51,9 @@
 // PORT_A20 bitdefs
 #define A20_ENABLE_BIT 0x02
 
+// PORT_CMOS_INDEX nmi disable bit
+#define NMI_DISABLE_BIT 0x80
+
 #ifndef __ASSEMBLY__
 
 #include "types.h" // u8
