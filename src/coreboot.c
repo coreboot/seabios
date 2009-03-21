@@ -143,6 +143,14 @@ struct cb_memory {
 #define MEM_RANGE_COUNT(_rec) \
         (((_rec)->size - sizeof(*(_rec))) / sizeof((_rec)->map[0]))
 
+struct cb_forward {
+    u32 tag;
+    u32 size;
+    u64 forward;
+};
+
+#define CB_TAG_FORWARD 0x11
+
 static u16
 ipchksum(char *buf, int count)
 {
@@ -209,6 +217,14 @@ coreboot_fill_map()
     struct cb_header *cbh = find_cb_header(0, 0x1000);
     if (!cbh)
         goto fail;
+    struct cb_forward *cbf = find_cb_subtable(cbh, CB_TAG_FORWARD);
+    if (cbf) {
+        dprintf(3, "Found coreboot table forwarder.\n");
+        cbh = find_cb_header((char *)((u32)cbf->forward), 0x100);
+        if (!cbh)
+            goto fail;
+    }
+    dprintf(3, "Now attempting to find coreboot memory map\n");
     struct cb_memory *cbm = find_cb_subtable(cbh, CB_TAG_MEMORY);
     if (!cbm)
         goto fail;
