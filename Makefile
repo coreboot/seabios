@@ -20,7 +20,7 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 
 # Default compiler flags
 COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
-               -mpreferred-stack-boundary=2 -mrtd \
+               -mpreferred-stack-boundary=2 -mrtd -freg-struct-return \
                -ffreestanding -fwhole-program -fomit-frame-pointer \
                -fno-delete-null-pointer-checks -Wno-strict-aliasing
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
@@ -54,8 +54,13 @@ vpath %.S src
 
 ################ Build rules
 
+TESTGCC:=$(shell CC=$(CC) tools/test-gcc.sh)
+ifeq "$(TESTGCC)" "-1"
+$(error "Please upgrade GCC")
+endif
+
 ifndef AVOIDCOMBINE
-AVOIDCOMBINE=$(shell CC=$(CC) tools/test-combine.sh)
+AVOIDCOMBINE=$(TESTGCC)
 endif
 
 # Do a whole file compile - two methods are supported.  The first
