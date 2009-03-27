@@ -9,7 +9,7 @@ TMPFILE2o=out/tmp_testcompile2.o
 TMPFILE3o=out/tmp_testcompile3.o
 
 # Test for "-fwhole-program"
-gcc -fwhole-program -S -o /dev/null -xc /dev/null > /dev/null 2>&1
+$CC -fwhole-program -S -o /dev/null -xc /dev/null > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "This version of gcc does not support -fwhole-program." > /dev/fd/2
     echo "Please upgrade to gcc v4.1 or later" > /dev/fd/2
