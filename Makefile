@@ -102,7 +102,7 @@ $(OUT)ccode32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),
 
 $(OUT)rom32.o: $(OUT)ccode32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -d -T $(OUT)rombios32.lds $< -o $@
+	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
 
 $(OUT)romlayout.lds: $(OUT)romlayout16.o
 	@echo "  Building layout information $@"

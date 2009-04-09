@@ -16,5 +16,5 @@ SECTIONS
                 *(.text16)
                 final_code16_end = . ;
                 }
-        /DISCARD/ : { *(.discard*) }
+        /DISCARD/ : { *(.discard*) *(.eh_frame) }
 }

@@ -8,17 +8,17 @@
 
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH("i386")
+FORCE_COMMON_ALLOCATION
 SECTIONS
 {
-        . = BUILD_BIOS_ADDR ;
-        code32_start = . ;
-        .text : {
+        .text BUILD_BIOS_ADDR : {
+                code32_start = ABSOLUTE(.) ;
                 *(.text)
                 code32_rodata = . ;
                 *(.rodata*)
                 *(.data)
                 *(.bss)
                 *(COMMON)
+                code32_end = ABSOLUTE(.) ;
                 }
-        code32_end = . ;
 }
