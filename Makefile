@@ -29,6 +29,7 @@ COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 override CFLAGS = $(COMMONCFLAGS) -g -DMODE16=0
 CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -fno-jump-tables -fno-defer-pop \
+              $(call cc-option,$(CC),-fno-tree-switch-conversion,) \
               $(call cc-option,$(CC),--param large-stack-frame=4,)
 CFLAGS16INC += -ffunction-sections -fdata-sections
 CFLAGS16 = $(CFLAGS16INC) -g
