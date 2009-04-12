@@ -117,6 +117,20 @@ checksum(void *buf, u32 len)
     return checksum_far(GET_SEG(SS), buf, len);
 }
 
+// Compare two strings.
+int
+streq(char *s1, char *s2)
+{
+    for (;;) {
+        if (*s1 != *s2)
+            return 0;
+        if (! *s1)
+            return 1;
+        s1++;
+        s2++;
+    }
+}
+
 void *
 memset(void *s, int c, size_t n)
 {

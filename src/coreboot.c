@@ -204,7 +204,7 @@ find_cb_subtable(struct cb_header *cbh, u32 tag)
 }
 
 // Populate max ram and e820 map info by scanning for a coreboot table.
-void
+static void
 coreboot_fill_map()
 {
     dprintf(3, "Attempting to find coreboot table\n");
@@ -269,4 +269,130 @@ fail:
     RamSizeOver4G = 0;
     add_e820(0, 16*1024*1024, E820_RAM);
     return;
+}
+
+
+/****************************************************************
+ * Coreboot flash format
+ ****************************************************************/
+
+// XXX - optimize
+#define ntohl(x) ((((x)&0xff)<<24) | (((x)&0xff00)<<8) | \
+                  (((x)&0xff0000) >> 8) | (((x)&0xff000000) >> 24))
+#define htonl(x) ntohl(x)
+
+#define CBFS_HEADER_MAGIC 0x4F524243
+#define CBFS_HEADPTR_ADDR 0xFFFFFFFc
+#define CBFS_VERSION1 0x31313131
+
+struct cbfs_header {
+    u32 magic;
+    u32 version;
+    u32 romsize;
+    u32 bootblocksize;
+    u32 align;
+    u32 offset;
+    u32 pad[2];
+} PACKED;
+
+static struct cbfs_header *CBHDR;
+
+static void
+cbfs_setup()
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return;
+
+    CBHDR = *(void **)CBFS_HEADPTR_ADDR;
+    if (CBHDR->magic != htonl(CBFS_HEADER_MAGIC)) {
+        dprintf(1, "Unable to find CBFS (got %x not %x)\n"
+                , CBHDR->magic, htonl(CBFS_HEADER_MAGIC));
+        CBHDR = NULL;
+        return;
+    }
+
+    dprintf(1, "Found CBFS header at %p\n", CBHDR);
+}
+
+#define CBFS_FILE_MAGIC 0x455649484352414cLL // LARCHIVE
+
+struct cbfs_file {
+    u64 magic;
+    u32 len;
+    u32 type;
+    u32 checksum;
+    u32 offset;
+} PACKED;
+
+static struct cbfs_file *
+cbfs_find(char *fname)
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return NULL;
+    if (! CBHDR)
+        return NULL;
+
+    dprintf(3, "Searching CBFS for %s\n", fname);
+
+    struct cbfs_file *file = (void *)(0 - ntohl(CBHDR->romsize) + ntohl(CBHDR->offset));
+    for (;;) {
+        if (file < (struct cbfs_file *)(0xFFFFFFFF - ntohl(CBHDR->romsize)))
+            return NULL;
+        if (file->magic != CBFS_FILE_MAGIC) {
+            file = (void*)file + ntohl(CBHDR->align);
+            continue;
+        }
+
+        dprintf(3, "Found CBFS file %s\n", (char*)file + sizeof(*file));
+        if (streq(fname, (char*)file + sizeof(*file)))
+            return file;
+        file = (void*)file + ALIGN(ntohl(file->len) + ntohl(file->offset), ntohl(CBHDR->align));
+    }
+}
+
+static char
+getHex(u8 x)
+{
+    if (x <= 9)
+        return '0' + x;
+    return 'a' + x - 10;
+}
+
+static u32
+hexify4(u16 x)
+{
+    return ((getHex(x&0xf) << 24)
+            | (getHex((x>>4)&0xf) << 16)
+            | (getHex((x>>8)&0xf) << 8)
+            | (getHex(x>>12)));
+}
+
+void *
+cb_find_optionrom(u32 vendev)
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return NULL;
+
+    char fname[17];
+    // Ughh - poor man's sprintf of "pci%04x,%04x.rom"
+    *(u32*)fname = 0x20696370; // "pci"
+    *(u32*)&fname[3] = hexify4(vendev);
+    fname[7] = ',';
+    *(u32*)&fname[8] = hexify4(vendev >> 16);
+    *(u32*)&fname[12] = 0x6d6f722e; // ".rom"
+    fname[16] = '\0';
+
+    struct cbfs_file *file = cbfs_find(fname);
+    if (!file)
+        return NULL;
+    // Found it.
+    dprintf(3, "Found rom at %p\n", (void*)file + ntohl(file->offset));
+    return (void*)file + ntohl(file->offset);
+}
+
+void
+coreboot_setup(void)
+{
+    coreboot_fill_map();
+    cbfs_setup();
 }

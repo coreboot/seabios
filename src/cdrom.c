@@ -192,7 +192,7 @@ cdemu_1308(struct bregs *regs, u8 device)
     regs->al = 0x00;
     regs->bl = 0x00;
     regs->ch = nlc & 0xff;
-    regs->cl = ((nlc >> 2) & 0xc0) | (nlspt  & 0x3f);
+    regs->cl = ((nlc >> 2) & 0xc0) | (nlspt & 0x3f);
     regs->dh = nlh;
     // FIXME ElTorito Various. should send the real count of drives 1 or 2
     // FIXME ElTorito Harddisk. should send the HD count
@@ -389,21 +389,6 @@ atapi_is_ready(u16 device)
     return 0;
 }
 
-// Compare a string on the stack to one in the code segment.
-static int
-streq_cs(u8 *s1, char *cs_s2)
-{
-    u8 *s2 = (u8*)cs_s2;
-    for (;;) {
-        if (*s1 != GET_GLOBAL(*s2))
-            return 0;
-        if (! *s1)
-            return 1;
-        s1++;
-        s2++;
-    }
-}
-
 int
 cdrom_boot(int cdid)
 {
@@ -432,7 +417,7 @@ cdrom_boot(int cdid)
     // Validity checks
     if (buffer[0])
         return 4;
-    if (!streq_cs(&buffer[1], "CD001\001EL TORITO SPECIFICATION"))
+    if (!streq((char*)&buffer[1], "CD001\001EL TORITO SPECIFICATION"))
         return 5;
 
     // ok, now we calculate the Boot catalog address

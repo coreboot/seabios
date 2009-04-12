@@ -59,11 +59,13 @@
 #define CONFIG_OPTIONROMS 1
 // Set if option roms are already copied to 0xc0000-0xf0000
 #define CONFIG_OPTIONROMS_DEPLOYED 1
+// Support searching coreboot flash format.
+#define CONFIG_COREBOOT_FLASH 0
 // When option roms are not pre-deployed, SeaBIOS can copy an optionrom
 // from flash for up to 2 devices.
-#define OPTIONROM_BDF_1 0x0000
+#define OPTIONROM_VENDEV_1 0x00000000
 #define OPTIONROM_MEM_1 0x00000000
-#define OPTIONROM_BDF_2 0x0000
+#define OPTIONROM_VENDEV_2 0x00000000
 #define OPTIONROM_MEM_2 0x00000000
 // Support an interactive boot menu at end of post.
 #define CONFIG_BOOTMENU 1

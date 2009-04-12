@@ -172,19 +172,25 @@ copy_rom(struct rom_header *rom)
 
 // Check if an option rom is at a hardcoded location for a device.
 static struct rom_header *
-lookup_hardcode(u16 bdf)
+lookup_hardcode(u32 vendev)
 {
-    if (OPTIONROM_BDF_1 && OPTIONROM_BDF_1 == bdf)
+    if (OPTIONROM_VENDEV_1
+        && ((OPTIONROM_VENDEV_1 >> 16)
+            | ((OPTIONROM_VENDEV_1 & 0xffff)) << 16) == vendev)
         return copy_rom((struct rom_header *)OPTIONROM_MEM_1);
-    else if (OPTIONROM_BDF_2 && OPTIONROM_BDF_2 == bdf)
+    if (OPTIONROM_VENDEV_2
+        && ((OPTIONROM_VENDEV_2 >> 16)
+            | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
         return copy_rom((struct rom_header *)OPTIONROM_MEM_2);
-    // XXX - check LAR when in coreboot?
+    struct rom_header *rom = cb_find_optionrom(vendev);
+    if (rom)
+        return copy_rom(rom);
     return NULL;
 }
 
 // Map the option rom of a given PCI device.
 static struct rom_header *
-map_optionrom(u16 bdf)
+map_optionrom(u16 bdf, u32 vendev)
 {
     dprintf(6, "Attempting to map option rom on dev %x\n", bdf);
 
@@ -211,10 +217,9 @@ map_optionrom(u16 bdf)
     // Looks like a rom - enable it.
     pci_config_writel(bdf, PCI_ROM_ADDRESS, orig | PCI_ROM_ADDRESS_ENABLE);
 
-    u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
     struct rom_header *rom = (struct rom_header *)orig;
     for (;;) {
-        dprintf(5, "Inspecting possible rom at %p (vd=%x bdf=%x)\n"
+        dprintf(5, "Inspecting possible rom at %p (dv=%x bdf=%x)\n"
                 , rom, vendev, bdf);
         if (rom->signature != OPTION_ROM_SIGNATURE) {
             dprintf(6, "No option rom signature (got %x)\n", rom->signature);
@@ -230,7 +235,7 @@ map_optionrom(u16 bdf)
         if (vd == vendev && pci->type == PCIROM_CODETYPE_X86)
             // A match
             break;
-        dprintf(6, "Didn't match vendev (got %x) or type (got %d)\n"
+        dprintf(6, "Didn't match dev/ven (got %x) or type (got %d)\n"
                 , vd, pci->type);
         if (pci->indicator & 0x80) {
             dprintf(6, "No more images left\n");
@@ -252,10 +257,11 @@ fail:
 static struct rom_header *
 init_optionrom(u16 bdf)
 {
-    dprintf(4, "Attempting to init PCI bdf %x\n", bdf);
-    struct rom_header *rom = lookup_hardcode(bdf);
+    u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
+    dprintf(4, "Attempting to init PCI bdf %x (dev/ven %x)\n", bdf, vendev);
+    struct rom_header *rom = lookup_hardcode(vendev);
     if (! rom)
-        rom = map_optionrom(bdf);
+        rom = map_optionrom(bdf, vendev);
     if (! rom)
         // No ROM present.
         return NULL;

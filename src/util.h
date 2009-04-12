@@ -69,6 +69,7 @@ static inline u64 rdtscll(void)
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
 u8 checksum(void *buf, u32 len);
+int streq(char *s1, char *s2);
 void *memset(void *s, int c, size_t n);
 void *memcpy(void *d1, const void *s1, size_t len);
 inline void memcpy_far(u16 d_seg, void *d_far
@@ -164,7 +165,8 @@ void smp_probe_setup(void);
 void smbios_init(void);
 
 // coreboot.c
-void coreboot_fill_map();
+void *cb_find_optionrom(u32 vendev);
+void coreboot_setup();
 
 // vgahooks.c
 void handle_155f();

@@ -93,7 +93,7 @@ ram_probe(void)
 {
     dprintf(3, "Find memory size\n");
     if (CONFIG_COREBOOT) {
-        coreboot_fill_map();
+        coreboot_setup();
     } else {
         // On emulators, get memory size from nvram.
         u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
