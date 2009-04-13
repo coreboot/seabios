@@ -431,6 +431,12 @@ post32:
         cld
         lidtl (BUILD_BIOS_ADDR + pmode_IDT_info)
         lgdtl (BUILD_BIOS_ADDR + rombios32_gdt_48)
+        movl $SEG32_MODE32_DS, %eax
+        movw %ax, %ds
+        movw %ax, %es
+        movw %ax, %fs
+        movw %ax, %gs
+        movw %ax, %ss
         movl $BUILD_STACK_ADDR, %esp
         ljmpl $SEG32_MODE32_CS, $_code32__start
 
