@@ -188,10 +188,12 @@ __call16_from32:
         movw %ax, %fs
         movw %ax, %gs
 
+#if CONFIG_DISABLE_A20
         // disable a20
         inb $PORT_A20, %al
         andb $~A20_ENABLE_BIT, %al
         outb %al, $PORT_A20
+#endif
 
         // Jump to 16bit mode
         ljmpw $SEG32_MODE16_CS, $1f

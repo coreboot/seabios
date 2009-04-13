@@ -49,6 +49,8 @@
 #define CONFIG_KEYBOARD 1
 // Support calling int155f on each keyboard event
 #define CONFIG_KBD_CALL_INT15_4F 1
+// Disable A20 on 16bit boot
+#define CONFIG_DISABLE_A20 0
 // Support for int15c2 mouse calls
 #define CONFIG_PS2_MOUSE 1
 // If the target machine has multiple independent root buses, the
