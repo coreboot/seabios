@@ -113,6 +113,8 @@ is_valid_rom(struct rom_header *rom)
 {
     if (rom->signature != OPTION_ROM_SIGNATURE)
         return 0;
+    if (! rom->size)
+        return 0;
     u32 len = rom->size * 512;
     u8 sum = checksum(rom, len);
     if (sum != 0) {
