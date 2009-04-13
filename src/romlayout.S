@@ -129,10 +129,18 @@
 
 // Place CPU into 32bit mode from 16bit mode.
 // Clobbers: flags, segment registers, cr0, idt/gdt
-// Require: interrupts must be disabled
         DECLFUNC transition32
 transition32:
         pushl %eax
+
+        // Disable irqs (and clear direction flag)
+        cli
+        cld
+
+        // Disable nmi
+        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
+        outb %al, $PORT_CMOS_INDEX
+        inb $PORT_CMOS_DATA, %al
 
         // enable a20
         inb $PORT_A20, %al
@@ -142,11 +150,6 @@ transition32:
         // Set segment descriptors
         lidtw %cs:pmode_IDT_info
         lgdtw %cs:rombios32_gdt_48
-
-        // Disable nmi
-        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
-        outb %al, $PORT_CMOS_INDEX
-        inb $PORT_CMOS_DATA, %al
 
         // Enable protected mode
         movl %cr0, %eax
@@ -287,9 +290,6 @@ __call16:
         // Remove %eax, restore %ebp
         popl %eax
         popl %ebp
-
-        cli
-        cld
 
         retl
 
@@ -480,14 +480,10 @@ post32:
         // int 18/19 are special - they reset stack and call into 32bit mode.
         DECLFUNC entry_19
 entry_19:
-        cli
-        cld
         ENTRY_INTO32 _code32_handle_19
 
         DECLFUNC entry_18
 entry_18:
-        cli
-        cld
         ENTRY_INTO32 _code32_handle_18
 
 
