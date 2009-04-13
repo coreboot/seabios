@@ -117,9 +117,34 @@ checksum(void *buf, u32 len)
     return checksum_far(GET_SEG(SS), buf, len);
 }
 
+size_t
+strlen(const char *s)
+{
+    if (__builtin_constant_p(s))
+        return __builtin_strlen(s);
+    const char *p = s;
+    while (*p)
+        p++;
+    return p-s;
+}
+
+// Compare two areas of memory.
+int
+memeq(const void *s1, const void *s2, size_t n)
+{
+    while (n) {
+        if (*(u8*)s1 != *(u8*)s2)
+            return 0;
+        s1++;
+        s2++;
+        n--;
+    }
+    return 1;
+}
+
 // Compare two strings.
 int
-streq(char *s1, char *s2)
+streq(const char *s1, const char *s2)
 {
     for (;;) {
         if (*s1 != *s2)

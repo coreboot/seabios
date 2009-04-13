@@ -322,32 +322,70 @@ struct cbfs_file {
     u32 type;
     u32 checksum;
     u32 offset;
+    char filename[0];
 } PACKED;
 
 static struct cbfs_file *
-cbfs_find(char *fname)
+cbfs_search(struct cbfs_file *file)
 {
-    if (! CONFIG_COREBOOT_FLASH)
-        return NULL;
-    if (! CBHDR)
-        return NULL;
-
-    dprintf(3, "Searching CBFS for %s\n", fname);
-
-    struct cbfs_file *file = (void *)(0 - ntohl(CBHDR->romsize) + ntohl(CBHDR->offset));
     for (;;) {
         if (file < (struct cbfs_file *)(0xFFFFFFFF - ntohl(CBHDR->romsize)))
             return NULL;
-        if (file->magic != CBFS_FILE_MAGIC) {
-            file = (void*)file + ntohl(CBHDR->align);
-            continue;
-        }
-
-        dprintf(3, "Found CBFS file %s\n", (char*)file + sizeof(*file));
-        if (streq(fname, (char*)file + sizeof(*file)))
+        if (file->magic == CBFS_FILE_MAGIC)
             return file;
-        file = (void*)file + ALIGN(ntohl(file->len) + ntohl(file->offset), ntohl(CBHDR->align));
+        file = (void*)file + ntohl(CBHDR->align);
     }
+}
+
+static struct cbfs_file *
+cbfs_getfirst()
+{
+    if (! CBHDR)
+        return NULL;
+    return cbfs_search((void *)(0 - ntohl(CBHDR->romsize) + ntohl(CBHDR->offset)));
+}
+
+static struct cbfs_file *
+cbfs_getnext(struct cbfs_file *file)
+{
+    file = (void*)file + ALIGN(ntohl(file->len) + ntohl(file->offset), ntohl(CBHDR->align));
+    return cbfs_search(file);
+}
+
+static struct cbfs_file *
+cbfs_findfile(const char *fname)
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return NULL;
+
+    dprintf(3, "Searching CBFS for %s\n", fname);
+    struct cbfs_file *file;
+    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
+        dprintf(3, "Found CBFS file %s\n", file->filename);
+        if (streq(fname, file->filename))
+            return file;
+    }
+    return NULL;
+}
+
+const char *
+cbfs_findNprefix(const char *prefix, int n)
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return NULL;
+
+    dprintf(3, "Searching CBFS for prefix %s\n", prefix);
+    int len = strlen(prefix);
+    struct cbfs_file *file;
+    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
+        dprintf(3, "Found CBFS file %s\n", file->filename);
+        if (memeq(prefix, file->filename, len)) {
+            if (n <= 0)
+                return file->filename;
+            n--;
+        }
+    }
+    return NULL;
 }
 
 static char
@@ -375,19 +413,81 @@ cb_find_optionrom(u32 vendev)
 
     char fname[17];
     // Ughh - poor man's sprintf of "pci%04x,%04x.rom"
-    *(u32*)fname = 0x20696370; // "pci"
+    *(u32*)fname = 0x20696370; // "pci "
     *(u32*)&fname[3] = hexify4(vendev);
     fname[7] = ',';
     *(u32*)&fname[8] = hexify4(vendev >> 16);
     *(u32*)&fname[12] = 0x6d6f722e; // ".rom"
     fname[16] = '\0';
 
-    struct cbfs_file *file = cbfs_find(fname);
+    struct cbfs_file *file = cbfs_findfile(fname);
     if (!file)
         return NULL;
     // Found it.
     dprintf(3, "Found rom at %p\n", (void*)file + ntohl(file->offset));
     return (void*)file + ntohl(file->offset);
+}
+
+struct cbfs_payload_segment {
+    u32 type;
+    u32 compression;
+    u32 offset;
+    u64 load_addr;
+    u32 len;
+    u32 mem_len;
+} PACKED;
+
+#define PAYLOAD_SEGMENT_BSS    0x20535342
+#define PAYLOAD_SEGMENT_ENTRY  0x52544E45
+
+#define CBFS_COMPRESS_NONE  0
+
+struct cbfs_payload {
+    struct cbfs_payload_segment segments[1];
+};
+
+void
+cbfs_run_payload(const char *filename)
+{
+    dprintf(1, "Run %s\n", filename);
+    struct cbfs_file *file = cbfs_findfile(filename);
+    if (!file)
+        return;
+    struct cbfs_payload *pay = (void*)file + ntohl(file->offset);
+    struct cbfs_payload_segment *seg = pay->segments;
+    for (;;) {
+        if (seg->compression != htonl(CBFS_COMPRESS_NONE)) {
+            dprintf(1, "No support for compressed payloads (%x)\n"
+                    , seg->compression);
+            return;
+        }
+        void *src = (void*)pay + ntohl(seg->offset);
+        void *dest = (void*)ntohl((u32)seg->load_addr);
+        u32 src_len = ntohl(seg->len);
+        u32 dest_len = ntohl(seg->mem_len);
+        switch (seg->type) {
+        case PAYLOAD_SEGMENT_BSS:
+            dprintf(3, "BSS segment %d@%p\n", dest_len, dest);
+            memset(dest, 0, dest_len);
+            break;
+        case PAYLOAD_SEGMENT_ENTRY: {
+            dprintf(1, "Calling addr %p\n", dest);
+            void (*func)() = dest;
+            func();
+            return;
+        }
+        default:
+            dprintf(3, "Segment %x %d@%p -> %d@%p\n"
+                    , seg->type, src_len, src, dest_len, dest);
+            if (src_len > dest_len)
+                src_len = dest_len;
+            memcpy(dest, src, src_len);
+            if (dest_len > src_len)
+                memset(dest + src_len, 0, dest_len - src_len);
+            break;
+        }
+        seg++;
+    }
 }
 
 void

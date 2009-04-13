@@ -47,6 +47,12 @@ boot_setup()
         ie++;
     }
 
+    if (CONFIG_COREBOOT_FLASH) {
+        ie->type = IPL_TYPE_CBFS;
+        ie->description = "CBFS";
+        ie++;
+    }
+
     IPL.bevcount = ie - IPL.bev;
     SET_EBDA(boot_sequence, 0xffff);
     if (CONFIG_COREBOOT) {
@@ -170,6 +176,23 @@ menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
     return ATA.cdcount;
 }
 
+// Show coreboot-fs menu item.
+static int
+menu_show_cbfs(struct ipl_entry_s *ie, int menupos)
+{
+    int count = 0;
+    for (;;) {
+        const char *filename = cbfs_findNprefix("img/", count);
+        if (!filename)
+            break;
+        printf("%d. Payload [%s]\n", menupos + count, &filename[4]);
+        count++;
+        if (count > 8)
+            break;
+    }
+    return count;
+}
+
 // Show IPL option menu.
 static void
 interactive_bootmenu()
@@ -208,6 +231,9 @@ interactive_bootmenu()
         case IPL_TYPE_CDROM:
             sc = menu_show_cdrom(ie, menupos);
             break;
+        case IPL_TYPE_CBFS:
+            sc = menu_show_cbfs(ie, menupos);
+            break;
         default:
             sc = menu_show_default(ie, menupos);
             break;
@@ -231,17 +257,7 @@ interactive_bootmenu()
             choice -= subcount[bev];
             bev++;
         }
-
-        switch (IPL.bev[bev].type) {
-        case IPL_TYPE_HARDDISK:
-            // A harddrive request enables a BCV order.
-            IPL.bcv_override = choice-1;
-            break;
-        case IPL_TYPE_CDROM:
-            // Select cdrom to boot from.
-            IPL.cdrom_override = choice-1;
-            break;
-        }
+        IPL.bev[bev].subchoice = choice-1;
 
         // Add user choice to the boot order.
         IPL.bootorder = (IPL.bootorder << 4) | (bev+1);
@@ -275,7 +291,7 @@ boot_prep()
     interactive_bootmenu();
 
     // Run BCVs
-    int override = IPL.bcv_override;
+    int override = IPL.bev[1].subchoice;
     if (override < IPL.bcvcount)
         run_bcv(&IPL.bcv[override]);
     int i;
@@ -343,11 +359,11 @@ boot_disk(u8 bootdrv, int checksig)
 
 // Boot from a CD-ROM
 static void
-boot_cdrom()
+boot_cdrom(struct ipl_entry_s *ie)
 {
     if (! CONFIG_CDROM_BOOT)
         return;
-    int status = cdrom_boot(IPL.cdrom_override);
+    int status = cdrom_boot(ie->subchoice);
     if (status) {
         printf("Boot failed: Could not read from CDROM (code %04x)\n", status);
         return;
@@ -361,6 +377,18 @@ boot_cdrom()
     bootseg &= 0xf000;
 
     call_boot_entry(bootseg, bootip, bootdrv);
+}
+
+// Boot from a CD-ROM
+static void
+boot_cbfs(struct ipl_entry_s *ie)
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return;
+    const char *filename = cbfs_findNprefix("img/", ie->subchoice);
+    if (! filename)
+        return;
+    cbfs_run_payload(filename);
 }
 
 static void
@@ -403,7 +431,10 @@ do_boot(u16 seq_nr)
         boot_disk(0x80, 1);
         break;
     case IPL_TYPE_CDROM:
-        boot_cdrom();
+        boot_cdrom(ie);
+        break;
+    case IPL_TYPE_CBFS:
+        boot_cbfs(ie);
         break;
     case IPL_TYPE_BEV:
         call_boot_entry(ie->vector >> 16, ie->vector & 0xffff, 0);
