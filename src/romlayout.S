@@ -124,56 +124,6 @@
 
 
 /****************************************************************
- * POST handler
- ****************************************************************/
-
-        DECLFUNC entry_post
-entry_post:
-        // Enable cache
-        movl %cr0, %eax
-        andl $~(CR0_CD|CR0_NW), %eax
-        movl %eax, %cr0
-
-        // Disable interrupts
-        cli
-        cld
-
-        // Check for restart indicator.
-        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
-        outb %al, $PORT_CMOS_INDEX
-        inb $PORT_CMOS_DATA, %al
-        cmpb $0x0, %al
-        jnz 1f
-
-        // Normal entry point
-        ENTRY_INTO32 _code32__start
-
-        // Entry point when a post call looks like a resume.
-1:
-        // Save old shutdown status.
-        movl %eax, %ebx
-
-        // Clear shutdown status register.
-        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
-        outb %al, $PORT_CMOS_INDEX
-        xorl %eax, %eax
-        outb %al, $PORT_CMOS_DATA
-
-        // Use a stack in EBDA
-        movw $SEG_BDA, %ax
-        movw %ax, %ds
-        movw BDA_ebda_seg, %ax
-        // XXX - should verify ebda_seg looks sane.
-        movw %ax, %ds
-        movw %ax, %ss
-        movl $EBDA_OFFSET_TOP_STACK, %esp
-
-        // Call handler.
-        movl %ebx, %eax
-        jmp handle_resume
-
-
-/****************************************************************
  * Call trampolines
  ****************************************************************/
 
@@ -343,7 +293,77 @@ __call16:
 
         retl
 
-// PnP trampolines
+// IRQ trampolines
+        .macro IRQ_TRAMPOLINE num
+        DECLFUNC irq_trampoline_0x\num
+        irq_trampoline_0x\num :
+        int $0x\num
+        lretw
+        .endm
+
+        IRQ_TRAMPOLINE 10
+        IRQ_TRAMPOLINE 13
+        IRQ_TRAMPOLINE 15
+        IRQ_TRAMPOLINE 16
+        IRQ_TRAMPOLINE 18
+        IRQ_TRAMPOLINE 19
+
+
+/****************************************************************
+ * POST entry point
+ ****************************************************************/
+
+        DECLFUNC entry_post
+entry_post:
+        // Enable cache
+        movl %cr0, %eax
+        andl $~(CR0_CD|CR0_NW), %eax
+        movl %eax, %cr0
+
+        // Disable interrupts
+        cli
+        cld
+
+        // Check for restart indicator.
+        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
+        outb %al, $PORT_CMOS_INDEX
+        inb $PORT_CMOS_DATA, %al
+        cmpb $0x0, %al
+        jnz 1f
+
+        // Normal entry point
+        ENTRY_INTO32 _code32__start
+
+        // Entry point when a post call looks like a resume.
+1:
+        // Save old shutdown status.
+        movl %eax, %ebx
+
+        // Clear shutdown status register.
+        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
+        outb %al, $PORT_CMOS_INDEX
+        xorl %eax, %eax
+        outb %al, $PORT_CMOS_DATA
+
+        // Use a stack in EBDA
+        movw $SEG_BDA, %ax
+        movw %ax, %ds
+        movw BDA_ebda_seg, %ax
+        // XXX - should verify ebda_seg looks sane.
+        movw %ax, %ds
+        movw %ax, %ss
+        movl $EBDA_OFFSET_TOP_STACK, %esp
+
+        // Call handler.
+        movl %ebx, %eax
+        jmp handle_resume
+
+
+/****************************************************************
+ * Misc. entry points.
+ ****************************************************************/
+
+// PnP entry points
         DECLFUNC entry_pnp_real
         .global entry_pnp_prot
 entry_pnp_prot:
@@ -373,7 +393,7 @@ entry_pnp_real:
         popl %esp
         lretw
 
-// APM trampolines
+// APM entry points
         DECLFUNC apm16protected_entry
 apm16protected_entry:
         pushfw          // save flags
@@ -415,21 +435,6 @@ post32:
         ljmpl $SEG32_MODE32_CS, $_code32__start
 
         .code16gcc
-
-// IRQ trampolines
-        .macro IRQ_TRAMPOLINE num
-        DECLFUNC irq_trampoline_0x\num
-        irq_trampoline_0x\num :
-        int $0x\num
-        lretw
-        .endm
-
-        IRQ_TRAMPOLINE 10
-        IRQ_TRAMPOLINE 13
-        IRQ_TRAMPOLINE 15
-        IRQ_TRAMPOLINE 16
-        IRQ_TRAMPOLINE 18
-        IRQ_TRAMPOLINE 19
 
 
 /****************************************************************
