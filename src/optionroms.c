@@ -111,6 +111,8 @@ call_bcv(u16 seg, u16 ip)
 static int
 is_valid_rom(struct rom_header *rom)
 {
+    dprintf(6, "Checking rom %p (sig %x size %d)\n"
+            , rom, rom->signature, rom->size);
     if (rom->signature != OPTION_ROM_SIGNATURE)
         return 0;
     if (! rom->size)
@@ -167,7 +169,8 @@ copy_rom(struct rom_header *rom)
         dprintf(1, "Option rom %p doesn't fit.\n", rom);
         return NULL;
     }
-    dprintf(4, "Copying option rom from %p to %x\n", rom, next_rom);
+    dprintf(4, "Copying option rom (size %d) from %p to %x\n"
+            , romsize, rom, next_rom);
     memcpy((void*)next_rom, rom, romsize);
     return (struct rom_header *)next_rom;
 }
