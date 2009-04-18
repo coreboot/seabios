@@ -417,7 +417,7 @@ cdrom_boot(int cdid)
     // Validity checks
     if (buffer[0])
         return 4;
-    if (!streq((char*)&buffer[1], "CD001\001EL TORITO SPECIFICATION"))
+    if (strcmp((char*)&buffer[1], "CD001\001EL TORITO SPECIFICATION") != 0)
         return 5;
 
     // ok, now we calculate the Boot catalog address

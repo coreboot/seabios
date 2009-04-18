@@ -362,7 +362,7 @@ cbfs_findfile(const char *fname)
     struct cbfs_file *file;
     for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
         dprintf(3, "Found CBFS file %s\n", file->filename);
-        if (streq(fname, file->filename))
+        if (strcmp(fname, file->filename) == 0)
             return file;
     }
     return NULL;
@@ -379,7 +379,7 @@ cbfs_findNprefix(const char *prefix, int n)
     struct cbfs_file *file;
     for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
         dprintf(3, "Found CBFS file %s\n", file->filename);
-        if (memeq(prefix, file->filename, len)) {
+        if (memcmp(prefix, file->filename, len) == 0) {
             if (n <= 0)
                 return file->filename;
             n--;

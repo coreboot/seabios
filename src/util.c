@@ -132,27 +132,27 @@ strlen(const char *s)
 
 // Compare two areas of memory.
 int
-memeq(const void *s1, const void *s2, size_t n)
+memcmp(const void *s1, const void *s2, size_t n)
 {
     while (n) {
         if (*(u8*)s1 != *(u8*)s2)
-            return 0;
+            return *(u8*)s1 < *(u8*)s2 ? -1 : 1;
         s1++;
         s2++;
         n--;
     }
-    return 1;
+    return 0;
 }
 
 // Compare two strings.
 int
-streq(const char *s1, const char *s2)
+strcmp(const char *s1, const char *s2)
 {
     for (;;) {
         if (*s1 != *s2)
-            return 0;
+            return *s1 < *s2 ? -1 : 1;
         if (! *s1)
-            return 1;
+            return 0;
         s1++;
         s2++;
     }
