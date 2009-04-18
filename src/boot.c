@@ -57,7 +57,7 @@ boot_setup()
     SET_EBDA(boot_sequence, 0xffff);
     if (CONFIG_COREBOOT) {
         // XXX - hardcode defaults for coreboot.
-        IPL.bootorder = 0x00000231;
+        IPL.bootorder = 0x87654231;
         IPL.checkfloppysig = 1;
     } else {
         // On emulators, get boot order from nvram.
@@ -401,19 +401,14 @@ do_boot(u16 seq_nr)
     bootdev >>= 4 * seq_nr;
     bootdev &= 0xf;
 
-    if (bootdev == 0) {
-        printf("No bootable device.\n");
-        // Loop with irqs enabled - this allows ctrl+alt+delete to work.
-        for (;;)
-            usleep(1000000);
-    }
-
     /* Translate bootdev to an IPL table offset by subtracting 1 */
     bootdev -= 1;
 
     if (bootdev >= IPL.bevcount) {
-        dprintf(1, "Invalid boot device (0x%x)\n", bootdev);
-        goto fail;
+        printf("No bootable device.\n");
+        // Loop with irqs enabled - this allows ctrl+alt+delete to work.
+        for (;;)
+            usleep(1000000);
     }
 
     /* Do the loading, and set up vector as a far pointer to the boot
@@ -443,7 +438,6 @@ do_boot(u16 seq_nr)
 
     // Boot failed: invoke the boot recovery function
     struct bregs br;
-fail:
     memset(&br, 0, sizeof(br));
     call16_int(0x18, &br);
 }
