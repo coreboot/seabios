@@ -214,7 +214,9 @@ map_optionrom(u16 bdf, u32 vendev)
     if (!sz || sz == 0xffffffff)
         goto fail;
 
-    if (orig < 16*1024*1024) {
+    if (orig == sz || (u32)(orig + 4*1024*1024) < 20*1024*1024) {
+        // Don't try to map to a pci addresses at its max, in the last
+        // 4MiB of ram, or the first 16MiB of ram.
         dprintf(6, "Preset rom address doesn't look valid\n");
         goto fail;
     }
