@@ -28,7 +28,7 @@
 #define IDE_SECTOR_SIZE 512
 #define CDROM_SECTOR_SIZE 2048
 
-#define IDE_TIMEOUT 32000u //32 seconds max for IDE ops
+#define IDE_TIMEOUT 32000 //32 seconds max for IDE ops
 
 struct ata_s ATA VAR16_32;
 
@@ -735,10 +735,34 @@ init_drive_ata(int driveid)
     return 0;
 }
 
+static int
+powerup_await_non_bsy(u16 base, u64 end)
+{
+    u8 orstatus = 0;
+    u8 status;
+    for (;;) {
+        status = inb(base+ATA_CB_STAT);
+        if (!(status & ATA_CB_STAT_BSY))
+            break;
+        orstatus |= status;
+        if (orstatus == 0xff) {
+            dprintf(1, "powerup IDE floating\n");
+            return orstatus;
+        }
+        if (rdtscll() > end) {
+            dprintf(1, "powerup IDE time out\n");
+            return -1;
+        }
+    }
+    dprintf(6, "powerup iobase=%x st=%x\n", base, status);
+    return status;
+}
+
 static void
 ata_detect()
 {
     // Device detection
+    u64 end = calc_future_tsc(IDE_TIMEOUT);
     int driveid, last_reset_driveid=-1;
     for(driveid=0; driveid<CONFIG_MAX_ATA_DEVICES; driveid++) {
         u8 channel = driveid / 2;
@@ -748,20 +772,26 @@ ata_detect()
         if (!iobase1)
             break;
 
-        // Look for device
-        outb(slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0, iobase1+ATA_CB_DH);
-        outb(0x55, iobase1+ATA_CB_SC);
-        outb(0xaa, iobase1+ATA_CB_SN);
-        outb(0xaa, iobase1+ATA_CB_SC);
-        outb(0x55, iobase1+ATA_CB_SN);
-        outb(0x55, iobase1+ATA_CB_SC);
-        outb(0xaa, iobase1+ATA_CB_SN);
+        // Wait for not-bsy.
+        int status = powerup_await_non_bsy(iobase1, end);
+        if (status < 0)
+            continue;
+        u8 newdh = slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0;
+        outb(newdh, iobase1+ATA_CB_DH);
+        status = powerup_await_non_bsy(iobase1, end);
+        if (status < 0)
+            continue;
 
         // Check if ioport registers look valid.
+        outb(newdh, iobase1+ATA_CB_DH);
+        u8 dh = inb(iobase1+ATA_CB_DH);
+        outb(0x55, iobase1+ATA_CB_SC);
+        outb(0xaa, iobase1+ATA_CB_SN);
         u8 sc = inb(iobase1+ATA_CB_SC);
         u8 sn = inb(iobase1+ATA_CB_SN);
-        dprintf(6, "ata_detect drive=%d sc=%x sn=%x\n", driveid, sc, sn);
-        if (sc != 0x55 || sn != 0xaa)
+        dprintf(6, "ata_detect drive=%d sc=%x sn=%x dh=%x\n"
+                , driveid, sc, sn, dh);
+        if (sc != 0x55 || sn != 0xaa || dh != newdh)
             continue;
 
         // reset the channel
