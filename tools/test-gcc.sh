@@ -14,7 +14,7 @@ if [ $? -ne 0 ]; then
     echo "This version of gcc does not support -fwhole-program." > /dev/fd/2
     echo "Please upgrade to gcc v4.1 or later" > /dev/fd/2
     echo -1
-    exit -1
+    exit 1
 fi
 
 # Test if "visible" variables are marked global.
@@ -27,13 +27,13 @@ extern unsigned char t1;
 int __attribute__((externally_visible)) main() { return t1; }
 EOF
 $CC -Os -c -fwhole-program $TMPFILE2 -o $TMPFILE2o > /dev/null 2>&1
-$CC -Os $TMPFILE1o $TMPFILE2o -o $TMPFILE3o > /dev/null 2>&1
+$CC -nostdlib -Os $TMPFILE1o $TMPFILE2o -o $TMPFILE3o > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "This version of gcc does not properly handle" > /dev/fd/2
     echo "  global variables in -fwhole-program mode." > /dev/fd/2
     echo "Please upgrade to a newer gcc (eg, v4.3 or later)" > /dev/fd/2
     echo -1
-    exit -1
+    exit 1
 fi
 
 # Test if "visible" functions are marked global.
@@ -46,7 +46,7 @@ void t1();
 void __attribute__((externally_visible)) main() { t1(); }
 EOF
 $CC -Os -c -fwhole-program $TMPFILE2 -o $TMPFILE2o > /dev/null 2>&1
-$CC -Os $TMPFILE1o $TMPFILE2o -o $TMPFILE3o > /dev/null 2>&1
+$CC -nostdlib -Os $TMPFILE1o $TMPFILE2o -o $TMPFILE3o > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "  Working around non-global functions in -fwhole-program" > /dev/fd/2
 fi
