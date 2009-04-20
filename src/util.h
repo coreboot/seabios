@@ -73,11 +73,8 @@ int memcmp(const void *s1, const void *s2, size_t n);
 size_t strlen(const char *s);
 int strcmp(const char *s1, const char *s2);
 void *memset(void *s, int c, size_t n);
-void *__memcpy(void *d1, const void *s1, size_t len);
-#define memcpy(d1, s1, len) (                           \
-        (__builtin_constant_p(len) && (len) <= 20)      \
-        ? __builtin_memcpy((d1), (s1), (len))           \
-        :  __memcpy((d1), (s1), (len)))
+void memcpy4(void *d1, const void *s1, size_t len);
+#define memcpy(d1, s1, len) __builtin_memcpy((d1), (s1), (len))
 inline void memcpy_far(u16 d_seg, void *d_far
                        , u16 s_seg, const void *s_far, size_t len);
 void *memmove(void *d, const void *s, size_t len);

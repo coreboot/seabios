@@ -181,25 +181,15 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
         : "cc", "memory");
 }
 
-noinline void *
-__memcpy(void *d1, const void *s1, size_t len)
+// Memcpy that uses 4-byte accesses
+void
+memcpy4(void *d1, const void *s1, size_t len)
 {
-    void *d = d1;
-    if (((u32)d1 | (u32)s1 | len) & 3) {
-        // non-aligned memcpy
-        asm volatile(
-            "rep movsb (%%esi),%%es:(%%edi)\n"
-            : "+c"(len), "+S"(s1), "+D"(d)
-            : : "cc", "memory");
-        return d1;
-    }
-    // Common case - use 4-byte copy
     len /= 4;
     asm volatile(
         "rep movsl (%%esi),%%es:(%%edi)\n"
-        : "+c"(len), "+S"(s1), "+D"(d)
+        : "+c"(len), "+S"(s1), "+D"(d1)
         : : "cc", "memory");
-    return d1;
 }
 
 void *
