@@ -13,7 +13,8 @@ SRCBOTH=output.c util.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
         pnpbios.c pirtable.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c vgahooks.c font.c
 SRC32=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
-      acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c
+      acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
+      lzmadecode.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)

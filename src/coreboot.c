@@ -10,6 +10,7 @@
 #include "acpi.h" // struct rsdp_descriptor
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "biosvar.h" // GET_EBDA
+#include "lzmadecode.h" // LzmaDecode
 
 
 /****************************************************************
@@ -273,6 +274,39 @@ fail:
 
 
 /****************************************************************
+ * ulzma
+ ****************************************************************/
+
+static int
+ulzma(u8 *dst, const u8 *src)
+{
+    CLzmaDecoderState state;
+    int ret = LzmaDecodeProperties(&state.Properties, src, LZMA_PROPERTIES_SIZE);
+    if (ret != LZMA_RESULT_OK) {
+        dprintf(1, "LzmaDecodeProperties error - %d\n", ret);
+        return -1;
+    }
+    u8 scratch[15980];
+    int need = (LzmaGetNumProbs(&state.Properties) * sizeof(CProb));
+    if (need > sizeof(scratch)) {
+        dprintf(1, "LzmaDecode need %d have %d\n", need, sizeof(scratch));
+        return -1;
+    }
+    state.Probs = (CProb *)scratch;
+
+    u32 dstlen = *(u32*)(src + LZMA_PROPERTIES_SIZE);
+    u32 inProcessed, outProcessed;
+    ret = LzmaDecode(&state, src + LZMA_PROPERTIES_SIZE + 8, 0xffffffff
+                     , &inProcessed, dst, dstlen, &outProcessed);
+    if (ret) {
+        dprintf(1, "LzmaDecode returned %d\n", ret);
+        return -1;
+    }
+    return dstlen;
+}
+
+
+/****************************************************************
  * Coreboot flash format
  ****************************************************************/
 
@@ -444,6 +478,7 @@ struct cbfs_payload_segment {
 #define PAYLOAD_SEGMENT_ENTRY  0x52544E45
 
 #define CBFS_COMPRESS_NONE  0
+#define CBFS_COMPRESS_LZMA  1
 
 struct cbfs_payload {
     struct cbfs_payload_segment segments[1];
@@ -459,11 +494,6 @@ cbfs_run_payload(const char *filename)
     struct cbfs_payload *pay = (void*)file + ntohl(file->offset);
     struct cbfs_payload_segment *seg = pay->segments;
     for (;;) {
-        if (seg->compression != htonl(CBFS_COMPRESS_NONE)) {
-            dprintf(1, "No support for compressed payloads (%x)\n"
-                    , seg->compression);
-            return;
-        }
         void *src = (void*)pay + ntohl(seg->offset);
         void *dest = (void*)ntohl((u32)seg->load_addr);
         u32 src_len = ntohl(seg->len);
@@ -484,7 +514,19 @@ cbfs_run_payload(const char *filename)
                     , seg->type, src_len, src, dest_len, dest);
             if (src_len > dest_len)
                 src_len = dest_len;
-            memcpy(dest, src, src_len);
+            if (seg->compression == htonl(CBFS_COMPRESS_NONE)) {
+                memcpy(dest, src, src_len);
+            } else if (CONFIG_LZMA
+                       && seg->compression == htonl(CBFS_COMPRESS_LZMA)) {
+                int ret = ulzma(dest, src);
+                if (ret < 0)
+                    return;
+                src_len = ret;
+            } else {
+                dprintf(1, "No support for compression type %x\n"
+                        , seg->compression);
+                return;
+            }
             if (dest_len > src_len)
                 memset(dest + src_len, 0, dest_len - src_len);
             break;

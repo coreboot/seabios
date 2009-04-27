@@ -57,12 +57,14 @@
 // extra buses may be specified here.
 #define CONFIG_PCI_ROOT1 0x00
 #define CONFIG_PCI_ROOT2 0x00
+// Support searching coreboot flash format.
+#define CONFIG_COREBOOT_FLASH 0
+// Support the lzma decompression algorighm.
+#define CONFIG_LZMA 1
 // Support finding and running option roms during post.
 #define CONFIG_OPTIONROMS 1
 // Set if option roms are already copied to 0xc0000-0xf0000
 #define CONFIG_OPTIONROMS_DEPLOYED 1
-// Support searching coreboot flash format.
-#define CONFIG_COREBOOT_FLASH 0
 // When option roms are not pre-deployed, SeaBIOS can copy an optionrom
 // from flash for up to 2 devices.
 #define OPTIONROM_VENDEV_1 0x00000000
