@@ -20,8 +20,7 @@ RESTARTINTERVAL = 60
 ADJUSTBAUD = 1
 
 def readserial(infile, logfile, baudrate):
-    starttime = 0
-    isnewline = 1
+    lasttime = 0
     while 1:
         # Read data
         try:
@@ -32,19 +31,20 @@ def readserial(infile, logfile, baudrate):
         if sys.stdin in res[0]:
             # Got keyboard input - force reset on next serial input
             sys.stdin.read(1)
-            starttime = 0
+            lasttime = 0
             if len(res[0]) == 1:
                 continue
         curtime = time.time()
         d = infile.read(4096)
 
         # Reset start time if no data for some time
-        if curtime - starttime > RESTARTINTERVAL:
+        if curtime - lasttime > RESTARTINTERVAL:
             starttime = curtime
             charcount = 0
             isnewline = 1
             sys.stdout.write("\n")
             logfile.write("\n")
+        lasttime = curtime
 
         # Translate unprintable chars; add timestamps
         out = ""
