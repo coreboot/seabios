@@ -331,8 +331,11 @@ cbfs_search(struct cbfs_file *file)
     for (;;) {
         if (file < (struct cbfs_file *)(0xFFFFFFFF - ntohl(CBHDR->romsize)))
             return NULL;
-        if (file->magic == CBFS_FILE_MAGIC)
+        u64 magic = file->magic;
+        if (magic == CBFS_FILE_MAGIC)
             return file;
+        if (magic == 0)
+            return NULL;
         file = (void*)file + ntohl(CBHDR->align);
     }
 }
