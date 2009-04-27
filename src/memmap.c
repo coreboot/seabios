@@ -72,25 +72,19 @@ add_e820(u64 start, u64 size, u32 type)
             continue;
         // Found position - check if an existing item needs to be split.
         if (start > e->start) {
-            e->size = start - e->start;
-            i++;
-            if (end < e_end)
-                // Need to split existing item
-                insert_e820(i, end, e_end - end, e->type);
             if (type == e->type) {
                 // Same type - merge them.
                 size += start - e->start;
                 start = e->start;
-                i--;
-                remove_e820(i);
+            } else {
+                // Split existing item.
+                e->size = start - e->start;
+                i++;
+                if (e_end > end)
+                    insert_e820(i, end, e_end - end, e->type);
             }
         }
         break;
-    }
-    // Insert new item.
-    if (type != E820_HOLE) {
-        insert_e820(i, start, size, type);
-        i++;
     }
     // Remove/adjust existing items that are overlapping.
     while (i<e820_count) {
@@ -106,14 +100,17 @@ add_e820(u64 start, u64 size, u32 type)
         }
         // Not completely overlapped - adjust its start.
         e->start = end;
-        e->size = e_end - e->start;
+        e->size = e_end - end;
         if (type == e->type) {
             // Same type - merge them.
-            (e-1)->size += e->size;
+            size += e->size;
             remove_e820(i);
         }
         break;
     }
+    // Insert new item.
+    if (type != E820_HOLE)
+        insert_e820(i, start, size, type);
     //dump_map();
 }
 
