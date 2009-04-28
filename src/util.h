@@ -169,7 +169,7 @@ void smbios_init(void);
 
 // coreboot.c
 const char *cbfs_findNprefix(const char *prefix, int n);
-void *cb_find_optionrom(u32 vendev);
+int cb_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(const char *filename);
 void coreboot_setup();
 

@@ -187,10 +187,11 @@ lookup_hardcode(u32 vendev)
         && ((OPTIONROM_VENDEV_2 >> 16)
             | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
         return copy_rom((struct rom_header *)OPTIONROM_MEM_2);
-    struct rom_header *rom = cb_find_optionrom(vendev);
-    if (rom)
-        return copy_rom(rom);
-    return NULL;
+    int ret = cb_copy_optionrom((void*)next_rom, BUILD_BIOS_ADDR - next_rom
+                                , vendev);
+    if (ret < 0)
+        return NULL;
+    return (struct rom_header *)next_rom;
 }
 
 // Map the option rom of a given PCI device.

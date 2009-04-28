@@ -278,7 +278,7 @@ fail:
  ****************************************************************/
 
 static int
-ulzma(u8 *dst, const u8 *src)
+ulzma(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
 {
     CLzmaDecoderState state;
     int ret = LzmaDecodeProperties(&state.Properties, src, LZMA_PROPERTIES_SIZE);
@@ -295,8 +295,12 @@ ulzma(u8 *dst, const u8 *src)
     state.Probs = (CProb *)scratch;
 
     u32 dstlen = *(u32*)(src + LZMA_PROPERTIES_SIZE);
+    if (dstlen > maxlen) {
+        dprintf(1, "LzmaDecode too large (max %d need %d)\n", maxlen, dstlen);
+        return -1;
+    }
     u32 inProcessed, outProcessed;
-    ret = LzmaDecode(&state, src + LZMA_PROPERTIES_SIZE + 8, 0xffffffff
+    ret = LzmaDecode(&state, src + LZMA_PROPERTIES_SIZE + 8, srclen
                      , &inProcessed, dst, dstlen, &outProcessed);
     if (ret) {
         dprintf(1, "LzmaDecode returned %d\n", ret);
@@ -366,8 +370,10 @@ cbfs_search(struct cbfs_file *file)
         if (file < (struct cbfs_file *)(0xFFFFFFFF - ntohl(CBHDR->romsize)))
             return NULL;
         u64 magic = file->magic;
-        if (magic == CBFS_FILE_MAGIC)
+        if (magic == CBFS_FILE_MAGIC) {
+            dprintf(5, "Found CBFS file %s\n", file->filename);
             return file;
+        }
         if (magic == 0)
             return NULL;
         file = (void*)file + ntohl(CBHDR->align);
@@ -392,9 +398,6 @@ cbfs_getnext(struct cbfs_file *file)
 static struct cbfs_file *
 cbfs_findfile(const char *fname)
 {
-    if (! CONFIG_COREBOOT_FLASH)
-        return NULL;
-
     dprintf(3, "Searching CBFS for %s\n", fname);
     struct cbfs_file *file;
     for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
@@ -403,6 +406,38 @@ cbfs_findfile(const char *fname)
             return file;
     }
     return NULL;
+}
+
+// Copy a file to memory (uncompressing if necessary)
+static int
+cbfs_copyfile(void *dst, u32 maxlen, const char *fname)
+{
+    dprintf(3, "Searching CBFS for data file %s\n", fname);
+    int fnlen = strlen(fname);
+    struct cbfs_file *file;
+    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
+        if (memcmp(fname, file->filename, fnlen) != 0)
+            continue;
+        u32 size = ntohl(file->len);
+        void *src = (void*)file + ntohl(file->offset);
+        if (file->filename[fnlen] == '\0') {
+            // No compression
+            if (size > maxlen) {
+                dprintf(1, "File too big to copy\n");
+                return -1;
+            }
+            dprintf(3, "Copying data file %s\n", file->filename);
+            memcpy(dst, src, size);
+            return size;
+        }
+        if (strcmp(&file->filename[fnlen], ".lzma") == 0) {
+            // lzma compressed file
+            dprintf(3, "Uncompressing data file %s @ %p\n"
+                    , file->filename, src);
+            return ulzma(dst, maxlen, src, size);
+        }
+    }
+    return -1;
 }
 
 const char *
@@ -415,7 +450,6 @@ cbfs_findNprefix(const char *prefix, int n)
     int len = strlen(prefix);
     struct cbfs_file *file;
     for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
-        dprintf(3, "Found CBFS file %s\n", file->filename);
         if (memcmp(prefix, file->filename, len) == 0) {
             if (n <= 0)
                 return file->filename;
@@ -442,11 +476,11 @@ hexify4(u16 x)
             | (getHex(x>>12)));
 }
 
-void *
-cb_find_optionrom(u32 vendev)
+int
+cb_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
 {
     if (! CONFIG_COREBOOT_FLASH)
-        return NULL;
+        return -1;
 
     char fname[17];
     // Ughh - poor man's sprintf of "pci%04x,%04x.rom"
@@ -457,12 +491,7 @@ cb_find_optionrom(u32 vendev)
     *(u32*)&fname[12] = 0x6d6f722e; // ".rom"
     fname[16] = '\0';
 
-    struct cbfs_file *file = cbfs_findfile(fname);
-    if (!file)
-        return NULL;
-    // Found it.
-    dprintf(3, "Found rom at %p\n", (void*)file + ntohl(file->offset));
-    return (void*)file + ntohl(file->offset);
+    return cbfs_copyfile(dst, maxlen, fname);
 }
 
 struct cbfs_payload_segment {
@@ -487,6 +516,8 @@ struct cbfs_payload {
 void
 cbfs_run_payload(const char *filename)
 {
+    if (! CONFIG_COREBOOT_FLASH)
+        return;
     dprintf(1, "Run %s\n", filename);
     struct cbfs_file *file = cbfs_findfile(filename);
     if (!file)
@@ -512,13 +543,13 @@ cbfs_run_payload(const char *filename)
         default:
             dprintf(3, "Segment %x %d@%p -> %d@%p\n"
                     , seg->type, src_len, src, dest_len, dest);
-            if (src_len > dest_len)
-                src_len = dest_len;
             if (seg->compression == htonl(CBFS_COMPRESS_NONE)) {
+                if (src_len > dest_len)
+                    src_len = dest_len;
                 memcpy(dest, src, src_len);
             } else if (CONFIG_LZMA
                        && seg->compression == htonl(CBFS_COMPRESS_LZMA)) {
-                int ret = ulzma(dest, src);
+                int ret = ulzma(dest, dest_len, src, src_len);
                 if (ret < 0)
                     return;
                 src_len = ret;
