@@ -41,6 +41,10 @@
 #define CONFIG_PNPBIOS 1
 // Support int 19/18 system bootup support
 #define CONFIG_BOOT 1
+// Support an interactive boot menu at end of post.
+#define CONFIG_BOOTMENU 1
+// Amount of time (in ms) to wait at menu before selecting normal boot.
+#define CONFIG_BOOTMENU_WAIT 2500
 // Support int 14 serial port calls
 #define CONFIG_SERIAL 1
 // Support int 17 parallel port calls
@@ -71,8 +75,6 @@
 #define OPTIONROM_MEM_1 0x00000000
 #define OPTIONROM_VENDEV_2 0x00000000
 #define OPTIONROM_MEM_2 0x00000000
-// Support an interactive boot menu at end of post.
-#define CONFIG_BOOTMENU 1
 
 // Support generation of a PIR table in 0xf000 segment (for emulators)
 #define CONFIG_PIRTABLE 1

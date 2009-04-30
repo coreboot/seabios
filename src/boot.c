@@ -205,7 +205,7 @@ interactive_bootmenu()
 
     printf("Press F12 for boot menu.\n\n");
 
-    int scan_code = get_keystroke(2500);
+    int scan_code = get_keystroke(CONFIG_BOOTMENU_WAIT);
     if (scan_code != 0x86)
         /* not F12 */
         return;
