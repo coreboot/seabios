@@ -187,8 +187,8 @@ lookup_hardcode(u32 vendev)
         && ((OPTIONROM_VENDEV_2 >> 16)
             | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
         return copy_rom((struct rom_header *)OPTIONROM_MEM_2);
-    int ret = cb_copy_optionrom((void*)next_rom, BUILD_BIOS_ADDR - next_rom
-                                , vendev);
+    int ret = cbfs_copy_optionrom((void*)next_rom, BUILD_BIOS_ADDR - next_rom
+                                  , vendev);
     if (ret < 0)
         return NULL;
     return (struct rom_header *)next_rom;
@@ -261,6 +261,22 @@ fail:
     return NULL;
 }
 
+// Adjust for the size of an option rom; allow it to resize.
+static struct rom_header *
+verifysize_optionrom(struct rom_header *rom, u16 bdf)
+{
+    if (! is_valid_rom(rom))
+        return NULL;
+
+    if (get_pnp_rom(rom))
+        // Init the PnP rom.
+        callrom(rom, OPTION_ROM_INITVECTOR, bdf);
+
+    next_rom += ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
+
+    return rom;
+}
+
 // Attempt to map and initialize the option rom on a given PCI device.
 static struct rom_header *
 init_optionrom(u16 bdf)
@@ -273,17 +289,7 @@ init_optionrom(u16 bdf)
     if (! rom)
         // No ROM present.
         return NULL;
-
-    if (! is_valid_rom(rom))
-        return NULL;
-
-    if (get_pnp_rom(rom))
-        // Init the PnP rom.
-        callrom(rom, OPTION_ROM_INITVECTOR, bdf);
-
-    next_rom += ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
-
-    return rom;
+    return verifysize_optionrom(rom, bdf);
 }
 
 
@@ -324,6 +330,16 @@ optionrom_setup()
                 || (CONFIG_ATA && v == PCI_CLASS_STORAGE_IDE))
                 continue;
             init_optionrom(bdf);
+        }
+
+        // Find and deploy CBFS roms not associated with a device.
+        struct cbfs_file *tmp = NULL;
+        for (;;) {
+            tmp = cbfs_copy_gen_optionrom(
+                (void*)next_rom, BUILD_BIOS_ADDR - next_rom, tmp);
+            if (!tmp)
+                break;
+            verifysize_optionrom((void*)next_rom, 0);
         }
     }
 

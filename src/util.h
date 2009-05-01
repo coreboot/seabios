@@ -169,8 +169,11 @@ void smbios_init(void);
 
 // coreboot.c
 const char *cbfs_findNprefix(const char *prefix, int n);
-int cb_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
+int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(const char *filename);
+struct cbfs_file;
+struct cbfs_file *cbfs_copy_gen_optionrom(void *dst, u32 maxlen
+                                          , struct cbfs_file *file);
 void coreboot_setup();
 
 // vgahooks.c

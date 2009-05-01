@@ -280,6 +280,7 @@ fail:
 static int
 ulzma(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
 {
+    dprintf(3, "Uncompressing data %d@%p to %d@%p\n", srclen, src, maxlen, dst);
     CLzmaDecoderState state;
     int ret = LzmaDecodeProperties(&state.Properties, src, LZMA_PROPERTIES_SIZE);
     if (ret != LZMA_RESULT_OK) {
@@ -401,11 +402,22 @@ cbfs_findfile(const char *fname)
     dprintf(3, "Searching CBFS for %s\n", fname);
     struct cbfs_file *file;
     for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
-        dprintf(3, "Found CBFS file %s\n", file->filename);
         if (strcmp(fname, file->filename) == 0)
             return file;
     }
     return NULL;
+}
+
+static int
+data_copy(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
+{
+    dprintf(3, "Copying data %d@%p to %d@%p\n", srclen, src, maxlen, dst);
+    if (srclen > maxlen) {
+        dprintf(1, "File too big to copy\n");
+        return -1;
+    }
+    memcpy(dst, src, srclen);
+    return srclen;
 }
 
 // Copy a file to memory (uncompressing if necessary)
@@ -420,22 +432,10 @@ cbfs_copyfile(void *dst, u32 maxlen, const char *fname)
             continue;
         u32 size = ntohl(file->len);
         void *src = (void*)file + ntohl(file->offset);
-        if (file->filename[fnlen] == '\0') {
-            // No compression
-            if (size > maxlen) {
-                dprintf(1, "File too big to copy\n");
-                return -1;
-            }
-            dprintf(3, "Copying data file %s\n", file->filename);
-            memcpy(dst, src, size);
-            return size;
-        }
-        if (strcmp(&file->filename[fnlen], ".lzma") == 0) {
-            // lzma compressed file
-            dprintf(3, "Uncompressing data file %s @ %p\n"
-                    , file->filename, src);
+        if (file->filename[fnlen] == '\0')
+            return data_copy(dst, maxlen, src, size);
+        if (strcmp(&file->filename[fnlen], ".lzma") == 0)
             return ulzma(dst, maxlen, src, size);
-        }
     }
     return -1;
 }
@@ -477,7 +477,7 @@ hexify4(u16 x)
 }
 
 int
-cb_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
+cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
 {
     if (! CONFIG_COREBOOT_FLASH)
         return -1;
@@ -492,6 +492,32 @@ cb_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
     fname[16] = '\0';
 
     return cbfs_copyfile(dst, maxlen, fname);
+}
+
+struct cbfs_file *
+cbfs_copy_gen_optionrom(void *dst, u32 maxlen, struct cbfs_file *file)
+{
+    if (! CONFIG_COREBOOT_FLASH)
+        return NULL;
+    if (! file)
+        file = cbfs_getfirst();
+    else
+        file = cbfs_getnext(file);
+    for (; file; file = cbfs_getnext(file)) {
+        if (memcmp("genroms/", file->filename, 8) != 0)
+            continue;
+        u32 size = ntohl(file->len);
+        void *src = (void*)file + ntohl(file->offset);
+        int fnamelen = strlen(file->filename);
+        int rv;
+        if (fnamelen > 5 && strcmp(&file->filename[fnamelen-5], ".lzma") == 0)
+            rv = ulzma(dst, maxlen, src, size);
+        else
+            rv = data_copy(dst, maxlen, src, size);
+        if (rv >= 0)
+            return file;
+    }
+    return NULL;
 }
 
 struct cbfs_payload_segment {
