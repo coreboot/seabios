@@ -422,8 +422,11 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
         return status;
 
     if (status & ATA_CB_STAT_ERR) {
-        dprintf(6, "send_atapi_cmd : read error (status=%02x err=%02x)\n"
-                , status, inb(iobase1 + ATA_CB_ERR));
+        u8 err = inb(iobase1 + ATA_CB_ERR);
+        // skip "Not Ready"
+        if (err != 0x20)
+            dprintf(6, "send_atapi_cmd : read error (status=%02x err=%02x)\n"
+                    , status, err);
         return -2;
     }
     if (!(status & ATA_CB_STAT_DRQ)) {
