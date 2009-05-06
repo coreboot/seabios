@@ -309,7 +309,7 @@ boot_prep()
 static void
 call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 {
-    dprintf(1, "Booting from %x:%x\n", bootseg, bootip);
+    dprintf(1, "Booting from %04x:%04x\n", bootseg, bootip);
 
     struct bregs br;
     memset(&br, 0, sizeof(br));

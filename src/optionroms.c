@@ -84,7 +84,7 @@ static void
 callrom(struct rom_header *rom, u16 offset, u16 bdf)
 {
     u16 seg = FLATPTR_TO_SEG(rom);
-    dprintf(1, "Running option rom at %x:%x\n", seg, offset);
+    dprintf(1, "Running option rom at %04x:%04x\n", seg, offset);
 
     struct bregs br;
     memset(&br, 0, sizeof(br));
@@ -198,7 +198,8 @@ lookup_hardcode(u32 vendev)
 static struct rom_header *
 map_optionrom(u16 bdf, u32 vendev)
 {
-    dprintf(6, "Attempting to map option rom on dev %x\n", bdf);
+    dprintf(6, "Attempting to map option rom on dev %02x:%02x.%x\n"
+            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
 
     u8 htype = pci_config_readb(bdf, PCI_HEADER_TYPE);
     if ((htype & 0x7f) != PCI_HEADER_TYPE_NORMAL) {
@@ -282,7 +283,9 @@ static struct rom_header *
 init_optionrom(u16 bdf)
 {
     u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
-    dprintf(4, "Attempting to init PCI bdf %x (dev/ven %x)\n", bdf, vendev);
+    dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (dev/ven %x)\n"
+            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
+            , vendev);
     struct rom_header *rom = lookup_hardcode(vendev);
     if (! rom)
         rom = map_optionrom(bdf, vendev);

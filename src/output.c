@@ -134,16 +134,33 @@ putsinglehex(u16 action, u32 val)
 
 // Output an integer in hexadecimal.
 static void
-puthex(u16 action, u32 val)
+puthex(u16 action, u32 val, int width)
 {
-    putsinglehex(action, (val >> 28) & 0xf);
-    putsinglehex(action, (val >> 24) & 0xf);
-    putsinglehex(action, (val >> 20) & 0xf);
-    putsinglehex(action, (val >> 16) & 0xf);
-    putsinglehex(action, (val >> 12) & 0xf);
-    putsinglehex(action, (val >> 8) & 0xf);
-    putsinglehex(action, (val >> 4) & 0xf);
-    putsinglehex(action, (val >> 0) & 0xf);
+    if (!width) {
+        u32 tmp = val;
+        width = 1;
+        if (tmp > 0xffff) {
+            width += 4;
+            tmp >>= 16;
+        }
+        if (tmp > 0xff) {
+            width += 2;
+            tmp >>= 8;
+        }
+        if (tmp > 0xf)
+            width += 1;
+    }
+
+    switch (width) {
+    default: putsinglehex(action, (val >> 28) & 0xf);
+    case 7:  putsinglehex(action, (val >> 24) & 0xf);
+    case 6:  putsinglehex(action, (val >> 20) & 0xf);
+    case 5:  putsinglehex(action, (val >> 16) & 0xf);
+    case 4:  putsinglehex(action, (val >> 12) & 0xf);
+    case 3:  putsinglehex(action, (val >> 8) & 0xf);
+    case 2:  putsinglehex(action, (val >> 4) & 0xf);
+    case 1:  putsinglehex(action, (val >> 0) & 0xf);
+    }
 }
 
 static inline int
@@ -165,10 +182,12 @@ bvprintf(u16 action, const char *fmt, va_list args)
             continue;
         }
         const char *n = s+1;
+        int field_width = 0;
         for (;;) {
             c = GET_GLOBAL(*(u8*)n);
             if (!isdigit(c))
                 break;
+            field_width = field_width * 10 + c - '0';
             n++;
         }
         if (c == 'l') {
@@ -195,9 +214,13 @@ bvprintf(u16 action, const char *fmt, va_list args)
             putuint(action, val);
             break;
         case 'p':
+            /* %p always has 0x prepended */
+            putc(action, '0');
+            putc(action, 'x');
+            field_width = 8;
         case 'x':
             val = va_arg(args, s32);
-            puthex(action, val);
+            puthex(action, val, field_width);
             break;
         case 'c':
             val = va_arg(args, int);
@@ -264,12 +287,12 @@ hexdump(void *d, int len)
     while (len) {
         if (count % 8 == 0) {
             putc(0, '\n');
-            puthex(0, count*4);
+            puthex(0, count*4, 8);
             putc(0, ':');
         } else {
             putc(0, ' ');
         }
-        puthex(0, *(u32*)d);
+        puthex(0, *(u32*)d, 8);
         count++;
         len-=4;
         d+=4;
@@ -284,11 +307,11 @@ dump_regs(struct bregs *regs)
         dprintf(1, "  NULL\n");
         return;
     }
-    dprintf(1, "  a=%x b=%x c=%x d=%x si=%x di=%x\n"
+    dprintf(1, "   a=%08x  b=%08x  c=%08x  d=%08x si=%08x di=%08x\n"
             , regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->esi, regs->edi);
-    dprintf(1, "  ds=%x es=%x ip=%x cs=%x f=%x r=%p\n"
-            , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, regs);
+    dprintf(1, "  ds=%08x es=%08x ip=%08x cs=%08x  f=%08x  r=%08x\n"
+            , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, (u32)regs);
 }
 
 // Report entry to an Interrupt Service Routine (ISR).

@@ -44,7 +44,7 @@ dump_map()
     for (i=0; i<e820_count; i++) {
         struct e820entry *e = &e820_list[i];
         u64 e_end = e->start + e->size;
-        dprintf(1, "  %d: %x%x - %x%x = %d\n", i
+        dprintf(1, "  %d: %08x%08x - %08x%08x = %d\n", i
                 , (u32)(e->start >> 32), (u32)e->start
                 , (u32)(e_end >> 32), (u32)e_end
                 , e->type);
@@ -56,7 +56,7 @@ dump_map()
 void
 add_e820(u64 start, u64 size, u32 type)
 {
-    dprintf(8, "Add to e820 map: %x %x %d\n", (u32)start, (u32)size, type);
+    dprintf(8, "Add to e820 map: %08x %08x %d\n", (u32)start, (u32)size, type);
 
     if (! size)
         // Huh?  Nothing to do.
