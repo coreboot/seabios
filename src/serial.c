@@ -1,6 +1,6 @@
 // 16bit code to handle serial and printer services.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -40,6 +40,7 @@ serial_setup()
     count += detect_serial(0x2f8, 0x0a, count);
     count += detect_serial(0x3e8, 0x0a, count);
     count += detect_serial(0x2e8, 0x0a, count);
+    dprintf(1, "Found %d serial ports\n", count);
 
     // Equipment word bits 9..11 determing # serial ports
     u16 eqb = GET_BDA(equipment_list_flags);
@@ -203,6 +204,7 @@ lpt_setup()
     u16 count = 0;
     count += detect_parport(0x378, 0x14, count);
     count += detect_parport(0x278, 0x14, count);
+    dprintf(1, "Found %d lpt ports\n", count);
 
     // Equipment word bits 14..15 determing # parallel ports
     u16 eqb = GET_BDA(equipment_list_flags);
