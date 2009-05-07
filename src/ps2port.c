@@ -163,14 +163,19 @@ ps2_recvbyte(int aux, int needack, int timeout)
         u8 data = inb(PORT_PS2_DATA);
         dprintf(7, "ps2 read %x\n", data);
 
-        if ((!!(status & I8042_STR_AUXDATA) != aux)
-            || (needack && data != PS2_RET_ACK)) {
-            // This data not for us - XXX - just discard it for now.
-            dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
-            continue;
+        if (!!(status & I8042_STR_AUXDATA) == aux) {
+            if (!needack)
+                return data;
+            if (data == PS2_RET_ACK)
+                return data;
+            if (data == PS2_RET_NAK) {
+                dprintf(1, "Got ps2 nak (status=%x); continuing\n", status);
+                return data;
+            }
         }
 
-        return data;
+        // This data not for us - XXX - just discard it for now.
+        dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
     }
 }
 
