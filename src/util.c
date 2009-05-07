@@ -1,6 +1,6 @@
 // Misc utility functions.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -18,9 +18,9 @@ call16(struct bregs *callregs)
 #if MODE16 == 1
         "calll __call16\n"
         "cli\n"
-        "cld\n"
+        "cld"
 #else
-        "calll __call16_from32\n"
+        "calll __call16_from32"
 #endif
         : "+a" (callregs), "+m" (*callregs)
         :
@@ -35,7 +35,7 @@ call16big(struct bregs *callregs)
         __force_link_error__call16big_only_in_32bit_mode();
 
     asm volatile(
-        "calll __call16big_from32\n"
+        "calll __call16big_from32"
         : "+a" (callregs), "+m" (*callregs)
         :
         : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
@@ -65,7 +65,7 @@ call16_simpint(int nr, u32 *eax, u32 *flags)
         "pushfl\n"
         "popl %1\n"
         "cli\n"
-        "cld\n"
+        "cld"
         : "+a"(*eax), "=r"(*flags)
         : "i"(nr)
         : "cc", "memory");
@@ -94,7 +94,7 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
         // Restore segments and stack
         "movw %w3, %%ds\n"
         "movw %w3, %%ss\n"
-        "movl %4, %%esp\n"
+        "movl %4, %%esp"
         : "+a" (eax), "+d" (edx), "+c" (ecx), "=&r" (bkup_ss), "=&r" (bkup_esp)
         : "i" (EBDA_OFFSET_TOP_STACK), "r" (ebda_seg), "m" (*(u8*)func)
         : "cc", "memory");
@@ -158,6 +158,29 @@ strcmp(const char *s1, const char *s2)
     }
 }
 
+inline void
+memset_far(u16 d_seg, void *d_far, u8 c, size_t len)
+{
+    SET_SEG(ES, d_seg);
+    asm volatile(
+        "rep stosb %%es:(%%di)"
+        : "+c"(len), "+D"(d_far)
+        : "a"(c)
+        : "cc", "memory");
+}
+
+inline void
+memset16_far(u16 d_seg, void *d_far, u16 c, size_t len)
+{
+    len /= 2;
+    SET_SEG(ES, d_seg);
+    asm volatile(
+        "rep stosw %%es:(%%di)"
+        : "+c"(len), "+D"(d_far)
+        : "a"(c)
+        : "cc", "memory");
+}
+
 void *
 memset(void *s, int c, size_t n)
 {
@@ -175,7 +198,7 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
         "movw %%ds, %w0\n"
         "movw %w4, %%ds\n"
         "rep movsb (%%si),%%es:(%%di)\n"
-        "movw %w0, %%ds\n"
+        "movw %w0, %%ds"
         : "=&r"(bkup_ds), "+c"(len), "+S"(s_far), "+D"(d_far)
         : "r"(s_seg)
         : "cc", "memory");
@@ -187,7 +210,7 @@ memcpy4(void *d1, const void *s1, size_t len)
 {
     len /= 4;
     asm volatile(
-        "rep movsl (%%esi),%%es:(%%edi)\n"
+        "rep movsl (%%esi),%%es:(%%edi)"
         : "+c"(len), "+S"(s1), "+D"(d1)
         : : "cc", "memory");
 }

@@ -1,6 +1,6 @@
 // Basic x86 asm functions and function defs.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __UTIL_H
@@ -72,6 +72,8 @@ u8 checksum(void *buf, u32 len);
 int memcmp(const void *s1, const void *s2, size_t n);
 size_t strlen(const char *s);
 int strcmp(const char *s1, const char *s2);
+inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
+inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
 void *memset(void *s, int c, size_t n);
 void memcpy4(void *d1, const void *s1, size_t len);
 #define memcpy(d1, s1, len) __builtin_memcpy((d1), (s1), (len))

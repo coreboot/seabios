@@ -24,15 +24,14 @@
 #define MTRRphysBase_MSR(reg) (0x200 + 2 * (reg))
 #define MTRRphysMask_MSR(reg) (0x200 + 2 * (reg) + 1)
 
-static u64 rdmsr(unsigned index)
+static u64 rdmsr(u32 index)
 {
-    unsigned long long ret;
-
+    u64 ret;
     asm ("rdmsr" : "=A"(ret) : "c"(index));
     return ret;
 }
 
-static void wrmsr(unsigned index, u64 val)
+static void wrmsr(u32 index, u64 val)
 {
     asm volatile ("wrmsr" : : "c"(index), "A"(val));
 }
