@@ -274,7 +274,8 @@ static void
 handle_15e820(struct bregs *regs)
 {
     int count = GET_GLOBAL(e820_count);
-    if (regs->edx != 0x534D4150 || regs->bx >= count) {
+    if (regs->edx != 0x534D4150 || regs->bx >= count
+        || regs->ecx < sizeof(e820_list[0])) {
         set_code_fail(regs, RET_EUNSUPPORTED);
         return;
     }
