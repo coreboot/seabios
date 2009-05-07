@@ -7,9 +7,6 @@
 
 
 // TODO:
-//  * commit to git
-//  * Send announcement emails
-//
 //  * introduce "struct vregs", or add ebp to struct bregs.
 //  * Integrate vga_modes/pallete?/line_to_vpti/dac_regs/video_param_table
 //  * define structs for save/restore state
