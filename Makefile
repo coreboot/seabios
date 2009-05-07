@@ -52,8 +52,8 @@ STRIP=strip
 
 .PHONY : all FORCE
 
-vpath %.c src
-vpath %.S src
+vpath %.c src vgasrc
+vpath %.S src vgasrc
 
 ################ Build rules
 
@@ -131,6 +131,30 @@ $(OUT)bios.bin: $(OUT)bios.bin.elf
 	@echo "  Extracting binary $@"
 	$(Q)$(OBJCOPY) -O binary $< $@
 
+
+################ VGA build rules
+
+# VGA src files
+SRCVGA=src/output.c src/util.c vgasrc/vga.c vgasrc/vgatables.c \
+       vgasrc/vgafonts.c vgasrc/clext.c
+
+$(OUT)vgaccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S -Isrc, $(SRCVGA),$@)
+
+$(OUT)vgalayout16.o: vgaentry.S $(OUT)vgaccode.16.s $(OUT)asm-offsets.h
+	@echo "  Compiling (16bit) $@"
+	$(Q)$(CC) $(CFLAGS16INC) -c -D__ASSEMBLY__ -Isrc $< -o $@
+
+$(OUT)vgarom.o: $(OUT)vgalayout16.o $(OUT)vgalayout.lds
+	@echo "  Linking $@"
+	$(Q)$(LD) -T $(OUT)vgalayout.lds $(OUT)vgalayout16.o -o $@
+
+$(OUT)vgabios.bin.raw: $(OUT)vgarom.o
+	@echo "  Extracting binary $@"
+	$(Q)$(OBJCOPY) -O binary $< $@
+
+$(OUT)vgabios.bin: $(OUT)vgabios.bin.raw
+	@echo "  Finalizing rom $@"
+	$(Q)./tools/buildrom.py $< $@
 
 ####### Generic rules
 clean:
