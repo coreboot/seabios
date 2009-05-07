@@ -25,6 +25,8 @@ struct rmode_IVT {
     } ivec[256];
 };
 
+#define GET_IVT(vector)                                         \
+    GET_FARVAR(SEG_IVT, ((struct rmode_IVT *)0)->ivec[vector])
 #define SET_IVT(vector, seg, off)                                       \
     SET_FARVAR(SEG_IVT, ((struct rmode_IVT *)0)->ivec[vector].segoff, ((seg) << 16) | (off))
 
@@ -106,6 +108,13 @@ struct bios_data_area_s {
     u32 user_wait_timeout;
     // 40:A0
     u8 rtc_wait_flag;
+    u8 other_a1[7];
+    u16 video_savetable_ptr;
+    u16 video_savetable_seg;
+    u8 other_ac[4];
+    // 40:B0
+    u8 other_b0[10];
+    u16 vbe_mode;
 } PACKED;
 
 // BDA floppy_recalibration_status bitdefs
