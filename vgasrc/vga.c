@@ -961,7 +961,7 @@ biosfn_set_border_color(struct bregs *regs)
     u8 al = regs->bl & 0x0f;
     if (al & 0x08)
         al += 0x08;
-    outb(al, VGAREG_ACTL_ADDRESS);
+    outb(al, VGAREG_ACTL_WRITE_DATA);
     u8 bl = regs->bl & 0x10;
 
     int i;
@@ -971,7 +971,7 @@ biosfn_set_border_color(struct bregs *regs)
         al = inb(VGAREG_ACTL_READ_DATA);
         al &= 0xef;
         al |= bl;
-        outb(al, VGAREG_ACTL_ADDRESS);
+        outb(al, VGAREG_ACTL_WRITE_DATA);
     }
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
@@ -988,7 +988,7 @@ biosfn_set_palette(struct bregs *regs)
         u8 al = inb(VGAREG_ACTL_READ_DATA);
         al &= 0xfe;
         al |= bl;
-        outb(al, VGAREG_ACTL_ADDRESS);
+        outb(al, VGAREG_ACTL_WRITE_DATA);
     }
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
@@ -1234,7 +1234,7 @@ biosfn_set_overscan_border_color(struct bregs *regs)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(regs->bh, VGAREG_ACTL_ADDRESS);
+    outb(regs->bh, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
@@ -1249,11 +1249,11 @@ biosfn_set_all_palette_reg(struct bregs *regs)
     for (i = 0; i < 0x10; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
         u8 val = GET_FARVAR(regs->es, *data);
-        outb(val, VGAREG_ACTL_ADDRESS);
+        outb(val, VGAREG_ACTL_WRITE_DATA);
         data++;
     }
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(GET_FARVAR(regs->es, *data), VGAREG_ACTL_ADDRESS);
+    outb(GET_FARVAR(regs->es, *data), VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
@@ -1264,7 +1264,7 @@ biosfn_toggle_intensity(struct bregs *regs)
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
     u8 val = (inb(VGAREG_ACTL_READ_DATA) & 0x7f) | ((regs->bl & 0x01) << 3);
-    outb(val, VGAREG_ACTL_ADDRESS);
+    outb(val, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
@@ -1274,7 +1274,7 @@ biosfn_set_single_palette_reg(u8 reg, u8 val)
 {
     inb(VGAREG_ACTL_RESET);
     outb(reg, VGAREG_ACTL_ADDRESS);
-    outb(val, VGAREG_ACTL_ADDRESS);
+    outb(val, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
@@ -1357,7 +1357,7 @@ biosfn_select_video_dac_color_page(struct bregs *regs)
     u8 val = inb(VGAREG_ACTL_READ_DATA);
     if (!(regs->bl & 0x01)) {
         val = (val & 0x7f) | (regs->bh << 7);
-        outb(val, VGAREG_ACTL_ADDRESS);
+        outb(val, VGAREG_ACTL_WRITE_DATA);
         outb(0x20, VGAREG_ACTL_ADDRESS);
         return;
     }
@@ -1367,7 +1367,7 @@ biosfn_select_video_dac_color_page(struct bregs *regs)
     if (!(val & 0x80))
         bh <<= 2;
     bh &= 0x0f;
-    outb(bh, VGAREG_ACTL_ADDRESS);
+    outb(bh, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
@@ -1950,7 +1950,7 @@ biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
         }
         // select crtc base address
         v = inb(VGAREG_READ_MISC_OUTPUT) & ~0x01;
-        if (crtc_addr == 0x3d4)
+        if (crtc_addr == VGAREG_VGA_CRTC_ADDRESS)
             v |= 0x01;
         outb(v, VGAREG_WRITE_MISC_OUTPUT);
 

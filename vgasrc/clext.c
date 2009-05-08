@@ -317,25 +317,27 @@ cirrus_switch_mode_setregs(u16 *data, u16 port)
 static u16
 cirrus_get_crtc()
 {
-    return 0x3b4 + ((inb(0x3cc) & 1) << 5);
+    if (inb(VGAREG_READ_MISC_OUTPUT) & 1)
+        return VGAREG_VGA_CRTC_ADDRESS;
+    return VGAREG_MDA_CRTC_ADDRESS;
 }
 
 static void
 cirrus_switch_mode(struct cirrus_mode_s *table)
 {
     // Unlock cirrus special
-    outw(0x1206, 0x3c4);
-    cirrus_switch_mode_setregs(GET_GLOBAL(table->seq), 0x3c4);
-    cirrus_switch_mode_setregs(GET_GLOBAL(table->graph), 0x3ce);
+    outw(0x1206, VGAREG_SEQU_ADDRESS);
+    cirrus_switch_mode_setregs(GET_GLOBAL(table->seq), VGAREG_SEQU_ADDRESS);
+    cirrus_switch_mode_setregs(GET_GLOBAL(table->graph), VGAREG_GRDC_ADDRESS);
     cirrus_switch_mode_setregs(GET_GLOBAL(table->crtc), cirrus_get_crtc());
 
-    outb(0x00, 0x3c6);
-    inb(0x3c6);
-    inb(0x3c6);
-    inb(0x3c6);
-    inb(0x3c6);
-    outb(GET_GLOBAL(table->hidden_dac), 0x3c6);
-    outb(0xff, 0x3c6);
+    outb(0x00, VGAREG_PEL_MASK);
+    inb(VGAREG_PEL_MASK);
+    inb(VGAREG_PEL_MASK);
+    inb(VGAREG_PEL_MASK);
+    inb(VGAREG_PEL_MASK);
+    outb(GET_GLOBAL(table->hidden_dac), VGAREG_PEL_MASK);
+    outb(0xff, VGAREG_PEL_MASK);
 
     u8 vesacolortype = GET_GLOBAL(table->vesacolortype);
     u8 v = biosfn_get_single_palette_reg(0x10) & 0xfe;
@@ -364,8 +366,8 @@ cirrus_set_video_mode(u8 mode)
 static int
 cirrus_check()
 {
-    outw(0x9206, 0x3c4);
-    return inb(0x3c5) == 0x12;
+    outw(0x9206, VGAREG_SEQU_ADDRESS);
+    return inb(VGAREG_SEQU_DATA) == 0x12;
 }
 
 void
@@ -377,12 +379,12 @@ cirrus_init()
     dprintf(1, "cirrus init 2\n");
 
     // memory setup
-    outb(0x0f, 0x3c4);
-    u8 v = inb(0x3c5);
-    outb(((v & 0x18) << 8) | 0x0a, 0x3c4);
+    outb(0x0f, VGAREG_SEQU_ADDRESS);
+    u8 v = inb(VGAREG_SEQU_DATA);
+    outb(((v & 0x18) << 8) | 0x0a, VGAREG_SEQU_ADDRESS);
     // set vga mode
-    outw(0x0007, 0x3c4);
+    outw(0x0007, VGAREG_SEQU_ADDRESS);
     // reset bitblt
-    outw(0x0431, 0x3ce);
-    outw(0x0031, 0x3ce);
+    outw(0x0431, VGAREG_GRDC_ADDRESS);
+    outw(0x0031, VGAREG_GRDC_ADDRESS);
 }
