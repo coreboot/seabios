@@ -12,7 +12,7 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 
-#define DEBUG_PORT 0x03f8
+#define DEBUG_PORT PORT_SERIAL1
 #define DEBUG_TIMEOUT 100000
 
 void
@@ -22,12 +22,12 @@ debug_serial_setup()
         return;
     // setup for serial logging: 8N1
     u8 oldparam, newparam = 0x03;
-    oldparam = inb(DEBUG_PORT+3);
-    outb(newparam, DEBUG_PORT+3);
+    oldparam = inb(DEBUG_PORT+SEROFF_LCR);
+    outb(newparam, DEBUG_PORT+SEROFF_LCR);
     // Disable irqs
     u8 oldier, newier = 0;
-    oldier = inb(DEBUG_PORT+1);
-    outb(newier, DEBUG_PORT+1);
+    oldier = inb(DEBUG_PORT+SEROFF_IER);
+    outb(newier, DEBUG_PORT+SEROFF_IER);
 
     if (oldparam != newparam || oldier != newier)
         dprintf(1, "Changing serial settings was %x/%x now %x/%x\n"
@@ -39,11 +39,11 @@ static void
 debug_serial(char c)
 {
     int timeout = DEBUG_TIMEOUT;
-    while ((inb(DEBUG_PORT+5) & 0x60) != 0x60)
+    while ((inb(DEBUG_PORT+SEROFF_LSR) & 0x60) != 0x60)
         if (!timeout--)
             // Ran out of time.
             return;
-    outb(c, DEBUG_PORT);
+    outb(c, DEBUG_PORT+SEROFF_DATA);
 }
 
 // Show a character on the screen.

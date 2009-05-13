@@ -17,12 +17,15 @@
 static u16
 detect_serial(u16 port, u8 timeout, u8 count)
 {
-    outb(0x02, port+1);
-    if (inb(port+1) != 0x02)
+    outb(0x02, port+SEROFF_IER);
+    u8 ier = inb(port+SEROFF_IER);
+    if (ier != 0x02)
         return 0;
-    if (inb(port+2) != 0x02)
+    u8 iir = inb(port+SEROFF_IIR);
+    if ((iir & 0x3f) != 0x02)
         return 0;
-    outb(0x00, port+1);
+
+    outb(0x00, port+SEROFF_IER);
     SET_BDA(port_com[count], port);
     SET_BDA(com_timeout[count], timeout);
     return 1;
@@ -36,10 +39,10 @@ serial_setup()
     dprintf(3, "init serial\n");
 
     u16 count = 0;
-    count += detect_serial(0x3f8, 0x0a, count);
-    count += detect_serial(0x2f8, 0x0a, count);
-    count += detect_serial(0x3e8, 0x0a, count);
-    count += detect_serial(0x2e8, 0x0a, count);
+    count += detect_serial(PORT_SERIAL1, 0x0a, count);
+    count += detect_serial(PORT_SERIAL2, 0x0a, count);
+    count += detect_serial(PORT_SERIAL3, 0x0a, count);
+    count += detect_serial(PORT_SERIAL4, 0x0a, count);
     dprintf(1, "Found %d serial ports\n", count);
 
     // Equipment word bits 9..11 determing # serial ports
@@ -67,18 +70,18 @@ handle_1400(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
-    outb(inb(addr+3) | 0x80, addr+3);
+    outb(inb(addr+SEROFF_LCR) | 0x80, addr+SEROFF_LCR);
     if ((regs->al & 0xE0) == 0) {
-        outb(0x17, addr);
-        outb(0x04, addr+1);
+        outb(0x17, addr+SEROFF_DLL);
+        outb(0x04, addr+SEROFF_DLH);
     } else {
         u16 val16 = 0x600 >> ((regs->al & 0xE0) >> 5);
-        outb(val16 & 0xFF, addr);
-        outb(val16 >> 8, addr+1);
+        outb(val16 & 0xFF, addr+SEROFF_DLL);
+        outb(val16 >> 8, addr+SEROFF_DLH);
     }
-    outb(regs->al & 0x1F, addr+3);
-    regs->ah = inb(addr+5);
-    regs->al = inb(addr+6);
+    outb(regs->al & 0x1F, addr+SEROFF_LCR);
+    regs->ah = inb(addr+SEROFF_LSR);
+    regs->al = inb(addr+SEROFF_MSR);
     set_success(regs);
 }
 
@@ -91,7 +94,7 @@ handle_1401(struct bregs *regs)
         return;
     u16 timer = GET_BDA(timer_counter);
     u16 timeout = GET_BDA(com_timeout[regs->dx]);
-    while (((inb(addr+5) & 0x60) != 0x60) && (timeout)) {
+    while (((inb(addr+SEROFF_LSR) & 0x60) != 0x60) && (timeout)) {
         u16 val16 = GET_BDA(timer_counter);
         if (val16 != timer) {
             timer = val16;
@@ -99,8 +102,8 @@ handle_1401(struct bregs *regs)
         }
     }
     if (timeout)
-        outb(regs->al, addr);
-    regs->ah = inb(addr+5);
+        outb(regs->al, addr+SEROFF_DATA);
+    regs->ah = inb(addr+SEROFF_LSR);
     if (!timeout)
         regs->ah |= 0x80;
     set_success(regs);
@@ -115,7 +118,7 @@ handle_1402(struct bregs *regs)
         return;
     u16 timer = GET_BDA(timer_counter);
     u16 timeout = GET_BDA(com_timeout[regs->dx]);
-    while (((inb(addr+5) & 0x01) == 0) && (timeout)) {
+    while (((inb(addr+SEROFF_LSR) & 0x01) == 0) && (timeout)) {
         u16 val16 = GET_BDA(timer_counter);
         if (val16 != timer) {
             timer = val16;
@@ -124,9 +127,9 @@ handle_1402(struct bregs *regs)
     }
     if (timeout) {
         regs->ah = 0;
-        regs->al = inb(addr);
+        regs->al = inb(addr+SEROFF_DATA);
     } else {
-        regs->ah = inb(addr+5);
+        regs->ah = inb(addr+SEROFF_LSR);
     }
     set_success(regs);
 }
@@ -138,8 +141,8 @@ handle_1403(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
-    regs->ah = inb(addr+5);
-    regs->al = inb(addr+6);
+    regs->ah = inb(addr+SEROFF_LSR);
+    regs->al = inb(addr+SEROFF_MSR);
     set_success(regs);
 }
 

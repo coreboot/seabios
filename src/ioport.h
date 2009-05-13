@@ -34,11 +34,15 @@
 #define PORT_DMA2_MODE_REG     0x00d6
 #define PORT_DMA2_MASTER_CLEAR 0x00da
 #define PORT_MATH_CLEAR        0x00f0
+#define PORT_SERIAL4           0x02e8
+#define PORT_SERIAL2           0x02f8
+#define PORT_SERIAL3           0x03e8
 #define PORT_FD_DOR            0x03f2
 #define PORT_FD_STATUS         0x03f4
 #define PORT_FD_DATA           0x03f5
 #define PORT_HD_DATA           0x03f6
 #define PORT_FD_DIR            0x03f7
+#define PORT_SERIAL1           0x03f8
 #define PORT_PCI_CMD           0x0cf8
 #define PORT_PCI_DATA          0x0cfc
 #define PORT_BIOS_DEBUG        0x0402
@@ -47,6 +51,16 @@
 #define PORT_ACPI_PM_BASE      0xb000
 #define PORT_SMB_BASE          0xb100
 #define PORT_BIOS_APM          0x8900
+
+// Serial port offsets
+#define SEROFF_DATA    0
+#define SEROFF_DLL     0
+#define SEROFF_IER     1
+#define SEROFF_DLH     1
+#define SEROFF_IIR     2
+#define SEROFF_LCR     3
+#define SEROFF_LSR     5
+#define SEROFF_MSR     6
 
 // PORT_A20 bitdefs
 #define A20_ENABLE_BIT 0x02
