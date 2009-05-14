@@ -1,3 +1,5 @@
+#ifndef __VGATABLES_H
+#define __VGATABLES_H
 
 #include "types.h" // u8
 
@@ -132,3 +134,5 @@ u8 biosfn_get_single_palette_reg(u8 reg);
 // clext.c
 void cirrus_set_video_mode(u8 mode);
 void cirrus_init();
+
+#endif // vgatables.h
