@@ -250,9 +250,7 @@ biosfn_set_active_page(u8 page)
     // And change the BIOS page
     SET_BDA(video_page, page);
 
-#ifdef DEBUG
-    printf("Set active page %02x address %04x\n", page, address);
-#endif
+    dprintf(1, "Set active page %02x address %04x\n", page, address);
 
     // Display the cursor, now the page is active
     biosfn_set_cursor_pos(page, cursor);
@@ -281,9 +279,7 @@ biosfn_set_video_mode(u8 mode)
     // find the entry in the video modes
     line = find_vga_entry(mode);
 
-#ifdef DEBUG
-    printf("mode search %02x found line %02x\n", mode, line);
-#endif
+    dprintf(1, "mode search %02x found line %02x\n", mode, line);
 
     if (line == 0xFF)
         return;
@@ -561,10 +557,8 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Compute the address
         void *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page));
-#ifdef DEBUG
-        printf("Scroll, address %04x (%04x %04x %02x)\n", address, nbrows,
-               nbcols, page);
-#endif
+        dprintf(1, "Scroll, address %p (%d %d %02x)\n"
+                , address, nbrows, nbcols, page);
 
         if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
             && clr == nbcols - 1) {
@@ -673,9 +667,9 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
                 }
             }
             break;
-#ifdef DEBUG
         default:
-            printf("Scroll in graphics mode ");
+            dprintf(1, "Scroll in graphics mode\n");
+#ifdef DEBUG
             unimplemented();
 #endif
         }
@@ -1603,9 +1597,7 @@ biosfn_get_font_info(u8 BH, u16 *ES, u16 *BP, u16 *CX, u16 *DX)
         *BP = (u32)vgafont16alt;
         break;
     default:
-#ifdef DEBUG
-        printf("Get font info BH(%02x) was discarded\n", BH);
-#endif
+        dprintf(1, "Get font info BH(%02x) was discarded\n", BH);
         return;
     }
     // Set byte/char of on screen font
@@ -1651,9 +1643,7 @@ biosfn_select_vert_res(struct bregs *regs)
         vswt = (vswt & ~0x0f) | 0x09;
         break;
     default:
-#ifdef DEBUG
-        printf("Select vert res (%02x) was discarded\n");
-#endif
+        dprintf(1, "Select vert res (%02x) was discarded\n", regs->al);
         break;
     }
     SET_BDA(modeset_ctl, mctl);
@@ -1748,9 +1738,7 @@ static void
 biosfn_set_display_code(struct bregs *regs)
 {
     SET_BDA(dcc_index, regs->bl);
-#ifdef DEBUG
-    printf("Alternate Display code (%02x) was discarded", regs->bh);
-#endif
+    dprintf(1, "Alternate Display code (%02x) was discarded\n", regs->bh);
     regs->al = 0x1a;
 }
 
