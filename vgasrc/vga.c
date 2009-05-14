@@ -11,8 +11,6 @@
 //  * Integrate vga_modes/pallete?/line_to_vpti/dac_regs/video_param_table
 //  * define structs for save/restore state
 //  * review correctness of converted asm by comparing with RBIL
-//  * eliminate unimplemented() calls
-//  * eliminate DEBUG defs
 //  * more syntax cleanups
 //  * refactor redundant code into sub-functions
 //  * See if there is a method to the in/out stuff that can be encapsulated.
@@ -21,10 +19,10 @@
 //  * add defs for 0xa000/0xb800
 //  * verify all funcs static
 //
+//  * convert vbe/clext code
+//
 //  * separate code into separate files
 //  * extract hw code from bios interfaces
-//
-//  * convert vbe/clext code
 
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
@@ -669,9 +667,6 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
             break;
         default:
             dprintf(1, "Scroll in graphics mode\n");
-#ifdef DEBUG
-            unimplemented();
-#endif
         }
     }
 }
@@ -707,9 +702,7 @@ biosfn_read_char_attr(u8 page, u16 *car)
         *car = GET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), *address);
     } else {
         // FIXME gfx mode
-#ifdef DEBUG
-        unimplemented();
-#endif
+        dprintf(1, "Read char in graphics mode\n");
     }
 }
 
@@ -877,10 +870,6 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
             case LINEAR8:
                 write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
                 break;
-#ifdef DEBUG
-            default:
-                unimplemented();
-#endif
             }
             xcurs++;
         }
@@ -935,10 +924,6 @@ biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
             case LINEAR8:
                 write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
                 break;
-#ifdef DEBUG
-            default:
-                unimplemented();
-#endif
             }
             xcurs++;
         }
@@ -1045,10 +1030,6 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
         addr = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
         SET_FARVAR(0xa000, *addr, AL);
         break;
-#ifdef DEBUG
-    default:
-        unimplemented();
-#endif
     }
 }
 
@@ -1094,11 +1075,6 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
         addr = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
         attr = GET_FARVAR(0xa000, *addr);
         break;
-    default:
-#ifdef DEBUG
-        unimplemented();
-#endif
-        attr = 0;
     }
     *AX = (*AX & 0xff00) | attr;
 }
@@ -1183,10 +1159,6 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
             case LINEAR8:
                 write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
                 break;
-#ifdef DEBUG
-            default:
-                unimplemented();
-#endif
             }
         }
         xcurs++;
