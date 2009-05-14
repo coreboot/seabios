@@ -390,17 +390,17 @@ biosfn_set_video_mode(u8 mode)
     if (noclearmem == 0x00) {
         if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
             memset16_far(GET_GLOBAL(vga_modes[line].sstart)
-                         , 0, 0x0720, 0x4000); // 32k
+                         , 0, 0x0720, 32*1024);
         } else {
             if (mode < 0x0d) {
                 memset16_far(GET_GLOBAL(vga_modes[line].sstart)
-                             , 0, 0x0000, 0x4000);     // 32k
+                             , 0, 0x0000, 32*1024);
             } else {
                 outb(0x02, VGAREG_SEQU_ADDRESS);
                 mmask = inb(VGAREG_SEQU_DATA);
                 outb(0x0f, VGAREG_SEQU_DATA);   // all planes
                 memset16_far(GET_GLOBAL(vga_modes[line].sstart)
-                             , 0, 0x0000, 0x8000);     // 64k
+                             , 0, 0x0000, 64*1024);
                 outb(mmask, VGAREG_SEQU_DATA);
             }
         }
@@ -557,39 +557,39 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Compute the address
         void *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page));
-        dprintf(1, "Scroll, address %p (%d %d %02x)\n"
+        dprintf(3, "Scroll, address %p (%d %d %02x)\n"
                 , address, nbrows, nbcols, page);
 
         if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
             && clr == nbcols - 1) {
             memset16_far(GET_GLOBAL(vga_modes[line].sstart), address
-                         , (u16)attr * 0x100 + ' ', nbrows * nbcols);
+                         , (u16)attr * 0x100 + ' ', nbrows * nbcols * 2);
         } else {                // if Scroll up
             if (dir == SCROLL_UP) {
                 for (i = rul; i <= rlr; i++) {
                     if ((i + nblines > rlr) || (nblines == 0))
                         memset16_far(GET_GLOBAL(vga_modes[line].sstart)
                                      , address + (i * nbcols + cul) * 2
-                                     , (u16)attr * 0x100 + ' ', cols);
+                                     , (u16)attr * 0x100 + ' ', cols * 2);
                     else
                         memcpy16_far(GET_GLOBAL(vga_modes[line].sstart)
                                      , address + (i * nbcols + cul) * 2
                                      , GET_GLOBAL(vga_modes[line].sstart)
                                      , (void*)(((i + nblines) * nbcols + cul) * 2)
-                                     , cols);
+                                     , cols * 2);
                 }
             } else {
                 for (i = rlr; i >= rul; i--) {
                     if ((i < rul + nblines) || (nblines == 0))
                         memset16_far(GET_GLOBAL(vga_modes[line].sstart)
                                      , address + (i * nbcols + cul) * 2
-                                     , (u16)attr * 0x100 + ' ', cols);
+                                     , (u16)attr * 0x100 + ' ', cols * 2);
                     else
                         memcpy16_far(GET_GLOBAL(vga_modes[line].sstart)
                                      , address + (i * nbcols + cul) * 2
                                      , GET_GLOBAL(vga_modes[line].sstart)
                                      , (void*)(((i - nblines) * nbcols + cul) * 2)
-                                     , cols);
+                                     , cols * 2);
                     if (i > rlr)
                         break;
                 }
@@ -858,7 +858,8 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
                                 + (xcurs + ycurs * nbcols) * 2);
 
         dummy = ((u16)attr << 8) + car;
-        memset16_far(GET_GLOBAL(vga_modes[line].sstart), address, dummy, count);
+        memset16_far(GET_GLOBAL(vga_modes[line].sstart), address, dummy
+                     , count * 2);
     } else {
         // FIXME gfx mode not complete
         cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
