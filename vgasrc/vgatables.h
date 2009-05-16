@@ -53,7 +53,6 @@
  * Tables of default values for each mode
  *
  */
-#define MODE_MAX   15
 #define TEXT       0x00
 #define GRAPH      0x01
 
@@ -79,29 +78,8 @@
 #define SCREEN_MEM_START(x,y,p) ((((x*y*2)|0x00ff)+1)*p)
 #define SCREEN_IO_START(x,y,p) ((((x*y)|0x00ff)+1)*p)
 
-
-extern u16 video_save_pointer_table[];
-
-struct vgamodes_s {
-    u8 svgamode;
-    u8 class;                   /* TEXT, GRAPH */
-    u8 memmodel;                /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */
-    u8 pixbits;
-    u16 sstart;
-    u8 pelmask;
-    u8 dacmodel;                /* 0 1 2 3 */
-} PACKED;
-
-extern struct vgamodes_s vga_modes[];
-
-/* Default Palette */
-#define DAC_MAX_MODEL 3
-
-extern u8 line_to_vpti[];
-extern u8 dac_regs[];
-
 /* standard BIOS Video Parameter Table */
-struct VideoParamTableEntry_s {
+struct VideoParam_s {
     u8 twidth;
     u8 theightm1;
     u8 cheight;
@@ -113,11 +91,22 @@ struct VideoParamTableEntry_s {
     u8 grdc_regs[9];
 } PACKED;
 
-extern struct VideoParamTableEntry_s video_param_table[];
-extern u8 palette0[];
-extern u8 palette1[];
-extern u8 palette2[];
-extern u8 palette3[];
+struct vgamode_s {
+    u8 svgamode;
+    struct VideoParam_s *vparam;
+    u8 class;       /* TEXT, GRAPH */
+    u8 memmodel;    /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */
+    u8 pixbits;
+    u16 sstart;
+    u8 pelmask;
+    u8 *dac;
+    u16 dacsize;
+};
+
+// vgatables.c
+struct vgamode_s *find_vga_entry(u8 mode);
+extern u16 video_save_pointer_table[];
+extern struct VideoParam_s video_param_table[];
 extern u8 static_functionality[];
 
 // vgafonts.c
