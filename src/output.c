@@ -38,12 +38,27 @@ debug_serial_setup()
 static void
 debug_serial(char c)
 {
+    if (!CONFIG_DEBUG_SERIAL)
+        return;
     int timeout = DEBUG_TIMEOUT;
     while ((inb(DEBUG_PORT+SEROFF_LSR) & 0x60) != 0x60)
         if (!timeout--)
             // Ran out of time.
             return;
     outb(c, DEBUG_PORT+SEROFF_DATA);
+}
+
+// Write a character to the serial port.
+static void
+debug_serial_flush()
+{
+    if (!CONFIG_DEBUG_SERIAL)
+        return;
+    int timeout = DEBUG_TIMEOUT;
+    while ((inb(DEBUG_PORT+SEROFF_LSR) & 0x40) != 0x40)
+        if (!timeout--)
+            // Ran out of time.
+            return;
 }
 
 // Show a character on the screen.
@@ -68,12 +83,10 @@ putc(u16 action, char c)
         if (! CONFIG_COREBOOT)
             // Send character to debug port.
             outb(c, PORT_BIOS_DEBUG);
-        if (CONFIG_DEBUG_SERIAL) {
-            // Send character to serial port.
-            if (c == '\n')
-                debug_serial('\r');
-            debug_serial(c);
-        }
+        // Send character to serial port.
+        if (c == '\n')
+            debug_serial('\r');
+        debug_serial(c);
     }
 
     if (action) {
@@ -244,6 +257,7 @@ bvprintf(u16 action, const char *fmt, va_list args)
         }
         s = n;
     }
+    debug_serial_flush();
 }
 
 void
@@ -298,6 +312,7 @@ hexdump(void *d, int len)
         d+=4;
     }
     putc(0, '\n');
+    debug_serial_flush();
 }
 
 static void
@@ -320,6 +335,7 @@ __debug_isr(const char *fname)
 {
     puts_cs(0, fname);
     putc(0, '\n');
+    debug_serial_flush();
 }
 
 // Function called on handler startup.
