@@ -292,12 +292,12 @@ static struct cirrus_mode_s cirrus_modes[] VAR16 = {
 static struct cirrus_mode_s *
 cirrus_get_modeentry(u8 mode)
 {
-    struct cirrus_mode_s *table = cirrus_modes;
-    while (table < &cirrus_modes[ARRAY_SIZE(cirrus_modes)]) {
-        u16 tmode = GET_GLOBAL(table->mode);
+    struct cirrus_mode_s *table_g = cirrus_modes;
+    while (table_g < &cirrus_modes[ARRAY_SIZE(cirrus_modes)]) {
+        u16 tmode = GET_GLOBAL(table_g->mode);
         if (tmode == mode)
-            return table;
-        table++;
+            return table_g;
+        table_g++;
     }
     return NULL;
 }
@@ -353,13 +353,13 @@ cirrus_set_video_mode(u8 mode)
 {
     dprintf(1, "cirrus mode %d\n", mode);
     SET_BDA(vbe_mode, 0);
-    struct cirrus_mode_s *table = cirrus_get_modeentry(mode & 0x7f);
-    if (table) {
+    struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode & 0x7f);
+    if (table_g) {
         //XXX - cirrus_set_video_mode_extended(table);
         return;
     }
-    table = cirrus_get_modeentry(0xfe);
-    cirrus_switch_mode(table);
+    table_g = cirrus_get_modeentry(0xfe);
+    cirrus_switch_mode(table_g);
     dprintf(1, "cirrus mode switch regular\n");
 }
 
