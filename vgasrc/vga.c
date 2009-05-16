@@ -494,13 +494,13 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
 
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
         // Compute the address
-        void *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page));
+        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page));
         dprintf(3, "Scroll, address %p (%d %d %02x)\n"
-                , address, nbrows, nbcols, page);
+                , address_far, nbrows, nbcols, page);
 
         if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
             && clr == nbcols - 1) {
-            memset16_far(GET_GLOBAL(vmode_g->sstart), address
+            memset16_far(GET_GLOBAL(vmode_g->sstart), address_far
                          , (u16)attr * 0x100 + ' ', nbrows * nbcols * 2);
         } else {                // if Scroll up
             if (dir == SCROLL_UP) {
@@ -508,11 +508,11 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
                 for (i = rul; i <= rlr; i++)
                     if ((i + nblines > rlr) || (nblines == 0))
                         memset16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address + (i * nbcols + cul) * 2
+                                     , address_far + (i * nbcols + cul) * 2
                                      , (u16)attr * 0x100 + ' ', cols * 2);
                     else
                         memcpy16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address + (i * nbcols + cul) * 2
+                                     , address_far + (i * nbcols + cul) * 2
                                      , GET_GLOBAL(vmode_g->sstart)
                                      , (void*)(((i + nblines) * nbcols + cul) * 2)
                                      , cols * 2);
@@ -521,11 +521,11 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
                 for (i = rlr; i >= rul; i--) {
                     if ((i < rul + nblines) || (nblines == 0))
                         memset16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address + (i * nbcols + cul) * 2
+                                     , address_far + (i * nbcols + cul) * 2
                                      , (u16)attr * 0x100 + ' ', cols * 2);
                     else
                         memcpy16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address + (i * nbcols + cul) * 2
+                                     , address_far + (i * nbcols + cul) * 2
                                      , GET_GLOBAL(vmode_g->sstart)
                                      , (void*)(((i - nblines) * nbcols + cul) * 2)
                                      , cols * 2);
@@ -784,11 +784,11 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
 
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
         // Compute the address
-        void *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                + (xcurs + ycurs * nbcols) * 2);
+        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
+                                    + (xcurs + ycurs * nbcols) * 2);
 
         dummy = ((u16)attr << 8) + car;
-        memset16_far(GET_GLOBAL(vmode_g->sstart), address, dummy, count * 2);
+        memset16_far(GET_GLOBAL(vmode_g->sstart), address_far, dummy, count * 2);
         return;
     }
 
@@ -1384,9 +1384,9 @@ biosfn_load_text_user_pat(u8 AL, u16 ES, u16 BP, u16 CX, u16 DX, u8 BL,
     u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
     u16 i;
     for (i = 0; i < CX; i++) {
-        void *src = (void*)(BP + i * BH);
-        void *dest = (void*)(blockaddr + (DX + i) * 32);
-        memcpy_far(0xA000, dest, ES, src, BH);
+        void *src_far = (void*)(BP + i * BH);
+        void *dest_far = (void*)(blockaddr + (DX + i) * 32);
+        memcpy_far(0xA000, dest_far, ES, src_far, BH);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1401,8 +1401,8 @@ biosfn_load_text_8_14_pat(u8 AL, u8 BL)
     u16 i;
     for (i = 0; i < 0x100; i++) {
         u16 src = i * 14;
-        void *dest = (void*)(blockaddr + i * 32);
-        memcpy_far(0xA000, dest, 0xC000, &vgafont14[src], 14);
+        void *dest_far = (void*)(blockaddr + i * 32);
+        memcpy_far(0xA000, dest_far, 0xC000, &vgafont14[src], 14);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1417,8 +1417,8 @@ biosfn_load_text_8_8_pat(u8 AL, u8 BL)
     u16 i;
     for (i = 0; i < 0x100; i++) {
         u16 src = i * 8;
-        void *dest = (void*)(blockaddr + i * 32);
-        memcpy_far(0xA000, dest, 0xC000, &vgafont8[src], 8);
+        void *dest_far = (void*)(blockaddr + i * 32);
+        memcpy_far(0xA000, dest_far, 0xC000, &vgafont8[src], 8);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1441,8 +1441,8 @@ biosfn_load_text_8_16_pat(u8 AL, u8 BL)
     u16 i;
     for (i = 0; i < 0x100; i++) {
         u16 src = i * 16;
-        void *dest = (void*)(blockaddr + i * 32);
-        memcpy_far(0xA000, dest, 0xC000, &vgafont16[src], 16);
+        void *dest_far = (void*)(blockaddr + i * 32);
+        memcpy_far(0xA000, dest_far, 0xC000, &vgafont16[src], 16);
     }
     release_font_access();
     if (AL >= 0x10)
