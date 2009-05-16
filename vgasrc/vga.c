@@ -11,7 +11,6 @@
 //  * Integrate vga_modes/pallete?/line_to_vpti/dac_regs/video_param_table
 //  * define structs for save/restore state
 //  * review correctness of converted asm by comparing with RBIL
-//  * more syntax cleanups
 //  * refactor redundant code into sub-functions
 //  * See if there is a method to the in/out stuff that can be encapsulated.
 //  * remove "biosfn" prefixes
@@ -87,34 +86,30 @@ memcpy16_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
 static void
 biosfn_perform_gray_scale_summing(u16 start, u16 count)
 {
-    u8 r, g, b;
-    u16 i;
-    u16 index;
-
     inb(VGAREG_ACTL_RESET);
     outb(0x00, VGAREG_ACTL_ADDRESS);
 
-    for (index = 0; index < count; index++) {
+    int i;
+    for (i = start; i < start+count; i++) {
         // set read address and switch to read mode
-        outb(start, VGAREG_DAC_READ_ADDRESS);
+        outb(i, VGAREG_DAC_READ_ADDRESS);
         // get 6-bit wide RGB data values
-        r = inb(VGAREG_DAC_DATA);
-        g = inb(VGAREG_DAC_DATA);
-        b = inb(VGAREG_DAC_DATA);
+        u8 r = inb(VGAREG_DAC_DATA);
+        u8 g = inb(VGAREG_DAC_DATA);
+        u8 b = inb(VGAREG_DAC_DATA);
 
         // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
-        i = ((77 * r + 151 * g + 28 * b) + 0x80) >> 8;
+        u16 intensity = ((77 * r + 151 * g + 28 * b) + 0x80) >> 8;
 
-        if (i > 0x3f)
-            i = 0x3f;
+        if (intensity > 0x3f)
+            intensity = 0x3f;
 
         // set write address and switch to write mode
-        outb(start, VGAREG_DAC_WRITE_ADDRESS);
+        outb(i, VGAREG_DAC_WRITE_ADDRESS);
         // write new intensity value
-        outb(i & 0xff, VGAREG_DAC_DATA);
-        outb(i & 0xff, VGAREG_DAC_DATA);
-        outb(i & 0xff, VGAREG_DAC_DATA);
-        start++;
+        outb(intensity & 0xff, VGAREG_DAC_DATA);
+        outb(intensity & 0xff, VGAREG_DAC_DATA);
+        outb(intensity & 0xff, VGAREG_DAC_DATA);
     }
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
@@ -124,27 +119,23 @@ biosfn_perform_gray_scale_summing(u16 start, u16 count)
 static void
 biosfn_set_cursor_shape(u8 CH, u8 CL)
 {
-    u16 cheight, curs, crtc_addr;
-    u8 modeset_ctl;
-
     CH &= 0x3f;
     CL &= 0x1f;
 
-    curs = (CH << 8) + CL;
+    u16 curs = (CH << 8) + CL;
     SET_BDA(cursor_type, curs);
 
-    modeset_ctl = GET_BDA(modeset_ctl);
-    cheight = GET_BDA(char_height);
+    u8 modeset_ctl = GET_BDA(modeset_ctl);
+    u16 cheight = GET_BDA(char_height);
     if ((modeset_ctl & 0x01) && (cheight > 8) && (CL < 8) && (CH < 0x20)) {
-        if (CL != (CH + 1)) {
+        if (CL != (CH + 1))
             CH = ((CH + 1) * cheight / 8) - 1;
-        } else {
+        else
             CH = ((CL + 1) * cheight / 8) - 2;
-        }
         CL = ((CL + 1) * cheight / 8) - 1;
     }
     // CTRC regs 0x0a and 0x0b
-    crtc_addr = GET_BDA(crtc_address);
+    u16 crtc_addr = GET_BDA(crtc_address);
     outb(0x0a, crtc_addr);
     outb(CH, crtc_addr + 1);
     outb(0x0b, crtc_addr);
@@ -155,9 +146,6 @@ biosfn_set_cursor_shape(u8 CH, u8 CL)
 static void
 biosfn_set_cursor_pos(u8 page, u16 cursor)
 {
-    u8 xcurs, ycurs, current;
-    u16 nbcols, nbrows, address, crtc_addr;
-
     // Should not happen...
     if (page > 7)
         return;
@@ -166,26 +154,26 @@ biosfn_set_cursor_pos(u8 page, u16 cursor)
     SET_BDA(cursor_pos[page], cursor);
 
     // Set the hardware cursor
-    current = GET_BDA(video_page);
-    if (page == current) {
-        // Get the dimensions
-        nbcols = GET_BDA(video_cols);
-        nbrows = GET_BDA(video_rows) + 1;
+    u8 current = GET_BDA(video_page);
+    if (page != current)
+        return;
 
-        xcurs = cursor & 0x00ff;
-        ycurs = (cursor & 0xff00) >> 8;
+    // Get the dimensions
+    u16 nbcols = GET_BDA(video_cols);
+    u16 nbrows = GET_BDA(video_rows) + 1;
 
-        // Calculate the address knowing nbcols nbrows and page num
-        address =
-            SCREEN_IO_START(nbcols, nbrows, page) + xcurs + ycurs * nbcols;
+    u8 xcurs = cursor & 0x00ff;
+    u8 ycurs = (cursor & 0xff00) >> 8;
 
-        // CRTC regs 0x0e and 0x0f
-        crtc_addr = GET_BDA(crtc_address);
-        outb(0x0e, crtc_addr);
-        outb((address & 0xff00) >> 8, crtc_addr + 1);
-        outb(0x0f, crtc_addr);
-        outb(address & 0x00ff, crtc_addr + 1);
-    }
+    // Calculate the address knowing nbcols nbrows and page num
+    u16 address = SCREEN_IO_START(nbcols, nbrows, page) + xcurs + ycurs * nbcols;
+
+    // CRTC regs 0x0e and 0x0f
+    u16 crtc_addr = GET_BDA(crtc_address);
+    outb(0x0e, crtc_addr);
+    outb((address & 0xff00) >> 8, crtc_addr + 1);
+    outb(0x0f, crtc_addr);
+    outb(address & 0x00ff, crtc_addr + 1);
 }
 
 // -------------------------------------------------------------------
@@ -207,26 +195,24 @@ biosfn_get_cursor_pos(u8 page, u16 *shape, u16 *pos)
 static void
 biosfn_set_active_page(u8 page)
 {
-    u16 cursor, dummy, crtc_addr;
-    u16 nbcols, nbrows, address;
-    u8 mode, line;
-
     if (page > 7)
         return;
 
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
 
     // Get pos curs pos for the right page
+    u16 cursor, dummy;
     biosfn_get_cursor_pos(page, &dummy, &cursor);
 
+    u16 address;
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Get the dimensions
-        nbcols = GET_BDA(video_cols);
-        nbrows = GET_BDA(video_rows) + 1;
+        u16 nbcols = GET_BDA(video_cols);
+        u16 nbrows = GET_BDA(video_rows) + 1;
 
         // Calculate the address knowing nbcols nbrows and page num
         address = SCREEN_MEM_START(nbcols, nbrows, page);
@@ -239,7 +225,7 @@ biosfn_set_active_page(u8 page)
     }
 
     // CRTC regs 0x0c and 0x0d
-    crtc_addr = GET_BDA(crtc_address);
+    u16 crtc_addr = GET_BDA(crtc_address);
     outb(0x0c, crtc_addr);
     outb((address & 0xff00) >> 8, crtc_addr + 1);
     outb(0x0d, crtc_addr);
@@ -257,12 +243,6 @@ biosfn_set_active_page(u8 page)
 static void
 biosfn_set_video_mode(u8 mode)
 {                               // mode: Bit 7 is 1 if no clear screen
-    // Should we clear the screen ?
-    u8 noclearmem = mode & 0x80;
-    u8 line, mmask, *palette, vpti;
-    u16 i, twidth, theightm1, cheight;
-    u8 modeset_ctl, video_ctl, vga_switches;
-
     if (CONFIG_CIRRUS)
         cirrus_set_video_mode(mode);
 
@@ -272,29 +252,24 @@ biosfn_set_video_mode(u8 mode)
 #endif
 
     // The real mode
+    u8 noclearmem = mode & 0x80;
     mode = mode & 0x7f;
 
     // find the entry in the video modes
-    line = find_vga_entry(mode);
+    u8 line = find_vga_entry(mode);
 
     dprintf(1, "mode search %02x found line %02x\n", mode, line);
 
     if (line == 0xFF)
         return;
 
-    vpti = GET_GLOBAL(line_to_vpti[line]);
-    twidth = GET_GLOBAL(video_param_table[vpti].twidth);
-    theightm1 = GET_GLOBAL(video_param_table[vpti].theightm1);
-    cheight = GET_GLOBAL(video_param_table[vpti].cheight);
-
-    // Read the bios vga control
-    video_ctl = GET_BDA(video_ctl);
-
-    // Read the bios vga switches
-    vga_switches = GET_BDA(video_switches);
+    u8 vpti = GET_GLOBAL(line_to_vpti[line]);
+    u16 twidth = GET_GLOBAL(video_param_table[vpti].twidth);
+    u16 theightm1 = GET_GLOBAL(video_param_table[vpti].theightm1);
+    u16 cheight = GET_GLOBAL(video_param_table[vpti].cheight);
 
     // Read the bios mode set control
-    modeset_ctl = GET_BDA(modeset_ctl);
+    u8 modeset_ctl = GET_BDA(modeset_ctl);
 
     // Then we know the number of lines
 // FIXME
@@ -307,27 +282,29 @@ biosfn_set_video_mode(u8 mode)
         outb(0x00, VGAREG_DAC_WRITE_ADDRESS);
 
         // From which palette
+        u8 *palette_g;
         switch (GET_GLOBAL(vga_modes[line].dacmodel)) {
         default:
         case 0:
-            palette = palette0;
+            palette_g = palette0;
             break;
         case 1:
-            palette = palette1;
+            palette_g = palette1;
             break;
         case 2:
-            palette = palette2;
+            palette_g = palette2;
             break;
         case 3:
-            palette = palette3;
+            palette_g = palette3;
             break;
         }
         // Always 256*3 values
+        u16 i;
         for (i = 0; i < 0x0100; i++) {
             if (i <= GET_GLOBAL(dac_regs[GET_GLOBAL(vga_modes[line].dacmodel)])) {
-                outb(GET_GLOBAL(palette[(i * 3) + 0]), VGAREG_DAC_DATA);
-                outb(GET_GLOBAL(palette[(i * 3) + 1]), VGAREG_DAC_DATA);
-                outb(GET_GLOBAL(palette[(i * 3) + 2]), VGAREG_DAC_DATA);
+                outb(GET_GLOBAL(palette_g[(i * 3) + 0]), VGAREG_DAC_DATA);
+                outb(GET_GLOBAL(palette_g[(i * 3) + 1]), VGAREG_DAC_DATA);
+                outb(GET_GLOBAL(palette_g[(i * 3) + 2]), VGAREG_DAC_DATA);
             } else {
                 outb(0, VGAREG_DAC_DATA);
                 outb(0, VGAREG_DAC_DATA);
@@ -341,6 +318,7 @@ biosfn_set_video_mode(u8 mode)
     inb(VGAREG_ACTL_RESET);
 
     // Set Attribute Ctl
+    u16 i;
     for (i = 0; i <= 0x13; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
         outb(GET_GLOBAL(video_param_table[vpti].actl_regs[i])
@@ -395,7 +373,7 @@ biosfn_set_video_mode(u8 mode)
                              , 0, 0x0000, 32*1024);
             } else {
                 outb(0x02, VGAREG_SEQU_ADDRESS);
-                mmask = inb(VGAREG_SEQU_DATA);
+                u8 mmask = inb(VGAREG_SEQU_DATA);
                 outb(0x0f, VGAREG_SEQU_DATA);   // all planes
                 memset16_far(GET_GLOBAL(vga_modes[line].sstart)
                              , 0, 0x0000, 64*1024);
@@ -521,24 +499,20 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
               u8 dir)
 {
     // page == 0xFF if current
-
-    u8 mode, line, cheight, bpp, cols;
-    u16 nbcols, nbrows, i;
-
     if (rul > rlr)
         return;
     if (cul > clr)
         return;
 
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
 
     // Get the dimensions
-    nbrows = GET_BDA(video_rows) + 1;
-    nbcols = GET_BDA(video_cols);
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
 
     // Get the current page
     if (page == 0xFF)
@@ -550,7 +524,7 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
         clr = nbcols - 1;
     if (nblines > nbrows)
         nblines = 0;
-    cols = clr - cul + 1;
+    u8 cols = clr - cul + 1;
 
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Compute the address
@@ -564,7 +538,8 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
                          , (u16)attr * 0x100 + ' ', nbrows * nbcols * 2);
         } else {                // if Scroll up
             if (dir == SCROLL_UP) {
-                for (i = rul; i <= rlr; i++) {
+                u16 i;
+                for (i = rul; i <= rlr; i++)
                     if ((i + nblines > rlr) || (nblines == 0))
                         memset16_far(GET_GLOBAL(vga_modes[line].sstart)
                                      , address + (i * nbcols + cul) * 2
@@ -575,8 +550,8 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
                                      , GET_GLOBAL(vga_modes[line].sstart)
                                      , (void*)(((i + nblines) * nbcols + cul) * 2)
                                      , cols * 2);
-                }
             } else {
+                u16 i;
                 for (i = rlr; i >= rul; i--) {
                     if ((i < rul + nblines) || (nblines == 0))
                         memset16_far(GET_GLOBAL(vga_modes[line].sstart)
@@ -593,81 +568,85 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
                 }
             }
         }
-    } else {
-        // FIXME gfx mode not complete
-        cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
-        switch (GET_GLOBAL(vga_modes[line].memmodel)) {
-        case PLANAR4:
-        case PLANAR1:
-            if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
-                && clr == nbcols - 1) {
-                outw(0x0205, VGAREG_GRDC_ADDRESS);
-                memset_far(GET_GLOBAL(vga_modes[line].sstart), 0, attr,
-                           nbrows * nbcols * cheight);
-                outw(0x0005, VGAREG_GRDC_ADDRESS);
-            } else {            // if Scroll up
-                if (dir == SCROLL_UP) {
-                    for (i = rul; i <= rlr; i++) {
-                        if ((i + nblines > rlr) || (nblines == 0))
-                            vgamem_fill_pl4(cul, i, cols, nbcols, cheight,
-                                            attr);
-                        else
-                            vgamem_copy_pl4(cul, i + nblines, i, cols,
-                                            nbcols, cheight);
-                    }
-                } else {
-                    for (i = rlr; i >= rul; i--) {
-                        if ((i < rul + nblines) || (nblines == 0))
-                            vgamem_fill_pl4(cul, i, cols, nbcols, cheight,
-                                            attr);
-                        else
-                            vgamem_copy_pl4(cul, i, i - nblines, cols,
-                                            nbcols, cheight);
-                        if (i > rlr)
-                            break;
-                    }
-                }
-            }
-            break;
-        case CGA:
-            bpp = GET_GLOBAL(vga_modes[line].pixbits);
-            if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
-                && clr == nbcols - 1) {
-                memset_far(GET_GLOBAL(vga_modes[line].sstart), 0, attr,
-                           nbrows * nbcols * cheight * bpp);
+        return;
+    }
+
+    // FIXME gfx mode not complete
+    u8 cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
+    switch (GET_GLOBAL(vga_modes[line].memmodel)) {
+    case PLANAR4:
+    case PLANAR1:
+        if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
+            && clr == nbcols - 1) {
+            outw(0x0205, VGAREG_GRDC_ADDRESS);
+            memset_far(GET_GLOBAL(vga_modes[line].sstart), 0, attr,
+                       nbrows * nbcols * cheight);
+            outw(0x0005, VGAREG_GRDC_ADDRESS);
+        } else {            // if Scroll up
+            if (dir == SCROLL_UP) {
+                u16 i;
+                for (i = rul; i <= rlr; i++)
+                    if ((i + nblines > rlr) || (nblines == 0))
+                        vgamem_fill_pl4(cul, i, cols, nbcols, cheight,
+                                        attr);
+                    else
+                        vgamem_copy_pl4(cul, i + nblines, i, cols,
+                                        nbcols, cheight);
             } else {
-                if (bpp == 2) {
-                    cul <<= 1;
-                    cols <<= 1;
-                    nbcols <<= 1;
-                }
-                // if Scroll up
-                if (dir == SCROLL_UP) {
-                    for (i = rul; i <= rlr; i++) {
-                        if ((i + nblines > rlr) || (nblines == 0))
-                            vgamem_fill_cga(cul, i, cols, nbcols, cheight,
-                                            attr);
-                        else
-                            vgamem_copy_cga(cul, i + nblines, i, cols,
-                                            nbcols, cheight);
-                    }
-                } else {
-                    for (i = rlr; i >= rul; i--) {
-                        if ((i < rul + nblines) || (nblines == 0))
-                            vgamem_fill_cga(cul, i, cols, nbcols, cheight,
-                                            attr);
-                        else
-                            vgamem_copy_cga(cul, i, i - nblines, cols,
-                                            nbcols, cheight);
-                        if (i > rlr)
-                            break;
-                    }
+                u16 i;
+                for (i = rlr; i >= rul; i--) {
+                    if ((i < rul + nblines) || (nblines == 0))
+                        vgamem_fill_pl4(cul, i, cols, nbcols, cheight,
+                                        attr);
+                    else
+                        vgamem_copy_pl4(cul, i, i - nblines, cols,
+                                        nbcols, cheight);
+                    if (i > rlr)
+                        break;
                 }
             }
-            break;
-        default:
-            dprintf(1, "Scroll in graphics mode\n");
         }
+        break;
+    case CGA: {
+        u8 bpp = GET_GLOBAL(vga_modes[line].pixbits);
+        if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
+            && clr == nbcols - 1) {
+            memset_far(GET_GLOBAL(vga_modes[line].sstart), 0, attr,
+                       nbrows * nbcols * cheight * bpp);
+        } else {
+            if (bpp == 2) {
+                cul <<= 1;
+                cols <<= 1;
+                nbcols <<= 1;
+            }
+            // if Scroll up
+            if (dir == SCROLL_UP) {
+                u16 i;
+                for (i = rul; i <= rlr; i++)
+                    if ((i + nblines > rlr) || (nblines == 0))
+                        vgamem_fill_cga(cul, i, cols, nbcols, cheight,
+                                        attr);
+                    else
+                        vgamem_copy_cga(cul, i + nblines, i, cols,
+                                        nbcols, cheight);
+            } else {
+                u16 i;
+                for (i = rlr; i >= rul; i--) {
+                    if ((i < rul + nblines) || (nblines == 0))
+                        vgamem_fill_cga(cul, i, cols, nbcols, cheight,
+                                        attr);
+                    else
+                        vgamem_copy_cga(cul, i, i - nblines, cols,
+                                        nbcols, cheight);
+                    if (i > rlr)
+                        break;
+                }
+            }
+        }
+        break;
+    }
+    default:
+        dprintf(1, "Scroll in graphics mode\n");
     }
 }
 
@@ -675,31 +654,28 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
 static void
 biosfn_read_char_attr(u8 page, u16 *car)
 {
-    u8 xcurs, ycurs, mode, line;
-    u16 nbcols, nbrows;
-    u16 cursor, dummy;
-
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
 
     // Get the cursor pos for the page
+    u16 cursor, dummy;
     biosfn_get_cursor_pos(page, &dummy, &cursor);
-    xcurs = cursor & 0x00ff;
-    ycurs = (cursor & 0xff00) >> 8;
+    u8 xcurs = cursor & 0x00ff;
+    u8 ycurs = (cursor & 0xff00) >> 8;
 
     // Get the dimensions
-    nbrows = GET_BDA(video_rows) + 1;
-    nbcols = GET_BDA(video_cols);
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
 
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Compute the address
-        u16 *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                               + (xcurs + ycurs * nbcols) * 2);
+        u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
+                                   + (xcurs + ycurs * nbcols) * 2);
 
-        *car = GET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), *address);
+        *car = GET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), *address_far);
     } else {
         // FIXME gfx mode
         dprintf(1, "Read char in graphics mode\n");
@@ -711,38 +687,37 @@ static void
 write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
                    u8 cheight)
 {
-    u8 i, j, mask;
-    u8 *fdata;
-    u16 addr, src;
-
+    u8 *fdata_g;
     switch (cheight) {
     case 14:
-        fdata = vgafont14;
+        fdata_g = vgafont14;
         break;
     case 16:
-        fdata = vgafont16;
+        fdata_g = vgafont16;
         break;
     default:
-        fdata = vgafont8;
+        fdata_g = vgafont8;
     }
-    addr = xcurs + ycurs * cheight * nbcols;
-    src = car * cheight;
+    u16 addr = xcurs + ycurs * cheight * nbcols;
+    u16 src = car * cheight;
     outw(0x0f02, VGAREG_SEQU_ADDRESS);
     outw(0x0205, VGAREG_GRDC_ADDRESS);
     if (attr & 0x80)
         outw(0x1803, VGAREG_GRDC_ADDRESS);
     else
         outw(0x0003, VGAREG_GRDC_ADDRESS);
+    u8 i;
     for (i = 0; i < cheight; i++) {
-        u8 *dest = (void*)(addr + i * nbcols);
+        u8 *dest_far = (void*)(addr + i * nbcols);
+        u8 j;
         for (j = 0; j < 8; j++) {
-            mask = 0x80 >> j;
+            u8 mask = 0x80 >> j;
             outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
-            GET_FARVAR(0xa000, *dest);
-            if (GET_GLOBAL(fdata[src + i]) & mask)
-                SET_FARVAR(0xa000, *dest, attr & 0x0f);
+            GET_FARVAR(0xa000, *dest_far);
+            if (GET_GLOBAL(fdata_g[src + i]) & mask)
+                SET_FARVAR(0xa000, *dest_far, attr & 0x0f);
             else
-                SET_FARVAR(0xa000, *dest, 0x00);
+                SET_FARVAR(0xa000, *dest_far, 0x00);
         }
     }
     outw(0xff08, VGAREG_GRDC_ADDRESS);
@@ -754,22 +729,22 @@ write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
 static void
 write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
 {
-    u8 *fdata = vgafont8;
+    u8 *fdata_g = vgafont8;
     u16 addr = (xcurs * bpp) + ycurs * 320;
     u16 src = car * 8;
     u8 i;
     for (i = 0; i < 8; i++) {
-        u8 *dest = (void*)(addr + (i >> 1) * 80);
+        u8 *dest_far = (void*)(addr + (i >> 1) * 80);
         if (i & 1)
-            dest += 0x2000;
+            dest_far += 0x2000;
         u8 mask = 0x80;
         if (bpp == 1) {
             u8 data = 0;
             if (attr & 0x80)
-                data = GET_FARVAR(0xb800, *dest);
+                data = GET_FARVAR(0xb800, *dest_far);
             u8 j;
             for (j = 0; j < 8; j++) {
-                if (GET_GLOBAL(fdata[src + i]) & mask) {
+                if (GET_GLOBAL(fdata_g[src + i]) & mask) {
                     if (attr & 0x80)
                         data ^= (attr & 0x01) << (7 - j);
                     else
@@ -777,15 +752,15 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
                 }
                 mask >>= 1;
             }
-            SET_FARVAR(0xb800, *dest, data);
+            SET_FARVAR(0xb800, *dest_far, data);
         } else {
             while (mask > 0) {
                 u8 data = 0;
                 if (attr & 0x80)
-                    data = GET_FARVAR(0xb800, *dest);
+                    data = GET_FARVAR(0xb800, *dest_far);
                 u8 j;
                 for (j = 0; j < 4; j++) {
-                    if (GET_GLOBAL(fdata[src + i]) & mask) {
+                    if (GET_GLOBAL(fdata_g[src + i]) & mask) {
                         if (attr & 0x80)
                             data ^= (attr & 0x03) << ((3 - j) * 2);
                         else
@@ -793,8 +768,8 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
                     }
                     mask >>= 1;
                 }
-                SET_FARVAR(0xb800, *dest, data);
-                dest += 1;
+                SET_FARVAR(0xb800, *dest_far, data);
+                dest_far += 1;
             }
         }
     }
@@ -804,19 +779,19 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
 static void
 write_gfx_char_lin(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols)
 {
-    u8 *fdata = vgafont8;
+    u8 *fdata_g = vgafont8;
     u16 addr = xcurs * 8 + ycurs * nbcols * 64;
     u16 src = car * 8;
     u8 i;
     for (i = 0; i < 8; i++) {
-        u8 *dest = (void*)(addr + i * nbcols * 8);
+        u8 *dest_far = (void*)(addr + i * nbcols * 8);
         u8 mask = 0x80;
         u8 j;
         for (j = 0; j < 8; j++) {
             u8 data = 0x00;
-            if (GET_GLOBAL(fdata[src + i]) & mask)
+            if (GET_GLOBAL(fdata_g[src + i]) & mask)
                 data = attr;
-            SET_FARVAR(0xa000, dest[j], data);
+            SET_FARVAR(0xa000, dest_far[j], data);
             mask >>= 1;
         }
     }
@@ -826,24 +801,21 @@ write_gfx_char_lin(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols)
 static void
 biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
 {
-    u8 cheight, xcurs, ycurs, mode, line, bpp;
-    u16 nbcols, nbrows;
-    u16 cursor, dummy;
-
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
 
     // Get the cursor pos for the page
+    u16 cursor, dummy;
     biosfn_get_cursor_pos(page, &dummy, &cursor);
-    xcurs = cursor & 0x00ff;
-    ycurs = (cursor & 0xff00) >> 8;
+    u8 xcurs = cursor & 0x00ff;
+    u8 ycurs = (cursor & 0xff00) >> 8;
 
     // Get the dimensions
-    nbrows = GET_BDA(video_rows) + 1;
-    nbcols = GET_BDA(video_cols);
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
 
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Compute the address
@@ -853,26 +825,27 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
         dummy = ((u16)attr << 8) + car;
         memset16_far(GET_GLOBAL(vga_modes[line].sstart), address, dummy
                      , count * 2);
-    } else {
-        // FIXME gfx mode not complete
-        cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
-        bpp = GET_GLOBAL(vga_modes[line].pixbits);
-        while ((count-- > 0) && (xcurs < nbcols)) {
-            switch (GET_GLOBAL(vga_modes[line].memmodel)) {
-            case PLANAR4:
-            case PLANAR1:
-                write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols,
-                                   cheight);
-                break;
-            case CGA:
-                write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
-                break;
-            case LINEAR8:
-                write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
-                break;
-            }
-            xcurs++;
+        return;
+    }
+
+    // FIXME gfx mode not complete
+    u8 cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
+    u8 bpp = GET_GLOBAL(vga_modes[line].pixbits);
+    while ((count-- > 0) && (xcurs < nbcols)) {
+        switch (GET_GLOBAL(vga_modes[line].memmodel)) {
+        case PLANAR4:
+        case PLANAR1:
+            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols,
+                               cheight);
+            break;
+        case CGA:
+            write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
+            break;
+        case LINEAR8:
+            write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
+            break;
         }
+        xcurs++;
     }
 }
 
@@ -880,57 +853,53 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
 static void
 biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
 {
-    u8 cheight, xcurs, ycurs, mode, line, bpp;
-    u16 nbcols, nbrows;
-    u16 cursor, dummy;
-
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
 
     // Get the cursor pos for the page
+    u16 cursor, dummy;
     biosfn_get_cursor_pos(page, &dummy, &cursor);
-    xcurs = cursor & 0x00ff;
-    ycurs = (cursor & 0xff00) >> 8;
+    u8 xcurs = cursor & 0x00ff;
+    u8 ycurs = (cursor & 0xff00) >> 8;
 
     // Get the dimensions
-    nbrows = GET_BDA(video_rows) + 1;
-    nbcols = GET_BDA(video_cols);
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
 
     if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
         // Compute the address
-        u8 *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                              + (xcurs + ycurs * nbcols) * 2);
+        u8 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
+                                  + (xcurs + ycurs * nbcols) * 2);
         while (count-- > 0) {
-            SET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), *address, car);
-            address += 2;
+            SET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), *address_far, car);
+            address_far += 2;
         }
-    } else {
-        // FIXME gfx mode not complete
-        cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
-        bpp = GET_GLOBAL(vga_modes[line].pixbits);
-        while ((count-- > 0) && (xcurs < nbcols)) {
-            switch (GET_GLOBAL(vga_modes[line].memmodel)) {
-            case PLANAR4:
-            case PLANAR1:
-                write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols,
-                                   cheight);
-                break;
-            case CGA:
-                write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
-                break;
-            case LINEAR8:
-                write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
-                break;
-            }
-            xcurs++;
+        return;
+    }
+
+    // FIXME gfx mode not complete
+    u8 cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
+    u8 bpp = GET_GLOBAL(vga_modes[line].pixbits);
+    while ((count-- > 0) && (xcurs < nbcols)) {
+        switch (GET_GLOBAL(vga_modes[line].memmodel)) {
+        case PLANAR4:
+        case PLANAR1:
+            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols,
+                               cheight);
+            break;
+        case CGA:
+            write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
+            break;
+        case LINEAR8:
+            write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
+            break;
         }
+        xcurs++;
     }
 }
-
-
 
 // -------------------------------------------------------------------
 static void
@@ -977,8 +946,6 @@ biosfn_set_palette(struct bregs *regs)
 static void
 biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
 {
-    u8 mask, attr, data;
-
     // Get the mode
     u8 mode = GET_BDA(video_mode);
     u8 line = find_vga_entry(mode);
@@ -987,30 +954,30 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
     if (GET_GLOBAL(vga_modes[line].class) == TEXT)
         return;
 
-    u8 *addr;
+    u8 *addr_far, mask, attr, data;
     switch (GET_GLOBAL(vga_modes[line].memmodel)) {
     case PLANAR4:
     case PLANAR1:
-        addr = (void*)(CX / 8 + DX * GET_BDA(video_cols));
+        addr_far = (void*)(CX / 8 + DX * GET_BDA(video_cols));
         mask = 0x80 >> (CX & 0x07);
         outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
         outw(0x0205, VGAREG_GRDC_ADDRESS);
-        data = GET_FARVAR(0xa000, *addr);
+        data = GET_FARVAR(0xa000, *addr_far);
         if (AL & 0x80)
             outw(0x1803, VGAREG_GRDC_ADDRESS);
-        SET_FARVAR(0xa000, *addr, AL);
+        SET_FARVAR(0xa000, *addr_far, AL);
         outw(0xff08, VGAREG_GRDC_ADDRESS);
         outw(0x0005, VGAREG_GRDC_ADDRESS);
         outw(0x0003, VGAREG_GRDC_ADDRESS);
         break;
     case CGA:
         if (GET_GLOBAL(vga_modes[line].pixbits) == 2)
-            addr = (void*)((CX >> 2) + (DX >> 1) * 80);
+            addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
         else
-            addr = (void*)((CX >> 3) + (DX >> 1) * 80);
+            addr_far = (void*)((CX >> 3) + (DX >> 1) * 80);
         if (DX & 1)
-            addr += 0x2000;
-        data = GET_FARVAR(0xb800, *addr);
+            addr_far += 0x2000;
+        data = GET_FARVAR(0xb800, *addr_far);
         if (GET_GLOBAL(vga_modes[line].pixbits) == 2) {
             attr = (AL & 0x03) << ((3 - (CX & 0x03)) * 2);
             mask = 0x03 << ((3 - (CX & 0x03)) * 2);
@@ -1024,11 +991,11 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
             data &= ~mask;
             data |= attr;
         }
-        SET_FARVAR(0xb800, *addr, data);
+        SET_FARVAR(0xb800, *addr_far, data);
         break;
     case LINEAR8:
-        addr = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        SET_FARVAR(0xa000, *addr, AL);
+        addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
+        SET_FARVAR(0xa000, *addr_far, AL);
         break;
     }
 }
@@ -1037,43 +1004,41 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
 static void
 biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
 {
-    u8 mode, line, mask, attr, data, i;
-
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
     if (GET_GLOBAL(vga_modes[line].class) == TEXT)
         return;
 
-    u8 *addr;
+    u8 *addr_far, mask, attr, data, i;
     switch (GET_GLOBAL(vga_modes[line].memmodel)) {
     case PLANAR4:
     case PLANAR1:
-        addr = (void*)(CX / 8 + DX * GET_BDA(video_cols));
+        addr_far = (void*)(CX / 8 + DX * GET_BDA(video_cols));
         mask = 0x80 >> (CX & 0x07);
         attr = 0x00;
         for (i = 0; i < 4; i++) {
             outw((i << 8) | 0x04, VGAREG_GRDC_ADDRESS);
-            data = GET_FARVAR(0xa000, *addr) & mask;
+            data = GET_FARVAR(0xa000, *addr_far) & mask;
             if (data > 0)
                 attr |= (0x01 << i);
         }
         break;
     case CGA:
-        addr = (void*)((CX >> 2) + (DX >> 1) * 80);
+        addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
         if (DX & 1)
-            addr += 0x2000;
-        data = GET_FARVAR(0xb800, *addr);
+            addr_far += 0x2000;
+        data = GET_FARVAR(0xb800, *addr_far);
         if (GET_GLOBAL(vga_modes[line].pixbits) == 2)
             attr = (data >> ((3 - (CX & 0x03)) * 2)) & 0x03;
         else
             attr = (data >> (7 - (CX & 0x07))) & 0x01;
         break;
     case LINEAR8:
-        addr = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        attr = GET_FARVAR(0xa000, *addr);
+        addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
+        attr = GET_FARVAR(0xa000, *addr_far);
         break;
     }
     *AX = (*AX & 0xff00) | attr;
@@ -1083,28 +1048,25 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
 static void
 biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
 {                               // flag = WITH_ATTR / NO_ATTR
-    u8 cheight, xcurs, ycurs, mode, line, bpp;
-    u16 nbcols, nbrows;
-    u16 cursor, dummy;
-
     // special case if page is 0xff, use current page
     if (page == 0xff)
         page = GET_BDA(video_page);
 
     // Get the mode
-    mode = GET_BDA(video_mode);
-    line = find_vga_entry(mode);
+    u8 mode = GET_BDA(video_mode);
+    u8 line = find_vga_entry(mode);
     if (line == 0xFF)
         return;
 
     // Get the cursor pos for the page
+    u16 cursor, dummy;
     biosfn_get_cursor_pos(page, &dummy, &cursor);
-    xcurs = cursor & 0x00ff;
-    ycurs = (cursor & 0xff00) >> 8;
+    u8 xcurs = cursor & 0x00ff;
+    u8 ycurs = (cursor & 0xff00) >> 8;
 
     // Get the dimensions
-    nbrows = GET_BDA(video_rows) + 1;
-    nbcols = GET_BDA(video_cols);
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
 
     switch (car) {
     case 7:
@@ -1137,16 +1099,17 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
 
         if (GET_GLOBAL(vga_modes[line].class) == TEXT) {
             // Compute the address
-            u8 *address = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                  + (xcurs + ycurs * nbcols) * 2);
+            u8 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
+                                      + (xcurs + ycurs * nbcols) * 2);
             // Write the char
-            SET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), address[0], car);
+            SET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), address_far[0], car);
             if (flag == WITH_ATTR)
-                SET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), address[1], attr);
+                SET_FARVAR(GET_GLOBAL(vga_modes[line].sstart), address_far[1]
+                           , attr);
         } else {
             // FIXME gfx mode not complete
-            cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
-            bpp = GET_GLOBAL(vga_modes[line].pixbits);
+            u8 cheight = GET_GLOBAL(video_param_table[GET_GLOBAL(line_to_vpti[line])].cheight);
+            u8 bpp = GET_GLOBAL(vga_modes[line].pixbits);
             switch (GET_GLOBAL(vga_modes[line].memmodel)) {
             case PLANAR4:
             case PLANAR1:
@@ -1211,16 +1174,16 @@ biosfn_set_all_palette_reg(struct bregs *regs)
 {
     inb(VGAREG_ACTL_RESET);
 
-    u8 *data = (u8*)(regs->dx + 0);
+    u8 *data_far = (u8*)(regs->dx + 0);
     int i;
     for (i = 0; i < 0x10; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
-        u8 val = GET_FARVAR(regs->es, *data);
+        u8 val = GET_FARVAR(regs->es, *data_far);
         outb(val, VGAREG_ACTL_WRITE_DATA);
-        data++;
+        data_far++;
     }
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(GET_FARVAR(regs->es, *data), VGAREG_ACTL_WRITE_DATA);
+    outb(GET_FARVAR(regs->es, *data_far), VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
@@ -1272,17 +1235,17 @@ biosfn_read_overscan_border_color(struct bregs *regs)
 static void
 biosfn_get_all_palette_reg(struct bregs *regs)
 {
-    u8 *data = (u8*)(regs->dx + 0);
+    u8 *data_far = (u8*)(regs->dx + 0);
     int i;
     for (i = 0; i < 0x10; i++) {
         inb(VGAREG_ACTL_RESET);
         outb(i, VGAREG_ACTL_ADDRESS);
-        SET_FARVAR(regs->es, *data, inb(VGAREG_ACTL_READ_DATA));
-        data++;
+        SET_FARVAR(regs->es, *data_far, inb(VGAREG_ACTL_READ_DATA));
+        data_far++;
     }
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    SET_FARVAR(regs->es, *data, inb(VGAREG_ACTL_READ_DATA));
+    SET_FARVAR(regs->es, *data_far, inb(VGAREG_ACTL_READ_DATA));
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
@@ -1302,15 +1265,15 @@ static void
 biosfn_set_all_dac_reg(struct bregs *regs)
 {
     outb(regs->bl, VGAREG_DAC_WRITE_ADDRESS);
-    u8 *data = (u8*)(regs->dx + 0);
+    u8 *data_far = (u8*)(regs->dx + 0);
     int count = regs->cx;
     while (count) {
-        outb(GET_FARVAR(regs->es, *data), VGAREG_DAC_DATA);
-        data++;
-        outb(GET_FARVAR(regs->es, *data), VGAREG_DAC_DATA);
-        data++;
-        outb(GET_FARVAR(regs->es, *data), VGAREG_DAC_DATA);
-        data++;
+        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
+        data_far++;
+        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
+        data_far++;
+        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
+        data_far++;
         count--;
     }
 }
@@ -1353,15 +1316,15 @@ static void
 biosfn_read_all_dac_reg(struct bregs *regs)
 {
     outb(regs->bl, VGAREG_DAC_READ_ADDRESS);
-    u8 *data = (u8*)(regs->dx + 0);
+    u8 *data_far = (u8*)(regs->dx + 0);
     int count = regs->cx;
     while (count) {
-        SET_FARVAR(regs->es, *data, inb(VGAREG_DAC_DATA));
-        data++;
-        SET_FARVAR(regs->es, *data, inb(VGAREG_DAC_DATA));
-        data++;
-        SET_FARVAR(regs->es, *data, inb(VGAREG_DAC_DATA));
-        data++;
+        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
+        data_far++;
+        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
+        data_far++;
+        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
+        data_far++;
         count--;
     }
 }
@@ -1431,12 +1394,9 @@ release_font_access()
 static void
 set_scan_lines(u8 lines)
 {
-    u16 crtc_addr, cols, vde;
-    u8 crtc_r9, ovl, rows;
-
-    crtc_addr = GET_BDA(crtc_address);
+    u16 crtc_addr = GET_BDA(crtc_address);
     outb(0x09, crtc_addr);
-    crtc_r9 = inb(crtc_addr + 1);
+    u8 crtc_r9 = inb(crtc_addr + 1);
     crtc_r9 = (crtc_r9 & 0xe0) | (lines - 1);
     outb(crtc_r9, crtc_addr + 1);
     if (lines == 8)
@@ -1445,13 +1405,13 @@ set_scan_lines(u8 lines)
         biosfn_set_cursor_shape(lines - 4, lines - 3);
     SET_BDA(char_height, lines);
     outb(0x12, crtc_addr);
-    vde = inb(crtc_addr + 1);
+    u16 vde = inb(crtc_addr + 1);
     outb(0x07, crtc_addr);
-    ovl = inb(crtc_addr + 1);
+    u8 ovl = inb(crtc_addr + 1);
     vde += (((ovl & 0x02) << 7) + ((ovl & 0x40) << 3) + 1);
-    rows = vde / lines;
+    u8 rows = vde / lines;
     SET_BDA(video_rows, rows - 1);
-    cols = GET_BDA(video_cols);
+    u16 cols = GET_BDA(video_cols);
     SET_BDA(video_pagesize, rows * cols * 2);
 }
 
@@ -1664,12 +1624,10 @@ biosfn_enable_cursor_emulation(struct bregs *regs)
 // -------------------------------------------------------------------
 static void
 biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
-                    u16 seg, u8 *offset)
+                    u16 seg, u8 *offset_far)
 {
-    u16 newcurs, oldcurs, dummy;
-    u8 car;
-
     // Read curs info for the page
+    u16 oldcurs, dummy;
     biosfn_get_cursor_pos(page, &dummy, &oldcurs);
 
     // if row=0xff special case : use current cursor position
@@ -1678,17 +1636,17 @@ biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
         row = (oldcurs & 0xff00) >> 8;
     }
 
-    newcurs = row;
+    u16 newcurs = row;
     newcurs <<= 8;
     newcurs += col;
     biosfn_set_cursor_pos(page, newcurs);
 
     while (count-- != 0) {
-        car = GET_FARVAR(seg, *offset);
-        offset++;
+        u8 car = GET_FARVAR(seg, *offset_far);
+        offset_far++;
         if ((flag & 0x02) != 0) {
-            attr = GET_FARVAR(seg, *offset);
-            offset++;
+            attr = GET_FARVAR(seg, *offset_far);
+            offset_far++;
         }
 
         biosfn_write_teletype(car, page, attr, WITH_ATTR);
@@ -1759,9 +1717,7 @@ biosfn_read_video_state_size(u16 CX)
 static u16
 biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
 {
-    u16 i, crtc_addr, ar_index;
-
-    crtc_addr = GET_BDA(crtc_address);
+    u16 crtc_addr = GET_BDA(crtc_address);
     if (CX & 1) {
         SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_SEQU_ADDRESS));
         BX++;
@@ -1770,12 +1726,13 @@ biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
         SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_GRDC_ADDRESS));
         BX++;
         inb(VGAREG_ACTL_RESET);
-        ar_index = inb(VGAREG_ACTL_ADDRESS);
+        u16 ar_index = inb(VGAREG_ACTL_ADDRESS);
         SET_FARVAR(ES, *(u8*)(BX+0), ar_index);
         BX++;
         SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_READ_FEATURE_CTL));
         BX++;
 
+        u16 i;
         for (i = 1; i <= 4; i++) {
             outb(i, VGAREG_SEQU_ADDRESS);
             SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_SEQU_DATA));
@@ -1839,6 +1796,7 @@ biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
         BX++;
         SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(cursor_type));
         BX += 2;
+        u16 i;
         for (i = 0; i < 8; i++) {
             SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(cursor_pos[i]));
             BX += 2;
@@ -1867,6 +1825,7 @@ biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
         BX++;
         // Set the whole dac always, from 0
         outb(0x00, VGAREG_DAC_WRITE_ADDRESS);
+        u16 i;
         for (i = 0; i < 256 * 3; i++) {
             SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_DAC_DATA));
             BX++;
@@ -1880,16 +1839,15 @@ biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
 static u16
 biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
 {
-    u16 i, crtc_addr, v, addr1, ar_index;
-
     if (CX & 1) {
         // Reset Attribute Ctl flip-flop
         inb(VGAREG_ACTL_RESET);
 
-        crtc_addr = GET_FARVAR(ES, *(u16*)(BX + 0x40));
-        addr1 = BX;
+        u16 crtc_addr = GET_FARVAR(ES, *(u16*)(BX + 0x40));
+        u16 addr1 = BX;
         BX += 5;
 
+        u16 i;
         for (i = 1; i <= 4; i++) {
             outb(i, VGAREG_SEQU_ADDRESS);
             outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_SEQU_DATA);
@@ -1910,7 +1868,7 @@ biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
             BX++;
         }
         // select crtc base address
-        v = inb(VGAREG_READ_MISC_OUTPUT) & ~0x01;
+        u16 v = inb(VGAREG_READ_MISC_OUTPUT) & ~0x01;
         if (crtc_addr == VGAREG_VGA_CRTC_ADDRESS)
             v |= 0x01;
         outb(v, VGAREG_WRITE_MISC_OUTPUT);
@@ -1920,7 +1878,7 @@ biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
         outb(GET_FARVAR(ES, *(u8*)(BX - 0x18 + 0x11)), crtc_addr + 1);
 
         // Set Attribute Ctl
-        ar_index = GET_FARVAR(ES, *(u8*)(addr1 + 0x03));
+        u16 ar_index = GET_FARVAR(ES, *(u8*)(addr1 + 0x03));
         inb(VGAREG_ACTL_RESET);
         for (i = 0; i <= 0x13; i++) {
             outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
@@ -1969,6 +1927,7 @@ biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
         BX++;
         SET_BDA(cursor_type, GET_FARVAR(ES, *(u16*)(BX+0)));
         BX += 2;
+        u16 i;
         for (i = 0; i < 8; i++) {
             SET_BDA(cursor_pos[i], GET_FARVAR(ES, *(u16*)(BX+0)));
             BX += 2;
@@ -1985,12 +1944,13 @@ biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
     }
     if (CX & 4) {
         BX++;
-        v = GET_FARVAR(ES, *(u8*)(BX+0));
+        u16 v = GET_FARVAR(ES, *(u8*)(BX+0));
         BX++;
         outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_PEL_MASK);
         BX++;
         // Set the whole dac always, from 0
         outb(0x00, VGAREG_DAC_WRITE_ADDRESS);
+        u16 i;
         for (i = 0; i < 256 * 3; i++) {
             outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_DAC_DATA);
             BX++;
