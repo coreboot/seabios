@@ -131,6 +131,15 @@ biosfn_set_cursor_shape(u8 CH, u8 CL)
     outb(CL, crtc_addr + 1);
 }
 
+static u16
+biosfn_get_cursor_shape(u8 page)
+{
+    if (page > 7)
+        return 0;
+    // FIXME should handle VGA 14/16 lines
+    return GET_BDA(cursor_type);
+}
+
 // -------------------------------------------------------------------
 static void
 biosfn_set_cursor_pos(u8 page, u16 cursor)
@@ -165,19 +174,13 @@ biosfn_set_cursor_pos(u8 page, u16 cursor)
     outb(address & 0x00ff, crtc_addr + 1);
 }
 
-// -------------------------------------------------------------------
-static void
-biosfn_get_cursor_pos(u8 page, u16 *shape, u16 *pos)
+static u16
+biosfn_get_cursor_pos(u8 page)
 {
-    // Default
-    *shape = 0;
-    *pos = 0;
     if (page > 7)
-        return;
-
+        return 0;
     // FIXME should handle VGA 14/16 lines
-    *shape = GET_BDA(cursor_type);
-    *pos = GET_BDA(cursor_pos[page]);
+    return GET_BDA(cursor_pos[page]);
 }
 
 // -------------------------------------------------------------------
@@ -193,8 +196,7 @@ biosfn_set_active_page(u8 page)
         return;
 
     // Get pos curs pos for the right page
-    u16 cursor, dummy;
-    biosfn_get_cursor_pos(page, &dummy, &cursor);
+    u16 cursor = biosfn_get_cursor_pos(page);
 
     u16 address;
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
@@ -627,8 +629,7 @@ biosfn_read_char_attr(u8 page, u16 *car)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor, dummy;
-    biosfn_get_cursor_pos(page, &dummy, &cursor);
+    u16 cursor = biosfn_get_cursor_pos(page);
     u8 xcurs = cursor & 0x00ff;
     u8 ycurs = (cursor & 0xff00) >> 8;
 
@@ -773,8 +774,7 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor, dummy;
-    biosfn_get_cursor_pos(page, &dummy, &cursor);
+    u16 cursor = biosfn_get_cursor_pos(page);
     u8 xcurs = cursor & 0x00ff;
     u8 ycurs = (cursor & 0xff00) >> 8;
 
@@ -787,7 +787,7 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
         void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
                                     + (xcurs + ycurs * nbcols) * 2);
 
-        dummy = ((u16)attr << 8) + car;
+        u16 dummy = ((u16)attr << 8) + car;
         memset16_far(GET_GLOBAL(vmode_g->sstart), address_far, dummy, count * 2);
         return;
     }
@@ -824,8 +824,7 @@ biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor, dummy;
-    biosfn_get_cursor_pos(page, &dummy, &cursor);
+    u16 cursor = biosfn_get_cursor_pos(page);
     u8 xcurs = cursor & 0x00ff;
     u8 ycurs = (cursor & 0xff00) >> 8;
 
@@ -1021,8 +1020,7 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor, dummy;
-    biosfn_get_cursor_pos(page, &dummy, &cursor);
+    u16 cursor = biosfn_get_cursor_pos(page);
     u8 xcurs = cursor & 0x00ff;
     u8 ycurs = (cursor & 0xff00) >> 8;
 
@@ -1051,7 +1049,7 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
     case '\t':
         do {
             biosfn_write_teletype(' ', page, attr, flag);
-            biosfn_get_cursor_pos(page, &dummy, &cursor);
+            cursor = biosfn_get_cursor_pos(page);
             xcurs = cursor & 0x00ff;
             ycurs = (cursor & 0xff00) >> 8;
         } while (xcurs % 8 == 0);
@@ -1588,8 +1586,7 @@ biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
                     u16 seg, u8 *offset_far)
 {
     // Read curs info for the page
-    u16 oldcurs, dummy;
-    biosfn_get_cursor_pos(page, &dummy, &oldcurs);
+    u16 oldcurs = biosfn_get_cursor_pos(page);
 
     // if row=0xff special case : use current cursor position
     if (row == 0xff) {
@@ -1965,7 +1962,8 @@ handle_1002(struct bregs *regs)
 static void
 handle_1003(struct bregs *regs)
 {
-    biosfn_get_cursor_pos(regs->bh, &regs->cx, &regs->dx);
+    regs->cx = biosfn_get_cursor_shape(regs->bh);
+    regs->dx = biosfn_get_cursor_pos(regs->bh);
 }
 
 // Read light pen pos (unimplemented)
