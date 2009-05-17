@@ -347,9 +347,45 @@ post32:
  * Interrupt entry points
  ****************************************************************/
 
+        // Define an entry point for an interrupt (no args passed).
+        .macro IRQ_ENTRY num
+        .global entry_\num
+        entry_\num :
+        pushl $ handle_\num
+        jmp irqentry
+        .endm
+
+        // Define an entry point for an interrupt (can read/modify args).
+        .macro IRQ_ENTRY_ARG num
+        .global entry_\num
+        entry_\num :
+        pushl $ handle_\num
+        jmp irqentryarg
+        .endm
+
+        // Macros that put each handler into its own section
+        .macro DECL_IRQ_ENTRY num
+        DECLFUNC entry_\num
+        IRQ_ENTRY \num
+        .endm
+        .macro DECL_IRQ_ENTRY_ARG num
+        DECLFUNC entry_\num
+        IRQ_ENTRY_ARG \num
+        .endm
+
+        // Main entry point for interrupts without args
+        DECLFUNC irqentry
+irqentry:
+        ENTRY_ST
+        iretw
+
+        // Main entry point for interrupts with args
+        DECLFUNC irqentry
+irqentryarg:
+        ENTRY_ARG_ST
+        iretw
+
         DECL_IRQ_ENTRY_ARG 13
-        DECL_IRQ_ENTRY_ARG 12
-        DECL_IRQ_ENTRY_ARG 11
         DECL_IRQ_ENTRY 76
         DECL_IRQ_ENTRY 70
         DECL_IRQ_ENTRY 74
@@ -430,14 +466,10 @@ entry_10_0x0f:
         // 0xf0a4 - VideoParams in misc.c
 
         ORG 0xf841
-        .global entry_12_official
-entry_12_official:
-        jmp entry_12
+        IRQ_ENTRY_ARG 12
 
         ORG 0xf84d
-        .global entry_11_official
-entry_11_official:
-        jmp entry_11
+        IRQ_ENTRY_ARG 11
 
         ORG 0xf859
         IRQ_ENTRY_ARG 15

@@ -49,8 +49,8 @@ init_ivt()
     // Initialize software handlers.
     set_irq(0x02, entry_02);
     set_irq(0x10, entry_10);
-    set_irq(0x11, entry_11_official);
-    set_irq(0x12, entry_12_official);
+    set_irq(0x11, entry_11);
+    set_irq(0x12, entry_12);
     set_irq(0x13, entry_13_official);
     set_irq(0x14, entry_14);
     set_irq(0x15, entry_15);

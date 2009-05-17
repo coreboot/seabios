@@ -33,6 +33,29 @@
         popl %eax
         .endm
 
+        // As above, but get calling function from stack.
+        .macro ENTRY_ST
+        cli
+        cld
+        pushl %ecx
+        pushl %edx
+        pushw %es
+        pushw %ds
+        movw %ss, %cx           // Move %ss to %ds
+        movw %cx, %ds
+        pushl %esp              // Backup %esp, then clear high bits
+        movzwl %sp, %esp
+        movl 16(%esp), %ecx     // Get calling function
+        movl %eax, 16(%esp)     // Save %eax
+        calll *%ecx
+        popl %esp               // Restore %esp (including high bits)
+        popw %ds                // Restore registers saved above
+        popw %es
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
+
         // Call a C function with current register list as an
         // argument.  This backs up the registers and sets %eax
         // to point to the backup.  On return, the registers are
@@ -65,7 +88,37 @@
         popl %eax
         .endm
 
-        // As above, but don't mangle %esp
+        // As above, but get calling function from stack.
+        .macro ENTRY_ARG_ST
+        cli
+        cld
+        pushl %ecx
+        pushl %edx
+        pushl %ebx
+        pushl %esi
+        pushl %edi
+        pushw %es
+        pushw %ds
+        movw %ss, %cx           // Move %ss to %ds
+        movw %cx, %ds
+        movl %esp, %ebx         // Backup %esp, then zero high bits
+        movzwl %sp, %esp
+        movl 24(%esp), %ecx     // Get calling function
+        movl %eax, 24(%esp)     // Save %eax
+        movl %esp, %eax         // First arg is pointer to struct bregs
+        calll *%ecx
+        movl %ebx, %esp         // Restore %esp (including high bits)
+        popw %ds                // Restore registers (from struct bregs)
+        popw %es
+        popl %edi
+        popl %esi
+        popl %ebx
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
+
+        // Same as ENTRY_ARG, but don't mangle %esp
         .macro ENTRY_ARG_ESP cfunc
         cli
         cld
@@ -105,30 +158,4 @@
         .macro DECLFUNC func
         .section .text.asm.\func
         .global \func
-        .endm
-
-        // Define an entry point for an interrupt (no args passed).
-        .macro IRQ_ENTRY num
-        .global entry_\num
-        entry_\num :
-        ENTRY handle_\num
-        iretw
-        .endm
-
-        // Define an entry point for an interrupt (can read/modify args).
-        .macro IRQ_ENTRY_ARG num
-        .global entry_\num
-        entry_\num :
-        ENTRY_ARG handle_\num
-        iretw
-        .endm
-
-        // Macros that put each handler into its own section
-        .macro DECL_IRQ_ENTRY num
-        .section .text.asm.entry_\num
-        IRQ_ENTRY \num
-        .endm
-        .macro DECL_IRQ_ENTRY_ARG num
-        .section .text.asm.entry_\num
-        IRQ_ENTRY_ARG \num
         .endm

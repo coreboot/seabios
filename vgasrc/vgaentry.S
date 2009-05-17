@@ -40,4 +40,7 @@ _optionrom_entry:
         ENTRY_ARG vga_post
         lretw
 
-        DECL_IRQ_ENTRY_ARG 10
+        DECLFUNC entry_10
+entry_10:
+        ENTRY_ARG handle_10
+        iretw
