@@ -1761,14 +1761,10 @@ biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
         SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(video_page));
         BX++;
         /* current font */
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_FARVAR(0, *(u16*)(0x1f * 4)));
-        BX += 2;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_FARVAR(0, *(u16*)(0x1f * 4 + 2)));
-        BX += 2;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_FARVAR(0, *(u16*)(0x43 * 4)));
-        BX += 2;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_FARVAR(0, *(u16*)(0x43 * 4 + 2)));
-        BX += 2;
+        SET_FARVAR(ES, *(u32*)(BX+0), GET_IVT(0x1f).segoff);
+        BX += 4;
+        SET_FARVAR(ES, *(u32*)(BX+0), GET_IVT(0x43).segoff);
+        BX += 4;
     }
     if (CX & 4) {
         /* XXX: check this */
