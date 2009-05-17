@@ -251,8 +251,13 @@ entry_post:
         movw $SEG_BDA, %ax
         movw %ax, %ds
         movw BDA_ebda_seg, %ax
-        // XXX - should verify ebda_seg looks sane.
-        movw %ax, %ds
+
+        cmpw $EBDA_SEGMENT_START, %ax
+        jle 2f
+        // EBDA segment doesn't look valid - use startup value.
+        movw $EBDA_SEGMENT_START, %ax
+
+2:      movw %ax, %ds
         movw %ax, %ss
         movl $EBDA_OFFSET_TOP_STACK, %esp
 

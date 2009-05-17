@@ -76,9 +76,9 @@ init_bda()
     struct bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
     memset(bda, 0, sizeof(*bda));
 
-    int esize = DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024);
+    int esize = EBDA_SIZE_START;
     SET_BDA(mem_size_kb, 640 - esize);
-    u16 eseg = FLATPTR_TO_SEG((640 - esize) * 1024);
+    u16 eseg = EBDA_SEGMENT_START;
     SET_BDA(ebda_seg, eseg);
 
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
