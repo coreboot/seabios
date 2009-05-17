@@ -13,8 +13,6 @@
 //  * refactor redundant code into sub-functions
 //  * See if there is a method to the in/out stuff that can be encapsulated.
 //  * remove "biosfn" prefixes
-//  * don't hardcode 0xc000
-//  * add defs for 0xa000/0xb800
 //  * verify all funcs static
 //
 //  * convert vbe/clext code
@@ -35,7 +33,7 @@
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
 
-#define SET_VGA(var, val) SET_FARVAR(0xc000, (var), (val))
+#define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 
 
 // ===================================================================
@@ -364,7 +362,7 @@ biosfn_set_video_mode(u8 mode)
     // FIXME We nearly have the good tables. to be reworked
     SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
     SET_BDA(video_savetable_ptr, (u32)video_save_pointer_table);
-    SET_BDA(video_savetable_seg, 0xc000);
+    SET_BDA(video_savetable_seg, get_global_seg());
 
     // FIXME
     SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
@@ -386,17 +384,17 @@ biosfn_set_video_mode(u8 mode)
         call16_vgaint(0x1103, 0);
     }
     // Set the ints 0x1F and 0x43
-    SET_IVT(0x1f, 0xC000, (u32)&vgafont8[128 * 8]);
+    SET_IVT(0x1f, get_global_seg(), (u32)&vgafont8[128 * 8]);
 
     switch (cheight) {
     case 8:
-        SET_IVT(0x43, 0xC000, (u32)vgafont8);
+        SET_IVT(0x43, get_global_seg(), (u32)vgafont8);
         break;
     case 14:
-        SET_IVT(0x43, 0xC000, (u32)vgafont14);
+        SET_IVT(0x43, get_global_seg(), (u32)vgafont14);
         break;
     case 16:
-        SET_IVT(0x43, 0xC000, (u32)vgafont16);
+        SET_IVT(0x43, get_global_seg(), (u32)vgafont16);
         break;
     }
 }
@@ -411,8 +409,8 @@ vgamem_copy_pl4(u8 xstart, u8 ysrc, u8 ydest, u8 cols, u8 nbcols,
     outw(0x0105, VGAREG_GRDC_ADDRESS);
     u8 i;
     for (i = 0; i < cheight; i++)
-        memcpy_far(0xa000, (void*)(dest + i * nbcols)
-                   , 0xa000, (void*)(src + i * nbcols), cols);
+        memcpy_far(SEG_GRAPH, (void*)(dest + i * nbcols)
+                   , SEG_GRAPH, (void*)(src + i * nbcols), cols);
     outw(0x0005, VGAREG_GRDC_ADDRESS);
 }
 
@@ -425,7 +423,7 @@ vgamem_fill_pl4(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
     outw(0x0205, VGAREG_GRDC_ADDRESS);
     u8 i;
     for (i = 0; i < cheight; i++)
-        memset_far(0xa000, (void*)(dest + i * nbcols), attr, cols);
+        memset_far(SEG_GRAPH, (void*)(dest + i * nbcols), attr, cols);
     outw(0x0005, VGAREG_GRDC_ADDRESS);
 }
 
@@ -439,12 +437,12 @@ vgamem_copy_cga(u8 xstart, u8 ysrc, u8 ydest, u8 cols, u8 nbcols,
     u8 i;
     for (i = 0; i < cheight; i++)
         if (i & 1)
-            memcpy_far(0xb800, (void*)(0x2000 + dest + (i >> 1) * nbcols)
-                       , 0xb800, (void*)(0x2000 + src + (i >> 1) * nbcols)
+            memcpy_far(SEG_CTEXT, (void*)(0x2000 + dest + (i >> 1) * nbcols)
+                       , SEG_CTEXT, (void*)(0x2000 + src + (i >> 1) * nbcols)
                        , cols);
         else
-            memcpy_far(0xb800, (void*)(dest + (i >> 1) * nbcols)
-                       , 0xb800, (void*)(src + (i >> 1) * nbcols), cols);
+            memcpy_far(SEG_CTEXT, (void*)(dest + (i >> 1) * nbcols)
+                       , SEG_CTEXT, (void*)(src + (i >> 1) * nbcols), cols);
 }
 
 // -------------------------------------------------------------------
@@ -456,10 +454,10 @@ vgamem_fill_cga(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
     u8 i;
     for (i = 0; i < cheight; i++)
         if (i & 1)
-            memset_far(0xb800, (void*)(0x2000 + dest + (i >> 1) * nbcols)
+            memset_far(SEG_CTEXT, (void*)(0x2000 + dest + (i >> 1) * nbcols)
                        , attr, cols);
         else
-            memset_far(0xb800, (void*)(dest + (i >> 1) * nbcols), attr, cols);
+            memset_far(SEG_CTEXT, (void*)(dest + (i >> 1) * nbcols), attr, cols);
 }
 
 // -------------------------------------------------------------------
@@ -680,11 +678,11 @@ write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
         for (j = 0; j < 8; j++) {
             u8 mask = 0x80 >> j;
             outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
-            GET_FARVAR(0xa000, *dest_far);
+            GET_FARVAR(SEG_GRAPH, *dest_far);
             if (GET_GLOBAL(fdata_g[src + i]) & mask)
-                SET_FARVAR(0xa000, *dest_far, attr & 0x0f);
+                SET_FARVAR(SEG_GRAPH, *dest_far, attr & 0x0f);
             else
-                SET_FARVAR(0xa000, *dest_far, 0x00);
+                SET_FARVAR(SEG_GRAPH, *dest_far, 0x00);
         }
     }
     outw(0xff08, VGAREG_GRDC_ADDRESS);
@@ -708,7 +706,7 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
         if (bpp == 1) {
             u8 data = 0;
             if (attr & 0x80)
-                data = GET_FARVAR(0xb800, *dest_far);
+                data = GET_FARVAR(SEG_CTEXT, *dest_far);
             u8 j;
             for (j = 0; j < 8; j++) {
                 if (GET_GLOBAL(fdata_g[src + i]) & mask) {
@@ -719,12 +717,12 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
                 }
                 mask >>= 1;
             }
-            SET_FARVAR(0xb800, *dest_far, data);
+            SET_FARVAR(SEG_CTEXT, *dest_far, data);
         } else {
             while (mask > 0) {
                 u8 data = 0;
                 if (attr & 0x80)
-                    data = GET_FARVAR(0xb800, *dest_far);
+                    data = GET_FARVAR(SEG_CTEXT, *dest_far);
                 u8 j;
                 for (j = 0; j < 4; j++) {
                     if (GET_GLOBAL(fdata_g[src + i]) & mask) {
@@ -735,7 +733,7 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
                     }
                     mask >>= 1;
                 }
-                SET_FARVAR(0xb800, *dest_far, data);
+                SET_FARVAR(SEG_CTEXT, *dest_far, data);
                 dest_far += 1;
             }
         }
@@ -758,7 +756,7 @@ write_gfx_char_lin(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols)
             u8 data = 0x00;
             if (GET_GLOBAL(fdata_g[src + i]) & mask)
                 data = attr;
-            SET_FARVAR(0xa000, dest_far[j], data);
+            SET_FARVAR(SEG_GRAPH, dest_far[j], data);
             mask >>= 1;
         }
     }
@@ -925,10 +923,10 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
         mask = 0x80 >> (CX & 0x07);
         outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
         outw(0x0205, VGAREG_GRDC_ADDRESS);
-        data = GET_FARVAR(0xa000, *addr_far);
+        data = GET_FARVAR(SEG_GRAPH, *addr_far);
         if (AL & 0x80)
             outw(0x1803, VGAREG_GRDC_ADDRESS);
-        SET_FARVAR(0xa000, *addr_far, AL);
+        SET_FARVAR(SEG_GRAPH, *addr_far, AL);
         outw(0xff08, VGAREG_GRDC_ADDRESS);
         outw(0x0005, VGAREG_GRDC_ADDRESS);
         outw(0x0003, VGAREG_GRDC_ADDRESS);
@@ -940,7 +938,7 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
             addr_far = (void*)((CX >> 3) + (DX >> 1) * 80);
         if (DX & 1)
             addr_far += 0x2000;
-        data = GET_FARVAR(0xb800, *addr_far);
+        data = GET_FARVAR(SEG_CTEXT, *addr_far);
         if (GET_GLOBAL(vmode_g->pixbits) == 2) {
             attr = (AL & 0x03) << ((3 - (CX & 0x03)) * 2);
             mask = 0x03 << ((3 - (CX & 0x03)) * 2);
@@ -954,11 +952,11 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
             data &= ~mask;
             data |= attr;
         }
-        SET_FARVAR(0xb800, *addr_far, data);
+        SET_FARVAR(SEG_CTEXT, *addr_far, data);
         break;
     case LINEAR8:
         addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        SET_FARVAR(0xa000, *addr_far, AL);
+        SET_FARVAR(SEG_GRAPH, *addr_far, AL);
         break;
     }
 }
@@ -983,7 +981,7 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
         attr = 0x00;
         for (i = 0; i < 4; i++) {
             outw((i << 8) | 0x04, VGAREG_GRDC_ADDRESS);
-            data = GET_FARVAR(0xa000, *addr_far) & mask;
+            data = GET_FARVAR(SEG_GRAPH, *addr_far) & mask;
             if (data > 0)
                 attr |= (0x01 << i);
         }
@@ -992,7 +990,7 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
         addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
         if (DX & 1)
             addr_far += 0x2000;
-        data = GET_FARVAR(0xb800, *addr_far);
+        data = GET_FARVAR(SEG_CTEXT, *addr_far);
         if (GET_GLOBAL(vmode_g->pixbits) == 2)
             attr = (data >> ((3 - (CX & 0x03)) * 2)) & 0x03;
         else
@@ -1000,7 +998,7 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
         break;
     case LINEAR8:
         addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        attr = GET_FARVAR(0xa000, *addr_far);
+        attr = GET_FARVAR(SEG_GRAPH, *addr_far);
         break;
     }
     *AX = (*AX & 0xff00) | attr;
@@ -1384,7 +1382,7 @@ biosfn_load_text_user_pat(u8 AL, u16 ES, u16 BP, u16 CX, u16 DX, u8 BL,
     for (i = 0; i < CX; i++) {
         void *src_far = (void*)(BP + i * BH);
         void *dest_far = (void*)(blockaddr + (DX + i) * 32);
-        memcpy_far(0xA000, dest_far, ES, src_far, BH);
+        memcpy_far(SEG_GRAPH, dest_far, ES, src_far, BH);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1400,7 +1398,7 @@ biosfn_load_text_8_14_pat(u8 AL, u8 BL)
     for (i = 0; i < 0x100; i++) {
         u16 src = i * 14;
         void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(0xA000, dest_far, 0xC000, &vgafont14[src], 14);
+        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont14[src], 14);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1416,7 +1414,7 @@ biosfn_load_text_8_8_pat(u8 AL, u8 BL)
     for (i = 0; i < 0x100; i++) {
         u16 src = i * 8;
         void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(0xA000, dest_far, 0xC000, &vgafont8[src], 8);
+        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont8[src], 8);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1440,7 +1438,7 @@ biosfn_load_text_8_16_pat(u8 AL, u8 BL)
     for (i = 0; i < 0x100; i++) {
         u16 src = i * 16;
         void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(0xA000, dest_far, 0xC000, &vgafont16[src], 16);
+        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont16[src], 16);
     }
     release_font_access();
     if (AL >= 0x10)
@@ -1465,27 +1463,27 @@ biosfn_get_font_info(u8 BH, u16 *ES, u16 *BP, u16 *CX, u16 *DX)
         break;
     }
     case 0x02:
-        *ES = 0xC000;
+        *ES = get_global_seg();
         *BP = (u32)vgafont14;
         break;
     case 0x03:
-        *ES = 0xC000;
+        *ES = get_global_seg();
         *BP = (u32)vgafont8;
         break;
     case 0x04:
-        *ES = 0xC000;
+        *ES = get_global_seg();
         *BP = (u32)vgafont8 + 128 * 8;
         break;
     case 0x05:
-        *ES = 0xC000;
+        *ES = get_global_seg();
         *BP = (u32)vgafont14alt;
         break;
     case 0x06:
-        *ES = 0xC000;
+        *ES = get_global_seg();
         *BP = (u32)vgafont16;
         break;
     case 0x07:
-        *ES = 0xC000;
+        *ES = get_global_seg();
         *BP = (u32)vgafont16alt;
         break;
     default:
@@ -1637,7 +1635,7 @@ biosfn_read_state_info(u16 BX, u16 ES, u16 DI)
 {
     // Address of static functionality table
     SET_FARVAR(ES, *(u16*)(DI + 0x00), (u32)static_functionality);
-    SET_FARVAR(ES, *(u16*)(DI + 0x02), 0xC000);
+    SET_FARVAR(ES, *(u16*)(DI + 0x02), get_global_seg());
 
     // Hard coded copy from BIOS area. Should it be cleaner ?
     memcpy_far(ES, (void*)(DI + 0x04), SEG_BDA, (void*)0x49, 30);
@@ -2676,7 +2674,7 @@ vga_post(struct bregs *regs)
     // vbe_init();
 
     extern void entry_10(void);
-    SET_IVT(0x10, 0xC000, (u32)entry_10);
+    SET_IVT(0x10, get_global_seg(), (u32)entry_10);
 
     if (CONFIG_CIRRUS)
         cirrus_init();
@@ -2685,11 +2683,11 @@ vga_post(struct bregs *regs)
 
     // XXX: fill it
     SET_VGA(video_save_pointer_table[0], (u32)video_param_table);
-    SET_VGA(video_save_pointer_table[1], 0xC000);
+    SET_VGA(video_save_pointer_table[1], get_global_seg());
 
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;
     SET_VGA(_rom_header_checksum, 0);
-    u8 sum = -checksum_far(0xC000, 0, _rom_header_size * 512);
+    u8 sum = -checksum_far(get_global_seg(), 0, _rom_header_size * 512);
     SET_VGA(_rom_header_checksum, sum);
 }

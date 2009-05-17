@@ -44,9 +44,9 @@
 #define VGAREG_CGA_PALETTE             0x3d9
 
 /* Video memory */
-#define VGAMEM_GRAPH 0xA000
-#define VGAMEM_CTEXT 0xB800
-#define VGAMEM_MTEXT 0xB000
+#define SEG_GRAPH 0xA000
+#define SEG_CTEXT 0xB800
+#define SEG_MTEXT 0xB000
 
 /*
  *

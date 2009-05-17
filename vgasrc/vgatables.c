@@ -328,22 +328,22 @@ static u8 palette3[] VAR16 = {
 
 static struct vgamode_s vga_modes[] VAR16 = {
     //mode vparam        class  model bits  sstart  pelm  dac
-    {0x00, VPARAM(0x17), TEXT,  CTEXT,   4, 0xB800, 0xFF, PAL(palette2)},
-    {0x01, VPARAM(0x17), TEXT,  CTEXT,   4, 0xB800, 0xFF, PAL(palette2)},
-    {0x02, VPARAM(0x18), TEXT,  CTEXT,   4, 0xB800, 0xFF, PAL(palette2)},
-    {0x03, VPARAM(0x18), TEXT,  CTEXT,   4, 0xB800, 0xFF, PAL(palette2)},
-    {0x04, VPARAM(0x04), GRAPH, CGA,     2, 0xB800, 0xFF, PAL(palette1)},
-    {0x05, VPARAM(0x05), GRAPH, CGA,     2, 0xB800, 0xFF, PAL(palette1)},
-    {0x06, VPARAM(0x06), GRAPH, CGA,     1, 0xB800, 0xFF, PAL(palette1)},
-    {0x07, VPARAM(0x07), TEXT,  MTEXT,   4, 0xB000, 0xFF, PAL(palette0)},
-    {0x0D, VPARAM(0x0d), GRAPH, PLANAR4, 4, 0xA000, 0xFF, PAL(palette1)},
-    {0x0E, VPARAM(0x0e), GRAPH, PLANAR4, 4, 0xA000, 0xFF, PAL(palette1)},
-    {0x0F, VPARAM(0x11), GRAPH, PLANAR1, 1, 0xA000, 0xFF, PAL(palette0)},
-    {0x10, VPARAM(0x12), GRAPH, PLANAR4, 4, 0xA000, 0xFF, PAL(palette2)},
-    {0x11, VPARAM(0x1a), GRAPH, PLANAR1, 1, 0xA000, 0xFF, PAL(palette2)},
-    {0x12, VPARAM(0x1b), GRAPH, PLANAR4, 4, 0xA000, 0xFF, PAL(palette2)},
-    {0x13, VPARAM(0x1c), GRAPH, LINEAR8, 8, 0xA000, 0xFF, PAL(palette3)},
-    {0x6A, VPARAM(0x1d), GRAPH, PLANAR4, 4, 0xA000, 0xFF, PAL(palette2)},
+    {0x00, VPARAM(0x17), TEXT,  CTEXT,   4, SEG_CTEXT, 0xFF, PAL(palette2)},
+    {0x01, VPARAM(0x17), TEXT,  CTEXT,   4, SEG_CTEXT, 0xFF, PAL(palette2)},
+    {0x02, VPARAM(0x18), TEXT,  CTEXT,   4, SEG_CTEXT, 0xFF, PAL(palette2)},
+    {0x03, VPARAM(0x18), TEXT,  CTEXT,   4, SEG_CTEXT, 0xFF, PAL(palette2)},
+    {0x04, VPARAM(0x04), GRAPH, CGA,     2, SEG_CTEXT, 0xFF, PAL(palette1)},
+    {0x05, VPARAM(0x05), GRAPH, CGA,     2, SEG_CTEXT, 0xFF, PAL(palette1)},
+    {0x06, VPARAM(0x06), GRAPH, CGA,     1, SEG_CTEXT, 0xFF, PAL(palette1)},
+    {0x07, VPARAM(0x07), TEXT,  MTEXT,   4, SEG_MTEXT, 0xFF, PAL(palette0)},
+    {0x0D, VPARAM(0x0d), GRAPH, PLANAR4, 4, SEG_GRAPH, 0xFF, PAL(palette1)},
+    {0x0E, VPARAM(0x0e), GRAPH, PLANAR4, 4, SEG_GRAPH, 0xFF, PAL(palette1)},
+    {0x0F, VPARAM(0x11), GRAPH, PLANAR1, 1, SEG_GRAPH, 0xFF, PAL(palette0)},
+    {0x10, VPARAM(0x12), GRAPH, PLANAR4, 4, SEG_GRAPH, 0xFF, PAL(palette2)},
+    {0x11, VPARAM(0x1a), GRAPH, PLANAR1, 1, SEG_GRAPH, 0xFF, PAL(palette2)},
+    {0x12, VPARAM(0x1b), GRAPH, PLANAR4, 4, SEG_GRAPH, 0xFF, PAL(palette2)},
+    {0x13, VPARAM(0x1c), GRAPH, LINEAR8, 8, SEG_GRAPH, 0xFF, PAL(palette3)},
+    {0x6A, VPARAM(0x1d), GRAPH, PLANAR4, 4, SEG_GRAPH, 0xFF, PAL(palette2)},
 };
 
 struct vgamode_s *
