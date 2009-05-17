@@ -797,8 +797,7 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
         switch (GET_GLOBAL(vmode_g->memmodel)) {
         case PLANAR4:
         case PLANAR1:
-            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols,
-                               cheight);
+            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
             break;
         case CGA:
             write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
@@ -848,8 +847,7 @@ biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
         switch (GET_GLOBAL(vmode_g->memmodel)) {
         case PLANAR4:
         case PLANAR1:
-            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols,
-                               cheight);
+            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
             break;
         case CGA:
             write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
@@ -2218,7 +2216,7 @@ static void
 handle_101100(struct bregs *regs)
 {
     // XXX - inline
-    biosfn_load_text_user_pat(regs->al, regs->es, 0 // XXX - regs->bp
+    biosfn_load_text_user_pat(regs->al, regs->es, regs->bp
                               , regs->cx, regs->dx, regs->bl, regs->bh);
 }
 
@@ -2278,7 +2276,7 @@ static void
 handle_101130(struct bregs *regs)
 {
     // XXX - inline
-    biosfn_get_font_info(regs->bh, &regs->es, 0 // &regs->bp
+    biosfn_get_font_info(regs->bh, &regs->es, &regs->bp
                          , &regs->cx, &regs->dx);
 }
 
@@ -2393,7 +2391,7 @@ handle_1013(struct bregs *regs)
 {
     // XXX - inline
     biosfn_write_string(regs->al, regs->bh, regs->bl, regs->cx
-                        , regs->dh, regs->dl, regs->es, 0); // regs->bp);
+                        , regs->dh, regs->dl, regs->es, (void*)(regs->bp + 0));
 }
 
 
@@ -2553,12 +2551,10 @@ handle_104fXX(struct bregs *regs)
 static void
 handle_104f(struct bregs *regs)
 {
-    if (! CONFIG_VBE) {
+    if (! CONFIG_VBE || !vbe_has_vbe_display()) {
         handle_104fXX(regs);
         return;
     }
-
-    // XXX - check vbe_has_vbe_display()?
 
     switch (regs->al) {
     case 0x00: handle_104f00(regs); break;
