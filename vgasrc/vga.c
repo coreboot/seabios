@@ -7,7 +7,6 @@
 
 
 // TODO:
-//  * introduce "struct vregs", or add ebp to struct bregs.
 //  * define structs for save/restore state
 //  * review correctness of converted asm by comparing with RBIL
 //  * refactor redundant code into sub-functions
@@ -269,11 +268,11 @@ biosfn_set_video_mode(u8 mode)
 
         // From which palette
         u8 *palette_g = GET_GLOBAL(vmode_g->dac);
-        u16 palsize = GET_GLOBAL(vmode_g->dacsize);
+        u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
         // Always 256*3 values
         u16 i;
         for (i = 0; i < 0x0100; i++) {
-            if (i <= palsize) {
+            if (i < palsize) {
                 outb(GET_GLOBAL(palette_g[(i * 3) + 0]), VGAREG_DAC_DATA);
                 outb(GET_GLOBAL(palette_g[(i * 3) + 1]), VGAREG_DAC_DATA);
                 outb(GET_GLOBAL(palette_g[(i * 3) + 2]), VGAREG_DAC_DATA);
@@ -1338,9 +1337,8 @@ release_font_access()
     outw(0x0302, VGAREG_SEQU_ADDRESS);
     outw(0x0304, VGAREG_SEQU_ADDRESS);
     outw(0x0300, VGAREG_SEQU_ADDRESS);
-    u16 v = inw(VGAREG_READ_MISC_OUTPUT);
-    v = ((v & 0x01) << 10) | 0x0a06;
-    outw(v, VGAREG_GRDC_ADDRESS);
+    u16 v = (inw(VGAREG_READ_MISC_OUTPUT) & 0x01) ? 0x0e : 0x0a;
+    outw((v << 8) | 0x06, VGAREG_GRDC_ADDRESS);
     outw(0x0004, VGAREG_GRDC_ADDRESS);
     outw(0x1005, VGAREG_GRDC_ADDRESS);
 }
