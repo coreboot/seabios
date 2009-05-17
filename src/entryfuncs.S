@@ -67,6 +67,7 @@
         pushl %ecx
         pushl %edx
         pushl %ebx
+        pushl %ebp
         pushl %esi
         pushl %edi
         pushw %es
@@ -82,6 +83,7 @@
         popw %es
         popl %edi
         popl %esi
+        popl %ebp
         popl %ebx
         popl %edx
         popl %ecx
@@ -95,6 +97,7 @@
         pushl %ecx
         pushl %edx
         pushl %ebx
+        pushl %ebp
         pushl %esi
         pushl %edi
         pushw %es
@@ -103,8 +106,8 @@
         movw %cx, %ds
         movl %esp, %ebx         // Backup %esp, then zero high bits
         movzwl %sp, %esp
-        movl 24(%esp), %ecx     // Get calling function
-        movl %eax, 24(%esp)     // Save %eax
+        movl 28(%esp), %ecx     // Get calling function
+        movl %eax, 28(%esp)     // Save %eax
         movl %esp, %eax         // First arg is pointer to struct bregs
         calll *%ecx
         movl %ebx, %esp         // Restore %esp (including high bits)
@@ -112,6 +115,7 @@
         popw %es
         popl %edi
         popl %esi
+        popl %ebp
         popl %ebx
         popl %edx
         popl %ecx
@@ -126,6 +130,7 @@
         pushl %ecx
         pushl %edx
         pushl %ebx
+        pushl %ebp
         pushl %esi
         pushl %edi
         pushw %es
@@ -138,6 +143,7 @@
         popw %es
         popl %edi
         popl %esi
+        popl %ebp
         popl %ebx
         popl %edx
         popl %ecx

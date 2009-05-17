@@ -322,11 +322,12 @@ dump_regs(struct bregs *regs)
         dprintf(1, "  NULL\n");
         return;
     }
-    dprintf(1, "   a=%08x  b=%08x  c=%08x  d=%08x si=%08x di=%08x\n"
+    dprintf(1, "   a=%08x  b=%08x  c=%08x  d=%08x ds=%04x es=%04x ss=%04x\n"
             , regs->eax, regs->ebx, regs->ecx, regs->edx
-            , regs->esi, regs->edi);
-    dprintf(1, "  ds=%08x es=%08x ip=%08x cs=%08x  f=%08x  r=%08x\n"
-            , regs->ds, regs->es, regs->ip, regs->cs, regs->flags, (u32)regs);
+            , regs->ds, regs->es, GET_SEG(SS));
+    dprintf(1, "  si=%08x di=%08x bp=%08x  r=%08x cs=%04x ip=%04x  f=%04x\n"
+            , regs->esi, regs->edi, regs->ebp, (u32)regs
+            , regs->cs, regs->ip, regs->flags);
 }
 
 // Report entry to an Interrupt Service Routine (ISR).

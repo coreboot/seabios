@@ -157,6 +157,7 @@ __call16:
         // Load calling registers.
         movl BREGS_edi(%eax), %edi
         movl BREGS_esi(%eax), %esi
+        movl BREGS_ebp(%eax), %ebp
         movl BREGS_ebx(%eax), %ebx
         movl BREGS_edx(%eax), %edx
         movl BREGS_ecx(%eax), %ecx
@@ -184,6 +185,7 @@ __call16:
         movw %es, BREGS_es(%eax)
         movl %edi, BREGS_edi(%eax)
         movl %esi, BREGS_esi(%eax)
+        movl %ebp, BREGS_ebp(%eax)
         movl %ebx, BREGS_ebx(%eax)
         movl %edx, BREGS_edx(%eax)
 

@@ -16,6 +16,7 @@ void foo(void)
     OFFSET(BREGS_ebx, bregs, ebx);
     OFFSET(BREGS_ecx, bregs, ecx);
     OFFSET(BREGS_edx, bregs, edx);
+    OFFSET(BREGS_ebp, bregs, ebp);
     OFFSET(BREGS_esi, bregs, esi);
     OFFSET(BREGS_edi, bregs, edi);
     OFFSET(BREGS_flags, bregs, flags);
