@@ -124,4 +124,10 @@ u8 biosfn_get_single_palette_reg(u8 reg);
 void cirrus_set_video_mode(u8 mode);
 void cirrus_init();
 
+// vbe.c -- not implemented yet.
+#define VBE_DISPI_DISABLED              0x00
+void dispi_set_enable(int enable);
+void vbe_init();
+int vbe_has_vbe_display();
+
 #endif // vgatables.h

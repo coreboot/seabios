@@ -235,10 +235,9 @@ biosfn_set_video_mode(u8 mode)
     if (CONFIG_CIRRUS)
         cirrus_set_video_mode(mode);
 
-#ifdef VBE
-    if (vbe_has_vbe_display())
-        dispi_set_enable(VBE_DISPI_DISABLED);
-#endif
+    if (CONFIG_VBE)
+        if (vbe_has_vbe_display())
+            dispi_set_enable(VBE_DISPI_DISABLED);
 
     // The real mode
     u8 noclearmem = mode & 0x80;
@@ -2671,7 +2670,8 @@ vga_post(struct bregs *regs)
 
     init_bios_area();
 
-    // vbe_init();
+    if (CONFIG_VBE)
+        vbe_init();
 
     extern void entry_10(void);
     SET_IVT(0x10, get_global_seg(), (u32)entry_10);
