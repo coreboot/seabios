@@ -117,8 +117,45 @@ extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
 // vga.c
+u16 biosfn_get_cursor_pos(u8 page);
+
+// vgafb.c
+void biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr
+                   , u8 page, u8 dir);
+void biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count);
+void biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count);
+void biosfn_read_char_attr(u8 page, u16 *car);
+void biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX);
+void biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX);
+void biosfn_load_text_user_pat(u16 ES, u16 BP, u16 CX, u16 DX, u8 BL, u8 BH);
+void biosfn_load_text_8_14_pat(u8 BL);
+void biosfn_load_text_8_8_pat(u8 BL);
+void biosfn_load_text_8_16_pat(u8 BL);
+
+// vgaio.c
+struct bregs;
+void biosfn_set_border_color(struct bregs *regs);
+void biosfn_set_overscan_border_color(struct bregs *regs);
+void biosfn_read_overscan_border_color(struct bregs *regs);
+void biosfn_set_palette(struct bregs *regs);
 void biosfn_set_single_palette_reg(u8 reg, u8 val);
 u8 biosfn_get_single_palette_reg(u8 reg);
+void biosfn_set_all_palette_reg(struct bregs *regs);
+void biosfn_get_all_palette_reg(struct bregs *regs);
+void biosfn_toggle_intensity(struct bregs *regs);
+void biosfn_select_video_dac_color_page(struct bregs *regs);
+void biosfn_read_video_dac_state(struct bregs *regs);
+void biosfn_set_single_dac_reg(struct bregs *regs);
+void biosfn_read_single_dac_reg(struct bregs *regs);
+void biosfn_set_all_dac_reg(struct bregs *regs);
+void biosfn_read_all_dac_reg(struct bregs *regs);
+void biosfn_set_pel_mask(struct bregs *regs);
+void biosfn_read_pel_mask(struct bregs *regs);
+void biosfn_set_text_block_specifier(struct bregs *regs);
+void get_font_access();
+void release_font_access();
+void biosfn_enable_video_addressing(struct bregs *regs);
+void init_vga_card();
 
 // clext.c
 void cirrus_set_video_mode(u8 mode);

@@ -22,7 +22,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset
-#include "vgatables.h" // vga_modes
+#include "vgatables.h" // find_vga_entry
 
 // XXX
 #define CONFIG_VBE 0
@@ -52,13 +52,6 @@ call16_vgaint(u32 eax, u32 ebx)
         :
         : "a"(eax), "b"(ebx)
         : "cc", "memory");
-}
-
-// XXX
-inline void
-memcpy16_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
-{
-    memcpy_far(d_seg, d_far, s_seg, s_far, len);
 }
 
 
@@ -171,7 +164,7 @@ biosfn_set_cursor_pos(u8 page, u16 cursor)
     outb(address & 0x00ff, crtc_addr + 1);
 }
 
-static u16
+u16
 biosfn_get_cursor_pos(u8 page)
 {
     if (page > 7)
@@ -399,609 +392,6 @@ biosfn_set_video_mode(u8 mode)
 
 // -------------------------------------------------------------------
 static void
-vgamem_copy_pl4(u8 xstart, u8 ysrc, u8 ydest, u8 cols, u8 nbcols,
-                u8 cheight)
-{
-    u16 src = ysrc * cheight * nbcols + xstart;
-    u16 dest = ydest * cheight * nbcols + xstart;
-    outw(0x0105, VGAREG_GRDC_ADDRESS);
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        memcpy_far(SEG_GRAPH, (void*)(dest + i * nbcols)
-                   , SEG_GRAPH, (void*)(src + i * nbcols), cols);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-vgamem_fill_pl4(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
-                u8 attr)
-{
-    u16 dest = ystart * cheight * nbcols + xstart;
-    outw(0x0205, VGAREG_GRDC_ADDRESS);
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        memset_far(SEG_GRAPH, (void*)(dest + i * nbcols), attr, cols);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-vgamem_copy_cga(u8 xstart, u8 ysrc, u8 ydest, u8 cols, u8 nbcols,
-                u8 cheight)
-{
-    u16 src = ((ysrc * cheight * nbcols) >> 1) + xstart;
-    u16 dest = ((ydest * cheight * nbcols) >> 1) + xstart;
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        if (i & 1)
-            memcpy_far(SEG_CTEXT, (void*)(0x2000 + dest + (i >> 1) * nbcols)
-                       , SEG_CTEXT, (void*)(0x2000 + src + (i >> 1) * nbcols)
-                       , cols);
-        else
-            memcpy_far(SEG_CTEXT, (void*)(dest + (i >> 1) * nbcols)
-                       , SEG_CTEXT, (void*)(src + (i >> 1) * nbcols), cols);
-}
-
-// -------------------------------------------------------------------
-static void
-vgamem_fill_cga(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
-                u8 attr)
-{
-    u16 dest = ((ystart * cheight * nbcols) >> 1) + xstart;
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        if (i & 1)
-            memset_far(SEG_CTEXT, (void*)(0x2000 + dest + (i >> 1) * nbcols)
-                       , attr, cols);
-        else
-            memset_far(SEG_CTEXT, (void*)(dest + (i >> 1) * nbcols), attr, cols);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
-              u8 dir)
-{
-    // page == 0xFF if current
-    if (rul > rlr)
-        return;
-    if (cul > clr)
-        return;
-
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
-    // Get the current page
-    if (page == 0xFF)
-        page = GET_BDA(video_page);
-
-    if (rlr >= nbrows)
-        rlr = nbrows - 1;
-    if (clr >= nbcols)
-        clr = nbcols - 1;
-    if (nblines > nbrows)
-        nblines = 0;
-    u8 cols = clr - cul + 1;
-
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
-        // Compute the address
-        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page));
-        dprintf(3, "Scroll, address %p (%d %d %02x)\n"
-                , address_far, nbrows, nbcols, page);
-
-        if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
-            && clr == nbcols - 1) {
-            memset16_far(GET_GLOBAL(vmode_g->sstart), address_far
-                         , (u16)attr * 0x100 + ' ', nbrows * nbcols * 2);
-        } else {                // if Scroll up
-            if (dir == SCROLL_UP) {
-                u16 i;
-                for (i = rul; i <= rlr; i++)
-                    if ((i + nblines > rlr) || (nblines == 0))
-                        memset16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address_far + (i * nbcols + cul) * 2
-                                     , (u16)attr * 0x100 + ' ', cols * 2);
-                    else
-                        memcpy16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address_far + (i * nbcols + cul) * 2
-                                     , GET_GLOBAL(vmode_g->sstart)
-                                     , (void*)(((i + nblines) * nbcols + cul) * 2)
-                                     , cols * 2);
-            } else {
-                u16 i;
-                for (i = rlr; i >= rul; i--) {
-                    if ((i < rul + nblines) || (nblines == 0))
-                        memset16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address_far + (i * nbcols + cul) * 2
-                                     , (u16)attr * 0x100 + ' ', cols * 2);
-                    else
-                        memcpy16_far(GET_GLOBAL(vmode_g->sstart)
-                                     , address_far + (i * nbcols + cul) * 2
-                                     , GET_GLOBAL(vmode_g->sstart)
-                                     , (void*)(((i - nblines) * nbcols + cul) * 2)
-                                     , cols * 2);
-                    if (i > rlr)
-                        break;
-                }
-            }
-        }
-        return;
-    }
-
-    // FIXME gfx mode not complete
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case PLANAR4:
-    case PLANAR1:
-        if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
-            && clr == nbcols - 1) {
-            outw(0x0205, VGAREG_GRDC_ADDRESS);
-            memset_far(GET_GLOBAL(vmode_g->sstart), 0, attr,
-                       nbrows * nbcols * cheight);
-            outw(0x0005, VGAREG_GRDC_ADDRESS);
-        } else {            // if Scroll up
-            if (dir == SCROLL_UP) {
-                u16 i;
-                for (i = rul; i <= rlr; i++)
-                    if ((i + nblines > rlr) || (nblines == 0))
-                        vgamem_fill_pl4(cul, i, cols, nbcols, cheight,
-                                        attr);
-                    else
-                        vgamem_copy_pl4(cul, i + nblines, i, cols,
-                                        nbcols, cheight);
-            } else {
-                u16 i;
-                for (i = rlr; i >= rul; i--) {
-                    if ((i < rul + nblines) || (nblines == 0))
-                        vgamem_fill_pl4(cul, i, cols, nbcols, cheight,
-                                        attr);
-                    else
-                        vgamem_copy_pl4(cul, i, i - nblines, cols,
-                                        nbcols, cheight);
-                    if (i > rlr)
-                        break;
-                }
-            }
-        }
-        break;
-    case CGA: {
-        u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-        if (nblines == 0 && rul == 0 && cul == 0 && rlr == nbrows - 1
-            && clr == nbcols - 1) {
-            memset_far(GET_GLOBAL(vmode_g->sstart), 0, attr,
-                       nbrows * nbcols * cheight * bpp);
-        } else {
-            if (bpp == 2) {
-                cul <<= 1;
-                cols <<= 1;
-                nbcols <<= 1;
-            }
-            // if Scroll up
-            if (dir == SCROLL_UP) {
-                u16 i;
-                for (i = rul; i <= rlr; i++)
-                    if ((i + nblines > rlr) || (nblines == 0))
-                        vgamem_fill_cga(cul, i, cols, nbcols, cheight,
-                                        attr);
-                    else
-                        vgamem_copy_cga(cul, i + nblines, i, cols,
-                                        nbcols, cheight);
-            } else {
-                u16 i;
-                for (i = rlr; i >= rul; i--) {
-                    if ((i < rul + nblines) || (nblines == 0))
-                        vgamem_fill_cga(cul, i, cols, nbcols, cheight,
-                                        attr);
-                    else
-                        vgamem_copy_cga(cul, i, i - nblines, cols,
-                                        nbcols, cheight);
-                    if (i > rlr)
-                        break;
-                }
-            }
-        }
-        break;
-    }
-    default:
-        dprintf(1, "Scroll in graphics mode\n");
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_char_attr(u8 page, u16 *car)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-
-    // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
-
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
-        // Compute the address
-        u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                   + (xcurs + ycurs * nbcols) * 2);
-
-        *car = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far);
-    } else {
-        // FIXME gfx mode
-        dprintf(1, "Read char in graphics mode\n");
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
-                   u8 cheight)
-{
-    u8 *fdata_g;
-    switch (cheight) {
-    case 14:
-        fdata_g = vgafont14;
-        break;
-    case 16:
-        fdata_g = vgafont16;
-        break;
-    default:
-        fdata_g = vgafont8;
-    }
-    u16 addr = xcurs + ycurs * cheight * nbcols;
-    u16 src = car * cheight;
-    outw(0x0f02, VGAREG_SEQU_ADDRESS);
-    outw(0x0205, VGAREG_GRDC_ADDRESS);
-    if (attr & 0x80)
-        outw(0x1803, VGAREG_GRDC_ADDRESS);
-    else
-        outw(0x0003, VGAREG_GRDC_ADDRESS);
-    u8 i;
-    for (i = 0; i < cheight; i++) {
-        u8 *dest_far = (void*)(addr + i * nbcols);
-        u8 j;
-        for (j = 0; j < 8; j++) {
-            u8 mask = 0x80 >> j;
-            outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
-            GET_FARVAR(SEG_GRAPH, *dest_far);
-            if (GET_GLOBAL(fdata_g[src + i]) & mask)
-                SET_FARVAR(SEG_GRAPH, *dest_far, attr & 0x0f);
-            else
-                SET_FARVAR(SEG_GRAPH, *dest_far, 0x00);
-        }
-    }
-    outw(0xff08, VGAREG_GRDC_ADDRESS);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
-    outw(0x0003, VGAREG_GRDC_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
-{
-    u8 *fdata_g = vgafont8;
-    u16 addr = (xcurs * bpp) + ycurs * 320;
-    u16 src = car * 8;
-    u8 i;
-    for (i = 0; i < 8; i++) {
-        u8 *dest_far = (void*)(addr + (i >> 1) * 80);
-        if (i & 1)
-            dest_far += 0x2000;
-        u8 mask = 0x80;
-        if (bpp == 1) {
-            u8 data = 0;
-            if (attr & 0x80)
-                data = GET_FARVAR(SEG_CTEXT, *dest_far);
-            u8 j;
-            for (j = 0; j < 8; j++) {
-                if (GET_GLOBAL(fdata_g[src + i]) & mask) {
-                    if (attr & 0x80)
-                        data ^= (attr & 0x01) << (7 - j);
-                    else
-                        data |= (attr & 0x01) << (7 - j);
-                }
-                mask >>= 1;
-            }
-            SET_FARVAR(SEG_CTEXT, *dest_far, data);
-        } else {
-            while (mask > 0) {
-                u8 data = 0;
-                if (attr & 0x80)
-                    data = GET_FARVAR(SEG_CTEXT, *dest_far);
-                u8 j;
-                for (j = 0; j < 4; j++) {
-                    if (GET_GLOBAL(fdata_g[src + i]) & mask) {
-                        if (attr & 0x80)
-                            data ^= (attr & 0x03) << ((3 - j) * 2);
-                        else
-                            data |= (attr & 0x03) << ((3 - j) * 2);
-                    }
-                    mask >>= 1;
-                }
-                SET_FARVAR(SEG_CTEXT, *dest_far, data);
-                dest_far += 1;
-            }
-        }
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-write_gfx_char_lin(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols)
-{
-    u8 *fdata_g = vgafont8;
-    u16 addr = xcurs * 8 + ycurs * nbcols * 64;
-    u16 src = car * 8;
-    u8 i;
-    for (i = 0; i < 8; i++) {
-        u8 *dest_far = (void*)(addr + i * nbcols * 8);
-        u8 mask = 0x80;
-        u8 j;
-        for (j = 0; j < 8; j++) {
-            u8 data = 0x00;
-            if (GET_GLOBAL(fdata_g[src + i]) & mask)
-                data = attr;
-            SET_FARVAR(SEG_GRAPH, dest_far[j], data);
-            mask >>= 1;
-        }
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-
-    // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
-
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
-        // Compute the address
-        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                    + (xcurs + ycurs * nbcols) * 2);
-
-        u16 dummy = ((u16)attr << 8) + car;
-        memset16_far(GET_GLOBAL(vmode_g->sstart), address_far, dummy, count * 2);
-        return;
-    }
-
-    // FIXME gfx mode not complete
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
-    u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    while ((count-- > 0) && (xcurs < nbcols)) {
-        switch (GET_GLOBAL(vmode_g->memmodel)) {
-        case PLANAR4:
-        case PLANAR1:
-            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
-            break;
-        case CGA:
-            write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
-            break;
-        case LINEAR8:
-            write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
-            break;
-        }
-        xcurs++;
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-
-    // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
-
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
-        // Compute the address
-        u8 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                  + (xcurs + ycurs * nbcols) * 2);
-        while (count-- > 0) {
-            SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far, car);
-            address_far += 2;
-        }
-        return;
-    }
-
-    // FIXME gfx mode not complete
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
-    u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    while ((count-- > 0) && (xcurs < nbcols)) {
-        switch (GET_GLOBAL(vmode_g->memmodel)) {
-        case PLANAR4:
-        case PLANAR1:
-            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
-            break;
-        case CGA:
-            write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
-            break;
-        case LINEAR8:
-            write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
-            break;
-        }
-        xcurs++;
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_set_border_color(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x00, VGAREG_ACTL_ADDRESS);
-    u8 al = regs->bl & 0x0f;
-    if (al & 0x08)
-        al += 0x08;
-    outb(al, VGAREG_ACTL_WRITE_DATA);
-    u8 bl = regs->bl & 0x10;
-
-    int i;
-    for (i = 1; i < 4; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-
-        al = inb(VGAREG_ACTL_READ_DATA);
-        al &= 0xef;
-        al |= bl;
-        outb(al, VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-static void
-biosfn_set_palette(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    u8 bl = regs->bl & 0x01;
-    int i;
-    for (i = 1; i < 4; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-
-        u8 al = inb(VGAREG_ACTL_READ_DATA);
-        al &= 0xfe;
-        al |= bl;
-        outb(al, VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-    if (GET_GLOBAL(vmode_g->class) == TEXT)
-        return;
-
-    u8 *addr_far, mask, attr, data;
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case PLANAR4:
-    case PLANAR1:
-        addr_far = (void*)(CX / 8 + DX * GET_BDA(video_cols));
-        mask = 0x80 >> (CX & 0x07);
-        outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
-        outw(0x0205, VGAREG_GRDC_ADDRESS);
-        data = GET_FARVAR(SEG_GRAPH, *addr_far);
-        if (AL & 0x80)
-            outw(0x1803, VGAREG_GRDC_ADDRESS);
-        SET_FARVAR(SEG_GRAPH, *addr_far, AL);
-        outw(0xff08, VGAREG_GRDC_ADDRESS);
-        outw(0x0005, VGAREG_GRDC_ADDRESS);
-        outw(0x0003, VGAREG_GRDC_ADDRESS);
-        break;
-    case CGA:
-        if (GET_GLOBAL(vmode_g->pixbits) == 2)
-            addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
-        else
-            addr_far = (void*)((CX >> 3) + (DX >> 1) * 80);
-        if (DX & 1)
-            addr_far += 0x2000;
-        data = GET_FARVAR(SEG_CTEXT, *addr_far);
-        if (GET_GLOBAL(vmode_g->pixbits) == 2) {
-            attr = (AL & 0x03) << ((3 - (CX & 0x03)) * 2);
-            mask = 0x03 << ((3 - (CX & 0x03)) * 2);
-        } else {
-            attr = (AL & 0x01) << (7 - (CX & 0x07));
-            mask = 0x01 << (7 - (CX & 0x07));
-        }
-        if (AL & 0x80) {
-            data ^= attr;
-        } else {
-            data &= ~mask;
-            data |= attr;
-        }
-        SET_FARVAR(SEG_CTEXT, *addr_far, data);
-        break;
-    case LINEAR8:
-        addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        SET_FARVAR(SEG_GRAPH, *addr_far, AL);
-        break;
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-    if (GET_GLOBAL(vmode_g->class) == TEXT)
-        return;
-
-    u8 *addr_far, mask, attr=0, data, i;
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case PLANAR4:
-    case PLANAR1:
-        addr_far = (void*)(CX / 8 + DX * GET_BDA(video_cols));
-        mask = 0x80 >> (CX & 0x07);
-        attr = 0x00;
-        for (i = 0; i < 4; i++) {
-            outw((i << 8) | 0x04, VGAREG_GRDC_ADDRESS);
-            data = GET_FARVAR(SEG_GRAPH, *addr_far) & mask;
-            if (data > 0)
-                attr |= (0x01 << i);
-        }
-        break;
-    case CGA:
-        addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
-        if (DX & 1)
-            addr_far += 0x2000;
-        data = GET_FARVAR(SEG_CTEXT, *addr_far);
-        if (GET_GLOBAL(vmode_g->pixbits) == 2)
-            attr = (data >> ((3 - (CX & 0x03)) * 2)) & 0x03;
-        else
-            attr = (data >> (7 - (CX & 0x07))) & 0x01;
-        break;
-    case LINEAR8:
-        addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        attr = GET_FARVAR(SEG_GRAPH, *addr_far);
-        break;
-    }
-    *AX = (*AX & 0xff00) | attr;
-}
-
-// -------------------------------------------------------------------
-static void
 biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
 {                               // flag = WITH_ATTR / NO_ATTR
     // special case if page is 0xff, use current page
@@ -1050,33 +440,10 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
         break;
 
     default:
-
-        if (GET_GLOBAL(vmode_g->class) == TEXT) {
-            // Compute the address
-            u8 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                      + (xcurs + ycurs * nbcols) * 2);
-            // Write the char
-            SET_FARVAR(GET_GLOBAL(vmode_g->sstart), address_far[0], car);
-            if (flag == WITH_ATTR)
-                SET_FARVAR(GET_GLOBAL(vmode_g->sstart), address_far[1], attr);
-        } else {
-            // FIXME gfx mode not complete
-            struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-            u8 cheight = GET_GLOBAL(vparam_g->cheight);
-            u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-            switch (GET_GLOBAL(vmode_g->memmodel)) {
-            case PLANAR4:
-            case PLANAR1:
-                write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
-                break;
-            case CGA:
-                write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
-                break;
-            case LINEAR8:
-                write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
-                break;
-            }
-        }
+        if (flag == WITH_ATTR)
+            biosfn_write_char_attr(car, page, attr, 1);
+        else
+            biosfn_write_char_only(car, page, attr, 1);
         xcurs++;
     }
 
@@ -1111,238 +478,6 @@ biosfn_get_video_mode(struct bregs *regs)
     regs->ah = GET_BDA(video_cols);
 }
 
-// -------------------------------------------------------------------
-static void
-biosfn_set_overscan_border_color(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(regs->bh, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_set_all_palette_reg(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-
-    u8 *data_far = (u8*)(regs->dx + 0);
-    int i;
-    for (i = 0; i < 0x10; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-        u8 val = GET_FARVAR(regs->es, *data_far);
-        outb(val, VGAREG_ACTL_WRITE_DATA);
-        data_far++;
-    }
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(GET_FARVAR(regs->es, *data_far), VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_toggle_intensity(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val = (inb(VGAREG_ACTL_READ_DATA) & 0x7f) | ((regs->bl & 0x01) << 3);
-    outb(val, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-void
-biosfn_set_single_palette_reg(u8 reg, u8 val)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(reg, VGAREG_ACTL_ADDRESS);
-    outb(val, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-u8
-biosfn_get_single_palette_reg(u8 reg)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(reg, VGAREG_ACTL_ADDRESS);
-    u8 v = inb(VGAREG_ACTL_READ_DATA);
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-    return v;
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_overscan_border_color(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    regs->bh = inb(VGAREG_ACTL_READ_DATA);
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_get_all_palette_reg(struct bregs *regs)
-{
-    u8 *data_far = (u8*)(regs->dx + 0);
-    int i;
-    for (i = 0; i < 0x10; i++) {
-        inb(VGAREG_ACTL_RESET);
-        outb(i, VGAREG_ACTL_ADDRESS);
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_ACTL_READ_DATA));
-        data_far++;
-    }
-    inb(VGAREG_ACTL_RESET);
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    SET_FARVAR(regs->es, *data_far, inb(VGAREG_ACTL_READ_DATA));
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_set_single_dac_reg(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_DAC_WRITE_ADDRESS);
-    outb(regs->dh, VGAREG_DAC_DATA);
-    outb(regs->ch, VGAREG_DAC_DATA);
-    outb(regs->cl, VGAREG_DAC_DATA);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_set_all_dac_reg(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_DAC_WRITE_ADDRESS);
-    u8 *data_far = (u8*)(regs->dx + 0);
-    int count = regs->cx;
-    while (count) {
-        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
-        data_far++;
-        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
-        data_far++;
-        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
-        data_far++;
-        count--;
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_select_video_dac_color_page(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val = inb(VGAREG_ACTL_READ_DATA);
-    if (!(regs->bl & 0x01)) {
-        val = (val & 0x7f) | (regs->bh << 7);
-        outb(val, VGAREG_ACTL_WRITE_DATA);
-        outb(0x20, VGAREG_ACTL_ADDRESS);
-        return;
-    }
-    inb(VGAREG_ACTL_RESET);
-    outb(0x14, VGAREG_ACTL_ADDRESS);
-    u8 bh = regs->bh;
-    if (!(val & 0x80))
-        bh <<= 2;
-    bh &= 0x0f;
-    outb(bh, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_single_dac_reg(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_DAC_READ_ADDRESS);
-    regs->dh = inb(VGAREG_DAC_DATA);
-    regs->ch = inb(VGAREG_DAC_DATA);
-    regs->cl = inb(VGAREG_DAC_DATA);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_all_dac_reg(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_DAC_READ_ADDRESS);
-    u8 *data_far = (u8*)(regs->dx + 0);
-    int count = regs->cx;
-    while (count) {
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
-        data_far++;
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
-        data_far++;
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
-        data_far++;
-        count--;
-    }
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_set_pel_mask(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_PEL_MASK);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_pel_mask(struct bregs *regs)
-{
-    regs->bl = inb(VGAREG_PEL_MASK);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_read_video_dac_state(struct bregs *regs)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val1 = inb(VGAREG_ACTL_READ_DATA) >> 7;
-
-    inb(VGAREG_ACTL_RESET);
-    outb(0x14, VGAREG_ACTL_ADDRESS);
-    u8 val2 = inb(VGAREG_ACTL_READ_DATA) & 0x0f;
-    if (!(val1 & 0x01))
-        val2 >>= 2;
-
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-
-    regs->bl = val1;
-    regs->bh = val2;
-}
-
-// -------------------------------------------------------------------
-static void
-get_font_access()
-{
-    outw(0x0100, VGAREG_SEQU_ADDRESS);
-    outw(0x0402, VGAREG_SEQU_ADDRESS);
-    outw(0x0704, VGAREG_SEQU_ADDRESS);
-    outw(0x0300, VGAREG_SEQU_ADDRESS);
-    outw(0x0204, VGAREG_GRDC_ADDRESS);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
-    outw(0x0406, VGAREG_GRDC_ADDRESS);
-}
-
-static void
-release_font_access()
-{
-    outw(0x0100, VGAREG_SEQU_ADDRESS);
-    outw(0x0302, VGAREG_SEQU_ADDRESS);
-    outw(0x0304, VGAREG_SEQU_ADDRESS);
-    outw(0x0300, VGAREG_SEQU_ADDRESS);
-    u16 v = (inw(VGAREG_READ_MISC_OUTPUT) & 0x01) ? 0x0e : 0x0a;
-    outw((v << 8) | 0x06, VGAREG_GRDC_ADDRESS);
-    outw(0x0004, VGAREG_GRDC_ADDRESS);
-    outw(0x1005, VGAREG_GRDC_ADDRESS);
-}
-
 static void
 set_scan_lines(u8 lines)
 {
@@ -1365,79 +500,6 @@ set_scan_lines(u8 lines)
     SET_BDA(video_rows, rows - 1);
     u16 cols = GET_BDA(video_cols);
     SET_BDA(video_pagesize, rows * cols * 2);
-}
-
-static void
-biosfn_load_text_user_pat(u8 AL, u16 ES, u16 BP, u16 CX, u16 DX, u8 BL,
-                          u8 BH)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < CX; i++) {
-        void *src_far = (void*)(BP + i * BH);
-        void *dest_far = (void*)(blockaddr + (DX + i) * 32);
-        memcpy_far(SEG_GRAPH, dest_far, ES, src_far, BH);
-    }
-    release_font_access();
-    if (AL >= 0x10)
-        set_scan_lines(BH);
-}
-
-static void
-biosfn_load_text_8_14_pat(u8 AL, u8 BL)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < 0x100; i++) {
-        u16 src = i * 14;
-        void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont14[src], 14);
-    }
-    release_font_access();
-    if (AL >= 0x10)
-        set_scan_lines(14);
-}
-
-static void
-biosfn_load_text_8_8_pat(u8 AL, u8 BL)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < 0x100; i++) {
-        u16 src = i * 8;
-        void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont8[src], 8);
-    }
-    release_font_access();
-    if (AL >= 0x10)
-        set_scan_lines(8);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_set_text_block_specifier(struct bregs *regs)
-{
-    outw((regs->bl << 8) | 0x03, VGAREG_SEQU_ADDRESS);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_load_text_8_16_pat(u8 AL, u8 BL)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < 0x100; i++) {
-        u16 src = i * 16;
-        void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont16[src], 16);
-    }
-    release_font_access();
-    if (AL >= 0x10)
-        set_scan_lines(16);
 }
 
 // -------------------------------------------------------------------
@@ -1542,15 +604,6 @@ biosfn_enable_default_palette_loading(struct bregs *regs)
     u8 v = (regs->al & 0x01) << 3;
     u8 mctl = GET_BDA(video_ctl) & ~0x08;
     SET_BDA(video_ctl, mctl | v);
-    regs->ax = 0x1212;
-}
-
-static void
-biosfn_enable_video_addressing(struct bregs *regs)
-{
-    u8 v = ((regs->al << 1) & 0x02) ^ 0x02;
-    u8 v2 = inb(VGAREG_READ_MISC_OUTPUT) & ~0x02;
-    outb(v | v2, VGAREG_WRITE_MISC_OUTPUT);
     regs->ax = 0x1212;
 }
 
@@ -2213,23 +1266,20 @@ handle_1010(struct bregs *regs)
 static void
 handle_101100(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_load_text_user_pat(regs->al, regs->es, regs->bp
+    biosfn_load_text_user_pat(regs->es, regs->bp
                               , regs->cx, regs->dx, regs->bl, regs->bh);
 }
 
 static void
 handle_101101(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_load_text_8_14_pat(regs->al, regs->bl);
+    biosfn_load_text_8_14_pat(regs->bl);
 }
 
 static void
 handle_101102(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_load_text_8_8_pat(regs->al, regs->bl);
+    biosfn_load_text_8_8_pat(regs->bl);
 }
 
 static void
@@ -2242,32 +1292,36 @@ handle_101103(struct bregs *regs)
 static void
 handle_101104(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_load_text_8_16_pat(regs->al, regs->bl);
+    biosfn_load_text_8_16_pat(regs->bl);
 }
 
 static void
 handle_101110(struct bregs *regs)
 {
-    handle_101100(regs);
+    biosfn_load_text_user_pat(regs->es, regs->bp
+                              , regs->cx, regs->dx, regs->bl, regs->bh);
+    set_scan_lines(regs->bh);
 }
 
 static void
 handle_101111(struct bregs *regs)
 {
-    handle_101101(regs);
+    biosfn_load_text_8_14_pat(regs->bl);
+    set_scan_lines(14);
 }
 
 static void
 handle_101112(struct bregs *regs)
 {
-    handle_101102(regs);
+    biosfn_load_text_8_8_pat(regs->bl);
+    set_scan_lines(8);
 }
 
 static void
 handle_101114(struct bregs *regs)
 {
-    handle_101104(regs);
+    biosfn_load_text_8_16_pat(regs->bl);
+    set_scan_lines(16);
 }
 
 static void
@@ -2639,16 +1693,6 @@ init_bios_area()
 
     // Set the  default MSR
     SET_BDA(video_msr, 0x09);
-}
-
-static void
-init_vga_card()
-{
-    // switch to color mode and enable CPU access 480 lines
-    outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);
-    // more than 64k 3C4/04
-    outb(0x04, VGAREG_SEQU_ADDRESS);
-    outb(0x02, VGAREG_SEQU_DATA);
 }
 
 void VISIBLE16
