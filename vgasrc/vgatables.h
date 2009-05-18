@@ -133,29 +133,26 @@ void biosfn_load_text_8_8_pat(u8 BL);
 void biosfn_load_text_8_16_pat(u8 BL);
 
 // vgaio.c
-struct bregs;
-void biosfn_set_border_color(struct bregs *regs);
-void biosfn_set_overscan_border_color(struct bregs *regs);
-void biosfn_read_overscan_border_color(struct bregs *regs);
-void biosfn_set_palette(struct bregs *regs);
-void biosfn_set_single_palette_reg(u8 reg, u8 val);
-u8 biosfn_get_single_palette_reg(u8 reg);
-void biosfn_set_all_palette_reg(struct bregs *regs);
-void biosfn_get_all_palette_reg(struct bregs *regs);
-void biosfn_toggle_intensity(struct bregs *regs);
-void biosfn_select_video_dac_color_page(struct bregs *regs);
-void biosfn_read_video_dac_state(struct bregs *regs);
-void biosfn_set_single_dac_reg(struct bregs *regs);
-void biosfn_read_single_dac_reg(struct bregs *regs);
-void biosfn_set_all_dac_reg(struct bregs *regs);
-void biosfn_read_all_dac_reg(struct bregs *regs);
-void biosfn_set_pel_mask(struct bregs *regs);
-void biosfn_read_pel_mask(struct bregs *regs);
-void biosfn_set_text_block_specifier(struct bregs *regs);
+void vgahw_set_border_color(u8 color);
+void vgahw_set_overscan_border_color(u8 color);
+u8 vgahw_get_overscan_border_color();
+void vgahw_set_palette(u8 palid);
+void vgahw_set_single_palette_reg(u8 reg, u8 val);
+u8 vgahw_get_single_palette_reg(u8 reg);
+void vgahw_set_all_palette_reg(u16 seg, u8 *data_far);
+void vgahw_get_all_palette_reg(u16 seg, u8 *data_far);
+void vgahw_toggle_intensity(u8 flag);
+void vgahw_select_video_dac_color_page(u8 flag, u8 data);
+void vgahw_read_video_dac_state(u8 *pmode, u8 *curpage);
+void vgahw_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
+void vgahw_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
+void vgahw_set_pel_mask(u8 val);
+u8 vgahw_get_pel_mask();
+void vgahw_set_text_block_specifier(u8 spec);
 void get_font_access();
 void release_font_access();
-void biosfn_enable_video_addressing(struct bregs *regs);
-void init_vga_card();
+void vgahw_enable_video_addressing(u8 disable);
+void vgahw_init();
 
 // clext.c
 void cirrus_set_video_mode(u8 mode);

@@ -16,7 +16,6 @@
 //
 //  * convert vbe/clext code
 //
-//  * separate code into separate files
 //  * extract hw code from bios interfaces
 
 #include "bregs.h" // struct bregs
@@ -1061,15 +1060,13 @@ handle_100a(struct bregs *regs)
 static void
 handle_100b00(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_border_color(regs);
+    vgahw_set_border_color(regs->bl);
 }
 
 static void
 handle_100b01(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_palette(regs);
+    vgahw_set_palette(regs->bl);
 }
 
 static void
@@ -1124,28 +1121,25 @@ handle_101000(struct bregs *regs)
 {
     if (regs->bl > 0x14)
         return;
-    biosfn_set_single_palette_reg(regs->bl, regs->bh);
+    vgahw_set_single_palette_reg(regs->bl, regs->bh);
 }
 
 static void
 handle_101001(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_overscan_border_color(regs);
+    vgahw_set_overscan_border_color(regs->bh);
 }
 
 static void
 handle_101002(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_all_palette_reg(regs);
+    vgahw_set_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
 }
 
 static void
 handle_101003(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_toggle_intensity(regs);
+    vgahw_toggle_intensity(regs->bl);
 }
 
 static void
@@ -1153,77 +1147,72 @@ handle_101007(struct bregs *regs)
 {
     if (regs->bl > 0x14)
         return;
-    regs->bh = biosfn_get_single_palette_reg(regs->bl);
+    regs->bh = vgahw_get_single_palette_reg(regs->bl);
 }
 
 static void
 handle_101008(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_overscan_border_color(regs);
+    regs->bh = vgahw_get_overscan_border_color(regs);
 }
 
 static void
 handle_101009(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_get_all_palette_reg(regs);
+    vgahw_get_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
 }
 
 static void
 handle_101010(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_single_dac_reg(regs);
+    u8 rgb[3] = {regs->dh, regs->ch, regs->cl};
+    vgahw_set_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
 }
 
 static void
 handle_101012(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_all_dac_reg(regs);
+    vgahw_set_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
 handle_101013(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_select_video_dac_color_page(regs);
+    vgahw_select_video_dac_color_page(regs->bl, regs->bh);
 }
 
 static void
 handle_101015(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_single_dac_reg(regs);
+    u8 rgb[3];
+    vgahw_get_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
+    regs->dh = rgb[0];
+    regs->ch = rgb[1];
+    regs->cl = rgb[2];
 }
 
 static void
 handle_101017(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_all_dac_reg(regs);
+    vgahw_get_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
 handle_101018(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_pel_mask(regs);
+    vgahw_set_pel_mask(regs->bl);
 }
 
 static void
 handle_101019(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_pel_mask(regs);
+    regs->bl = vgahw_get_pel_mask();
 }
 
 static void
 handle_10101a(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_video_dac_state(regs);
+    vgahw_read_video_dac_state(&regs->bl, &regs->bh);
 }
 
 static void
@@ -1285,8 +1274,7 @@ handle_101102(struct bregs *regs)
 static void
 handle_101103(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_text_block_specifier(regs);
+    vgahw_set_text_block_specifier(regs->bl);
 }
 
 static void
@@ -1381,8 +1369,8 @@ handle_101231(struct bregs *regs)
 static void
 handle_101232(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_enable_video_addressing(regs);
+    vgahw_enable_video_addressing(regs->al);
+    regs->al = 0x12;
 }
 
 static void
@@ -1700,7 +1688,7 @@ vga_post(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_VGA_POST);
 
-    init_vga_card();
+    vgahw_init();
 
     init_bios_area();
 

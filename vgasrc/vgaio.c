@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "ioport.h" // outb
-#include "bregs.h" // struct bregs
 #include "farptr.h" // SET_FARVAR
 #include "vgatables.h" // VGAREG_*
 
@@ -16,66 +15,67 @@
  ****************************************************************/
 
 void
-biosfn_set_border_color(struct bregs *regs)
+vgahw_set_border_color(u8 color)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x00, VGAREG_ACTL_ADDRESS);
-    u8 al = regs->bl & 0x0f;
-    if (al & 0x08)
-        al += 0x08;
-    outb(al, VGAREG_ACTL_WRITE_DATA);
-    u8 bl = regs->bl & 0x10;
+    u8 v1 = color & 0x0f;
+    if (v1 & 0x08)
+        v1 += 0x08;
+    outb(v1, VGAREG_ACTL_WRITE_DATA);
 
+    u8 v2 = color & 0x10;
     int i;
     for (i = 1; i < 4; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
 
-        al = inb(VGAREG_ACTL_READ_DATA);
-        al &= 0xef;
-        al |= bl;
-        outb(al, VGAREG_ACTL_WRITE_DATA);
+        u8 cur = inb(VGAREG_ACTL_READ_DATA);
+        cur &= 0xef;
+        cur |= v2;
+        outb(cur, VGAREG_ACTL_WRITE_DATA);
     }
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-biosfn_set_overscan_border_color(struct bregs *regs)
+vgahw_set_overscan_border_color(u8 color)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(regs->bh, VGAREG_ACTL_WRITE_DATA);
+    outb(color, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
-void
-biosfn_read_overscan_border_color(struct bregs *regs)
+u8
+vgahw_get_overscan_border_color()
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    regs->bh = inb(VGAREG_ACTL_READ_DATA);
+    u8 v = inb(VGAREG_ACTL_READ_DATA);
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
+    return v;
 }
 
 void
-biosfn_set_palette(struct bregs *regs)
+vgahw_set_palette(u8 palid)
 {
     inb(VGAREG_ACTL_RESET);
-    u8 bl = regs->bl & 0x01;
+    palid &= 0x01;
     int i;
     for (i = 1; i < 4; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
 
-        u8 al = inb(VGAREG_ACTL_READ_DATA);
-        al &= 0xfe;
-        al |= bl;
-        outb(al, VGAREG_ACTL_WRITE_DATA);
+        u8 v = inb(VGAREG_ACTL_READ_DATA);
+        v &= 0xfe;
+        v |= palid;
+        outb(v, VGAREG_ACTL_WRITE_DATA);
     }
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-biosfn_set_single_palette_reg(u8 reg, u8 val)
+vgahw_set_single_palette_reg(u8 reg, u8 val)
 {
     inb(VGAREG_ACTL_RESET);
     outb(reg, VGAREG_ACTL_ADDRESS);
@@ -84,7 +84,7 @@ biosfn_set_single_palette_reg(u8 reg, u8 val)
 }
 
 u8
-biosfn_get_single_palette_reg(u8 reg)
+vgahw_get_single_palette_reg(u8 reg)
 {
     inb(VGAREG_ACTL_RESET);
     outb(reg, VGAREG_ACTL_ADDRESS);
@@ -95,75 +95,73 @@ biosfn_get_single_palette_reg(u8 reg)
 }
 
 void
-biosfn_set_all_palette_reg(struct bregs *regs)
+vgahw_set_all_palette_reg(u16 seg, u8 *data_far)
 {
     inb(VGAREG_ACTL_RESET);
-
-    u8 *data_far = (u8*)(regs->dx + 0);
     int i;
     for (i = 0; i < 0x10; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
-        u8 val = GET_FARVAR(regs->es, *data_far);
+        u8 val = GET_FARVAR(seg, *data_far);
         outb(val, VGAREG_ACTL_WRITE_DATA);
         data_far++;
     }
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(GET_FARVAR(regs->es, *data_far), VGAREG_ACTL_WRITE_DATA);
+    outb(GET_FARVAR(seg, *data_far), VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-biosfn_get_all_palette_reg(struct bregs *regs)
+vgahw_get_all_palette_reg(u16 seg, u8 *data_far)
 {
-    u8 *data_far = (u8*)(regs->dx + 0);
     int i;
     for (i = 0; i < 0x10; i++) {
         inb(VGAREG_ACTL_RESET);
         outb(i, VGAREG_ACTL_ADDRESS);
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_ACTL_READ_DATA));
+        SET_FARVAR(seg, *data_far, inb(VGAREG_ACTL_READ_DATA));
         data_far++;
     }
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
-    SET_FARVAR(regs->es, *data_far, inb(VGAREG_ACTL_READ_DATA));
+    SET_FARVAR(seg, *data_far, inb(VGAREG_ACTL_READ_DATA));
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-biosfn_toggle_intensity(struct bregs *regs)
+vgahw_toggle_intensity(u8 flag)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val = (inb(VGAREG_ACTL_READ_DATA) & 0x7f) | ((regs->bl & 0x01) << 3);
+    u8 val = (inb(VGAREG_ACTL_READ_DATA) & 0xf7) | ((flag & 0x01) << 3);
     outb(val, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-biosfn_select_video_dac_color_page(struct bregs *regs)
+vgahw_select_video_dac_color_page(u8 flag, u8 data)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
     u8 val = inb(VGAREG_ACTL_READ_DATA);
-    if (!(regs->bl & 0x01)) {
-        val = (val & 0x7f) | (regs->bh << 7);
+    if (!(flag & 0x01)) {
+        // select paging mode
+        val = (val & 0x7f) | (data << 7);
         outb(val, VGAREG_ACTL_WRITE_DATA);
         outb(0x20, VGAREG_ACTL_ADDRESS);
         return;
     }
+    // select page
     inb(VGAREG_ACTL_RESET);
     outb(0x14, VGAREG_ACTL_ADDRESS);
-    u8 bh = regs->bh;
     if (!(val & 0x80))
-        bh <<= 2;
-    bh &= 0x0f;
-    outb(bh, VGAREG_ACTL_WRITE_DATA);
+        data <<= 2;
+    data &= 0x0f;
+    outb(data, VGAREG_ACTL_WRITE_DATA);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-biosfn_read_video_dac_state(struct bregs *regs)
+vgahw_read_video_dac_state(u8 *pmode, u8 *curpage)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
@@ -178,8 +176,8 @@ biosfn_read_video_dac_state(struct bregs *regs)
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 
-    regs->bl = val1;
-    regs->bh = val2;
+    *pmode = val1;
+    *curpage = val2;
 }
 
 
@@ -188,67 +186,45 @@ biosfn_read_video_dac_state(struct bregs *regs)
  ****************************************************************/
 
 void
-biosfn_set_single_dac_reg(struct bregs *regs)
+vgahw_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
 {
-    outb(regs->bl, VGAREG_DAC_WRITE_ADDRESS);
-    outb(regs->dh, VGAREG_DAC_DATA);
-    outb(regs->ch, VGAREG_DAC_DATA);
-    outb(regs->cl, VGAREG_DAC_DATA);
-}
-
-void
-biosfn_read_single_dac_reg(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_DAC_READ_ADDRESS);
-    regs->dh = inb(VGAREG_DAC_DATA);
-    regs->ch = inb(VGAREG_DAC_DATA);
-    regs->cl = inb(VGAREG_DAC_DATA);
-}
-
-void
-biosfn_set_all_dac_reg(struct bregs *regs)
-{
-    outb(regs->bl, VGAREG_DAC_WRITE_ADDRESS);
-    u8 *data_far = (u8*)(regs->dx + 0);
-    int count = regs->cx;
+    outb(start, VGAREG_DAC_WRITE_ADDRESS);
     while (count) {
-        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
+        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
         data_far++;
-        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
+        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
         data_far++;
-        outb(GET_FARVAR(regs->es, *data_far), VGAREG_DAC_DATA);
+        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
         data_far++;
         count--;
     }
 }
 
 void
-biosfn_read_all_dac_reg(struct bregs *regs)
+vgahw_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
 {
-    outb(regs->bl, VGAREG_DAC_READ_ADDRESS);
-    u8 *data_far = (u8*)(regs->dx + 0);
-    int count = regs->cx;
+    outb(start, VGAREG_DAC_READ_ADDRESS);
     while (count) {
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
+        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
         data_far++;
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
+        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
         data_far++;
-        SET_FARVAR(regs->es, *data_far, inb(VGAREG_DAC_DATA));
+        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
         data_far++;
         count--;
     }
 }
 
 void
-biosfn_set_pel_mask(struct bregs *regs)
+vgahw_set_pel_mask(u8 val)
 {
-    outb(regs->bl, VGAREG_PEL_MASK);
+    outb(val, VGAREG_PEL_MASK);
 }
 
-void
-biosfn_read_pel_mask(struct bregs *regs)
+u8
+vgahw_get_pel_mask()
 {
-    regs->bl = inb(VGAREG_PEL_MASK);
+    return inb(VGAREG_PEL_MASK);
 }
 
 
@@ -257,9 +233,9 @@ biosfn_read_pel_mask(struct bregs *regs)
  ****************************************************************/
 
 void
-biosfn_set_text_block_specifier(struct bregs *regs)
+vgahw_set_text_block_specifier(u8 spec)
 {
-    outw((regs->bl << 8) | 0x03, VGAREG_SEQU_ADDRESS);
+    outw((spec << 8) | 0x03, VGAREG_SEQU_ADDRESS);
 }
 
 void
@@ -293,16 +269,15 @@ release_font_access()
  ****************************************************************/
 
 void
-biosfn_enable_video_addressing(struct bregs *regs)
+vgahw_enable_video_addressing(u8 disable)
 {
-    u8 v = ((regs->al << 1) & 0x02) ^ 0x02;
+    u8 v = (disable & 1) ? 0x00 : 0x02;
     u8 v2 = inb(VGAREG_READ_MISC_OUTPUT) & ~0x02;
     outb(v | v2, VGAREG_WRITE_MISC_OUTPUT);
-    regs->ax = 0x1212;
 }
 
 void
-init_vga_card()
+vgahw_init()
 {
     // switch to color mode and enable CPU access 480 lines
     outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);
