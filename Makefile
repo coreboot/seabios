@@ -135,8 +135,8 @@ $(OUT)bios.bin: $(OUT)bios.bin.elf
 ################ VGA build rules
 
 # VGA src files
-SRCVGA=src/output.c src/util.c vgasrc/vga.c vgasrc/vgatables.c \
-       vgasrc/vgafonts.c vgasrc/clext.c
+SRCVGA=src/output.c src/util.c vgasrc/vga.c vgasrc/vgafb.c vgasrc/vgaio.c \
+       vgasrc/vgatables.c vgasrc/vgafonts.c vgasrc/clext.c
 
 $(OUT)vgaccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S -Isrc, $(SRCVGA),$@)
 
