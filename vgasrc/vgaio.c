@@ -7,12 +7,27 @@
 
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
+#include "biosvar.h" // GET_BDA
 #include "vgatables.h" // VGAREG_*
 
 
 /****************************************************************
  * Attribute control
  ****************************************************************/
+
+void
+vgahw_screen_disable()
+{
+    inb(VGAREG_ACTL_RESET);
+    outb(0x00, VGAREG_ACTL_ADDRESS);
+}
+
+void
+vgahw_screen_enable()
+{
+    inb(VGAREG_ACTL_RESET);
+    outb(0x20, VGAREG_ACTL_ADDRESS);
+}
 
 void
 vgahw_set_border_color(u8 color)
@@ -261,6 +276,70 @@ release_font_access()
     outw((v << 8) | 0x06, VGAREG_GRDC_ADDRESS);
     outw(0x0004, VGAREG_GRDC_ADDRESS);
     outw(0x1005, VGAREG_GRDC_ADDRESS);
+}
+
+
+/****************************************************************
+ * CRTC registers
+ ****************************************************************/
+
+static u16
+get_crtc()
+{
+    return GET_BDA(crtc_address);
+}
+
+void
+vgahw_set_cursor_shape(u8 start, u8 end)
+{
+    u16 crtc_addr = get_crtc();
+    outb(0x0a, crtc_addr);
+    outb(start, crtc_addr + 1);
+    outb(0x0b, crtc_addr);
+    outb(end, crtc_addr + 1);
+}
+
+void
+vgahw_set_active_page(u16 address)
+{
+    u16 crtc_addr = get_crtc();
+    outb(0x0c, crtc_addr);
+    outb((address & 0xff00) >> 8, crtc_addr + 1);
+    outb(0x0d, crtc_addr);
+    outb(address & 0x00ff, crtc_addr + 1);
+}
+
+void
+vgahw_set_cursor_pos(u16 address)
+{
+    u16 crtc_addr = get_crtc();
+    outb(0x0e, crtc_addr);
+    outb((address & 0xff00) >> 8, crtc_addr + 1);
+    outb(0x0f, crtc_addr);
+    outb(address & 0x00ff, crtc_addr + 1);
+}
+
+void
+vgahw_set_scan_lines(u8 lines)
+{
+    u16 crtc_addr = get_crtc();
+    outb(0x09, crtc_addr);
+    u8 crtc_r9 = inb(crtc_addr + 1);
+    crtc_r9 = (crtc_r9 & 0xe0) | (lines - 1);
+    outb(crtc_r9, crtc_addr + 1);
+}
+
+// Get vertical display end
+u16
+vgahw_get_vde()
+{
+    u16 crtc_addr = get_crtc();
+    outb(0x12, crtc_addr);
+    u16 vde = inb(crtc_addr + 1);
+    outb(0x07, crtc_addr);
+    u8 ovl = inb(crtc_addr + 1);
+    vde += (((ovl & 0x02) << 7) + ((ovl & 0x40) << 3) + 1);
+    return vde;
 }
 
 

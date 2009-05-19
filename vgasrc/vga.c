@@ -64,33 +64,20 @@ call16_vgaint(u32 eax, u32 ebx)
 static void
 biosfn_perform_gray_scale_summing(u16 start, u16 count)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x00, VGAREG_ACTL_ADDRESS);
-
+    vgahw_screen_disable();
     int i;
     for (i = start; i < start+count; i++) {
-        // set read address and switch to read mode
-        outb(i, VGAREG_DAC_READ_ADDRESS);
-        // get 6-bit wide RGB data values
-        u8 r = inb(VGAREG_DAC_DATA);
-        u8 g = inb(VGAREG_DAC_DATA);
-        u8 b = inb(VGAREG_DAC_DATA);
+        u8 rgb[3];
+        vgahw_get_dac_regs(GET_SEG(SS), rgb, i, 1);
 
         // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
-        u16 intensity = ((77 * r + 151 * g + 28 * b) + 0x80) >> 8;
-
+        u16 intensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
         if (intensity > 0x3f)
             intensity = 0x3f;
 
-        // set write address and switch to write mode
-        outb(i, VGAREG_DAC_WRITE_ADDRESS);
-        // write new intensity value
-        outb(intensity & 0xff, VGAREG_DAC_DATA);
-        outb(intensity & 0xff, VGAREG_DAC_DATA);
-        outb(intensity & 0xff, VGAREG_DAC_DATA);
+        vgahw_set_dac_regs(GET_SEG(SS), rgb, i, 1);
     }
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    vgahw_screen_enable();
 }
 
 // -------------------------------------------------------------------
@@ -112,12 +99,7 @@ biosfn_set_cursor_shape(u8 CH, u8 CL)
             CH = ((CL + 1) * cheight / 8) - 2;
         CL = ((CL + 1) * cheight / 8) - 1;
     }
-    // CTRC regs 0x0a and 0x0b
-    u16 crtc_addr = GET_BDA(crtc_address);
-    outb(0x0a, crtc_addr);
-    outb(CH, crtc_addr + 1);
-    outb(0x0b, crtc_addr);
-    outb(CL, crtc_addr + 1);
+    vgahw_set_cursor_shape(CH, CL);
 }
 
 static u16
@@ -155,12 +137,7 @@ biosfn_set_cursor_pos(u8 page, u16 cursor)
     // Calculate the address knowing nbcols nbrows and page num
     u16 address = SCREEN_IO_START(nbcols, nbrows, page) + xcurs + ycurs * nbcols;
 
-    // CRTC regs 0x0e and 0x0f
-    u16 crtc_addr = GET_BDA(crtc_address);
-    outb(0x0e, crtc_addr);
-    outb((address & 0xff00) >> 8, crtc_addr + 1);
-    outb(0x0f, crtc_addr);
-    outb(address & 0x00ff, crtc_addr + 1);
+    vgahw_set_cursor_pos(address);
 }
 
 u16
@@ -204,12 +181,7 @@ biosfn_set_active_page(u8 page)
         address = page * GET_GLOBAL(vparam_g->slength);
     }
 
-    // CRTC regs 0x0c and 0x0d
-    u16 crtc_addr = GET_BDA(crtc_address);
-    outb(0x0c, crtc_addr);
-    outb((address & 0xff00) >> 8, crtc_addr + 1);
-    outb(0x0d, crtc_addr);
-    outb(address & 0x00ff, crtc_addr + 1);
+    vgahw_set_active_page(address);
 
     // And change the BIOS page
     SET_BDA(video_page, page);
@@ -480,21 +452,13 @@ biosfn_get_video_mode(struct bregs *regs)
 static void
 set_scan_lines(u8 lines)
 {
-    u16 crtc_addr = GET_BDA(crtc_address);
-    outb(0x09, crtc_addr);
-    u8 crtc_r9 = inb(crtc_addr + 1);
-    crtc_r9 = (crtc_r9 & 0xe0) | (lines - 1);
-    outb(crtc_r9, crtc_addr + 1);
+    vgahw_set_scan_lines(lines);
     if (lines == 8)
         biosfn_set_cursor_shape(0x06, 0x07);
     else
         biosfn_set_cursor_shape(lines - 4, lines - 3);
     SET_BDA(char_height, lines);
-    outb(0x12, crtc_addr);
-    u16 vde = inb(crtc_addr + 1);
-    outb(0x07, crtc_addr);
-    u8 ovl = inb(crtc_addr + 1);
-    vde += (((ovl & 0x02) << 7) + ((ovl & 0x40) << 3) + 1);
+    u16 vde = vgahw_get_vde();
     u8 rows = vde / lines;
     SET_BDA(video_rows, rows - 1);
     u16 cols = GET_BDA(video_cols);

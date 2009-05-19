@@ -133,6 +133,8 @@ void biosfn_load_text_8_8_pat(u8 BL);
 void biosfn_load_text_8_16_pat(u8 BL);
 
 // vgaio.c
+void vgahw_screen_disable();
+void vgahw_screen_enable();
 void vgahw_set_border_color(u8 color);
 void vgahw_set_overscan_border_color(u8 color);
 u8 vgahw_get_overscan_border_color();
@@ -151,6 +153,11 @@ u8 vgahw_get_pel_mask();
 void vgahw_set_text_block_specifier(u8 spec);
 void get_font_access();
 void release_font_access();
+void vgahw_set_cursor_shape(u8 start, u8 end);
+void vgahw_set_active_page(u16 address);
+void vgahw_set_cursor_pos(u16 address);
+void vgahw_set_scan_lines(u8 lines);
+u16 vgahw_get_vde();
 void vgahw_enable_video_addressing(u8 disable);
 void vgahw_init();
 
