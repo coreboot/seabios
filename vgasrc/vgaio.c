@@ -242,6 +242,25 @@ vgahw_get_pel_mask()
     return inb(VGAREG_PEL_MASK);
 }
 
+void
+vgahw_save_dac_state(u16 seg, struct saveDACcolors *info)
+{
+    /* XXX: check this */
+    SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
+    SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
+    SET_FARVAR(seg, info->pelmask, inb(VGAREG_PEL_MASK));
+    vgahw_get_dac_regs(seg, info->dac, 0, 256);
+    SET_FARVAR(seg, info->color_select, 0);
+}
+
+void
+vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info)
+{
+    outb(GET_FARVAR(seg, info->pelmask), VGAREG_PEL_MASK);
+    vgahw_set_dac_regs(seg, info->dac, 0, 256);
+    outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
+}
+
 
 /****************************************************************
  * Memory control
@@ -363,4 +382,103 @@ vgahw_init()
     // more than 64k 3C4/04
     outb(0x04, VGAREG_SEQU_ADDRESS);
     outb(0x02, VGAREG_SEQU_DATA);
+}
+
+void
+vgahw_save_state(u16 seg, struct saveVideoHardware *info)
+{
+    u16 crtc_addr = GET_BDA(crtc_address);
+    SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
+    SET_FARVAR(seg, info->crtc_index, inb(crtc_addr));
+    SET_FARVAR(seg, info->grdc_index, inb(VGAREG_GRDC_ADDRESS));
+    inb(VGAREG_ACTL_RESET);
+    u16 ar_index = inb(VGAREG_ACTL_ADDRESS);
+    SET_FARVAR(seg, info->actl_index, ar_index);
+    SET_FARVAR(seg, info->feature, inb(VGAREG_READ_FEATURE_CTL));
+
+    u16 i;
+    for (i=0; i<4; i++) {
+        outb(i+1, VGAREG_SEQU_ADDRESS);
+        SET_FARVAR(seg, info->sequ_regs[i], inb(VGAREG_SEQU_DATA));
+    }
+    outb(0, VGAREG_SEQU_ADDRESS);
+    SET_FARVAR(seg, info->sequ0, inb(VGAREG_SEQU_DATA));
+
+    for (i=0; i<25; i++) {
+        outb(i, crtc_addr);
+        SET_FARVAR(seg, info->crtc_regs[i], inb(crtc_addr + 1));
+    }
+
+    for (i=0; i<20; i++) {
+        inb(VGAREG_ACTL_RESET);
+        outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
+        SET_FARVAR(seg, info->actl_regs[i], inb(VGAREG_ACTL_READ_DATA));
+    }
+    inb(VGAREG_ACTL_RESET);
+
+    for (i=0; i<9; i++) {
+        outb(i, VGAREG_GRDC_ADDRESS);
+        SET_FARVAR(seg, info->grdc_regs[i], inb(VGAREG_GRDC_DATA));
+    }
+
+    SET_FARVAR(seg, info->crtc_addr, crtc_addr);
+
+    /* XXX: read plane latches */
+    for (i=0; i<4; i++)
+        SET_FARVAR(seg, info->plane_latch[i], 0);
+}
+
+void
+vgahw_restore_state(u16 seg, struct saveVideoHardware *info)
+{
+    // Reset Attribute Ctl flip-flop
+    inb(VGAREG_ACTL_RESET);
+
+    u16 crtc_addr = GET_FARVAR(seg, info->crtc_addr);
+
+    u16 i;
+    for (i=0; i<4; i++) {
+        outb(i+1, VGAREG_SEQU_ADDRESS);
+        outb(GET_FARVAR(seg, info->sequ_regs[i]), VGAREG_SEQU_DATA);
+    }
+    outb(0, VGAREG_SEQU_ADDRESS);
+    outb(GET_FARVAR(seg, info->sequ0), VGAREG_SEQU_DATA);
+
+    // Disable CRTC write protection
+    outw(0x0011, crtc_addr);
+    // Set CRTC regs
+    for (i=0; i<25; i++)
+        if (i != 0x11) {
+            outb(i, crtc_addr);
+            outb(GET_FARVAR(seg, info->crtc_regs[i]), crtc_addr + 1);
+        }
+    // select crtc base address
+    u16 v = inb(VGAREG_READ_MISC_OUTPUT) & ~0x01;
+    if (crtc_addr == VGAREG_VGA_CRTC_ADDRESS)
+        v |= 0x01;
+    outb(v, VGAREG_WRITE_MISC_OUTPUT);
+
+    // enable write protection if needed
+    outb(0x11, crtc_addr);
+    outb(GET_FARVAR(seg, info->crtc_regs[0x11]), crtc_addr + 1);
+
+    // Set Attribute Ctl
+    u16 ar_index = GET_FARVAR(seg, info->actl_index);
+    inb(VGAREG_ACTL_RESET);
+    for (i=0; i<20; i++) {
+        outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
+        outb(GET_FARVAR(seg, info->actl_regs[i]), VGAREG_ACTL_WRITE_DATA);
+    }
+    outb(ar_index, VGAREG_ACTL_ADDRESS);
+    inb(VGAREG_ACTL_RESET);
+
+    for (i=0; i<9; i++) {
+        outb(i, VGAREG_GRDC_ADDRESS);
+        outb(GET_FARVAR(seg, info->grdc_regs[i]), VGAREG_GRDC_DATA);
+    }
+
+    outb(GET_FARVAR(seg, info->sequ_index), VGAREG_SEQU_ADDRESS);
+    outb(GET_FARVAR(seg, info->crtc_index), crtc_addr);
+    outb(GET_FARVAR(seg, info->grdc_index), VGAREG_GRDC_ADDRESS);
+    outb(GET_FARVAR(seg, info->feature), crtc_addr - 0x4 + 0xa);
 }

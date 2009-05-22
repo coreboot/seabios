@@ -7,7 +7,6 @@
 
 
 // TODO:
-//  * define structs for save/restore state
 //  * review correctness of converted asm by comparing with RBIL
 //  * refactor redundant code into sub-functions
 //  * See if there is a method to the in/out stuff that can be encapsulated.
@@ -640,288 +639,52 @@ biosfn_set_display_code(struct bregs *regs)
     regs->al = 0x1a;
 }
 
-// -------------------------------------------------------------------
 static void
-biosfn_read_state_info(u16 BX, u16 ES, u16 DI)
+biosfn_save_bda_state(u16 seg, struct saveBDAstate *info)
 {
-    // Address of static functionality table
-    SET_FARVAR(ES, *(u16*)(DI + 0x00), (u32)static_functionality);
-    SET_FARVAR(ES, *(u16*)(DI + 0x02), get_global_seg());
-
-    // Hard coded copy from BIOS area. Should it be cleaner ?
-    memcpy_far(ES, (void*)(DI + 0x04), SEG_BDA, (void*)0x49, 30);
-    memcpy_far(ES, (void*)(DI + 0x22), SEG_BDA, (void*)0x84, 3);
-
-    SET_FARVAR(ES, *(u8*)(DI + 0x25), GET_BDA(dcc_index));
-    SET_FARVAR(ES, *(u8*)(DI + 0x26), 0);
-    SET_FARVAR(ES, *(u8*)(DI + 0x27), 16);
-    SET_FARVAR(ES, *(u8*)(DI + 0x28), 0);
-    SET_FARVAR(ES, *(u8*)(DI + 0x29), 8);
-    SET_FARVAR(ES, *(u8*)(DI + 0x2a), 2);
-    SET_FARVAR(ES, *(u8*)(DI + 0x2b), 0);
-    SET_FARVAR(ES, *(u8*)(DI + 0x2c), 0);
-    SET_FARVAR(ES, *(u8*)(DI + 0x31), 3);
-    SET_FARVAR(ES, *(u8*)(DI + 0x32), 0);
-
-    memset_far(ES, (void*)(DI + 0x33), 0, 13);
+    SET_FARVAR(seg, info->video_mode, GET_BDA(video_mode));
+    SET_FARVAR(seg, info->video_cols, GET_BDA(video_cols));
+    SET_FARVAR(seg, info->video_pagesize, GET_BDA(video_pagesize));
+    SET_FARVAR(seg, info->crtc_address, GET_BDA(crtc_address));
+    SET_FARVAR(seg, info->video_rows, GET_BDA(video_rows));
+    SET_FARVAR(seg, info->char_height, GET_BDA(char_height));
+    SET_FARVAR(seg, info->video_ctl, GET_BDA(video_ctl));
+    SET_FARVAR(seg, info->video_switches, GET_BDA(video_switches));
+    SET_FARVAR(seg, info->modeset_ctl, GET_BDA(modeset_ctl));
+    SET_FARVAR(seg, info->cursor_type, GET_BDA(cursor_type));
+    u16 i;
+    for (i=0; i<8; i++)
+        SET_FARVAR(seg, info->cursor_pos[i], GET_BDA(cursor_pos[i]));
+    SET_FARVAR(seg, info->video_pagestart, GET_BDA(video_pagestart));
+    SET_FARVAR(seg, info->video_page, GET_BDA(video_page));
+    /* current font */
+    SET_FARVAR(seg, *(u32*)&info->font0_off, GET_IVT(0x1f).segoff);
+    SET_FARVAR(seg, *(u32*)&info->font1_off, GET_IVT(0x43).segoff);
 }
 
-// -------------------------------------------------------------------
-// -------------------------------------------------------------------
-static u16
-biosfn_read_video_state_size(u16 CX)
+static void
+biosfn_restore_bda_state(u16 seg, struct saveBDAstate *info)
 {
-    u16 size = 0;
-    if (CX & 1)
-        size += 0x46;
-    if (CX & 2)
-        size += (5 + 8 + 5) * 2 + 6;
-    if (CX & 4)
-        size += 3 + 256 * 3 + 1;
-    return size;
-}
-
-static u16
-biosfn_save_video_state(u16 CX, u16 ES, u16 BX)
-{
-    u16 crtc_addr = GET_BDA(crtc_address);
-    if (CX & 1) {
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_SEQU_ADDRESS));
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(crtc_addr));
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_GRDC_ADDRESS));
-        BX++;
-        inb(VGAREG_ACTL_RESET);
-        u16 ar_index = inb(VGAREG_ACTL_ADDRESS);
-        SET_FARVAR(ES, *(u8*)(BX+0), ar_index);
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_READ_FEATURE_CTL));
-        BX++;
-
-        u16 i;
-        for (i = 1; i <= 4; i++) {
-            outb(i, VGAREG_SEQU_ADDRESS);
-            SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_SEQU_DATA));
-            BX++;
-        }
-        outb(0, VGAREG_SEQU_ADDRESS);
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_SEQU_DATA));
-        BX++;
-
-        for (i = 0; i <= 0x18; i++) {
-            outb(i, crtc_addr);
-            SET_FARVAR(ES, *(u8*)(BX+0), inb(crtc_addr + 1));
-            BX++;
-        }
-
-        for (i = 0; i <= 0x13; i++) {
-            inb(VGAREG_ACTL_RESET);
-            outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
-            SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_ACTL_READ_DATA));
-            BX++;
-        }
-        inb(VGAREG_ACTL_RESET);
-
-        for (i = 0; i <= 8; i++) {
-            outb(i, VGAREG_GRDC_ADDRESS);
-            SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_GRDC_DATA));
-            BX++;
-        }
-
-        SET_FARVAR(ES, *(u16*)(BX+0), crtc_addr);
-        BX += 2;
-
-        /* XXX: read plane latches */
-        SET_FARVAR(ES, *(u8*)(BX+0), 0);
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), 0);
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), 0);
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), 0);
-        BX++;
-    }
-    if (CX & 2) {
-        SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(video_mode));
-        BX++;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(video_cols));
-        BX += 2;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(video_pagesize));
-        BX += 2;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(crtc_address));
-        BX += 2;
-        SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(video_rows));
-        BX++;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(char_height));
-        BX += 2;
-        SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(video_ctl));
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(video_switches));
-        BX++;
-        SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(modeset_ctl));
-        BX++;
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(cursor_type));
-        BX += 2;
-        u16 i;
-        for (i = 0; i < 8; i++) {
-            SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(cursor_pos[i]));
-            BX += 2;
-        }
-        SET_FARVAR(ES, *(u16*)(BX+0), GET_BDA(video_pagestart));
-        BX += 2;
-        SET_FARVAR(ES, *(u8*)(BX+0), GET_BDA(video_page));
-        BX++;
-        /* current font */
-        SET_FARVAR(ES, *(u32*)(BX+0), GET_IVT(0x1f).segoff);
-        BX += 4;
-        SET_FARVAR(ES, *(u32*)(BX+0), GET_IVT(0x43).segoff);
-        BX += 4;
-    }
-    if (CX & 4) {
-        /* XXX: check this */
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_DAC_STATE));
-        BX++;                   /* read/write mode dac */
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_DAC_WRITE_ADDRESS));
-        BX++;                   /* pix address */
-        SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_PEL_MASK));
-        BX++;
-        // Set the whole dac always, from 0
-        outb(0x00, VGAREG_DAC_WRITE_ADDRESS);
-        u16 i;
-        for (i = 0; i < 256 * 3; i++) {
-            SET_FARVAR(ES, *(u8*)(BX+0), inb(VGAREG_DAC_DATA));
-            BX++;
-        }
-        SET_FARVAR(ES, *(u8*)(BX+0), 0);
-        BX++;                   /* color select register */
-    }
-    return BX;
-}
-
-static u16
-biosfn_restore_video_state(u16 CX, u16 ES, u16 BX)
-{
-    if (CX & 1) {
-        // Reset Attribute Ctl flip-flop
-        inb(VGAREG_ACTL_RESET);
-
-        u16 crtc_addr = GET_FARVAR(ES, *(u16*)(BX + 0x40));
-        u16 addr1 = BX;
-        BX += 5;
-
-        u16 i;
-        for (i = 1; i <= 4; i++) {
-            outb(i, VGAREG_SEQU_ADDRESS);
-            outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_SEQU_DATA);
-            BX++;
-        }
-        outb(0, VGAREG_SEQU_ADDRESS);
-        outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_SEQU_DATA);
-        BX++;
-
-        // Disable CRTC write protection
-        outw(0x0011, crtc_addr);
-        // Set CRTC regs
-        for (i = 0; i <= 0x18; i++) {
-            if (i != 0x11) {
-                outb(i, crtc_addr);
-                outb(GET_FARVAR(ES, *(u8*)(BX+0)), crtc_addr + 1);
-            }
-            BX++;
-        }
-        // select crtc base address
-        u16 v = inb(VGAREG_READ_MISC_OUTPUT) & ~0x01;
-        if (crtc_addr == VGAREG_VGA_CRTC_ADDRESS)
-            v |= 0x01;
-        outb(v, VGAREG_WRITE_MISC_OUTPUT);
-
-        // enable write protection if needed
-        outb(0x11, crtc_addr);
-        outb(GET_FARVAR(ES, *(u8*)(BX - 0x18 + 0x11)), crtc_addr + 1);
-
-        // Set Attribute Ctl
-        u16 ar_index = GET_FARVAR(ES, *(u8*)(addr1 + 0x03));
-        inb(VGAREG_ACTL_RESET);
-        for (i = 0; i <= 0x13; i++) {
-            outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
-            outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_ACTL_WRITE_DATA);
-            BX++;
-        }
-        outb(ar_index, VGAREG_ACTL_ADDRESS);
-        inb(VGAREG_ACTL_RESET);
-
-        for (i = 0; i <= 8; i++) {
-            outb(i, VGAREG_GRDC_ADDRESS);
-            outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_GRDC_DATA);
-            BX++;
-        }
-        BX += 2;                /* crtc_addr */
-        BX += 4;                /* plane latches */
-
-        outb(GET_FARVAR(ES, *(u8*)(addr1+0)), VGAREG_SEQU_ADDRESS);
-        addr1++;
-        outb(GET_FARVAR(ES, *(u8*)(addr1+0)), crtc_addr);
-        addr1++;
-        outb(GET_FARVAR(ES, *(u8*)(addr1+0)), VGAREG_GRDC_ADDRESS);
-        addr1++;
-        addr1++;
-        outb(GET_FARVAR(ES, *(u8*)(addr1+0)), crtc_addr - 0x4 + 0xa);
-        addr1++;
-    }
-    if (CX & 2) {
-        SET_BDA(video_mode, GET_FARVAR(ES, *(u8*)(BX+0)));
-        BX++;
-        SET_BDA(video_cols, GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 2;
-        SET_BDA(video_pagesize, GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 2;
-        SET_BDA(crtc_address, GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 2;
-        SET_BDA(video_rows, GET_FARVAR(ES, *(u8*)(BX+0)));
-        BX++;
-        SET_BDA(char_height, GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 2;
-        SET_BDA(video_ctl, GET_FARVAR(ES, *(u8*)(BX+0)));
-        BX++;
-        SET_BDA(video_switches, GET_FARVAR(ES, *(u8*)(BX+0)));
-        BX++;
-        SET_BDA(modeset_ctl, GET_FARVAR(ES, *(u8*)(BX+0)));
-        BX++;
-        SET_BDA(cursor_type, GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 2;
-        u16 i;
-        for (i = 0; i < 8; i++) {
-            SET_BDA(cursor_pos[i], GET_FARVAR(ES, *(u16*)(BX+0)));
-            BX += 2;
-        }
-        SET_BDA(video_pagestart, GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 2;
-        SET_BDA(video_page, GET_FARVAR(ES, *(u8*)(BX+0)));
-        BX++;
-        /* current font */
-        SET_IVT(0x1f, GET_FARVAR(ES, *(u16*)(BX+2)), GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 4;
-        SET_IVT(0x43, GET_FARVAR(ES, *(u16*)(BX+2)), GET_FARVAR(ES, *(u16*)(BX+0)));
-        BX += 4;
-    }
-    if (CX & 4) {
-        BX++;
-        u16 v = GET_FARVAR(ES, *(u8*)(BX+0));
-        BX++;
-        outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_PEL_MASK);
-        BX++;
-        // Set the whole dac always, from 0
-        outb(0x00, VGAREG_DAC_WRITE_ADDRESS);
-        u16 i;
-        for (i = 0; i < 256 * 3; i++) {
-            outb(GET_FARVAR(ES, *(u8*)(BX+0)), VGAREG_DAC_DATA);
-            BX++;
-        }
-        BX++;
-        outb(v, VGAREG_DAC_WRITE_ADDRESS);
-    }
-    return BX;
+    SET_BDA(video_mode, GET_FARVAR(seg, info->video_mode));
+    SET_BDA(video_cols, GET_FARVAR(seg, info->video_cols));
+    SET_BDA(video_pagesize, GET_FARVAR(seg, info->video_pagesize));
+    SET_BDA(crtc_address, GET_FARVAR(seg, info->crtc_address));
+    SET_BDA(video_rows, GET_FARVAR(seg, info->video_rows));
+    SET_BDA(char_height, GET_FARVAR(seg, info->char_height));
+    SET_BDA(video_ctl, GET_FARVAR(seg, info->video_ctl));
+    SET_BDA(video_switches, GET_FARVAR(seg, info->video_switches));
+    SET_BDA(modeset_ctl, GET_FARVAR(seg, info->modeset_ctl));
+    SET_BDA(cursor_type, GET_FARVAR(seg, info->cursor_type));
+    u16 i;
+    for (i = 0; i < 8; i++)
+        SET_BDA(cursor_pos[i], GET_FARVAR(seg, info->cursor_pos[i]));
+    SET_BDA(video_pagestart, GET_FARVAR(seg, info->video_pagestart));
+    SET_BDA(video_page, GET_FARVAR(seg, info->video_page));
+    /* current font */
+    SET_IVT(0x1f, GET_FARVAR(seg, info->font0_seg)
+            , GET_FARVAR(seg, info->font0_off));
+    SET_IVT(0x43, GET_FARVAR(seg, info->font1_seg)
+            , GET_FARVAR(seg, info->font1_off));
 }
 
 
@@ -1430,11 +1193,46 @@ handle_101a(struct bregs *regs)
 }
 
 
+struct funcInfo {
+    u16 static_functionality_off;
+    u16 static_functionality_seg;
+    u8 bda_0x49[30];
+    u8 bda_0x84[3];
+    u8 dcc_index;
+    u8 dcc_alt;
+    u16 colors;
+    u8 pages;
+    u8 scan_lines;
+    u8 primary_char;
+    u8 secondar_char;
+    u8 misc;
+    u8 non_vga_mode;
+    u8 reserved_2f[2];
+    u8 video_mem;
+    u8 save_flags;
+    u8 disp_info;
+    u8 reserved_34[12];
+};
+
 static void
 handle_101b(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_state_info(regs->bx, regs->es, regs->di);
+    u16 seg = regs->es;
+    struct funcInfo *info = (void*)(regs->di+0);
+    memset_far(seg, info, 0, sizeof(*info));
+    // Address of static functionality table
+    SET_FARVAR(seg, info->static_functionality_off, (u32)static_functionality);
+    SET_FARVAR(seg, info->static_functionality_seg, get_global_seg());
+
+    // Hard coded copy from BIOS area. Should it be cleaner ?
+    memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49, 30);
+    memcpy_far(seg, info->bda_0x84, SEG_BDA, (void*)0x84, 3);
+
+    SET_FARVAR(seg, info->dcc_index, GET_BDA(dcc_index));
+    SET_FARVAR(seg, info->colors, 16);
+    SET_FARVAR(seg, info->pages, 8);
+    SET_FARVAR(seg, info->scan_lines, 2);
+    SET_FARVAR(seg, info->video_mem, 3);
     regs->al = 0x1B;
 }
 
@@ -1442,22 +1240,54 @@ handle_101b(struct bregs *regs)
 static void
 handle_101c00(struct bregs *regs)
 {
-    // XXX - inline
-    regs->bx = biosfn_read_video_state_size(regs->cx);
+    u16 flags = regs->cx;
+    u16 size = 0;
+    if (flags & 1)
+        size += sizeof(struct saveVideoHardware);
+    if (flags & 2)
+        size += sizeof(struct saveBDAstate);
+    if (flags & 4)
+        size += sizeof(struct saveDACcolors);
+    regs->bx = size;
+    regs->al = 0x1c;
 }
 
 static void
 handle_101c01(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_save_video_state(regs->cx, regs->es, regs->bx);
+    u16 flags = regs->cx;
+    u16 seg = regs->es;
+    void *data = (void*)(regs->bx+0);
+    if (flags & 1) {
+        vgahw_save_state(seg, data);
+        data += sizeof(struct saveVideoHardware);
+    }
+    if (flags & 2) {
+        biosfn_save_bda_state(seg, data);
+        data += sizeof(struct saveBDAstate);
+    }
+    if (flags & 4)
+        vgahw_save_dac_state(seg, data);
+    regs->al = 0x1c;
 }
 
 static void
 handle_101c02(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_restore_video_state(regs->cx, regs->es, regs->bx);
+    u16 flags = regs->cx;
+    u16 seg = regs->es;
+    void *data = (void*)(regs->bx+0);
+    if (flags & 1) {
+        vgahw_restore_state(seg, data);
+        data += sizeof(struct saveVideoHardware);
+    }
+    if (flags & 2) {
+        biosfn_restore_bda_state(seg, data);
+        data += sizeof(struct saveBDAstate);
+    }
+    if (flags & 4)
+        vgahw_restore_dac_state(seg, data);
+    regs->al = 0x1c;
 }
 
 static void

@@ -103,6 +103,50 @@ struct vgamode_s {
     u16 dacsize;
 };
 
+struct saveVideoHardware {
+    u8 sequ_index;
+    u8 crtc_index;
+    u8 grdc_index;
+    u8 actl_index;
+    u8 feature;
+    u8 sequ_regs[4];
+    u8 sequ0;
+    u8 crtc_regs[25];
+    u8 actl_regs[20];
+    u8 grdc_regs[9];
+    u16 crtc_addr;
+    u8 plane_latch[4];
+};
+
+struct saveBDAstate {
+    u8 video_mode;
+    u16 video_cols;
+    u16 video_pagesize;
+    u16 crtc_address;
+    u8 video_rows;
+    u16 char_height;
+    u8 video_ctl;
+    u8 video_switches;
+    u8 modeset_ctl;
+    u16 cursor_type;
+    u16 cursor_pos[8];
+    u16 video_pagestart;
+    u8 video_page;
+    /* current font */
+    u16 font0_off;
+    u16 font0_seg;
+    u16 font1_off;
+    u16 font1_seg;
+};
+
+struct saveDACcolors {
+    u8 rwmode;
+    u8 peladdr;
+    u8 pelmask;
+    u8 dac[768];
+    u8 color_select;
+};
+
 // vgatables.c
 struct vgamode_s *find_vga_entry(u8 mode);
 extern u16 video_save_pointer_table[];
@@ -150,6 +194,8 @@ void vgahw_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
 void vgahw_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
 void vgahw_set_pel_mask(u8 val);
 u8 vgahw_get_pel_mask();
+void vgahw_save_dac_state(u16 seg, struct saveDACcolors *info);
+void vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info);
 void vgahw_set_text_block_specifier(u8 spec);
 void get_font_access();
 void release_font_access();
@@ -160,6 +206,8 @@ void vgahw_set_scan_lines(u8 lines);
 u16 vgahw_get_vde();
 void vgahw_enable_video_addressing(u8 disable);
 void vgahw_init();
+void vgahw_save_state(u16 seg, struct saveVideoHardware *info);
+void vgahw_restore_state(u16 seg, struct saveVideoHardware *info);
 
 // clext.c
 void cirrus_set_video_mode(u8 mode);
