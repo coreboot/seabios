@@ -1,6 +1,6 @@
 // Code for handling calls to "post" that are resume related.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -40,7 +40,7 @@ handle_resume(u8 status)
             asm volatile(
                 "movw %w1, %%ss\n"
                 "movl %0, %%esp\n"
-                "pushl $_code32_s3_resume\n"
+                "pushl $s3_resume\n"
                 "jmp transition32\n"
                 : : "i"(BUILD_S3RESUME_STACK_ADDR), "r"(0)
                 );

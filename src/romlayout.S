@@ -234,7 +234,7 @@ entry_post:
         jnz 1f
 
         // Normal entry point
-        ENTRY_INTO32 _code32__start
+        ENTRY_INTO32 _start
 
         // Entry point when a post call looks like a resume.
 1:
@@ -345,7 +345,7 @@ post32:
         movw %ax, %gs
         movw %ax, %ss
         movl $BUILD_STACK_ADDR, %esp
-        ljmpl $SEG32_MODE32_CS, $_code32__start
+        ljmpl $SEG32_MODE32_CS, $_start
 
         .code16gcc
 
@@ -403,11 +403,11 @@ irqentryarg:
         // int 18/19 are special - they reset stack and call into 32bit mode.
         DECLFUNC entry_19
 entry_19:
-        ENTRY_INTO32 _code32_handle_19
+        ENTRY_INTO32 handle_19
 
         DECLFUNC entry_18
 entry_18:
-        ENTRY_INTO32 _code32_handle_18
+        ENTRY_INTO32 handle_18
 
 
 /****************************************************************

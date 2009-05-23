@@ -1,6 +1,6 @@
-# Legacy Bios build system
+# SeaBIOS build system
 #
-# Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+# Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -111,16 +111,18 @@ $(OUT)romlayout.lds: $(OUT)romlayout16.o
 	@echo "  Building layout information $@"
 	$(Q)$(OBJDUMP) -h $< | ./tools/layoutrom.py $@
 
-$(OUT)rombios16.lds: $(OUT)romlayout.lds
+$(OUT)layout16.lds: $(OUT)romlayout.lds
 
-$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)rombios16.lds
-	@echo "  Linking (16bit) $@"
-	$(Q)$(OBJCOPY) --prefix-symbols=_code32_ $(OUT)rom32.o $(OUT)rom32.rename.o
-	$(Q)$(LD) -T $(OUT)rombios16.lds -R $(OUT)rom32.rename.o $< -o $@
+$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)layout16.lds
+	@echo "  Linking (no relocs) $@"
+	$(Q)$(LD) -r -T $(OUT)layout16.lds $< -o $@
 
-$(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios.lds
+$(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios16.lds $(OUT)rombios.lds
 	@echo "  Linking $@"
-	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.o $(OUT)rom32.o -o $@
+	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32.o -o $(OUT)rom16.final.o
+	$(Q)$(STRIP) $(OUT)rom16.final.o
+	$(Q)$(OBJCOPY) --extract-symbol --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
+	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32.o -R $(OUT)rom16.moved.o -o $@
 
 $(OUT)bios.bin.elf: $(OUT)rom.o
 	@echo "  Prepping $@"
