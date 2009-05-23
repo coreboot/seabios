@@ -19,6 +19,7 @@ SECTIONS
                 *(.data)
                 *(.bss)
                 *(COMMON)
+                freespace_start = . ;
                 code32_end = ABSOLUTE(.) ;
                 }
 }

@@ -31,6 +31,9 @@ def alignpos(pos, alignbytes):
 
 MAXPOS = 0x10000
 
+def outsection(file, name):
+    file.write("*(%s)\n" % (name,))
+
 def doLayout(sections, outname):
     textsections = []
     rodatasections = []
@@ -113,39 +116,57 @@ def doLayout(sections, outname):
 #            print "    Adding %s (size %d align %d) pos=%x avail=%d" % (
 #                fitsection[2], fitsection[0], fitsection[1]
 #                , fitnextaddr, nextfixedaddr - fitnextaddr)
-
     firstfixed = fixedsections[0][0]
+
+    # Find overall start position
+    restalign = 0
+    restspace = 0
+    restsections = []
+    for section in textsections + rodatasections + datasections:
+        size, align, name = section
+        if align > restalign:
+            restalign = align
+        restspace = alignpos(restspace, align) + size
+        restsections.append(section)
+    startrest = (firstfixed - restspace) / restalign * restalign
+
+    # Report stats
     total = MAXPOS-firstfixed
-    print "Fixed space: 0x%x-0x%x  total: %d  used: %d  Percent used: %.1f%%" % (
-        firstfixed, MAXPOS, total, totalused,
-        (float(totalused) / total) * 100.0)
+    slack = total - totalused
+    print ("Fixed space: 0x%x-0x%x  total: %d  slack: %d"
+           "  Percent slack: %.1f%%" % (
+            firstfixed, MAXPOS, total, slack,
+            (float(slack) / total) * 100.0))
+
+    # Write header
+    output = open(outname, 'wb')
+    output.write("""
+        .text16 0x%x : {
+                code16_start = ABSOLUTE(.) ;
+                freespace_end = . ;
+""" % startrest)
 
     # Write regular sections
-    output = open(outname, 'wb')
-    for section in textsections:
+    for section in restsections:
         name = section[2]
-        output.write("*(%s)\n" % (name,))
-    output.write("code16_rodata = . ;\n")
-    for section in rodatasections:
-        name = section[2]
-        output.write("*(%s)\n" % (name,))
-    for section in datasections:
-        name = section[2]
-        output.write("*(%s)\n" % (name,))
+        if name == rodatasections[0][2]:
+            output.write("code16_rodata = . ;\n")
+        outsection(output, name)
 
     # Write fixed sections
-    output.write("freespace1_start = . ;\n")
-    first = 1
     for addr, section, extrasections in fixedsections:
         name = section[2]
         output.write(". = ( 0x%x - code16_start ) ;\n" % (addr,))
-        if first:
-            first = 0
-            output.write("freespace1_end = . ;\n")
         output.write("*(%s)\n" % (name,))
         for extrasection in extrasections:
-            name = extrasection[2]
-            output.write("*(%s)\n" % (name,))
+            outsection(output, extrasection[2])
+
+    # Write trailer
+    output.write("""
+                code16_end = ABSOLUTE(.) ;
+        }
+""")
+
 
 if __name__ == '__main__':
     main()

@@ -24,8 +24,8 @@ def main():
             c16e, f16e)
         sys.exit(1)
 
-    sizefree = syms['freespace1_end'] - syms['freespace1_start']
-    size16 = syms['code16_end'] - syms['code16_start'] - sizefree
+    sizefree = syms['freespace_end'] - syms['freespace_start']
+    size16 = syms['code16_end'] - syms['code16_start']
     size32 = syms['code32_end'] - syms['code32_start']
     totalc = size16+size32
     print "16bit size: %d" % size16
