@@ -110,7 +110,7 @@ ata_reset(int driveid)
         u64 end = calc_future_tsc(IDE_TIMEOUT);
         for (;;) {
             outb(ATA_CB_DH_DEV1, iobase1 + ATA_CB_DH);
-            status = await_not_bsy(iobase1);
+            status = ndelay_await_not_bsy(iobase1);
             if (status < 0)
                 goto done;
             if (inb(iobase1 + ATA_CB_DH) == ATA_CB_DH_DEV1)
@@ -177,7 +177,7 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
     outb(newdh, iobase1 + ATA_CB_DH);
     if ((olddh ^ newdh) & (1<<4)) {
         // Was a device change - wait for device to become not busy.
-        status = await_not_bsy(iobase1);
+        status = ndelay_await_not_bsy(iobase1);
         if (status < 0)
             return status;
     }
@@ -781,6 +781,7 @@ ata_detect()
             continue;
         u8 newdh = slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0;
         outb(newdh, iobase1+ATA_CB_DH);
+        ndelay(400);
         status = powerup_await_non_bsy(iobase1, end);
         if (status < 0)
             continue;
