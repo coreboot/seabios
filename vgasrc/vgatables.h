@@ -164,6 +164,7 @@ extern u8 vgafont16alt[];
 u16 biosfn_get_cursor_pos(u8 page);
 
 // vgafb.c
+void clear_screen(struct vgamode_s *vmode_g);
 void biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr
                    , u8 page, u8 dir);
 void biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count);
@@ -204,10 +205,11 @@ void vgahw_set_active_page(u16 address);
 void vgahw_set_cursor_pos(u16 address);
 void vgahw_set_scan_lines(u8 lines);
 u16 vgahw_get_vde();
-void vgahw_enable_video_addressing(u8 disable);
-void vgahw_init();
 void vgahw_save_state(u16 seg, struct saveVideoHardware *info);
 void vgahw_restore_state(u16 seg, struct saveVideoHardware *info);
+void vgahw_set_mode(struct VideoParam_s *vparam_g);
+void vgahw_enable_video_addressing(u8 disable);
+void vgahw_init();
 
 // clext.c
 void cirrus_set_video_mode(u8 mode);

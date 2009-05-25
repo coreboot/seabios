@@ -79,6 +79,24 @@ vgamem_fill_cga(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
 }
 
 void
+clear_screen(struct vgamode_s *vmode_g)
+{
+    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
+        return;
+    }
+    if (GET_GLOBAL(vmode_g->svgamode) < 0x0d) {
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
+        return;
+    }
+    outb(0x02, VGAREG_SEQU_ADDRESS);
+    u8 mmask = inb(VGAREG_SEQU_DATA);
+    outb(0x0f, VGAREG_SEQU_DATA);   // all planes
+    memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
+    outb(mmask, VGAREG_SEQU_DATA);
+}
+
+void
 biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
               u8 dir)
 {

@@ -363,31 +363,13 @@ vgahw_get_vde()
 
 
 /****************************************************************
- * Misc
+ * Save/Restore/Set state
  ****************************************************************/
-
-void
-vgahw_enable_video_addressing(u8 disable)
-{
-    u8 v = (disable & 1) ? 0x00 : 0x02;
-    u8 v2 = inb(VGAREG_READ_MISC_OUTPUT) & ~0x02;
-    outb(v | v2, VGAREG_WRITE_MISC_OUTPUT);
-}
-
-void
-vgahw_init()
-{
-    // switch to color mode and enable CPU access 480 lines
-    outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);
-    // more than 64k 3C4/04
-    outb(0x04, VGAREG_SEQU_ADDRESS);
-    outb(0x02, VGAREG_SEQU_DATA);
-}
 
 void
 vgahw_save_state(u16 seg, struct saveVideoHardware *info)
 {
-    u16 crtc_addr = GET_BDA(crtc_address);
+    u16 crtc_addr = get_crtc();
     SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
     SET_FARVAR(seg, info->crtc_index, inb(crtc_addr));
     SET_FARVAR(seg, info->grdc_index, inb(VGAREG_GRDC_ADDRESS));
@@ -481,4 +463,78 @@ vgahw_restore_state(u16 seg, struct saveVideoHardware *info)
     outb(GET_FARVAR(seg, info->crtc_index), crtc_addr);
     outb(GET_FARVAR(seg, info->grdc_index), VGAREG_GRDC_ADDRESS);
     outb(GET_FARVAR(seg, info->feature), crtc_addr - 0x4 + 0xa);
+}
+
+void
+vgahw_set_mode(struct VideoParam_s *vparam_g)
+{
+    // Reset Attribute Ctl flip-flop
+    inb(VGAREG_ACTL_RESET);
+
+    // Set Attribute Ctl
+    u16 i;
+    for (i = 0; i <= 0x13; i++) {
+        outb(i, VGAREG_ACTL_ADDRESS);
+        outb(GET_GLOBAL(vparam_g->actl_regs[i]), VGAREG_ACTL_WRITE_DATA);
+    }
+    outb(0x14, VGAREG_ACTL_ADDRESS);
+    outb(0x00, VGAREG_ACTL_WRITE_DATA);
+
+    // Set Sequencer Ctl
+    outb(0, VGAREG_SEQU_ADDRESS);
+    outb(0x03, VGAREG_SEQU_DATA);
+    for (i = 1; i <= 4; i++) {
+        outb(i, VGAREG_SEQU_ADDRESS);
+        outb(GET_GLOBAL(vparam_g->sequ_regs[i - 1]), VGAREG_SEQU_DATA);
+    }
+
+    // Set Grafx Ctl
+    for (i = 0; i <= 8; i++) {
+        outb(i, VGAREG_GRDC_ADDRESS);
+        outb(GET_GLOBAL(vparam_g->grdc_regs[i]), VGAREG_GRDC_DATA);
+    }
+
+    // Set CRTC address VGA or MDA
+    u8 miscreg = GET_GLOBAL(vparam_g->miscreg);
+    u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
+    if (!(miscreg & 1))
+        crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
+
+    // Disable CRTC write protection
+    outw(0x0011, crtc_addr);
+    // Set CRTC regs
+    for (i = 0; i <= 0x18; i++) {
+        outb(i, crtc_addr);
+        outb(GET_GLOBAL(vparam_g->crtc_regs[i]), crtc_addr + 1);
+    }
+
+    // Set the misc register
+    outb(miscreg, VGAREG_WRITE_MISC_OUTPUT);
+
+    // Enable video
+    outb(0x20, VGAREG_ACTL_ADDRESS);
+    inb(VGAREG_ACTL_RESET);
+}
+
+
+/****************************************************************
+ * Misc
+ ****************************************************************/
+
+void
+vgahw_enable_video_addressing(u8 disable)
+{
+    u8 v = (disable & 1) ? 0x00 : 0x02;
+    u8 v2 = inb(VGAREG_READ_MISC_OUTPUT) & ~0x02;
+    outb(v | v2, VGAREG_WRITE_MISC_OUTPUT);
+}
+
+void
+vgahw_init()
+{
+    // switch to color mode and enable CPU access 480 lines
+    outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);
+    // more than 64k 3C4/04
+    outb(0x04, VGAREG_SEQU_ADDRESS);
+    outb(0x02, VGAREG_SEQU_DATA);
 }

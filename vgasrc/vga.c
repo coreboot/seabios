@@ -211,11 +211,6 @@ biosfn_set_video_mode(u8 mode)
     if (!vmode_g)
         return;
 
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u16 twidth = GET_GLOBAL(vparam_g->twidth);
-    u16 theightm1 = GET_GLOBAL(vparam_g->theightm1);
-    u16 cheight = GET_GLOBAL(vparam_g->cheight);
-
     // Read the bios mode set control
     u8 modeset_ctl = GET_BDA(modeset_ctl);
 
@@ -224,97 +219,42 @@ biosfn_set_video_mode(u8 mode)
 
     // if palette loading (bit 3 of modeset ctl = 0)
     if ((modeset_ctl & 0x08) == 0) {    // Set the PEL mask
-        outb(GET_GLOBAL(vmode_g->pelmask), VGAREG_PEL_MASK);
-
-        // Set the whole dac always, from 0
-        outb(0x00, VGAREG_DAC_WRITE_ADDRESS);
+        vgahw_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
 
         // From which palette
         u8 *palette_g = GET_GLOBAL(vmode_g->dac);
         u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
+
         // Always 256*3 values
+        vgahw_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
         u16 i;
-        for (i = 0; i < 0x0100; i++) {
-            if (i < palsize) {
-                outb(GET_GLOBAL(palette_g[(i * 3) + 0]), VGAREG_DAC_DATA);
-                outb(GET_GLOBAL(palette_g[(i * 3) + 1]), VGAREG_DAC_DATA);
-                outb(GET_GLOBAL(palette_g[(i * 3) + 2]), VGAREG_DAC_DATA);
-            } else {
-                outb(0, VGAREG_DAC_DATA);
-                outb(0, VGAREG_DAC_DATA);
-                outb(0, VGAREG_DAC_DATA);
-            }
+        for (i = palsize; i < 0x0100; i++) {
+            static u8 rgb[3] VAR16;
+            vgahw_set_dac_regs(get_global_seg(), rgb, i, 1);
         }
+
         if ((modeset_ctl & 0x02) == 0x02)
             biosfn_perform_gray_scale_summing(0x00, 0x100);
     }
-    // Reset Attribute Ctl flip-flop
-    inb(VGAREG_ACTL_RESET);
 
-    // Set Attribute Ctl
-    u16 i;
-    for (i = 0; i <= 0x13; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-        outb(GET_GLOBAL(vparam_g->actl_regs[i]), VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(0x14, VGAREG_ACTL_ADDRESS);
-    outb(0x00, VGAREG_ACTL_WRITE_DATA);
+    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
+    vgahw_set_mode(vparam_g);
 
-    // Set Sequencer Ctl
-    outb(0, VGAREG_SEQU_ADDRESS);
-    outb(0x03, VGAREG_SEQU_DATA);
-    for (i = 1; i <= 4; i++) {
-        outb(i, VGAREG_SEQU_ADDRESS);
-        outb(GET_GLOBAL(vparam_g->sequ_regs[i - 1]), VGAREG_SEQU_DATA);
-    }
-
-    // Set Grafx Ctl
-    for (i = 0; i <= 8; i++) {
-        outb(i, VGAREG_GRDC_ADDRESS);
-        outb(GET_GLOBAL(vparam_g->grdc_regs[i]), VGAREG_GRDC_DATA);
-    }
+    if (noclearmem == 0x00)
+        clear_screen(vmode_g);
 
     // Set CRTC address VGA or MDA
     u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
     if (GET_GLOBAL(vmode_g->memmodel) == MTEXT)
         crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
 
-    // Disable CRTC write protection
-    outw(0x0011, crtc_addr);
-    // Set CRTC regs
-    for (i = 0; i <= 0x18; i++) {
-        outb(i, crtc_addr);
-        outb(GET_GLOBAL(vparam_g->crtc_regs[i]), crtc_addr + 1);
-    }
-
-    // Set the misc register
-    outb(GET_GLOBAL(vparam_g->miscreg), VGAREG_WRITE_MISC_OUTPUT);
-
-    // Enable video
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-    inb(VGAREG_ACTL_RESET);
-
-    if (noclearmem == 0x00) {
-        if (GET_GLOBAL(vmode_g->class) == TEXT) {
-            memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
-        } else {
-            if (mode < 0x0d) {
-                memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
-            } else {
-                outb(0x02, VGAREG_SEQU_ADDRESS);
-                u8 mmask = inb(VGAREG_SEQU_DATA);
-                outb(0x0f, VGAREG_SEQU_DATA);   // all planes
-                memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
-                outb(mmask, VGAREG_SEQU_DATA);
-            }
-        }
-    }
     // Set the BIOS mem
+    u16 cheight = GET_GLOBAL(vparam_g->cheight);
     SET_BDA(video_mode, mode);
-    SET_BDA(video_cols, twidth);
+    SET_BDA(video_cols, GET_GLOBAL(vparam_g->twidth));
     SET_BDA(video_pagesize, GET_GLOBAL(vparam_g->slength));
     SET_BDA(crtc_address, crtc_addr);
-    SET_BDA(video_rows, theightm1);
+    SET_BDA(video_rows, GET_GLOBAL(vparam_g->theightm1));
     SET_BDA(char_height, cheight);
     SET_BDA(video_ctl, (0x60 | noclearmem));
     SET_BDA(video_switches, 0xF9);
@@ -333,6 +273,7 @@ biosfn_set_video_mode(u8 mode)
     if (GET_GLOBAL(vmode_g->class) == TEXT)
         biosfn_set_cursor_shape(0x06, 0x07);
     // Set cursor pos for page 0..7
+    int i;
     for (i = 0; i < 8; i++)
         biosfn_set_cursor_pos(i, 0x0000);
 
