@@ -31,14 +31,6 @@
 
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 
-
-// ===================================================================
-//
-// Video Utils
-//
-// ===================================================================
-
-// -------------------------------------------------------------------
 inline void
 call16_vgaint(u32 eax, u32 ebx)
 {
@@ -51,14 +43,6 @@ call16_vgaint(u32 eax, u32 ebx)
         : "cc", "memory");
 }
 
-
-// ===================================================================
-//
-// BIOS functions
-//
-// ===================================================================
-
-// -------------------------------------------------------------------
 static void
 biosfn_perform_gray_scale_summing(u16 start, u16 count)
 {
@@ -78,7 +62,6 @@ biosfn_perform_gray_scale_summing(u16 start, u16 count)
     vgahw_screen_enable();
 }
 
-// -------------------------------------------------------------------
 static void
 biosfn_set_cursor_shape(u8 CH, u8 CL)
 {
@@ -109,7 +92,6 @@ biosfn_get_cursor_shape(u8 page)
     return GET_BDA(cursor_type);
 }
 
-// -------------------------------------------------------------------
 static void
 biosfn_set_cursor_pos(u8 page, u16 cursor)
 {
@@ -147,7 +129,6 @@ biosfn_get_cursor_pos(u8 page)
     return GET_BDA(cursor_pos[page]);
 }
 
-// -------------------------------------------------------------------
 static void
 biosfn_set_active_page(u8 page)
 {
@@ -190,117 +171,6 @@ biosfn_set_active_page(u8 page)
     biosfn_set_cursor_pos(page, cursor);
 }
 
-static void
-biosfn_set_video_mode(u8 mode)
-{                               // mode: Bit 7 is 1 if no clear screen
-    if (CONFIG_CIRRUS)
-        cirrus_set_video_mode(mode);
-
-    if (CONFIG_VBE)
-        if (vbe_has_vbe_display())
-            dispi_set_enable(VBE_DISPI_DISABLED);
-
-    // The real mode
-    u8 noclearmem = mode & 0x80;
-    mode = mode & 0x7f;
-
-    // find the entry in the video modes
-    struct vgamode_s *vmode_g = find_vga_entry(mode);
-    dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
-    if (!vmode_g)
-        return;
-
-    // Read the bios mode set control
-    u8 modeset_ctl = GET_BDA(modeset_ctl);
-
-    // Then we know the number of lines
-// FIXME
-
-    // if palette loading (bit 3 of modeset ctl = 0)
-    if ((modeset_ctl & 0x08) == 0) {    // Set the PEL mask
-        vgahw_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
-
-        // From which palette
-        u8 *palette_g = GET_GLOBAL(vmode_g->dac);
-        u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
-
-        // Always 256*3 values
-        vgahw_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
-        u16 i;
-        for (i = palsize; i < 0x0100; i++) {
-            static u8 rgb[3] VAR16;
-            vgahw_set_dac_regs(get_global_seg(), rgb, i, 1);
-        }
-
-        if ((modeset_ctl & 0x02) == 0x02)
-            biosfn_perform_gray_scale_summing(0x00, 0x100);
-    }
-
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    vgahw_set_mode(vparam_g);
-
-    if (noclearmem == 0x00)
-        clear_screen(vmode_g);
-
-    // Set CRTC address VGA or MDA
-    u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
-    if (GET_GLOBAL(vmode_g->memmodel) == MTEXT)
-        crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
-
-    // Set the BIOS mem
-    u16 cheight = GET_GLOBAL(vparam_g->cheight);
-    SET_BDA(video_mode, mode);
-    SET_BDA(video_cols, GET_GLOBAL(vparam_g->twidth));
-    SET_BDA(video_pagesize, GET_GLOBAL(vparam_g->slength));
-    SET_BDA(crtc_address, crtc_addr);
-    SET_BDA(video_rows, GET_GLOBAL(vparam_g->theightm1));
-    SET_BDA(char_height, cheight);
-    SET_BDA(video_ctl, (0x60 | noclearmem));
-    SET_BDA(video_switches, 0xF9);
-    SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
-
-    // FIXME We nearly have the good tables. to be reworked
-    SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
-    SET_BDA(video_savetable_ptr, (u32)video_save_pointer_table);
-    SET_BDA(video_savetable_seg, get_global_seg());
-
-    // FIXME
-    SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
-    SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
-
-    // Set cursor shape
-    if (GET_GLOBAL(vmode_g->class) == TEXT)
-        biosfn_set_cursor_shape(0x06, 0x07);
-    // Set cursor pos for page 0..7
-    int i;
-    for (i = 0; i < 8; i++)
-        biosfn_set_cursor_pos(i, 0x0000);
-
-    // Set active page 0
-    biosfn_set_active_page(0x00);
-
-    // Write the fonts in memory
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
-        call16_vgaint(0x1104, 0);
-        call16_vgaint(0x1103, 0);
-    }
-    // Set the ints 0x1F and 0x43
-    SET_IVT(0x1f, get_global_seg(), (u32)&vgafont8[128 * 8]);
-
-    switch (cheight) {
-    case 8:
-        SET_IVT(0x43, get_global_seg(), (u32)vgafont8);
-        break;
-    case 14:
-        SET_IVT(0x43, get_global_seg(), (u32)vgafont14);
-        break;
-    case 16:
-        SET_IVT(0x43, get_global_seg(), (u32)vgafont16);
-        break;
-    }
-}
-
-// -------------------------------------------------------------------
 static void
 biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
 {                               // flag = WITH_ATTR / NO_ATTR
@@ -482,12 +352,14 @@ biosfn_restore_bda_state(u16 seg, struct saveBDAstate *info)
  * VGA int 10 handler
  ****************************************************************/
 
+// set video mode
 static void
 handle_1000(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_video_mode(regs->al);
-    switch(regs->al & 0x7F) {
+    u8 noclearmem = regs->al & 0x80;
+    u8 mode = regs->al & 0x7f;
+
+    switch(mode) {
     case 6:
         regs->al = 0x3F;
         break;
@@ -502,6 +374,108 @@ handle_1000(struct bregs *regs)
         break;
     default:
         regs->al = 0x20;
+    }
+
+    if (CONFIG_CIRRUS)
+        cirrus_set_video_mode(mode);
+
+    if (CONFIG_VBE)
+        if (vbe_has_vbe_display())
+            dispi_set_enable(VBE_DISPI_DISABLED);
+
+    // find the entry in the video modes
+    struct vgamode_s *vmode_g = find_vga_entry(mode);
+    dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
+    if (!vmode_g)
+        return;
+
+    // Read the bios mode set control
+    u8 modeset_ctl = GET_BDA(modeset_ctl);
+
+    // Then we know the number of lines
+// FIXME
+
+    // if palette loading (bit 3 of modeset ctl = 0)
+    if ((modeset_ctl & 0x08) == 0) {    // Set the PEL mask
+        vgahw_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
+
+        // From which palette
+        u8 *palette_g = GET_GLOBAL(vmode_g->dac);
+        u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
+
+        // Always 256*3 values
+        vgahw_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
+        u16 i;
+        for (i = palsize; i < 0x0100; i++) {
+            static u8 rgb[3] VAR16;
+            vgahw_set_dac_regs(get_global_seg(), rgb, i, 1);
+        }
+
+        if ((modeset_ctl & 0x02) == 0x02)
+            biosfn_perform_gray_scale_summing(0x00, 0x100);
+    }
+
+    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
+    vgahw_set_mode(vparam_g);
+
+    if (noclearmem == 0x00)
+        clear_screen(vmode_g);
+
+    // Set CRTC address VGA or MDA
+    u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
+    if (GET_GLOBAL(vmode_g->memmodel) == MTEXT)
+        crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
+
+    // Set the BIOS mem
+    u16 cheight = GET_GLOBAL(vparam_g->cheight);
+    SET_BDA(video_mode, mode);
+    SET_BDA(video_cols, GET_GLOBAL(vparam_g->twidth));
+    SET_BDA(video_pagesize, GET_GLOBAL(vparam_g->slength));
+    SET_BDA(crtc_address, crtc_addr);
+    SET_BDA(video_rows, GET_GLOBAL(vparam_g->theightm1));
+    SET_BDA(char_height, cheight);
+    SET_BDA(video_ctl, (0x60 | noclearmem));
+    SET_BDA(video_switches, 0xF9);
+    SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
+
+    // FIXME We nearly have the good tables. to be reworked
+    SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
+    SET_BDA(video_savetable_ptr, (u32)video_save_pointer_table);
+    SET_BDA(video_savetable_seg, get_global_seg());
+
+    // FIXME
+    SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
+    SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
+
+    // Set cursor shape
+    if (GET_GLOBAL(vmode_g->class) == TEXT)
+        biosfn_set_cursor_shape(0x06, 0x07);
+    // Set cursor pos for page 0..7
+    int i;
+    for (i = 0; i < 8; i++)
+        biosfn_set_cursor_pos(i, 0x0000);
+
+    // Set active page 0
+    biosfn_set_active_page(0x00);
+
+    // Write the fonts in memory
+    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+        call16_vgaint(0x1104, 0);
+        call16_vgaint(0x1103, 0);
+    }
+    // Set the ints 0x1F and 0x43
+    SET_IVT(0x1f, get_global_seg(), (u32)&vgafont8[128 * 8]);
+
+    switch (cheight) {
+    case 8:
+        SET_IVT(0x43, get_global_seg(), (u32)vgafont8);
+        break;
+    case 14:
+        SET_IVT(0x43, get_global_seg(), (u32)vgafont14);
+        break;
+    case 16:
+        SET_IVT(0x43, get_global_seg(), (u32)vgafont16);
+        break;
     }
 }
 
