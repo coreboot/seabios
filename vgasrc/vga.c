@@ -439,156 +439,6 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
     biosfn_set_cursor_pos(page, cursor);
 }
 
-// -------------------------------------------------------------------
-static void
-biosfn_get_video_mode(struct bregs *regs)
-{
-    regs->bh = GET_BDA(video_page);
-    regs->al = GET_BDA(video_mode) | (GET_BDA(video_ctl) & 0x80);
-    regs->ah = GET_BDA(video_cols);
-}
-
-static void
-set_scan_lines(u8 lines)
-{
-    vgahw_set_scan_lines(lines);
-    if (lines == 8)
-        biosfn_set_cursor_shape(0x06, 0x07);
-    else
-        biosfn_set_cursor_shape(lines - 4, lines - 3);
-    SET_BDA(char_height, lines);
-    u16 vde = vgahw_get_vde();
-    u8 rows = vde / lines;
-    SET_BDA(video_rows, rows - 1);
-    u16 cols = GET_BDA(video_cols);
-    SET_BDA(video_pagesize, rows * cols * 2);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_get_font_info(u8 BH, u16 *ES, u16 *BP, u16 *CX, u16 *DX)
-{
-    switch (BH) {
-    case 0x00: {
-        u32 segoff = GET_IVT(0x1f).segoff;
-        *ES = segoff >> 16;
-        *BP = segoff;
-        break;
-    }
-    case 0x01: {
-        u32 segoff = GET_IVT(0x43).segoff;
-        *ES = segoff >> 16;
-        *BP = segoff;
-        break;
-    }
-    case 0x02:
-        *ES = get_global_seg();
-        *BP = (u32)vgafont14;
-        break;
-    case 0x03:
-        *ES = get_global_seg();
-        *BP = (u32)vgafont8;
-        break;
-    case 0x04:
-        *ES = get_global_seg();
-        *BP = (u32)vgafont8 + 128 * 8;
-        break;
-    case 0x05:
-        *ES = get_global_seg();
-        *BP = (u32)vgafont14alt;
-        break;
-    case 0x06:
-        *ES = get_global_seg();
-        *BP = (u32)vgafont16;
-        break;
-    case 0x07:
-        *ES = get_global_seg();
-        *BP = (u32)vgafont16alt;
-        break;
-    default:
-        dprintf(1, "Get font info BH(%02x) was discarded\n", BH);
-        return;
-    }
-    // Set byte/char of on screen font
-    *CX = GET_BDA(char_height) & 0xff;
-
-    // Set Highest char row
-    *DX = GET_BDA(video_rows);
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_get_ega_info(struct bregs *regs)
-{
-    regs->cx = GET_BDA(video_switches) & 0x0f;
-    regs->ax = GET_BDA(crtc_address);
-    if (regs->ax == VGAREG_MDA_CRTC_ADDRESS)
-        regs->bx = 0x0103;
-    else
-        regs->bx = 0x0003;
-}
-
-// -------------------------------------------------------------------
-static void
-biosfn_select_vert_res(struct bregs *regs)
-{
-    u8 mctl = GET_BDA(modeset_ctl);
-    u8 vswt = GET_BDA(video_switches);
-
-    switch (regs->al) {
-    case 0x00:
-        // 200 lines
-        mctl = (mctl & ~0x10) | 0x80;
-        vswt = (vswt & ~0x0f) | 0x08;
-        break;
-    case 0x01:
-        // 350 lines
-        mctl &= ~0x90;
-        vswt = (vswt & ~0x0f) | 0x09;
-        break;
-    case 0x02:
-        // 400 lines
-        mctl = (mctl & ~0x80) | 0x10;
-        vswt = (vswt & ~0x0f) | 0x09;
-        break;
-    default:
-        dprintf(1, "Select vert res (%02x) was discarded\n", regs->al);
-        break;
-    }
-    SET_BDA(modeset_ctl, mctl);
-    SET_BDA(video_switches, vswt);
-    regs->ax = 0x1212;
-}
-
-static void
-biosfn_enable_default_palette_loading(struct bregs *regs)
-{
-    u8 v = (regs->al & 0x01) << 3;
-    u8 mctl = GET_BDA(video_ctl) & ~0x08;
-    SET_BDA(video_ctl, mctl | v);
-    regs->ax = 0x1212;
-}
-
-
-static void
-biosfn_enable_grayscale_summing(struct bregs *regs)
-{
-    u8 v = ((regs->al << 1) & 0x02) ^ 0x02;
-    u8 v2 = GET_BDA(modeset_ctl) & ~0x02;
-    SET_BDA(modeset_ctl, v | v2);
-    regs->ax = 0x1212;
-}
-
-static void
-biosfn_enable_cursor_emulation(struct bregs *regs)
-{
-    u8 v = (regs->al & 0x01) ^ 0x01;
-    u8 v2 = GET_BDA(modeset_ctl) & ~0x01;
-    SET_BDA(modeset_ctl, v | v2);
-    regs->ax = 0x1212;
-}
-
-// -------------------------------------------------------------------
 static void
 biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
                     u16 seg, u8 *offset_far)
@@ -623,20 +473,20 @@ biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
         biosfn_set_cursor_pos(page, oldcurs);
 }
 
-// -------------------------------------------------------------------
 static void
-biosfn_read_display_code(struct bregs *regs)
+set_scan_lines(u8 lines)
 {
-    regs->bx = GET_BDA(dcc_index);
-    regs->al = 0x1a;
-}
-
-static void
-biosfn_set_display_code(struct bregs *regs)
-{
-    SET_BDA(dcc_index, regs->bl);
-    dprintf(1, "Alternate Display code (%02x) was discarded\n", regs->bh);
-    regs->al = 0x1a;
+    vgahw_set_scan_lines(lines);
+    if (lines == 8)
+        biosfn_set_cursor_shape(0x06, 0x07);
+    else
+        biosfn_set_cursor_shape(lines - 4, lines - 3);
+    SET_BDA(char_height, lines);
+    u16 vde = vgahw_get_vde();
+    u8 rows = vde / lines;
+    SET_BDA(video_rows, rows - 1);
+    u16 cols = GET_BDA(video_cols);
+    SET_BDA(video_pagesize, rows * cols * 2);
 }
 
 static void
@@ -838,8 +688,9 @@ handle_100e(struct bregs *regs)
 static void
 handle_100f(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_get_video_mode(regs);
+    regs->bh = GET_BDA(video_page);
+    regs->al = GET_BDA(video_mode) | (GET_BDA(video_ctl) & 0x80);
+    regs->ah = GET_BDA(video_cols);
 }
 
 
@@ -1042,9 +893,52 @@ handle_101114(struct bregs *regs)
 static void
 handle_101130(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_get_font_info(regs->bh, &regs->es, &regs->bp
-                         , &regs->cx, &regs->dx);
+    switch (regs->bh) {
+    case 0x00: {
+        u32 segoff = GET_IVT(0x1f).segoff;
+        regs->es = segoff >> 16;
+        regs->bp = segoff;
+        break;
+    }
+    case 0x01: {
+        u32 segoff = GET_IVT(0x43).segoff;
+        regs->es = segoff >> 16;
+        regs->bp = segoff;
+        break;
+    }
+    case 0x02:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont14;
+        break;
+    case 0x03:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont8;
+        break;
+    case 0x04:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont8 + 128 * 8;
+        break;
+    case 0x05:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont14alt;
+        break;
+    case 0x06:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont16;
+        break;
+    case 0x07:
+        regs->es = get_global_seg();
+        regs->bp = (u32)vgafont16alt;
+        break;
+    default:
+        dprintf(1, "Get font info BH(%02x) was discarded\n", regs->bh);
+        return;
+    }
+    // Set byte/char of on screen font
+    regs->cx = GET_BDA(char_height) & 0xff;
+
+    // Set Highest char row
+    regs->dx = GET_BDA(video_rows);
 }
 
 static void
@@ -1075,22 +969,51 @@ handle_1011(struct bregs *regs)
 static void
 handle_101210(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_get_ega_info(regs);
+    u16 crtc_addr = GET_BDA(crtc_address);
+    if (crtc_addr == VGAREG_MDA_CRTC_ADDRESS)
+        regs->bx = 0x0103;
+    else
+        regs->bx = 0x0003;
+    regs->cx = GET_BDA(video_switches) & 0x0f;
 }
 
 static void
 handle_101230(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_select_vert_res(regs);
+    u8 mctl = GET_BDA(modeset_ctl);
+    u8 vswt = GET_BDA(video_switches);
+    switch (regs->al) {
+    case 0x00:
+        // 200 lines
+        mctl = (mctl & ~0x10) | 0x80;
+        vswt = (vswt & ~0x0f) | 0x08;
+        break;
+    case 0x01:
+        // 350 lines
+        mctl &= ~0x90;
+        vswt = (vswt & ~0x0f) | 0x09;
+        break;
+    case 0x02:
+        // 400 lines
+        mctl = (mctl & ~0x80) | 0x10;
+        vswt = (vswt & ~0x0f) | 0x09;
+        break;
+    default:
+        dprintf(1, "Select vert res (%02x) was discarded\n", regs->al);
+        break;
+    }
+    SET_BDA(modeset_ctl, mctl);
+    SET_BDA(video_switches, vswt);
+    regs->al = 0x12;
 }
 
 static void
 handle_101231(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_enable_default_palette_loading(regs);
+    u8 v = (regs->al & 0x01) << 3;
+    u8 mctl = GET_BDA(video_ctl) & ~0x08;
+    SET_BDA(video_ctl, mctl | v);
+    regs->al = 0x12;
 }
 
 static void
@@ -1103,15 +1026,19 @@ handle_101232(struct bregs *regs)
 static void
 handle_101233(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_enable_grayscale_summing(regs);
+    u8 v = ((regs->al << 1) & 0x02) ^ 0x02;
+    u8 v2 = GET_BDA(modeset_ctl) & ~0x02;
+    SET_BDA(modeset_ctl, v | v2);
+    regs->al = 0x12;
 }
 
 static void
 handle_101234(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_enable_cursor_emulation(regs);
+    u8 v = (regs->al & 0x01) ^ 0x01;
+    u8 v2 = GET_BDA(modeset_ctl) & ~0x01;
+    SET_BDA(modeset_ctl, v | v2);
+    regs->al = 0x12;
 }
 
 static void
@@ -1165,15 +1092,16 @@ handle_1013(struct bregs *regs)
 static void
 handle_101a00(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_display_code(regs);
+    regs->bx = GET_BDA(dcc_index);
+    regs->al = 0x1a;
 }
 
 static void
 handle_101a01(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_set_display_code(regs);
+    SET_BDA(dcc_index, regs->bl);
+    dprintf(1, "Alternate Display code (%02x) was discarded\n", regs->bh);
+    regs->al = 0x1a;
 }
 
 static void
