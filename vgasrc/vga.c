@@ -177,8 +177,8 @@ biosfn_set_active_page(u8 page)
 }
 
 static void
-biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
-{                               // flag = WITH_ATTR / NO_ATTR
+biosfn_write_teletype(u8 page, struct carattr ca)
+{
     // Get the mode
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
@@ -191,7 +191,7 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
 
-    switch (car) {
+    switch (ca.car) {
     case 7:
         //FIXME should beep
         break;
@@ -211,16 +211,14 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
 
     case '\t':
         do {
-            biosfn_write_teletype(' ', page, attr, flag);
+            struct carattr dummyca = {' ', ca.attr, ca.use_attr};
+            biosfn_write_teletype(page, dummyca);
             cp = get_cursor_pos(page);
         } while (cp.x % 8 == 0);
         break;
 
     default:
-        if (flag == WITH_ATTR)
-            biosfn_write_char_attr(car, cp.page, attr, 1);
-        else
-            biosfn_write_char_only(car, cp.page, attr, 1);
+        vgafb_write_char(cp.page, ca, 1);
         cp.x++;
     }
 
@@ -264,7 +262,8 @@ biosfn_write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
             offset_far++;
         }
 
-        biosfn_write_teletype(car, cp.page, attr, WITH_ATTR);
+        struct carattr ca = {car, attr, 1};
+        biosfn_write_teletype(cp.page, ca);
     }
 
     // Set back curs pos
@@ -514,22 +513,23 @@ handle_1007(struct bregs *regs)
 static void
 handle_1008(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_char_attr(regs->bh, &regs->ax);
+    struct carattr ca = vgafb_read_char(regs->bh);
+    regs->al = ca.car;
+    regs->ah = ca.attr;
 }
 
 static void
 handle_1009(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_write_char_attr(regs->al, regs->bh, regs->bl, regs->cx);
+    struct carattr ca = {regs->al, regs->bl, 1};
+    vgafb_write_char(regs->bh, ca, regs->cx);
 }
 
 static void
 handle_100a(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_write_char_only(regs->al, regs->bh, regs->bl, regs->cx);
+    struct carattr ca = {regs->al, regs->bl, 0};
+    vgafb_write_char(regs->bh, ca, regs->cx);
 }
 
 
@@ -581,7 +581,8 @@ handle_100e(struct bregs *regs)
 {
     // Ralf Brown Interrupt list is WRONG on bh(page)
     // We do output only on the current page !
-    biosfn_write_teletype(regs->al, 0xff, regs->bl, NO_ATTR);
+    struct carattr ca = {regs->al, regs->bl, 0};
+    biosfn_write_teletype(0xff, ca);
 }
 
 static void

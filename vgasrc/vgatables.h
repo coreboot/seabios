@@ -161,6 +161,10 @@ extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
 // vga.c
+struct carattr {
+    u8 car, attr;
+    u16 use_attr;
+};
 struct cursorpos {
     u8 x, y, page;
 };
@@ -170,9 +174,8 @@ struct cursorpos get_cursor_pos(u8 page);
 void clear_screen(struct vgamode_s *vmode_g);
 void biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr
                    , u8 page, u8 dir);
-void biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count);
-void biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count);
-void biosfn_read_char_attr(u8 page, u16 *car);
+void vgafb_write_char(u8 page, struct carattr ca, u16 count);
+struct carattr vgafb_read_char(u8 page);
 void biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX);
 void biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX);
 void vgafb_load_font(u16 seg, void *src_far, u16 count
