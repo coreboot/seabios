@@ -93,40 +93,45 @@ biosfn_get_cursor_shape(u8 page)
 }
 
 static void
-biosfn_set_cursor_pos(u8 page, u16 cursor)
+set_cursor_pos(struct cursorpos cp)
 {
     // Should not happen...
-    if (page > 7)
+    if (cp.page > 7)
         return;
 
     // Bios cursor pos
-    SET_BDA(cursor_pos[page], cursor);
+    SET_BDA(cursor_pos[cp.page], (cp.y << 8) | cp.x);
 
     // Set the hardware cursor
     u8 current = GET_BDA(video_page);
-    if (page != current)
+    if (cp.page != current)
         return;
 
     // Get the dimensions
     u16 nbcols = GET_BDA(video_cols);
     u16 nbrows = GET_BDA(video_rows) + 1;
 
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
-
     // Calculate the address knowing nbcols nbrows and page num
-    u16 address = SCREEN_IO_START(nbcols, nbrows, page) + xcurs + ycurs * nbcols;
+    u16 address = (SCREEN_IO_START(nbcols, nbrows, cp.page)
+                   + cp.x + cp.y * nbcols);
 
     vgahw_set_cursor_pos(address);
 }
 
-u16
-biosfn_get_cursor_pos(u8 page)
+struct cursorpos
+get_cursor_pos(u8 page)
 {
-    if (page > 7)
-        return 0;
+    if (page == 0xff)
+        // special case - use current page
+        page = GET_BDA(video_page);
+    if (page > 7) {
+        struct cursorpos cp = { 0, 0, 0xfe };
+        return cp;
+    }
     // FIXME should handle VGA 14/16 lines
-    return GET_BDA(cursor_pos[page]);
+    u16 xy = GET_BDA(cursor_pos[page]);
+    struct cursorpos cp = {xy, xy>>8, page};
+    return cp;
 }
 
 static void
@@ -141,7 +146,7 @@ biosfn_set_active_page(u8 page)
         return;
 
     // Get pos curs pos for the right page
-    u16 cursor = biosfn_get_cursor_pos(page);
+    struct cursorpos cp = get_cursor_pos(page);
 
     u16 address;
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
@@ -168,25 +173,19 @@ biosfn_set_active_page(u8 page)
     dprintf(1, "Set active page %02x address %04x\n", page, address);
 
     // Display the cursor, now the page is active
-    biosfn_set_cursor_pos(page, cursor);
+    set_cursor_pos(cp);
 }
 
 static void
 biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
 {                               // flag = WITH_ATTR / NO_ATTR
-    // special case if page is 0xff, use current page
-    if (page == 0xff)
-        page = GET_BDA(video_page);
-
     // Get the mode
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
+    struct cursorpos cp = get_cursor_pos(page);
 
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
@@ -198,74 +197,64 @@ biosfn_write_teletype(u8 car, u8 page, u8 attr, u8 flag)
         break;
 
     case 8:
-        if (xcurs > 0)
-            xcurs--;
+        if (cp.x > 0)
+            cp.x--;
         break;
 
     case '\r':
-        xcurs = 0;
+        cp.x = 0;
         break;
 
     case '\n':
-        ycurs++;
+        cp.y++;
         break;
 
     case '\t':
         do {
             biosfn_write_teletype(' ', page, attr, flag);
-            cursor = biosfn_get_cursor_pos(page);
-            xcurs = cursor & 0x00ff;
-            ycurs = (cursor & 0xff00) >> 8;
-        } while (xcurs % 8 == 0);
+            cp = get_cursor_pos(page);
+        } while (cp.x % 8 == 0);
         break;
 
     default:
         if (flag == WITH_ATTR)
-            biosfn_write_char_attr(car, page, attr, 1);
+            biosfn_write_char_attr(car, cp.page, attr, 1);
         else
-            biosfn_write_char_only(car, page, attr, 1);
-        xcurs++;
+            biosfn_write_char_only(car, cp.page, attr, 1);
+        cp.x++;
     }
 
     // Do we need to wrap ?
-    if (xcurs == nbcols) {
-        xcurs = 0;
-        ycurs++;
+    if (cp.x == nbcols) {
+        cp.x = 0;
+        cp.y++;
     }
     // Do we need to scroll ?
-    if (ycurs == nbrows) {
+    if (cp.y == nbrows) {
         if (GET_GLOBAL(vmode_g->class) == TEXT)
             biosfn_scroll(0x01, 0x07, 0, 0, nbrows - 1, nbcols - 1, page,
                           SCROLL_UP);
         else
             biosfn_scroll(0x01, 0x00, 0, 0, nbrows - 1, nbcols - 1, page,
                           SCROLL_UP);
-        ycurs -= 1;
+        cp.y--;
     }
     // Set the cursor for the page
-    cursor = ycurs;
-    cursor <<= 8;
-    cursor += xcurs;
-    biosfn_set_cursor_pos(page, cursor);
+    set_cursor_pos(cp);
 }
 
 static void
-biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
+biosfn_write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
                     u16 seg, u8 *offset_far)
 {
     // Read curs info for the page
-    u16 oldcurs = biosfn_get_cursor_pos(page);
+    struct cursorpos oldcp = get_cursor_pos(cp.page);
 
     // if row=0xff special case : use current cursor position
-    if (row == 0xff) {
-        col = oldcurs & 0x00ff;
-        row = (oldcurs & 0xff00) >> 8;
-    }
+    if (cp.y == 0xff)
+        cp = oldcp;
 
-    u16 newcurs = row;
-    newcurs <<= 8;
-    newcurs += col;
-    biosfn_set_cursor_pos(page, newcurs);
+    set_cursor_pos(cp);
 
     while (count-- != 0) {
         u8 car = GET_FARVAR(seg, *offset_far);
@@ -275,12 +264,12 @@ biosfn_write_string(u8 flag, u8 page, u8 attr, u16 count, u8 row, u8 col,
             offset_far++;
         }
 
-        biosfn_write_teletype(car, page, attr, WITH_ATTR);
+        biosfn_write_teletype(car, cp.page, attr, WITH_ATTR);
     }
 
     // Set back curs pos
     if ((flag & 0x01) == 0)
-        biosfn_set_cursor_pos(page, oldcurs);
+        set_cursor_pos(oldcp);
 }
 
 static void
@@ -359,22 +348,13 @@ handle_1000(struct bregs *regs)
     u8 noclearmem = regs->al & 0x80;
     u8 mode = regs->al & 0x7f;
 
-    switch(mode) {
-    case 6:
-        regs->al = 0x3F;
-        break;
-    case 0:
-    case 1:
-    case 2:
-    case 3:
-    case 4:
-    case 5:
-    case 7:
-        regs->al = 0x30;
-        break;
-    default:
+    // Set regs->al
+    if (mode > 7)
         regs->al = 0x20;
-    }
+    else if (mode == 6)
+        regs->al = 0x3f;
+    else
+        regs->al = 0x30;
 
     if (CONFIG_CIRRUS)
         cirrus_set_video_mode(mode);
@@ -452,8 +432,10 @@ handle_1000(struct bregs *regs)
         biosfn_set_cursor_shape(0x06, 0x07);
     // Set cursor pos for page 0..7
     int i;
-    for (i = 0; i < 8; i++)
-        biosfn_set_cursor_pos(i, 0x0000);
+    for (i = 0; i < 8; i++) {
+        struct cursorpos cp = {0, 0, i};
+        set_cursor_pos(cp);
+    }
 
     // Set active page 0
     biosfn_set_active_page(0x00);
@@ -488,14 +470,17 @@ handle_1001(struct bregs *regs)
 static void
 handle_1002(struct bregs *regs)
 {
-    biosfn_set_cursor_pos(regs->bh, regs->dx);
+    struct cursorpos cp = {regs->dl, regs->dh, regs->bh};
+    set_cursor_pos(cp);
 }
 
 static void
 handle_1003(struct bregs *regs)
 {
     regs->cx = biosfn_get_cursor_shape(regs->bh);
-    regs->dx = biosfn_get_cursor_pos(regs->bh);
+    struct cursorpos cp = get_cursor_pos(regs->bh);
+    regs->dl = cp.x;
+    regs->dh = cp.y;
 }
 
 // Read light pen pos (unimplemented)
@@ -998,8 +983,9 @@ static void
 handle_1013(struct bregs *regs)
 {
     // XXX - inline
-    biosfn_write_string(regs->al, regs->bh, regs->bl, regs->cx
-                        , regs->dh, regs->dl, regs->es, (void*)(regs->bp + 0));
+    struct cursorpos cp = {regs->dl, regs->dh, regs->bh};
+    biosfn_write_string(cp, regs->al, regs->bl, regs->cx
+                        , regs->es, (void*)(regs->bp + 0));
 }
 
 

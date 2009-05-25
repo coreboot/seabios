@@ -13,7 +13,6 @@
 //  * extract hw code from framebuffer code
 //  * use clear_screen() in scroll code
 //  * merge car/attr/with_attr into one param
-//  * merge page/x/y into one param
 //  * combine biosfn_write_char_attr/_only()
 //  * read/write_char should take a position; should not take count
 //  * remove vmode_g->class (integrate into vmode_g->memmodel)
@@ -268,7 +267,7 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
  ****************************************************************/
 
 static void
-write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
+write_gfx_char_pl4(struct cursorpos cp, u8 car, u8 attr, u8 nbcols,
                    u8 cheight)
 {
     u8 *fdata_g;
@@ -282,7 +281,7 @@ write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
     default:
         fdata_g = vgafont8;
     }
-    u16 addr = xcurs + ycurs * cheight * nbcols;
+    u16 addr = cp.x + cp.y * cheight * nbcols;
     u16 src = car * cheight;
     outw(0x0f02, VGAREG_SEQU_ADDRESS);
     outw(0x0205, VGAREG_GRDC_ADDRESS);
@@ -310,10 +309,10 @@ write_gfx_char_pl4(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols,
 }
 
 static void
-write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
+write_gfx_char_cga(struct cursorpos cp, u8 car, u8 attr, u8 nbcols, u8 bpp)
 {
     u8 *fdata_g = vgafont8;
-    u16 addr = (xcurs * bpp) + ycurs * 320;
+    u16 addr = (cp.x * bpp) + cp.y * 320;
     u16 src = car * 8;
     u8 i;
     for (i = 0; i < 8; i++) {
@@ -359,10 +358,10 @@ write_gfx_char_cga(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols, u8 bpp)
 }
 
 static void
-write_gfx_char_lin(u8 car, u8 attr, u8 xcurs, u8 ycurs, u8 nbcols)
+write_gfx_char_lin(struct cursorpos cp, u8 car, u8 attr, u8 nbcols)
 {
     u8 *fdata_g = vgafont8;
-    u16 addr = xcurs * 8 + ycurs * nbcols * 64;
+    u16 addr = cp.x * 8 + cp.y * nbcols * 64;
     u16 src = car * 8;
     u8 i;
     for (i = 0; i < 8; i++) {
@@ -388,9 +387,7 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
+    struct cursorpos cp = get_cursor_pos(page);
 
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
@@ -398,8 +395,8 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
 
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
         // Compute the address
-        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                    + (xcurs + ycurs * nbcols) * 2);
+        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+                                    + (cp.x + cp.y * nbcols) * 2);
 
         u16 dummy = ((u16)attr << 8) + car;
         memset16_far(GET_GLOBAL(vmode_g->sstart), address_far, dummy, count * 2);
@@ -410,20 +407,20 @@ biosfn_write_char_attr(u8 car, u8 page, u8 attr, u16 count)
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
     u8 cheight = GET_GLOBAL(vparam_g->cheight);
     u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    while ((count-- > 0) && (xcurs < nbcols)) {
+    while ((count-- > 0) && (cp.x < nbcols)) {
         switch (GET_GLOBAL(vmode_g->memmodel)) {
         case PLANAR4:
         case PLANAR1:
-            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
+            write_gfx_char_pl4(cp, car, attr, nbcols, cheight);
             break;
         case CGA:
-            write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
+            write_gfx_char_cga(cp, car, attr, nbcols, bpp);
             break;
         case LINEAR8:
-            write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
+            write_gfx_char_lin(cp, car, attr, nbcols);
             break;
         }
-        xcurs++;
+        cp.x++;
     }
 }
 
@@ -436,9 +433,7 @@ biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
+    struct cursorpos cp = get_cursor_pos(page);
 
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
@@ -446,8 +441,8 @@ biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
 
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
         // Compute the address
-        u8 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                  + (xcurs + ycurs * nbcols) * 2);
+        u8 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+                                  + (cp.x + cp.y * nbcols) * 2);
         while (count-- > 0) {
             SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far, car);
             address_far += 2;
@@ -459,20 +454,20 @@ biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count)
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
     u8 cheight = GET_GLOBAL(vparam_g->cheight);
     u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    while ((count-- > 0) && (xcurs < nbcols)) {
+    while ((count-- > 0) && (cp.x < nbcols)) {
         switch (GET_GLOBAL(vmode_g->memmodel)) {
         case PLANAR4:
         case PLANAR1:
-            write_gfx_char_pl4(car, attr, xcurs, ycurs, nbcols, cheight);
+            write_gfx_char_pl4(cp, car, attr, nbcols, cheight);
             break;
         case CGA:
-            write_gfx_char_cga(car, attr, xcurs, ycurs, nbcols, bpp);
+            write_gfx_char_cga(cp, car, attr, nbcols, bpp);
             break;
         case LINEAR8:
-            write_gfx_char_lin(car, attr, xcurs, ycurs, nbcols);
+            write_gfx_char_lin(cp, car, attr, nbcols);
             break;
         }
-        xcurs++;
+        cp.x++;
     }
 }
 
@@ -485,9 +480,7 @@ biosfn_read_char_attr(u8 page, u16 *car)
         return;
 
     // Get the cursor pos for the page
-    u16 cursor = biosfn_get_cursor_pos(page);
-    u8 xcurs = cursor & 0x00ff;
-    u8 ycurs = (cursor & 0xff00) >> 8;
+    struct cursorpos cp = get_cursor_pos(page);
 
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
@@ -495,8 +488,8 @@ biosfn_read_char_attr(u8 page, u16 *car)
 
     if (GET_GLOBAL(vmode_g->class) == TEXT) {
         // Compute the address
-        u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page)
-                                   + (xcurs + ycurs * nbcols) * 2);
+        u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+                                   + (cp.x + cp.y * nbcols) * 2);
 
         *car = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far);
     } else {

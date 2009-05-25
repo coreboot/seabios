@@ -161,7 +161,10 @@ extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
 // vga.c
-u16 biosfn_get_cursor_pos(u8 page);
+struct cursorpos {
+    u8 x, y, page;
+};
+struct cursorpos get_cursor_pos(u8 page);
 
 // vgafb.c
 void clear_screen(struct vgamode_s *vmode_g);
