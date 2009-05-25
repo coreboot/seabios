@@ -7,6 +7,7 @@
 
 
 // TODO:
+//  * remove recursion from biosfn_write_teletype()
 //  * review correctness of converted asm by comparing with RBIL
 //  * refactor redundant code into sub-functions
 //  * See if there is a method to the in/out stuff that can be encapsulated.
@@ -14,8 +15,6 @@
 //  * verify all funcs static
 //
 //  * convert vbe/clext code
-//
-//  * extract hw code from bios interfaces
 
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
@@ -774,20 +773,20 @@ handle_1010(struct bregs *regs)
 static void
 handle_101100(struct bregs *regs)
 {
-    biosfn_load_text_user_pat(regs->es, regs->bp
-                              , regs->cx, regs->dx, regs->bl, regs->bh);
+    vgafb_load_font(regs->es, (void*)(regs->bp+0), regs->cx
+                    , regs->dx, regs->bl, regs->bh);
 }
 
 static void
 handle_101101(struct bregs *regs)
 {
-    biosfn_load_text_8_14_pat(regs->bl);
+    vgafb_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
 }
 
 static void
 handle_101102(struct bregs *regs)
 {
-    biosfn_load_text_8_8_pat(regs->bl);
+    vgafb_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
 }
 
 static void
@@ -799,35 +798,35 @@ handle_101103(struct bregs *regs)
 static void
 handle_101104(struct bregs *regs)
 {
-    biosfn_load_text_8_16_pat(regs->bl);
+    vgafb_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
 }
 
 static void
 handle_101110(struct bregs *regs)
 {
-    biosfn_load_text_user_pat(regs->es, regs->bp
-                              , regs->cx, regs->dx, regs->bl, regs->bh);
+    vgafb_load_font(regs->es, (void*)(regs->bp+0), regs->cx
+                    , regs->dx, regs->bl, regs->bh);
     set_scan_lines(regs->bh);
 }
 
 static void
 handle_101111(struct bregs *regs)
 {
-    biosfn_load_text_8_14_pat(regs->bl);
+    vgafb_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
     set_scan_lines(14);
 }
 
 static void
 handle_101112(struct bregs *regs)
 {
-    biosfn_load_text_8_8_pat(regs->bl);
+    vgafb_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
     set_scan_lines(8);
 }
 
 static void
 handle_101114(struct bregs *regs)
 {
-    biosfn_load_text_8_16_pat(regs->bl);
+    vgafb_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
     set_scan_lines(16);
 }
 

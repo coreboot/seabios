@@ -9,6 +9,16 @@
 #include "util.h" // memset_far
 #include "vgatables.h" // find_vga_entry
 
+// TODO
+//  * extract hw code from framebuffer code
+//  * use clear_screen() in scroll code
+//  * merge car/attr/with_attr into one param
+//  * merge page/x/y into one param
+//  * combine biosfn_write_char_attr/_only()
+//  * read/write_char should take a position; should not take count
+//  * remove vmode_g->class (integrate into vmode_g->memmodel)
+//  * normalize params (don't use AX/BX/CX/etc.)
+
 // XXX
 inline void
 memcpy16_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
@@ -604,57 +614,15 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
  ****************************************************************/
 
 void
-biosfn_load_text_user_pat(u16 ES, u16 BP, u16 CX, u16 DX, u8 BL, u8 BH)
+vgafb_load_font(u16 seg, void *src_far, u16 count
+                , u16 start, u8 destflags, u8 fontsize)
 {
     get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
+    u16 blockaddr = ((destflags & 0x03) << 14) + ((destflags & 0x04) << 11);
+    void *dest_far = (void*)(blockaddr + start*32);
     u16 i;
-    for (i = 0; i < CX; i++) {
-        void *src_far = (void*)(BP + i * BH);
-        void *dest_far = (void*)(blockaddr + (DX + i) * 32);
-        memcpy_far(SEG_GRAPH, dest_far, ES, src_far, BH);
-    }
-    release_font_access();
-}
-
-void
-biosfn_load_text_8_14_pat(u8 BL)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < 0x100; i++) {
-        u16 src = i * 14;
-        void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont14[src], 14);
-    }
-    release_font_access();
-}
-
-void
-biosfn_load_text_8_8_pat(u8 BL)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < 0x100; i++) {
-        u16 src = i * 8;
-        void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont8[src], 8);
-    }
-    release_font_access();
-}
-
-void
-biosfn_load_text_8_16_pat(u8 BL)
-{
-    get_font_access();
-    u16 blockaddr = ((BL & 0x03) << 14) + ((BL & 0x04) << 11);
-    u16 i;
-    for (i = 0; i < 0x100; i++) {
-        u16 src = i * 16;
-        void *dest_far = (void*)(blockaddr + i * 32);
-        memcpy_far(SEG_GRAPH, dest_far, get_global_seg(), &vgafont16[src], 16);
-    }
+    for (i = 0; i < count; i++)
+        memcpy_far(SEG_GRAPH, dest_far + i*32
+                   , seg, src_far + i*fontsize, fontsize);
     release_font_access();
 }

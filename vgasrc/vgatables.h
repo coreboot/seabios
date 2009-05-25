@@ -172,10 +172,8 @@ void biosfn_write_char_only(u8 car, u8 page, u8 attr, u16 count);
 void biosfn_read_char_attr(u8 page, u16 *car);
 void biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX);
 void biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX);
-void biosfn_load_text_user_pat(u16 ES, u16 BP, u16 CX, u16 DX, u8 BL, u8 BH);
-void biosfn_load_text_8_14_pat(u8 BL);
-void biosfn_load_text_8_8_pat(u8 BL);
-void biosfn_load_text_8_16_pat(u8 BL);
+void vgafb_load_font(u16 seg, void *src_far, u16 count
+                     , u16 start, u8 destflags, u8 fontsize);
 
 // vgaio.c
 void vgahw_screen_disable();
