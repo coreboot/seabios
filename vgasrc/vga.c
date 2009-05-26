@@ -218,7 +218,7 @@ biosfn_write_teletype(u8 page, struct carattr ca)
         break;
 
     default:
-        vgafb_write_char(cp.page, ca, 1);
+        vgafb_write_char(cp, ca);
         cp.x++;
     }
 
@@ -513,23 +513,33 @@ handle_1007(struct bregs *regs)
 static void
 handle_1008(struct bregs *regs)
 {
-    struct carattr ca = vgafb_read_char(regs->bh);
+    struct carattr ca = vgafb_read_char(get_cursor_pos(regs->bh));
     regs->al = ca.car;
     regs->ah = ca.attr;
+}
+
+static void
+write_chars(u8 page, struct carattr ca, u16 count)
+{
+    struct cursorpos cp = get_cursor_pos(page);
+    while (count--) {
+        vgafb_write_char(cp, ca);
+        cp.x++;
+    }
 }
 
 static void
 handle_1009(struct bregs *regs)
 {
     struct carattr ca = {regs->al, regs->bl, 1};
-    vgafb_write_char(regs->bh, ca, regs->cx);
+    write_chars(regs->bh, ca, regs->cx);
 }
 
 static void
 handle_100a(struct bregs *regs)
 {
     struct carattr ca = {regs->al, regs->bl, 0};
-    vgafb_write_char(regs->bh, ca, regs->cx);
+    write_chars(regs->bh, ca, regs->cx);
 }
 
 

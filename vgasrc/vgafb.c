@@ -12,7 +12,6 @@
 // TODO
 //  * extract hw code from framebuffer code
 //  * use clear_screen() in scroll code
-//  * read/write_char should take a position; should not take count
 //  * normalize params (don't use AX/BX/CX/etc.)
 
 // XXX
@@ -264,8 +263,15 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
  ****************************************************************/
 
 static void
-write_gfx_char_pl4(struct cursorpos cp, struct carattr ca, u8 nbcols, u8 cheight)
+write_gfx_char_pl4(struct vgamode_s *vmode_g
+                   , struct cursorpos cp, struct carattr ca)
 {
+    u16 nbcols = GET_BDA(video_cols);
+    if (cp.x >= nbcols)
+        return;
+
+    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
+    u8 cheight = GET_GLOBAL(vparam_g->cheight);
     u8 *fdata_g;
     switch (cheight) {
     case 14:
@@ -305,9 +311,15 @@ write_gfx_char_pl4(struct cursorpos cp, struct carattr ca, u8 nbcols, u8 cheight
 }
 
 static void
-write_gfx_char_cga(struct cursorpos cp, struct carattr ca, u8 nbcols, u8 bpp)
+write_gfx_char_cga(struct vgamode_s *vmode_g
+                   , struct cursorpos cp, struct carattr ca)
 {
+    u16 nbcols = GET_BDA(video_cols);
+    if (cp.x >= nbcols)
+        return;
+
     u8 *fdata_g = vgafont8;
+    u8 bpp = GET_GLOBAL(vmode_g->pixbits);
     u16 addr = (cp.x * bpp) + cp.y * 320;
     u16 src = ca.car * 8;
     u8 i;
@@ -354,8 +366,14 @@ write_gfx_char_cga(struct cursorpos cp, struct carattr ca, u8 nbcols, u8 bpp)
 }
 
 static void
-write_gfx_char_lin(struct cursorpos cp, struct carattr ca, u8 nbcols)
+write_gfx_char_lin(struct vgamode_s *vmode_g
+                   , struct cursorpos cp, struct carattr ca)
 {
+    // Get the dimensions
+    u16 nbcols = GET_BDA(video_cols);
+    if (cp.x >= nbcols)
+        return;
+
     u8 *fdata_g = vgafont8;
     u16 addr = cp.x * 8 + cp.y * nbcols * 64;
     u16 src = ca.car * 8;
@@ -374,90 +392,81 @@ write_gfx_char_lin(struct cursorpos cp, struct carattr ca, u8 nbcols)
     }
 }
 
+static void
+write_text_char(struct vgamode_s *vmode_g
+                , struct cursorpos cp, struct carattr ca)
+{
+    // Get the dimensions
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
+
+    // Compute the address
+    void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+                                + (cp.x + cp.y * nbcols) * 2);
+
+    if (ca.use_attr) {
+        u16 dummy = (ca.attr << 8) | ca.car;
+        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u16*)address_far, dummy);
+    } else {
+        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)address_far, ca.car);
+    }
+}
+
 void
-vgafb_write_char(u8 page, struct carattr ca, u16 count)
+vgafb_write_char(struct cursorpos cp, struct carattr ca)
 {
     // Get the mode
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         return;
 
-    // Get the cursor pos for the page
-    struct cursorpos cp = get_cursor_pos(page);
-
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
-        // Compute the address
-        void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
-                                    + (cp.x + cp.y * nbcols) * 2);
-
-        if (ca.use_attr) {
-            u16 dummy = (ca.attr << 8) | ca.car;
-            memset16_far(GET_GLOBAL(vmode_g->sstart), address_far, dummy
-                         , count * 2);
-        } else {
-            while (count-- > 0) {
-                SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)address_far
-                           , ca.car);
-                address_far += 2;
-            }
-        }
-        return;
-    }
-
     // FIXME gfx mode not complete
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
-    u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    while ((count-- > 0) && (cp.x < nbcols)) {
-        switch (GET_GLOBAL(vmode_g->memmodel)) {
-        case PLANAR4:
-        case PLANAR1:
-            write_gfx_char_pl4(cp, ca, nbcols, cheight);
-            break;
-        case CGA:
-            write_gfx_char_cga(cp, ca, nbcols, bpp);
-            break;
-        case LINEAR8:
-            write_gfx_char_lin(cp, ca, nbcols);
-            break;
-        }
-        cp.x++;
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case CTEXT:
+    case MTEXT:
+        write_text_char(vmode_g, cp, ca);
+        break;
+    case PLANAR4:
+    case PLANAR1:
+        write_gfx_char_pl4(vmode_g, cp, ca);
+        break;
+    case CGA:
+        write_gfx_char_cga(vmode_g, cp, ca);
+        break;
+    case LINEAR8:
+        write_gfx_char_lin(vmode_g, cp, ca);
+        break;
     }
 }
 
 struct carattr
-vgafb_read_char(u8 page)
+vgafb_read_char(struct cursorpos cp)
 {
     // Get the mode
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         goto fail;
 
-    // Get the cursor pos for the page
-    struct cursorpos cp = get_cursor_pos(page);
+    if (!(GET_GLOBAL(vmode_g->memmodel) & TEXT)) {
+        // FIXME gfx mode
+        dprintf(1, "Read char in graphics mode\n");
+        goto fail;
+    }
 
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
 
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
-        // Compute the address
-        u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
-                                   + (cp.x + cp.y * nbcols) * 2);
-        u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far);
-        struct carattr ca = {v, v>>8, 0};
-        return ca;
-    }
-
-    // FIXME gfx mode
-    dprintf(1, "Read char in graphics mode\n");
-fail: ;
-    struct carattr ca = {0, 0, 0};
+    // Compute the address
+    u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+                               + (cp.x + cp.y * nbcols) * 2);
+    u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far);
+    struct carattr ca = {v, v>>8, 0};
     return ca;
+
+fail: ;
+    struct carattr ca2 = {0, 0, 0};
+    return ca2;
 }
 
 

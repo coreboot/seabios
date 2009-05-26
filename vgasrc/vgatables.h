@@ -168,8 +168,8 @@ struct cursorpos get_cursor_pos(u8 page);
 void clear_screen(struct vgamode_s *vmode_g);
 void biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr
                    , u8 page, u8 dir);
-void vgafb_write_char(u8 page, struct carattr ca, u16 count);
-struct carattr vgafb_read_char(u8 page);
+void vgafb_write_char(struct cursorpos cp, struct carattr ca);
+struct carattr vgafb_read_char(struct cursorpos cp);
 void biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX);
 void biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX);
 void vgafb_load_font(u16 seg, void *src_far, u16 count
