@@ -206,12 +206,9 @@ check_scroll(struct cursorpos cp)
     return cp;
 }
 
-static void
-biosfn_write_teletype(u8 page, struct carattr ca)
+static struct cursorpos
+write_teletype(struct cursorpos cp, struct carattr ca)
 {
-    // Get the cursor pos for the page
-    struct cursorpos cp = get_cursor_pos(page);
-
     switch (ca.car) {
     case 7:
         //FIXME should beep
@@ -244,24 +241,16 @@ biosfn_write_teletype(u8 page, struct carattr ca)
         cp.x++;
     }
 
-    cp = check_scroll(cp);
-
-    // Set the cursor for the page
-    set_cursor_pos(cp);
+    return check_scroll(cp);
 }
 
 static void
-biosfn_write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
-                    u16 seg, u8 *offset_far)
+write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
+             u16 seg, u8 *offset_far)
 {
-    // Read curs info for the page
-    struct cursorpos oldcp = get_cursor_pos(cp.page);
-
     // if row=0xff special case : use current cursor position
     if (cp.y == 0xff)
-        cp = oldcp;
-
-    set_cursor_pos(cp);
+        cp = get_cursor_pos(cp.page);
 
     while (count-- != 0) {
         u8 car = GET_FARVAR(seg, *offset_far);
@@ -272,12 +261,11 @@ biosfn_write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
         }
 
         struct carattr ca = {car, attr, 1};
-        biosfn_write_teletype(cp.page, ca);
+        cp = write_teletype(cp, ca);
     }
 
-    // Set back curs pos
-    if ((flag & 0x01) == 0)
-        set_cursor_pos(oldcp);
+    if (flag & 0x01)
+        set_cursor_pos(cp);
 }
 
 static void
@@ -601,7 +589,9 @@ handle_100e(struct bregs *regs)
     // Ralf Brown Interrupt list is WRONG on bh(page)
     // We do output only on the current page !
     struct carattr ca = {regs->al, regs->bl, 0};
-    biosfn_write_teletype(0xff, ca);
+    struct cursorpos cp = get_cursor_pos(0xff);
+    cp = write_teletype(cp, ca);
+    set_cursor_pos(cp);
 }
 
 static void
@@ -1004,8 +994,8 @@ handle_1013(struct bregs *regs)
 {
     // XXX - inline
     struct cursorpos cp = {regs->dl, regs->dh, regs->bh};
-    biosfn_write_string(cp, regs->al, regs->bl, regs->cx
-                        , regs->es, (void*)(regs->bp + 0));
+    write_string(cp, regs->al, regs->bl, regs->cx
+                 , regs->es, (void*)(regs->bp + 0));
 }
 
 
