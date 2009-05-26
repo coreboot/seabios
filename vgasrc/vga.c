@@ -149,7 +149,7 @@ biosfn_set_active_page(u8 page)
     struct cursorpos cp = get_cursor_pos(page);
 
     u16 address;
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
         // Get the dimensions
         u16 nbcols = GET_BDA(video_cols);
         u16 nbrows = GET_BDA(video_rows) + 1;
@@ -229,7 +229,7 @@ biosfn_write_teletype(u8 page, struct carattr ca)
     }
     // Do we need to scroll ?
     if (cp.y == nbrows) {
-        if (GET_GLOBAL(vmode_g->class) == TEXT)
+        if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
             biosfn_scroll(0x01, 0x07, 0, 0, nbrows - 1, nbcols - 1, page,
                           SCROLL_UP);
         else
@@ -427,7 +427,7 @@ handle_1000(struct bregs *regs)
     SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
 
     // Set cursor shape
-    if (GET_GLOBAL(vmode_g->class) == TEXT)
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
         biosfn_set_cursor_shape(0x06, 0x07);
     // Set cursor pos for page 0..7
     int i;
@@ -440,7 +440,7 @@ handle_1000(struct bregs *regs)
     biosfn_set_active_page(0x00);
 
     // Write the fonts in memory
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
         call16_vgaint(0x1104, 0);
         call16_vgaint(0x1103, 0);
     }

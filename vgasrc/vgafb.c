@@ -13,7 +13,6 @@
 //  * extract hw code from framebuffer code
 //  * use clear_screen() in scroll code
 //  * read/write_char should take a position; should not take count
-//  * remove vmode_g->class (integrate into vmode_g->memmodel)
 //  * normalize params (don't use AX/BX/CX/etc.)
 
 // XXX
@@ -88,7 +87,7 @@ vgamem_fill_cga(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
 void
 clear_screen(struct vgamode_s *vmode_g)
 {
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
         return;
     }
@@ -134,7 +133,7 @@ biosfn_scroll(u8 nblines, u8 attr, u8 rul, u8 cul, u8 rlr, u8 clr, u8 page,
         nblines = 0;
     u8 cols = clr - cul + 1;
 
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
         // Compute the address
         void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, page));
         dprintf(3, "Scroll, address %p (%d %d %02x)\n"
@@ -390,7 +389,7 @@ vgafb_write_char(u8 page, struct carattr ca, u16 count)
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
 
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
         // Compute the address
         void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
                                     + (cp.x + cp.y * nbcols) * 2);
@@ -445,7 +444,7 @@ vgafb_read_char(u8 page)
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
 
-    if (GET_GLOBAL(vmode_g->class) == TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
         // Compute the address
         u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
                                    + (cp.x + cp.y * nbcols) * 2);
@@ -473,7 +472,7 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         return;
-    if (GET_GLOBAL(vmode_g->class) == TEXT)
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
         return;
 
     u8 *addr_far, mask, attr, data;
@@ -529,7 +528,7 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         return;
-    if (GET_GLOBAL(vmode_g->class) == TEXT)
+    if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
         return;
 
     u8 *addr_far, mask, attr=0, data, i;

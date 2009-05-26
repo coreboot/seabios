@@ -49,15 +49,12 @@
 #define SEG_MTEXT 0xB000
 
 /*
- *
  * Tables of default values for each mode
- *
  */
-#define TEXT       0x00
-#define GRAPH      0x01
+#define TEXT       0x80
 
-#define CTEXT      0x00
-#define MTEXT      0x01
+#define CTEXT      (0x00 | TEXT)
+#define MTEXT      (0x01 | TEXT)
 #define CGA        0x02
 #define PLANAR1    0x03
 #define PLANAR4    0x04
@@ -71,8 +68,6 @@
 
 #define SCROLL_DOWN 0
 #define SCROLL_UP   1
-#define NO_ATTR     2
-#define WITH_ATTR   3
 
 #define SCREEN_SIZE(x,y) (((x*y*2)|0x00ff)+1)
 #define SCREEN_MEM_START(x,y,p) ((((x*y*2)|0x00ff)+1)*p)
@@ -94,7 +89,6 @@ struct VideoParam_s {
 struct vgamode_s {
     u8 svgamode;
     struct VideoParam_s *vparam;
-    u8 class;       /* TEXT, GRAPH */
     u8 memmodel;    /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */
     u8 pixbits;
     u16 sstart;
