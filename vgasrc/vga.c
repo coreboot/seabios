@@ -7,7 +7,6 @@
 
 
 // TODO:
-//  * remove recursion from biosfn_write_teletype()
 //  * review correctness of converted asm by comparing with RBIL
 //  * refactor redundant code into sub-functions
 //  * See if there is a method to the in/out stuff that can be encapsulated.
@@ -176,20 +175,42 @@ biosfn_set_active_page(u8 page)
     set_cursor_pos(cp);
 }
 
-static void
-biosfn_write_teletype(u8 page, struct carattr ca)
+static struct cursorpos
+check_scroll(struct cursorpos cp)
 {
-    // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-    if (!vmode_g)
-        return;
-
-    // Get the cursor pos for the page
-    struct cursorpos cp = get_cursor_pos(page);
-
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
+
+    // Do we need to wrap ?
+    if (cp.x == nbcols) {
+        cp.x = 0;
+        cp.y++;
+    }
+    // Do we need to scroll ?
+    if (cp.y == nbrows) {
+        // Get the mode
+        struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+        if (!vmode_g)
+            return cp;
+
+        if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
+            biosfn_scroll(0x01, 0x07, 0, 0, nbrows - 1, nbcols - 1, cp.page,
+                          SCROLL_UP);
+        else
+            biosfn_scroll(0x01, 0x00, 0, 0, nbrows - 1, nbcols - 1, cp.page,
+                          SCROLL_UP);
+        cp.y--;
+    }
+
+    return cp;
+}
+
+static void
+biosfn_write_teletype(u8 page, struct carattr ca)
+{
+    // Get the cursor pos for the page
+    struct cursorpos cp = get_cursor_pos(page);
 
     switch (ca.car) {
     case 7:
@@ -212,9 +233,10 @@ biosfn_write_teletype(u8 page, struct carattr ca)
     case '\t':
         do {
             struct carattr dummyca = {' ', ca.attr, ca.use_attr};
-            biosfn_write_teletype(page, dummyca);
-            cp = get_cursor_pos(page);
-        } while (cp.x % 8 == 0);
+            vgafb_write_char(cp, dummyca);
+            cp.x++;
+            cp = check_scroll(cp);
+        } while (cp.x % 8);
         break;
 
     default:
@@ -222,21 +244,8 @@ biosfn_write_teletype(u8 page, struct carattr ca)
         cp.x++;
     }
 
-    // Do we need to wrap ?
-    if (cp.x == nbcols) {
-        cp.x = 0;
-        cp.y++;
-    }
-    // Do we need to scroll ?
-    if (cp.y == nbrows) {
-        if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-            biosfn_scroll(0x01, 0x07, 0, 0, nbrows - 1, nbcols - 1, page,
-                          SCROLL_UP);
-        else
-            biosfn_scroll(0x01, 0x00, 0, 0, nbrows - 1, nbcols - 1, page,
-                          SCROLL_UP);
-        cp.y--;
-    }
+    cp = check_scroll(cp);
+
     // Set the cursor for the page
     set_cursor_pos(cp);
 }
