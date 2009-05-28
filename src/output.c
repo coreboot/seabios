@@ -325,8 +325,8 @@ dump_regs(struct bregs *regs)
     dprintf(1, "   a=%08x  b=%08x  c=%08x  d=%08x ds=%04x es=%04x ss=%04x\n"
             , regs->eax, regs->ebx, regs->ecx, regs->edx
             , regs->ds, regs->es, GET_SEG(SS));
-    dprintf(1, "  si=%08x di=%08x bp=%08x  r=%08x cs=%04x ip=%04x  f=%04x\n"
-            , regs->esi, regs->edi, regs->ebp, (u32)regs
+    dprintf(1, "  si=%08x di=%08x bp=%08x sp=%08x cs=%04x ip=%04x  f=%04x\n"
+            , regs->esi, regs->edi, regs->ebp, (u32)&regs[1]
             , regs->cs, regs->ip, regs->flags);
 }
 
