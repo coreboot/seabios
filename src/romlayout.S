@@ -387,7 +387,7 @@ irqentry:
         iretw
 
         // Main entry point for interrupts with args
-        DECLFUNC irqentry
+        DECLFUNC irqentryarg
 irqentryarg:
         ENTRY_ARG_ST
         iretw
