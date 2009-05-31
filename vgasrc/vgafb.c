@@ -299,6 +299,7 @@ clear_screen(struct vgamode_s *vmode_g)
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
         outb(mmask, VGAREG_SEQU_DATA);
     }
+    }
 }
 
 
