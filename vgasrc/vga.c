@@ -30,7 +30,7 @@
 
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 
-inline void
+static inline void
 call16_vgaint(u32 eax, u32 ebx)
 {
     asm volatile(
@@ -117,7 +117,7 @@ set_cursor_pos(struct cursorpos cp)
     vgahw_set_cursor_pos(address);
 }
 
-struct cursorpos
+static struct cursorpos
 get_cursor_pos(u8 page)
 {
     if (page == 0xff)
@@ -189,17 +189,9 @@ check_scroll(struct cursorpos cp)
     }
     // Do we need to scroll ?
     if (cp.y == nbrows) {
-        // Get the mode
-        struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
-        if (!vmode_g)
-            return cp;
-
-        if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-            biosfn_scroll(0x01, 0x07, 0, 0, nbrows - 1, nbcols - 1, cp.page,
-                          SCROLL_UP);
-        else
-            biosfn_scroll(0x01, 0x00, 0, 0, nbrows - 1, nbcols - 1, cp.page,
-                          SCROLL_UP);
+        struct cursorpos ul = {0, 0, cp.page};
+        struct cursorpos lr = {nbcols-1, nbrows-1, cp.page};
+        vgafb_scroll(1, -1, ul, lr);
         cp.y--;
     }
 
@@ -494,17 +486,36 @@ handle_1005(struct bregs *regs)
 }
 
 static void
+verify_scroll(struct bregs *regs, int dir)
+{
+    u8 page = GET_BDA(video_page);
+    struct cursorpos ul = {regs->cl, regs->ch, page};
+    struct cursorpos lr = {regs->dl, regs->dh, page};
+
+    if (ul.x > lr.x || ul.y > lr.y)
+        return;
+
+    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 nbcols = GET_BDA(video_cols);
+
+    if (lr.y >= nbrows)
+        lr.y = nbrows - 1;
+    if (lr.x >= nbcols)
+        lr.x = nbcols - 1;
+
+    vgafb_scroll(dir * regs->al, regs->bh, ul, lr);
+}
+
+static void
 handle_1006(struct bregs *regs)
 {
-    biosfn_scroll(regs->al, regs->bh, regs->ch, regs->cl, regs->dh, regs->dl
-                  , 0xFF, SCROLL_UP);
+    verify_scroll(regs, 1);
 }
 
 static void
 handle_1007(struct bregs *regs)
 {
-    biosfn_scroll(regs->al, regs->bh, regs->ch, regs->cl, regs->dh, regs->dl
-                  , 0xFF, SCROLL_DOWN);
+    verify_scroll(regs, -1);
 }
 
 static void
