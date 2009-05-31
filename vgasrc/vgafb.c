@@ -284,19 +284,21 @@ vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
 void
 clear_screen(struct vgamode_s *vmode_g)
 {
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case CTEXT:
+    case MTEXT:
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
-        return;
-    }
-    if (GET_GLOBAL(vmode_g->svgamode) < 0x0d) {
+        break;
+    case CGA:
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
-        return;
+        break;
+    default: {
+        outb(0x02, VGAREG_SEQU_ADDRESS);
+        u8 mmask = inb(VGAREG_SEQU_DATA);
+        outb(0x0f, VGAREG_SEQU_DATA);   // all planes
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
+        outb(mmask, VGAREG_SEQU_DATA);
     }
-    outb(0x02, VGAREG_SEQU_ADDRESS);
-    u8 mmask = inb(VGAREG_SEQU_DATA);
-    outb(0x0f, VGAREG_SEQU_DATA);   // all planes
-    memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
-    outb(mmask, VGAREG_SEQU_DATA);
 }
 
 
