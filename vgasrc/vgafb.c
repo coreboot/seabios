@@ -11,209 +11,130 @@
 
 // TODO
 //  * extract hw code from framebuffer code
-//  * use clear_screen() in scroll code
 //  * normalize params (don't use AX/BX/CX/etc.)
-
-// XXX
-inline void
-memcpy16_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
-{
-    memcpy_far(d_seg, d_far, s_seg, s_far, len);
-}
 
 
 /****************************************************************
  * Screen scrolling
  ****************************************************************/
 
-static void
-vgamem_copy_pl4(u8 xstart, u8 ysrc, u8 ydest, u8 cols, u8 nbcols,
-                u8 cheight)
+static inline void *
+memcpy_stride(u16 seg, void *dst, void *src, int copylen, int stride, int lines)
 {
-    u16 src = ysrc * cheight * nbcols + xstart;
-    u16 dest = ydest * cheight * nbcols + xstart;
-    outw(0x0105, VGAREG_GRDC_ADDRESS);
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        memcpy_far(SEG_GRAPH, (void*)(dest + i * nbcols)
-                   , SEG_GRAPH, (void*)(src + i * nbcols), cols);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
+    for (; lines; lines--, dst+=stride, src+=stride)
+        memcpy_far(seg, dst, seg, src, copylen);
+    return dst;
 }
 
-static void
-vgamem_fill_pl4(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
-                u8 attr)
+static inline void
+memset_stride(u16 seg, void *dst, u8 val, int setlen, int stride, int lines)
 {
-    u16 dest = ystart * cheight * nbcols + xstart;
-    outw(0x0205, VGAREG_GRDC_ADDRESS);
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        memset_far(SEG_GRAPH, (void*)(dest + i * nbcols), attr, cols);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
+    for (; lines; lines--, dst+=stride)
+        memset_far(seg, dst, val, setlen);
+}
+
+static inline void
+memset16_stride(u16 seg, void *dst, u16 val, int setlen, int stride, int lines)
+{
+    for (; lines; lines--, dst+=stride)
+        memset16_far(seg, dst, val, setlen);
 }
 
 static void
 scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
            , struct cursorpos ul, struct cursorpos lr)
 {
-    if (attr < 0)
-        attr = 0;
-    u8 dir = SCROLL_UP;
-    if (nblines < 0) {
-        nblines = -nblines;
-        dir = SCROLL_DOWN;
-    }
-    // Get the dimensions
-    u16 nbcols = GET_BDA(video_cols);
-    u8 cols = lr.x - ul.x + 1;
-
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
     u8 cheight = GET_GLOBAL(vparam_g->cheight);
-    if (dir == SCROLL_UP) {
-        u16 i;
-        for (i = ul.y; i <= lr.y; i++)
-            if (i + nblines > lr.y)
-                vgamem_fill_pl4(ul.x, i, cols, nbcols, cheight,
-                                attr);
-            else
-                vgamem_copy_pl4(ul.x, i + nblines, i, cols,
-                                nbcols, cheight);
-        return;
+    int stride = GET_BDA(video_cols);
+    void *src_far, *dest_far;
+    if (nblines >= 0) {
+        dest_far = (void*)(ul.y * cheight * stride + ul.x);
+        src_far = dest_far + nblines * cheight * stride;
+    } else {
+        // Scroll down
+        nblines = -nblines;
+        dest_far = (void*)(lr.y * cheight * stride + ul.x);
+        src_far = dest_far - nblines * cheight * stride;
+        stride = -stride;
     }
-    u16 i;
-    for (i = lr.y; i >= ul.y; i--)
-        if (i < ul.y + nblines)
-            vgamem_fill_pl4(ul.x, i, cols, nbcols, cheight,
-                            attr);
-        else
-            vgamem_copy_pl4(ul.x, i, i - nblines, cols,
-                            nbcols, cheight);
-}
-
-static void
-vgamem_copy_cga(u8 xstart, u8 ysrc, u8 ydest, u8 cols, u8 nbcols,
-                u8 cheight)
-{
-    u16 src = ((ysrc * cheight * nbcols) >> 1) + xstart;
-    u16 dest = ((ydest * cheight * nbcols) >> 1) + xstart;
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        if (i & 1)
-            memcpy_far(SEG_CTEXT, (void*)(0x2000 + dest + (i >> 1) * nbcols)
-                       , SEG_CTEXT, (void*)(0x2000 + src + (i >> 1) * nbcols)
-                       , cols);
-        else
-            memcpy_far(SEG_CTEXT, (void*)(dest + (i >> 1) * nbcols)
-                       , SEG_CTEXT, (void*)(src + (i >> 1) * nbcols), cols);
-}
-
-static void
-vgamem_fill_cga(u8 xstart, u8 ystart, u8 cols, u8 nbcols, u8 cheight,
-                u8 attr)
-{
-    u16 dest = ((ystart * cheight * nbcols) >> 1) + xstart;
-    u8 i;
-    for (i = 0; i < cheight; i++)
-        if (i & 1)
-            memset_far(SEG_CTEXT, (void*)(0x2000 + dest + (i >> 1) * nbcols)
-                       , attr, cols);
-        else
-            memset_far(SEG_CTEXT, (void*)(dest + (i >> 1) * nbcols), attr, cols);
+    int cols = lr.x - ul.x + 1;
+    int rows = lr.y - ul.y + 1;
+    if (nblines < rows) {
+        outw(0x0105, VGAREG_GRDC_ADDRESS);
+        dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols, stride
+                                 , (rows - nblines) * cheight);
+    }
+    if (attr < 0)
+        attr = 0;
+    outw(0x0205, VGAREG_GRDC_ADDRESS);
+    memset_stride(SEG_GRAPH, dest_far, attr, cols, stride, nblines * cheight);
+    outw(0x0005, VGAREG_GRDC_ADDRESS);
 }
 
 static void
 scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
-    if (attr < 0)
-        attr = 0;
-    u8 dir = SCROLL_UP;
-    if (nblines < 0) {
-        nblines = -nblines;
-        dir = SCROLL_DOWN;
-    }
-    // Get the dimensions
-    u16 nbcols = GET_BDA(video_cols);
-    u8 cols = lr.x - ul.x + 1;
-
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
     u8 cheight = GET_GLOBAL(vparam_g->cheight);
     u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    if (bpp == 2) {
-        ul.x <<= 1;
-        cols <<= 1;
-        nbcols <<= 1;
+    int stride = GET_BDA(video_cols) * bpp;
+    void *src_far, *dest_far;
+    if (nblines >= 0) {
+        dest_far = (void*)(ul.y * cheight * stride + ul.x * bpp);
+        src_far = dest_far + nblines * cheight * stride;
+    } else {
+        // Scroll down
+        nblines = -nblines;
+        dest_far = (void*)(lr.y * cheight * stride + ul.x * bpp);
+        src_far = dest_far - nblines * cheight * stride;
+        stride = -stride;
     }
-    // if Scroll up
-    if (dir == SCROLL_UP) {
-        u16 i;
-        for (i = ul.y; i <= lr.y; i++)
-            if (i + nblines > lr.y)
-                vgamem_fill_cga(ul.x, i, cols, nbcols, cheight,
-                                attr);
-            else
-                vgamem_copy_cga(ul.x, i + nblines, i, cols,
-                                nbcols, cheight);
-        return;
+    int cols = (lr.x - ul.x + 1) * bpp;
+    int rows = lr.y - ul.y + 1;
+    if (nblines < rows) {
+        memcpy_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000, cols
+                      , stride, (rows - nblines) * cheight / 2);
+        dest_far = memcpy_stride(SEG_CTEXT, dest_far, src_far, cols
+                                 , stride, (rows - nblines) * cheight / 2);
     }
-    u16 i;
-    for (i = lr.y; i >= ul.y; i--)
-        if (i < ul.y + nblines)
-            vgamem_fill_cga(ul.x, i, cols, nbcols, cheight,
-                            attr);
-        else
-            vgamem_copy_cga(ul.x, i, i - nblines, cols,
-                            nbcols, cheight);
+    if (attr < 0)
+        attr = 0;
+    memset_stride(SEG_CTEXT, dest_far + 0x2000, attr, cols
+                  , stride, nblines * cheight / 2);
+    memset_stride(SEG_CTEXT, dest_far, attr, cols
+                  , stride, nblines * cheight / 2);
 }
 
 static void
 scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
-    if (attr < 0)
-        attr = 0x07;
-    u8 dir = SCROLL_UP;
-    if (nblines < 0) {
-        nblines = -nblines;
-        dir = SCROLL_DOWN;
-    }
-    // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
-    u8 cols = lr.x - ul.x + 1;
-
-    // Compute the address
-    void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, ul.page));
-    dprintf(3, "Scroll, address %p (%d %d %02x)\n"
-            , address_far, nbrows, nbcols, ul.page);
-
-    if (dir == SCROLL_UP) {
-        u16 i;
-        for (i = ul.y; i <= lr.y; i++)
-            if (i + nblines > lr.y)
-                memset16_far(GET_GLOBAL(vmode_g->sstart)
-                             , address_far + (i * nbcols + ul.x) * 2
-                             , (u16)attr * 0x100 + ' ', cols * 2);
-            else
-                memcpy16_far(GET_GLOBAL(vmode_g->sstart)
-                             , address_far + (i * nbcols + ul.x) * 2
-                             , GET_GLOBAL(vmode_g->sstart)
-                             , (void*)(((i + nblines) * nbcols + ul.x) * 2)
-                             , cols * 2);
-        return;
+    void *src_far, *dest_far = (void*)SCREEN_MEM_START(nbcols, nbrows, ul.page);
+    int stride = nbcols * 2;
+    if (nblines >= 0) {
+        dest_far += ul.y * stride + ul.x * 2;
+        src_far = dest_far + nblines * stride;
+    } else {
+        // Scroll down
+        nblines = -nblines;
+        dest_far += lr.y * stride + ul.x * 2;
+        src_far = dest_far - nblines * stride;
+        stride = -stride;
     }
-    u16 i;
-    for (i = lr.y; i >= ul.y; i--)
-        if (i < ul.y + nblines)
-            memset16_far(GET_GLOBAL(vmode_g->sstart)
-                         , address_far + (i * nbcols + ul.x) * 2
-                         , (u16)attr * 0x100 + ' ', cols * 2);
-        else
-            memcpy16_far(GET_GLOBAL(vmode_g->sstart)
-                         , address_far + (i * nbcols + ul.x) * 2
-                         , GET_GLOBAL(vmode_g->sstart)
-                         , (void*)(((i - nblines) * nbcols + ul.x) * 2)
-                         , cols * 2);
+    int cols = (lr.x - ul.x + 1) * 2;
+    int rows = lr.y - ul.y + 1;
+    u16 seg = GET_GLOBAL(vmode_g->sstart);
+    if (nblines < rows)
+        dest_far = memcpy_stride(seg, dest_far, src_far, cols, stride
+                                 , (rows - nblines));
+    if (attr < 0)
+        attr = 0x07;
+    attr = (attr << 8) | ' ';
+    memset16_stride(seg, dest_far, attr, cols, stride, nblines);
 }
 
 void

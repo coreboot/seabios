@@ -66,12 +66,8 @@
 #define LINEAR24   0x12
 #define LINEAR32   0x13
 
-#define SCROLL_DOWN 0
-#define SCROLL_UP   1
-
-#define SCREEN_SIZE(x,y) (((x*y*2)|0x00ff)+1)
-#define SCREEN_MEM_START(x,y,p) ((((x*y*2)|0x00ff)+1)*p)
-#define SCREEN_IO_START(x,y,p) ((((x*y)|0x00ff)+1)*p)
+#define SCREEN_IO_START(x,y,p) (((((x)*(y)) | 0x00ff) + 1) * (p))
+#define SCREEN_MEM_START(x,y,p) SCREEN_IO_START(((x)*2),(y),(p))
 
 /* standard BIOS Video Parameter Table */
 struct VideoParam_s {
