@@ -492,18 +492,21 @@ verify_scroll(struct bregs *regs, int dir)
     struct cursorpos ul = {regs->cl, regs->ch, page};
     struct cursorpos lr = {regs->dl, regs->dh, page};
 
-    if (ul.x > lr.x || ul.y > lr.y)
-        return;
-
     u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
     if (lr.y >= nbrows)
         lr.y = nbrows - 1;
+    u16 nbcols = GET_BDA(video_cols);
     if (lr.x >= nbcols)
         lr.x = nbcols - 1;
 
-    vgafb_scroll(dir * regs->al, regs->bh, ul, lr);
+    if (ul.x > lr.x || ul.y > lr.y)
+        return;
+
+    u16 nblines = regs->al;
+    if (!nblines || nblines > lr.y - ul.y + 1)
+        nblines = lr.y - ul.y + 1;
+
+    vgafb_scroll(dir * nblines, regs->bh, ul, lr);
 }
 
 static void

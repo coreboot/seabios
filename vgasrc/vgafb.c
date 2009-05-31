@@ -64,26 +64,15 @@ scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
         dir = SCROLL_DOWN;
     }
     // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
-    if (nblines > nbrows)
-        nblines = 0;
     u8 cols = lr.x - ul.x + 1;
 
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
     u8 cheight = GET_GLOBAL(vparam_g->cheight);
-    if (nblines == 0 && ul.y == 0 && ul.x == 0 && lr.y == nbrows - 1
-        && lr.x == nbcols - 1) {
-        outw(0x0205, VGAREG_GRDC_ADDRESS);
-        memset_far(GET_GLOBAL(vmode_g->sstart), 0, attr,
-                   nbrows * nbcols * cheight);
-        outw(0x0005, VGAREG_GRDC_ADDRESS);
-        return;
-    }
     if (dir == SCROLL_UP) {
         u16 i;
         for (i = ul.y; i <= lr.y; i++)
-            if ((i + nblines > lr.y) || (nblines == 0))
+            if (i + nblines > lr.y)
                 vgamem_fill_pl4(ul.x, i, cols, nbcols, cheight,
                                 attr);
             else
@@ -92,16 +81,13 @@ scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
         return;
     }
     u16 i;
-    for (i = lr.y; i >= ul.y; i--) {
-        if ((i < ul.y + nblines) || (nblines == 0))
+    for (i = lr.y; i >= ul.y; i--)
+        if (i < ul.y + nblines)
             vgamem_fill_pl4(ul.x, i, cols, nbcols, cheight,
                             attr);
         else
             vgamem_copy_pl4(ul.x, i, i - nblines, cols,
                             nbcols, cheight);
-        if (i > lr.y)
-            break;
-    }
 }
 
 static void
@@ -147,21 +133,12 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
         dir = SCROLL_DOWN;
     }
     // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
-    if (nblines > nbrows)
-        nblines = 0;
     u8 cols = lr.x - ul.x + 1;
 
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
     u8 cheight = GET_GLOBAL(vparam_g->cheight);
     u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    if (nblines == 0 && ul.y == 0 && ul.x == 0 && lr.y == nbrows - 1
-        && lr.x == nbcols - 1) {
-        memset_far(GET_GLOBAL(vmode_g->sstart), 0, attr,
-                   nbrows * nbcols * cheight * bpp);
-        return;
-    }
     if (bpp == 2) {
         ul.x <<= 1;
         cols <<= 1;
@@ -171,7 +148,7 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
     if (dir == SCROLL_UP) {
         u16 i;
         for (i = ul.y; i <= lr.y; i++)
-            if ((i + nblines > lr.y) || (nblines == 0))
+            if (i + nblines > lr.y)
                 vgamem_fill_cga(ul.x, i, cols, nbcols, cheight,
                                 attr);
             else
@@ -180,16 +157,13 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
         return;
     }
     u16 i;
-    for (i = lr.y; i >= ul.y; i--) {
-        if ((i < ul.y + nblines) || (nblines == 0))
+    for (i = lr.y; i >= ul.y; i--)
+        if (i < ul.y + nblines)
             vgamem_fill_cga(ul.x, i, cols, nbcols, cheight,
                             attr);
         else
             vgamem_copy_cga(ul.x, i, i - nblines, cols,
                             nbcols, cheight);
-        if (i > lr.y)
-            break;
-    }
 }
 
 static void
@@ -206,9 +180,6 @@ scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
-
-    if (nblines > nbrows)
-        nblines = 0;
     u8 cols = lr.x - ul.x + 1;
 
     // Compute the address
@@ -216,16 +187,10 @@ scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
     dprintf(3, "Scroll, address %p (%d %d %02x)\n"
             , address_far, nbrows, nbcols, ul.page);
 
-    if (nblines == 0 && ul.y == 0 && ul.x == 0 && lr.y == nbrows - 1
-        && lr.x == nbcols - 1) {
-        memset16_far(GET_GLOBAL(vmode_g->sstart), address_far
-                     , (u16)attr * 0x100 + ' ', nbrows * nbcols * 2);
-        return;
-    }
     if (dir == SCROLL_UP) {
         u16 i;
         for (i = ul.y; i <= lr.y; i++)
-            if ((i + nblines > lr.y) || (nblines == 0))
+            if (i + nblines > lr.y)
                 memset16_far(GET_GLOBAL(vmode_g->sstart)
                              , address_far + (i * nbcols + ul.x) * 2
                              , (u16)attr * 0x100 + ' ', cols * 2);
@@ -237,10 +202,9 @@ scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
                              , cols * 2);
         return;
     }
-
     u16 i;
-    for (i = lr.y; i >= ul.y; i--) {
-        if ((i < ul.y + nblines) || (nblines == 0))
+    for (i = lr.y; i >= ul.y; i--)
+        if (i < ul.y + nblines)
             memset16_far(GET_GLOBAL(vmode_g->sstart)
                          , address_far + (i * nbcols + ul.x) * 2
                          , (u16)attr * 0x100 + ' ', cols * 2);
@@ -250,9 +214,6 @@ scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
                          , GET_GLOBAL(vmode_g->sstart)
                          , (void*)(((i - nblines) * nbcols + ul.x) * 2)
                          , cols * 2);
-        if (i > lr.y)
-            break;
-    }
 }
 
 void
