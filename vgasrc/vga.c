@@ -175,9 +175,23 @@ biosfn_set_active_page(u8 page)
     set_cursor_pos(cp);
 }
 
-static struct cursorpos
-write_teletype(struct cursorpos cp, struct carattr ca)
+// Scroll the screen one line.  This function is designed to be called
+// tail-recursive to reduce stack usage.
+static void noinline
+scroll_one(u16 nbrows, u16 nbcols, u8 page)
 {
+    struct cursorpos ul = {0, 0, page};
+    struct cursorpos lr = {nbcols-1, nbrows-1, page};
+    vgafb_scroll(1, -1, ul, lr);
+}
+
+// Write a character to the screen at a given position.  Implement
+// special characters and scroll the screen if necessary.
+static void
+write_teletype(struct cursorpos *pcp, struct carattr ca)
+{
+    struct cursorpos cp = *pcp;
+
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
@@ -214,34 +228,42 @@ write_teletype(struct cursorpos cp, struct carattr ca)
         cp.y++;
     }
     // Do we need to scroll ?
-    if (cp.y == nbrows) {
-        struct cursorpos ul = {0, 0, cp.page};
-        struct cursorpos lr = {nbcols-1, nbrows-1, cp.page};
-        vgafb_scroll(1, -1, ul, lr);
-        cp.y--;
+    if (cp.y < nbrows) {
+        *pcp = cp;
+        return;
     }
-
-    return cp;
+    // Scroll screen
+    cp.y--;
+    *pcp = cp;
+    scroll_one(nbrows, nbcols, cp.page);
 }
 
+// Write out a buffer of alternating characters and attributes.
 static void
-write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
-             u16 seg, u8 *offset_far)
+write_attr_string(struct cursorpos *pcp, u16 count, u16 seg, u8 *offset_far)
 {
     while (count--) {
         u8 car = GET_FARVAR(seg, *offset_far);
         offset_far++;
-        if (flag & 0x02) {
-            attr = GET_FARVAR(seg, *offset_far);
-            offset_far++;
-        }
+        u8 attr = GET_FARVAR(seg, *offset_far);
+        offset_far++;
 
         struct carattr ca = {car, attr, 1};
-        cp = write_teletype(cp, ca);
+        write_teletype(pcp, ca);
     }
+}
 
-    if (flag & 0x01)
-        set_cursor_pos(cp);
+// Write out a buffer of characters.
+static void
+write_string(struct cursorpos *pcp, u8 attr, u16 count, u16 seg, u8 *offset_far)
+{
+    while (count--) {
+        u8 car = GET_FARVAR(seg, *offset_far);
+        offset_far++;
+
+        struct carattr ca = {car, attr, 1};
+        write_teletype(pcp, ca);
+    }
 }
 
 static void
@@ -588,7 +610,7 @@ handle_100e(struct bregs *regs)
     // We do output only on the current page !
     struct carattr ca = {regs->al, regs->bl, 0};
     struct cursorpos cp = get_cursor_pos(0xff);
-    cp = write_teletype(cp, ca);
+    write_teletype(&cp, ca);
     set_cursor_pos(cp);
 }
 
@@ -987,6 +1009,7 @@ handle_1012(struct bregs *regs)
 }
 
 
+// Write string
 static void noinline
 handle_1013(struct bregs *regs)
 {
@@ -994,8 +1017,14 @@ handle_1013(struct bregs *regs)
     // if row=0xff special case : use current cursor position
     if (cp.y == 0xff)
         cp = get_cursor_pos(cp.page);
-    write_string(cp, regs->al, regs->bl, regs->cx
-                 , regs->es, (void*)(regs->bp + 0));
+    u8 flag = regs->al;
+    if (flag & 2)
+        write_attr_string(&cp, regs->cx, regs->es, (void*)(regs->bp + 0));
+    else
+        write_string(&cp, regs->bl, regs->cx, regs->es, (void*)(regs->bp + 0));
+
+    if (flag & 1)
+        set_cursor_pos(cp);
 }
 
 
