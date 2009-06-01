@@ -176,11 +176,37 @@ biosfn_set_active_page(u8 page)
 }
 
 static struct cursorpos
-check_scroll(struct cursorpos cp)
+write_teletype(struct cursorpos cp, struct carattr ca)
 {
     // Get the dimensions
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
+
+    switch (ca.car) {
+    case 7:
+        //FIXME should beep
+        break;
+    case 8:
+        if (cp.x > 0)
+            cp.x--;
+        break;
+    case '\r':
+        cp.x = 0;
+        break;
+    case '\n':
+        cp.y++;
+        break;
+    case '\t':
+        do {
+            struct carattr dummyca = {' ', ca.attr, ca.use_attr};
+            vgafb_write_char(cp, dummyca);
+            cp.x++;
+        } while (cp.x < nbcols && cp.x % 8);
+        break;
+    default:
+        vgafb_write_char(cp, ca);
+        cp.x++;
+    }
 
     // Do we need to wrap ?
     if (cp.x == nbcols) {
@@ -198,56 +224,14 @@ check_scroll(struct cursorpos cp)
     return cp;
 }
 
-static struct cursorpos
-write_teletype(struct cursorpos cp, struct carattr ca)
-{
-    switch (ca.car) {
-    case 7:
-        //FIXME should beep
-        break;
-
-    case 8:
-        if (cp.x > 0)
-            cp.x--;
-        break;
-
-    case '\r':
-        cp.x = 0;
-        break;
-
-    case '\n':
-        cp.y++;
-        break;
-
-    case '\t':
-        do {
-            struct carattr dummyca = {' ', ca.attr, ca.use_attr};
-            vgafb_write_char(cp, dummyca);
-            cp.x++;
-            cp = check_scroll(cp);
-        } while (cp.x % 8);
-        break;
-
-    default:
-        vgafb_write_char(cp, ca);
-        cp.x++;
-    }
-
-    return check_scroll(cp);
-}
-
 static void
 write_string(struct cursorpos cp, u8 flag, u8 attr, u16 count,
              u16 seg, u8 *offset_far)
 {
-    // if row=0xff special case : use current cursor position
-    if (cp.y == 0xff)
-        cp = get_cursor_pos(cp.page);
-
-    while (count-- != 0) {
+    while (count--) {
         u8 car = GET_FARVAR(seg, *offset_far);
         offset_far++;
-        if ((flag & 0x02) != 0) {
+        if (flag & 0x02) {
             attr = GET_FARVAR(seg, *offset_far);
             offset_far++;
         }
@@ -1006,8 +990,10 @@ handle_1012(struct bregs *regs)
 static void
 handle_1013(struct bregs *regs)
 {
-    // XXX - inline
     struct cursorpos cp = {regs->dl, regs->dh, regs->bh};
+    // if row=0xff special case : use current cursor position
+    if (cp.y == 0xff)
+        cp = get_cursor_pos(cp.page);
     write_string(cp, regs->al, regs->bl, regs->cx
                  , regs->es, (void*)(regs->bp + 0));
 }
