@@ -189,6 +189,8 @@ void vgahw_set_pel_mask(u8 val);
 u8 vgahw_get_pel_mask();
 void vgahw_save_dac_state(u16 seg, struct saveDACcolors *info);
 void vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info);
+void vgahw_sequ_write(u8 index, u8 value);
+void vgahw_grdc_write(u8 index, u8 value);
 void vgahw_set_text_block_specifier(u8 spec);
 void get_font_access();
 void release_font_access();

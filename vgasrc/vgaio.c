@@ -10,6 +10,9 @@
 #include "biosvar.h" // GET_BDA
 #include "vgatables.h" // VGAREG_*
 
+// TODO
+//  * replace direct in/out calls with wrapper functions
+
 
 /****************************************************************
  * Attribute control
@@ -265,6 +268,18 @@ vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info)
 /****************************************************************
  * Memory control
  ****************************************************************/
+
+void
+vgahw_sequ_write(u8 index, u8 value)
+{
+    outw((value<<8) | index, VGAREG_SEQU_ADDRESS);
+}
+
+void
+vgahw_grdc_write(u8 index, u8 value)
+{
+    outw((value<<8) | index, VGAREG_GRDC_ADDRESS);
+}
 
 void
 vgahw_set_text_block_specifier(u8 spec)

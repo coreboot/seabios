@@ -9,9 +9,6 @@
 #include "util.h" // memset_far
 #include "vgatables.h" // find_vga_entry
 
-// TODO
-//  * extract hw code from framebuffer code
-
 
 /****************************************************************
  * Screen scrolling
@@ -60,15 +57,15 @@ scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
     int cols = lr.x - ul.x + 1;
     int rows = lr.y - ul.y + 1;
     if (nblines < rows) {
-        outw(0x0105, VGAREG_GRDC_ADDRESS);
+        vgahw_grdc_write(0x05, 0x01);
         dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols, stride
                                  , (rows - nblines) * cheight);
     }
     if (attr < 0)
         attr = 0;
-    outw(0x0205, VGAREG_GRDC_ADDRESS);
+    vgahw_grdc_write(0x05, 0x02);
     memset_stride(SEG_GRAPH, dest_far, attr, cols, stride, nblines * cheight);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
+    vgahw_grdc_write(0x05, 0x00);
 }
 
 static void
@@ -173,13 +170,10 @@ clear_screen(struct vgamode_s *vmode_g)
     case CGA:
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
         break;
-    default: {
-        outb(0x02, VGAREG_SEQU_ADDRESS);
-        u8 mmask = inb(VGAREG_SEQU_DATA);
-        outb(0x0f, VGAREG_SEQU_DATA);   // all planes
+    default:
+        // XXX - old code gets/sets/restores sequ register 2 to 0xf -
+        // but it should always be 0xf anyway.
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
-        outb(mmask, VGAREG_SEQU_DATA);
-    }
     }
 }
 
@@ -211,19 +205,19 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
     }
     u16 addr = cp.x + cp.y * cheight * nbcols;
     u16 src = ca.car * cheight;
-    outw(0x0f02, VGAREG_SEQU_ADDRESS);
-    outw(0x0205, VGAREG_GRDC_ADDRESS);
+    vgahw_sequ_write(0x02, 0x0f);
+    vgahw_grdc_write(0x05, 0x02);
     if (ca.attr & 0x80)
-        outw(0x1803, VGAREG_GRDC_ADDRESS);
+        vgahw_grdc_write(0x03, 0x18);
     else
-        outw(0x0003, VGAREG_GRDC_ADDRESS);
+        vgahw_grdc_write(0x03, 0x00);
     u8 i;
     for (i = 0; i < cheight; i++) {
         u8 *dest_far = (void*)(addr + i * nbcols);
         u8 j;
         for (j = 0; j < 8; j++) {
             u8 mask = 0x80 >> j;
-            outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
+            vgahw_grdc_write(0x08, mask);
             GET_FARVAR(SEG_GRAPH, *dest_far);
             if (GET_GLOBAL(fdata_g[src + i]) & mask)
                 SET_FARVAR(SEG_GRAPH, *dest_far, ca.attr & 0x0f);
@@ -231,9 +225,9 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
                 SET_FARVAR(SEG_GRAPH, *dest_far, 0x00);
         }
     }
-    outw(0xff08, VGAREG_GRDC_ADDRESS);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
-    outw(0x0003, VGAREG_GRDC_ADDRESS);
+    vgahw_grdc_write(0x08, 0xff);
+    vgahw_grdc_write(0x05, 0x00);
+    vgahw_grdc_write(0x03, 0x00);
 }
 
 static void
@@ -416,15 +410,15 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
     case PLANAR1:
         addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
         mask = 0x80 >> (x & 0x07);
-        outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
-        outw(0x0205, VGAREG_GRDC_ADDRESS);
+        vgahw_grdc_write(0x08, mask);
+        vgahw_grdc_write(0x05, 0x02);
         data = GET_FARVAR(SEG_GRAPH, *addr_far);
         if (color & 0x80)
-            outw(0x1803, VGAREG_GRDC_ADDRESS);
+            vgahw_grdc_write(0x03, 0x18);
         SET_FARVAR(SEG_GRAPH, *addr_far, color);
-        outw(0xff08, VGAREG_GRDC_ADDRESS);
-        outw(0x0005, VGAREG_GRDC_ADDRESS);
-        outw(0x0003, VGAREG_GRDC_ADDRESS);
+        vgahw_grdc_write(0x08, 0xff);
+        vgahw_grdc_write(0x05, 0x00);
+        vgahw_grdc_write(0x03, 0x00);
         break;
     case CGA:
         if (GET_GLOBAL(vmode_g->pixbits) == 2)
@@ -474,7 +468,7 @@ vgafb_read_pixel(u16 x, u16 y)
         mask = 0x80 >> (x & 0x07);
         attr = 0x00;
         for (i = 0; i < 4; i++) {
-            outw((i << 8) | 0x04, VGAREG_GRDC_ADDRESS);
+            vgahw_grdc_write(0x04, i);
             data = GET_FARVAR(SEG_GRAPH, *addr_far) & mask;
             if (data > 0)
                 attr |= (0x01 << i);
