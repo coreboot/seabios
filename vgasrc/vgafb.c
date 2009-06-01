@@ -11,7 +11,6 @@
 
 // TODO
 //  * extract hw code from framebuffer code
-//  * normalize params (don't use AX/BX/CX/etc.)
 
 
 /****************************************************************
@@ -402,7 +401,7 @@ fail: ;
  ****************************************************************/
 
 void
-biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
+vgafb_write_pixel(u8 color, u16 x, u16 y)
 {
     // Get the mode
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
@@ -415,34 +414,34 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
     switch (GET_GLOBAL(vmode_g->memmodel)) {
     case PLANAR4:
     case PLANAR1:
-        addr_far = (void*)(CX / 8 + DX * GET_BDA(video_cols));
-        mask = 0x80 >> (CX & 0x07);
+        addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
+        mask = 0x80 >> (x & 0x07);
         outw((mask << 8) | 0x08, VGAREG_GRDC_ADDRESS);
         outw(0x0205, VGAREG_GRDC_ADDRESS);
         data = GET_FARVAR(SEG_GRAPH, *addr_far);
-        if (AL & 0x80)
+        if (color & 0x80)
             outw(0x1803, VGAREG_GRDC_ADDRESS);
-        SET_FARVAR(SEG_GRAPH, *addr_far, AL);
+        SET_FARVAR(SEG_GRAPH, *addr_far, color);
         outw(0xff08, VGAREG_GRDC_ADDRESS);
         outw(0x0005, VGAREG_GRDC_ADDRESS);
         outw(0x0003, VGAREG_GRDC_ADDRESS);
         break;
     case CGA:
         if (GET_GLOBAL(vmode_g->pixbits) == 2)
-            addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
+            addr_far = (void*)((x >> 2) + (y >> 1) * 80);
         else
-            addr_far = (void*)((CX >> 3) + (DX >> 1) * 80);
-        if (DX & 1)
+            addr_far = (void*)((x >> 3) + (y >> 1) * 80);
+        if (y & 1)
             addr_far += 0x2000;
         data = GET_FARVAR(SEG_CTEXT, *addr_far);
         if (GET_GLOBAL(vmode_g->pixbits) == 2) {
-            attr = (AL & 0x03) << ((3 - (CX & 0x03)) * 2);
-            mask = 0x03 << ((3 - (CX & 0x03)) * 2);
+            attr = (color & 0x03) << ((3 - (x & 0x03)) * 2);
+            mask = 0x03 << ((3 - (x & 0x03)) * 2);
         } else {
-            attr = (AL & 0x01) << (7 - (CX & 0x07));
-            mask = 0x01 << (7 - (CX & 0x07));
+            attr = (color & 0x01) << (7 - (x & 0x07));
+            mask = 0x01 << (7 - (x & 0x07));
         }
-        if (AL & 0x80) {
+        if (color & 0x80) {
             data ^= attr;
         } else {
             data &= ~mask;
@@ -451,28 +450,28 @@ biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX)
         SET_FARVAR(SEG_CTEXT, *addr_far, data);
         break;
     case LINEAR8:
-        addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
-        SET_FARVAR(SEG_GRAPH, *addr_far, AL);
+        addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
+        SET_FARVAR(SEG_GRAPH, *addr_far, color);
         break;
     }
 }
 
-void
-biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
+u8
+vgafb_read_pixel(u16 x, u16 y)
 {
     // Get the mode
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
-        return;
+        return 0;
     if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-        return;
+        return 0;
 
     u8 *addr_far, mask, attr=0, data, i;
     switch (GET_GLOBAL(vmode_g->memmodel)) {
     case PLANAR4:
     case PLANAR1:
-        addr_far = (void*)(CX / 8 + DX * GET_BDA(video_cols));
-        mask = 0x80 >> (CX & 0x07);
+        addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
+        mask = 0x80 >> (x & 0x07);
         attr = 0x00;
         for (i = 0; i < 4; i++) {
             outw((i << 8) | 0x04, VGAREG_GRDC_ADDRESS);
@@ -482,21 +481,21 @@ biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX)
         }
         break;
     case CGA:
-        addr_far = (void*)((CX >> 2) + (DX >> 1) * 80);
-        if (DX & 1)
+        addr_far = (void*)((x >> 2) + (y >> 1) * 80);
+        if (y & 1)
             addr_far += 0x2000;
         data = GET_FARVAR(SEG_CTEXT, *addr_far);
         if (GET_GLOBAL(vmode_g->pixbits) == 2)
-            attr = (data >> ((3 - (CX & 0x03)) * 2)) & 0x03;
+            attr = (data >> ((3 - (x & 0x03)) * 2)) & 0x03;
         else
-            attr = (data >> (7 - (CX & 0x07))) & 0x01;
+            attr = (data >> (7 - (x & 0x07))) & 0x01;
         break;
     case LINEAR8:
-        addr_far = (void*)(CX + DX * (GET_BDA(video_cols) * 8));
+        addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
         attr = GET_FARVAR(SEG_GRAPH, *addr_far);
         break;
     }
-    *AX = (*AX & 0xff00) | attr;
+    return attr;
 }
 
 

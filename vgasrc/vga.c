@@ -8,10 +8,6 @@
 
 // TODO:
 //  * review correctness of converted asm by comparing with RBIL
-//  * refactor redundant code into sub-functions
-//  * See if there is a method to the in/out stuff that can be encapsulated.
-//  * remove "biosfn" prefixes
-//  * verify all funcs static
 //
 //  * convert vbe/clext code
 
@@ -30,6 +26,11 @@
 
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
 static inline void
 call16_vgaint(u32 eax, u32 ebx)
 {
@@ -43,7 +44,7 @@ call16_vgaint(u32 eax, u32 ebx)
 }
 
 static void
-biosfn_perform_gray_scale_summing(u16 start, u16 count)
+perform_gray_scale_summing(u16 start, u16 count)
 {
     vgahw_screen_disable();
     int i;
@@ -62,28 +63,28 @@ biosfn_perform_gray_scale_summing(u16 start, u16 count)
 }
 
 static void
-biosfn_set_cursor_shape(u8 CH, u8 CL)
+set_cursor_shape(u8 start, u8 end)
 {
-    CH &= 0x3f;
-    CL &= 0x1f;
+    start &= 0x3f;
+    end &= 0x1f;
 
-    u16 curs = (CH << 8) + CL;
+    u16 curs = (start << 8) + end;
     SET_BDA(cursor_type, curs);
 
     u8 modeset_ctl = GET_BDA(modeset_ctl);
     u16 cheight = GET_BDA(char_height);
-    if ((modeset_ctl & 0x01) && (cheight > 8) && (CL < 8) && (CH < 0x20)) {
-        if (CL != (CH + 1))
-            CH = ((CH + 1) * cheight / 8) - 1;
+    if ((modeset_ctl & 0x01) && (cheight > 8) && (end < 8) && (start < 0x20)) {
+        if (end != (start + 1))
+            start = ((start + 1) * cheight / 8) - 1;
         else
-            CH = ((CL + 1) * cheight / 8) - 2;
-        CL = ((CL + 1) * cheight / 8) - 1;
+            start = ((end + 1) * cheight / 8) - 2;
+        end = ((end + 1) * cheight / 8) - 1;
     }
-    vgahw_set_cursor_shape(CH, CL);
+    vgahw_set_cursor_shape(start, end);
 }
 
 static u16
-biosfn_get_cursor_shape(u8 page)
+get_cursor_shape(u8 page)
 {
     if (page > 7)
         return 0;
@@ -134,7 +135,7 @@ get_cursor_pos(u8 page)
 }
 
 static void
-biosfn_set_active_page(u8 page)
+set_active_page(u8 page)
 {
     if (page > 7)
         return;
@@ -174,6 +175,27 @@ biosfn_set_active_page(u8 page)
     // Display the cursor, now the page is active
     set_cursor_pos(cp);
 }
+
+static void
+set_scan_lines(u8 lines)
+{
+    vgahw_set_scan_lines(lines);
+    if (lines == 8)
+        set_cursor_shape(0x06, 0x07);
+    else
+        set_cursor_shape(lines - 4, lines - 3);
+    SET_BDA(char_height, lines);
+    u16 vde = vgahw_get_vde();
+    u8 rows = vde / lines;
+    SET_BDA(video_rows, rows - 1);
+    u16 cols = GET_BDA(video_cols);
+    SET_BDA(video_pagesize, rows * cols * 2);
+}
+
+
+/****************************************************************
+ * Character writing
+ ****************************************************************/
 
 // Scroll the screen one line.  This function is designed to be called
 // tail-recursive to reduce stack usage.
@@ -266,24 +288,13 @@ write_string(struct cursorpos *pcp, u8 attr, u16 count, u16 seg, u8 *offset_far)
     }
 }
 
-static void
-set_scan_lines(u8 lines)
-{
-    vgahw_set_scan_lines(lines);
-    if (lines == 8)
-        biosfn_set_cursor_shape(0x06, 0x07);
-    else
-        biosfn_set_cursor_shape(lines - 4, lines - 3);
-    SET_BDA(char_height, lines);
-    u16 vde = vgahw_get_vde();
-    u8 rows = vde / lines;
-    SET_BDA(video_rows, rows - 1);
-    u16 cols = GET_BDA(video_cols);
-    SET_BDA(video_pagesize, rows * cols * 2);
-}
+
+/****************************************************************
+ * Save and restore bda state
+ ****************************************************************/
 
 static void
-biosfn_save_bda_state(u16 seg, struct saveBDAstate *info)
+save_bda_state(u16 seg, struct saveBDAstate *info)
 {
     SET_FARVAR(seg, info->video_mode, GET_BDA(video_mode));
     SET_FARVAR(seg, info->video_cols, GET_BDA(video_cols));
@@ -306,7 +317,7 @@ biosfn_save_bda_state(u16 seg, struct saveBDAstate *info)
 }
 
 static void
-biosfn_restore_bda_state(u16 seg, struct saveBDAstate *info)
+restore_bda_state(u16 seg, struct saveBDAstate *info)
 {
     SET_BDA(video_mode, GET_FARVAR(seg, info->video_mode));
     SET_BDA(video_cols, GET_FARVAR(seg, info->video_cols));
@@ -386,7 +397,7 @@ handle_1000(struct bregs *regs)
         }
 
         if ((modeset_ctl & 0x02) == 0x02)
-            biosfn_perform_gray_scale_summing(0x00, 0x100);
+            perform_gray_scale_summing(0x00, 0x100);
     }
 
     struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
@@ -423,7 +434,7 @@ handle_1000(struct bregs *regs)
 
     // Set cursor shape
     if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-        biosfn_set_cursor_shape(0x06, 0x07);
+        set_cursor_shape(0x06, 0x07);
     // Set cursor pos for page 0..7
     int i;
     for (i = 0; i < 8; i++) {
@@ -432,7 +443,7 @@ handle_1000(struct bregs *regs)
     }
 
     // Set active page 0
-    biosfn_set_active_page(0x00);
+    set_active_page(0x00);
 
     // Write the fonts in memory
     if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
@@ -458,7 +469,7 @@ handle_1000(struct bregs *regs)
 static void
 handle_1001(struct bregs *regs)
 {
-    biosfn_set_cursor_shape(regs->ch, regs->cl);
+    set_cursor_shape(regs->ch, regs->cl);
 }
 
 static void
@@ -471,7 +482,7 @@ handle_1002(struct bregs *regs)
 static void
 handle_1003(struct bregs *regs)
 {
-    regs->cx = biosfn_get_cursor_shape(regs->bh);
+    regs->cx = get_cursor_shape(regs->bh);
     struct cursorpos cp = get_cursor_pos(regs->bh);
     regs->dl = cp.x;
     regs->dh = cp.y;
@@ -488,7 +499,7 @@ handle_1004(struct bregs *regs)
 static void
 handle_1005(struct bregs *regs)
 {
-    biosfn_set_active_page(regs->al);
+    set_active_page(regs->al);
 }
 
 static void
@@ -592,15 +603,15 @@ handle_100b(struct bregs *regs)
 static void
 handle_100c(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_write_pixel(regs->bh, regs->al, regs->cx, regs->dx);
+    // XXX - page (regs->bh) is unused
+    vgafb_write_pixel(regs->al, regs->cx, regs->dx);
 }
 
 static void
 handle_100d(struct bregs *regs)
 {
-    // XXX - inline
-    biosfn_read_pixel(regs->bh, regs->cx, regs->dx, &regs->ax);
+    // XXX - page (regs->bh) is unused
+    regs->al = vgafb_read_pixel(regs->cx, regs->dx);
 }
 
 static void noinline
@@ -725,7 +736,7 @@ handle_10101a(struct bregs *regs)
 static void
 handle_10101b(struct bregs *regs)
 {
-    biosfn_perform_gray_scale_summing(regs->bx, regs->cx);
+    perform_gray_scale_summing(regs->bx, regs->cx);
 }
 
 static void
@@ -1130,7 +1141,7 @@ handle_101c01(struct bregs *regs)
         data += sizeof(struct saveVideoHardware);
     }
     if (flags & 2) {
-        biosfn_save_bda_state(seg, data);
+        save_bda_state(seg, data);
         data += sizeof(struct saveBDAstate);
     }
     if (flags & 4)
@@ -1149,7 +1160,7 @@ handle_101c02(struct bregs *regs)
         data += sizeof(struct saveVideoHardware);
     }
     if (flags & 2) {
-        biosfn_restore_bda_state(seg, data);
+        restore_bda_state(seg, data);
         data += sizeof(struct saveBDAstate);
     }
     if (flags & 4)

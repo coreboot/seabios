@@ -164,8 +164,8 @@ void vgafb_scroll(int nblines, int attr
                   , struct cursorpos ul, struct cursorpos lr);
 void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);
-void biosfn_write_pixel(u8 BH, u8 AL, u16 CX, u16 DX);
-void biosfn_read_pixel(u8 BH, u16 CX, u16 DX, u16 *AX);
+void vgafb_write_pixel(u8 color, u16 x, u16 y);
+u8 vgafb_read_pixel(u16 x, u16 y);
 void vgafb_load_font(u16 seg, void *src_far, u16 count
                      , u16 start, u8 destflags, u8 fontsize);
 
