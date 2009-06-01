@@ -152,8 +152,7 @@ extern u8 vgafont16alt[];
 
 // vga.c
 struct carattr {
-    u8 car, attr;
-    u16 use_attr;
+    u8 car, attr, use_attr;
 };
 struct cursorpos {
     u8 x, y, page;

@@ -513,7 +513,7 @@ handle_1008(struct bregs *regs)
     regs->ah = ca.attr;
 }
 
-static void
+static void noinline
 write_chars(u8 page, struct carattr ca, u16 count)
 {
     struct cursorpos cp = get_cursor_pos(page);
@@ -581,7 +581,7 @@ handle_100d(struct bregs *regs)
     biosfn_read_pixel(regs->bh, regs->cx, regs->dx, &regs->ax);
 }
 
-static void
+static void noinline
 handle_100e(struct bregs *regs)
 {
     // Ralf Brown Interrupt list is WRONG on bh(page)
@@ -647,7 +647,7 @@ handle_101009(struct bregs *regs)
     vgahw_get_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
 }
 
-static void
+static void noinline
 handle_101010(struct bregs *regs)
 {
     u8 rgb[3] = {regs->dh, regs->ch, regs->cl};
@@ -666,7 +666,7 @@ handle_101013(struct bregs *regs)
     vgahw_select_video_dac_color_page(regs->bl, regs->bh);
 }
 
-static void
+static void noinline
 handle_101015(struct bregs *regs)
 {
     u8 rgb[3];
@@ -987,7 +987,7 @@ handle_1012(struct bregs *regs)
 }
 
 
-static void
+static void noinline
 handle_1013(struct bregs *regs)
 {
     struct cursorpos cp = {regs->dl, regs->dh, regs->bh};
