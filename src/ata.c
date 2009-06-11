@@ -647,11 +647,10 @@ extract_identify(int driveid, u16 *buffer)
 }
 
 static int
-init_drive_atapi(int driveid)
+init_drive_atapi(int driveid, u16 *buffer)
 {
     // Send an IDENTIFY_DEVICE_PACKET command to device
-    u16 buffer[256];
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, IDE_SECTOR_SIZE);
     struct disk_op_s dop;
     dop.driveid = driveid;
     dop.command = ATA_CMD_IDENTIFY_DEVICE_PACKET;
@@ -685,11 +684,10 @@ init_drive_atapi(int driveid)
 }
 
 static int
-init_drive_ata(int driveid)
+init_drive_ata(int driveid, u16 *buffer)
 {
     // Send an IDENTIFY_DEVICE command to device
-    u16 buffer[256];
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, IDE_SECTOR_SIZE);
     struct disk_op_s dop;
     dop.driveid = driveid;
     dop.command = ATA_CMD_IDENTIFY_DEVICE;
@@ -807,23 +805,35 @@ ata_detect()
         }
 
         // check for ATAPI
-        int ret = init_drive_atapi(driveid);
-        if (!ret)
+        u16 buffer[256];
+        int ret = init_drive_atapi(driveid, buffer);
+        if (!ret) {
             // Found an ATAPI drive.
-            continue;
+        } else {
+            u8 st = inb(iobase1+ATA_CB_STAT);
+            if (!st)
+                // Status not set - can't be a valid drive.
+                continue;
 
-        u8 st = inb(iobase1+ATA_CB_STAT);
-        if (!st)
-            // Status not set - can't be a valid drive.
-            continue;
+            // Wait for RDY.
+            ret = await_rdy(iobase1);
+            if (ret < 0)
+                continue;
 
-        // Wait for RDY.
-        ret = await_rdy(iobase1);
-        if (ret < 0)
-            continue;
+            // check for ATA.
+            ret = init_drive_ata(driveid, buffer);
+            if (ret)
+                // No ATA drive found
+                continue;
+        }
 
-        // check for ATA.
-        init_drive_ata(driveid);
+        u16 resetresult = buffer[93];
+        dprintf(6, "ata_detect resetresult=%04x\n", resetresult);
+        if (!slave && (resetresult & 0xdf61) == 0x4041)
+            // resetresult looks valid and device 0 is responding to
+            // device 1 requests - device 1 must not be present - skip
+            // detection.
+            driveid++;
     }
 
     printf("\n");
