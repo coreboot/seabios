@@ -65,6 +65,23 @@ static inline u64 rdtscll(void)
     return val;
 }
 
+#define call16_simpint(nr, peax, pflags) do {                           \
+        extern void __force_link_error__call16_simpint_only_in_16bit_mode(); \
+        if (!MODE16)                                                    \
+            __force_link_error__call16_simpint_only_in_16bit_mode();    \
+                                                                        \
+        asm volatile(                                                   \
+            "stc\n"                                                     \
+            "int %2\n"                                                  \
+            "pushfl\n"                                                  \
+            "popl %1\n"                                                 \
+            "cli\n"                                                     \
+            "cld"                                                       \
+            : "+a"(*peax), "=r"(*pflags)                                \
+            : "i"(nr)                                                   \
+            : "cc", "memory");                                          \
+    } while (0)
+
 // util.c
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
@@ -75,8 +92,7 @@ int strcmp(const char *s1, const char *s2);
 inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
 inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
 void *memset(void *s, int c, size_t n);
-void memcpy4(void *d1, const void *s1, size_t len);
-#define memcpy(d1, s1, len) __builtin_memcpy((d1), (s1), (len))
+#define memcpy __builtin_memcpy
 inline void memcpy_far(u16 d_seg, void *d_far
                        , u16 s_seg, const void *s_far, size_t len);
 void *memmove(void *d, const void *s, size_t len);
@@ -89,7 +105,6 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
-inline void call16_simpint(int nr, u32 *eax, u32 *flags);
 void usleep(u32 usec);
 int get_keystroke(int msec);
 

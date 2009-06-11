@@ -21,7 +21,15 @@ union u64_u32_u {
     u64 val;
 };
 
-#define __VISIBLE __attribute__((externally_visible))
+#ifdef MANUAL_NO_JUMP_TABLE
+# define default case 775324556: asm(""); default
+#endif
+
+#ifdef WHOLE_PROGRAM
+# define __VISIBLE __attribute__((externally_visible))
+#else
+# define __VISIBLE
+#endif
 
 #define UNIQSEC __FILE__ "." __stringify(__LINE__)
 

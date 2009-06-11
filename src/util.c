@@ -52,25 +52,6 @@ __call16_int(struct bregs *callregs, u16 offset)
     call16(callregs);
 }
 
-inline void
-call16_simpint(int nr, u32 *eax, u32 *flags)
-{
-    extern void __force_link_error__call16_simpint_only_in_16bit_mode();
-    if (!MODE16)
-        __force_link_error__call16_simpint_only_in_16bit_mode();
-
-    asm volatile(
-        "stc\n"
-        "int %2\n"
-        "pushfl\n"
-        "popl %1\n"
-        "cli\n"
-        "cld"
-        : "+a"(*eax), "=r"(*flags)
-        : "i"(nr)
-        : "cc", "memory");
-}
-
 // Switch to the extra stack in ebda and call a function.
 inline u32
 stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
@@ -204,15 +185,27 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
         : "cc", "memory");
 }
 
-// Memcpy that uses 4-byte accesses
-void
-memcpy4(void *d1, const void *s1, size_t len)
+void *
+#undef memcpy
+memcpy(void *d1, const void *s1, size_t len)
+#define memcpy __builtin_memcpy
 {
+    void *d = d1;
+    if (((u32)d1 | (u32)s1 | len) & 3) {
+        // non-aligned memcpy
+        asm volatile(
+            "rep movsb (%%esi),%%es:(%%edi)"
+            : "+c"(len), "+S"(s1), "+D"(d)
+            : : "cc", "memory");
+        return d1;
+    }
+    // Common case - use 4-byte copy
     len /= 4;
     asm volatile(
         "rep movsl (%%esi),%%es:(%%edi)"
-        : "+c"(len), "+S"(s1), "+D"(d1)
+        : "+c"(len), "+S"(s1), "+D"(d)
         : : "cc", "memory");
+    return d1;
 }
 
 void *

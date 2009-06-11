@@ -22,7 +22,8 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 # Default compiler flags
 COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
                -mpreferred-stack-boundary=2 -mrtd -freg-struct-return \
-               -ffreestanding -fwhole-program -fomit-frame-pointer \
+               $(call cc-option,$(CC),-fwhole-program -DWHOLE_PROGRAM,) \
+               -ffreestanding -fomit-frame-pointer \
                -fno-delete-null-pointer-checks -Wno-strict-aliasing \
                -ffunction-sections -fdata-sections \
                -minline-all-stringops
@@ -31,7 +32,8 @@ COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 override CFLAGS = $(COMMONCFLAGS) -g -DMODE16=0
-CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -fno-jump-tables -fno-defer-pop \
+CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -fno-defer-pop \
+              $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
               $(call cc-option,$(CC),-fno-tree-switch-conversion,) \
               $(call cc-option,$(CC),--param large-stack-frame=4,)
 CFLAGS16 = $(CFLAGS16INC) -g
