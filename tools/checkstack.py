@@ -42,7 +42,7 @@ re_asm = re.compile(
     + r'):\t.*\t(addr32 )?(?P<insn>.+?)[ ]*((?P<calladdr>' + hex_s
     + r') <(?P<ref>.*)>)?$')
 re_usestack = re.compile(
-    r'^(push.*)|(sub.* [$](?P<num>0x' + hex_s + r'),%esp)$')
+    r'^(push[f]?[lw])|(sub.* [$](?P<num>0x' + hex_s + r'),%esp)$')
 
 def calc():
     # funcs[funcaddr] = [funcname, basicstackusage, maxstackusage
