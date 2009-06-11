@@ -23,26 +23,35 @@ union u64_u32_u {
 
 #define __VISIBLE __attribute__((externally_visible))
 
+#define UNIQSEC __FILE__ "." __stringify(__LINE__)
+
+#define __ASM(code) asm(".section .text.asm." UNIQSEC "\n\t" code)
+
 #if MODE16 == 1
 // Notes a function as externally visible in the 16bit code chunk.
 # define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit code chunk.
 # define VISIBLE32
 // Designate a variable as (only) visible to 16bit code.
-# define VAR16 __attribute__((section(".data16." __FILE__ "." __stringify(__LINE__))))
+# define VAR16 __section(".data16." UNIQSEC)
 // Designate a variable as visible to both 32bit and 16bit code.
 # define VAR16_32 VAR16 __VISIBLE
+// Designate a variable visible externally.
+# define VAR16EXPORT __section(".data16.export." UNIQSEC) __VISIBLE
 // Designate a variable at a specific 16bit address
-# define VAR16FIXED(addr) __aligned(1) __VISIBLE  __attribute__((section(".fixedaddr." __stringify(addr))))
+# define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
 // Designate top-level assembler as 16bit only.
-# define ASM16(code) asm(".section .text.asm." __FILE__ "." __stringify(__LINE__) "\n\t" code)
+# define ASM16(code) __ASM(code)
+# define ASM32(code)
 #else
 # define VISIBLE16
 # define VISIBLE32 __VISIBLE
-# define VAR16 __attribute__((section(".discard.var16")))
-# define VAR16_32 VAR16 __VISIBLE __attribute__((weak))
+# define VAR16 __section(".discard.var16." UNIQSEC)
+# define VAR16_32 VAR16 __VISIBLE __weak
+# define VAR16EXPORT VAR16_32
 # define VAR16FIXED(addr) VAR16_32
 # define ASM16(code)
+# define ASM32(code) __ASM(code)
 #endif
 
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
@@ -53,6 +62,9 @@ union u64_u32_u {
 #define __ALIGN_MASK(x,mask)    (((x)+(mask))&~(mask))
 
 #define NULL ((void *)0)
+
+#define __weak __attribute__((weak))
+#define __section(S) __attribute__((section(S)))
 
 #define PACKED __attribute__((packed))
 #define __aligned(x) __attribute__((aligned(x)))

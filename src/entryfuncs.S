@@ -165,3 +165,9 @@
         .section .text.asm.\func
         .global \func
         .endm
+
+        // Declare an exported function
+        .macro EXPORTFUNC func
+        .section .text.asm.export.\func
+        .global \func
+        .endm

@@ -13,7 +13,7 @@ SECTIONS
 
 // The actual placement of the 16bit sections is determined by the
 // script tools/layoutrom.py
-#include "../out/romlayout.lds"
+#include "../out/romlayout16.lds"
 
         // Discard regular data sections to force a link error if
         // 16bit code attempts to access data not marked with VAR16.

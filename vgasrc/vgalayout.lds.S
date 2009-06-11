@@ -10,7 +10,7 @@ ENTRY(_optionrom_entry)
 SECTIONS
 {
         .text 0 : {
-                *(.rom.header)
+                KEEP(*(.rom.header))
                 *(.text.*)
                 _rodata = . ;
                 *(.rodata.__func__.*)

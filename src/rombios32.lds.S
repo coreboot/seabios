@@ -8,17 +8,14 @@
 
 OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH("i386")
-FORCE_COMMON_ALLOCATION
 SECTIONS
 {
-        .text BUILD_BIOS_ADDR : {
+        .text32 BUILD_BIOS_ADDR : {
                 code32_start = ABSOLUTE(.) ;
-                *(.text)
-                code32_rodata = . ;
-                *(.rodata*)
-                *(.data)
-                *(.bss)
-                *(COMMON)
+
+// The actual sections kept is determined by the script tools/layoutrom.py
+#include "../out/romlayout32.lds"
+
                 freespace_start = . ;
                 code32_end = ABSOLUTE(.) ;
                 }

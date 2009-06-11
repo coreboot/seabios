@@ -332,7 +332,7 @@ apm32protected_entry:
         lretl
 
 // 32bit elf entry point
-        DECLFUNC post32
+        EXPORTFUNC post32
 post32:
         cli
         cld

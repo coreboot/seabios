@@ -24,6 +24,7 @@ COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
                -mpreferred-stack-boundary=2 -mrtd -freg-struct-return \
                -ffreestanding -fwhole-program -fomit-frame-pointer \
                -fno-delete-null-pointer-checks -Wno-strict-aliasing \
+               -ffunction-sections -fdata-sections \
                -minline-all-stringops
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
@@ -33,7 +34,6 @@ override CFLAGS = $(COMMONCFLAGS) -g -DMODE16=0
 CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -fno-jump-tables -fno-defer-pop \
               $(call cc-option,$(CC),-fno-tree-switch-conversion,) \
               $(call cc-option,$(CC),--param large-stack-frame=4,)
-CFLAGS16INC += -ffunction-sections -fdata-sections
 CFLAGS16 = $(CFLAGS16INC) -g
 
 all: $(OUT) $(OUT)bios.bin
@@ -107,11 +107,14 @@ $(OUT)rom32.o: $(OUT)ccode32.o $(OUT)rombios32.lds
 	@echo "  Linking (no relocs) $@"
 	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
 
-$(OUT)romlayout.lds: $(OUT)romlayout16.o
+$(OUT)romlayout16.lds $(OUT)romlayout32.lds: $(OUT)ccode32.o $(OUT)romlayout16.o
 	@echo "  Building layout information $@"
-	$(Q)$(OBJDUMP) -h $< | ./tools/layoutrom.py $@
+	$(Q)$(OBJDUMP) -thr $(OUT)ccode32.o > $(OUT)ccode32.o.objdump
+	$(Q)$(OBJDUMP) -thr $(OUT)romlayout16.o > $(OUT)romlayout16.o.objdump
+	$(Q)./tools/layoutrom.py $(OUT)romlayout16.o.objdump $(OUT)ccode32.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32.lds
 
-$(OUT)layout16.lds: $(OUT)romlayout.lds
+$(OUT)layout16.lds: $(OUT)romlayout16.lds
+$(OUT)rombios32.lds: $(OUT)romlayout32.lds
 
 $(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)layout16.lds
 	@echo "  Linking (no relocs) $@"
@@ -148,7 +151,7 @@ $(OUT)vgalayout16.o: vgaentry.S $(OUT)vgaccode.16.s $(OUT)asm-offsets.h
 
 $(OUT)vgarom.o: $(OUT)vgalayout16.o $(OUT)vgalayout.lds
 	@echo "  Linking $@"
-	$(Q)$(LD) -T $(OUT)vgalayout.lds $(OUT)vgalayout16.o -o $@
+	$(Q)$(LD) --gc-sections -T $(OUT)vgalayout.lds $(OUT)vgalayout16.o -o $@
 
 $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
 	@echo "  Extracting binary $@"

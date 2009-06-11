@@ -28,7 +28,7 @@ extern struct pnpheader PNPHEADER;
 extern char pnp_string[];
 
 #if CONFIG_PNPBIOS
-struct pnpheader PNPHEADER __aligned(16) VAR16_32 = {
+struct pnpheader PNPHEADER __aligned(16) VAR16EXPORT = {
     .signature = PNP_SIGNATURE,
     .version = 0x10,
     .length = sizeof(PNPHEADER),

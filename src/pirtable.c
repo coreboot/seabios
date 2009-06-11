@@ -18,7 +18,7 @@ struct pir_table {
 
 extern struct pir_table PIR_TABLE;
 #if CONFIG_PIRTABLE && !CONFIG_COREBOOT
-struct pir_table PIR_TABLE __aligned(16) VAR16_32 = {
+struct pir_table PIR_TABLE __aligned(16) VAR16EXPORT = {
     .pir = {
         .version = 0x0100,
         .size = sizeof(struct pir_table),

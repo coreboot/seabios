@@ -11,8 +11,7 @@
 #include "ioport.h" // outb
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 
-#if CONFIG_USE_SMM
-asm(
+ASM32(
     ".global smm_relocation_start\n"
     ".global smm_relocation_end\n"
     ".global smm_code_start\n"
@@ -69,7 +68,6 @@ asm(
     "smm_code_end:\n"
     "  .code32\n"
     );
-#endif
 
 extern u8 smm_relocation_start, smm_relocation_end;
 extern u8 smm_code_start, smm_code_end;

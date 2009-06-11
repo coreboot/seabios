@@ -10,11 +10,14 @@ ENTRY(post32)
 SECTIONS
 {
         .text code32_start : {
-                *(.text)
+                *(.text32)
 
                 . = code16_start ;
                 *(.text16)
                 final_code16_end = . ;
                 }
-        /DISCARD/ : { *(.discard*) *(.eh_frame) }
+        /DISCARD/ : {
+                *(.text*) *(.data*) *(.bss*) *(.rodata*)
+                *(COMMON) *(.discard*) *(.eh_frame)
+                }
 }
