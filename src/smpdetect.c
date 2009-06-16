@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "cmos.h" // CMOS_BIOS_SMP_COUNT
+#include "farptr.h" // ASSERT32
 
 #define CPUID_APIC (1 << 9)
 
