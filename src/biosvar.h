@@ -248,9 +248,7 @@ static inline u16 get_ebda_seg() {
 static inline struct extended_bios_data_area_s *
 get_ebda_ptr()
 {
-    extern void *__force_link_error__get_ebda_ptr_only_in_32bit();
-    if (MODE16)
-        return __force_link_error__get_ebda_ptr_only_in_32bit();
+    ASSERT32();
     return MAKE_FLATPTR(get_ebda_seg(), 0);
 }
 #define GET_EBDA2(eseg, var)                                            \
@@ -279,9 +277,7 @@ static inline u16 get_global_seg() {
 #define GET_GLOBAL(var)                         \
     GET_VAR(GLOBAL_SEGREG, (var))
 #define SET_GLOBAL(var, val) do {                                       \
-        extern void __force_link_error__set_global_only_in_32bit();     \
-        if (MODE16)                                                     \
-            __force_link_error__set_global_only_in_32bit();             \
+        ASSERT32();                                                     \
         (var) = (val);                                                  \
     } while (0)
 

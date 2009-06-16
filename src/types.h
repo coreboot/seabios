@@ -50,6 +50,7 @@ union u64_u32_u {
 # define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) __ASM(code)
+// Designate top-level assembler as 32bit only.
 # define ASM32(code)
 #else
 # define VISIBLE16

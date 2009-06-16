@@ -64,6 +64,7 @@ ASM16(
 int
 smp_probe(void)
 {
+    ASSERT32();
     if (smp_cpus)
         return smp_cpus;
 

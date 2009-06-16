@@ -157,6 +157,10 @@ static inline void outsl_fl(u16 port, void *ptr_fl, u16 count) {
     outsl(port, (u32*)FLATPTR_TO_OFFSET(ptr_fl), count);
 }
 
+extern void __force_link_error__only_in_32bit() __attribute__ ((noreturn));
+#define ASSERT16() do { } while (0)
+#define ASSERT32() __force_link_error__only_in_32bit()
+
 #else
 
 // In 32-bit mode there is no need to mess with the segments.
@@ -177,6 +181,10 @@ static inline void outsl_fl(u16 port, void *ptr_fl, u16 count) {
 #define outsb_fl(port, ptr_fl, count) outsb(port, ptr_fl, count)
 #define outsw_fl(port, ptr_fl, count) outsw(port, ptr_fl, count)
 #define outsl_fl(port, ptr_fl, count) outsl(port, ptr_fl, count)
+
+extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
+#define ASSERT16() __force_link_error__only_in_16bit()
+#define ASSERT32() do { } while (0)
 
 #endif
 

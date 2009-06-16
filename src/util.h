@@ -66,10 +66,7 @@ static inline u64 rdtscll(void)
 }
 
 #define call16_simpint(nr, peax, pflags) do {                           \
-        extern void __force_link_error__call16_simpint_only_in_16bit_mode(); \
-        if (!MODE16)                                                    \
-            __force_link_error__call16_simpint_only_in_16bit_mode();    \
-                                                                        \
+        ASSERT16();                                                     \
         asm volatile(                                                   \
             "stc\n"                                                     \
             "int %2\n"                                                  \

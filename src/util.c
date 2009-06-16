@@ -30,10 +30,7 @@ call16(struct bregs *callregs)
 inline void
 call16big(struct bregs *callregs)
 {
-    extern void __force_link_error__call16big_only_in_32bit_mode();
-    if (MODE16)
-        __force_link_error__call16big_only_in_32bit_mode();
-
+    ASSERT32();
     asm volatile(
         "calll __call16big_from32"
         : "+a" (callregs), "+m" (*callregs)
@@ -56,10 +53,7 @@ __call16_int(struct bregs *callregs, u16 offset)
 inline u32
 stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
 {
-    extern void __force_link_error__stack_hop_only_in_16bit_mode();
-    if (!MODE16)
-        __force_link_error__stack_hop_only_in_16bit_mode();
-
+    ASSERT16();
     u16 ebda_seg = get_ebda_seg(), bkup_ss;
     u32 bkup_esp;
     asm volatile(
