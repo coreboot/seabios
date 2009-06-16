@@ -220,8 +220,3 @@ _start()
     memset(&br, 0, sizeof(br));
     call16_int(0x19, &br);
 }
-
-// Ughh - some older gcc compilers have a bug which causes VISIBLE32
-// functions to not be exported as a global variable - force _start
-// to be global here.
-asm(".global _start");

@@ -12,42 +12,27 @@ TMPFILE3o=out/tmp_testcompile3.o
 $CC -fwhole-program -S -o /dev/null -xc /dev/null > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "  Working around no -fwhole-program" > /dev/fd/2
-    echo 1
+    echo 2
     exit 0
 fi
 
-# Test if "visible" variables are marked global.
-cat - > $TMPFILE1 <<EOF
-unsigned char t1 __attribute__((section(".data16.foo.19"))) __attribute__((externally_visible));
-EOF
-$CC -Os -c -fwhole-program $TMPFILE1 -o $TMPFILE1o > /dev/null 2>&1
-cat - > $TMPFILE2 <<EOF
-extern unsigned char t1;
-int __attribute__((externally_visible)) main() { return t1; }
-EOF
-$CC -Os -c -fwhole-program $TMPFILE2 -o $TMPFILE2o > /dev/null 2>&1
-$CC -nostdlib -Os $TMPFILE1o $TMPFILE2o -o $TMPFILE3o > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "This version of gcc does not properly handle" > /dev/fd/2
-    echo "  global variables in -fwhole-program mode." > /dev/fd/2
-    echo "Please upgrade to a newer gcc (eg, v4.3 or later)" > /dev/fd/2
-    echo -1
-    exit 1
-fi
-
-# Test if "visible" functions are marked global.
+# Test if "visible" variables and functions are marked global.
 cat - > $TMPFILE1 <<EOF
 void __attribute__((externally_visible)) t1() { }
+unsigned char v1 __attribute__((section(".data16.foo.19"))) __attribute__((externally_visible));
 EOF
 $CC -Os -c -fwhole-program $TMPFILE1 -o $TMPFILE1o > /dev/null 2>&1
 cat - > $TMPFILE2 <<EOF
 void t1();
-void __attribute__((externally_visible)) main() { t1(); }
+extern unsigned char v1;
+int __attribute__((externally_visible)) main() { t1(); return v1; }
 EOF
 $CC -Os -c -fwhole-program $TMPFILE2 -o $TMPFILE2o > /dev/null 2>&1
 $CC -nostdlib -Os $TMPFILE1o $TMPFILE2o -o $TMPFILE3o > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "  Working around non-global functions in -fwhole-program" > /dev/fd/2
+    echo "  Working around non-functional -fwhole-program" > /dev/fd/2
+    echo 2
+    exit 0
 fi
 
 # Test if "-combine" works

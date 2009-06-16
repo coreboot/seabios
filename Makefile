@@ -22,10 +22,9 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
 # Default compiler flags
 COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
                -mpreferred-stack-boundary=2 -mrtd -freg-struct-return \
-               $(call cc-option,$(CC),-fwhole-program -DWHOLE_PROGRAM,) \
                -ffreestanding -fomit-frame-pointer \
                -fno-delete-null-pointer-checks -Wno-strict-aliasing \
-               -ffunction-sections -fdata-sections \
+               -ffunction-sections -fdata-sections -fno-common \
                -minline-all-stringops
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
@@ -59,28 +58,36 @@ vpath %.S src vgasrc
 
 ################ Build rules
 
+# Verify the gcc configuration and test if -fwhole-program works.
 TESTGCC:=$(shell CC=$(CC) tools/test-gcc.sh)
 ifeq "$(TESTGCC)" "-1"
 $(error "Please upgrade GCC")
 endif
 
-ifndef AVOIDCOMBINE
-AVOIDCOMBINE=$(TESTGCC)
+ifndef COMPSTRAT
+COMPSTRAT=$(TESTGCC)
 endif
 
-# Do a whole file compile - two methods are supported.  The first
-# involves including all the content textually via #include
-# directives.  The second method uses gcc's "-combine" option.
-ifeq "$(AVOIDCOMBINE)" "1"
+# Do a whole file compile - three methods are supported.
+ifeq "$(COMPSTRAT)" "1"
+# First method - use -fwhole-program without -combine.
+define whole-compile
+@echo "  Compiling whole program $3"
+$(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
+$(Q)$(CC) $1 -fwhole-program -DWHOLE_PROGRAM -c $3.tmp.c -o $3
+endef
+else ifeq "$(COMPSTRAT)" "2"
+# Second menthod - don't use -fwhole-program at all.
 define whole-compile
 @echo "  Compiling whole program $3"
 $(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
 $(Q)$(CC) $1 -c $3.tmp.c -o $3
 endef
 else
+# Third (and preferred) method - use -fwhole-program with -combine
 define whole-compile
 @echo "  Compiling whole program $3"
-$(Q)$(CC) $1 -combine -c $2 -o $3
+$(Q)$(CC) $1 -fwhole-program -DWHOLE_PROGRAM -combine -c $2 -o $3
 endef
 endif
 

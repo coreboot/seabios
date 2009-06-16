@@ -4,11 +4,6 @@ compiled using standard gnu tools (eg, gas and gcc).
 To build, one should be able to run "make" in the main directory.  The
 resulting file "out/bios.bin" contains the processed bios image.
 
-The build requires gcc v4.1 or later.  Some buggy versions of gcc have
-issues with the '-combine' compiler option - in particular, recent
-versions of Ubuntu are affected.  One can use "make AVOIDCOMBINE=1" to
-get around this.
-
 
 Testing of images:
 
@@ -51,8 +46,8 @@ Overview of files:
 
 The src/ directory contains the bios source code.  Several of the
 files are compiled twice - once for 16bit mode and once for 32bit
-mode.  (The gcc compile option '-fwhole-program' is used to remove
-code that is not needed for a particular mode.)
+mode.  (The build system will remove code that is not needed for a
+particular mode.)
 
 The tools/ directory contains helper utilities for manipulating and
 building the final rom.
@@ -64,10 +59,11 @@ temporary and final files.
 Build overview:
 
 The 16bit code is compiled via gcc to assembler (file out/ccode.16.s).
-The gcc "-fwhole-program" option is used to optimize the process so
-that gcc can efficiently compile and discard unneeded code.  (In the
-code, one can use the macros 'VISIBLE16' and 'VISIBLE32' to instruct a
-symbol to be outputted in 16bit and 32bit mode respectively.)
+The gcc "-fwhole-program" and "-ffunction-sections -fdata-sections"
+options are used to optimize the process so that gcc can efficiently
+compile and discard unneeded code.  (In the code, one can use the
+macros 'VISIBLE16' and 'VISIBLE32' to instruct a symbol to be
+outputted in 16bit and 32bit mode respectively.)
 
 This resulting assembler code is pulled into romlayout.S.  The gas
 option ".code16gcc" is used prior to including the gcc generated
@@ -122,16 +118,17 @@ macros (GET/SET_GLOBAL, GET/SET_BDA, and GET/SET_EBDA) are available
 to simplify these accesses.
 
 Global variables defined in the C code can be read in 16bit mode if
-the variable declaration is marked with VAR16 or VAR16_32.  The
-GET_GLOBAL macro will then allow read access to the variable.  Global
-variables are stored in the 0xf000 segment, and their values are
-persistent across soft resets.  Because the f-segment is marked
-read-only during run-time, the 16bit code is not permitted to change
-the value of 16bit variables (use of the SET_GLOBAL macro from 16bit
-mode will cause a link error).  Code running in 32bit mode can not
-access variables with VAR16, but can access variables marked with
-VAR16_32 or with no marking at all.  The 32bit code can use the
-GET/SET_GLOBAL macros, but they are not required.
+the variable declaration is marked with VAR16, VAR16_32, VAR16EXPORT,
+or VAR16FIXED.  The GET_GLOBAL macro will then allow read access to
+the variable.  Global variables are stored in the 0xf000 segment, and
+their values are persistent across soft resets.  Because the f-segment
+is marked read-only during run-time, the 16bit code is not permitted
+to change the value of 16bit variables (use of the SET_GLOBAL macro
+from 16bit mode will cause a link error).  Code running in 32bit mode
+can not access variables with VAR16, but can access variables marked
+with VAR16_32, VAR16EXPORT, VAR16FIXED, or with no marking at all.
+The 32bit code can use the GET/SET_GLOBAL macros, but they are not
+required.
 
 
 GCC 16 bit stack limitations:
@@ -158,8 +155,8 @@ structures can also help.  It is also possible to transition to/from
 an extra stack stored in the EBDA using the stack_hop helper function.
 
 Some useful stats: the overhead for the entry to a bios handler that
-takes a 'struct bregs' is 38 bytes of stack space (6 bytes from
-interrupt insn, 28 bytes to store registers, and 4 bytes for call
+takes a 'struct bregs' is 42 bytes of stack space (6 bytes from
+interrupt insn, 32 bytes to store registers, and 4 bytes for call
 insn).  An entry to an ISR handler without args takes 30 bytes (6 + 20
 + 4).
 

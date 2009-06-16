@@ -463,7 +463,3 @@ handle_19()
     SET_EBDA(boot_sequence, 0);
     do_boot(0);
 }
-
-// Ughh - some older gcc compilers have a bug which causes VISIBLE32
-// functions to not be exported as global variables.
-asm(".global handle_18, handle_19");

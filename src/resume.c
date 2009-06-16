@@ -125,7 +125,3 @@ s3_resume()
     call16big(&br);
 }
 #endif
-
-// Ughh - some older gcc compilers have a bug which causes VISIBLE32
-// functions to not be exported as global variables.
-asm(".global s3_resume");
