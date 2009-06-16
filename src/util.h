@@ -89,7 +89,10 @@ int strcmp(const char *s1, const char *s2);
 inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
 inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
 void *memset(void *s, int c, size_t n);
+void *memcpy(void *d1, const void *s1, size_t len);
+#if MODE16 == 0
 #define memcpy __builtin_memcpy
+#endif
 inline void memcpy_far(u16 d_seg, void *d_far
                        , u16 s_seg, const void *s_far, size_t len);
 void *memmove(void *d, const void *s, size_t len);

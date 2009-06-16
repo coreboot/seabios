@@ -182,8 +182,11 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
 void *
 #undef memcpy
 memcpy(void *d1, const void *s1, size_t len)
+#if MODE16 == 0
 #define memcpy __builtin_memcpy
+#endif
 {
+    SET_SEG(ES, GET_SEG(SS));
     void *d = d1;
     if (((u32)d1 | (u32)s1 | len) & 3) {
         // non-aligned memcpy
