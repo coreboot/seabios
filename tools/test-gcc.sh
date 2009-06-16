@@ -43,10 +43,9 @@ void t1(struct ts *r);
 EOF
 $CC -c -fwhole-program -combine $TMPFILE1 $TMPFILE1 -o $TMPFILE1o > /dev/null 2>&1
 if [ $? -eq 0 ]; then
-    #echo "  Setting AVOIDCOMBINE=0" > /dev/fd/2
     echo 0
 else
-    echo "  Enabling AVOIDCOMBINE=1" > /dev/fd/2
+    echo "  Working around non-functional -combine" > /dev/fd/2
     echo 1
 fi
 
