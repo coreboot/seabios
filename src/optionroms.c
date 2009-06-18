@@ -338,8 +338,8 @@ optionrom_setup()
         // Find and deploy CBFS roms not associated with a device.
         struct cbfs_file *tmp = NULL;
         for (;;) {
-            tmp = cbfs_copy_gen_optionrom(
-                (void*)next_rom, BUILD_BIOS_ADDR - next_rom, tmp);
+            tmp = cbfs_copyfile_prefix(
+                (void*)next_rom, BUILD_BIOS_ADDR - next_rom, "genroms/", tmp);
             if (!tmp)
                 break;
             verifysize_optionrom((void*)next_rom, 0);
@@ -408,6 +408,19 @@ vga_setup()
         if (rom && !get_pnp_rom(rom))
             // Call rom even if it isn't a pnp rom.
             callrom(rom, OPTION_ROM_INITVECTOR, bdf);
+
+        // Find and deploy CBFS vga-style roms not associated with a device.
+        struct cbfs_file *tmp = NULL;
+        for (;;) {
+            tmp = cbfs_copyfile_prefix(
+                (void*)next_rom, BUILD_BIOS_ADDR - next_rom, "vgaroms/", tmp);
+            if (!tmp)
+                break;
+            rom = verifysize_optionrom((void*)next_rom, 0);
+            if (rom && !get_pnp_rom(rom))
+                // Call rom even if it isn't a pnp rom.
+                callrom(rom, OPTION_ROM_INITVECTOR, bdf);
+        }
     }
 
     dprintf(1, "Turning on vga console\n");

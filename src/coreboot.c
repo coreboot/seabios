@@ -494,17 +494,22 @@ cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
     return cbfs_copyfile(dst, maxlen, fname);
 }
 
+// Copy the next file with the given prefix - starting at pos 'last'.
 struct cbfs_file *
-cbfs_copy_gen_optionrom(void *dst, u32 maxlen, struct cbfs_file *file)
+cbfs_copyfile_prefix(void *dst, u32 maxlen, char *prefix
+                     , struct cbfs_file *last)
 {
     if (! CONFIG_COREBOOT_FLASH)
         return NULL;
-    if (! file)
+    dprintf(3, "Searching CBFS for data file prefix %s\n", prefix);
+    struct cbfs_file *file;
+    if (! last)
         file = cbfs_getfirst();
     else
-        file = cbfs_getnext(file);
+        file = cbfs_getnext(last);
+    int prefixlen = strlen(prefix);
     for (; file; file = cbfs_getnext(file)) {
-        if (memcmp("genroms/", file->filename, 8) != 0)
+        if (memcmp(prefix, file->filename, prefixlen) != 0)
             continue;
         u32 size = ntohl(file->len);
         void *src = (void*)file + ntohl(file->offset);

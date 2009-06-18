@@ -189,8 +189,8 @@ const char *cbfs_findNprefix(const char *prefix, int n);
 int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(const char *filename);
 struct cbfs_file;
-struct cbfs_file *cbfs_copy_gen_optionrom(void *dst, u32 maxlen
-                                          , struct cbfs_file *file);
+struct cbfs_file *cbfs_copyfile_prefix(void *dst, u32 maxlen, char *prefix
+                                       , struct cbfs_file *last);
 void coreboot_setup();
 
 // vgahooks.c
