@@ -119,12 +119,6 @@ static void pci_bios_init_device(u16 bdf)
             pci_set_io_region_addr(bdf, 3, 0x374);
         }
         break;
-    case PCI_CLASS_DISPLAY_VGA:
-        if (vendor_id != 0x1234)
-            goto default_map;
-        /* VGA: map frame buffer to default Bochs VBE address */
-        pci_set_io_region_addr(bdf, 0, 0xE0000000);
-        break;
     case PCI_CLASS_SYSTEM_PIC:
         /* PIC */
         if (vendor_id == PCI_VENDOR_ID_IBM) {
@@ -183,9 +177,8 @@ static void pci_bios_init_device(u16 bdf)
         && device_id == PCI_DEVICE_ID_INTEL_82371AB_3) {
         /* PIIX4 Power Management device (for ACPI) */
 
-        if (CONFIG_KVM)
-            // acpi sci is hardwired to 9
-            pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
+        // acpi sci is hardwired to 9
+        pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
 
         pci_config_writel(bdf, 0x40, PORT_ACPI_PM_BASE | 1);
         pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
@@ -202,7 +195,7 @@ pci_bios_setup(void)
         return;
 
     pci_bios_io_addr = 0xc000;
-    pci_bios_mem_addr = 0xf0000000;
+    pci_bios_mem_addr = 0xc0000000;
     pci_bios_bigmem_addr = RamSize;
     if (pci_bios_bigmem_addr < 0x90000000)
         pci_bios_bigmem_addr = 0x90000000;
