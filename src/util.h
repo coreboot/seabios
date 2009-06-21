@@ -51,11 +51,26 @@ static inline void wbinvd(void)
     asm volatile("wbinvd");
 }
 
+#define CPUID_MSR (1 << 5)
+#define CPUID_APIC (1 << 9)
+#define CPUID_MTRR (1 << 12)
 static inline void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
 {
     asm("cpuid"
         : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
         : "0" (index));
+}
+
+static inline u64 rdmsr(u32 index)
+{
+    u64 ret;
+    asm ("rdmsr" : "=A"(ret) : "c"(index));
+    return ret;
+}
+
+static inline void wrmsr(u32 index, u64 val)
+{
+    asm volatile ("wrmsr" : : "c"(index), "A"(val));
 }
 
 static inline u64 rdtscll(void)
@@ -177,8 +192,10 @@ void pci_bios_setup(void);
 // smm.c
 void smm_init();
 
-// smpdetect.c
-int smp_probe(void);
+// smp.c
+extern u32 CountCPUs VAR16_32;
+void wrmsr_smp(u32 index, u64 val);
+void smp_probe(void);
 void smp_probe_setup(void);
 
 // smbios.c

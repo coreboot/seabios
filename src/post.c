@@ -163,10 +163,10 @@ post()
     mathcp_setup();
 
     smp_probe_setup();
-
     memmap_setup();
     ram_probe();
     mtrr_setup();
+    smp_probe();
 
     pnp_setup();
     vga_setup();

@@ -44,7 +44,7 @@ struct mpt_cpu {
     u8 apicid;
     u8 apicver;
     u8 cpuflag;
-    u32 cpufeature;
+    u32 cpusignature;
     u32 featureflag;
     u32 reserved[2];
 } PACKED;

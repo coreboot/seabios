@@ -24,28 +24,18 @@
 #define MTRRphysBase_MSR(reg) (0x200 + 2 * (reg))
 #define MTRRphysMask_MSR(reg) (0x200 + 2 * (reg) + 1)
 
-static u64 rdmsr(u32 index)
-{
-    u64 ret;
-    asm ("rdmsr" : "=A"(ret) : "c"(index));
-    return ret;
-}
-
-static void wrmsr(u32 index, u64 val)
-{
-    asm volatile ("wrmsr" : : "c"(index), "A"(val));
-}
-
-static void wrmsr_smp(u32 index, u64 val)
-{
-    // XXX - should run this on other CPUs also.
-    wrmsr(index, val);
-}
-
 void mtrr_setup(void)
 {
-    if (! CONFIG_KVM)
+    if (CONFIG_COREBOOT)
         return;
+
+    u32 eax, ebx, ecx, cpuid_features;
+    cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
+    if (!(cpuid_features & CPUID_MTRR))
+        return;
+    if (!(cpuid_features & CPUID_MSR))
+        return;
+
     dprintf(3, "init mtrr\n");
 
     int i, vcnt, fix, wc;

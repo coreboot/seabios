@@ -35,7 +35,7 @@
 struct acpi_table_header         /* ACPI common table header */
 {
     ACPI_TABLE_HEADER_DEF
-};
+} PACKED;
 
 /*
  * ACPI 1.0 Root System Description Table (RSDT)
@@ -46,7 +46,7 @@ struct rsdt_descriptor_rev1
     ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
     u32 table_offset_entry [3]; /* Array of pointers to other */
     /* ACPI tables */
-};
+} PACKED;
 
 /*
  * ACPI 1.0 Firmware ACPI Control Structure (FACS)
@@ -62,7 +62,7 @@ struct facs_descriptor_rev1
     u32 S4bios_f        : 1;    /* Indicates if S4BIOS support is present */
     u32 reserved1       : 31;   /* Must be 0 */
     u8  resverved3 [40];        /* Reserved - must be zero */
-};
+} PACKED;
 
 
 /*
@@ -124,7 +124,7 @@ struct fadt_descriptor_rev1
 #else
     u32 flags;
 #endif
-};
+} PACKED;
 
 /*
  * MADT values and structures
@@ -149,7 +149,7 @@ struct multiple_apic_table
 #else
     u32 flags;
 #endif
-};
+} PACKED;
 
 
 /* Values for Type in APIC_HEADER_DEF */
@@ -185,7 +185,7 @@ struct madt_processor_apic
 #else
     u32 flags;
 #endif
-};
+} PACKED;
 
 struct madt_io_apic
 {
@@ -195,7 +195,7 @@ struct madt_io_apic
     u32 address;                /* APIC physical address */
     u32 interrupt;              /* Global system interrupt where INTI
                                  * lines start */
-};
+} PACKED;
 
 #if CONFIG_KVM
 /* IRQs 5,9,10,11 */
@@ -245,7 +245,7 @@ acpi_build_processor_ssdt(u8 *ssdt)
 {
     u8 *ssdt_ptr = ssdt;
     int i, length;
-    int smp_cpus = smp_probe();
+    int smp_cpus = CountCPUs;
     int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
 
     ssdt_ptr[9] = 0; // checksum;
@@ -348,7 +348,7 @@ void acpi_bios_init(void)
     ssdt = (void *)(addr);
     addr += acpi_build_processor_ssdt(ssdt);
 
-    int smp_cpus = smp_probe();
+    int smp_cpus = CountCPUs;
     addr = ALIGN(addr, 8);
     madt_addr = addr;
     madt_size = sizeof(*madt) +

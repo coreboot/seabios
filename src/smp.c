@@ -10,8 +10,6 @@
 #include "cmos.h" // CMOS_BIOS_SMP_COUNT
 #include "farptr.h" // ASSERT32
 
-#define CPUID_APIC (1 << 9)
-
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
 
@@ -47,38 +45,68 @@ static inline u8 readb(const void *addr)
     return *(volatile const u8 *)addr;
 }
 
-u32 smp_cpus VAR16_32;
+struct { u32 ecx, eax, edx; } smp_mtrr[16] VAR16_32;
+u32 smp_mtrr_count VAR16_32;
+
+void
+wrmsr_smp(u32 index, u64 val)
+{
+    wrmsr(index, val);
+    if (smp_mtrr_count >= ARRAY_SIZE(smp_mtrr))
+        return;
+    smp_mtrr[smp_mtrr_count].ecx = index;
+    smp_mtrr[smp_mtrr_count].eax = val;
+    smp_mtrr[smp_mtrr_count].edx = val >> 32;
+    smp_mtrr_count++;
+}
+
+u32 CountCPUs VAR16_32;
 extern void smp_ap_boot_code();
 ASM16(
     "  .global smp_ap_boot_code\n"
     "smp_ap_boot_code:\n"
-    // Increment the cpu counter
+
+    // Setup data segment
     "  movw $" __stringify(SEG_BIOS) ", %ax\n"
     "  movw %ax, %ds\n"
-    "  lock incl smp_cpus\n"
+
+    // MTRR setup
+    "  movl $smp_mtrr, %esi\n"
+    "  movl smp_mtrr_count, %ebx\n"
+    "1:testl %ebx, %ebx\n"
+    "  jz 2f\n"
+    "  movl 0(%esi), %ecx\n"
+    "  movl 4(%esi), %eax\n"
+    "  movl 8(%esi), %edx\n"
+    "  wrmsr\n"
+    "  addl $12, %esi\n"
+    "  decl %ebx\n"
+    "  jmp 1b\n"
+    "2:\n"
+
+    // Increment the cpu counter
+    "  lock incl CountCPUs\n"
+
     // Halt the processor.
     "1:hlt\n"
     "  jmp 1b\n"
     );
 
-/* find the number of CPUs by launching a SIPI to them */
-int
+// find and initialize the CPUs by launching a SIPI to them
+void
 smp_probe(void)
 {
     ASSERT32();
-    if (smp_cpus)
-        return smp_cpus;
-
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
     if (! (cpuid_features & CPUID_APIC)) {
         // No apic - only the main cpu is present.
-        smp_cpus = 1;
-        return 1;
+        CountCPUs= 1;
+        return;
     }
 
     // Init the counter.
-    writel(&smp_cpus, 1);
+    writel(&CountCPUs, 1);
 
     // Setup jump trampoline to counter code.
     u64 old = *(u64*)BUILD_AP_BOOT_ADDR;
@@ -100,20 +128,19 @@ smp_probe(void)
     if (CONFIG_COREBOOT)
         mdelay(10);
     else
-        while (inb_cmos(CMOS_BIOS_SMP_COUNT) + 1 != readl(&smp_cpus))
+        while (inb_cmos(CMOS_BIOS_SMP_COUNT) + 1 != readl(&CountCPUs))
             ;
 
     // Restore memory.
     *(u64*)BUILD_AP_BOOT_ADDR = old;
 
-    u32 count = readl(&smp_cpus);
-    dprintf(1, "Found %d cpu(s)\n", count);
-    return count;
+    dprintf(1, "Found %d cpu(s)\n", readl(&CountCPUs));
 }
 
-// Reset smp_cpus to zero (forces a recheck on reboots).
+// Reset variables to zero
 void
 smp_probe_setup(void)
 {
-    smp_cpus = 0;
+    CountCPUs = 0;
+    smp_mtrr_count = 0;
 }

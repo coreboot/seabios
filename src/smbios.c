@@ -559,7 +559,7 @@ smbios_init(void)
     add_struct(smbios_type_0_init(p));
     add_struct(smbios_type_1_init(p));
     add_struct(smbios_type_3_init(p));
-    int smp_cpus = smp_probe();
+    int smp_cpus = CountCPUs;
     for (cpu_num = 1; cpu_num <= smp_cpus; cpu_num++)
         add_struct(smbios_type_4_init(p, cpu_num));
     add_struct(smbios_type_16_init(p));

@@ -9,7 +9,7 @@ OUT=out/
 
 # Source files
 SRCBOTH=output.c util.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
-        serial.c clock.c pic.c cdrom.c ps2port.c smpdetect.c resume.c \
+        serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c vgahooks.c font.c
 SRC32=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \

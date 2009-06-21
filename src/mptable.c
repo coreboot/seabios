@@ -18,7 +18,7 @@ mptable_init(void)
 
     dprintf(3, "init MPTable\n");
 
-    int smp_cpus = smp_probe();
+    int smp_cpus = CountCPUs;
     if (smp_cpus <= 1)
         // Building an mptable on uniprocessor machines confuses some OSes.
         return;
@@ -57,6 +57,8 @@ mptable_init(void)
     config->lapic = BUILD_APIC_ADDR;
 
     // CPU definitions.
+    u32 cpuid_signature, ebx, ecx, cpuid_features;
+    cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
     struct mpt_cpu *cpus = (void*)&config[1];
     int i;
     for (i = 0; i < smp_cpus; i++) {
@@ -67,8 +69,13 @@ mptable_init(void)
         cpu->apicver = 0x11;
         /* cpu flags: enabled, bootstrap cpu */
         cpu->cpuflag = (i == 0 ? 3 : 1);
-        cpu->cpufeature = 0x600;
-        cpu->featureflag = 0x201;
+        if (cpuid_signature) {
+            cpu->cpusignature = cpuid_signature;
+            cpu->featureflag = cpuid_features;
+        } else {
+            cpu->cpusignature = 0x600;
+            cpu->featureflag = 0x201;
+        }
     }
 
     /* isa bus */
