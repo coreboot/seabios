@@ -48,7 +48,6 @@ handle_resume(u8 status)
         }
         // NO BREAK
     case 0x00:
-    case 0x09:
     case 0x0d ... 0xfd:
     case 0xff:
         // Normal post - now that status has been cleared a reset will
