@@ -135,7 +135,7 @@ $(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios16.lds $(OUT)rombios.lds
 	@echo "  Linking $@"
 	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32.o -o $(OUT)rom16.reloc.o
 	$(Q)$(STRIP) $(OUT)rom16.reloc.o -o $(OUT)rom16.final.o
-	$(Q)$(OBJCOPY) --extract-symbol --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
+	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
 	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32.o -R $(OUT)rom16.moved.o -o $@
 
 $(OUT)bios.bin.elf: $(OUT)rom.o
