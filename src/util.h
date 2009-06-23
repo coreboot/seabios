@@ -193,7 +193,7 @@ void pci_bios_setup(void);
 void smm_init();
 
 // smp.c
-extern u32 CountCPUs VAR16_32;
+extern u32 CountCPUs;
 void wrmsr_smp(u32 index, u64 val);
 void smp_probe(void);
 void smp_probe_setup(void);
