@@ -19,6 +19,7 @@ fi
 # Test if "visible" variables and functions are marked global.
 cat - > $TMPFILE1 <<EOF
 void __attribute__((externally_visible)) t1() { }
+extern unsigned char v1;
 unsigned char v1 __attribute__((section(".data16.foo.19"))) __attribute__((externally_visible));
 EOF
 $CC -Os -c -fwhole-program $TMPFILE1 -o $TMPFILE1o > /dev/null 2>&1
