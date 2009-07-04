@@ -379,7 +379,7 @@ boot_cdrom(struct ipl_entry_s *ie)
     call_boot_entry(bootseg, bootip, bootdrv);
 }
 
-// Boot from a CD-ROM
+// Boot from a CBFS payload
 static void
 boot_cbfs(struct ipl_entry_s *ie)
 {

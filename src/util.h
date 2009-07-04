@@ -206,7 +206,7 @@ const char *cbfs_findNprefix(const char *prefix, int n);
 int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(const char *filename);
 struct cbfs_file;
-struct cbfs_file *cbfs_copyfile_prefix(void *dst, u32 maxlen, char *prefix
+struct cbfs_file *cbfs_copyfile_prefix(void *dst, u32 maxlen, const char *prefix
                                        , struct cbfs_file *last);
 void coreboot_setup();
 
@@ -215,8 +215,8 @@ void handle_155f();
 
 // optionroms.c
 void call_bcv(u16 seg, u16 ip);
-void vga_setup();
 void optionrom_setup();
+void vga_setup();
 
 // resume.c
 void init_dma();

@@ -496,7 +496,7 @@ cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
 
 // Copy the next file with the given prefix - starting at pos 'last'.
 struct cbfs_file *
-cbfs_copyfile_prefix(void *dst, u32 maxlen, char *prefix
+cbfs_copyfile_prefix(void *dst, u32 maxlen, const char *prefix
                      , struct cbfs_file *last)
 {
     if (! CONFIG_COREBOOT_FLASH)
