@@ -90,6 +90,8 @@
 #define CONFIG_VGAHOOKS 0
 // Support S3 resume handler.
 #define CONFIG_S3_RESUME 1
+// Run the vga rom during S3 resume.
+#define CONFIG_S3_RESUME_VGA_INIT 0
 // define it if the (emulated) hardware supports SMM mode
 #define CONFIG_USE_SMM 1
 // Maximum number of map entries in the e820 map

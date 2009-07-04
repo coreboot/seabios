@@ -438,3 +438,14 @@ vga_setup()
     // Write to screen.
     printf("Starting SeaBIOS\n\n");
 }
+
+void
+s3_resume_vga_init()
+{
+    if (!CONFIG_S3_RESUME_VGA_INIT)
+        return;
+    struct rom_header *rom = (void*)OPTION_ROM_START;
+    if (! is_valid_rom(rom))
+        return;
+    callrom(rom, 0);
+}

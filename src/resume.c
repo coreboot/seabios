@@ -104,6 +104,8 @@ s3_resume()
 
     smm_init();
 
+    s3_resume_vga_init();
+
     make_bios_readonly();
 
     u32 s3_resume_vector = find_resume_vector();
