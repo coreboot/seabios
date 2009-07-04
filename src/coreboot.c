@@ -62,8 +62,7 @@ copy_mptable(void *pos)
     memcpy((void*)bios_table_cur_addr, pos, length);
     struct mptable_floating_s *newp = (void*)bios_table_cur_addr;
     newp->physaddr = bios_table_cur_addr + length;
-    newp->checksum = 0;
-    newp->checksum = -checksum(newp, sizeof(*newp));
+    newp->checksum -= checksum(newp, sizeof(*newp));
     memcpy((void*)bios_table_cur_addr + length, (void*)p->physaddr, mpclength);
     bios_table_cur_addr += length + mpclength;
 }

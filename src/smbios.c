@@ -244,12 +244,9 @@ smbios_entry_point_init(void *start,
     ep->number_of_structures = number_of_structures;
     ep->smbios_bcd_revision = 0x24;
 
-    ep->checksum = 0;
-    ep->intermediate_checksum = 0;
+    ep->checksum -= checksum(start, 0x10);
 
-    ep->checksum = -checksum(start, 0x10);
-
-    ep->intermediate_checksum = -checksum(start + 0x10, ep->length - 0x10);
+    ep->intermediate_checksum -= checksum(start + 0x10, ep->length - 0x10);
 }
 
 /* Type 0 -- BIOS Information */

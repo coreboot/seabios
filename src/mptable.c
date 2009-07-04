@@ -44,7 +44,7 @@ mptable_init(void)
     floating->physaddr = (u32)config;
     floating->length = 1;
     floating->spec_rev = 4;
-    floating->checksum = -checksum(floating, sizeof(*floating));
+    floating->checksum -= checksum(floating, sizeof(*floating));
 
     // Config structure.
     memset(config, 0, sizeof(*config));
@@ -106,7 +106,7 @@ mptable_init(void)
     }
 
     // Set checksum.
-    config->checksum = -checksum(config, config->length);
+    config->checksum -= checksum(config, config->length);
 
     dprintf(1, "MP table addr=0x%x MPC table addr=0x%x size=0x%x\n",
             (u32)floating, (u32)config, length);

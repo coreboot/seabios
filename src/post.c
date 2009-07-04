@@ -209,7 +209,7 @@ _start()
     boot_prep();
 
     // Setup bios checksum.
-    BiosChecksum = -checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE - 1);
+    BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
 
     // Prep for boot process.
     make_bios_readonly();

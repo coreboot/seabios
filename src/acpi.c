@@ -236,7 +236,7 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     memcpy(h->oem_table_id + 4, (void*)&sig, 4);
     h->oem_revision = cpu_to_le32(1);
     h->asl_compiler_revision = cpu_to_le32(1);
-    h->checksum = -checksum(h, len);
+    h->checksum -= checksum(h, len);
 }
 
 #define SSDT_SIGNATURE 0x54445353// SSDT
@@ -369,7 +369,7 @@ void acpi_bios_init(void)
     rsdp->signature = RSDP_SIGNATURE;
     memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
     rsdp->rsdt_physical_address = cpu_to_le32(rsdt_addr);
-    rsdp->checksum = -checksum(rsdp, 20);
+    rsdp->checksum -= checksum(rsdp, 20);
     RsdpAddr = rsdp;
 
     /* RSDT */

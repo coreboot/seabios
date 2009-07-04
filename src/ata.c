@@ -951,8 +951,7 @@ fill_fdpt(int driveid)
     fdpt->a0h_signature = 0xa0;
 
     // Checksum structure.
-    u8 sum = checksum(fdpt, sizeof(*fdpt)-1);
-    fdpt->checksum = -sum;
+    fdpt->checksum -= checksum(fdpt, sizeof(*fdpt));
 }
 
 // Map a drive (that was registered via add_bcv_hd)
