@@ -28,7 +28,7 @@ extern u16 __segment_FS, __segment_GS;
         union u64_u32_u *__r64_ptr = (union u64_u32_u *)&(var); \
         READ32_SEG(SEG, __value.hi, __r64_ptr->hi);             \
         READ32_SEG(SEG, __value.lo, __r64_ptr->lo);             \
-        (value) = __value.val;                                  \
+        *(u64*)&(value) = __value.val;                          \
     } while (0)
 #define WRITE8_SEG(SEG, var, value)                             \
     __asm__("movb %b1, %%" #SEG ":%0" : "=m"(var)               \
