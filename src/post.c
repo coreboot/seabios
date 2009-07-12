@@ -81,11 +81,10 @@ init_bda()
     u16 eseg = EBDA_SEGMENT_START;
     SET_BDA(ebda_seg, eseg);
 
+    // Init ebda
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = esize;
-    SET_IVT(0x41, eseg, offsetof(struct extended_bios_data_area_s, fdpt[0]));
-    SET_IVT(0x46, eseg, offsetof(struct extended_bios_data_area_s, fdpt[1]));
 }
 
 static void
