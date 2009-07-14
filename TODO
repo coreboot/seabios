@@ -1,14 +1,35 @@
+Enhance shadow support: Write-enable c, d, e segments; write protect
+option roms before boot.  When copying bios - just copy from high
+memory.
+
+Replace hand-rolled memory allocation code with new malloc_fseg() and
+malloc_high() functions.
+
+Refactor acpi rsdt table creation code - allow each sub-table to be
+added dynamically.
+
+Deploy smbios in high memory.
+
+Unify floppy functions and main disk functions?
+
+Add int 0x1589 support.
+
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
-  * bochs cvs 20081208:           -- synched
-  * coreboot (r3348):    20060708 -- no noteworthy enhancements
-  * qemu (r6125):        20080603 -- acpi hpet table
-  * kvm (1a33292):       20081016 -- acpi dsdt changes, e820 vmx
-    pages, setup mtrrs, clear tsc, acpi intsrcovr table, different pci
-    irqs, smbios always uses 16 cpus, no acpi ssdt, fadt->gpe0_blk set
-  * virtualbox (r13560): 20061231 -- lots of mouse changes, logo,
-    scsi/etherboot hooks, int 1589, floppy data rate?, int19 calls
-    post
+  * bochs cvs (20090620):
+    -- hpet, int1589, smbios mem>16GB, mptable on 1 cpu, mptable irq0
+       override
+  * coreboot (r3348):    (bochs 20060708)
+    -- no noteworthy enhancements
+  * qemu (r6125):        (bochs 20080603)
+    -- acpi hpet table
+  * kvm (1a33292):       (bochs 20081016)
+    -- acpi dsdt changes, e820 vmx pages, setup mtrrs, clear tsc, acpi
+       intsrcovr table, different pci irqs, smbios always uses 16
+       cpus, no acpi ssdt, fadt->gpe0_blk set
+  * virtualbox (r13560): (bochs 20061231)
+    -- lots of mouse changes, logo, scsi/etherboot hooks, int 1589,
+       floppy data rate?, int19 calls post
 
 Possibly introduce a data type for the many seg/off pairs.
 
@@ -25,17 +46,16 @@ location.
 
 Implement bios post memory manager (PMM)?
 
-Add support for calling BCVs (and registering ATA drives) in a user
-selectable manor.
+Support PCIv3 roms?  Add support for PCI "configuration code"
+extensions?  Add support for PCI permanent memory extensions to PMM?
 
 Possibly add option to eliminate tsc based delays on emulators.
 
 Add a kconfig style configuration program instead of requiring users
 to modify config.h.
 
-Look at integrating the lgpl vgabios into tree.
-
-Look at usb booting specs.  Look at possibly supporting usb
-keyboard/mice.
+Support usb booting?  Support usb keyboard/mice?
 
 Add a graphical boot splash screen?
+
+Possibly support sending debug information over EHCI debug port.
