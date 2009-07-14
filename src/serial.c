@@ -9,6 +9,31 @@
 #include "util.h" // debug_enter
 #include "bregs.h" // struct bregs
 
+// Timers based on 18.2Hz clock irq.
+struct tick_timer_s {
+    u16 last_tick, remaining;
+};
+
+struct tick_timer_s
+initTickTimer(u16 count)
+{
+    struct tick_timer_s tt = {GET_BDA(timer_counter), count};
+    return tt;
+}
+
+int
+checkTickTimer(struct tick_timer_s *tt)
+{
+    u16 timer = GET_BDA(timer_counter);
+    if (tt->last_tick != timer) {
+        tt->last_tick = timer;
+        tt->last_tick--;
+        if (!tt->last_tick)
+            return 1;
+    }
+    return 0;
+}
+
 
 /****************************************************************
  * COM ports
@@ -92,20 +117,24 @@ handle_1401(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
-    u16 timer = GET_BDA(timer_counter);
-    u16 timeout = GET_BDA(com_timeout[regs->dx]);
-    while (((inb(addr+SEROFF_LSR) & 0x60) != 0x60) && (timeout)) {
-        u16 val16 = GET_BDA(timer_counter);
-        if (val16 != timer) {
-            timer = val16;
-            timeout--;
+    struct tick_timer_s tt = initTickTimer(GET_BDA(com_timeout[regs->dx]));
+    irq_enable();
+    for (;;) {
+        u8 lsr = inb(addr+SEROFF_LSR);
+        if ((lsr & 0x60) == 0x60) {
+            // Success - can write data
+            outb(regs->al, addr+SEROFF_DATA);
+            // XXX - reread lsr?
+            regs->ah = lsr;
+            break;
+        }
+        if (checkTickTimer(&tt)) {
+            // Timed out - can't write data.
+            regs->ah = lsr | 0x80;
+            break;
         }
     }
-    if (timeout)
-        outb(regs->al, addr+SEROFF_DATA);
-    regs->ah = inb(addr+SEROFF_LSR);
-    if (!timeout)
-        regs->ah |= 0x80;
+    irq_disable();
     set_success(regs);
 }
 
@@ -116,21 +145,23 @@ handle_1402(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
-    u16 timer = GET_BDA(timer_counter);
-    u16 timeout = GET_BDA(com_timeout[regs->dx]);
-    while (((inb(addr+SEROFF_LSR) & 0x01) == 0) && (timeout)) {
-        u16 val16 = GET_BDA(timer_counter);
-        if (val16 != timer) {
-            timer = val16;
-            timeout--;
+    struct tick_timer_s tt = initTickTimer(GET_BDA(com_timeout[regs->dx]));
+    irq_enable();
+    for (;;) {
+        u8 lsr = inb(addr+SEROFF_LSR);
+        if (lsr & 0x01) {
+            // Success - can read data
+            regs->al = inb(addr+SEROFF_DATA);
+            regs->ah = lsr;
+            break;
+        }
+        if (checkTickTimer(&tt)) {
+            // Timed out - can't read data.
+            regs->ah = lsr | 0x80;
+            break;
         }
     }
-    if (timeout) {
-        regs->ah = 0;
-        regs->al = inb(addr+SEROFF_DATA);
-    } else {
-        regs->ah = inb(addr+SEROFF_LSR);
-    }
+    irq_disable();
     set_success(regs);
 }
 
@@ -162,8 +193,6 @@ handle_14(struct bregs *regs)
         handle_14XX(regs);
         return;
     }
-
-    irq_enable();
 
     switch (regs->ah) {
     case 0x00: handle_1400(regs); break;
@@ -205,8 +234,8 @@ lpt_setup()
     dprintf(3, "init lpt\n");
 
     u16 count = 0;
-    count += detect_parport(0x378, 0x14, count);
-    count += detect_parport(0x278, 0x14, count);
+    count += detect_parport(PORT_LPT1, 0x14, count);
+    count += detect_parport(PORT_LPT2, 0x14, count);
     dprintf(1, "Found %d lpt ports\n", count);
 
     // Equipment word bits 14..15 determing # parallel ports
@@ -227,16 +256,6 @@ getLptAddr(struct bregs *regs)
     return addr;
 }
 
-static void
-lpt_ret(struct bregs *regs, u16 addr, u16 timeout)
-{
-    u8 val8 = inb(addr+1);
-    regs->ah = (val8 ^ 0x48);
-    if (!timeout)
-        regs->ah |= 0x01;
-    set_success(regs);
-}
-
 // INT 17 - PRINTER - WRITE CHARACTER
 static void
 handle_1700(struct bregs *regs)
@@ -244,18 +263,32 @@ handle_1700(struct bregs *regs)
     u16 addr = getLptAddr(regs);
     if (!addr)
         return;
-    u16 timeout = GET_BDA(lpt_timeout[regs->dx]) << 8;
+
+    struct tick_timer_s tt = initTickTimer(GET_BDA(lpt_timeout[regs->dx]));
+    irq_enable();
 
     outb(regs->al, addr);
     u8 val8 = inb(addr+2);
     outb(val8 | 0x01, addr+2); // send strobe
-    nop();
+    udelay(5);
     outb(val8 & ~0x01, addr+2);
-    // XXX - implement better timeout code.
-    while (((inb(addr+1) & 0x40) == 0x40) && (timeout))
-        timeout--;
 
-    lpt_ret(regs, addr, timeout);
+    for (;;) {
+        u8 v = inb(addr+1);
+        if (!(v & 0x40)) {
+            // Success
+            regs->ah = v ^ 0x48;
+            break;
+        }
+        if (checkTickTimer(&tt)) {
+            // Timeout
+            regs->ah = (v ^ 0x48) | 0x01;
+            break;
+        }
+    }
+
+    irq_disable();
+    set_success(regs);
 }
 
 // INT 17 - PRINTER - INITIALIZE PORT
@@ -265,14 +298,14 @@ handle_1701(struct bregs *regs)
     u16 addr = getLptAddr(regs);
     if (!addr)
         return;
-    u16 timeout = GET_BDA(lpt_timeout[regs->dx]) << 8;
 
     u8 val8 = inb(addr+2);
     outb(val8 & ~0x04, addr+2); // send init
-    nop();
+    udelay(5);
     outb(val8 | 0x04, addr+2);
 
-    lpt_ret(regs, addr, timeout);
+    regs->ah = inb(addr+1) ^ 0x48;
+    set_success(regs);
 }
 
 // INT 17 - PRINTER - GET STATUS
@@ -282,9 +315,8 @@ handle_1702(struct bregs *regs)
     u16 addr = getLptAddr(regs);
     if (!addr)
         return;
-    u16 timeout = GET_BDA(lpt_timeout[regs->dx]) << 8;
-
-    lpt_ret(regs, addr, timeout);
+    regs->ah = inb(addr+1) ^ 0x48;
+    set_success(regs);
 }
 
 static void
@@ -303,8 +335,6 @@ handle_17(struct bregs *regs)
         handle_17XX(regs);
         return;
     }
-
-    irq_enable();
 
     switch (regs->ah) {
     case 0x00: handle_1700(regs); break;
