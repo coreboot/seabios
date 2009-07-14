@@ -106,30 +106,32 @@ $(OUT)asm-offsets.h: $(OUT)asm-offsets.s
 	@echo "  Generating offset file $@"
 	$(Q)./tools/gen-offsets.sh $< $@
 
+
 $(OUT)ccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
-$(OUT)romlayout16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h
+$(OUT)code16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16INC) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)ccode32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
+$(OUT)code32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
 
-$(OUT)rom32.o: $(OUT)ccode32.o $(OUT)rombios32.lds
-	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
-
-$(OUT)romlayout16.lds $(OUT)romlayout32.lds: $(OUT)ccode32.o $(OUT)romlayout16.o
+$(OUT)romlayout16.lds $(OUT)romlayout32.lds: $(OUT)code32.o $(OUT)code16.o
 	@echo "  Building layout information $@"
-	$(Q)$(OBJDUMP) -thr $(OUT)ccode32.o > $(OUT)ccode32.o.objdump
-	$(Q)$(OBJDUMP) -thr $(OUT)romlayout16.o > $(OUT)romlayout16.o.objdump
-	$(Q)./tools/layoutrom.py $(OUT)romlayout16.o.objdump $(OUT)ccode32.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32.lds
+	$(Q)$(OBJDUMP) -thr $(OUT)code32.o > $(OUT)code32.o.objdump
+	$(Q)$(OBJDUMP) -thr $(OUT)code16.o > $(OUT)code16.o.objdump
+	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32.lds
 
 $(OUT)layout16.lds: $(OUT)romlayout16.lds
 $(OUT)rombios32.lds: $(OUT)romlayout32.lds
 
-$(OUT)rom16.o: $(OUT)romlayout16.o $(OUT)rom32.o $(OUT)layout16.lds
+
+$(OUT)rom16.o: $(OUT)code16.o $(OUT)rom32.o $(OUT)layout16.lds
 	@echo "  Linking (no relocs) $@"
 	$(Q)$(LD) -r -T $(OUT)layout16.lds $< -o $@
+
+$(OUT)rom32.o: $(OUT)code32.o $(OUT)rombios32.lds
+	@echo "  Linking (no relocs) $@"
+	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
 
 $(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios16.lds $(OUT)rombios.lds
 	@echo "  Linking $@"
