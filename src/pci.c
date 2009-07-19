@@ -10,6 +10,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "pci_regs.h" // PCI_VENDOR_ID
+#include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val)
 {
@@ -90,6 +91,61 @@ pci_next(int bdf, int *pmax)
     }
 
     return bdf;
+}
+
+// Find a vga device with legacy address decoding enabled.
+int
+pci_find_vga()
+{
+    int bdf = 0x0000, max = 0x0100;
+    for (;;) {
+        if (bdf >= max) {
+            if (CONFIG_PCI_ROOT1 && bdf <= (CONFIG_PCI_ROOT1 << 8))
+                bdf = CONFIG_PCI_ROOT1 << 8;
+            else if (CONFIG_PCI_ROOT2 && bdf <= (CONFIG_PCI_ROOT2 << 8))
+                bdf = CONFIG_PCI_ROOT2 << 8;
+            else
+            	return -1;
+            max = bdf + 0x0100;
+        }
+
+        u16 cls = pci_config_readw(bdf, PCI_CLASS_DEVICE);
+        if (cls == 0x0000 || cls == 0xffff) {
+            // Device not present.
+            if (pci_bdf_to_fn(bdf) == 0)
+                bdf += 8;
+            else
+                bdf += 1;
+            continue;
+        }
+        if (cls == PCI_CLASS_DISPLAY_VGA) {
+            u16 cmd = pci_config_readw(bdf, PCI_COMMAND);
+            if (cmd & PCI_COMMAND_IO && cmd & PCI_COMMAND_MEMORY)
+                // Found active vga card
+                return bdf;
+        }
+
+        // Check if device is a bridge.
+        u8 hdr = pci_config_readb(bdf, PCI_HEADER_TYPE);
+        u8 ht = hdr & 0x7f;
+        if (ht == PCI_HEADER_TYPE_BRIDGE || ht == PCI_HEADER_TYPE_CARDBUS) {
+            u32 ctrl = pci_config_readb(bdf, PCI_BRIDGE_CONTROL);
+            if (ctrl & PCI_BRIDGE_CTL_VGA) {
+                // Found a VGA enabled bridge.
+                u32 pbus = pci_config_readl(bdf, PCI_PRIMARY_BUS);
+                bdf = (pbus & 0xff00);
+                max = bdf + 0x100;
+                continue;
+            }
+        }
+
+        if (pci_bdf_to_fn(bdf) == 0 && (hdr & 0x80) == 0)
+            // Last found device wasn't a multi-function device - skip to
+            // the next device.
+            bdf += 8;
+        else
+            bdf += 1;
+    }
 }
 
 // Search for a device with the specified vendor and device ids.

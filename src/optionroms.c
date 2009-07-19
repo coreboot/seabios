@@ -416,7 +416,7 @@ vga_setup()
         init_optionrom((void*)OPTION_ROM_START, 0, 1);
     } else {
         // Find and deploy PCI VGA rom.
-        int bdf = VGAbdf = pci_find_class(PCI_CLASS_DISPLAY_VGA);
+        int bdf = VGAbdf = pci_find_vga();
         if (bdf >= 0)
             init_pcirom(bdf, 1);
 
