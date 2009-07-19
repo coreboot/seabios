@@ -211,7 +211,9 @@ struct cbfs_file *cbfs_copyfile_prefix(void *dst, u32 maxlen, const char *prefix
 void coreboot_setup();
 
 // vgahooks.c
+extern int VGAbdf;
 void handle_155f();
+void vgahook_setup(const char *vendor, const char *part);
 
 // optionroms.c
 void call_bcv(u16 seg, u16 ip);

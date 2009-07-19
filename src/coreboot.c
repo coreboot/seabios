@@ -143,6 +143,16 @@ struct cb_memory {
 #define MEM_RANGE_COUNT(_rec) \
         (((_rec)->size - sizeof(*(_rec))) / sizeof((_rec)->map[0]))
 
+struct cb_mainboard {
+    u32 tag;
+    u32 size;
+    u8  vendor_idx;
+    u8  part_idx;
+    char  strings[0];
+};
+
+#define CB_TAG_MAINBOARD 0x0003
+
 struct cb_forward {
     u32 tag;
     u32 size;
@@ -259,6 +269,15 @@ coreboot_fill_map()
     // XXX - just create dummy smbios table for now - should detect if
     // smbios/dmi table is found from coreboot and use that instead.
     smbios_init();
+
+    struct cb_mainboard *cbmb = find_cb_subtable(cbh, CB_TAG_MAINBOARD);
+    if (cbmb) {
+        const char *vendor = &cbmb->strings[cbmb->vendor_idx];
+        const char *part = &cbmb->strings[cbmb->part_idx];
+        dprintf(1, "Found mainboard %s %s\n", vendor, part);
+
+        vgahook_setup(vendor, part);
+    }
 
     return;
 
