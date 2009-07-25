@@ -18,15 +18,15 @@
             (__addr - __start < __size); \
         })
 
+// On the emulators, the bios at 0xf0000 is also at 0xffff0000
+#define BIOS_SRC_ADDR 0xffff0000
+
 // Enable shadowing and copy bios.
 static void
-copy_bios(u16 bdf)
+copy_bios(u16 bdf, int reg)
 {
-    int v = pci_config_readb(bdf, 0x59);
-    v |= 0x30;
-    pci_config_writeb(bdf, 0x59, v);
-    memcpy((void *)BUILD_BIOS_ADDR, (void *)BUILD_BIOS_TMP_ADDR
-           , BUILD_BIOS_SIZE);
+    pci_config_writeb(bdf, 0x59, reg | 0x30);
+    memcpy((void*)BUILD_BIOS_ADDR, (void*)BIOS_SRC_ADDR, BUILD_BIOS_SIZE);
 }
 
 // Make the BIOS code segment area (0xf0000) writable.
@@ -45,24 +45,24 @@ make_bios_writable()
         return;
     }
 
-    // Copy the bios to a temporary area.
-    memcpy((void *)BUILD_BIOS_TMP_ADDR, (void *)BUILD_BIOS_ADDR
-           , BUILD_BIOS_SIZE);
+    int reg = pci_config_readb(bdf, 0x59);
+    if (reg & 0x30) {
+        // Ram already present - just enable writes
+        pci_config_writeb(bdf, 0x59, reg | 0x30);
+        return;
+    }
 
     // Enable shadowing and copy bios.
     if (IN_RANGE((u32)copy_bios, BUILD_BIOS_ADDR, BUILD_BIOS_SIZE)) {
         // Jump to shadow enable function - use the copy in the
         // temporary storage area so that memory does not change under
         // the executing code.
-        u32 pos = (u32)copy_bios - BUILD_BIOS_ADDR + BUILD_BIOS_TMP_ADDR;
-        void (*func)(u16 bdf) = (void*)pos;
-        func(bdf);
+        u32 pos = (u32)copy_bios - BUILD_BIOS_ADDR + BIOS_SRC_ADDR;
+        void (*func)(u16 bdf, int reg) = (void*)pos;
+        func(bdf, reg);
     } else {
-        copy_bios(bdf);
+        copy_bios(bdf, reg);
     }
-
-    // Clear the temporary area.
-    memset((void *)BUILD_BIOS_TMP_ADDR, 0, BUILD_BIOS_SIZE);
 }
 
 // Make the BIOS code segment area (0xf0000) read-only.

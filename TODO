@@ -1,6 +1,5 @@
 Enhance shadow support: Write-enable c, d, e segments; write protect
-option roms before boot.  When copying bios - just copy from high
-memory.
+option roms before boot.
 
 Replace hand-rolled memory allocation code with new malloc_fseg() and
 malloc_high() functions.
