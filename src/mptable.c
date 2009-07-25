@@ -1,12 +1,12 @@
 // MPTable generation (on emulators)
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "memmap.h" // bios_table_cur_addr
+#include "memmap.h" // malloc_fseg
 #include "config.h" // CONFIG_*
 #include "mptable.h" // MPTABLE_SIGNATURE
 
@@ -23,21 +23,20 @@ mptable_init(void)
         // Building an mptable on uniprocessor machines confuses some OSes.
         return;
 
-    u32 start = ALIGN(bios_table_cur_addr, 16);
     int length = (sizeof(struct mptable_floating_s)
                   + sizeof(struct mptable_config_s)
                   + sizeof(struct mpt_cpu) * smp_cpus
                   + sizeof(struct mpt_bus)
                   + sizeof(struct mpt_ioapic)
                   + sizeof(struct mpt_intsrc) * 16);
-    if (start + length > bios_table_end_addr) {
+    void *start = malloc_fseg(length);
+    if (!start) {
         dprintf(1, "No room for MPTABLE!\n");
         return;
     }
-    bios_table_cur_addr = start + length;
 
     /* floating pointer structure */
-    struct mptable_floating_s *floating = (void*)start;
+    struct mptable_floating_s *floating = start;
     memset(floating, 0, sizeof(*floating));
     struct mptable_config_s *config = (void*)&floating[1];
     floating->signature = MPTABLE_SIGNATURE;
@@ -108,6 +107,6 @@ mptable_init(void)
     // Set checksum.
     config->checksum -= checksum(config, config->length);
 
-    dprintf(1, "MP table addr=0x%x MPC table addr=0x%x size=0x%x\n",
-            (u32)floating, (u32)config, length);
+    dprintf(1, "MP table addr=%p MPC table addr=%p size=%d\n",
+            floating, config, length);
 }

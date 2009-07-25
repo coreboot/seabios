@@ -1,6 +1,6 @@
 // Coreboot interface support.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -11,6 +11,7 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "biosvar.h" // GET_EBDA
 #include "lzmadecode.h" // LzmaDecode
+#include "memmap.h" // malloc_fseg
 
 
 /****************************************************************
@@ -29,15 +30,14 @@ copy_pir(void *pos)
         return;
     if (checksum(pos, p->size) != 0)
         return;
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    if (bios_table_cur_addr + p->size > bios_table_end_addr) {
+    void *newpos = malloc_fseg(p->size);
+    if (!newpos) {
         dprintf(1, "No room to copy PIR table!\n");
         return;
     }
-    dprintf(1, "Copying PIR from %p to %x\n", pos, bios_table_cur_addr);
-    memcpy((void*)bios_table_cur_addr, pos, p->size);
-    PirOffset = bios_table_cur_addr - BUILD_BIOS_ADDR;
-    bios_table_cur_addr += p->size;
+    dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
+    memcpy(newpos, pos, p->size);
+    PirOffset = (u32)newpos - BUILD_BIOS_ADDR;
 }
 
 static void
@@ -51,20 +51,17 @@ copy_mptable(void *pos)
     if (checksum(pos, sizeof(*p)) != 0)
         return;
     u32 length = p->length * 16;
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
     u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
-    if (bios_table_cur_addr + length + mpclength > bios_table_end_addr) {
+    struct mptable_floating_s *newpos = malloc_fseg(length + mpclength);
+    if (!newpos) {
         dprintf(1, "No room to copy MPTABLE!\n");
         return;
     }
-    dprintf(1, "Copying MPTABLE from %p/%x to %x\n"
-            , pos, p->physaddr, bios_table_cur_addr);
-    memcpy((void*)bios_table_cur_addr, pos, length);
-    struct mptable_floating_s *newp = (void*)bios_table_cur_addr;
-    newp->physaddr = bios_table_cur_addr + length;
-    newp->checksum -= checksum(newp, sizeof(*newp));
-    memcpy((void*)bios_table_cur_addr + length, (void*)p->physaddr, mpclength);
-    bios_table_cur_addr += length + mpclength;
+    dprintf(1, "Copying MPTABLE from %p/%x to %p\n", pos, p->physaddr, newpos);
+    memcpy(newpos, pos, length);
+    newpos->physaddr = (u32)newpos + length;
+    newpos->checksum -= checksum(newpos, sizeof(*newpos));
+    memcpy((void*)newpos + length, (void*)p->physaddr, mpclength);
 }
 
 static void
@@ -83,15 +80,14 @@ copy_acpi_rsdp(void *pos)
         if (checksum(pos, length) != 0)
             return;
     }
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    if (bios_table_cur_addr + length > bios_table_end_addr) {
+    void *newpos = malloc_fseg(length);
+    if (!newpos) {
         dprintf(1, "No room to copy ACPI RSDP table!\n");
         return;
     }
-    dprintf(1, "Copying ACPI RSDP from %p to %x\n", pos, bios_table_cur_addr);
-    RsdpAddr = (void*)bios_table_cur_addr;
-    memcpy(RsdpAddr, pos, length);
-    bios_table_cur_addr += length;
+    dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
+    memcpy(newpos, pos, length);
+    RsdpAddr = newpos;
 }
 
 // Attempt to find (and relocate) any standard bios tables found in a

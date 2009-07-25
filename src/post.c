@@ -1,6 +1,6 @@
 // 32bit code to Power On Self Test (POST) a machine.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -166,6 +166,7 @@ post()
     ram_probe();
     mtrr_setup();
     smp_probe();
+    malloc_setup();
 
     pnp_setup();
     vga_setup();
@@ -179,6 +180,7 @@ post()
     smm_init();
 
     init_bios_tables();
+    malloc_finalize();
     memmap_finalize();
 
     boot_setup();

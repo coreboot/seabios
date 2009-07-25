@@ -1,13 +1,13 @@
 // Support for generating ACPI tables (on emulators)
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "acpi.h" // struct rsdp_descriptor
 #include "util.h" // memcpy
-#include "memmap.h" // bios_table_cur_addr
+#include "memmap.h" // malloc_fseg
 #include "pci.h" // pci_find_device
 #include "biosvar.h" // GET_EBDA
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
@@ -44,7 +44,7 @@ struct acpi_table_header         /* ACPI common table header */
 struct rsdt_descriptor_rev1
 {
     ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
-    u32 table_offset_entry [3]; /* Array of pointers to other */
+    u32 table_offset_entry[3];  /* Array of pointers to other */
     /* ACPI tables */
 } PACKED;
 
@@ -224,8 +224,9 @@ static inline u32 cpu_to_le32(u32 x)
     return x;
 }
 
-static void acpi_build_table_header(struct acpi_table_header *h,
-                                    u32 sig, int len, u8 rev)
+static void
+build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev
+             , struct rsdt_descriptor_rev1 *rsdt)
 {
     h->signature = sig;
     h->length = cpu_to_le32(len);
@@ -237,153 +238,44 @@ static void acpi_build_table_header(struct acpi_table_header *h,
     h->oem_revision = cpu_to_le32(1);
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum -= checksum(h, len);
+
+    // Add to rsdt table
+    if (!rsdt)
+        return;
+    if (rsdt->length >= sizeof(*rsdt)) {
+        dprintf(1, "No more room for rsdt entry!\n");
+        return;
+    }
+    u32 *p = (void*)rsdt + rsdt->length;
+    *p = (u32)h;
+    rsdt->length += sizeof(*p);
 }
 
-#define SSDT_SIGNATURE 0x54445353// SSDT
-static int
-acpi_build_processor_ssdt(u8 *ssdt)
+static void
+build_fadt(struct rsdt_descriptor_rev1 *rsdt, int bdf)
 {
-    u8 *ssdt_ptr = ssdt;
-    int i, length;
-    int smp_cpus = CountCPUs;
-    int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
+    struct fadt_descriptor_rev1 *fadt = malloc_high(sizeof(*fadt));
+    struct facs_descriptor_rev1 *facs = malloc_high(sizeof(*facs) + 63);
+    void *dsdt = malloc_high(sizeof(AmlCode));
 
-    ssdt_ptr[9] = 0; // checksum;
-    ssdt_ptr += sizeof(struct acpi_table_header);
-
-    // caluculate the length of processor block and scope block excluding PkgLength
-    length = 0x0d * acpi_cpus + 4;
-
-    // build processor scope header
-    *(ssdt_ptr++) = 0x10; // ScopeOp
-    if (length <= 0x3e) {
-        *(ssdt_ptr++) = length + 1;
-    } else {
-        *(ssdt_ptr++) = 0x7F;
-        *(ssdt_ptr++) = (length + 2) >> 6;
-    }
-    *(ssdt_ptr++) = '_'; // Name
-    *(ssdt_ptr++) = 'P';
-    *(ssdt_ptr++) = 'R';
-    *(ssdt_ptr++) = '_';
-
-    // build object for each processor
-    for(i=0;i<acpi_cpus;i++) {
-        *(ssdt_ptr++) = 0x5B; // ProcessorOp
-        *(ssdt_ptr++) = 0x83;
-        *(ssdt_ptr++) = 0x0B; // Length
-        *(ssdt_ptr++) = 'C';  // Name (CPUxx)
-        *(ssdt_ptr++) = 'P';
-        if ((i & 0xf0) != 0)
-            *(ssdt_ptr++) = (i >> 4) < 0xa ? (i >> 4) + '0' : (i >> 4) + 'A' - 0xa;
-        else
-            *(ssdt_ptr++) = 'U';
-        *(ssdt_ptr++) = (i & 0xf) < 0xa ? (i & 0xf) + '0' : (i & 0xf) + 'A' - 0xa;
-        *(ssdt_ptr++) = i;
-        *(ssdt_ptr++) = 0x10; // Processor block address
-        *(ssdt_ptr++) = 0xb0;
-        *(ssdt_ptr++) = 0;
-        *(ssdt_ptr++) = 0;
-        *(ssdt_ptr++) = 6;    // Processor block length
+    if (!fadt || !facs || !dsdt) {
+        dprintf(1, "Not enough memory for fadt!\n");
+        return;
     }
 
-    acpi_build_table_header((struct acpi_table_header *)ssdt,
-                            SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
+    /* FACS */
+    facs = (void*)ALIGN((u32)facs, 64);
+    memset(facs, 0, sizeof(*facs));
+    facs->signature = FACS_SIGNATURE;
+    facs->length = cpu_to_le32(sizeof(*facs));
 
-    return ssdt_ptr - ssdt;
-}
-
-struct rsdp_descriptor *RsdpAddr;
-
-/* base_addr must be a multiple of 4KB */
-void acpi_bios_init(void)
-{
-    if (! CONFIG_ACPI)
-        return;
-
-    dprintf(3, "init ACPI tables\n");
-
-    // This code is hardcoded for PIIX4 Power Management device.
-    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL
-                              , PCI_DEVICE_ID_INTEL_82371AB_3);
-    if (bdf < 0)
-        // Device not found
-        return;
-
-    struct rsdp_descriptor *rsdp;
-    struct rsdt_descriptor_rev1 *rsdt;
-    struct fadt_descriptor_rev1 *fadt;
-    struct facs_descriptor_rev1 *facs;
-    struct multiple_apic_table *madt;
-    u8 *dsdt, *ssdt;
-    u32 base_addr, rsdt_addr, fadt_addr, addr, facs_addr, dsdt_addr, ssdt_addr;
-    u32 acpi_tables_size, madt_addr, madt_size;
-    int i;
-
-    /* reserve memory space for tables */
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    rsdp = (void *)bios_table_cur_addr;
-    bios_table_cur_addr += sizeof(*rsdp);
-
-    addr = base_addr = RamSize - CONFIG_ACPI_DATA_SIZE;
-    add_e820(addr, CONFIG_ACPI_DATA_SIZE, E820_ACPI);
-    rsdt_addr = addr;
-    rsdt = (void *)(addr);
-    addr += sizeof(*rsdt);
-
-    fadt_addr = addr;
-    fadt = (void *)(addr);
-    addr += sizeof(*fadt);
-
-    addr = ALIGN(addr, 64);
-    facs_addr = addr;
-    facs = (void *)(addr);
-    addr += sizeof(*facs);
-
-    dsdt_addr = addr;
-    dsdt = (void *)(addr);
-    addr += sizeof(AmlCode);
-
-    ssdt_addr = addr;
-    ssdt = (void *)(addr);
-    addr += acpi_build_processor_ssdt(ssdt);
-
-    int smp_cpus = CountCPUs;
-    addr = ALIGN(addr, 8);
-    madt_addr = addr;
-    madt_size = sizeof(*madt) +
-        sizeof(struct madt_processor_apic) * smp_cpus +
-        sizeof(struct madt_io_apic);
-    madt = (void *)(addr);
-    addr += madt_size;
-
-    acpi_tables_size = addr - base_addr;
-
-    dprintf(1, "ACPI tables: RSDP addr=0x%08lx"
-            " ACPI DATA addr=0x%08lx size=0x%x\n",
-            (unsigned long)rsdp,
-            (unsigned long)rsdt, acpi_tables_size);
-
-    /* RSDP */
-    memset(rsdp, 0, sizeof(*rsdp));
-    rsdp->signature = RSDP_SIGNATURE;
-    memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
-    rsdp->rsdt_physical_address = cpu_to_le32(rsdt_addr);
-    rsdp->checksum -= checksum(rsdp, 20);
-    RsdpAddr = rsdp;
-
-    /* RSDT */
-    memset(rsdt, 0, sizeof(*rsdt));
-    rsdt->table_offset_entry[0] = cpu_to_le32(fadt_addr);
-    rsdt->table_offset_entry[1] = cpu_to_le32(madt_addr);
-    rsdt->table_offset_entry[2] = cpu_to_le32(ssdt_addr);
-    acpi_build_table_header((struct acpi_table_header *)rsdt,
-                            RSDT_SIGNATURE, sizeof(*rsdt), 1);
+    /* DSDT */
+    memcpy(dsdt, AmlCode, sizeof(AmlCode));
 
     /* FADT */
     memset(fadt, 0, sizeof(*fadt));
-    fadt->firmware_ctrl = cpu_to_le32(facs_addr);
-    fadt->dsdt = cpu_to_le32(dsdt_addr);
+    fadt->firmware_ctrl = cpu_to_le32((u32)facs);
+    fadt->dsdt = cpu_to_le32((u32)dsdt);
     fadt->model = 1;
     fadt->reserved1 = 0;
     int pm_sci_int = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
@@ -401,23 +293,29 @@ void acpi_bios_init(void)
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
     /* WBINVD + PROC_C1 + PWR_BUTTON + SLP_BUTTON + FIX_RTC */
     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6));
-    acpi_build_table_header((struct acpi_table_header *)fadt, FACP_SIGNATURE,
-                            sizeof(*fadt), 1);
 
-    /* FACS */
-    memset(facs, 0, sizeof(*facs));
-    facs->signature = FACS_SIGNATURE;
-    facs->length = cpu_to_le32(sizeof(*facs));
+    build_header((void*)fadt, FACP_SIGNATURE, sizeof(*fadt), 1, rsdt);
+}
 
-    /* DSDT */
-    memcpy(dsdt, AmlCode, sizeof(AmlCode));
-
-    /* MADT */
+static void
+build_madt(struct rsdt_descriptor_rev1 *rsdt)
+{
+    int smp_cpus = CountCPUs;
+    int madt_size = (sizeof(struct multiple_apic_table)
+                     + sizeof(struct madt_processor_apic) * smp_cpus
+                     + sizeof(struct madt_io_apic)
+                     + sizeof(struct madt_intsrcovr) * 16);
+    struct multiple_apic_table *madt = malloc_high(madt_size);
+    if (!madt) {
+        dprintf(1, "Not enough memory for madt!\n");
+        return;
+    }
     memset(madt, 0, madt_size);
     madt->local_apic_address = cpu_to_le32(BUILD_APIC_ADDR);
     madt->flags = cpu_to_le32(1);
-    struct madt_processor_apic *apic = (void *)&madt[1];
-    for(i=0;i<smp_cpus;i++) {
+    struct madt_processor_apic *apic = (void*)&madt[1];
+    int i;
+    for (i=0; i<smp_cpus; i++) {
         apic->type = APIC_PROCESSOR;
         apic->length = sizeof(*apic);
         apic->processor_id = i;
@@ -425,7 +323,7 @@ void acpi_bios_init(void)
         apic->flags = cpu_to_le32(1);
         apic++;
     }
-    struct madt_io_apic *io_apic = (void *)apic;
+    struct madt_io_apic *io_apic = (void*)apic;
     io_apic->type = APIC_IO;
     io_apic->length = sizeof(*io_apic);
     io_apic->io_apic_id = smp_cpus;
@@ -444,11 +342,116 @@ void acpi_bios_init(void)
         intsrcovr->gsi    = i;
         intsrcovr->flags  = 0xd; /* active high, level triggered */
         intsrcovr++;
-        madt_size += sizeof(struct madt_intsrcovr);
     }
 
-    acpi_build_table_header((struct acpi_table_header *)madt,
-                            APIC_SIGNATURE, madt_size, 1);
+    build_header((void*)madt, APIC_SIGNATURE, (void*)intsrcovr - (void*)madt
+                 , 1, rsdt);
+}
+
+#define SSDT_SIGNATURE 0x54445353 // SSDT
+static void
+build_ssdt(struct rsdt_descriptor_rev1 *rsdt)
+{
+    int smp_cpus = CountCPUs;
+    int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
+    // calculate the length of processor block and scope block
+    // excluding PkgLength
+    int cpu_length = 13 * acpi_cpus + 4;
+
+    int length = sizeof(struct acpi_table_header) + 3 + cpu_length;
+    u8 *ssdt = malloc_high(length);
+    if (! ssdt) {
+        dprintf(1, "No space for ssdt!\n");
+        return;
+    }
+
+    u8 *ssdt_ptr = ssdt;
+    ssdt_ptr[9] = 0; // checksum;
+    ssdt_ptr += sizeof(struct acpi_table_header);
+
+    // build processor scope header
+    *(ssdt_ptr++) = 0x10; // ScopeOp
+    if (cpu_length <= 0x3e) {
+        *(ssdt_ptr++) = cpu_length + 1;
+    } else {
+        *(ssdt_ptr++) = 0x7F;
+        *(ssdt_ptr++) = (cpu_length + 2) >> 6;
+    }
+    *(ssdt_ptr++) = '_'; // Name
+    *(ssdt_ptr++) = 'P';
+    *(ssdt_ptr++) = 'R';
+    *(ssdt_ptr++) = '_';
+
+    // build object for each processor
+    int i;
+    for (i=0; i<acpi_cpus; i++) {
+        *(ssdt_ptr++) = 0x5B; // ProcessorOp
+        *(ssdt_ptr++) = 0x83;
+        *(ssdt_ptr++) = 0x0B; // Length
+        *(ssdt_ptr++) = 'C';  // Name (CPUxx)
+        *(ssdt_ptr++) = 'P';
+        if ((i & 0xf0) != 0)
+            *(ssdt_ptr++) = (i >> 4) < 0xa ? (i >> 4) + '0' : (i >> 4) + 'A' - 0xa;
+        else
+            *(ssdt_ptr++) = 'U';
+        *(ssdt_ptr++) = (i & 0xf) < 0xa ? (i & 0xf) + '0' : (i & 0xf) + 'A' - 0xa;
+        *(ssdt_ptr++) = i;
+        *(ssdt_ptr++) = 0x10; // Processor block address
+        *(ssdt_ptr++) = 0xb0;
+        *(ssdt_ptr++) = 0;
+        *(ssdt_ptr++) = 0;
+        *(ssdt_ptr++) = 6;    // Processor block length
+    }
+
+    build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1, rsdt);
+}
+
+struct rsdp_descriptor *RsdpAddr;
+
+void
+acpi_bios_init(void)
+{
+    if (! CONFIG_ACPI)
+        return;
+
+    dprintf(3, "init ACPI tables\n");
+
+    // This code is hardcoded for PIIX4 Power Management device.
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL
+                              , PCI_DEVICE_ID_INTEL_82371AB_3);
+    if (bdf < 0)
+        // Device not found
+        return;
+
+    // Create initial rsdt table
+    struct rsdt_descriptor_rev1 *rsdt = malloc_high(sizeof(*rsdt));
+    if (!rsdt) {
+        dprintf(1, "Not enough memory for acpi rsdt table!\n");
+        return;
+    }
+    memset(rsdt, 0, sizeof(*rsdt));
+    rsdt->length = offsetof(struct rsdt_descriptor_rev1, table_offset_entry[0]);
+
+    // Add tables
+    build_fadt(rsdt, bdf);
+    build_ssdt(rsdt);
+    build_madt(rsdt);
+
+    build_header((void*)rsdt, RSDT_SIGNATURE, rsdt->length, 1, NULL);
+
+    // Build rsdp pointer table
+    struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
+    if (!rsdp) {
+        dprintf(1, "Not enough memory for acpi rsdp!\n");
+        return;
+    }
+    memset(rsdp, 0, sizeof(*rsdp));
+    rsdp->signature = RSDP_SIGNATURE;
+    memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
+    rsdp->rsdt_physical_address = cpu_to_le32((u32)rsdt);
+    rsdp->checksum -= checksum(rsdp, 20);
+    RsdpAddr = rsdp;
+    dprintf(1, "ACPI tables: RSDP=%p RSDT=%p\n", rsdp, rsdt);
 }
 
 u32

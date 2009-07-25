@@ -98,11 +98,11 @@
 #define CONFIG_MAX_E820 32
 // Space to reserve in f-segment for run-time built bios tables.
 #define CONFIG_MAX_BIOSTABLE 2048
+// Space to reserve in high-memory for tables
+#define CONFIG_MAX_HIGHTABLE (64*1024)
 
 #define CONFIG_MAX_ATA_INTERFACES 4
 #define CONFIG_MAX_ATA_DEVICES  (CONFIG_MAX_ATA_INTERFACES*2)
-
-#define CONFIG_ACPI_DATA_SIZE 0x00010000L
 
 #define CONFIG_MODEL_ID      0xFC
 #define CONFIG_SUBMODEL_ID   0x00

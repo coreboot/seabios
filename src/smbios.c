@@ -1,12 +1,12 @@
 // smbios table generation (on emulators)
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "memmap.h" // bios_table_cur_addr
+#include "memmap.h" // malloc_fseg
 #include "biosvar.h" // GET_EBDA
 
 
@@ -222,13 +222,16 @@ struct smbios_type_127 {
  ****************************************************************/
 
 static void
-smbios_entry_point_init(void *start,
-                        u16 max_structure_size,
+smbios_entry_point_init(u16 max_structure_size,
                         u16 structure_table_length,
-                        u32 structure_table_address,
+                        void *structure_table_address,
                         u16 number_of_structures)
 {
-    struct smbios_entry_point *ep = (struct smbios_entry_point *)start;
+    struct smbios_entry_point *ep = malloc_fseg(sizeof(*ep));
+    if (! ep) {
+        dprintf(1, "No space for smbios entry table!\n");
+        return;
+    }
 
     memcpy(ep->anchor_string, "_SM_", 4);
     ep->length = 0x1f;
@@ -240,13 +243,15 @@ smbios_entry_point_init(void *start,
     memcpy(ep->intermediate_anchor_string, "_DMI_", 5);
 
     ep->structure_table_length = structure_table_length;
-    ep->structure_table_address = structure_table_address;
+    ep->structure_table_address = (u32)structure_table_address;
     ep->number_of_structures = number_of_structures;
     ep->smbios_bcd_revision = 0x24;
 
-    ep->checksum -= checksum(start, 0x10);
+    ep->checksum -= checksum(ep, 0x10);
 
-    ep->intermediate_checksum -= checksum(start + 0x10, ep->length - 0x10);
+    ep->intermediate_checksum -= checksum((void*)ep + 0x10, ep->length - 0x10);
+
+    dprintf(1, "SMBIOS ptr=%p table=%p\n", ep, structure_table_address);
 }
 
 /* Type 0 -- BIOS Information */
@@ -537,13 +542,14 @@ smbios_init(void)
 
     dprintf(3, "init SMBIOS tables\n");
 
-    unsigned cpu_num, nr_structs = 0, max_struct_size = 0;
-    char *start, *p, *q;
+    char *start = malloc_high(2048); // XXX - determine real size
+    if (! start) {
+        dprintf(1, "No memory for smbios tables\n");
+        return;
+    }
 
-    bios_table_cur_addr = ALIGN(bios_table_cur_addr, 16);
-    start = (void *)(bios_table_cur_addr);
-
-    p = (char *)start + sizeof(struct smbios_entry_point);
+    u32 nr_structs = 0, max_struct_size = 0;
+    char *q, *p = start;
 
 #define add_struct(fn) { \
     q = (fn); \
@@ -556,7 +562,7 @@ smbios_init(void)
     add_struct(smbios_type_0_init(p));
     add_struct(smbios_type_1_init(p));
     add_struct(smbios_type_3_init(p));
-    int smp_cpus = CountCPUs;
+    int cpu_num, smp_cpus = CountCPUs;
     for (cpu_num = 1; cpu_num <= smp_cpus; cpu_num++)
         add_struct(smbios_type_4_init(p, cpu_num));
     add_struct(smbios_type_16_init(p));
@@ -568,13 +574,5 @@ smbios_init(void)
 
 #undef add_struct
 
-    smbios_entry_point_init(
-        start, max_struct_size,
-        (p - (char *)start) - sizeof(struct smbios_entry_point),
-        (u32)(start + sizeof(struct smbios_entry_point)),
-        nr_structs);
-
-    bios_table_cur_addr += (p - (char *)start);
-
-    dprintf(1, "SMBIOS table addr=0x%08lx\n", (unsigned long)start);
+    smbios_entry_point_init(max_struct_size, p - start, start, nr_structs);
 }
