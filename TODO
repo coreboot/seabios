@@ -1,14 +1,6 @@
 Enhance shadow support: Write-enable c, d, e segments; write protect
 option roms before boot.
 
-Replace hand-rolled memory allocation code with new malloc_fseg() and
-malloc_high() functions.
-
-Refactor acpi rsdt table creation code - allow each sub-table to be
-added dynamically.
-
-Deploy smbios in high memory.
-
 Unify floppy functions and main disk functions?
 
 Add int 0x1589 support.

@@ -157,7 +157,7 @@ __malloc(struct zone_s *zone, u32 size)
     return (void*)newpos;
 }
 
-// Allocate memory at the top of ram.
+// Allocate memory at the top of 32bit ram.
 void *
 malloc_high(u32 size)
 {
