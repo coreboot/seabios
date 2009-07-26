@@ -112,8 +112,11 @@
 #define BUILD_STACK_ADDR          0x7c00
 #define BUILD_S3RESUME_STACK_ADDR 0x1000
 #define BUILD_AP_BOOT_ADDR        0x10000
+#define BUILD_ROM_START           0xc0000
 #define BUILD_BIOS_ADDR           0xf0000
 #define BUILD_BIOS_SIZE           0x10000
+// 32KB for shadow ram copying (works around emulator deficiencies)
+#define BUILD_BIOS_TMP_ADDR       0x30000
 
 #define BUILD_APIC_ADDR           0xfee00000
 #define BUILD_IOAPIC_ADDR         0xfec00000

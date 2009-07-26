@@ -64,15 +64,14 @@ struct pnp_data {
     u16 staticresource;
 } PACKED;
 
-#define OPTION_ROM_START 0xc0000
 #define OPTION_ROM_SIGNATURE 0xaa55
 #define OPTION_ROM_ALIGN 2048
 #define OPTION_ROM_INITVECTOR offsetof(struct rom_header, initVector[0])
 #define PCI_ROM_SIGNATURE 0x52494350 // PCIR
 #define PCIROM_CODETYPE_X86 0
 
-// Next available position for an option rom.
-static u32 next_rom;
+// The end of the last deployed rom.
+u32 RomEnd;
 
 
 /****************************************************************
@@ -171,15 +170,15 @@ static struct rom_header *
 copy_rom(struct rom_header *rom)
 {
     u32 romsize = rom->size * 512;
-    if (next_rom + romsize > BUILD_BIOS_ADDR) {
+    if (RomEnd + romsize > BUILD_BIOS_ADDR) {
         // Option rom doesn't fit.
         dprintf(1, "Option rom %p doesn't fit.\n", rom);
         return NULL;
     }
     dprintf(4, "Copying option rom (size %d) from %p to %x\n"
-            , romsize, rom, next_rom);
-    memcpy((void*)next_rom, rom, romsize);
-    return (void*)next_rom;
+            , romsize, rom, RomEnd);
+    memcpy((void*)RomEnd, rom, romsize);
+    return (void*)RomEnd;
 }
 
 // Run rom init code and note rom size.
@@ -193,7 +192,7 @@ init_optionrom(struct rom_header *rom, u16 bdf, int isvga)
         // Only init vga and PnP roms here.
         callrom(rom, bdf);
 
-    next_rom = (u32)rom + ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
+    RomEnd = (u32)rom + ALIGN(rom->size * 512, OPTION_ROM_ALIGN);
 
     return 0;
 }
@@ -215,11 +214,11 @@ lookup_hardcode(u32 vendev)
         && ((OPTIONROM_VENDEV_2 >> 16)
             | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
         return copy_rom((void*)OPTIONROM_MEM_2);
-    int ret = cbfs_copy_optionrom((void*)next_rom, BUILD_BIOS_ADDR - next_rom
+    int ret = cbfs_copy_optionrom((void*)RomEnd, BUILD_BIOS_ADDR - RomEnd
                                   , vendev);
     if (ret < 0)
         return NULL;
-    return (void*)next_rom;
+    return (void*)RomEnd;
 }
 
 // Run all roms in a given CBFS directory.
@@ -229,10 +228,10 @@ run_cbfs_roms(const char *prefix, int isvga)
     struct cbfs_file *tmp = NULL;
     for (;;) {
         tmp = cbfs_copyfile_prefix(
-            (void*)next_rom, BUILD_BIOS_ADDR - next_rom, prefix, tmp);
+            (void*)RomEnd, BUILD_BIOS_ADDR - RomEnd, prefix, tmp);
         if (!tmp)
             break;
-        init_optionrom((void*)next_rom, 0, isvga);
+        init_optionrom((void*)RomEnd, 0, isvga);
     }
 }
 
@@ -339,17 +338,17 @@ optionrom_setup()
 
     dprintf(1, "Scan for option roms\n");
 
-    u32 post_vga = next_rom;
+    u32 post_vga = RomEnd;
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
         // Option roms are already deployed on the system.
-        u32 pos = next_rom;
+        u32 pos = RomEnd;
         while (pos < BUILD_BIOS_ADDR) {
             int ret = init_optionrom((void*)pos, 0, 0);
             if (ret)
                 pos += OPTION_ROM_ALIGN;
             else
-                pos = next_rom;
+                pos = RomEnd;
         }
     } else {
         // Find and deploy PCI roms.
@@ -369,7 +368,7 @@ optionrom_setup()
     // All option roms found and deployed - now build BEV/BCV vectors.
 
     u32 pos = post_vga;
-    while (pos < next_rom) {
+    while (pos < RomEnd) {
         struct rom_header *rom = (void*)pos;
         if (! is_valid_rom(rom)) {
             pos += OPTION_ROM_ALIGN;
@@ -404,16 +403,17 @@ optionrom_setup()
 void
 vga_setup()
 {
+    VGAbdf = -1;
+    RomEnd = BUILD_ROM_START;
+
     if (! CONFIG_OPTIONROMS)
         return;
 
     dprintf(1, "Scan for VGA option rom\n");
-    VGAbdf = -1;
-    next_rom = OPTION_ROM_START;
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
         // Option roms are already deployed on the system.
-        init_optionrom((void*)OPTION_ROM_START, 0, 1);
+        init_optionrom((void*)BUILD_ROM_START, 0, 1);
     } else {
         // Find and deploy PCI VGA rom.
         int bdf = VGAbdf = pci_find_vga();
@@ -424,9 +424,9 @@ vga_setup()
         run_cbfs_roms("vgaroms/", 1);
     }
 
-    if (next_rom == OPTION_ROM_START) {
+    if (RomEnd == BUILD_ROM_START) {
         // No VGA rom found
-        next_rom += OPTION_ROM_ALIGN;
+        RomEnd += OPTION_ROM_ALIGN;
         return;
     }
 
@@ -445,7 +445,7 @@ s3_resume_vga_init()
 {
     if (!CONFIG_S3_RESUME_VGA_INIT)
         return;
-    struct rom_header *rom = (void*)OPTION_ROM_START;
+    struct rom_header *rom = (void*)BUILD_ROM_START;
     if (! is_valid_rom(rom))
         return;
     callrom(rom, 0);

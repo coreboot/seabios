@@ -220,6 +220,7 @@ void call_bcv(u16 seg, u16 ip);
 void optionrom_setup();
 void vga_setup();
 void s3_resume_vga_init();
+extern u32 RomEnd;
 
 // resume.c
 void init_dma();
