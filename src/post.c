@@ -167,6 +167,7 @@ post()
     mtrr_setup();
     smp_probe();
     malloc_setup();
+    pmm_setup();
 
     pnp_setup();
     vga_setup();
@@ -180,8 +181,6 @@ post()
     smm_init();
 
     init_bios_tables();
-    malloc_finalize();
-    memmap_finalize();
 
     boot_setup();
 
@@ -189,6 +188,10 @@ post()
     hard_drive_setup();
 
     optionrom_setup();
+
+    pmm_finalize();
+    malloc_finalize();
+    memmap_finalize();
 }
 
 // 32-bit entry point.

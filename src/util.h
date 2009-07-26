@@ -230,6 +230,10 @@ void init_dma();
 u16 get_pnp_offset();
 void pnp_setup();
 
+// pmm.c
+void pmm_setup();
+void pmm_finalize();
+
 // mtrr.c
 void mtrr_setup(void);
 

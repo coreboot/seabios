@@ -270,6 +270,35 @@ entry_post:
  * Misc. entry points.
  ****************************************************************/
 
+// PMM entry point
+        DECLFUNC entry_pmm
+entry_pmm:
+        pushl %esp              // Backup %esp, then clear high bits
+        movzwl %sp, %esp
+        pushfl                  // Save registers clobbered by C code
+        cli
+        cld
+        pushl %eax
+        pushl %ecx
+        pushl %edx
+        pushw %es
+        pushw %ds
+        movw %ss, %cx           // Move %ss to %ds
+        movw %cx, %ds
+        lea 28(%esp), %eax      // %eax points to start of args
+        calll handle_pmm
+        movw %ax, 12(%esp)      // Modify %ax:%dx to return %eax
+        shrl $16, %eax
+        movw %ax, 4(%esp)
+        popw %ds                // Restore saved registers
+        popw %es
+        popl %edx
+        popl %ecx
+        popl %eax
+        popfl
+        popl %esp
+        lretw
+
 // PnP entry points
         DECLFUNC entry_pnp_real
         .global entry_pnp_prot
@@ -281,6 +310,8 @@ entry_pnp_real:
         movzwl %sp, %esp
 1:
         pushfl                  // Save registers clobbered by C code
+        cli
+        cld
         pushl %eax
         pushl %ecx
         pushl %edx

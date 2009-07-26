@@ -39,6 +39,8 @@
 #define CONFIG_APMBIOS 1
 // Support PnP BIOS entry point.
 #define CONFIG_PNPBIOS 1
+// Support Post Memory Manager (PMM) entry point.
+#define CONFIG_PMM 0
 // Support int 19/18 system bootup support
 #define CONFIG_BOOT 1
 // Support an interactive boot menu at end of post.
@@ -165,5 +167,6 @@
 #define DEBUG_ISR_hwpic1 5
 #define DEBUG_ISR_hwpic2 5
 #define DEBUG_HDL_pnp 1
+#define DEBUG_HDL_pmm 1
 
 #endif // config.h
