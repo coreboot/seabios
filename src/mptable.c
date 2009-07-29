@@ -29,22 +29,20 @@ mptable_init(void)
         // Building an mptable on uniprocessor machines confuses some OSes.
         return;
 
-    int length = (sizeof(struct mptable_floating_s)
-                  + sizeof(struct mptable_config_s)
+    int length = (sizeof(struct mptable_config_s)
                   + sizeof(struct mpt_cpu) * smp_cpus
                   + sizeof(struct mpt_bus)
                   + sizeof(struct mpt_ioapic)
                   + sizeof(struct mpt_intsrc) * 16);
-    void *start = malloc_fseg(length);
-    if (!start) {
+    struct mptable_config_s *config = malloc_fseg(length);
+    struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
+    if (!config || !floating) {
         dprintf(1, "No room for MPTABLE!\n");
         return;
     }
 
     /* floating pointer structure */
-    struct mptable_floating_s *floating = start;
     memset(floating, 0, sizeof(*floating));
-    struct mptable_config_s *config = (void*)&floating[1];
     floating->signature = MPTABLE_SIGNATURE;
     floating->physaddr = (u32)config;
     floating->length = 1;
