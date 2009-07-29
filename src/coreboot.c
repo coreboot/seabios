@@ -15,97 +15,6 @@
 
 
 /****************************************************************
- * BIOS table copying
- ****************************************************************/
-
-static void
-copy_pir(void *pos)
-{
-    struct pir_header *p = pos;
-    if (p->signature != PIR_SIGNATURE)
-        return;
-    if (PirOffset)
-        return;
-    if (p->size < sizeof(*p))
-        return;
-    if (checksum(pos, p->size) != 0)
-        return;
-    void *newpos = malloc_fseg(p->size);
-    if (!newpos) {
-        dprintf(1, "No room to copy PIR table!\n");
-        return;
-    }
-    dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, p->size);
-    PirOffset = (u32)newpos - BUILD_BIOS_ADDR;
-}
-
-static void
-copy_mptable(void *pos)
-{
-    struct mptable_floating_s *p = pos;
-    if (p->signature != MPTABLE_SIGNATURE)
-        return;
-    if (!p->physaddr)
-        return;
-    if (checksum(pos, sizeof(*p)) != 0)
-        return;
-    u32 length = p->length * 16;
-    u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
-    struct mptable_floating_s *newpos = malloc_fseg(length + mpclength);
-    if (!newpos) {
-        dprintf(1, "No room to copy MPTABLE!\n");
-        return;
-    }
-    dprintf(1, "Copying MPTABLE from %p/%x to %p\n", pos, p->physaddr, newpos);
-    memcpy(newpos, pos, length);
-    newpos->physaddr = (u32)newpos + length;
-    newpos->checksum -= checksum(newpos, sizeof(*newpos));
-    memcpy((void*)newpos + length, (void*)p->physaddr, mpclength);
-}
-
-static void
-copy_acpi_rsdp(void *pos)
-{
-    if (RsdpAddr)
-        return;
-    struct rsdp_descriptor *p = pos;
-    if (p->signature != RSDP_SIGNATURE)
-        return;
-    u32 length = 20;
-    if (checksum(pos, length) != 0)
-        return;
-    if (p->revision > 1) {
-        length = p->length;
-        if (checksum(pos, length) != 0)
-            return;
-    }
-    void *newpos = malloc_fseg(length);
-    if (!newpos) {
-        dprintf(1, "No room to copy ACPI RSDP table!\n");
-        return;
-    }
-    dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, length);
-    RsdpAddr = newpos;
-}
-
-// Attempt to find (and relocate) any standard bios tables found in a
-// given address range.
-static void
-scan_tables(u32 start, u32 size)
-{
-    void *p = (void*)ALIGN(start, 16);
-    void *end = (void*)start + size;
-    for (; p<end; p += 16) {
-        copy_pir(p);
-        copy_mptable(p);
-        copy_acpi_rsdp(p);
-    }
-}
-
-
-/****************************************************************
  * Memory map
  ****************************************************************/
 
@@ -209,15 +118,15 @@ find_cb_subtable(struct cb_header *cbh, u32 tag)
     return NULL;
 }
 
+static struct cb_memory *CBMemTable;
+
 // Populate max ram and e820 map info by scanning for a coreboot table.
 static void
 coreboot_fill_map()
 {
     dprintf(3, "Attempting to find coreboot table\n");
 
-    // Init variables set in coreboot table memory scan.
-    PirOffset = 0;
-    RsdpAddr = 0;
+    CBMemTable = NULL;
 
     // Find coreboot table.
     struct cb_header *cbh = find_cb_header(0, 0x1000);
@@ -231,7 +140,7 @@ coreboot_fill_map()
             goto fail;
     }
     dprintf(3, "Now attempting to find coreboot memory map\n");
-    struct cb_memory *cbm = find_cb_subtable(cbh, CB_TAG_MEMORY);
+    struct cb_memory *cbm = CBMemTable = find_cb_subtable(cbh, CB_TAG_MEMORY);
     if (!cbm)
         goto fail;
 
@@ -242,7 +151,6 @@ coreboot_fill_map()
         u32 type = m->type;
         if (type == CB_MEM_TABLE) {
             type = E820_RESERVED;
-            scan_tables(m->start, m->size);
         } else if (type == E820_ACPI || type == E820_RAM) {
             u64 end = m->start + m->size;
             if (end > 0x100000000ull) {
@@ -262,10 +170,6 @@ coreboot_fill_map()
     // confuses grub.  So, override it.
     add_e820(0, 16*1024, E820_RAM);
 
-    // XXX - just create dummy smbios table for now - should detect if
-    // smbios/dmi table is found from coreboot and use that instead.
-    smbios_init();
-
     struct cb_mainboard *cbmb = find_cb_subtable(cbh, CB_TAG_MAINBOARD);
     if (cbmb) {
         const char *vendor = &cbmb->strings[cbmb->vendor_idx];
@@ -284,6 +188,123 @@ fail:
     RamSizeOver4G = 0;
     add_e820(0, 16*1024*1024, E820_RAM);
     return;
+}
+
+
+/****************************************************************
+ * BIOS table copying
+ ****************************************************************/
+
+static void
+copy_pir(void *pos)
+{
+    struct pir_header *p = pos;
+    if (p->signature != PIR_SIGNATURE)
+        return;
+    if (PirOffset)
+        return;
+    if (p->size < sizeof(*p))
+        return;
+    if (checksum(pos, p->size) != 0)
+        return;
+    void *newpos = malloc_fseg(p->size);
+    if (!newpos) {
+        dprintf(1, "No room to copy PIR table!\n");
+        return;
+    }
+    dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
+    memcpy(newpos, pos, p->size);
+    PirOffset = (u32)newpos - BUILD_BIOS_ADDR;
+}
+
+static void
+copy_mptable(void *pos)
+{
+    struct mptable_floating_s *p = pos;
+    if (p->signature != MPTABLE_SIGNATURE)
+        return;
+    if (!p->physaddr)
+        return;
+    if (checksum(pos, sizeof(*p)) != 0)
+        return;
+    u32 length = p->length * 16;
+    u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
+    struct mptable_floating_s *newpos = malloc_fseg(length + mpclength);
+    if (!newpos) {
+        dprintf(1, "No room to copy MPTABLE!\n");
+        return;
+    }
+    dprintf(1, "Copying MPTABLE from %p/%x to %p\n", pos, p->physaddr, newpos);
+    memcpy(newpos, pos, length);
+    newpos->physaddr = (u32)newpos + length;
+    newpos->checksum -= checksum(newpos, sizeof(*newpos));
+    memcpy((void*)newpos + length, (void*)p->physaddr, mpclength);
+}
+
+static void
+copy_acpi_rsdp(void *pos)
+{
+    if (RsdpAddr)
+        return;
+    struct rsdp_descriptor *p = pos;
+    if (p->signature != RSDP_SIGNATURE)
+        return;
+    u32 length = 20;
+    if (checksum(pos, length) != 0)
+        return;
+    if (p->revision > 1) {
+        length = p->length;
+        if (checksum(pos, length) != 0)
+            return;
+    }
+    void *newpos = malloc_fseg(length);
+    if (!newpos) {
+        dprintf(1, "No room to copy ACPI RSDP table!\n");
+        return;
+    }
+    dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
+    memcpy(newpos, pos, length);
+    RsdpAddr = newpos;
+}
+
+// Attempt to find (and relocate) any standard bios tables found in a
+// given address range.
+static void
+scan_tables(u32 start, u32 size)
+{
+    void *p = (void*)ALIGN(start, 16);
+    void *end = (void*)start + size;
+    for (; p<end; p += 16) {
+        copy_pir(p);
+        copy_mptable(p);
+        copy_acpi_rsdp(p);
+    }
+}
+
+void
+coreboot_copy_biostable()
+{
+    struct cb_memory *cbm = CBMemTable;
+    if (! CONFIG_COREBOOT || !cbm)
+        return;
+
+    dprintf(3, "Relocating coreboot bios tables\n");
+
+    // Init variables set in coreboot table memory scan.
+    PirOffset = 0;
+    RsdpAddr = 0;
+
+    // Scan CB_MEM_TABLE areas for bios tables.
+    int i, count = MEM_RANGE_COUNT(cbm);
+    for (i=0; i<count; i++) {
+        struct cb_memory_range *m = &cbm->map[i];
+        if (m->type == CB_MEM_TABLE)
+            scan_tables(m->start, m->size);
+    }
+
+    // XXX - just create dummy smbios table for now - should detect if
+    // smbios/dmi table is found from coreboot and use that instead.
+    smbios_init();
 }
 
 

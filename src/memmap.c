@@ -150,7 +150,7 @@ static void *
 __malloc(struct zone_s *zone, u32 size)
 {
     u32 newpos = (zone->cur - size) / MINALIGN * MINALIGN;
-    if (newpos < zone->bottom)
+    if ((s32)(newpos - zone->bottom) < 0)
         // No space
         return NULL;
     zone->cur = newpos;
@@ -174,6 +174,8 @@ malloc_fseg(u32 size)
 void
 malloc_setup()
 {
+    dprintf(3, "malloc setup\n");
+
     // Memory in 0xf0000 area.
     memset(BiosTableSpace, 0, CONFIG_MAX_BIOSTABLE);
     ZoneFSeg.bottom = (u32)BiosTableSpace;
@@ -185,7 +187,8 @@ malloc_setup()
     for (i=e820_count-1; i>=0; i--) {
         struct e820entry *e = &e820_list[i];
         u64 end = e->start + e->size;
-        if (e->type != E820_RAM || end > 0xffffffff)
+        if (e->type != E820_RAM || end > 0xffffffff
+            || e->size < CONFIG_MAX_HIGHTABLE)
             continue;
         top = end;
         break;
@@ -203,6 +206,8 @@ malloc_setup()
 void
 malloc_finalize()
 {
+    dprintf(3, "malloc finalize\n");
+
     // Give back unused high ram.
     u32 giveback = (ZoneHigh.cur - ZoneHigh.bottom) / 4096 * 4096;
     add_e820(ZoneHigh.bottom, giveback, E820_RAM);

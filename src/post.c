@@ -137,9 +137,10 @@ ram_probe(void)
 static void
 init_bios_tables(void)
 {
-    if (CONFIG_COREBOOT)
-        // XXX - not supported on coreboot yet.
+    if (CONFIG_COREBOOT) {
+        coreboot_copy_biostable();
         return;
+    }
 
     create_pirtable();
 
