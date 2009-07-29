@@ -331,7 +331,16 @@ build_madt(struct rsdt_descriptor_rev1 *rsdt)
     io_apic->interrupt = cpu_to_le32(0);
 
     struct madt_intsrcovr *intsrcovr = (void*)&io_apic[1];
-    for (i = 0; i < 16; i++) {
+    if (irq0override) {
+        memset(intsrcovr, 0, sizeof(*intsrcovr));
+        intsrcovr->type   = APIC_XRUPT_OVERRIDE;
+        intsrcovr->length = sizeof(*intsrcovr);
+        intsrcovr->source = 0;
+        intsrcovr->gsi    = 2;
+        intsrcovr->flags  = 0; /* conforms to bus specifications */
+        intsrcovr++;
+    }
+    for (i = 1; i < 16; i++) {
         if (!(PCI_ISA_IRQ_MASK & (1 << i)))
             /* No need for a INT source override structure. */
             continue;

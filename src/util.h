@@ -244,4 +244,7 @@ void reset_vector() __attribute__ ((noreturn));
 // misc.c
 extern u8 BiosChecksum;
 
+// mptable.c
+extern int irq0override;
+
 #endif // util.h

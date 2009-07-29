@@ -10,6 +10,12 @@
 #include "config.h" // CONFIG_*
 #include "mptable.h" // MPTABLE_SIGNATURE
 
+#if CONFIG_KVM
+int irq0override = 1;
+#else
+int irq0override = 0;
+#endif
+
 void
 mptable_init(void)
 {
@@ -48,7 +54,6 @@ mptable_init(void)
     // Config structure.
     memset(config, 0, sizeof(*config));
     config->signature = MPCONFIG_SIGNATURE;
-    config->length = length - sizeof(*floating);
     config->spec = 4;
     memcpy(config->oemid, CONFIG_CPUNAME8, sizeof(config->oemid));
     memcpy(config->productid, "0.1         ", sizeof(config->productid));
@@ -94,19 +99,28 @@ mptable_init(void)
     ioapic->apicaddr = BUILD_IOAPIC_ADDR;
 
     /* irqs */
-    struct mpt_intsrc *intsrcs = (void *)&ioapic[1];
-    for(i = 0; i < 16; i++) {
-        struct mpt_intsrc *isrc = &intsrcs[i];
-        memset(isrc, 0, sizeof(*isrc));
-        isrc->type = MPT_TYPE_INTSRC;
-        isrc->srcbusirq = i;
-        isrc->dstapic = ioapic_id;
-        isrc->dstirq = i;
+    struct mpt_intsrc *intsrc = (void*)&ioapic[1];
+    for (i = 0; i < 16; i++) {
+        memset(intsrc, 0, sizeof(*intsrc));
+        intsrc->type = MPT_TYPE_INTSRC;
+        intsrc->srcbusirq = i;
+        intsrc->dstapic = ioapic_id;
+        intsrc->dstirq = i;
+        if (irq0override) {
+            /* Destination 2 is covered by irq0->inti2 override (i ==
+               0). Source IRQ 2 is unused */
+            if (i == 0)
+                intsrc->dstirq = 2;
+            else if (i == 2)
+                intsrc--;
+        }
+        intsrc++;
     }
 
     // Set checksum.
+    config->length = (void*)intsrc - (void*)config;
     config->checksum -= checksum(config, config->length);
 
     dprintf(1, "MP table addr=%p MPC table addr=%p size=%d\n",
-            floating, config, length);
+            floating, config, config->length);
 }
