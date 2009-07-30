@@ -202,7 +202,7 @@ _start()
     init_dma();
 
     debug_serial_setup();
-    dprintf(1, "Start bios\n");
+    dprintf(1, "Start bios (version %s)\n", VERSION);
 
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();

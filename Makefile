@@ -4,6 +4,9 @@
 #
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
+# Program version
+VERSION=pre-0.4.2-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
+
 # Output directory
 OUT=out/
 
@@ -134,11 +137,13 @@ $(OUT)rom32.o: $(OUT)code32.o $(OUT)rombios32.lds
 	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
 
 $(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios16.lds $(OUT)rombios.lds
-	@echo "  Linking $@"
+	@echo "  Linking $@ (version \"$(VERSION)\")"
+	$(Q)echo 'const char VERSION[] __attribute__((section(".data32.version"))) = "$(VERSION)";' > $(OUT)version.c
+	$(Q)$(CC) $(CFLAGS) -c $(OUT)version.c -o $(OUT)version.o
 	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32.o -o $(OUT)rom16.reloc.o
 	$(Q)$(STRIP) $(OUT)rom16.reloc.o -o $(OUT)rom16.final.o
 	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
-	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32.o -R $(OUT)rom16.moved.o -o $@
+	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32.o $(OUT)version.o -R $(OUT)rom16.moved.o -o $@
 
 $(OUT)bios.bin.elf: $(OUT)rom.o
 	@echo "  Prepping $@"

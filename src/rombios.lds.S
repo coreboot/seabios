@@ -11,6 +11,7 @@ SECTIONS
 {
         .text code32_start : {
                 *(.text32)
+                *(.data32.version)
 
                 . = code16_start ;
                 *(.text16)

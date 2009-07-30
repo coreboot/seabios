@@ -274,7 +274,7 @@ map_pcirom(u16 bdf, u32 vendev)
 
     struct rom_header *rom = (void*)orig;
     for (;;) {
-        dprintf(5, "Inspecting possible rom at %p (dv=%x bdf=%x)\n"
+        dprintf(5, "Inspecting possible rom at %p (dv=%08x bdf=%x)\n"
                 , rom, vendev, bdf);
         if (rom->signature != OPTION_ROM_SIGNATURE) {
             dprintf(6, "No option rom signature (got %x)\n", rom->signature);
@@ -290,7 +290,7 @@ map_pcirom(u16 bdf, u32 vendev)
         if (vd == vendev && pci->type == PCIROM_CODETYPE_X86)
             // A match
             break;
-        dprintf(6, "Didn't match dev/ven (got %x) or type (got %d)\n"
+        dprintf(6, "Didn't match dev/ven (got %08x) or type (got %d)\n"
                 , vd, pci->type);
         if (pci->indicator & 0x80) {
             dprintf(6, "No more images left\n");
@@ -313,7 +313,7 @@ static int
 init_pcirom(u16 bdf, int isvga)
 {
     u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
-    dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (dev/ven %x)\n"
+    dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (dev/ven %08x)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , vendev);
     struct rom_header *rom = lookup_hardcode(vendev);
@@ -437,7 +437,7 @@ vga_setup()
     call16_int(0x10, &br);
 
     // Write to screen.
-    printf("Starting SeaBIOS\n\n");
+    printf("Starting SeaBIOS (version %s)\n\n", VERSION);
 }
 
 void
