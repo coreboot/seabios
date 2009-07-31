@@ -1,6 +1,3 @@
-Enhance shadow support: Write-enable c, d, e segments; write protect
-option roms before boot.
-
 Unify floppy functions and main disk functions?
 
 Add int 0x1589 support.
@@ -8,8 +5,7 @@ Add int 0x1589 support.
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
   * bochs cvs (20090620):
-    -- hpet, int1589, smbios mem>16GB, mptable on 1 cpu, mptable irq0
-       override
+    -- hpet, int1589, smbios mem>16GB, mptable on 1 cpu
   * coreboot (r3348):    (bochs 20060708)
     -- no noteworthy enhancements
   * qemu (r6125):        (bochs 20080603)
