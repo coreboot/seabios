@@ -190,6 +190,9 @@ post()
 
     optionrom_setup();
 
+    // Run BCVs
+    boot_prep();
+
     pmm_finalize();
     malloc_finalize();
     memmap_finalize();
@@ -210,13 +213,10 @@ _start()
     // Perform main setup code.
     post();
 
-    // Run BCVs
-    boot_prep();
-
     // Setup bios checksum.
     BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
 
-    // Prep for boot process.
+    // Write protect bios memory.
     make_bios_readonly();
 
     // Invoke int 19 to start boot process.

@@ -11,7 +11,6 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "biosvar.h" // GET_EBDA
 #include "lzmadecode.h" // LzmaDecode
-#include "memmap.h" // malloc_fseg
 
 
 /****************************************************************

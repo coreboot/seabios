@@ -1,6 +1,6 @@
 // Variable layouts of bios.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __BIOSVAR_H
@@ -240,6 +240,8 @@ struct extended_bios_data_area_s {
     DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)
 #define EBDA_SEGMENT_START \
     FLATPTR_TO_SEG((640 - EBDA_SIZE_START) * 1024)
+#define EBDA_SEGMENT_MINIMUM \
+    FLATPTR_TO_SEG((640 - 256) * 1024)
 
 // Accessor functions
 static inline u16 get_ebda_seg() {

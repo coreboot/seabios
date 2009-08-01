@@ -1,6 +1,6 @@
 // Code to access multiple segments within gcc.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __FARPTR_H
@@ -15,13 +15,13 @@ extern u16 __segment_FS, __segment_GS;
 
 // Low level macros for reading/writing memory via a segment selector.
 #define READ8_SEG(SEG, value, var)                      \
-    __asm__("movb %%" #SEG ":%1, %b0" : "=Qi"(value)    \
+    __asm__("addr32 movb %%" #SEG ":%1, %b0" : "=Qi"(value)    \
             : "m"(var), "m"(__segment_ ## SEG))
 #define READ16_SEG(SEG, value, var)                     \
-    __asm__("movw %%" #SEG ":%1, %w0" : "=ri"(value)    \
+    __asm__("addr32 movw %%" #SEG ":%1, %w0" : "=ri"(value)    \
             : "m"(var), "m"(__segment_ ## SEG))
 #define READ32_SEG(SEG, value, var)                     \
-    __asm__("movl %%" #SEG ":%1, %0" : "=ri"(value)     \
+    __asm__("addr32 movl %%" #SEG ":%1, %0" : "=ri"(value)     \
             : "m"(var), "m"(__segment_ ## SEG))
 #define READ64_SEG(SEG, value, var) do {                        \
         union u64_u32_u __value;                                \
@@ -31,18 +31,19 @@ extern u16 __segment_FS, __segment_GS;
         *(u64*)&(value) = __value.val;                          \
     } while (0)
 #define WRITE8_SEG(SEG, var, value)                             \
-    __asm__("movb %b1, %%" #SEG ":%0" : "=m"(var)               \
+    __asm__("addr32 movb %b1, %%" #SEG ":%0" : "=m"(var)               \
             : "Q"(value), "m"(__segment_ ## SEG))
 #define WRITE16_SEG(SEG, var, value)                            \
-    __asm__("movw %w1, %%" #SEG ":%0" : "=m"(var)               \
+    __asm__("addr32 movw %w1, %%" #SEG ":%0" : "=m"(var)               \
             : "r"(value), "m"(__segment_ ## SEG))
 #define WRITE32_SEG(SEG, var, value)                            \
-    __asm__("movl %1, %%" #SEG ":%0" : "=m"(var)                \
+    __asm__("addr32 movl %1, %%" #SEG ":%0" : "=m"(var)                \
             : "r"(value), "m"(__segment_ ## SEG))
 #define WRITE64_SEG(SEG, var, value) do {                       \
         union u64_u32_u __value;                                \
         union u64_u32_u *__w64_ptr = (union u64_u32_u *)&(var); \
-        __value.val = (value);                                  \
+        typeof(var) __value_tmp = (value);                      \
+        __value.val = *(u64*)&__value_tmp;                      \
         WRITE32_SEG(SEG, __w64_ptr->hi, __value.hi);            \
         WRITE32_SEG(SEG, __w64_ptr->lo, __value.lo);            \
     } while (0)

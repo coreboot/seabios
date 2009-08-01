@@ -1,6 +1,6 @@
 // Basic type definitions for X86 cpus.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __TYPES_H
@@ -48,6 +48,8 @@ union u64_u32_u {
 # define VAR16EXPORT __section(".data16.export." UNIQSEC) __VISIBLE
 // Designate a variable at a specific 16bit address
 # define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
+// Designate a 32bit variable also available in 16bit "big real" mode.
+# define VAR32VISIBLE __section(".discard.var32." UNIQSEC) __VISIBLE __weak
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) __ASM(code)
 // Designate top-level assembler as 32bit only.
@@ -59,6 +61,7 @@ union u64_u32_u {
 # define VAR16_32 VAR16 __VISIBLE __weak
 # define VAR16EXPORT VAR16_32
 # define VAR16FIXED(addr) VAR16_32
+# define VAR32VISIBLE __VISIBLE
 # define ASM16(code)
 # define ASM32(code) __ASM(code)
 #endif
@@ -69,6 +72,9 @@ union u64_u32_u {
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 #define ALIGN(x,a)              __ALIGN_MASK(x,(typeof(x))(a)-1)
 #define __ALIGN_MASK(x,mask)    (((x)+(mask))&~(mask))
+#define container_of(ptr, type, member) ({                      \
+        const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
+        (type *)( (char *)__mptr - offsetof(type,member) );})
 
 #define NULL ((void *)0)
 

@@ -15,7 +15,7 @@ u32 RamSize VAR16_32;
 // Amount of continuous ram >4Gig
 u64 RamSizeOver4G;
 // Space for bios tables built an run-time.
-char BiosTableSpace[CONFIG_MAX_BIOSTABLE] VAR16_32;
+char BiosTableSpace[CONFIG_MAX_BIOSTABLE] __aligned(MALLOC_MIN_ALIGN) VAR16_32;
 
 
 /****************************************************************

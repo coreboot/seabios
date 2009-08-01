@@ -80,6 +80,14 @@ static inline u64 rdtscll(void)
     return val;
 }
 
+static inline u32 __ffs(u32 word)
+{
+    asm("bsf %1,%0"
+        : "=r" (word)
+        : "rm" (word));
+    return word;
+}
+
 #define call16_simpint(nr, peax, pflags) do {                           \
         ASSERT16();                                                     \
         asm volatile(                                                   \
@@ -232,8 +240,14 @@ u16 get_pnp_offset();
 void pnp_setup();
 
 // pmm.c
+void *malloc_high(u32 size);
+void *malloc_fseg(u32 size);
+void malloc_setup();
+void malloc_finalize();
 void pmm_setup();
 void pmm_finalize();
+// Minimum alignment of malloc'd memory
+#define MALLOC_MIN_ALIGN 16
 
 // mtrr.c
 void mtrr_setup(void);

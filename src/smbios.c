@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "memmap.h" // malloc_fseg
 #include "biosvar.h" // GET_EBDA
 
 

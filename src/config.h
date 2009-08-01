@@ -40,7 +40,7 @@
 // Support PnP BIOS entry point.
 #define CONFIG_PNPBIOS 1
 // Support Post Memory Manager (PMM) entry point.
-#define CONFIG_PMM 0
+#define CONFIG_PMM 1
 // Support int 19/18 system bootup support
 #define CONFIG_BOOT 1
 // Support an interactive boot menu at end of post.
