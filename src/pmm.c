@@ -81,8 +81,9 @@ dumpZones()
         struct zone_s *zone = Zones[i];
         u32 used = zone->top - zone->cur;
         u32 avail = zone->top - zone->bottom;
+        u32 pct = avail ? ((100 * used) / avail) : 0;
         dprintf(2, "zone %d: %08x-%08x used=%d (%d%%)\n"
-                , i, zone->bottom, zone->top, used, (100 * used) / avail);
+                , i, zone->bottom, zone->top, used, pct);
     }
 }
 
@@ -122,7 +123,7 @@ malloc_setup()
         struct e820entry *e = &e820_list[i];
         u64 end = e->start + e->size;
         if (e->type != E820_RAM || end > 0xffffffff
-            || e->size < CONFIG_MAX_HIGHTABLE)
+            || e->size < CONFIG_MAX_HIGHTABLE + MALLOC_MIN_ALIGN)
             continue;
         top = end;
         bottom = e->start;
@@ -131,16 +132,17 @@ malloc_setup()
     if (top < 1024*1024 + CONFIG_MAX_HIGHTABLE) {
         // No memory above 1Meg
         memset(&ZoneHigh, 0, sizeof(ZoneHigh));
+        memset(&ZoneTmpHigh, 0, sizeof(ZoneHigh));
         return;
     }
 
     // Memory at top of ram.
-    ZoneHigh.bottom = top - CONFIG_MAX_HIGHTABLE;
+    ZoneHigh.bottom = ALIGN(top - CONFIG_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);
     ZoneHigh.top = ZoneHigh.cur = ZoneHigh.bottom + CONFIG_MAX_HIGHTABLE;
     add_e820(ZoneHigh.bottom, CONFIG_MAX_HIGHTABLE, E820_RESERVED);
 
     // Memory above 1Meg
-    ZoneTmpHigh.bottom = bottom;
+    ZoneTmpHigh.bottom = ALIGN(bottom, MALLOC_MIN_ALIGN);
     ZoneTmpHigh.top = ZoneTmpHigh.cur = ZoneHigh.bottom;
 }
 
@@ -170,25 +172,28 @@ struct pmmalloc_s {
     void *data;
     u32 olddata;
     u32 handle;
+    u32 oldallocdata;
     struct pmmalloc_s *next;
 };
 
 struct pmmalloc_s *PMMAllocs VAR32VISIBLE;
 
-#define PMMALLOCSIZE ALIGN(sizeof(struct pmmalloc_s), MALLOC_MIN_ALIGN)
+// Memory zone that pmm allocation tracking info is stored in
+#define ZONEALLOC (&ZoneTmpHigh)
 
 // Allocate memory from the given zone and track it as a PMM allocation
 static void *
 pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 {
-    struct pmmalloc_s *info = zone_malloc(&ZoneTmpHigh, sizeof(*info)
+    u32 oldallocdata = GET_PMMVAR(ZONEALLOC->cur);
+    struct pmmalloc_s *info = zone_malloc(ZONEALLOC, sizeof(*info)
                                           , MALLOC_MIN_ALIGN);
     if (!info)
         return NULL;
     u32 olddata = GET_PMMVAR(zone->cur);
     void *data = zone_malloc(zone, size, align);
     if (! data) {
-        zone_free(&ZoneTmpHigh, info, (u32)info + PMMALLOCSIZE);
+        zone_free(ZONEALLOC, info, oldallocdata);
         return NULL;
     }
     dprintf(8, "pmm_malloc zone=%p handle=%x size=%d align=%x"
@@ -198,6 +203,7 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
     SET_PMMVAR(info->data, data);
     SET_PMMVAR(info->olddata, olddata);
     SET_PMMVAR(info->handle, handle);
+    SET_PMMVAR(info->oldallocdata, oldallocdata);
     SET_PMMVAR(info->next, GET_PMMVAR(PMMAllocs));
     SET_PMMVAR(PMMAllocs, info);
     return data;
@@ -216,6 +222,9 @@ pmm_free_data(struct zone_s *zone, void *data, u32 olddata)
         if (GET_PMMVAR(info->olddata) == (u32)data) {
             SET_PMMVAR(info->olddata, olddata);
             return;
+        } else if (GET_PMMVAR(info->oldallocdata) == (u32)data) {
+            SET_PMMVAR(info->oldallocdata, olddata);
+            return;
         }
 }
 
@@ -233,16 +242,18 @@ pmm_free(void *data)
             return -1;
         if (GET_PMMVAR(info->data) == data) {
             SET_PMMVAR(*pinfo, GET_PMMVAR(info->next));
+            u32 oldallocdata = GET_PMMVAR(info->oldallocdata);
             u32 olddata = GET_PMMVAR(info->olddata);
             pmm_free_data(zone, data, olddata);
-            pmm_free_data(&ZoneTmpHigh, info, (u32)info + PMMALLOCSIZE);
-            dprintf(8, "pmm_free data=%p zone=%p olddata=%p info=%p\n"
-                    , data, zone, (void*)olddata, info);
+            pmm_free_data(ZONEALLOC, info, oldallocdata);
+            dprintf(8, "pmm_free data=%p zone=%p olddata=%p oldallocdata=%p"
+                    " info=%p\n"
+                    , data, zone, (void*)olddata, (void*)oldallocdata
+                    , info);
             return 0;
         }
         pinfo = &info->next;
     }
-    return -1;
 }
 
 // Find the amount of free space in a given zone.
@@ -250,9 +261,12 @@ static u32
 pmm_getspace(struct zone_s *zone)
 {
     u32 space = GET_PMMVAR(zone->cur) - GET_PMMVAR(zone->bottom);
-    if (space <= PMMALLOCSIZE)
+    if (zone != ZONEALLOC)
+        return space;
+    u32 reserve = ALIGN(sizeof(struct pmmalloc_s), MALLOC_MIN_ALIGN);
+    if (space <= reserve)
         return 0;
-    return space - PMMALLOCSIZE;
+    return space - reserve;
 }
 
 // Find the data block allocated with pmm_malloc with a given handle.
@@ -405,6 +419,8 @@ pmm_setup()
         return;
 
     dprintf(3, "init PMM\n");
+
+    PMMAllocs = NULL;
 
     PMMHEADER.signature = PMM_SIGNATURE;
     PMMHEADER.entry_offset = (u32)entry_pmm - BUILD_BIOS_ADDR;
