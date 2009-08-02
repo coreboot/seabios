@@ -48,7 +48,7 @@ debug_serial(char c)
     outb(c, DEBUG_PORT+SEROFF_DATA);
 }
 
-// Write a character to the serial port.
+// Make sure all serial port writes have been completely sent.
 static void
 debug_serial_flush()
 {
@@ -79,7 +79,7 @@ screenc(u8 c)
 static void
 putc(u16 action, char c)
 {
-    if (CONFIG_DEBUG_LEVEL) {
+    if (CONFIG_DEBUG_LEVEL && (CONFIG_SCREEN_AND_DEBUG || !action)) {
         if (! CONFIG_COREBOOT)
             // Send character to debug port.
             outb(c, PORT_BIOS_DEBUG);

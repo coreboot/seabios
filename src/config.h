@@ -19,9 +19,10 @@
 
 // Control how verbose debug output is.
 #define CONFIG_DEBUG_LEVEL 1
-
 // Send debugging information to serial port
 #define CONFIG_DEBUG_SERIAL 0
+// Screen writes are also sent to debug ports.
+#define CONFIG_SCREEN_AND_DEBUG 1
 
 // Support for int13 floppy drive access
 #define CONFIG_FLOPPY_SUPPORT 1
