@@ -463,10 +463,10 @@ cdrom_boot(int cdid)
     SET_EBDA2(ebda_seg, cdemu.ilba, lba);
 
     // And we read the image in memory
-    dop.lba = lba * 4;
-    dop.count = nbsectors;
+    dop.lba = lba;
+    dop.count = DIV_ROUND_UP(nbsectors, 4);
     dop.buf_fl = MAKE_FLATPTR(boot_segment, 0);
-    ret = cdrom_read_512(&dop);
+    ret = cdrom_read(&dop);
     if (ret)
         return 12;
 
