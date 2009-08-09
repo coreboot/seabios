@@ -78,6 +78,9 @@ def calc():
                 stackusage += int(im.group('num'), 16)
 
             if atstart:
+                if insn == 'movl   %esp,%ebp':
+                    # Still part of initial header
+                    continue
                 cur[1] = stackusage
                 atstart = 0
 
