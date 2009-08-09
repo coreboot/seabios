@@ -9,6 +9,18 @@
 #include "types.h" // u8
 #include "farptr.h" // GET_FARVAR
 #include "config.h" // CONFIG_*
+#include "disk.h" // struct chs_s
+
+struct segoff_s {
+    union {
+        struct {
+            u16 offset;
+            u16 seg;
+        };
+        u32 segoff;
+    };
+};
+#define SEGOFF(s,o) ({struct segoff_s __so; __so.offset=(o); __so.seg=(s); __so;})
 
 
 /****************************************************************
@@ -16,13 +28,7 @@
  ****************************************************************/
 
 struct rmode_IVT {
-    union {
-        struct {
-            u16 offset;
-            u16 seg;
-        };
-        u32 segoff;
-    } ivec[256];
+    struct segoff_s ivec[256];
 };
 
 #define GET_IVT(vector)                                         \
@@ -178,9 +184,7 @@ struct cdemu_s {
     u16 sector_count;
 
     // Virtual device
-    u16 heads;
-    u16 cylinders;
-    u16 spt;
+    struct chs_s lchs;
 };
 
 struct fdpt_s {
@@ -233,6 +237,8 @@ struct extended_bios_data_area_s {
 
     // Stack space available for code that needs it.
     u8 extra_stack[512] __aligned(8);
+
+    u8 cdemu_buf[2048 * !!CONFIG_CDROM_EMU];
 } PACKED;
 
 // The initial size and location of EBDA

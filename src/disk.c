@@ -59,9 +59,7 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     if (!dop.command)
         // If verify or seek
         status = 0;
-    if (dop.command == CMD_CDEMU_READ)
-        status = cdrom_read_512(&dop);
-    else if (dop.command == CMD_CDROM_READ)
+    if (dop.command == CMD_CDROM_READ)
         status = cdrom_read(&dop);
     else
         status = ata_cmd_data(&dop);
@@ -69,7 +67,8 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     irq_disable();
 
     // Update count with total sectors transferred.
-    SET_FARVAR(op_seg, op_far->count, GET_EBDA(sector_count));
+    if (dop.command)
+        SET_FARVAR(op_seg, op_far->count, GET_EBDA(sector_count));
 
     if (status)
         dprintf(1, "disk_op cmd %d error %d!\n", dop.command, status);
@@ -89,19 +88,23 @@ send_disk_op(struct disk_op_s *op)
 
 // Obtain the requested disk lba from an old-style chs request.
 static int
-legacy_lba(struct bregs *regs, struct disk_op_s *op, u16 nlc, u16 nlh, u16 nlspt)
+legacy_lba(struct bregs *regs, u16 lchs_seg, struct chs_s *lchs_far)
 {
-    op->count = regs->al;
+    u8 count = regs->al;
     u16 cylinder = regs->ch | ((((u16)regs->cl) << 2) & 0x300);
     u16 sector = regs->cl & 0x3f;
     u16 head = regs->dh;
 
-    if (op->count > 128 || op->count == 0 || sector == 0) {
+    if (count > 128 || count == 0 || sector == 0) {
         dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
         return -1;
     }
+
+    u16 nlc = GET_FARVAR(lchs_seg, lchs_far->cylinders);
+    u16 nlh = GET_FARVAR(lchs_seg, lchs_far->heads);
+    u16 nlspt = GET_FARVAR(lchs_seg, lchs_far->spt);
 
     // sanity check on cyl heads, sec
     if (cylinder >= nlc || head >= nlh || sector > nlspt) {
@@ -113,14 +116,8 @@ legacy_lba(struct bregs *regs, struct disk_op_s *op, u16 nlc, u16 nlh, u16 nlspt
     }
 
     // translate lchs to lba
-    op->lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
-               + (u32)sector - 1);
-
-    u16 segment = regs->es;
-    u16 offset  = regs->bx;
-    op->buf_fl = MAKE_FLATPTR(segment, offset);
-
-    return 0;
+    return (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+            + (u32)sector - 1);
 }
 
 // Perform read/write/verify using old-style chs accesses
@@ -130,12 +127,12 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     struct disk_op_s dop;
     dop.driveid = device;
     dop.command = command;
-    u16 nlc = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
-    u16 nlh = GET_GLOBAL(ATA.devices[device].lchs.heads);
-    u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
-    int ret = legacy_lba(regs, &dop, nlc, nlh, nlspt);
-    if (ret)
+    int lba = legacy_lba(regs, get_global_seg(), &ATA.devices[device].lchs);
+    if (lba < 0)
         return;
+    dop.lba = lba;
+    dop.count = regs->al;
+    dop.buf_fl = MAKE_FLATPTR(regs->es, regs->bx);
 
     int status = send_disk_op(&dop);
 
@@ -154,25 +151,65 @@ cdemu_access(struct bregs *regs, u8 device, u16 command)
 {
     struct disk_op_s dop;
     dop.driveid = device;
-    dop.command = (command == ATA_CMD_READ_SECTORS ? CMD_CDEMU_READ : 0);
+    dop.command = (command == ATA_CMD_READ_SECTORS ? CMD_CDROM_READ : 0);
     u16 ebda_seg = get_ebda_seg();
-    u16 nlc = GET_EBDA2(ebda_seg, cdemu.cylinders);
-    u16 nlh = GET_EBDA2(ebda_seg, cdemu.heads);
-    u16 nlspt = GET_EBDA2(ebda_seg, cdemu.spt);
-    int ret = legacy_lba(regs, &dop, nlc, nlh, nlspt);
-    if (ret)
+    int vlba = legacy_lba(
+        regs, ebda_seg
+        , (void*)offsetof(struct extended_bios_data_area_s, cdemu.lchs));
+    if (vlba < 0)
         return;
-    dop.lba += GET_EBDA2(ebda_seg, cdemu.ilba) * 4;
+    dop.lba = GET_EBDA2(ebda_seg, cdemu.ilba) + vlba / 4;
+    u8 count = regs->al;
+    u8 *cdbuf_far = (void*)offsetof(struct extended_bios_data_area_s, cdemu_buf);
+    u8 *dest_far = (void*)(regs->bx+0);
+    regs->al = 0;
 
-    int status = send_disk_op(&dop);
-
-    regs->al = dop.count;
-
-    if (status) {
-        disk_ret(regs, DISK_RET_EBADTRACK);
-        return;
+    if (vlba & 3) {
+        dop.count = 1;
+        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
+        int status = send_disk_op(&dop);
+        if (status)
+            goto fail;
+        u8 thiscount = 4 - (vlba & 3);
+        if (thiscount > count)
+            thiscount = count;
+        count -= thiscount;
+        memcpy_far(regs->es, dest_far
+                   , ebda_seg, cdbuf_far + (vlba & 3) * 512
+                   , thiscount * 512);
+        dest_far += thiscount * 512;
+        regs->al += thiscount;
+        dop.lba++;
     }
+
+    if (count > 3) {
+        dop.count = count / 4;
+        dop.buf_fl = MAKE_FLATPTR(regs->es, dest_far);
+        int status = send_disk_op(&dop);
+        regs->al += dop.count * 4;
+        if (status)
+            goto fail;
+        u8 thiscount = count & ~3;
+        count &= 3;
+        dest_far += thiscount * 512;
+        dop.lba += thiscount / 4;
+    }
+
+    if (count) {
+        dop.count = 1;
+        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
+        int status = send_disk_op(&dop);
+        if (status)
+            goto fail;
+        u8 thiscount = count;
+        memcpy_far(regs->es, dest_far, ebda_seg, cdbuf_far, thiscount * 512);
+        regs->al += thiscount;
+    }
+
     disk_ret(regs, DISK_RET_SUCCESS);
+    return;
+fail:
+    disk_ret(regs, DISK_RET_EBADTRACK);
 }
 
 // Perform read/write/verify using new-style "int13ext" accesses.

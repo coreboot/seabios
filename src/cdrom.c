@@ -197,9 +197,9 @@ static void
 cdemu_1308(struct bregs *regs, u8 device)
 {
     u16 ebda_seg = get_ebda_seg();
-    u16 nlc   = GET_EBDA2(ebda_seg, cdemu.cylinders) - 1;
-    u16 nlh   = GET_EBDA2(ebda_seg, cdemu.heads) - 1;
-    u16 nlspt = GET_EBDA2(ebda_seg, cdemu.spt);
+    u16 nlc   = GET_EBDA2(ebda_seg, cdemu.lchs.cylinders) - 1;
+    u16 nlh   = GET_EBDA2(ebda_seg, cdemu.lchs.heads) - 1;
+    u16 nlspt = GET_EBDA2(ebda_seg, cdemu.lchs.spt);
 
     regs->al = 0x00;
     regs->bl = 0x00;
@@ -287,9 +287,9 @@ cdemu_134b(struct bregs *regs)
     SET_INT13ET(regs, buffer_segment, GET_EBDA2(ebda_seg, cdemu.buffer_segment));
     SET_INT13ET(regs, load_segment, GET_EBDA2(ebda_seg, cdemu.load_segment));
     SET_INT13ET(regs, sector_count, GET_EBDA2(ebda_seg, cdemu.sector_count));
-    SET_INT13ET(regs, cylinders, GET_EBDA2(ebda_seg, cdemu.cylinders));
-    SET_INT13ET(regs, sectors, GET_EBDA2(ebda_seg, cdemu.spt));
-    SET_INT13ET(regs, heads, GET_EBDA2(ebda_seg, cdemu.heads));
+    SET_INT13ET(regs, cylinders, GET_EBDA2(ebda_seg, cdemu.lchs.cylinders));
+    SET_INT13ET(regs, sectors, GET_EBDA2(ebda_seg, cdemu.lchs.spt));
+    SET_INT13ET(regs, heads, GET_EBDA2(ebda_seg, cdemu.lchs.heads));
 
     // If we have to terminate emulation
     if (regs->al == 0x00) {
@@ -497,19 +497,19 @@ cdrom_boot(int cdid)
 
         switch (media) {
         case 0x01:  // 1.2M floppy
-            SET_EBDA2(ebda_seg, cdemu.spt, 15);
-            SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
-            SET_EBDA2(ebda_seg, cdemu.heads, 2);
+            SET_EBDA2(ebda_seg, cdemu.lchs.spt, 15);
+            SET_EBDA2(ebda_seg, cdemu.lchs.cylinders, 80);
+            SET_EBDA2(ebda_seg, cdemu.lchs.heads, 2);
             break;
         case 0x02:  // 1.44M floppy
-            SET_EBDA2(ebda_seg, cdemu.spt, 18);
-            SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
-            SET_EBDA2(ebda_seg, cdemu.heads, 2);
+            SET_EBDA2(ebda_seg, cdemu.lchs.spt, 18);
+            SET_EBDA2(ebda_seg, cdemu.lchs.cylinders, 80);
+            SET_EBDA2(ebda_seg, cdemu.lchs.heads, 2);
             break;
         case 0x03:  // 2.88M floppy
-            SET_EBDA2(ebda_seg, cdemu.spt, 36);
-            SET_EBDA2(ebda_seg, cdemu.cylinders, 80);
-            SET_EBDA2(ebda_seg, cdemu.heads, 2);
+            SET_EBDA2(ebda_seg, cdemu.lchs.spt, 36);
+            SET_EBDA2(ebda_seg, cdemu.lchs.cylinders, 80);
+            SET_EBDA2(ebda_seg, cdemu.lchs.heads, 2);
             break;
         }
     } else {
@@ -523,9 +523,10 @@ cdrom_boot(int cdid)
         u8 cyllow = GET_FARVAR(boot_segment, mbr->partitions[0].last.cyllow);
         u8 heads = GET_FARVAR(boot_segment, mbr->partitions[0].last.heads);
 
-        SET_EBDA2(ebda_seg, cdemu.spt, sptcyl & 0x3f);
-        SET_EBDA2(ebda_seg, cdemu.cylinders, ((sptcyl<<2)&0x300) + cyllow + 1);
-        SET_EBDA2(ebda_seg, cdemu.heads, heads + 1);
+        SET_EBDA2(ebda_seg, cdemu.lchs.spt, sptcyl & 0x3f);
+        SET_EBDA2(ebda_seg, cdemu.lchs.cylinders
+                  , ((sptcyl<<2)&0x300) + cyllow + 1);
+        SET_EBDA2(ebda_seg, cdemu.lchs.heads, heads + 1);
     }
 
     // everything is ok, so from now on, the emulation is active
