@@ -218,86 +218,53 @@ send_cmd(int driveid, struct ata_pio_command *cmd)
  * ATA transfers
  ****************************************************************/
 
-// Read and discard x number of bytes from an io channel.
-static void
-insx_discard(int iobase1, int bytes)
+// Transfer 'op->count' blocks (of 'blocksize' bytes) to/from drive
+// 'op->driveid'.
+static int
+ata_transfer(struct disk_op_s *op, int iswrite, int blocksize)
 {
-    int count, i;
-    if (CONFIG_ATA_PIO32) {
-        count = bytes / 4;
-        for (i=0; i<count; i++)
-            inl(iobase1);
-    } else {
-        count = bytes / 2;
-        for (i=0; i<count; i++)
-            inw(iobase1);
-    }
-}
+    dprintf(16, "ata_transfer id=%d write=%d count=%d bs=%d buf=%p\n"
+            , op->driveid, iswrite, op->count, blocksize, op->buf_fl);
 
-// Transfer 'count' blocks (of 'blocksize' bytes) to/from drive
-// 'driveid'.  If 'skipfirst' or 'skiplast' is set then the first
-// and/or last block may be partially transferred.  This function is
-// inlined because all the callers use different forms and because the
-// large number of parameters would consume a lot of stack space.
-static __always_inline int
-ata_transfer(int driveid, int iswrite, int count, int blocksize
-             , int skipfirst, int skiplast, void *buf_fl)
-{
-    dprintf(16, "ata_transfer id=%d write=%d count=%d bs=%d"
-            " skipf=%d skipl=%d buf=%p\n"
-            , driveid, iswrite, count, blocksize
-            , skipfirst, skiplast, buf_fl);
-
-    // Reset count of transferred data
-    SET_EBDA(sector_count, 0);
-
-    u8 channel  = driveid / 2;
+    u8 channel  = op->driveid / 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
-    int current = 0;
+    int count = op->count;
+    void *buf_fl = op->buf_fl;
     int status;
     for (;;) {
-        int bsize = blocksize;
-        if (skipfirst && current == 0) {
-            insx_discard(iobase1, skipfirst);
-            bsize -= skipfirst;
-        }
-        if (skiplast && current == count-1)
-            bsize -= skiplast;
-
         if (iswrite) {
             // Write data to controller
-            dprintf(16, "Write sector id=%d dest=%p\n", driveid, buf_fl);
+            dprintf(16, "Write sector id=%d dest=%p\n", op->driveid, buf_fl);
             if (CONFIG_ATA_PIO32)
-                outsl_fl(iobase1, buf_fl, bsize / 4);
+                outsl_fl(iobase1, buf_fl, blocksize / 4);
             else
-                outsw_fl(iobase1, buf_fl, bsize / 2);
+                outsw_fl(iobase1, buf_fl, blocksize / 2);
         } else {
             // Read data from controller
-            dprintf(16, "Read sector id=%d dest=%p\n", driveid, buf_fl);
+            dprintf(16, "Read sector id=%d dest=%p\n", op->driveid, buf_fl);
             if (CONFIG_ATA_PIO32)
-                insl_fl(iobase1, buf_fl, bsize / 4);
+                insl_fl(iobase1, buf_fl, blocksize / 4);
             else
-                insw_fl(iobase1, buf_fl, bsize / 2);
+                insw_fl(iobase1, buf_fl, blocksize / 2);
         }
-        buf_fl += bsize;
-
-        if (skiplast && current == count-1)
-            insx_discard(iobase1, skiplast);
+        buf_fl += blocksize;
 
         status = pause_await_not_bsy(iobase1, iobase2);
-        if (status < 0)
+        if (status < 0) {
             // Error
+            op->count -= count;
             return status;
+        }
 
-        current++;
-        SET_EBDA(sector_count, current);
-        if (current == count)
+        count--;
+        if (!count)
             break;
         status &= (ATA_CB_STAT_BSY | ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR);
         if (status != ATA_CB_STAT_DRQ) {
             dprintf(6, "ata_transfer : more sectors left (status %02x)\n"
                     , status);
+            op->count -= count;
             return -6;
         }
     }
@@ -316,41 +283,14 @@ ata_transfer(int driveid, int iswrite, int count, int blocksize
     return 0;
 }
 
-static noinline int
-ata_transfer_disk(const struct disk_op_s *op)
-{
-    return ata_transfer(op->driveid, op->command == ATA_CMD_WRITE_SECTORS
-                        , op->count, IDE_SECTOR_SIZE, 0, 0, op->buf_fl);
-}
-
-static noinline int
-ata_transfer_cdrom(const struct disk_op_s *op)
-{
-    return ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
-                        , 0, 0, op->buf_fl);
-}
-
-static noinline int
-ata_transfer_cdemu(const struct disk_op_s *op, int before, int after)
-{
-    int vcount = op->count * 4 - before - after;
-    int ret = ata_transfer(op->driveid, 0, op->count, CDROM_SECTOR_SIZE
-                           , before*512, after*512, op->buf_fl);
-    if (ret) {
-        SET_EBDA(sector_count, 0);
-        return ret;
-    }
-    SET_EBDA(sector_count, vcount);
-    return 0;
-}
-
 
 /****************************************************************
  * ATA hard drive functions
  ****************************************************************/
 
-static int
-send_cmd_disk(const struct disk_op_s *op)
+// Read/write count blocks from a harddrive.
+int
+ata_cmd_data(struct disk_op_s *op)
 {
     u64 lba = op->lba;
 
@@ -375,17 +315,11 @@ send_cmd_disk(const struct disk_op_s *op)
     cmd.lba_high = lba >> 16;
     cmd.device = ((lba >> 24) & 0xf) | ATA_CB_DH_LBA;
 
-    return send_cmd(op->driveid, &cmd);
-}
-
-// Read/write count blocks from a harddrive.
-int
-ata_cmd_data(struct disk_op_s *op)
-{
-    int ret = send_cmd_disk(op);
+    int ret = send_cmd(op->driveid, &cmd);
     if (ret)
         return ret;
-    return ata_transfer_disk(op);
+    return ata_transfer(op, op->command == ATA_CMD_WRITE_SECTORS
+                        , IDE_SECTOR_SIZE);
 }
 
 
@@ -437,13 +371,12 @@ send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
     return 0;
 }
 
-// Low-level cdrom read atapi command transmit function.
-static int
-send_cmd_cdrom(const struct disk_op_s *op)
+// Read sectors from the cdrom.
+int
+cdrom_read(struct disk_op_s *op)
 {
     u8 atacmd[12];
     memset(atacmd, 0, sizeof(atacmd));
-
     atacmd[0]=0x28;                         // READ command
     atacmd[7]=(op->count & 0xff00) >> 8;    // Sectors
     atacmd[8]=(op->count & 0x00ff);
@@ -452,45 +385,12 @@ send_cmd_cdrom(const struct disk_op_s *op)
     atacmd[4]=(op->lba & 0x0000ff00) >> 8;
     atacmd[5]=(op->lba & 0x000000ff);
 
-    return send_atapi_cmd(op->driveid, atacmd, sizeof(atacmd)
-                          , CDROM_SECTOR_SIZE);
-}
-
-// Read sectors from the cdrom.
-int
-cdrom_read(struct disk_op_s *op)
-{
-    int ret = send_cmd_cdrom(op);
+    int ret = send_atapi_cmd(op->driveid, atacmd, sizeof(atacmd)
+                             , CDROM_SECTOR_SIZE);
     if (ret)
         return ret;
 
-    return ata_transfer_cdrom(op);
-}
-
-// Pretend the cdrom has 512 byte sectors (instead of 2048) and read
-// sectors.
-int
-cdrom_read_512(struct disk_op_s *op)
-{
-    u32 vlba = op->lba;
-    u32 vcount = op->count;
-    u32 lba = op->lba = vlba / 4;
-    u32 velba = vlba + vcount - 1;
-    u32 elba = velba / 4;
-    op->count = elba - lba + 1;
-    int before = vlba % 4;
-    int after = 3 - (velba % 4);
-
-    dprintf(16, "cdrom_read_512: id=%d vlba=%d vcount=%d buf=%p lba=%d elba=%d"
-            " count=%d before=%d after=%d\n"
-            , op->driveid, vlba, vcount, op->buf_fl, lba, elba
-            , op->count, before, after);
-
-    int ret = send_cmd_cdrom(op);
-    if (ret)
-        return ret;
-
-    return ata_transfer_cdemu(op, before, after);
+    return ata_transfer(op, 0, CDROM_SECTOR_SIZE);
 }
 
 // Send a simple atapi command to a drive.
@@ -502,7 +402,13 @@ ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
     if (ret)
         return ret;
 
-    return ata_transfer(driveid, 0, 1, length, 0, 0, buf_fl);
+    struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
+    dop.driveid = driveid;
+    dop.count = 1;
+    dop.buf_fl = buf_fl;
+
+    return ata_transfer(&dop, 0, length);
 }
 
 

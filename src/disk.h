@@ -207,7 +207,6 @@ struct ata_s {
 extern struct ata_s ATA;
 int ata_cmd_data(struct disk_op_s *op);
 int cdrom_read(struct disk_op_s *op);
-int cdrom_read_512(struct disk_op_s *op);
 int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *buf_fl);
 void ata_reset(int driveid);

@@ -67,8 +67,7 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     irq_disable();
 
     // Update count with total sectors transferred.
-    if (dop.command)
-        SET_FARVAR(op_seg, op_far->count, GET_EBDA(sector_count));
+    SET_FARVAR(op_seg, op_far->count, dop.count);
 
     if (status)
         dprintf(1, "disk_op cmd %d error %d!\n", dop.command, status);

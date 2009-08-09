@@ -224,9 +224,6 @@ struct extended_bios_data_area_s {
     // El Torito Emulation data
     struct cdemu_s cdemu;
 
-    // Count of transferred sectors and bytes to/from disk
-    u16 sector_count;
-
     // Buffer for disk DPTE table
     struct dpte_s dpte;
 
