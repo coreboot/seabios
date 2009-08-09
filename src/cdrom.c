@@ -180,6 +180,18 @@ cdrom_13(struct bregs *regs, u8 device)
  * CD emulation
  ****************************************************************/
 
+static void
+cdemu_1302(struct bregs *regs, u8 device)
+{
+    cdemu_access(regs, device, ATA_CMD_READ_SECTORS);
+}
+
+static void
+cdemu_1304(struct bregs *regs, u8 device)
+{
+    cdemu_access(regs, device, 0);
+}
+
 // read disk drive parameters
 static void
 cdemu_1308(struct bregs *regs, u8 device)
@@ -217,11 +229,9 @@ cdemu_13(struct bregs *regs)
     device += GET_EBDA2(ebda_seg, cdemu.device_spec);
 
     switch (regs->ah) {
-    // These functions are the same as for hard disks
-    case 0x02:
-    case 0x04:
-        disk_13(regs, device);
-        break;
+    case 0x02: cdemu_1302(regs, device); break;
+    case 0x04: cdemu_1304(regs, device); break;
+    case 0x08: cdemu_1308(regs, device); break;
 
     // These functions are the same as standard CDROM.
     case 0x00:
@@ -238,8 +248,6 @@ cdemu_13(struct bregs *regs)
     case 0x16:
         cdrom_13(regs, device);
         break;
-
-    case 0x08: cdemu_1308(regs, device); break;
 
     default:   disk_13XX(regs, device); break;
     }

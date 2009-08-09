@@ -40,6 +40,7 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
 #define DISK_STUB(regs)                         \
     __disk_stub((regs), __LINE__, __func__)
 
+// Execute a "disk_op_s" request - this runs on a stack in the ebda.
 static int
 __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 {
@@ -55,6 +56,9 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     irq_enable();
 
     int status;
+    if (!dop.command)
+        // If verify or seek
+        status = 0;
     if (dop.command == CMD_CDEMU_READ)
         status = cdrom_read_512(&dop);
     else if (dop.command == CMD_CDROM_READ)
@@ -64,9 +68,16 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 
     irq_disable();
 
+    // Update count with total sectors transferred.
+    SET_FARVAR(op_seg, op_far->count, GET_EBDA(sector_count));
+
+    if (status)
+        dprintf(1, "disk_op cmd %d error %d!\n", dop.command, status);
+
     return status;
 }
 
+// Execute a "disk_op_s" request by jumping to a stack in the ebda.
 static int
 send_disk_op(struct disk_op_s *op)
 {
@@ -76,39 +87,20 @@ send_disk_op(struct disk_op_s *op)
     return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
 }
 
-static void
-basic_access(struct bregs *regs, u8 device, u16 command)
+// Obtain the requested disk lba from an old-style chs request.
+static int
+legacy_lba(struct bregs *regs, struct disk_op_s *op, u16 nlc, u16 nlh, u16 nlspt)
 {
-    struct disk_op_s dop;
-    dop.lba = 0;
-    dop.driveid = device;
-    u8 type = GET_GLOBAL(ATA.devices[device].type);
-    u16 nlc, nlh, nlspt;
-    if (type == ATA_TYPE_ATA) {
-        nlc   = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
-        nlh   = GET_GLOBAL(ATA.devices[device].lchs.heads);
-        nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
-        dop.command = command;
-    } else {
-        // Must be cd emulation.
-        u16 ebda_seg = get_ebda_seg();
-        nlc   = GET_EBDA2(ebda_seg, cdemu.cylinders);
-        nlh   = GET_EBDA2(ebda_seg, cdemu.heads);
-        nlspt = GET_EBDA2(ebda_seg, cdemu.spt);
-        dop.lba = GET_EBDA2(ebda_seg, cdemu.ilba) * 4;
-        dop.command = CMD_CDEMU_READ;
-    }
+    op->count = regs->al;
+    u16 cylinder = regs->ch | ((((u16)regs->cl) << 2) & 0x300);
+    u16 sector = regs->cl & 0x3f;
+    u16 head = regs->dh;
 
-    dop.count       = regs->al;
-    u16 cylinder    = regs->ch | ((((u16) regs->cl) << 2) & 0x300);
-    u16 sector      = regs->cl & 0x3f;
-    u16 head        = regs->dh;
-
-    if (dop.count > 128 || dop.count == 0 || sector == 0) {
+    if (op->count > 128 || op->count == 0 || sector == 0) {
         dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
-        return;
+        return -1;
     }
 
     // sanity check on cyl heads, sec
@@ -117,37 +109,73 @@ basic_access(struct bregs *regs, u8 device, u16 command)
                 " range %04x/%04x/%04x!\n"
                 , regs->ah, cylinder, head, sector);
         disk_ret(regs, DISK_RET_EPARAM);
-        return;
-    }
-
-    if (!command) {
-        // If verify or seek
-        disk_ret(regs, DISK_RET_SUCCESS);
-        return;
+        return -1;
     }
 
     // translate lchs to lba
-    dop.lba += (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
-                + (u32)sector - 1);
+    op->lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+               + (u32)sector - 1);
 
     u16 segment = regs->es;
     u16 offset  = regs->bx;
-    dop.buf_fl = MAKE_FLATPTR(segment, offset);
+    op->buf_fl = MAKE_FLATPTR(segment, offset);
+
+    return 0;
+}
+
+// Perform read/write/verify using old-style chs accesses
+static void
+basic_access(struct bregs *regs, u8 device, u16 command)
+{
+    struct disk_op_s dop;
+    dop.driveid = device;
+    dop.command = command;
+    u16 nlc = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
+    u16 nlh = GET_GLOBAL(ATA.devices[device].lchs.heads);
+    u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
+    int ret = legacy_lba(regs, &dop, nlc, nlh, nlspt);
+    if (ret)
+        return;
 
     int status = send_disk_op(&dop);
 
-    // Set nb of sector transferred
-    regs->al = GET_EBDA(sector_count);
+    regs->al = dop.count;
 
-    if (status != 0) {
-        dprintf(1, "int13_harddisk: function %02x, error %d!\n"
-                , regs->ah, status);
+    if (status) {
         disk_ret(regs, DISK_RET_EBADTRACK);
         return;
     }
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
+// Perform cdemu read/verify
+void
+cdemu_access(struct bregs *regs, u8 device, u16 command)
+{
+    struct disk_op_s dop;
+    dop.driveid = device;
+    dop.command = (command == ATA_CMD_READ_SECTORS ? CMD_CDEMU_READ : 0);
+    u16 ebda_seg = get_ebda_seg();
+    u16 nlc = GET_EBDA2(ebda_seg, cdemu.cylinders);
+    u16 nlh = GET_EBDA2(ebda_seg, cdemu.heads);
+    u16 nlspt = GET_EBDA2(ebda_seg, cdemu.spt);
+    int ret = legacy_lba(regs, &dop, nlc, nlh, nlspt);
+    if (ret)
+        return;
+    dop.lba += GET_EBDA2(ebda_seg, cdemu.ilba) * 4;
+
+    int status = send_disk_op(&dop);
+
+    regs->al = dop.count;
+
+    if (status) {
+        disk_ret(regs, DISK_RET_EBADTRACK);
+        return;
+    }
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+// Perform read/write/verify using new-style "int13ext" accesses.
 static void
 extended_access(struct bregs *regs, u8 device, u16 command)
 {
@@ -168,12 +196,6 @@ extended_access(struct bregs *regs, u8 device, u16 command)
         dop.command = CMD_CDROM_READ;
     }
 
-    if (!command) {
-        // If verify or seek
-        disk_ret(regs, DISK_RET_SUCCESS);
-        return;
-    }
-
     u16 segment = GET_INT13EXT(regs, segment);
     u16 offset = GET_INT13EXT(regs, offset);
     dop.buf_fl = MAKE_FLATPTR(segment, offset);
@@ -181,11 +203,9 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
     int status = send_disk_op(&dop);
 
-    SET_INT13EXT(regs, count, GET_EBDA(sector_count));
+    SET_INT13EXT(regs, count, dop.count);
 
-    if (status != 0) {
-        dprintf(1, "int13_harddisk: function %02x, error %d!\n"
-                , regs->ah, status);
+    if (status) {
         disk_ret(regs, DISK_RET_EBADTRACK);
         return;
     }
