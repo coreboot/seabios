@@ -149,8 +149,11 @@ struct disk_op_s {
     u8 command;
 };
 
-#define CMD_CDROM_READ 1
-#define CMD_CDEMU_READ 2
+#define CMD_RESET  0
+#define CMD_READ   2
+#define CMD_WRITE  3
+#define CMD_VERIFY 4
+#define CMD_SEEK   7
 
 
 /****************************************************************
@@ -205,12 +208,12 @@ struct ata_s {
 
 // ata.c
 extern struct ata_s ATA;
-int ata_cmd_data(struct disk_op_s *op);
 int cdrom_read(struct disk_op_s *op);
 int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *buf_fl);
-void ata_reset(int driveid);
 void hard_drive_setup();
+int process_ata_op(struct disk_op_s *op);
+int process_atapi_op(struct disk_op_s *op);
 void map_drive(int driveid);
 
 // floppy.c

@@ -183,13 +183,13 @@ cdrom_13(struct bregs *regs, u8 device)
 static void
 cdemu_1302(struct bregs *regs, u8 device)
 {
-    cdemu_access(regs, device, ATA_CMD_READ_SECTORS);
+    cdemu_access(regs, device, CMD_READ);
 }
 
 static void
 cdemu_1304(struct bregs *regs, u8 device)
 {
-    cdemu_access(regs, device, 0);
+    cdemu_access(regs, device, CMD_VERIFY);
 }
 
 // read disk drive parameters
@@ -414,6 +414,7 @@ cdrom_boot(int cdid)
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
     struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
     dop.driveid = driveid;
     dop.lba = 0x11;
     dop.count = 1;

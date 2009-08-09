@@ -289,15 +289,15 @@ ata_transfer(struct disk_op_s *op, int iswrite, int blocksize)
  ****************************************************************/
 
 // Read/write count blocks from a harddrive.
-int
-ata_cmd_data(struct disk_op_s *op)
+static int
+ata_cmd_data(struct disk_op_s *op, int iswrite, int command)
 {
     u64 lba = op->lba;
 
     struct ata_pio_command cmd;
     memset(&cmd, 0, sizeof(cmd));
 
-    cmd.command = op->command;
+    cmd.command = command;
     if (op->count >= (1<<8) || lba + op->count >= (1<<28)) {
         cmd.sector_count2 = op->count >> 8;
         cmd.lba_low2 = lba >> 24;
@@ -318,8 +318,23 @@ ata_cmd_data(struct disk_op_s *op)
     int ret = send_cmd(op->driveid, &cmd);
     if (ret)
         return ret;
-    return ata_transfer(op, op->command == ATA_CMD_WRITE_SECTORS
-                        , IDE_SECTOR_SIZE);
+    return ata_transfer(op, iswrite, IDE_SECTOR_SIZE);
+}
+
+int
+process_ata_op(struct disk_op_s *op)
+{
+    switch (op->command) {
+    default:
+        return 0;
+    case CMD_RESET:
+        ata_reset(op->driveid);
+        return 0;
+    case CMD_READ:
+        return ata_cmd_data(op, 0, ATA_CMD_READ_SECTORS);
+    case CMD_WRITE:
+        return ata_cmd_data(op, 1, ATA_CMD_WRITE_SECTORS);
+    }
 }
 
 
@@ -391,6 +406,20 @@ cdrom_read(struct disk_op_s *op)
         return ret;
 
     return ata_transfer(op, 0, CDROM_SECTOR_SIZE);
+}
+
+int
+process_atapi_op(struct disk_op_s *op)
+{
+    switch (op->command) {
+    default:
+        return 0;
+    case CMD_RESET:
+        ata_reset(op->driveid);
+        return 0;
+    case CMD_READ:
+        return cdrom_read(op);
+    }
 }
 
 // Send a simple atapi command to a drive.
@@ -558,12 +587,12 @@ init_drive_atapi(int driveid, u16 *buffer)
     // Send an IDENTIFY_DEVICE_PACKET command to device
     memset(buffer, 0, IDE_SECTOR_SIZE);
     struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
     dop.driveid = driveid;
-    dop.command = ATA_CMD_IDENTIFY_DEVICE_PACKET;
     dop.count = 1;
     dop.lba = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
-    int ret = ata_cmd_data(&dop);
+    int ret = ata_cmd_data(&dop, 0, ATA_CMD_IDENTIFY_DEVICE_PACKET);
     if (ret)
         return ret;
 
@@ -572,6 +601,7 @@ init_drive_atapi(int driveid, u16 *buffer)
     SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
     SET_GLOBAL(ATA.devices[driveid].device, (buffer[0] >> 8) & 0x1f);
     SET_GLOBAL(ATA.devices[driveid].blksize, CDROM_SECTOR_SIZE);
+    SET_GLOBAL(ATA.devices[driveid].sectors, (u64)-1);
 
     // fill cdidmap
     u8 cdcount = GET_GLOBAL(ATA.cdcount);
@@ -595,12 +625,12 @@ init_drive_ata(int driveid, u16 *buffer)
     // Send an IDENTIFY_DEVICE command to device
     memset(buffer, 0, IDE_SECTOR_SIZE);
     struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
     dop.driveid = driveid;
-    dop.command = ATA_CMD_IDENTIFY_DEVICE;
     dop.count = 1;
     dop.lba = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
-    int ret = ata_cmd_data(&dop);
+    int ret = ata_cmd_data(&dop, 0, ATA_CMD_IDENTIFY_DEVICE);
     if (ret)
         return ret;
 

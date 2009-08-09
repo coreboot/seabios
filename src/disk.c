@@ -55,14 +55,12 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 
     irq_enable();
 
-    int status;
-    if (!dop.command)
-        // If verify or seek
-        status = 0;
-    if (dop.command == CMD_CDROM_READ)
-        status = cdrom_read(&dop);
-    else
-        status = ata_cmd_data(&dop);
+    int status = 0;
+    u8 type = GET_GLOBAL(ATA.devices[dop.driveid].type);
+    if (type == ATA_TYPE_ATA)
+        status = process_ata_op(&dop);
+    else if (type == ATA_TYPE_ATAPI)
+        status = process_atapi_op(&dop);
 
     irq_disable();
 
@@ -150,7 +148,7 @@ cdemu_access(struct bregs *regs, u8 device, u16 command)
 {
     struct disk_op_s dop;
     dop.driveid = device;
-    dop.command = (command == ATA_CMD_READ_SECTORS ? CMD_CDROM_READ : 0);
+    dop.command = command;
     u16 ebda_seg = get_ebda_seg();
     int vlba = legacy_lba(
         regs, ebda_seg
@@ -220,16 +218,11 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     dop.lba = GET_INT13EXT(regs, lba);
     dop.command = command;
     dop.driveid = device;
-    u8 type = GET_GLOBAL(ATA.devices[device].type);
-    if (type == ATA_TYPE_ATA) {
-        if (dop.lba >= GET_GLOBAL(ATA.devices[device].sectors)) {
-            dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
-                    , regs->ah);
-            disk_ret(regs, DISK_RET_EPARAM);
-            return;
-        }
-    } else {
-        dop.command = CMD_CDROM_READ;
+    if (dop.lba >= GET_GLOBAL(ATA.devices[device].sectors)) {
+        dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
+                , regs->ah);
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
     }
 
     u16 segment = GET_INT13EXT(regs, segment);
@@ -257,7 +250,10 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 static void
 disk_1300(struct bregs *regs, u8 device)
 {
-    ata_reset(device);
+    struct disk_op_s dop;
+    dop.driveid = device;
+    dop.command = CMD_RESET;
+    send_disk_op(&dop);
 }
 
 // read disk status
@@ -274,21 +270,21 @@ disk_1301(struct bregs *regs, u8 device)
 static void
 disk_1302(struct bregs *regs, u8 device)
 {
-    basic_access(regs, device, ATA_CMD_READ_SECTORS);
+    basic_access(regs, device, CMD_READ);
 }
 
 // write disk sectors
 static void
 disk_1303(struct bregs *regs, u8 device)
 {
-    basic_access(regs, device, ATA_CMD_WRITE_SECTORS);
+    basic_access(regs, device, CMD_WRITE);
 }
 
 // verify disk sectors
 static void
 disk_1304(struct bregs *regs, u8 device)
 {
-    basic_access(regs, device, 0);
+    basic_access(regs, device, CMD_VERIFY);
     // FIXME verify
 }
 
@@ -401,21 +397,21 @@ disk_1341(struct bregs *regs, u8 device)
 static void
 disk_1342(struct bregs *regs, u8 device)
 {
-    extended_access(regs, device, ATA_CMD_READ_SECTORS);
+    extended_access(regs, device, CMD_READ);
 }
 
 // IBM/MS extended write
 static void
 disk_1343(struct bregs *regs, u8 device)
 {
-    extended_access(regs, device, ATA_CMD_WRITE_SECTORS);
+    extended_access(regs, device, CMD_WRITE);
 }
 
 // IBM/MS verify
 static void
 disk_1344(struct bregs *regs, u8 device)
 {
-    extended_access(regs, device, 0);
+    extended_access(regs, device, CMD_VERIFY);
 }
 
 // IBM/MS lock/unlock drive
@@ -438,7 +434,7 @@ disk_1346(struct bregs *regs, u8 device)
 static void
 disk_1347(struct bregs *regs, u8 device)
 {
-    extended_access(regs, device, 0);
+    extended_access(regs, device, CMD_SEEK);
 }
 
 // IBM/MS get drive parameters
