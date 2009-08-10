@@ -88,6 +88,16 @@ static inline u32 __ffs(u32 word)
     return word;
 }
 
+// GDT bit manipulation
+#define GDT_BASE(v)  (((u64)((v) & 0xff000000) << 56)           \
+                      | ((u64)((v) & 0x00ffffff) << 16))
+#define GDT_LIMIT(v) (((u64)((v) & 0x000f0000) << 48)   \
+                      | ((u64)((v) & 0x0000ffff) << 0))
+#define GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
+#define GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
+#define GDT_B        (0x1ULL << 54)  // Big flag
+#define GDT_G        (0x1ULL << 55)  // Granularity flag
+
 #define call16_simpint(nr, peax, pflags) do {                           \
         ASSERT16();                                                     \
         asm volatile(                                                   \

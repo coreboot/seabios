@@ -154,17 +154,17 @@ u64 rombios32_gdt[] VAR16_32 __aligned(8) = {
     // First entry can't be used.
     0x0000000000000000LL,
     // 32 bit flat code segment (SEG32_MODE32_CS)
-    0x00cf9b000000ffffLL,
+    GDT_LIMIT(0xfffff) | GDT_CODE | GDT_B | GDT_G,
     // 32 bit flat data segment (SEG32_MODE32_DS)
-    0x00cf93000000ffffLL,
+    GDT_LIMIT(0xfffff) | GDT_DATA | GDT_B | GDT_G,
     // 16 bit code segment base=0xf0000 limit=0xffff (SEG32_MODE16_CS)
-    0x00009b0f0000ffffLL,
+    GDT_LIMIT(0x0ffff) | GDT_CODE | GDT_BASE(0xf0000),
     // 16 bit data segment base=0x0 limit=0xffff (SEG32_MODE16_DS)
-    0x000093000000ffffLL,
+    GDT_LIMIT(0x0ffff) | GDT_DATA,
     // 16 bit code segment base=0 limit=0xffffffff (SEG32_MODE16BIG_CS)
-    0x008f9b000000ffffLL,
+    GDT_LIMIT(0xfffff) | GDT_CODE | GDT_G,
     // 16 bit data segment base=0 limit=0xffffffff (SEG32_MODE16BIG_DS)
-    0x008f93000000ffffLL,
+    GDT_LIMIT(0xfffff) | GDT_DATA | GDT_G,
 };
 
 // GDT descriptor

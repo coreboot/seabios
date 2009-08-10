@@ -101,47 +101,27 @@ handle_1587(struct bregs *regs)
     // 20..27   CS      zeros      filled in by BIOS
     // 28..2f   SS      zeros      filled in by BIOS
 
-    //es:si
-    //eeee0
-    //0ssss
-    //-----
-
 // check for access rights of source & dest here
 
     // Initialize GDT descriptor
-    SET_SEG(ES, regs->es);
-    u16 si = regs->si;
-    u16 base15_00 = (regs->es << 4) + si;
-    u16 base23_16 = regs->es >> 12;
-    if (base15_00 < (u16)(regs->es<<4))
-        base23_16++;
-    SET_VAR(ES, *(u16*)(si+0x08+0), 47);       // limit 15:00 = 6 * 8bytes/descriptor
-    SET_VAR(ES, *(u16*)(si+0x08+2), base15_00);// base 15:00
-    SET_VAR(ES, *(u8 *)(si+0x08+4), base23_16);// base 23:16
-    SET_VAR(ES, *(u8 *)(si+0x08+5), 0x93);     // access
-    SET_VAR(ES, *(u16*)(si+0x08+6), 0x0000);   // base 31:24/reserved/limit 19:16
-
+    u32 si = regs->si;
+    u64 *gdt_far = (void*)si;
+    u16 gdt_seg = regs->es;
+    u32 loc = (u32)MAKE_FLATPTR(gdt_seg, gdt_far);
+    SET_FARVAR(gdt_seg, gdt_far[1], GDT_DATA | GDT_LIMIT((6*sizeof(u64))-1)
+               | GDT_BASE(loc));
     // Initialize CS descriptor
-    SET_VAR(ES, *(u16*)(si+0x20+0), 0xffff);// limit 15:00 = normal 64K limit
-    SET_VAR(ES, *(u16*)(si+0x20+2), 0x0000);// base 15:00
-    SET_VAR(ES, *(u8 *)(si+0x20+4), 0x000f);// base 23:16
-    SET_VAR(ES, *(u8 *)(si+0x20+5), 0x9b);  // access
-    SET_VAR(ES, *(u16*)(si+0x20+6), 0x0000);// base 31:24/reserved/limit 19:16
-
+    SET_FARVAR(gdt_seg, gdt_far[4], GDT_CODE | GDT_LIMIT(0x0ffff)
+               | GDT_BASE(0xf0000));
     // Initialize SS descriptor
-    u16 ss = GET_SEG(SS);
-    base15_00 = ss << 4;
-    base23_16 = ss >> 12;
-    SET_VAR(ES, *(u16*)(si+0x28+0), 0xffff);   // limit 15:00 = normal 64K limit
-    SET_VAR(ES, *(u16*)(si+0x28+2), base15_00);// base 15:00
-    SET_VAR(ES, *(u8 *)(si+0x28+4), base23_16);// base 23:16
-    SET_VAR(ES, *(u8 *)(si+0x28+5), 0x93);     // access
-    SET_VAR(ES, *(u16*)(si+0x28+6), 0x0000);   // base 31:24/reserved/limit 19:16
+    loc = (u32)MAKE_FLATPTR(GET_SEG(SS), 0);
+    SET_FARVAR(gdt_seg, gdt_far[5], GDT_DATA | GDT_LIMIT(0x0ffff)
+               | GDT_BASE(loc));
 
     u16 count = regs->cx;
     asm volatile(
         // Load new descriptor tables
-        "lgdtw %%es:0x8(%%si)\n"
+        "lgdtw %%es:(1<<3)(%%si)\n"
         "lidtw %%cs:pmode_IDT_info\n"
 
         // Enable protected mode
@@ -150,13 +130,13 @@ handle_1587(struct bregs *regs)
         "movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to protected mode
-        "ljmpw $0x0020, $1f\n"
+        "ljmpw $(4<<3), $1f\n"
         "1:\n"
 
         // GDT points to valid descriptor table, now load DS, ES
-        "movw $0x10, %%ax\n" // 010 000 = 2nd descriptor in table, TI=GDT, RPL=00
+        "movw $(2<<3), %%ax\n" // 2nd descriptor in table, TI=GDT, RPL=00
         "movw %%ax, %%ds\n"
-        "movw $0x18, %%ax\n" // 011 000 = 3rd descriptor in table, TI=GDT, RPL=00
+        "movw $(3<<3), %%ax\n" // 3rd descriptor in table, TI=GDT, RPL=00
         "movw %%ax, %%es\n"
 
         // move CX words from DS:SI to ES:DI
