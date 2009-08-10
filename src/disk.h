@@ -149,11 +149,12 @@ struct disk_op_s {
     u8 command;
 };
 
-#define CMD_RESET  0
-#define CMD_READ   2
-#define CMD_WRITE  3
-#define CMD_VERIFY 4
-#define CMD_SEEK   7
+#define CMD_RESET   0x00
+#define CMD_READ    0x02
+#define CMD_WRITE   0x03
+#define CMD_VERIFY  0x04
+#define CMD_SEEK    0x07
+#define CMD_ISREADY 0x10
 
 
 /****************************************************************
@@ -175,7 +176,6 @@ struct ata_channel_s {
 
 struct ata_device_s {
     u8  type;         // Detected type of ata (ata/atapi/none/unknown)
-    u8  device;       // Detected type of attached devices (hd/cd/none)
     u8  removable;    // Removable device flag
     u16 blksize;      // block size
     u8  version;      // ATA/ATAPI version
@@ -189,12 +189,21 @@ struct ata_device_s {
     u64 sectors;      // Total sectors count
 };
 
+#define DTYPE_NONE     0x00
+#define DTYPE_ATA      0x02
+#define DTYPE_ATAPI    0x03
+
+#define TRANSLATION_NONE  0
+#define TRANSLATION_LBA   1
+#define TRANSLATION_LARGE 2
+#define TRANSLATION_RECHS 3
+
 struct ata_s {
     // ATA channels info
     struct ata_channel_s channels[CONFIG_MAX_ATA_INTERFACES];
 
     // ATA devices info
-    struct ata_device_s  devices[CONFIG_MAX_ATA_DEVICES];
+    struct ata_device_s devices[CONFIG_MAX_ATA_DEVICES];
     //
     // map between bios hd/cd id and ata channels
     u8 cdcount;

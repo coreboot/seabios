@@ -12,7 +12,7 @@
 #include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
 #include "pci.h" // pci_bdf_to_bus
-#include "atabits.h" // ATA_CB_STAT
+#include "atabits.h" // ATA_CB_DC
 
 
 /****************************************************************
@@ -57,9 +57,9 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 
     int status = 0;
     u8 type = GET_GLOBAL(ATA.devices[dop.driveid].type);
-    if (type == ATA_TYPE_ATA)
+    if (type == DTYPE_ATA)
         status = process_ata_op(&dop);
-    else if (type == ATA_TYPE_ATAPI)
+    else if (type == DTYPE_ATAPI)
         status = process_atapi_op(&dop);
 
     irq_disable();
@@ -343,12 +343,14 @@ disk_1310(struct bregs *regs, u8 device)
 {
     // should look at 40:8E also???
 
-    // Read the status from controller
-    u8 status = inb(GET_GLOBAL(ATA.channels[device/2].iobase1) + ATA_CB_STAT);
-    if ( (status & ( ATA_CB_STAT_BSY | ATA_CB_STAT_RDY )) == ATA_CB_STAT_RDY )
-        disk_ret(regs, DISK_RET_SUCCESS);
-    else
+    struct disk_op_s dop;
+    dop.driveid = device;
+    dop.command = CMD_ISREADY;
+    int status = send_disk_op(&dop);
+    if (status)
         disk_ret(regs, DISK_RET_ENOTREADY);
+    else
+        disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 // recalibrate
@@ -462,7 +464,7 @@ disk_1348(struct bregs *regs, u8 device)
             , size, type, npc, nph, npspt, (u32)lba, blksize);
 
     SET_INT13DPT(regs, size, 26);
-    if (type == ATA_TYPE_ATA) {
+    if (type == DTYPE_ATA) {
         if (lba > (u64)npspt*nph*0x3fff) {
             SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
             SET_INT13DPT(regs, cylinders, 0x3fff);
@@ -506,13 +508,13 @@ disk_1348(struct bregs *regs, u8 device)
     u8 irq = GET_GLOBAL(ATA.channels[channel].irq);
 
     u16 options = 0;
-    if (type == ATA_TYPE_ATA) {
+    if (type == DTYPE_ATA) {
         u8 translation = GET_GLOBAL(ATA.devices[device].translation);
-        if (translation != ATA_TRANSLATION_NONE) {
+        if (translation != TRANSLATION_NONE) {
             options |= 1<<3; // CHS translation
-            if (translation == ATA_TRANSLATION_LBA)
+            if (translation == TRANSLATION_LBA)
                 options |= 1<<9;
-            if (translation == ATA_TRANSLATION_RECHS)
+            if (translation == TRANSLATION_RECHS)
                 options |= 3<<9;
         }
     } else {

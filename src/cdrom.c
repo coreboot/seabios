@@ -9,7 +9,7 @@
 #include "util.h" // memset
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_EBDA
-#include "atabits.h" // ATA_TYPE_ATAPI
+#include "atabits.h" // ATA_CMD_REQUEST_SENSE
 
 
 /****************************************************************
@@ -404,8 +404,6 @@ cdrom_boot(int cdid)
     if (cdid >= ATA.cdcount)
         return 1;
     int driveid = GET_GLOBAL(ATA.idmap[1][cdid]);
-    if (GET_GLOBAL(ATA.devices[driveid].device) != ATA_DEVICE_CDROM)
-        return 2;
 
     int ret = atapi_is_ready(driveid);
     if (ret)

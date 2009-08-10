@@ -18,13 +18,6 @@
 #include "disk.h" // struct ata_s
 #include "atabits.h" // ATA_CB_STAT
 
-#define TIMEOUT 0
-#define BSY 1
-#define NOT_BSY 2
-#define NOT_BSY_DRQ 3
-#define NOT_BSY_NOT_DRQ 4
-#define NOT_BSY_RDY 5
-
 #define IDE_SECTOR_SIZE 512
 #define CDROM_SECTOR_SIZE 2048
 
@@ -125,7 +118,7 @@ ata_reset(int driveid)
 
     // On a user-reset request, wait for RDY if it is an ATA device.
     u8 type=GET_GLOBAL(ATA.devices[driveid].type);
-    if (type == ATA_TYPE_ATA)
+    if (type == DTYPE_ATA)
         status = await_rdy(iobase1);
 
 done:
@@ -133,6 +126,30 @@ done:
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
 
     dprintf(6, "ata_reset exit status=%x\n", status);
+}
+
+static int
+isready(int driveid)
+{
+    // Read the status from controller
+    u8 channel = driveid / 2;
+    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
+    u8 status = inb(iobase1 + ATA_CB_STAT);
+    return (status & ( ATA_CB_STAT_BSY | ATA_CB_STAT_RDY )) == ATA_CB_STAT_RDY;
+}
+
+static int
+process_ata_misc_op(struct disk_op_s *op)
+{
+    switch (op->command) {
+    default:
+        return 0;
+    case CMD_RESET:
+        ata_reset(op->driveid);
+        return 0;
+    case CMD_ISREADY:
+        return isready(op->driveid);
+    }
 }
 
 
@@ -325,15 +342,12 @@ int
 process_ata_op(struct disk_op_s *op)
 {
     switch (op->command) {
-    default:
-        return 0;
-    case CMD_RESET:
-        ata_reset(op->driveid);
-        return 0;
     case CMD_READ:
         return ata_cmd_data(op, 0, ATA_CMD_READ_SECTORS);
     case CMD_WRITE:
         return ata_cmd_data(op, 1, ATA_CMD_WRITE_SECTORS);
+    default:
+        return process_ata_misc_op(op);
     }
 }
 
@@ -412,13 +426,10 @@ int
 process_atapi_op(struct disk_op_s *op)
 {
     switch (op->command) {
-    default:
-        return 0;
-    case CMD_RESET:
-        ata_reset(op->driveid);
-        return 0;
     case CMD_READ:
         return cdrom_read(op);
+    default:
+        return process_ata_misc_op(op);
     }
 }
 
@@ -463,10 +474,10 @@ get_translation(int driveid)
     u16 spt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
 
     if (cylinders <= 1024 && heads <= 16 && spt <= 63)
-        return ATA_TRANSLATION_NONE;
+        return TRANSLATION_NONE;
     if (cylinders * heads <= 131072)
-        return ATA_TRANSLATION_LARGE;
-    return ATA_TRANSLATION_LBA;
+        return TRANSLATION_LARGE;
+    return TRANSLATION_LBA;
 }
 
 static void
@@ -485,10 +496,10 @@ setup_translation(int driveid)
     dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation="
             , channel, slave, cylinders, heads, spt);
     switch (translation) {
-    case ATA_TRANSLATION_NONE:
+    case TRANSLATION_NONE:
         dprintf(1, "none");
         break;
-    case ATA_TRANSLATION_LBA:
+    case TRANSLATION_LBA:
         dprintf(1, "lba");
         spt = 63;
         if (sectors > 63*255*1024) {
@@ -510,7 +521,7 @@ setup_translation(int driveid)
             heads = 16;
         cylinders = sect / heads;
         break;
-    case ATA_TRANSLATION_RECHS:
+    case TRANSLATION_RECHS:
         dprintf(1, "r-echs");
         // Take care not to overflow
         if (heads==16) {
@@ -520,8 +531,8 @@ setup_translation(int driveid)
             cylinders = (u16)((u32)(cylinders)*16/15);
         }
         // then go through the large bitshift process
-    case ATA_TRANSLATION_LARGE:
-        if (translation == ATA_TRANSLATION_LARGE)
+    case TRANSLATION_LARGE:
+        if (translation == TRANSLATION_LARGE)
             dprintf(1, "large");
         while (cylinders > 1024) {
             cylinders >>= 1;
@@ -598,23 +609,24 @@ init_drive_atapi(int driveid, u16 *buffer)
 
     // Success - setup as ATAPI.
     extract_identify(driveid, buffer);
-    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATAPI);
-    SET_GLOBAL(ATA.devices[driveid].device, (buffer[0] >> 8) & 0x1f);
+    SET_GLOBAL(ATA.devices[driveid].type, DTYPE_ATAPI);
     SET_GLOBAL(ATA.devices[driveid].blksize, CDROM_SECTOR_SIZE);
     SET_GLOBAL(ATA.devices[driveid].sectors, (u64)-1);
-
-    // fill cdidmap
-    u8 cdcount = GET_GLOBAL(ATA.cdcount);
-    SET_GLOBAL(ATA.idmap[1][cdcount], driveid);
-    SET_GLOBAL(ATA.cdcount, cdcount+1);
+    u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
 
     // Report drive info to user.
     u8 channel = driveid / 2;
     u8 slave = driveid % 2;
     printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
            , ATA.devices[driveid].model, ATA.devices[driveid].version
-           , (ATA.devices[driveid].device == ATA_DEVICE_CDROM
-              ? "CD-Rom/DVD-Rom" : "Device"));
+           , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
+
+    // fill cdidmap
+    if (iscd) {
+        u8 cdcount = GET_GLOBAL(ATA.cdcount);
+        SET_GLOBAL(ATA.idmap[1][cdcount], driveid);
+        SET_GLOBAL(ATA.cdcount, cdcount+1);
+    }
 
     return 0;
 }
@@ -636,8 +648,7 @@ init_drive_ata(int driveid, u16 *buffer)
 
     // Success - setup as ATA.
     extract_identify(driveid, buffer);
-    SET_GLOBAL(ATA.devices[driveid].type, ATA_TYPE_ATA);
-    SET_GLOBAL(ATA.devices[driveid].device, ATA_DEVICE_HD);
+    SET_GLOBAL(ATA.devices[driveid].type, DTYPE_ATA);
     SET_GLOBAL(ATA.devices[driveid].blksize, IDE_SECTOR_SIZE);
 
     SET_GLOBAL(ATA.devices[driveid].pchs.cylinders, buffer[1]);
