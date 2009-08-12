@@ -178,7 +178,6 @@ struct ata_device_s {
     u8  type;         // Detected type of ata (ata/atapi/none)
     u8  removable;    // Removable device flag
     u16 blksize;      // block size
-    u8  version;      // ATA/ATAPI version
     int cntl_id;
 
     char model[41];

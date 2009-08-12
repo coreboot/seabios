@@ -566,6 +566,19 @@ setup_translation(int driveid)
  * ATA detect and init
  ****************************************************************/
 
+// Extract the ATA/ATAPI version info.
+static int
+extract_version(u16 *buffer)
+{
+    // Extract ATA/ATAPI version.
+    u16 ataversion = buffer[80];
+    u8 version;
+    for (version=15; version>0; version--)
+        if (ataversion & (1<<version))
+            break;
+    return version;
+}
+
 // Extract common information from IDENTIFY commands.
 static void
 extract_identify(int driveid, u16 *buffer)
@@ -586,14 +599,6 @@ extract_identify(int driveid, u16 *buffer)
     // Trim trailing spaces from model name.
     for (i=maxsize-2; i>0 && model[i] == 0x20; i--)
         model[i] = 0x00;
-
-    // Extract ATA/ATAPI version.
-    u16 ataversion = buffer[80];
-    u8 version;
-    for (version=15; version>0; version--)
-        if (ataversion & (1<<version))
-            break;
-    ATA.devices[driveid].version = version;
 
     // Common flags.
     SET_GLOBAL(ATA.devices[driveid].removable, (buffer[0] & 0x80) ? 1 : 0);
@@ -626,7 +631,7 @@ init_drive_atapi(int driveid, u16 *buffer)
     u8 channel = ataid / 2;
     u8 slave = ataid % 2;
     printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
-           , ATA.devices[driveid].model, ATA.devices[driveid].version
+           , ATA.devices[driveid].model, extract_version(buffer)
            , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
 
     // fill cdidmap
@@ -679,7 +684,7 @@ init_drive_ata(int driveid, u16 *buffer)
     u8 slave = ataid % 2;
     char *model = ATA.devices[driveid].model;
     printf("ata%d-%d: %s ATA-%d Hard-Disk ", channel, slave, model
-           , ATA.devices[driveid].version);
+           , extract_version(buffer));
     u64 sizeinmb = sectors >> 11;
     if (sizeinmb < (1 << 16))
         printf("(%u MiBytes)\n", (u32)sizeinmb);
