@@ -79,11 +79,12 @@ ndelay_await_not_bsy(u16 iobase1)
 }
 
 // Reset a drive
-void
+static void
 ata_reset(int driveid)
 {
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
@@ -132,7 +133,8 @@ static int
 isready(int driveid)
 {
     // Read the status from controller
-    u8 channel = driveid / 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u8 status = inb(iobase1 + ATA_CB_STAT);
     return (status & ( ATA_CB_STAT_BSY | ATA_CB_STAT_RDY )) == ATA_CB_STAT_RDY;
@@ -176,8 +178,9 @@ struct ata_pio_command {
 static int
 send_cmd(int driveid, struct ata_pio_command *cmd)
 {
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
@@ -243,7 +246,8 @@ ata_transfer(struct disk_op_s *op, int iswrite, int blocksize)
     dprintf(16, "ata_transfer id=%d write=%d count=%d bs=%d buf=%p\n"
             , op->driveid, iswrite, op->count, blocksize, op->buf_fl);
 
-    u8 channel  = op->driveid / 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[op->driveid].cntl_id);
+    u8 channel = ataid / 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
     int count = op->count;
@@ -360,7 +364,8 @@ process_ata_op(struct disk_op_s *op)
 static int
 send_atapi_cmd(int driveid, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 {
-    u8 channel = driveid / 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
 
@@ -461,9 +466,10 @@ get_translation(int driveid)
 {
     if (! CONFIG_COREBOOT) {
         // Emulators pass in the translation info via nvram.
-        u8 channel = driveid / 2;
+        u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+        u8 channel = ataid / 2;
         u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
-        translation >>= 2 * (driveid % 4);
+        translation >>= 2 * (ataid % 4);
         translation &= 0x03;
         return translation;
     }
@@ -486,8 +492,9 @@ setup_translation(int driveid)
     u8 translation = get_translation(driveid);
     SET_GLOBAL(ATA.devices[driveid].translation, translation);
 
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
     u16 heads = GET_GLOBAL(ATA.devices[driveid].pchs.heads);
     u16 cylinders = GET_GLOBAL(ATA.devices[driveid].pchs.cylinders);
     u16 spt = GET_GLOBAL(ATA.devices[driveid].pchs.spt);
@@ -615,8 +622,9 @@ init_drive_atapi(int driveid, u16 *buffer)
     u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
 
     // Report drive info to user.
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
     printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
            , ATA.devices[driveid].model, ATA.devices[driveid].version
            , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
@@ -666,8 +674,9 @@ init_drive_ata(int driveid, u16 *buffer)
     setup_translation(driveid);
 
     // Report drive info to user.
-    u8 channel = driveid / 2;
-    u8 slave = driveid % 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[driveid].cntl_id);
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
     char *model = ATA.devices[driveid].model;
     printf("ata%d-%d: %s ATA-%d Hard-Disk ", channel, slave, model
            , ATA.devices[driveid].version);
@@ -711,10 +720,10 @@ ata_detect()
 {
     // Device detection
     u64 end = calc_future_tsc(IDE_TIMEOUT);
-    int driveid, last_reset_driveid=-1;
-    for(driveid=0; driveid<CONFIG_MAX_ATA_DEVICES; driveid++) {
-        u8 channel = driveid / 2;
-        u8 slave = driveid % 2;
+    int ataid, last_reset_ataid=-1, driveid=0;
+    for (ataid=0; ataid<CONFIG_MAX_ATA_INTERFACES*2; ataid++) {
+        u8 channel = ataid / 2;
+        u8 slave = ataid % 2;
 
         u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
         if (!iobase1)
@@ -738,17 +747,23 @@ ata_detect()
         outb(0xaa, iobase1+ATA_CB_SN);
         u8 sc = inb(iobase1+ATA_CB_SC);
         u8 sn = inb(iobase1+ATA_CB_SN);
-        dprintf(6, "ata_detect drive=%d sc=%x sn=%x dh=%x\n"
-                , driveid, sc, sn, dh);
+        dprintf(6, "ata_detect ataid=%d sc=%x sn=%x dh=%x\n"
+                , ataid, sc, sn, dh);
         if (sc != 0x55 || sn != 0xaa || dh != newdh)
             continue;
 
+        // Prepare new driveid.
+        if (driveid >= ARRAY_SIZE(ATA.devices))
+            break;
+        memset(&ATA.devices[driveid], 0, sizeof(ATA.devices[0]));
+        ATA.devices[driveid].cntl_id = ataid;
+
         // reset the channel
-        if (slave && driveid == last_reset_driveid + 1) {
+        if (slave && ataid == last_reset_ataid + 1) {
             // The drive was just reset - no need to reset it again.
         } else {
             ata_reset(driveid);
-            last_reset_driveid = driveid;
+            last_reset_ataid = ataid;
         }
 
         // check for ATAPI
@@ -773,6 +788,7 @@ ata_detect()
                 // No ATA drive found
                 continue;
         }
+        driveid++;
 
         u16 resetresult = buffer[93];
         dprintf(6, "ata_detect resetresult=%04x\n", resetresult);
@@ -780,7 +796,7 @@ ata_detect()
             // resetresult looks valid and device 0 is responding to
             // device 1 requests - device 1 must not be present - skip
             // detection.
-            driveid++;
+            ataid++;
     }
 
     printf("\n");

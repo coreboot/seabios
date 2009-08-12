@@ -464,7 +464,14 @@ disk_1348(struct bregs *regs, u8 device)
             , size, type, npc, nph, npspt, (u32)lba, blksize);
 
     SET_INT13DPT(regs, size, 26);
-    if (type == DTYPE_ATA) {
+    if (type == DTYPE_ATAPI) {
+        // 0x74 = removable, media change, lockable, max values
+        SET_INT13DPT(regs, infos, 0x74);
+        SET_INT13DPT(regs, cylinders, 0xffffffff);
+        SET_INT13DPT(regs, heads, 0xffffffff);
+        SET_INT13DPT(regs, spt, 0xffffffff);
+        SET_INT13DPT(regs, sector_count, (u64)-1);
+    } else {
         if (lba > (u64)npspt*nph*0x3fff) {
             SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
             SET_INT13DPT(regs, cylinders, 0x3fff);
@@ -475,18 +482,10 @@ disk_1348(struct bregs *regs, u8 device)
         SET_INT13DPT(regs, heads, (u32)nph);
         SET_INT13DPT(regs, spt, (u32)npspt);
         SET_INT13DPT(regs, sector_count, lba);
-    } else {
-        // ATAPI
-        // 0x74 = removable, media change, lockable, max values
-        SET_INT13DPT(regs, infos, 0x74);
-        SET_INT13DPT(regs, cylinders, 0xffffffff);
-        SET_INT13DPT(regs, heads, 0xffffffff);
-        SET_INT13DPT(regs, spt, 0xffffffff);
-        SET_INT13DPT(regs, sector_count, (u64)-1);
     }
     SET_INT13DPT(regs, blksize, blksize);
 
-    if (size < 30) {
+    if (size < 30 || (type != DTYPE_ATA && type != DTYPE_ATAPI)) {
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
@@ -501,8 +500,9 @@ disk_1348(struct bregs *regs, u8 device)
                  , offsetof(struct extended_bios_data_area_s, dpte));
 
     // Fill in dpte
-    u8 channel = device / 2;
-    u8 slave = device % 2;
+    u8 ataid = GET_GLOBAL(ATA.devices[device].cntl_id);
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
     u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
     u8 irq = GET_GLOBAL(ATA.channels[channel].irq);
