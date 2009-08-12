@@ -225,8 +225,7 @@ cdemu_13(struct bregs *regs)
     //debug_stub(regs);
 
     u16 ebda_seg = get_ebda_seg();
-    u8 driveid = GET_EBDA2(ebda_seg, cdemu.controller_index) * 2;
-    driveid += GET_EBDA2(ebda_seg, cdemu.device_spec);
+    u8 driveid = GET_EBDA2(ebda_seg, cdemu.emulated_driveid);
 
     switch (regs->ah) {
     case 0x02: cdemu_1302(regs, driveid); break;
@@ -279,11 +278,13 @@ cdemu_134b(struct bregs *regs)
     u16 ebda_seg = get_ebda_seg();
     SET_INT13ET(regs, size, 0x13);
     SET_INT13ET(regs, media, GET_EBDA2(ebda_seg, cdemu.media));
-    SET_INT13ET(regs, emulated_drive, GET_EBDA2(ebda_seg, cdemu.emulated_drive));
-    SET_INT13ET(regs, controller_index
-                , GET_EBDA2(ebda_seg, cdemu.controller_index));
+    SET_INT13ET(regs, emulated_drive
+                , GET_EBDA2(ebda_seg, cdemu.emulated_extdrive));
+    u8 driveid = GET_EBDA2(ebda_seg, cdemu.emulated_driveid);
+    u8 cntl_id = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    SET_INT13ET(regs, controller_index, cntl_id / 2);
+    SET_INT13ET(regs, device_spec, cntl_id % 2);
     SET_INT13ET(regs, ilba, GET_EBDA2(ebda_seg, cdemu.ilba));
-    SET_INT13ET(regs, device_spec, GET_EBDA2(ebda_seg, cdemu.device_spec));
     SET_INT13ET(regs, buffer_segment, GET_EBDA2(ebda_seg, cdemu.buffer_segment));
     SET_INT13ET(regs, load_segment, GET_EBDA2(ebda_seg, cdemu.load_segment));
     SET_INT13ET(regs, sector_count, GET_EBDA2(ebda_seg, cdemu.sector_count));
@@ -454,8 +455,7 @@ cdrom_boot(int cdid)
     u8 media = buffer[0x21];
     SET_EBDA2(ebda_seg, cdemu.media, media);
 
-    SET_EBDA2(ebda_seg, cdemu.controller_index, driveid/2);
-    SET_EBDA2(ebda_seg, cdemu.device_spec, driveid%2);
+    SET_EBDA2(ebda_seg, cdemu.emulated_driveid, driveid);
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)
@@ -479,7 +479,7 @@ cdrom_boot(int cdid)
 
     if (media == 0) {
         // No emulation requested - return success.
-        SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0xE0 + cdid);
+        SET_EBDA2(ebda_seg, cdemu.emulated_extdrive, 0xE0 + cdid);
         return 0;
     }
 
@@ -491,7 +491,7 @@ cdrom_boot(int cdid)
     // number of devices
     if (media < 4) {
         // Floppy emulation
-        SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0x00);
+        SET_EBDA2(ebda_seg, cdemu.emulated_extdrive, 0x00);
         SETBITS_BDA(equipment_list_flags, 0x41);
 
         switch (media) {
@@ -513,7 +513,7 @@ cdrom_boot(int cdid)
         }
     } else {
         // Harddrive emulation
-        SET_EBDA2(ebda_seg, cdemu.emulated_drive, 0x80);
+        SET_EBDA2(ebda_seg, cdemu.emulated_extdrive, 0x80);
         SET_BDA(hdcount, GET_BDA(hdcount) + 1);
 
         // Peak at partition table to get chs.

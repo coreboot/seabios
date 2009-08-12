@@ -175,9 +175,8 @@ struct dpte_s {
 struct cdemu_s {
     u8  active;
     u8  media;
-    u8  emulated_drive;
-    u8  controller_index;
-    u16 device_spec;
+    u8  emulated_extdrive;
+    u8  emulated_driveid;
     u32 ilba;
     u16 buffer_segment;
     u16 load_segment;

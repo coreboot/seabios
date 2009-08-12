@@ -750,7 +750,7 @@ handle_13(struct bregs *regs)
         }
         u16 ebda_seg = get_ebda_seg();
         if (GET_EBDA2(ebda_seg, cdemu.active)) {
-            u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
+            u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
             if (extdrive == emudrive) {
                 cdemu_13(regs);
                 return;

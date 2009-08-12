@@ -370,7 +370,7 @@ boot_cdrom(struct ipl_entry_s *ie)
     }
 
     u16 ebda_seg = get_ebda_seg();
-    u8 bootdrv = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
+    u8 bootdrv = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
     u16 bootseg = GET_EBDA2(ebda_seg, cdemu.load_segment);
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;
