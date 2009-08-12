@@ -119,12 +119,12 @@ legacy_lba(struct bregs *regs, u16 lchs_seg, struct chs_s *lchs_far)
 
 // Perform read/write/verify using old-style chs accesses
 static void
-basic_access(struct bregs *regs, u8 device, u16 command)
+basic_access(struct bregs *regs, u8 driveid, u16 command)
 {
     struct disk_op_s dop;
-    dop.driveid = device;
+    dop.driveid = driveid;
     dop.command = command;
-    int lba = legacy_lba(regs, get_global_seg(), &Drives.drives[device].lchs);
+    int lba = legacy_lba(regs, get_global_seg(), &Drives.drives[driveid].lchs);
     if (lba < 0)
         return;
     dop.lba = lba;
@@ -144,10 +144,10 @@ basic_access(struct bregs *regs, u8 device, u16 command)
 
 // Perform cdemu read/verify
 void
-cdemu_access(struct bregs *regs, u8 device, u16 command)
+cdemu_access(struct bregs *regs, u8 driveid, u16 command)
 {
     struct disk_op_s dop;
-    dop.driveid = device;
+    dop.driveid = driveid;
     dop.command = command;
     u16 ebda_seg = get_ebda_seg();
     int vlba = legacy_lba(
@@ -211,14 +211,14 @@ fail:
 
 // Perform read/write/verify using new-style "int13ext" accesses.
 static void
-extended_access(struct bregs *regs, u8 device, u16 command)
+extended_access(struct bregs *regs, u8 driveid, u16 command)
 {
     struct disk_op_s dop;
     // Get lba and check.
     dop.lba = GET_INT13EXT(regs, lba);
     dop.command = command;
-    dop.driveid = device;
-    if (dop.lba >= GET_GLOBAL(Drives.drives[device].sectors)) {
+    dop.driveid = driveid;
+    if (dop.lba >= GET_GLOBAL(Drives.drives[driveid].sectors)) {
         dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -248,17 +248,17 @@ extended_access(struct bregs *regs, u8 device, u16 command)
 
 // disk controller reset
 static void
-disk_1300(struct bregs *regs, u8 device)
+disk_1300(struct bregs *regs, u8 driveid)
 {
     struct disk_op_s dop;
-    dop.driveid = device;
+    dop.driveid = driveid;
     dop.command = CMD_RESET;
     send_disk_op(&dop);
 }
 
 // read disk status
 static void
-disk_1301(struct bregs *regs, u8 device)
+disk_1301(struct bregs *regs, u8 driveid)
 {
     u8 v = GET_BDA(disk_last_status);
     regs->ah = v;
@@ -268,41 +268,41 @@ disk_1301(struct bregs *regs, u8 device)
 
 // read disk sectors
 static void
-disk_1302(struct bregs *regs, u8 device)
+disk_1302(struct bregs *regs, u8 driveid)
 {
-    basic_access(regs, device, CMD_READ);
+    basic_access(regs, driveid, CMD_READ);
 }
 
 // write disk sectors
 static void
-disk_1303(struct bregs *regs, u8 device)
+disk_1303(struct bregs *regs, u8 driveid)
 {
-    basic_access(regs, device, CMD_WRITE);
+    basic_access(regs, driveid, CMD_WRITE);
 }
 
 // verify disk sectors
 static void
-disk_1304(struct bregs *regs, u8 device)
+disk_1304(struct bregs *regs, u8 driveid)
 {
-    basic_access(regs, device, CMD_VERIFY);
+    basic_access(regs, driveid, CMD_VERIFY);
     // FIXME verify
 }
 
 // format disk track
 static void
-disk_1305(struct bregs *regs, u8 device)
+disk_1305(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 }
 
 // read disk drive parameters
 static void
-disk_1308(struct bregs *regs, u8 device)
+disk_1308(struct bregs *regs, u8 driveid)
 {
     // Get logical geometry from table
-    u16 nlc = GET_GLOBAL(Drives.drives[device].lchs.cylinders);
-    u16 nlh = GET_GLOBAL(Drives.drives[device].lchs.heads);
-    u16 nlspt = GET_GLOBAL(Drives.drives[device].lchs.spt);
+    u16 nlc = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
+    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
     u16 count = GET_BDA(hdcount);
 
     nlc = nlc - 2; /* 0 based , last sector not used */
@@ -318,33 +318,33 @@ disk_1308(struct bregs *regs, u8 device)
 
 // initialize drive parameters
 static void
-disk_1309(struct bregs *regs, u8 device)
+disk_1309(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 }
 
 // seek to specified cylinder
 static void
-disk_130c(struct bregs *regs, u8 device)
+disk_130c(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 }
 
 // alternate disk reset
 static void
-disk_130d(struct bregs *regs, u8 device)
+disk_130d(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 }
 
 // check drive ready
 static void
-disk_1310(struct bregs *regs, u8 device)
+disk_1310(struct bregs *regs, u8 driveid)
 {
     // should look at 40:8E also???
 
     struct disk_op_s dop;
-    dop.driveid = device;
+    dop.driveid = driveid;
     dop.command = CMD_ISREADY;
     int status = send_disk_op(&dop);
     if (status)
@@ -355,26 +355,26 @@ disk_1310(struct bregs *regs, u8 device)
 
 // recalibrate
 static void
-disk_1311(struct bregs *regs, u8 device)
+disk_1311(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 }
 
 // controller internal diagnostic
 static void
-disk_1314(struct bregs *regs, u8 device)
+disk_1314(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 }
 
 // read disk drive size
 static void
-disk_1315(struct bregs *regs, u8 device)
+disk_1315(struct bregs *regs, u8 driveid)
 {
     // Get logical geometry from table
-    u16 nlc   = GET_GLOBAL(Drives.drives[device].lchs.cylinders);
-    u16 nlh   = GET_GLOBAL(Drives.drives[device].lchs.heads);
-    u16 nlspt = GET_GLOBAL(Drives.drives[device].lchs.spt);
+    u16 nlc   = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
+    u16 nlh   = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
 
     // Compute sector count seen by int13
     u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;
@@ -387,7 +387,7 @@ disk_1315(struct bregs *regs, u8 device)
 
 // IBM/MS installation check
 static void
-disk_1341(struct bregs *regs, u8 device)
+disk_1341(struct bregs *regs, u8 driveid)
 {
     regs->bx = 0xaa55;  // install check
     regs->cx = 0x0007;  // ext disk access and edd, removable supported
@@ -397,28 +397,28 @@ disk_1341(struct bregs *regs, u8 device)
 
 // IBM/MS extended read
 static void
-disk_1342(struct bregs *regs, u8 device)
+disk_1342(struct bregs *regs, u8 driveid)
 {
-    extended_access(regs, device, CMD_READ);
+    extended_access(regs, driveid, CMD_READ);
 }
 
 // IBM/MS extended write
 static void
-disk_1343(struct bregs *regs, u8 device)
+disk_1343(struct bregs *regs, u8 driveid)
 {
-    extended_access(regs, device, CMD_WRITE);
+    extended_access(regs, driveid, CMD_WRITE);
 }
 
 // IBM/MS verify
 static void
-disk_1344(struct bregs *regs, u8 device)
+disk_1344(struct bregs *regs, u8 driveid)
 {
-    extended_access(regs, device, CMD_VERIFY);
+    extended_access(regs, driveid, CMD_VERIFY);
 }
 
 // IBM/MS lock/unlock drive
 static void
-disk_1345(struct bregs *regs, u8 device)
+disk_1345(struct bregs *regs, u8 driveid)
 {
     // Always success for HD
     disk_ret(regs, DISK_RET_SUCCESS);
@@ -426,7 +426,7 @@ disk_1345(struct bregs *regs, u8 device)
 
 // IBM/MS eject media
 static void
-disk_1346(struct bregs *regs, u8 device)
+disk_1346(struct bregs *regs, u8 driveid)
 {
     // Volume Not Removable
     disk_ret(regs, DISK_RET_ENOTREMOVABLE);
@@ -434,14 +434,14 @@ disk_1346(struct bregs *regs, u8 device)
 
 // IBM/MS extended seek
 static void
-disk_1347(struct bregs *regs, u8 device)
+disk_1347(struct bregs *regs, u8 driveid)
 {
-    extended_access(regs, device, CMD_SEEK);
+    extended_access(regs, driveid, CMD_SEEK);
 }
 
 // IBM/MS get drive parameters
 static void
-disk_1348(struct bregs *regs, u8 device)
+disk_1348(struct bregs *regs, u8 driveid)
 {
     u16 size = GET_INT13DPT(regs, size);
 
@@ -453,12 +453,12 @@ disk_1348(struct bregs *regs, u8 device)
 
     // EDD 1.x
 
-    u8  type    = GET_GLOBAL(Drives.drives[device].type);
-    u16 npc     = GET_GLOBAL(Drives.drives[device].pchs.cylinders);
-    u16 nph     = GET_GLOBAL(Drives.drives[device].pchs.heads);
-    u16 npspt   = GET_GLOBAL(Drives.drives[device].pchs.spt);
-    u64 lba     = GET_GLOBAL(Drives.drives[device].sectors);
-    u16 blksize = GET_GLOBAL(Drives.drives[device].blksize);
+    u8  type    = GET_GLOBAL(Drives.drives[driveid].type);
+    u16 npc     = GET_GLOBAL(Drives.drives[driveid].pchs.cylinders);
+    u16 nph     = GET_GLOBAL(Drives.drives[driveid].pchs.heads);
+    u16 npspt   = GET_GLOBAL(Drives.drives[driveid].pchs.spt);
+    u64 lba     = GET_GLOBAL(Drives.drives[driveid].sectors);
+    u16 blksize = GET_GLOBAL(Drives.drives[driveid].blksize);
 
     dprintf(DEBUG_HDL_13, "disk_1348 size=%d t=%d chs=%d,%d,%d lba=%d bs=%d\n"
             , size, type, npc, nph, npspt, (u32)lba, blksize);
@@ -500,7 +500,7 @@ disk_1348(struct bregs *regs, u8 device)
                  , offsetof(struct extended_bios_data_area_s, dpte));
 
     // Fill in dpte
-    u8 ataid = GET_GLOBAL(Drives.drives[device].cntl_id);
+    u8 ataid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
     u8 channel = ataid / 2;
     u8 slave = ataid % 2;
     u16 iobase1 = GET_GLOBAL(ATA_channels[channel].iobase1);
@@ -509,7 +509,7 @@ disk_1348(struct bregs *regs, u8 device)
 
     u16 options = 0;
     if (type == DTYPE_ATA) {
-        u8 translation = GET_GLOBAL(Drives.drives[device].translation);
+        u8 translation = GET_GLOBAL(Drives.drives[driveid].translation);
         if (translation != TRANSLATION_NONE) {
             options |= 1<<3; // CHS translation
             if (translation == TRANSLATION_LBA)
@@ -583,63 +583,63 @@ disk_1348(struct bregs *regs, u8 device)
 
 // IBM/MS extended media change
 static void
-disk_1349(struct bregs *regs, u8 device)
+disk_1349(struct bregs *regs, u8 driveid)
 {
     // Always success for HD
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-disk_134e01(struct bregs *regs, u8 device)
+disk_134e01(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-disk_134e03(struct bregs *regs, u8 device)
+disk_134e03(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-disk_134e04(struct bregs *regs, u8 device)
+disk_134e04(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-disk_134e06(struct bregs *regs, u8 device)
+disk_134e06(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-disk_134eXX(struct bregs *regs, u8 device)
+disk_134eXX(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EPARAM);
 }
 
 // IBM/MS set hardware configuration
 static void
-disk_134e(struct bregs *regs, u8 device)
+disk_134e(struct bregs *regs, u8 driveid)
 {
     switch (regs->al) {
-    case 0x01: disk_134e01(regs, device); break;
-    case 0x03: disk_134e03(regs, device); break;
-    case 0x04: disk_134e04(regs, device); break;
-    case 0x06: disk_134e06(regs, device); break;
-    default:   disk_134eXX(regs, device); break;
+    case 0x01: disk_134e01(regs, driveid); break;
+    case 0x03: disk_134e03(regs, driveid); break;
+    case 0x04: disk_134e04(regs, driveid); break;
+    case 0x06: disk_134e06(regs, driveid); break;
+    default:   disk_134eXX(regs, driveid); break;
     }
 }
 
 void
-disk_13XX(struct bregs *regs, u8 device)
+disk_13XX(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EPARAM);
 }
 
 void
-disk_13(struct bregs *regs, u8 device)
+disk_13(struct bregs *regs, u8 driveid)
 {
     //debug_stub(regs);
 
@@ -647,31 +647,31 @@ disk_13(struct bregs *regs, u8 device)
     SET_BDA(disk_interrupt_flag, 0);
 
     switch (regs->ah) {
-    case 0x00: disk_1300(regs, device); break;
-    case 0x01: disk_1301(regs, device); break;
-    case 0x02: disk_1302(regs, device); break;
-    case 0x03: disk_1303(regs, device); break;
-    case 0x04: disk_1304(regs, device); break;
-    case 0x05: disk_1305(regs, device); break;
-    case 0x08: disk_1308(regs, device); break;
-    case 0x09: disk_1309(regs, device); break;
-    case 0x0c: disk_130c(regs, device); break;
-    case 0x0d: disk_130d(regs, device); break;
-    case 0x10: disk_1310(regs, device); break;
-    case 0x11: disk_1311(regs, device); break;
-    case 0x14: disk_1314(regs, device); break;
-    case 0x15: disk_1315(regs, device); break;
-    case 0x41: disk_1341(regs, device); break;
-    case 0x42: disk_1342(regs, device); break;
-    case 0x43: disk_1343(regs, device); break;
-    case 0x44: disk_1344(regs, device); break;
-    case 0x45: disk_1345(regs, device); break;
-    case 0x46: disk_1346(regs, device); break;
-    case 0x47: disk_1347(regs, device); break;
-    case 0x48: disk_1348(regs, device); break;
-    case 0x49: disk_1349(regs, device); break;
-    case 0x4e: disk_134e(regs, device); break;
-    default:   disk_13XX(regs, device); break;
+    case 0x00: disk_1300(regs, driveid); break;
+    case 0x01: disk_1301(regs, driveid); break;
+    case 0x02: disk_1302(regs, driveid); break;
+    case 0x03: disk_1303(regs, driveid); break;
+    case 0x04: disk_1304(regs, driveid); break;
+    case 0x05: disk_1305(regs, driveid); break;
+    case 0x08: disk_1308(regs, driveid); break;
+    case 0x09: disk_1309(regs, driveid); break;
+    case 0x0c: disk_130c(regs, driveid); break;
+    case 0x0d: disk_130d(regs, driveid); break;
+    case 0x10: disk_1310(regs, driveid); break;
+    case 0x11: disk_1311(regs, driveid); break;
+    case 0x14: disk_1314(regs, driveid); break;
+    case 0x15: disk_1315(regs, driveid); break;
+    case 0x41: disk_1341(regs, driveid); break;
+    case 0x42: disk_1342(regs, driveid); break;
+    case 0x43: disk_1343(regs, driveid); break;
+    case 0x44: disk_1344(regs, driveid); break;
+    case 0x45: disk_1345(regs, driveid); break;
+    case 0x46: disk_1346(regs, driveid); break;
+    case 0x47: disk_1347(regs, driveid); break;
+    case 0x48: disk_1348(regs, driveid); break;
+    case 0x49: disk_1349(regs, driveid); break;
+    case 0x4e: disk_134e(regs, driveid); break;
+    default:   disk_13XX(regs, driveid); break;
     }
 }
 
@@ -681,7 +681,7 @@ disk_13(struct bregs *regs, u8 device)
  ****************************************************************/
 
 static int
-get_device(struct bregs *regs, u8 iscd, u8 drive)
+get_driveid(struct bregs *regs, u8 iscd, u8 drive)
 {
     // basic check : device has to be defined
     if (drive >= ARRAY_SIZE(Drives.idmap[0])) {
@@ -702,10 +702,10 @@ get_device(struct bregs *regs, u8 iscd, u8 drive)
 }
 
 static void
-handle_legacy_disk(struct bregs *regs, u8 drive)
+handle_legacy_disk(struct bregs *regs, u8 extdrive)
 {
-    if (drive < 0x80) {
-        floppy_13(regs, drive);
+    if (extdrive < 0x80) {
+        floppy_13(regs, extdrive);
         return;
     }
 
@@ -715,15 +715,15 @@ handle_legacy_disk(struct bregs *regs, u8 drive)
         return;
     }
 
-    if (drive >= 0xe0) {
-        int driveid = get_device(regs, 1, drive - 0xe0);
+    if (extdrive >= 0xe0) {
+        int driveid = get_driveid(regs, 1, extdrive - 0xe0);
         if (driveid < 0)
             return;
         cdrom_13(regs, driveid);
         return;
     }
 
-    int driveid = get_device(regs, 0, drive - 0x80);
+    int driveid = get_driveid(regs, 0, extdrive - 0x80);
     if (driveid < 0)
         return;
     disk_13(regs, driveid);
@@ -741,7 +741,7 @@ void VISIBLE16
 handle_13(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_13);
-    u8 drive = regs->dl;
+    u8 extdrive = regs->dl;
 
     if (CONFIG_CDROM_EMU) {
         if (regs->ah == 0x4b) {
@@ -751,15 +751,15 @@ handle_13(struct bregs *regs)
         u16 ebda_seg = get_ebda_seg();
         if (GET_EBDA2(ebda_seg, cdemu.active)) {
             u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
-            if (drive == emudrive) {
+            if (extdrive == emudrive) {
                 cdemu_13(regs);
                 return;
             }
-            if (drive < 0xe0 && ((emudrive ^ drive) & 0x80) == 0)
-                drive--;
+            if (extdrive < 0xe0 && ((emudrive ^ extdrive) & 0x80) == 0)
+                extdrive--;
         }
     }
-    handle_legacy_disk(regs, drive);
+    handle_legacy_disk(regs, extdrive);
 }
 
 // record completion in BIOS task complete flag

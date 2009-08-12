@@ -18,76 +18,76 @@
 
 // read disk drive size
 static void
-cdrom_1315(struct bregs *regs, u8 device)
+cdrom_1315(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EADDRNOTFOUND);
 }
 
 // lock
 static void
-cdrom_134500(struct bregs *regs, u8 device)
+cdrom_134500(struct bregs *regs, u8 driveid)
 {
     u16 ebda_seg = get_ebda_seg();
-    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[device]);
+    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[driveid]);
     if (locks == 0xff) {
         regs->al = 1;
         disk_ret(regs, DISK_RET_ETOOMANYLOCKS);
         return;
     }
-    SET_EBDA2(ebda_seg, cdrom_locks[device], locks + 1);
+    SET_EBDA2(ebda_seg, cdrom_locks[driveid], locks + 1);
     regs->al = 1;
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 // unlock
 static void
-cdrom_134501(struct bregs *regs, u8 device)
+cdrom_134501(struct bregs *regs, u8 driveid)
 {
     u16 ebda_seg = get_ebda_seg();
-    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[device]);
+    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[driveid]);
     if (locks == 0x00) {
         regs->al = 0;
         disk_ret(regs, DISK_RET_ENOTLOCKED);
         return;
     }
     locks--;
-    SET_EBDA2(ebda_seg, cdrom_locks[device], locks);
+    SET_EBDA2(ebda_seg, cdrom_locks[driveid], locks);
     regs->al = (locks ? 1 : 0);
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 // status
 static void
-cdrom_134502(struct bregs *regs, u8 device)
+cdrom_134502(struct bregs *regs, u8 driveid)
 {
-    u8 locks = GET_EBDA(cdrom_locks[device]);
+    u8 locks = GET_EBDA(cdrom_locks[driveid]);
     regs->al = (locks ? 1 : 0);
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-cdrom_1345XX(struct bregs *regs, u8 device)
+cdrom_1345XX(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EPARAM);
 }
 
 // IBM/MS lock/unlock drive
 static void
-cdrom_1345(struct bregs *regs, u8 device)
+cdrom_1345(struct bregs *regs, u8 driveid)
 {
     switch (regs->al) {
-    case 0x00: cdrom_134500(regs, device); break;
-    case 0x01: cdrom_134501(regs, device); break;
-    case 0x02: cdrom_134502(regs, device); break;
-    default:   cdrom_1345XX(regs, device); break;
+    case 0x00: cdrom_134500(regs, driveid); break;
+    case 0x01: cdrom_134501(regs, driveid); break;
+    case 0x02: cdrom_134502(regs, driveid); break;
+    default:   cdrom_1345XX(regs, driveid); break;
     }
 }
 
 // IBM/MS eject media
 static void
-cdrom_1346(struct bregs *regs, u8 device)
+cdrom_1346(struct bregs *regs, u8 driveid)
 {
-    u8 locks = GET_EBDA(cdrom_locks[device]);
+    u8 locks = GET_EBDA(cdrom_locks[driveid]);
     if (locks != 0) {
         disk_ret(regs, DISK_RET_ELOCKED);
         return;
@@ -111,7 +111,7 @@ cdrom_1346(struct bregs *regs, u8 device)
 
 // IBM/MS extended media change
 static void
-cdrom_1349(struct bregs *regs, u8 device)
+cdrom_1349(struct bregs *regs, u8 driveid)
 {
     set_fail(regs);
     // always send changed ??
@@ -119,27 +119,27 @@ cdrom_1349(struct bregs *regs, u8 device)
 }
 
 static void
-cdrom_ok(struct bregs *regs, u8 device)
+cdrom_ok(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 static void
-cdrom_wp(struct bregs *regs, u8 device)
+cdrom_wp(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EWRITEPROTECT);
 }
 
 void
-cdrom_13(struct bregs *regs, u8 device)
+cdrom_13(struct bregs *regs, u8 driveid)
 {
     //debug_stub(regs);
 
     switch (regs->ah) {
-    case 0x15: cdrom_1315(regs, device); break;
-    case 0x45: cdrom_1345(regs, device); break;
-    case 0x46: cdrom_1346(regs, device); break;
-    case 0x49: cdrom_1349(regs, device); break;
+    case 0x15: cdrom_1315(regs, driveid); break;
+    case 0x45: cdrom_1345(regs, driveid); break;
+    case 0x46: cdrom_1346(regs, driveid); break;
+    case 0x49: cdrom_1349(regs, driveid); break;
 
     // These functions are the same as for hard disks
     case 0x01:
@@ -149,7 +149,7 @@ cdrom_13(struct bregs *regs, u8 device)
     case 0x47:
     case 0x48:
     case 0x4e:
-        disk_13(regs, device);
+        disk_13(regs, driveid);
         break;
 
     // all these functions return SUCCESS
@@ -161,17 +161,17 @@ cdrom_13(struct bregs *regs, u8 device)
     case 0x11: // recalibrate
     case 0x14: // controller internal diagnostic
     case 0x16: // detect disk change
-        cdrom_ok(regs, device);
+        cdrom_ok(regs, driveid);
         break;
 
     // all these functions return disk write-protected
     case 0x03: // write disk sectors
     case 0x05: // format disk track
     case 0x43: // IBM/MS extended write
-        cdrom_wp(regs, device);
+        cdrom_wp(regs, driveid);
         break;
 
-    default:   disk_13XX(regs, device); break;
+    default:   disk_13XX(regs, driveid); break;
     }
 }
 
@@ -181,20 +181,20 @@ cdrom_13(struct bregs *regs, u8 device)
  ****************************************************************/
 
 static void
-cdemu_1302(struct bregs *regs, u8 device)
+cdemu_1302(struct bregs *regs, u8 driveid)
 {
-    cdemu_access(regs, device, CMD_READ);
+    cdemu_access(regs, driveid, CMD_READ);
 }
 
 static void
-cdemu_1304(struct bregs *regs, u8 device)
+cdemu_1304(struct bregs *regs, u8 driveid)
 {
-    cdemu_access(regs, device, CMD_VERIFY);
+    cdemu_access(regs, driveid, CMD_VERIFY);
 }
 
 // read disk drive parameters
 static void
-cdemu_1308(struct bregs *regs, u8 device)
+cdemu_1308(struct bregs *regs, u8 driveid)
 {
     u16 ebda_seg = get_ebda_seg();
     u16 nlc   = GET_EBDA2(ebda_seg, cdemu.lchs.cylinders) - 1;
@@ -225,13 +225,13 @@ cdemu_13(struct bregs *regs)
     //debug_stub(regs);
 
     u16 ebda_seg = get_ebda_seg();
-    u8 device  = GET_EBDA2(ebda_seg, cdemu.controller_index) * 2;
-    device += GET_EBDA2(ebda_seg, cdemu.device_spec);
+    u8 driveid = GET_EBDA2(ebda_seg, cdemu.controller_index) * 2;
+    driveid += GET_EBDA2(ebda_seg, cdemu.device_spec);
 
     switch (regs->ah) {
-    case 0x02: cdemu_1302(regs, device); break;
-    case 0x04: cdemu_1304(regs, device); break;
-    case 0x08: cdemu_1308(regs, device); break;
+    case 0x02: cdemu_1302(regs, driveid); break;
+    case 0x04: cdemu_1304(regs, driveid); break;
+    case 0x08: cdemu_1308(regs, driveid); break;
 
     // These functions are the same as standard CDROM.
     case 0x00:
@@ -246,10 +246,10 @@ cdemu_13(struct bregs *regs)
     case 0x14:
     case 0x15:
     case 0x16:
-        cdrom_13(regs, device);
+        cdrom_13(regs, driveid);
         break;
 
-    default:   disk_13XX(regs, device); break;
+    default:   disk_13XX(regs, driveid); break;
     }
 }
 
@@ -307,13 +307,13 @@ cdemu_134b(struct bregs *regs)
 
 // Request SENSE
 static int
-atapi_get_sense(int device, u8 *asc, u8 *ascq)
+atapi_get_sense(int driveid, u8 *asc, u8 *ascq)
 {
     u8 atacmd[12], buffer[18];
     memset(atacmd, 0, sizeof(atacmd));
     atacmd[0] = ATA_CMD_REQUEST_SENSE;
     atacmd[4] = sizeof(buffer);
-    int ret = ata_cmd_packet(device, atacmd, sizeof(atacmd), sizeof(buffer)
+    int ret = ata_cmd_packet(driveid, atacmd, sizeof(atacmd), sizeof(buffer)
                              , MAKE_FLATPTR(GET_SEG(SS), buffer));
     if (ret)
         return ret;
@@ -326,12 +326,12 @@ atapi_get_sense(int device, u8 *asc, u8 *ascq)
 
 // Request capacity
 static int
-atapi_read_capacity(int device, u32 *blksize, u32 *sectors)
+atapi_read_capacity(int driveid, u32 *blksize, u32 *sectors)
 {
     u8 packet[12], buf[8];
     memset(packet, 0, sizeof(packet));
     packet[0] = 0x25; /* READ CAPACITY */
-    int ret = ata_cmd_packet(device, packet, sizeof(packet), sizeof(buf)
+    int ret = ata_cmd_packet(driveid, packet, sizeof(packet), sizeof(buf)
                              , MAKE_FLATPTR(GET_SEG(SS), buf));
     if (ret)
         return ret;
@@ -345,9 +345,9 @@ atapi_read_capacity(int device, u32 *blksize, u32 *sectors)
 }
 
 static int
-atapi_is_ready(u16 device)
+atapi_is_ready(u16 driveid)
 {
-    dprintf(6, "atapi_is_ready (device=%d)\n", device);
+    dprintf(6, "atapi_is_ready (driveid=%d)\n", driveid);
 
     /* Retry READ CAPACITY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
@@ -361,13 +361,13 @@ atapi_is_ready(u16 device)
             return -1;
         }
 
-        int ret = atapi_read_capacity(device, &blksize, &sectors);
+        int ret = atapi_read_capacity(driveid, &blksize, &sectors);
         if (!ret)
             // Success
             break;
 
         u8 asc, ascq;
-        ret = atapi_get_sense(device, &asc, &ascq);
+        ret = atapi_get_sense(driveid, &asc, &ascq);
         if (ret)
             // Error - retry.
             continue;
@@ -387,7 +387,7 @@ atapi_is_ready(u16 device)
         }
     }
 
-    if (blksize != GET_GLOBAL(Drives.drives[device].blksize)) {
+    if (blksize != GET_GLOBAL(Drives.drives[driveid].blksize)) {
         printf("Unsupported sector size %u\n", blksize);
         return -1;
     }

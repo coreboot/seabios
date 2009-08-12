@@ -220,12 +220,12 @@ void floppy_13(struct bregs *regs, u8 drive);
 void floppy_tick();
 
 // disk.c
-void disk_13(struct bregs *regs, u8 device);
-void disk_13XX(struct bregs *regs, u8 device);
-void cdemu_access(struct bregs *regs, u8 device, u16 command);
+void disk_13(struct bregs *regs, u8 driveid);
+void disk_13XX(struct bregs *regs, u8 driveid);
+void cdemu_access(struct bregs *regs, u8 driveid, u16 command);
 
 // cdrom.c
-void cdrom_13(struct bregs *regs, u8 device);
+void cdrom_13(struct bregs *regs, u8 driveid);
 void cdemu_13(struct bregs *regs);
 void cdemu_134b(struct bregs *regs);
 int cdrom_boot(int cdid);
