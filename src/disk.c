@@ -12,7 +12,7 @@
 #include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
 #include "pci.h" // pci_bdf_to_bus
-#include "atabits.h" // ATA_CB_DC
+#include "ata.h" // ATA_CB_DC
 
 
 /****************************************************************
@@ -56,7 +56,7 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     irq_enable();
 
     int status = 0;
-    u8 type = GET_GLOBAL(ATA.devices[dop.driveid].type);
+    u8 type = GET_GLOBAL(Drives.drives[dop.driveid].type);
     if (type == DTYPE_ATA)
         status = process_ata_op(&dop);
     else if (type == DTYPE_ATAPI)
@@ -77,7 +77,7 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 static int
 send_disk_op(struct disk_op_s *op)
 {
-    if (! CONFIG_ATA)
+    if (! CONFIG_DRIVES)
         return -1;
 
     return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
@@ -124,7 +124,7 @@ basic_access(struct bregs *regs, u8 device, u16 command)
     struct disk_op_s dop;
     dop.driveid = device;
     dop.command = command;
-    int lba = legacy_lba(regs, get_global_seg(), &ATA.devices[device].lchs);
+    int lba = legacy_lba(regs, get_global_seg(), &Drives.drives[device].lchs);
     if (lba < 0)
         return;
     dop.lba = lba;
@@ -218,7 +218,7 @@ extended_access(struct bregs *regs, u8 device, u16 command)
     dop.lba = GET_INT13EXT(regs, lba);
     dop.command = command;
     dop.driveid = device;
-    if (dop.lba >= GET_GLOBAL(ATA.devices[device].sectors)) {
+    if (dop.lba >= GET_GLOBAL(Drives.drives[device].sectors)) {
         dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
                 , regs->ah);
         disk_ret(regs, DISK_RET_EPARAM);
@@ -300,9 +300,9 @@ static void
 disk_1308(struct bregs *regs, u8 device)
 {
     // Get logical geometry from table
-    u16 nlc = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
-    u16 nlh = GET_GLOBAL(ATA.devices[device].lchs.heads);
-    u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
+    u16 nlc = GET_GLOBAL(Drives.drives[device].lchs.cylinders);
+    u16 nlh = GET_GLOBAL(Drives.drives[device].lchs.heads);
+    u16 nlspt = GET_GLOBAL(Drives.drives[device].lchs.spt);
     u16 count = GET_BDA(hdcount);
 
     nlc = nlc - 2; /* 0 based , last sector not used */
@@ -372,9 +372,9 @@ static void
 disk_1315(struct bregs *regs, u8 device)
 {
     // Get logical geometry from table
-    u16 nlc   = GET_GLOBAL(ATA.devices[device].lchs.cylinders);
-    u16 nlh   = GET_GLOBAL(ATA.devices[device].lchs.heads);
-    u16 nlspt = GET_GLOBAL(ATA.devices[device].lchs.spt);
+    u16 nlc   = GET_GLOBAL(Drives.drives[device].lchs.cylinders);
+    u16 nlh   = GET_GLOBAL(Drives.drives[device].lchs.heads);
+    u16 nlspt = GET_GLOBAL(Drives.drives[device].lchs.spt);
 
     // Compute sector count seen by int13
     u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;
@@ -453,12 +453,12 @@ disk_1348(struct bregs *regs, u8 device)
 
     // EDD 1.x
 
-    u8  type    = GET_GLOBAL(ATA.devices[device].type);
-    u16 npc     = GET_GLOBAL(ATA.devices[device].pchs.cylinders);
-    u16 nph     = GET_GLOBAL(ATA.devices[device].pchs.heads);
-    u16 npspt   = GET_GLOBAL(ATA.devices[device].pchs.spt);
-    u64 lba     = GET_GLOBAL(ATA.devices[device].sectors);
-    u16 blksize = GET_GLOBAL(ATA.devices[device].blksize);
+    u8  type    = GET_GLOBAL(Drives.drives[device].type);
+    u16 npc     = GET_GLOBAL(Drives.drives[device].pchs.cylinders);
+    u16 nph     = GET_GLOBAL(Drives.drives[device].pchs.heads);
+    u16 npspt   = GET_GLOBAL(Drives.drives[device].pchs.spt);
+    u64 lba     = GET_GLOBAL(Drives.drives[device].sectors);
+    u16 blksize = GET_GLOBAL(Drives.drives[device].blksize);
 
     dprintf(DEBUG_HDL_13, "disk_1348 size=%d t=%d chs=%d,%d,%d lba=%d bs=%d\n"
             , size, type, npc, nph, npspt, (u32)lba, blksize);
@@ -500,16 +500,16 @@ disk_1348(struct bregs *regs, u8 device)
                  , offsetof(struct extended_bios_data_area_s, dpte));
 
     // Fill in dpte
-    u8 ataid = GET_GLOBAL(ATA.devices[device].cntl_id);
+    u8 ataid = GET_GLOBAL(Drives.drives[device].cntl_id);
     u8 channel = ataid / 2;
     u8 slave = ataid % 2;
-    u16 iobase1 = GET_GLOBAL(ATA.channels[channel].iobase1);
-    u16 iobase2 = GET_GLOBAL(ATA.channels[channel].iobase2);
-    u8 irq = GET_GLOBAL(ATA.channels[channel].irq);
+    u16 iobase1 = GET_GLOBAL(ATA_channels[channel].iobase1);
+    u16 iobase2 = GET_GLOBAL(ATA_channels[channel].iobase2);
+    u8 irq = GET_GLOBAL(ATA_channels[channel].irq);
 
     u16 options = 0;
     if (type == DTYPE_ATA) {
-        u8 translation = GET_GLOBAL(ATA.devices[device].translation);
+        u8 translation = GET_GLOBAL(Drives.drives[device].translation);
         if (translation != TRANSLATION_NONE) {
             options |= 1<<3; // CHS translation
             if (translation == TRANSLATION_LBA)
@@ -559,7 +559,7 @@ disk_1348(struct bregs *regs, u8 device)
     SET_INT13DPT(regs, host_bus[2], 'I');
     SET_INT13DPT(regs, host_bus[3], 0);
 
-    u32 bdf = GET_GLOBAL(ATA.channels[channel].pci_bdf);
+    u32 bdf = GET_GLOBAL(ATA_channels[channel].pci_bdf);
     u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
                 | (pci_bdf_to_fn(bdf) << 16));
     SET_INT13DPT(regs, iface_path, path);
@@ -680,25 +680,25 @@ disk_13(struct bregs *regs, u8 device)
  * Entry points
  ****************************************************************/
 
-static u8
+static int
 get_device(struct bregs *regs, u8 iscd, u8 drive)
 {
     // basic check : device has to be defined
-    if (drive >= CONFIG_MAX_ATA_DEVICES) {
+    if (drive >= ARRAY_SIZE(Drives.idmap[0])) {
         disk_ret(regs, DISK_RET_EPARAM);
-        return CONFIG_MAX_ATA_DEVICES;
+        return -1;
     }
 
     // Get the ata channel
-    u8 device = GET_GLOBAL(ATA.idmap[iscd][drive]);
+    u8 driveid = GET_GLOBAL(Drives.idmap[iscd][drive]);
 
     // basic check : device has to be valid
-    if (device >= CONFIG_MAX_ATA_DEVICES) {
+    if (driveid >= ARRAY_SIZE(Drives.drives)) {
         disk_ret(regs, DISK_RET_EPARAM);
-        return CONFIG_MAX_ATA_DEVICES;
+        return -1;
     }
 
-    return device;
+    return driveid;
 }
 
 static void
@@ -709,24 +709,24 @@ handle_legacy_disk(struct bregs *regs, u8 drive)
         return;
     }
 
-    if (! CONFIG_ATA) {
+    if (! CONFIG_DRIVES) {
         // XXX - old code had other disk access method.
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
 
     if (drive >= 0xe0) {
-        u8 device = get_device(regs, 1, drive - 0xe0);
-        if (device >= CONFIG_MAX_ATA_DEVICES)
+        int driveid = get_device(regs, 1, drive - 0xe0);
+        if (driveid < 0)
             return;
-        cdrom_13(regs, device);
+        cdrom_13(regs, driveid);
         return;
     }
 
-    u8 device = get_device(regs, 0, drive - 0x80);
-    if (device >= CONFIG_MAX_ATA_DEVICES)
+    int driveid = get_device(regs, 0, drive - 0x80);
+    if (driveid < 0)
         return;
-    disk_13(regs, device);
+    disk_13(regs, driveid);
 }
 
 void VISIBLE16

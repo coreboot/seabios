@@ -167,15 +167,8 @@ struct chs_s {
     u16 spt;        // # sectors / track
 };
 
-struct ata_channel_s {
-    u16 iobase1;      // IO Base 1
-    u16 iobase2;      // IO Base 2
-    u16 pci_bdf;
-    u8  irq;          // IRQ
-};
-
-struct ata_device_s {
-    u8  type;         // Detected type of ata (ata/atapi/none)
+struct drive_s {
+    u8  type;         // Detected type of drive (ata/atapi/none)
     u8  removable;    // Removable device flag
     u16 blksize;      // block size
     int cntl_id;
@@ -198,16 +191,13 @@ struct ata_device_s {
 #define TRANSLATION_LARGE 2
 #define TRANSLATION_RECHS 3
 
-struct ata_s {
-    // ATA channels info
-    struct ata_channel_s channels[CONFIG_MAX_ATA_INTERFACES];
-
-    // ATA devices info
-    struct ata_device_s devices[CONFIG_MAX_ATA_DEVICES];
+struct drives_s {
+    // info on each internally handled drive
+    struct drive_s drives[CONFIG_MAX_DRIVES];
     //
-    // map between bios hd/cd id and ata channels
+    // map between bios hd/cd id and driveid index into drives[]
     u8 cdcount;
-    u8 idmap[2][CONFIG_MAX_ATA_DEVICES];
+    u8 idmap[2][CONFIG_MAX_EXTDRIVE];
 };
 
 
@@ -215,20 +205,17 @@ struct ata_s {
  * Function defs
  ****************************************************************/
 
-// ata.c
-extern struct ata_s ATA;
-int cdrom_read(struct disk_op_s *op);
-int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
-                   , u32 length, void *buf_fl);
-void hard_drive_setup();
-int process_ata_op(struct disk_op_s *op);
-int process_atapi_op(struct disk_op_s *op);
-void map_drive(int driveid);
+// block.c
+extern struct drives_s Drives;
+void setup_translation(int driveid);
+void map_hd_drive(int driveid);
+void map_cd_drive(int driveid);
+void drive_setup();
 
 // floppy.c
 extern u8 FloppyCount;
 extern struct floppy_ext_dbt_s diskette_param_table2;
-void floppy_drive_setup();
+void floppy_setup();
 void floppy_13(struct bregs *regs, u8 drive);
 void floppy_tick();
 

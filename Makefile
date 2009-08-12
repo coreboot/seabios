@@ -11,7 +11,7 @@ VERSION=pre-0.4.2-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
 OUT=out/
 
 # Source files
-SRCBOTH=output.c util.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
+SRCBOTH=output.c util.c block.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
         serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c vgahooks.c pmm.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c font.c

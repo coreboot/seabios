@@ -1,3 +1,25 @@
+#ifndef __ATA_H
+#define __ATA_H
+
+#include "types.h" // u8
+#include "config.h" // CONFIG_MAX_ATA_INTERFACES
+
+struct ata_channel_s {
+    u16 iobase1;      // IO Base 1
+    u16 iobase2;      // IO Base 2
+    u16 pci_bdf;
+    u8  irq;          // IRQ
+};
+
+// ata.c
+extern struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES];
+int cdrom_read(struct disk_op_s *op);
+int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
+                   , u32 length, void *buf_fl);
+void ata_setup();
+int process_ata_op(struct disk_op_s *op);
+int process_atapi_op(struct disk_op_s *op);
+
 // Global defines -- ATA register and register bits.
 // command block & control block regs
 #define ATA_CB_DATA  0   // data reg         in/out pio_base_addr1+0
@@ -105,3 +127,5 @@
 #define ATA_CMD_WRITE_MULTIPLE               0xC5
 #define ATA_CMD_WRITE_SECTORS                0x30
 #define ATA_CMD_WRITE_VERIFY                 0x3C
+
+#endif // ata.h

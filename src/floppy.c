@@ -1,6 +1,6 @@
 // 16bit code to access floppy drives.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -60,7 +60,7 @@ u8 FloppyCount VAR16_32;
 u8 FloppyTypes[2] VAR16_32;
 
 void
-floppy_drive_setup()
+floppy_setup()
 {
     if (! CONFIG_FLOPPY_SUPPORT)
         return;

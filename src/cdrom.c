@@ -1,6 +1,6 @@
 // 16bit code to access cdrom drives.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -9,7 +9,7 @@
 #include "util.h" // memset
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_EBDA
-#include "atabits.h" // ATA_CMD_REQUEST_SENSE
+#include "ata.h" // ATA_CMD_REQUEST_SENSE
 
 
 /****************************************************************
@@ -387,7 +387,7 @@ atapi_is_ready(u16 device)
         }
     }
 
-    if (blksize != GET_GLOBAL(ATA.devices[device].blksize)) {
+    if (blksize != GET_GLOBAL(Drives.drives[device].blksize)) {
         printf("Unsupported sector size %u\n", blksize);
         return -1;
     }
@@ -401,9 +401,9 @@ int
 cdrom_boot(int cdid)
 {
     // Verify device is a cdrom.
-    if (cdid >= ATA.cdcount)
+    if (cdid >= Drives.cdcount)
         return 1;
-    int driveid = GET_GLOBAL(ATA.idmap[1][cdid]);
+    int driveid = GET_GLOBAL(Drives.idmap[1][cdid]);
 
     int ret = atapi_is_ready(driveid);
     if (ret)

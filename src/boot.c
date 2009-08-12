@@ -168,12 +168,12 @@ static int
 menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
 {
     int i;
-    for (i = 0; i < ATA.cdcount; i++) {
-        int driveid = ATA.idmap[1][i];
+    for (i = 0; i < Drives.cdcount; i++) {
+        int driveid = Drives.idmap[1][i];
         printf("%d. CD-Rom [ata%d-%d %s]\n", menupos + i
-               , driveid / 2, driveid % 2, ATA.devices[driveid].model);
+               , driveid / 2, driveid % 2, Drives.drives[driveid].model);
     }
-    return ATA.cdcount;
+    return Drives.cdcount;
 }
 
 // Show coreboot-fs menu item.
@@ -272,7 +272,7 @@ run_bcv(struct ipl_entry_s *ie)
 {
     switch (ie->type) {
     case IPL_TYPE_HARDDISK:
-        map_drive(ie->vector);
+        map_hd_drive(ie->vector);
         break;
     case IPL_TYPE_BEV:
         call_bcv(ie->vector >> 16, ie->vector & 0xffff);

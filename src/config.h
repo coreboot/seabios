@@ -24,7 +24,9 @@
 // Screen writes are also sent to debug ports.
 #define CONFIG_SCREEN_AND_DEBUG 1
 
-// Support for int13 floppy drive access
+// Support int13 disk/floppy drive functions
+#define CONFIG_DRIVES 1
+// Support floppy drive access
 #define CONFIG_FLOPPY_SUPPORT 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
@@ -104,8 +106,12 @@
 // Space to reserve in high-memory for tables
 #define CONFIG_MAX_HIGHTABLE (64*1024)
 
+// Maximum number of ATA controllers to support
 #define CONFIG_MAX_ATA_INTERFACES 4
-#define CONFIG_MAX_ATA_DEVICES  (CONFIG_MAX_ATA_INTERFACES*2)
+// Maximum number of internal drives supported
+#define CONFIG_MAX_DRIVES 8
+// Largest supported externaly facing drive id
+#define CONFIG_MAX_EXTDRIVE 16
 
 #define CONFIG_MODEL_ID      0xFC
 #define CONFIG_SUBMODEL_ID   0x00

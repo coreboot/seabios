@@ -228,7 +228,7 @@ struct extended_bios_data_area_s {
     struct dpte_s dpte;
 
     // Locks for removable devices
-    u8 cdrom_locks[CONFIG_MAX_ATA_DEVICES];
+    u8 cdrom_locks[CONFIG_MAX_DRIVES];
 
     u16 boot_sequence;
 

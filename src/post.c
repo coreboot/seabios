@@ -11,6 +11,7 @@
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
 #include "disk.h" // floppy_drive_setup
+#include "ata.h" // ata_setup
 #include "memmap.h" // add_e820
 #include "pic.h" // pic_setup
 #include "pci.h" // create_pirtable
@@ -185,8 +186,9 @@ post()
 
     boot_setup();
 
-    floppy_drive_setup();
-    hard_drive_setup();
+    drive_setup();
+    floppy_setup();
+    ata_setup();
 
     optionrom_setup();
 
