@@ -7,7 +7,7 @@
 
 #include "types.h" // u8
 #include "disk.h" // DISK_RET_SUCCESS
-#include "config.h" // CONFIG_FLOPPY_SUPPORT
+#include "config.h" // CONFIG_FLOPPY
 #include "biosvar.h" // SET_BDA
 #include "util.h" // irq_disable
 #include "cmos.h" // inb_cmos
@@ -56,43 +56,74 @@ struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7) = {
     .startup_time   = 0x08,
 };
 
-u8 FloppyCount VAR16_32;
 u8 FloppyTypes[2] VAR16_32;
+
+struct floppyinfo_s {
+    struct chs_s chs;
+    u8 config_data;
+    u8 media_state;
+};
+
+struct floppyinfo_s FloppyInfo[] VAR16_32 = {
+    // Unknown
+    { {0, 0, 0}, 0x00, 0x00},
+    // 1 - 360KB, 5.25" - 2 heads, 40 tracks, 9 sectors
+    { {2, 40, 9}, 0x00, 0x25},
+    // 2 - 1.2MB, 5.25" - 2 heads, 80 tracks, 15 sectors
+    { {2, 80, 15}, 0x00, 0x25},
+    // 3 - 720KB, 3.5"  - 2 heads, 80 tracks, 9 sectors
+    { {2, 80, 9}, 0x00, 0x17},
+    // 4 - 1.44MB, 3.5" - 2 heads, 80 tracks, 18 sectors
+    { {2, 80, 18}, 0x00, 0x17},
+    // 5 - 2.88MB, 3.5" - 2 heads, 80 tracks, 36 sectors
+    { {2, 80, 36}, 0xCC, 0xD7},
+    // 6 - 160k, 5.25"  - 1 heads, 40 tracks, 8 sectors
+    { {1, 40, 8}, 0x00, 0x27},
+    // 7 - 180k, 5.25"  - 1 heads, 40 tracks, 9 sectors
+    { {1, 40, 9}, 0x00, 0x27},
+    // 8 - 320k, 5.25"  - 2 heads, 40 tracks, 8 sectors
+    { {2, 40, 8}, 0x00, 0x27},
+};
+
+static void
+addFloppy(int floppyid, int ftype)
+{
+    if (ftype <= 0 || ftype >= ARRAY_SIZE(FloppyInfo)) {
+        dprintf(1, "Bad floppy type %d\n", ftype);
+        return;
+    }
+
+    int driveid = Drives.drivecount;
+    if (driveid >= ARRAY_SIZE(Drives.drives))
+        return;
+    Drives.drivecount++;
+    memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
+    Drives.drives[driveid].cntl_id = floppyid;
+    FloppyTypes[floppyid] = ftype;
+
+    memcpy(&Drives.drives[driveid].lchs, &FloppyInfo[ftype].chs
+           , sizeof(FloppyInfo[ftype].chs));
+
+    map_floppy_drive(driveid);
+}
 
 void
 floppy_setup()
 {
-    if (! CONFIG_FLOPPY_SUPPORT)
+    if (! CONFIG_FLOPPY)
         return;
     dprintf(3, "init floppy drives\n");
-    FloppyCount = 0;
     FloppyTypes[0] = FloppyTypes[1] = 0;
 
-    u8 out = 0;
     if (CONFIG_COREBOOT) {
         // XXX - disable floppies on coreboot for now.
     } else {
         u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
-        if (type & 0xf0) {
-            out |= 0x07;
-            FloppyTypes[0] = type >> 4;
-            FloppyCount++;
-        }
-        if (type & 0x0f) {
-            out |= 0x70;
-            FloppyTypes[1] = type & 0x0f;
-            FloppyCount++;
-        }
+        if (type & 0xf0)
+            addFloppy(0, type >> 4);
+        if (type & 0x0f)
+            addFloppy(1, type & 0x0f);
     }
-    SET_BDA(floppy_harddisk_info, out);
-
-    // Update equipment word bits for floppy
-    if (FloppyCount == 1)
-        // 1 drive, ready for boot
-        SETBITS_BDA(equipment_list_flags, 0x01);
-    else if (FloppyCount == 2)
-        // 2 drives, ready for boot
-        SETBITS_BDA(equipment_list_flags, 0x41);
 
     outb(0x02, PORT_DMA1_MASK_REG);
 
@@ -154,17 +185,17 @@ wait_floppy_irq()
 }
 
 static void
-floppy_prepare_controller(u8 drive)
+floppy_prepare_controller(u8 floppyid)
 {
     CLEARBITS_BDA(floppy_recalibration_status, FRS_TIMEOUT);
 
     // turn on motor of selected drive, DMA & int enabled, normal operation
     u8 prev_reset = inb(PORT_FD_DOR) & 0x04;
     u8 dor = 0x10;
-    if (drive)
+    if (floppyid)
         dor = 0x20;
     dor |= 0x0c;
-    dor |= drive;
+    dor |= floppyid;
     outb(dor, PORT_FD_DOR);
 
     // reset the disk motor timeout value of INT 08
@@ -262,26 +293,26 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
  ****************************************************************/
 
 static inline void
-set_diskette_current_cyl(u8 drive, u8 cyl)
+set_diskette_current_cyl(u8 floppyid, u8 cyl)
 {
-    SET_BDA(floppy_track[drive], cyl);
+    SET_BDA(floppy_track[floppyid], cyl);
 }
 
 static void
-floppy_drive_recal(u8 drive)
+floppy_drive_recal(u8 floppyid)
 {
     // send Recalibrate command (2 bytes) to controller
     u8 data[12];
     data[0] = 0x07;  // 07: Recalibrate
-    data[1] = drive; // 0=drive0, 1=drive1
+    data[1] = floppyid; // 0=drive0, 1=drive1
     floppy_pio(data, 2);
 
-    SETBITS_BDA(floppy_recalibration_status, 1<<drive);
-    set_diskette_current_cyl(drive, 0);
+    SETBITS_BDA(floppy_recalibration_status, 1<<floppyid);
+    set_diskette_current_cyl(floppyid, 0);
 }
 
 static int
-floppy_media_sense(u8 drive)
+floppy_media_sense(u8 floppyid)
 {
     // for now cheat and get drive type from CMOS,
     // assume media is same as drive type
@@ -314,82 +345,26 @@ floppy_media_sense(u8 drive)
     //    110 reserved
     //    111 all other formats/drives
 
-    int rv = 0;
-    u8 config_data, media_state;
-    switch (GET_GLOBAL(FloppyTypes[drive])) {
-    case 1:
-        // 360K 5.25" drive
-        config_data = 0x00; // 0000 0000
-        media_state = 0x25; // 0010 0101
-        break;
-    case 2:
-        // 1.2 MB 5.25" drive
-        config_data = 0x00; // 0000 0000
-        media_state = 0x25; // 0010 0101   // need double stepping??? (bit 5)
-        break;
-    case 3:
-        // 720K 3.5" drive
-        config_data = 0x00; // 0000 0000 ???
-        media_state = 0x17; // 0001 0111
-        break;
-    case 4:
-        // 1.44 MB 3.5" drive
-        config_data = 0x00; // 0000 0000
-        media_state = 0x17; // 0001 0111
-        break;
-    case 5:
-        // 2.88 MB 3.5" drive
-        config_data = 0xCC; // 1100 1100
-        media_state = 0xD7; // 1101 0111
-        break;
-    //
-    // Extended floppy size uses special cmos setting
-    case 6:
-        // 160k 5.25" drive
-        config_data = 0x00; // 0000 0000
-        media_state = 0x27; // 0010 0111
-        break;
-    case 7:
-        // 180k 5.25" drive
-        config_data = 0x00; // 0000 0000
-        media_state = 0x27; // 0010 0111
-        break;
-    case 8:
-        // 320k 5.25" drive
-        config_data = 0x00; // 0000 0000
-        media_state = 0x27; // 0010 0111
-        break;
-    default:
-        // not recognized
-        config_data = 0x00; // 0000 0000
-        media_state = 0x00; // 0000 0000
-        rv = -1;
-    }
-
-    SET_BDA(floppy_last_data_rate, config_data);
-    SET_BDA(floppy_media_state[drive], media_state);
-    return rv;
+    u8 ftype = GET_GLOBAL(FloppyTypes[floppyid]);
+    SET_BDA(floppy_last_data_rate, GET_GLOBAL(FloppyInfo[ftype].config_data));
+    SET_BDA(floppy_media_state[floppyid]
+            , GET_GLOBAL(FloppyInfo[ftype].media_state));
+    return 0;
 }
 
 static int
-check_drive(struct bregs *regs, u8 drive)
+check_recal_drive(struct bregs *regs, u8 floppyid)
 {
-    // see if drive exists
-    if (drive > 1 || !GET_GLOBAL(FloppyTypes[drive])) {
-        floppy_ret(regs, DISK_RET_ETIMEOUT);
-        return -1;
-    }
-
-    if ((GET_BDA(floppy_recalibration_status) & (1<<drive))
-        && (GET_BDA(floppy_media_state[drive]) & FMS_MEDIA_DRIVE_ESTABLISHED))
+    if ((GET_BDA(floppy_recalibration_status) & (1<<floppyid))
+        && (GET_BDA(floppy_media_state[floppyid]) & FMS_MEDIA_DRIVE_ESTABLISHED))
         // Media is known.
         return 0;
 
     // Recalibrate drive.
-    floppy_drive_recal(drive);
+    floppy_drive_recal(floppyid);
 
     // Sense media.
-    int ret = floppy_media_sense(drive);
+    int ret = floppy_media_sense(floppyid);
     if (ret) {
         floppy_ret(regs, DISK_RET_EMEDIA);
         return -1;
@@ -404,23 +379,16 @@ check_drive(struct bregs *regs, u8 drive)
 
 // diskette controller reset
 static void
-floppy_1300(struct bregs *regs, u8 drive)
+floppy_1300(struct bregs *regs, u8 driveid)
 {
-    if (drive > 1) {
-        floppy_ret(regs, DISK_RET_EPARAM);
-        return;
-    }
-    if (!GET_GLOBAL(FloppyTypes[drive])) {
-        floppy_ret(regs, DISK_RET_ETIMEOUT);
-        return;
-    }
-    set_diskette_current_cyl(drive, 0); // current cylinder
+    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    set_diskette_current_cyl(floppyid, 0); // current cylinder
     floppy_ret(regs, DISK_RET_SUCCESS);
 }
 
 // Read Diskette Status
 static void
-floppy_1301(struct bregs *regs, u8 drive)
+floppy_1301(struct bregs *regs, u8 driveid)
 {
     u8 v = GET_BDA(floppy_last_status);
     regs->ah = v;
@@ -429,9 +397,10 @@ floppy_1301(struct bregs *regs, u8 drive)
 
 // Read Diskette Sectors
 static void
-floppy_1302(struct bregs *regs, u8 drive)
+floppy_1302(struct bregs *regs, u8 driveid)
 {
-    if (check_drive(regs, drive))
+    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    if (check_recal_drive(regs, floppyid))
         goto fail;
 
     u8 num_sectors = regs->al;
@@ -448,7 +417,7 @@ floppy_1302(struct bregs *regs, u8 drive)
     // send read-normal-data command (9 bytes) to controller
     u8 data[12];
     data[0] = 0xe6; // e6: read normal data
-    data[1] = (head << 2) | drive; // HD DR1 DR2
+    data[1] = (head << 2) | floppyid; // HD DR1 DR2
     data[2] = track;
     data[3] = head;
     data[4] = sector;
@@ -467,7 +436,7 @@ floppy_1302(struct bregs *regs, u8 drive)
     }
 
     // ??? should track be new val from return_status[3] ?
-    set_diskette_current_cyl(drive, track);
+    set_diskette_current_cyl(floppyid, track);
     // AL = number of sectors read (same value as passed)
     floppy_ret(regs, DISK_RET_SUCCESS);
     return;
@@ -477,9 +446,10 @@ fail:
 
 // Write Diskette Sectors
 static void
-floppy_1303(struct bregs *regs, u8 drive)
+floppy_1303(struct bregs *regs, u8 driveid)
 {
-    if (check_drive(regs, drive))
+    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    if (check_recal_drive(regs, floppyid))
         goto fail;
 
     u8 num_sectors = regs->al;
@@ -496,7 +466,7 @@ floppy_1303(struct bregs *regs, u8 drive)
     // send write-normal-data command (9 bytes) to controller
     u8 data[12];
     data[0] = 0xc5; // c5: write normal data
-    data[1] = (head << 2) | drive; // HD DR1 DR2
+    data[1] = (head << 2) | floppyid; // HD DR1 DR2
     data[2] = track;
     data[3] = head;
     data[4] = sector;
@@ -518,7 +488,7 @@ floppy_1303(struct bregs *regs, u8 drive)
     }
 
     // ??? should track be new val from return_status[3] ?
-    set_diskette_current_cyl(drive, track);
+    set_diskette_current_cyl(floppyid, track);
     // AL = number of sectors read (same value as passed)
     floppy_ret(regs, DISK_RET_SUCCESS);
     return;
@@ -528,9 +498,10 @@ fail:
 
 // Verify Diskette Sectors
 static void
-floppy_1304(struct bregs *regs, u8 drive)
+floppy_1304(struct bregs *regs, u8 driveid)
 {
-    if (check_drive(regs, drive))
+    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    if (check_recal_drive(regs, floppyid))
         goto fail;
 
     u8 num_sectors = regs->al;
@@ -545,7 +516,7 @@ floppy_1304(struct bregs *regs, u8 drive)
     }
 
     // ??? should track be new val from return_status[3] ?
-    set_diskette_current_cyl(drive, track);
+    set_diskette_current_cyl(floppyid, track);
     // AL = number of sectors verified (same value as passed)
     floppy_ret(regs, DISK_RET_SUCCESS);
     return;
@@ -555,11 +526,12 @@ fail:
 
 // format diskette track
 static void
-floppy_1305(struct bregs *regs, u8 drive)
+floppy_1305(struct bregs *regs, u8 driveid)
 {
+    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
     dprintf(3, "floppy f05\n");
 
-    if (check_drive(regs, drive))
+    if (check_recal_drive(regs, floppyid))
         return;
 
     u8 num_sectors = regs->al;
@@ -573,7 +545,7 @@ floppy_1305(struct bregs *regs, u8 drive)
     // send format-track command (6 bytes) to controller
     u8 data[12];
     data[0] = 0x4d; // 4d: format track
-    data[1] = (head << 2) | drive; // HD DR1 DR2
+    data[1] = (head << 2) | floppyid; // HD DR1 DR2
     data[2] = 2; // 512 byte sector size
     data[3] = num_sectors; // number of sectors per track
     data[4] = 0; // Gap length
@@ -591,71 +563,32 @@ floppy_1305(struct bregs *regs, u8 drive)
         return;
     }
 
-    set_diskette_current_cyl(drive, 0);
+    set_diskette_current_cyl(floppyid, 0);
     floppy_ret(regs, 0);
 }
 
 // read diskette drive parameters
 static void
-floppy_1308(struct bregs *regs, u8 drive)
+floppy_1308(struct bregs *regs, u8 driveid)
 {
     dprintf(3, "floppy f08\n");
 
     regs->ax = 0;
-    regs->dx = GET_GLOBAL(FloppyCount);
-    if (drive > 1) {
-        regs->bx = 0;
-        regs->cx = 0;
-        regs->es = 0;
-        regs->di = 0;
-        set_fail(regs);
-        return;
-    }
+    regs->dx = GET_GLOBAL(Drives.floppycount);
 
-    u8 drive_type = GET_GLOBAL(FloppyTypes[drive]);
-    regs->bx = drive_type;
+    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    u8 ftype = GET_GLOBAL(FloppyTypes[floppyid]);
+    regs->bx = ftype;
 
-    switch (drive_type) {
-    default: // ?
-        dprintf(1, "floppy: int13: bad floppy type\n");
-        // NO BREAK
-    case 0: // none
-        regs->cx = 0;
-        regs->dh = 0; // max head #
-        break;
-    case 1: // 360KB, 5.25"
-        regs->cx = 0x2709; // 40 tracks, 9 sectors
-        regs->dh = 1; // max head #
-        break;
-    case 2: // 1.2MB, 5.25"
-        regs->cx = 0x4f0f; // 80 tracks, 15 sectors
-        regs->dh = 1; // max head #
-        break;
-    case 3: // 720KB, 3.5"
-        regs->cx = 0x4f09; // 80 tracks, 9 sectors
-        regs->dh = 1; // max head #
-        break;
-    case 4: // 1.44MB, 3.5"
-        regs->cx = 0x4f12; // 80 tracks, 18 sectors
-        regs->dh = 1; // max head #
-        break;
-    case 5: // 2.88MB, 3.5"
-        regs->cx = 0x4f24; // 80 tracks, 36 sectors
-        regs->dh = 1; // max head #
-        break;
-    case 6: // 160k, 5.25"
-        regs->cx = 0x2708; // 40 tracks, 8 sectors
-        regs->dh = 0; // max head #
-        break;
-    case 7: // 180k, 5.25"
-        regs->cx = 0x2709; // 40 tracks, 9 sectors
-        regs->dh = 0; // max head #
-        break;
-    case 8: // 320k, 5.25"
-        regs->cx = 0x2708; // 40 tracks, 8 sectors
-        regs->dh = 1; // max head #
-        break;
-    }
+    u16 nlc = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
+    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    nlc -= 1; // 0 based
+    nlh -= 1;
+
+    regs->ch = nlc & 0xff;
+    regs->cl = ((nlc >> 2) & 0xc0) | (nlspt & 0x3f);
+    regs->dh = nlh;
 
     /* set es & di to point to 11 byte diskette param table in ROM */
     regs->es = SEG_BIOS;
@@ -666,60 +599,40 @@ floppy_1308(struct bregs *regs, u8 drive)
 
 // read diskette drive type
 static void
-floppy_1315(struct bregs *regs, u8 drive)
+floppy_1315(struct bregs *regs, u8 driveid)
 {
     dprintf(6, "floppy f15\n");
-    if (drive > 1) {
-        set_fail(regs);
-        regs->ah = 0; // only 2 drives supported
-        // set_diskette_ret_status here ???
-        return;
-    }
-    u8 drive_type = GET_GLOBAL(FloppyTypes[drive]);
-
-    regs->ah = (drive_type != 0);
+    regs->ah = 1;
     set_success(regs);
 }
 
 // get diskette change line status
 static void
-floppy_1316(struct bregs *regs, u8 drive)
+floppy_1316(struct bregs *regs, u8 driveid)
 {
-    if (drive > 1) {
-        floppy_ret(regs, DISK_RET_EPARAM);
-        return;
-    }
     floppy_ret(regs, DISK_RET_ECHANGED);
 }
 
 static void
-floppy_13XX(struct bregs *regs, u8 drive)
+floppy_13XX(struct bregs *regs, u8 driveid)
 {
     floppy_ret(regs, DISK_RET_EPARAM);
 }
 
 void
-floppy_13(struct bregs *regs, u8 drive)
+floppy_13(struct bregs *regs, u8 driveid)
 {
-    if (! CONFIG_FLOPPY_SUPPORT) {
-        // Minimal stubs
-        switch (regs->ah) {
-        case 0x01: floppy_1301(regs, drive); break;
-        default:   floppy_13XX(regs, drive); break;
-        }
-        return;
-    }
     switch (regs->ah) {
-    case 0x00: floppy_1300(regs, drive); break;
-    case 0x01: floppy_1301(regs, drive); break;
-    case 0x02: floppy_1302(regs, drive); break;
-    case 0x03: floppy_1303(regs, drive); break;
-    case 0x04: floppy_1304(regs, drive); break;
-    case 0x05: floppy_1305(regs, drive); break;
-    case 0x08: floppy_1308(regs, drive); break;
-    case 0x15: floppy_1315(regs, drive); break;
-    case 0x16: floppy_1316(regs, drive); break;
-    default:   floppy_13XX(regs, drive); break;
+    case 0x00: floppy_1300(regs, driveid); break;
+    case 0x01: floppy_1301(regs, driveid); break;
+    case 0x02: floppy_1302(regs, driveid); break;
+    case 0x03: floppy_1303(regs, driveid); break;
+    case 0x04: floppy_1304(regs, driveid); break;
+    case 0x05: floppy_1305(regs, driveid); break;
+    case 0x08: floppy_1308(regs, driveid); break;
+    case 0x15: floppy_1315(regs, driveid); break;
+    case 0x16: floppy_1316(regs, driveid); break;
+    default:   floppy_13XX(regs, driveid); break;
     }
 }
 
@@ -733,7 +646,7 @@ void VISIBLE16
 handle_0e()
 {
     debug_isr(DEBUG_ISR_0e);
-    if (! CONFIG_FLOPPY_SUPPORT)
+    if (! CONFIG_FLOPPY)
         goto done;
 
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
@@ -755,7 +668,7 @@ done:
 void
 floppy_tick()
 {
-    if (! CONFIG_FLOPPY_SUPPORT)
+    if (! CONFIG_FLOPPY)
         return;
 
     // time to turn off drive(s)?

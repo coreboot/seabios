@@ -178,7 +178,7 @@ map_hd_drive(int driveid)
     if (hdcount >= ARRAY_SIZE(Drives.idmap[0]))
         return;
     dprintf(3, "Mapping hd driveid %d to %d\n", driveid, hdcount);
-    SET_GLOBAL(Drives.idmap[0][hdcount], driveid);
+    SET_GLOBAL(Drives.idmap[EXTTYPE_HD][hdcount], driveid);
     SET_BDA(hdcount, hdcount + 1);
 
     // Fill "fdpt" structure.
@@ -191,11 +191,36 @@ map_cd_drive(int driveid)
 {
     // fill cdidmap
     u8 cdcount = GET_GLOBAL(Drives.cdcount);
-    if (cdcount >= ARRAY_SIZE(Drives.idmap[1]))
+    if (cdcount >= ARRAY_SIZE(Drives.idmap[0]))
         return;
     dprintf(3, "Mapping cd driveid %d to %d\n", driveid, cdcount);
-    SET_GLOBAL(Drives.idmap[1][cdcount], driveid);
+    SET_GLOBAL(Drives.idmap[EXTTYPE_CD][cdcount], driveid);
     SET_GLOBAL(Drives.cdcount, cdcount+1);
+}
+
+// Map a floppy
+void
+map_floppy_drive(int driveid)
+{
+    // fill idmap
+    u8 floppycount = GET_GLOBAL(Drives.floppycount);
+    if (floppycount >= ARRAY_SIZE(Drives.idmap[0]))
+        return;
+    dprintf(3, "Mapping floppy driveid %d to %d\n", driveid, floppycount);
+    SET_GLOBAL(Drives.idmap[EXTTYPE_FLOPPY][floppycount], driveid);
+    floppycount++;
+    SET_GLOBAL(Drives.floppycount, floppycount);
+
+    // Update equipment word bits for floppy
+    if (floppycount == 1) {
+        // 1 drive, ready for boot
+        SETBITS_BDA(equipment_list_flags, 0x01);
+        SET_BDA(floppy_harddisk_info, 0x07);
+    } else {
+        // 2 drives, ready for boot
+        SETBITS_BDA(equipment_list_flags, 0x41);
+        SET_BDA(floppy_harddisk_info, 0x77);
+    }
 }
 
 

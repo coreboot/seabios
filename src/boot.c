@@ -138,7 +138,7 @@ menu_show_default(struct ipl_entry_s *ie, int menupos)
 static int
 menu_show_floppy(struct ipl_entry_s *ie, int menupos)
 {
-    if (!FloppyCount)
+    if (!Drives.floppycount)
         return 0;
     return menu_show_default(ie, menupos);
 }
@@ -169,7 +169,7 @@ menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
 {
     int i;
     for (i = 0; i < Drives.cdcount; i++) {
-        int driveid = Drives.idmap[1][i];
+        int driveid = Drives.idmap[EXTTYPE_CD][i];
         printf("%d. CD-Rom [ata%d-%d %s]\n", menupos + i
                , driveid / 2, driveid % 2, Drives.drives[driveid].model);
     }

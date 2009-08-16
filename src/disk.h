@@ -194,11 +194,17 @@ struct drive_s {
 struct drives_s {
     // info on each internally handled drive
     struct drive_s drives[CONFIG_MAX_DRIVES];
+    u8 drivecount;
     //
-    // map between bios hd/cd id and driveid index into drives[]
+    // map between bios floppy/hd/cd id and driveid index into drives[]
+    u8 floppycount;
     u8 cdcount;
-    u8 idmap[2][CONFIG_MAX_EXTDRIVE];
+    u8 idmap[3][CONFIG_MAX_EXTDRIVE];
 };
+
+#define EXTTYPE_FLOPPY 0
+#define EXTTYPE_HD 1
+#define EXTTYPE_CD 2
 
 
 /****************************************************************
@@ -208,15 +214,15 @@ struct drives_s {
 // block.c
 extern struct drives_s Drives;
 void setup_translation(int driveid);
+void map_floppy_drive(int driveid);
 void map_hd_drive(int driveid);
 void map_cd_drive(int driveid);
 void drive_setup();
 
 // floppy.c
-extern u8 FloppyCount;
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup();
-void floppy_13(struct bregs *regs, u8 drive);
+void floppy_13(struct bregs *regs, u8 driveid);
 void floppy_tick();
 
 // disk.c

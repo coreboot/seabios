@@ -404,7 +404,7 @@ cdrom_boot(int cdid)
     // Verify device is a cdrom.
     if (cdid >= Drives.cdcount)
         return 1;
-    int driveid = GET_GLOBAL(Drives.idmap[1][cdid]);
+    int driveid = GET_GLOBAL(Drives.idmap[EXTTYPE_CD][cdid]);
 
     int ret = atapi_is_ready(driveid);
     if (ret)

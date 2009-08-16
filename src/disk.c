@@ -681,22 +681,18 @@ disk_13(struct bregs *regs, u8 driveid)
  ****************************************************************/
 
 static int
-get_driveid(struct bregs *regs, u8 iscd, u8 drive)
+get_driveid(struct bregs *regs, u8 exttype, u8 extdriveoffset)
 {
     // basic check : device has to be defined
-    if (drive >= ARRAY_SIZE(Drives.idmap[0])) {
-        disk_ret(regs, DISK_RET_EPARAM);
+    if (extdriveoffset >= ARRAY_SIZE(Drives.idmap[0]))
         return -1;
-    }
 
     // Get the ata channel
-    u8 driveid = GET_GLOBAL(Drives.idmap[iscd][drive]);
+    u8 driveid = GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]);
 
     // basic check : device has to be valid
-    if (driveid >= ARRAY_SIZE(Drives.drives)) {
-        disk_ret(regs, DISK_RET_EPARAM);
+    if (driveid >= ARRAY_SIZE(Drives.drives))
         return -1;
-    }
 
     return driveid;
 }
@@ -704,29 +700,37 @@ get_driveid(struct bregs *regs, u8 iscd, u8 drive)
 static void
 handle_legacy_disk(struct bregs *regs, u8 extdrive)
 {
-    if (extdrive < 0x80) {
-        floppy_13(regs, extdrive);
-        return;
-    }
-
     if (! CONFIG_DRIVES) {
-        // XXX - old code had other disk access method.
+        // XXX - support handle_1301 anyway?
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
 
-    if (extdrive >= 0xe0) {
-        int driveid = get_driveid(regs, 1, extdrive - 0xe0);
+    if (extdrive < 0x80) {
+        int driveid = get_driveid(regs, EXTTYPE_FLOPPY, extdrive);
         if (driveid < 0)
-            return;
+            goto fail;
+        floppy_13(regs, driveid);
+        return;
+    }
+
+    if (extdrive >= 0xe0) {
+        int driveid = get_driveid(regs, EXTTYPE_CD, extdrive - 0xe0);
+        if (driveid < 0)
+            goto fail;
         cdrom_13(regs, driveid);
         return;
     }
 
-    int driveid = get_driveid(regs, 0, extdrive - 0x80);
+    int driveid = get_driveid(regs, EXTTYPE_HD, extdrive - 0x80);
     if (driveid < 0)
-        return;
+        goto fail;
     disk_13(regs, driveid);
+    return;
+
+fail:
+    // XXX - support 1301/1308/1315 anyway?
+    disk_ret(regs, DISK_RET_EPARAM);
 }
 
 void VISIBLE16

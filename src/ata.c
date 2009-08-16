@@ -623,7 +623,7 @@ ata_detect()
 {
     // Device detection
     u64 end = calc_future_tsc(IDE_TIMEOUT);
-    int ataid, last_reset_ataid=-1, driveid=0;
+    int ataid, last_reset_ataid=-1;
     for (ataid=0; ataid<CONFIG_MAX_ATA_INTERFACES*2; ataid++) {
         u8 channel = ataid / 2;
         u8 slave = ataid % 2;
@@ -656,6 +656,7 @@ ata_detect()
             continue;
 
         // Prepare new driveid.
+        u8 driveid = GET_GLOBAL(Drives.drivecount);
         if (driveid >= ARRAY_SIZE(Drives.drives))
             break;
         memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
@@ -691,7 +692,7 @@ ata_detect()
                 // No ATA drive found
                 continue;
         }
-        driveid++;
+        SET_GLOBAL(Drives.drivecount, driveid+1);
 
         u16 resetresult = buffer[93];
         dprintf(6, "ata_detect resetresult=%04x\n", resetresult);

@@ -27,7 +27,7 @@
 // Support int13 disk/floppy drive functions
 #define CONFIG_DRIVES 1
 // Support floppy drive access
-#define CONFIG_FLOPPY_SUPPORT 1
+#define CONFIG_FLOPPY 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
 // Use 32bit PIO accesses on ATA (minor optimization on PCI transfers)
