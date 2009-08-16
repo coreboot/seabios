@@ -138,9 +138,11 @@ menu_show_default(struct ipl_entry_s *ie, int menupos)
 static int
 menu_show_floppy(struct ipl_entry_s *ie, int menupos)
 {
-    if (!Drives.floppycount)
-        return 0;
-    return menu_show_default(ie, menupos);
+    int i;
+    for (i = 0; i < Drives.floppycount; i++) {
+        printf("%d. floppy %d\n", menupos + i, i+1);
+    }
+    return Drives.floppycount;
 }
 
 // Show menu items from BCV list.
@@ -290,8 +292,14 @@ boot_prep()
     // Allow user to modify BCV/IPL order.
     interactive_bootmenu();
 
+    // Setup floppy boot order
+    int override = IPL.bev[0].subchoice;
+    int tmp = Drives.idmap[EXTTYPE_FLOPPY][0];
+    Drives.idmap[EXTTYPE_FLOPPY][0] = Drives.idmap[EXTTYPE_FLOPPY][override];
+    Drives.idmap[EXTTYPE_FLOPPY][override] = tmp;
+
     // Run BCVs
-    int override = IPL.bev[1].subchoice;
+    override = IPL.bev[1].subchoice;
     if (override < IPL.bcvcount)
         run_bcv(&IPL.bcv[override]);
     int i;
