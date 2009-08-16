@@ -14,6 +14,8 @@
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
 
+#define FLOPPY_SECTOR_SIZE 512
+
 #define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
 
 // New diskette parameter table adding 3 parameters from IBM
@@ -97,7 +99,10 @@ addFloppy(int floppyid, int ftype)
     Drives.drivecount++;
     memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
     Drives.drives[driveid].cntl_id = floppyid;
+    Drives.drives[driveid].type = DTYPE_FLOPPY;
+    Drives.drives[driveid].blksize = FLOPPY_SECTOR_SIZE;
     Drives.drives[driveid].floppy_type = ftype;
+    Drives.drives[driveid].sectors = (u16)-1;
 
     memcpy(&Drives.drives[driveid].lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
@@ -212,17 +217,15 @@ floppy_pio(u8 *cmd, u8 cmdlen)
 }
 
 static int
-floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
+floppy_cmd(struct disk_op_s *op, u16 count, u8 *cmd, u8 cmdlen)
 {
     // es:bx = pointer to where to place information from diskette
-    u32 addr = (u32)MAKE_FLATPTR(regs->es, regs->bx);
+    u32 addr = (u32)op->buf_fl;
 
     // check for 64K boundary overrun
     u32 last_addr = addr + count;
-    if ((addr >> 16) != (last_addr >> 16)) {
-        disk_ret(regs, DISK_RET_EBOUNDARY);
-        return -1;
-    }
+    if ((addr >> 16) != (last_addr >> 16))
+        return DISK_RET_EBOUNDARY;
 
     u8 mode_register = 0x4a; // single mode, increment, autoinit disable,
     if (cmd[0] == 0xe6)
@@ -248,16 +251,12 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
     outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
 
     int ret = floppy_pio(cmd, cmdlen);
-    if (ret) {
-        disk_ret(regs, DISK_RET_ETIMEOUT);
-        return -1;
-    }
+    if (ret)
+        return DISK_RET_ETIMEOUT;
 
     // check port 3f4 for accessibility to status bytes
-    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
-        disk_ret(regs, DISK_RET_ECONTROLLER);
-        return -1;
-    }
+    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
+        return DISK_RET_ECONTROLLER;
 
     // read 7 return status bytes from controller
     u8 i;
@@ -267,7 +266,7 @@ floppy_cmd(struct bregs *regs, u16 count, u8 *cmd, u8 cmdlen)
         SET_BDA(floppy_return_status[i], v);
     }
 
-    return 0;
+    return DISK_RET_SUCCESS;
 }
 
 
@@ -333,64 +332,70 @@ floppy_media_sense(u8 driveid)
     u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
     SET_BDA(floppy_media_state[floppyid]
             , GET_GLOBAL(FloppyInfo[ftype].media_state));
-    return 0;
+    return DISK_RET_SUCCESS;
 }
 
 static int
-check_recal_drive(struct bregs *regs, u8 driveid)
+check_recal_drive(u8 driveid)
 {
     u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
     if ((GET_BDA(floppy_recalibration_status) & (1<<floppyid))
         && (GET_BDA(floppy_media_state[floppyid]) & FMS_MEDIA_DRIVE_ESTABLISHED))
         // Media is known.
-        return 0;
+        return DISK_RET_SUCCESS;
 
     // Recalibrate drive.
     floppy_drive_recal(floppyid);
 
     // Sense media.
-    int ret = floppy_media_sense(driveid);
-    if (ret) {
-        disk_ret(regs, DISK_RET_EMEDIA);
-        return -1;
-    }
-    return 0;
+    return floppy_media_sense(driveid);
 }
 
 
 /****************************************************************
- * Floppy int13 handlers
+ * Floppy handlers
  ****************************************************************/
 
-// diskette controller reset
 static void
-floppy_1300(struct bregs *regs, u8 driveid)
+lba2chs(struct disk_op_s *op, u8 *track, u8 *sector, u8 *head)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    u32 lba = op->lba;
+    u8 driveid = op->driveid;
+
+    u32 tmp = lba + 1;
+    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    *sector = tmp % nlspt;
+
+    tmp /= nlspt;
+    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    *head = tmp % nlh;
+
+    tmp /= nlh;
+    *track = tmp;
+}
+
+// diskette controller reset
+static int
+floppy_reset(struct disk_op_s *op)
+{
+    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
     set_diskette_current_cyl(floppyid, 0); // current cylinder
-    disk_ret(regs, DISK_RET_SUCCESS);
+    return DISK_RET_SUCCESS;
 }
 
 // Read Diskette Sectors
-static void
-floppy_1302(struct bregs *regs, u8 driveid)
+static int
+floppy_read(struct disk_op_s *op)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
-    if (check_recal_drive(regs, driveid))
+    int res = check_recal_drive(op->driveid);
+    if (res)
         goto fail;
 
-    u8 num_sectors = regs->al;
-    u8 track       = regs->ch;
-    u8 sector      = regs->cl;
-    u8 head        = regs->dh;
-
-    if (head > 1 || sector == 0 || num_sectors == 0
-        || track > 79 || num_sectors > 72) {
-        disk_ret(regs, DISK_RET_EPARAM);
-        goto fail;
-    }
+    u8 track, sector, head;
+    lba2chs(op, &track, &sector, &head);
 
     // send read-normal-data command (9 bytes) to controller
+    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
     u8 data[12];
     data[0] = 0xe6; // e6: read normal data
     data[1] = (head << 2) | floppyid; // HD DR1 DR2
@@ -398,48 +403,40 @@ floppy_1302(struct bregs *regs, u8 driveid)
     data[3] = head;
     data[4] = sector;
     data[5] = 2; // 512 byte sector size
-    data[6] = sector + num_sectors - 1; // last sector to read on track
+    data[6] = sector + op->count - 1; // last sector to read on track
     data[7] = 0; // Gap length
     data[8] = 0xff; // Gap length
 
-    int ret = floppy_cmd(regs, (num_sectors * 512) - 1, data, 9);
-    if (ret)
+    res = floppy_cmd(op, (op->count * FLOPPY_SECTOR_SIZE) - 1, data, 9);
+    if (res)
         goto fail;
 
     if (data[0] & 0xc0) {
-        disk_ret(regs, DISK_RET_ECONTROLLER);
+        res = DISK_RET_ECONTROLLER;
         goto fail;
     }
 
     // ??? should track be new val from return_status[3] ?
     set_diskette_current_cyl(floppyid, track);
-    // AL = number of sectors read (same value as passed)
-    disk_ret(regs, DISK_RET_SUCCESS);
-    return;
+    return DISK_RET_SUCCESS;
 fail:
-    regs->al = 0; // no sectors read
+    op->count = 0; // no sectors read
+    return res;
 }
 
 // Write Diskette Sectors
-static void
-floppy_1303(struct bregs *regs, u8 driveid)
+static int
+floppy_write(struct disk_op_s *op)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
-    if (check_recal_drive(regs, driveid))
+    int res = check_recal_drive(op->driveid);
+    if (res)
         goto fail;
 
-    u8 num_sectors = regs->al;
-    u8 track       = regs->ch;
-    u8 sector      = regs->cl;
-    u8 head        = regs->dh;
-
-    if (head > 1 || sector == 0 || num_sectors == 0
-        || track > 79 || num_sectors > 72) {
-        disk_ret(regs, DISK_RET_EPARAM);
-        goto fail;
-    }
+    u8 track, sector, head;
+    lba2chs(op, &track, &sector, &head);
 
     // send write-normal-data command (9 bytes) to controller
+    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
     u8 data[12];
     data[0] = 0xc5; // c5: write normal data
     data[1] = (head << 2) | floppyid; // HD DR1 DR2
@@ -447,127 +444,104 @@ floppy_1303(struct bregs *regs, u8 driveid)
     data[3] = head;
     data[4] = sector;
     data[5] = 2; // 512 byte sector size
-    data[6] = sector + num_sectors - 1; // last sector to write on track
+    data[6] = sector + op->count - 1; // last sector to write on track
     data[7] = 0; // Gap length
     data[8] = 0xff; // Gap length
 
-    int ret = floppy_cmd(regs, (num_sectors * 512) - 1, data, 9);
-    if (ret)
+    res = floppy_cmd(op, (op->count * FLOPPY_SECTOR_SIZE) - 1, data, 9);
+    if (res)
         goto fail;
 
     if (data[0] & 0xc0) {
         if (data[1] & 0x02)
-            disk_ret(regs, DISK_RET_EWRITEPROTECT);
+            res = DISK_RET_EWRITEPROTECT;
         else
-            disk_ret(regs, DISK_RET_ECONTROLLER);
+            res = DISK_RET_ECONTROLLER;
         goto fail;
     }
 
     // ??? should track be new val from return_status[3] ?
     set_diskette_current_cyl(floppyid, track);
-    // AL = number of sectors read (same value as passed)
-    disk_ret(regs, DISK_RET_SUCCESS);
-    return;
+    return DISK_RET_SUCCESS;
 fail:
-    regs->al = 0; // no sectors read
+    op->count = 0; // no sectors read
+    return res;
 }
 
 // Verify Diskette Sectors
-static void
-floppy_1304(struct bregs *regs, u8 driveid)
+static int
+floppy_verify(struct disk_op_s *op)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
-    if (check_recal_drive(regs, driveid))
+    int res = check_recal_drive(op->driveid);
+    if (res)
         goto fail;
 
-    u8 num_sectors = regs->al;
-    u8 track       = regs->ch;
-    u8 sector      = regs->cl;
-    u8 head        = regs->dh;
-
-    if (head > 1 || sector == 0 || num_sectors == 0
-        || track > 79 || num_sectors > 72) {
-        disk_ret(regs, DISK_RET_EPARAM);
-        goto fail;
-    }
+    u8 track, sector, head;
+    lba2chs(op, &track, &sector, &head);
 
     // ??? should track be new val from return_status[3] ?
+    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
     set_diskette_current_cyl(floppyid, track);
-    // AL = number of sectors verified (same value as passed)
-    disk_ret(regs, DISK_RET_SUCCESS);
-    return;
+    return DISK_RET_SUCCESS;
 fail:
-    regs->al = 0; // no sectors read
+    op->count = 0; // no sectors read
+    return res;
 }
 
 // format diskette track
-static void
-floppy_1305(struct bregs *regs, u8 driveid)
+static int
+floppy_format(struct disk_op_s *op)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
-    dprintf(3, "floppy f05\n");
+    int ret = check_recal_drive(op->driveid);
+    if (ret)
+        return ret;
 
-    if (check_recal_drive(regs, driveid))
-        return;
-
-    u8 num_sectors = regs->al;
-    u8 head        = regs->dh;
-
-    if (head > 1 || num_sectors == 0 || num_sectors > 18) {
-        disk_ret(regs, DISK_RET_EPARAM);
-        return;
-    }
+    u8 head = op->lba;
 
     // send format-track command (6 bytes) to controller
+    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
     u8 data[12];
     data[0] = 0x4d; // 4d: format track
     data[1] = (head << 2) | floppyid; // HD DR1 DR2
     data[2] = 2; // 512 byte sector size
-    data[3] = num_sectors; // number of sectors per track
+    data[3] = op->count; // number of sectors per track
     data[4] = 0; // Gap length
     data[5] = 0xf6; // Fill byte
 
-    int ret = floppy_cmd(regs, (num_sectors * 4) - 1, data, 6);
+    ret = floppy_cmd(op, (op->count * 4) - 1, data, 6);
     if (ret)
-        return;
+        return ret;
 
     if (data[0] & 0xc0) {
         if (data[1] & 0x02)
-            disk_ret(regs, DISK_RET_EWRITEPROTECT);
-        else
-            disk_ret(regs, DISK_RET_ECONTROLLER);
-        return;
+            return DISK_RET_EWRITEPROTECT;
+        return DISK_RET_ECONTROLLER;
     }
 
     set_diskette_current_cyl(floppyid, 0);
-    disk_ret(regs, DISK_RET_SUCCESS);
+    return DISK_RET_SUCCESS;
 }
 
-static void
-floppy_13XX(struct bregs *regs, u8 driveid)
+int
+process_floppy_op(struct disk_op_s *op)
 {
-    disk_ret(regs, DISK_RET_EPARAM);
-}
+    if (!CONFIG_FLOPPY)
+        return 0;
 
-void
-floppy_13(struct bregs *regs, u8 driveid)
-{
-    switch (regs->ah) {
-    case 0x00: floppy_1300(regs, driveid); break;
-    case 0x02: floppy_1302(regs, driveid); break;
-    case 0x03: floppy_1303(regs, driveid); break;
-    case 0x04: floppy_1304(regs, driveid); break;
-    case 0x05: floppy_1305(regs, driveid); break;
-
-    // These functions are the same as for hard disks
-    case 0x01:
-    case 0x08:
-    case 0x15:
-    case 0x16:
-        disk_13(regs, driveid);
-        break;
-
-    default:   floppy_13XX(regs, driveid); break;
+    switch (op->command) {
+    case CMD_RESET:
+        return floppy_reset(op);
+    case CMD_READ:
+        return floppy_read(op);
+    case CMD_WRITE:
+        return floppy_write(op);
+    case CMD_VERIFY:
+        return floppy_verify(op);
+    case CMD_FORMAT:
+        return floppy_format(op);
+    default:
+        op->count = 0;
+        return DISK_RET_EPARAM;
     }
 }
 

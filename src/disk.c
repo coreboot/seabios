@@ -43,46 +43,6 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
 #define DISK_STUB(regs)                         \
     __disk_stub((regs), __LINE__, __func__)
 
-// Execute a "disk_op_s" request - this runs on a stack in the ebda.
-static int
-__send_disk_op(struct disk_op_s *op_far, u16 op_seg)
-{
-    struct disk_op_s dop;
-    memcpy_far(GET_SEG(SS), &dop
-               , op_seg, op_far
-               , sizeof(dop));
-
-    dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
-            , dop.driveid, (u32)dop.lba, dop.buf_fl
-            , dop.count, dop.command);
-
-    irq_enable();
-
-    int status = 0;
-    u8 type = GET_GLOBAL(Drives.drives[dop.driveid].type);
-    if (type == DTYPE_ATA)
-        status = process_ata_op(&dop);
-    else if (type == DTYPE_ATAPI)
-        status = process_atapi_op(&dop);
-
-    irq_disable();
-
-    // Update count with total sectors transferred.
-    SET_FARVAR(op_seg, op_far->count, dop.count);
-
-    return status;
-}
-
-// Execute a "disk_op_s" request by jumping to a stack in the ebda.
-static int
-send_disk_op(struct disk_op_s *op)
-{
-    if (! CONFIG_DRIVES)
-        return -1;
-
-    return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
-}
-
 // Obtain the requested disk lba from an old-style chs request.
 static int
 legacy_lba(struct bregs *regs, u16 lchs_seg, struct chs_s *lchs_far)
@@ -290,6 +250,26 @@ static void
 disk_1305(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
+
+    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+
+    u8 num_sectors = regs->al;
+    u8 head        = regs->dh;
+
+    if (head >= nlh || num_sectors == 0 || num_sectors > nlspt) {
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
+    }
+
+    struct disk_op_s dop;
+    dop.driveid = driveid;
+    dop.command = CMD_FORMAT;
+    dop.lba = head;
+    dop.count = num_sectors;
+    dop.buf_fl = MAKE_FLATPTR(regs->es, regs->bx);
+    int status = send_disk_op(&dop);
+    disk_ret(regs, status);
 }
 
 // read disk drive parameters
@@ -695,6 +675,26 @@ disk_13(struct bregs *regs, u8 driveid)
     case 0x48: disk_1348(regs, driveid); break;
     case 0x49: disk_1349(regs, driveid); break;
     case 0x4e: disk_134e(regs, driveid); break;
+    default:   disk_13XX(regs, driveid); break;
+    }
+}
+
+static void
+floppy_13(struct bregs *regs, u8 driveid)
+{
+    // Only limited commands are supported on floppies.
+    switch (regs->ah) {
+    case 0x00:
+    case 0x01:
+    case 0x02:
+    case 0x03:
+    case 0x04:
+    case 0x05:
+    case 0x08:
+    case 0x15:
+    case 0x16:
+        disk_13(regs, driveid);
+        break;
     default:   disk_13XX(regs, driveid); break;
     }
 }

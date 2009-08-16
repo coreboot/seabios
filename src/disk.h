@@ -153,6 +153,7 @@ struct disk_op_s {
 #define CMD_READ    0x02
 #define CMD_WRITE   0x03
 #define CMD_VERIFY  0x04
+#define CMD_FORMAT  0x05
 #define CMD_SEEK    0x07
 #define CMD_ISREADY 0x10
 
@@ -184,6 +185,7 @@ struct drive_s {
 };
 
 #define DTYPE_NONE     0x00
+#define DTYPE_FLOPPY   0x01
 #define DTYPE_ATA      0x02
 #define DTYPE_ATAPI    0x03
 
@@ -218,12 +220,13 @@ void setup_translation(int driveid);
 void map_floppy_drive(int driveid);
 void map_hd_drive(int driveid);
 void map_cd_drive(int driveid);
+int send_disk_op(struct disk_op_s *op);
 void drive_setup();
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup();
-void floppy_13(struct bregs *regs, u8 driveid);
+int process_floppy_op(struct disk_op_s *op);
 void floppy_tick();
 
 // disk.c

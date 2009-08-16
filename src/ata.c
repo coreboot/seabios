@@ -149,13 +149,18 @@ process_ata_misc_op(struct disk_op_s *op)
         return 0;
 
     switch (op->command) {
-    default:
-        return 0;
     case CMD_RESET:
         ata_reset(op->driveid);
         return DISK_RET_SUCCESS;
     case CMD_ISREADY:
         return isready(op->driveid);
+    case CMD_FORMAT:
+    case CMD_VERIFY:
+    case CMD_SEEK:
+        return DISK_RET_SUCCESS;
+    default:
+        op->count = 0;
+        return DISK_RET_EPARAM;
     }
 }
 
@@ -449,6 +454,9 @@ process_atapi_op(struct disk_op_s *op)
     case CMD_READ:
         ret = cdrom_read(op);
         break;
+    case CMD_FORMAT:
+    case CMD_WRITE:
+        return DISK_RET_EWRITEPROTECT;
     default:
         return process_ata_misc_op(op);
     }

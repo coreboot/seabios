@@ -9,6 +9,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "cmos.h" // inb_cmos
 #include "util.h" // dprintf
+#include "ata.h" // process_ata_op
 
 struct drives_s Drives VAR16_32;
 
@@ -221,6 +222,64 @@ map_floppy_drive(int driveid)
         SETBITS_BDA(equipment_list_flags, 0x41);
         SET_BDA(floppy_harddisk_info, 0x77);
     }
+}
+
+
+/****************************************************************
+ * 16bit calling interface
+ ****************************************************************/
+
+// Execute a disk_op request.
+static int
+process_op(struct disk_op_s *op)
+{
+    u8 type = GET_GLOBAL(Drives.drives[op->driveid].type);
+    switch (type) {
+    case DTYPE_ATA:
+        return process_ata_op(op);
+    case DTYPE_ATAPI:
+        return process_atapi_op(op);
+    case DTYPE_FLOPPY:
+        return process_floppy_op(op);
+    default:
+        op->count = 0;
+        return DISK_RET_EPARAM;
+    }
+}
+
+// Execute a "disk_op_s" request - this runs on a stack in the ebda.
+static int
+__send_disk_op(struct disk_op_s *op_far, u16 op_seg)
+{
+    struct disk_op_s dop;
+    memcpy_far(GET_SEG(SS), &dop
+               , op_seg, op_far
+               , sizeof(dop));
+
+    dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
+            , dop.driveid, (u32)dop.lba, dop.buf_fl
+            , dop.count, dop.command);
+
+    irq_enable();
+
+    int status = process_op(&dop);
+
+    irq_disable();
+
+    // Update count with total sectors transferred.
+    SET_FARVAR(op_seg, op_far->count, dop.count);
+
+    return status;
+}
+
+// Execute a "disk_op_s" request by jumping to a stack in the ebda.
+int
+send_disk_op(struct disk_op_s *op)
+{
+    if (! CONFIG_DRIVES)
+        return -1;
+
+    return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
 }
 
 
