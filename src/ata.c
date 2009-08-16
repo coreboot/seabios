@@ -137,7 +137,9 @@ isready(int driveid)
     u8 channel = ataid / 2;
     u16 iobase1 = GET_GLOBAL(ATA_channels[channel].iobase1);
     u8 status = inb(iobase1 + ATA_CB_STAT);
-    return (status & ( ATA_CB_STAT_BSY | ATA_CB_STAT_RDY )) == ATA_CB_STAT_RDY;
+    if ((status & (ATA_CB_STAT_BSY|ATA_CB_STAT_RDY)) == ATA_CB_STAT_RDY)
+        return DISK_RET_SUCCESS;
+    return DISK_RET_ENOTREADY;
 }
 
 static int
@@ -151,7 +153,7 @@ process_ata_misc_op(struct disk_op_s *op)
         return 0;
     case CMD_RESET:
         ata_reset(op->driveid);
-        return 0;
+        return DISK_RET_SUCCESS;
     case CMD_ISREADY:
         return isready(op->driveid);
     }
@@ -351,14 +353,20 @@ process_ata_op(struct disk_op_s *op)
     if (!CONFIG_ATA)
         return 0;
 
+    int ret;
     switch (op->command) {
     case CMD_READ:
-        return ata_cmd_data(op, 0, ATA_CMD_READ_SECTORS);
+        ret = ata_cmd_data(op, 0, ATA_CMD_READ_SECTORS);
+        break;
     case CMD_WRITE:
-        return ata_cmd_data(op, 1, ATA_CMD_WRITE_SECTORS);
+        ret = ata_cmd_data(op, 1, ATA_CMD_WRITE_SECTORS);
+        break;
     default:
         return process_ata_misc_op(op);
     }
+    if (ret)
+        return DISK_RET_EBADTRACK;
+    return DISK_RET_SUCCESS;
 }
 
 
@@ -436,12 +444,17 @@ cdrom_read(struct disk_op_s *op)
 int
 process_atapi_op(struct disk_op_s *op)
 {
+    int ret;
     switch (op->command) {
     case CMD_READ:
-        return cdrom_read(op);
+        ret = cdrom_read(op);
+        break;
     default:
         return process_ata_misc_op(op);
     }
+    if (ret)
+        return DISK_RET_EBADTRACK;
+    return DISK_RET_SUCCESS;
 }
 
 // Send a simple atapi command to a drive.

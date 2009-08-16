@@ -67,9 +67,6 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     // Update count with total sectors transferred.
     SET_FARVAR(op_seg, op_far->count, dop.count);
 
-    if (status)
-        dprintf(1, "disk_op cmd %d error %d!\n", dop.command, status);
-
     return status;
 }
 
@@ -135,11 +132,7 @@ basic_access(struct bregs *regs, u8 driveid, u16 command)
 
     regs->al = dop.count;
 
-    if (status) {
-        disk_ret(regs, DISK_RET_EBADTRACK);
-        return;
-    }
-    disk_ret(regs, DISK_RET_SUCCESS);
+    disk_ret(regs, status);
 }
 
 // Perform cdemu read/verify
@@ -160,11 +153,12 @@ cdemu_access(struct bregs *regs, u8 driveid, u16 command)
     u8 *cdbuf_far = (void*)offsetof(struct extended_bios_data_area_s, cdemu_buf);
     u8 *dest_far = (void*)(regs->bx+0);
     regs->al = 0;
+    int status = DISK_RET_SUCCESS;
 
     if (vlba & 3) {
         dop.count = 1;
         dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
-        int status = send_disk_op(&dop);
+        status = send_disk_op(&dop);
         if (status)
             goto fail;
         u8 thiscount = 4 - (vlba & 3);
@@ -182,7 +176,7 @@ cdemu_access(struct bregs *regs, u8 driveid, u16 command)
     if (count > 3) {
         dop.count = count / 4;
         dop.buf_fl = MAKE_FLATPTR(regs->es, dest_far);
-        int status = send_disk_op(&dop);
+        status = send_disk_op(&dop);
         regs->al += dop.count * 4;
         if (status)
             goto fail;
@@ -195,7 +189,7 @@ cdemu_access(struct bregs *regs, u8 driveid, u16 command)
     if (count) {
         dop.count = 1;
         dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
-        int status = send_disk_op(&dop);
+        status = send_disk_op(&dop);
         if (status)
             goto fail;
         u8 thiscount = count;
@@ -203,10 +197,8 @@ cdemu_access(struct bregs *regs, u8 driveid, u16 command)
         regs->al += thiscount;
     }
 
-    disk_ret(regs, DISK_RET_SUCCESS);
-    return;
 fail:
-    disk_ret(regs, DISK_RET_EBADTRACK);
+    disk_ret(regs, status);
 }
 
 // Perform read/write/verify using new-style "int13ext" accesses.
@@ -234,11 +226,7 @@ extended_access(struct bregs *regs, u8 driveid, u16 command)
 
     SET_INT13EXT(regs, count, dop.count);
 
-    if (status) {
-        disk_ret(regs, DISK_RET_EBADTRACK);
-        return;
-    }
-    disk_ret(regs, DISK_RET_SUCCESS);
+    disk_ret(regs, status);
 }
 
 
@@ -253,7 +241,8 @@ disk_1300(struct bregs *regs, u8 driveid)
     struct disk_op_s dop;
     dop.driveid = driveid;
     dop.command = CMD_RESET;
-    send_disk_op(&dop);
+    int status = send_disk_op(&dop);
+    disk_ret(regs, status);
 }
 
 // read disk status
@@ -347,10 +336,7 @@ disk_1310(struct bregs *regs, u8 driveid)
     dop.driveid = driveid;
     dop.command = CMD_ISREADY;
     int status = send_disk_op(&dop);
-    if (status)
-        disk_ret(regs, DISK_RET_ENOTREADY);
-    else
-        disk_ret(regs, DISK_RET_SUCCESS);
+    disk_ret(regs, status);
 }
 
 // recalibrate
