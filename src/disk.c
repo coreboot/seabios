@@ -23,7 +23,10 @@ void
 __disk_ret(struct bregs *regs, u32 linecode, const char *fname)
 {
     u8 code = linecode;
-    SET_BDA(disk_last_status, code);
+    if (regs->dl < 0x80)
+        SET_BDA(floppy_last_status, code);
+    else
+        SET_BDA(disk_last_status, code);
     if (code)
         __set_code_fail(regs, linecode, fname);
     else
@@ -249,7 +252,12 @@ disk_1300(struct bregs *regs, u8 driveid)
 static void
 disk_1301(struct bregs *regs, u8 driveid)
 {
-    u8 v = GET_BDA(disk_last_status);
+    u8 v;
+    if (regs->dl < 0x80)
+        // Floppy
+        v = GET_BDA(floppy_last_status);
+    else
+        v = GET_BDA(disk_last_status);
     regs->ah = v;
     set_cf(regs, v);
     // XXX - clear disk_last_status?
@@ -289,20 +297,32 @@ static void
 disk_1308(struct bregs *regs, u8 driveid)
 {
     // Get logical geometry from table
-    u16 nlc = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
-    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    u16 nlc = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders) - 1;
+    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads) - 1;
     u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
-    u16 count = GET_BDA(hdcount);
+    u8 count;
+    if (regs->dl < 0x80) {
+        // Floppy
+        count = GET_GLOBAL(Drives.floppycount);
 
-    nlc = nlc - 2; /* 0 based , last sector not used */
+        regs->bx = GET_GLOBAL(Drives.drives[driveid].floppy_type);
+
+        // set es & di to point to 11 byte diskette param table in ROM
+        regs->es = SEG_BIOS;
+        regs->di = (u32)&diskette_param_table2;
+    } else {
+        // Hard drive
+        count = GET_BDA(hdcount);
+        nlc--;  // last sector reserved
+    }
+
     regs->al = 0;
     regs->ch = nlc & 0xff;
     regs->cl = ((nlc >> 2) & 0xc0) | (nlspt & 0x3f);
-    regs->dh = nlh - 1;
-    regs->dl = count; /* FIXME returns 0, 1, or n hard drives */
+    regs->dh = nlh;
 
-    // FIXME should set ES & DI
     disk_ret(regs, DISK_RET_SUCCESS);
+    regs->dl = count;
 }
 
 // initialize drive parameters
@@ -357,6 +377,14 @@ disk_1314(struct bregs *regs, u8 driveid)
 static void
 disk_1315(struct bregs *regs, u8 driveid)
 {
+    disk_ret(regs, DISK_RET_SUCCESS);
+    if (regs->dl < 0x80) {
+        // Floppy
+        regs->ah = 1;
+        return;
+    }
+    // Hard drive
+
     // Get logical geometry from table
     u16 nlc   = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
     u16 nlh   = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
@@ -366,9 +394,18 @@ disk_1315(struct bregs *regs, u8 driveid)
     u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;
     regs->cx = lba >> 16;
     regs->dx = lba & 0xffff;
-
-    disk_ret(regs, DISK_RET_SUCCESS);
     regs->ah = 3; // hard disk accessible
+}
+
+static void
+disk_1316(struct bregs *regs, u8 driveid)
+{
+    if (regs->dl >= 0x80) {
+        // Hard drive
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
+    }
+    disk_ret(regs, DISK_RET_ECHANGED);
 }
 
 // IBM/MS installation check
@@ -647,6 +684,7 @@ disk_13(struct bregs *regs, u8 driveid)
     case 0x11: disk_1311(regs, driveid); break;
     case 0x14: disk_1314(regs, driveid); break;
     case 0x15: disk_1315(regs, driveid); break;
+    case 0x16: disk_1316(regs, driveid); break;
     case 0x41: disk_1341(regs, driveid); break;
     case 0x42: disk_1342(regs, driveid); break;
     case 0x43: disk_1343(regs, driveid); break;

@@ -172,6 +172,7 @@ struct drive_s {
     u8  removable;    // Removable device flag
     u16 blksize;      // block size
     int cntl_id;
+    u8  floppy_type;  // Type of floppy (only for floppy drives).
 
     char model[41];
 
