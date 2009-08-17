@@ -311,6 +311,7 @@ coreboot_copy_biostable()
  * ulzma
  ****************************************************************/
 
+// Uncompress data in flash to an area of memory.
 static int
 ulzma(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
 {
@@ -398,84 +399,51 @@ struct cbfs_file {
     char filename[0];
 } PACKED;
 
+// Verify a cbfs entry looks valid.
 static struct cbfs_file *
-cbfs_search(struct cbfs_file *file)
+cbfs_verify(struct cbfs_file *file)
 {
-    for (;;) {
-        if (file < (struct cbfs_file *)(0xFFFFFFFF - ntohl(CBHDR->romsize)))
-            return NULL;
-        u64 magic = file->magic;
-        if (magic == CBFS_FILE_MAGIC) {
-            dprintf(5, "Found CBFS file %s\n", file->filename);
-            return file;
-        }
-        if (magic == 0)
-            return NULL;
-        file = (void*)file + ntohl(CBHDR->align);
+    if (file < (struct cbfs_file *)(0xFFFFFFFF - ntohl(CBHDR->romsize)))
+        return NULL;
+    u64 magic = file->magic;
+    if (magic == CBFS_FILE_MAGIC) {
+        dprintf(5, "Found CBFS file %s\n", file->filename);
+        return file;
     }
+    return NULL;
 }
 
+// Return the first file in the CBFS archive
 static struct cbfs_file *
 cbfs_getfirst()
 {
     if (! CBHDR)
         return NULL;
-    return cbfs_search((void *)(0 - ntohl(CBHDR->romsize) + ntohl(CBHDR->offset)));
+    return cbfs_verify((void *)(0 - ntohl(CBHDR->romsize) + ntohl(CBHDR->offset)));
 }
 
+// Return the file after the given file.
 static struct cbfs_file *
 cbfs_getnext(struct cbfs_file *file)
 {
     file = (void*)file + ALIGN(ntohl(file->len) + ntohl(file->offset), ntohl(CBHDR->align));
-    return cbfs_search(file);
+    return cbfs_verify(file);
 }
 
-static struct cbfs_file *
+// Find the file with the given filename.
+struct cbfs_file *
 cbfs_findfile(const char *fname)
 {
     dprintf(3, "Searching CBFS for %s\n", fname);
     struct cbfs_file *file;
-    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
+    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file))
         if (strcmp(fname, file->filename) == 0)
             return file;
-    }
     return NULL;
 }
 
-static int
-data_copy(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
-{
-    dprintf(3, "Copying data %d@%p to %d@%p\n", srclen, src, maxlen, dst);
-    if (srclen > maxlen) {
-        dprintf(1, "File too big to copy\n");
-        return -1;
-    }
-    memcpy(dst, src, srclen);
-    return srclen;
-}
-
-// Copy a file to memory (uncompressing if necessary)
-static int
-cbfs_copyfile(void *dst, u32 maxlen, const char *fname)
-{
-    dprintf(3, "Searching CBFS for data file %s\n", fname);
-    int fnlen = strlen(fname);
-    struct cbfs_file *file;
-    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
-        if (memcmp(fname, file->filename, fnlen) != 0)
-            continue;
-        u32 size = ntohl(file->len);
-        void *src = (void*)file + ntohl(file->offset);
-        if (file->filename[fnlen] == '\0')
-            return data_copy(dst, maxlen, src, size);
-        if (strcmp(&file->filename[fnlen], ".lzma") == 0)
-            return ulzma(dst, maxlen, src, size);
-    }
-    return -1;
-}
-
-const char *
-cbfs_findNprefix(const char *prefix, int n)
+struct cbfs_file *
+cbfs_findprefix(const char *prefix, struct cbfs_file *last)
 {
     if (! CONFIG_COREBOOT_FLASH)
         return NULL;
@@ -483,14 +451,88 @@ cbfs_findNprefix(const char *prefix, int n)
     dprintf(3, "Searching CBFS for prefix %s\n", prefix);
     int len = strlen(prefix);
     struct cbfs_file *file;
-    for (file = cbfs_getfirst(); file; file = cbfs_getnext(file)) {
-        if (memcmp(prefix, file->filename, len) == 0) {
-            if (n <= 0)
-                return file->filename;
-            n--;
+    if (! last)
+        file = cbfs_getfirst();
+    else
+        file = cbfs_getnext(last);
+    for (; file; file = cbfs_getnext(file))
+        if (memcmp(prefix, file->filename, len) == 0)
+            return file;
+    return NULL;
+}
+
+// Find a file with the given filename (possibly with ".lzma" extension).
+static struct cbfs_file *
+cbfs_finddatafile(const char *fname, int *iscomp)
+{
+    int fnlen = strlen(fname);
+    struct cbfs_file *file = NULL;
+    for (;;) {
+        file = cbfs_findprefix(fname, file);
+        if (!file)
+            return NULL;
+        if (file->filename[fnlen] == '\0') {
+            *iscomp = 0;
+            return file;
+        }
+        if (strcmp(&file->filename[fnlen], ".lzma") == 0) {
+            *iscomp = 1;
+            return file;
         }
     }
-    return NULL;
+}
+
+// Locate a datafile with the given prefix.
+struct cbfs_file *
+cbfs_finddataprefix(const char *prefix, struct cbfs_file *last, int *iscomp)
+{
+    struct cbfs_file *file = cbfs_findprefix(prefix, last);
+    if (!file)
+        return NULL;
+    int fnamelen = strlen(file->filename);
+    *iscomp = (fnamelen > 5
+               && strcmp(&file->filename[fnamelen-5], ".lzma") == 0);
+    return file;
+}
+
+// Return the filename of a given file.
+const char *
+cbfs_filename(struct cbfs_file *file)
+{
+    return file->filename;
+}
+
+// Determine the uncompressed size of a datafile.
+int
+cbfs_datasize(struct cbfs_file *file, int iscomp)
+{
+    void *src = (void*)file + ntohl(file->offset);
+    if (iscomp)
+        return *(u32*)(src + LZMA_PROPERTIES_SIZE);
+    return ntohl(file->len);
+}
+
+// Copy a file to memory (uncompressing if necessary)
+int
+cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen, int iscomp)
+{
+    if (! CONFIG_COREBOOT_FLASH || !file)
+        return -1;
+
+    u32 size = ntohl(file->len);
+    void *src = (void*)file + ntohl(file->offset);
+    if (iscomp)
+        // Compressed.
+        return ulzma(dst, maxlen, src, size);
+
+    // Not compressed.
+    dprintf(3, "Copying data %d@%p to %d@%p\n", size, src, maxlen, dst);
+    if (size > maxlen) {
+        dprintf(1, "File too big to copy\n");
+        return -1;
+    }
+    memcpy(dst, src, size);
+    return size;
 }
 
 static char
@@ -510,6 +552,7 @@ hexify4(u16 x)
             | (getHex(x>>12)));
 }
 
+// Find and copy the optionrom for the given vendor/device id.
 int
 cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
 {
@@ -525,38 +568,9 @@ cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
     *(u32*)&fname[12] = 0x6d6f722e; // ".rom"
     fname[16] = '\0';
 
-    return cbfs_copyfile(dst, maxlen, fname);
-}
-
-// Copy the next file with the given prefix - starting at pos 'last'.
-struct cbfs_file *
-cbfs_copyfile_prefix(void *dst, u32 maxlen, const char *prefix
-                     , struct cbfs_file *last)
-{
-    if (! CONFIG_COREBOOT_FLASH)
-        return NULL;
-    dprintf(3, "Searching CBFS for data file prefix %s\n", prefix);
-    struct cbfs_file *file;
-    if (! last)
-        file = cbfs_getfirst();
-    else
-        file = cbfs_getnext(last);
-    int prefixlen = strlen(prefix);
-    for (; file; file = cbfs_getnext(file)) {
-        if (memcmp(prefix, file->filename, prefixlen) != 0)
-            continue;
-        u32 size = ntohl(file->len);
-        void *src = (void*)file + ntohl(file->offset);
-        int fnamelen = strlen(file->filename);
-        int rv;
-        if (fnamelen > 5 && strcmp(&file->filename[fnamelen-5], ".lzma") == 0)
-            rv = ulzma(dst, maxlen, src, size);
-        else
-            rv = data_copy(dst, maxlen, src, size);
-        if (rv >= 0)
-            return file;
-    }
-    return NULL;
+    int iscomp;
+    struct cbfs_file *file = cbfs_finddatafile(fname, &iscomp);
+    return cbfs_copyfile(file, dst, maxlen, iscomp);
 }
 
 struct cbfs_payload_segment {
@@ -579,14 +593,11 @@ struct cbfs_payload {
 };
 
 void
-cbfs_run_payload(const char *filename)
+cbfs_run_payload(struct cbfs_file *file)
 {
-    if (! CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT_FLASH || !file)
         return;
-    dprintf(1, "Run %s\n", filename);
-    struct cbfs_file *file = cbfs_findfile(filename);
-    if (!file)
-        return;
+    dprintf(1, "Run %s\n", file->filename);
     struct cbfs_payload *pay = (void*)file + ntohl(file->offset);
     struct cbfs_payload_segment *seg = pay->segments;
     for (;;) {

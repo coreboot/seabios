@@ -183,10 +183,12 @@ static int
 menu_show_cbfs(struct ipl_entry_s *ie, int menupos)
 {
     int count = 0;
+    struct cbfs_file *file;
     for (;;) {
-        const char *filename = cbfs_findNprefix("img/", count);
-        if (!filename)
+        file = cbfs_findprefix("img/", file);
+        if (!file)
             break;
+        const char *filename = cbfs_filename(file);
         printf("%d. Payload [%s]\n", menupos + count, &filename[4]);
         count++;
         if (count > 8)
@@ -393,10 +395,16 @@ boot_cbfs(struct ipl_entry_s *ie)
 {
     if (! CONFIG_COREBOOT_FLASH)
         return;
-    const char *filename = cbfs_findNprefix("img/", ie->subchoice);
-    if (! filename)
-        return;
-    cbfs_run_payload(filename);
+    int count = ie->subchoice;
+    struct cbfs_file *file;
+    for (;;) {
+        file = cbfs_findprefix("img/", file);
+        if (!file)
+            return;
+        if (count--)
+            continue;
+        cbfs_run_payload(file);
+    }
 }
 
 static void

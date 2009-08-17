@@ -220,12 +220,16 @@ void smp_probe_setup(void);
 void smbios_init(void);
 
 // coreboot.c
-const char *cbfs_findNprefix(const char *prefix, int n);
-int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
-void cbfs_run_payload(const char *filename);
 struct cbfs_file;
-struct cbfs_file *cbfs_copyfile_prefix(void *dst, u32 maxlen, const char *prefix
-                                       , struct cbfs_file *last);
+struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);
+struct cbfs_file *cbfs_finddataprefix(const char *prefix, struct cbfs_file *last
+                                      , int *iscomp);
+int cbfs_datasize(struct cbfs_file *file, int iscomp);
+const char *cbfs_filename(struct cbfs_file *file);
+int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen, int iscomp);
+int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
+void cbfs_run_payload(struct cbfs_file *file);
+
 void coreboot_copy_biostable();
 void coreboot_setup();
 

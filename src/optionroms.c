@@ -225,13 +225,16 @@ lookup_hardcode(u32 vendev)
 static void
 run_cbfs_roms(const char *prefix, int isvga)
 {
-    struct cbfs_file *tmp = NULL;
+    struct cbfs_file *file = NULL;
     for (;;) {
-        tmp = cbfs_copyfile_prefix(
-            (void*)RomEnd, BUILD_BIOS_ADDR - RomEnd, prefix, tmp);
-        if (!tmp)
+        int iscomp = 0;
+        file = cbfs_finddataprefix(prefix, file, &iscomp);
+        if (!file)
             break;
-        init_optionrom((void*)RomEnd, 0, isvga);
+        int ret = cbfs_copyfile(file, (void*)RomEnd, BUILD_BIOS_ADDR - RomEnd
+                                , iscomp);
+        if (ret > 0)
+            init_optionrom((void*)RomEnd, 0, isvga);
     }
 }
 
