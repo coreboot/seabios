@@ -6,7 +6,7 @@
 
 #include "util.h" // checksum
 #include "config.h" // BUILD_BIOS_ADDR
-#include "memmap.h" // e820_list
+#include "memmap.h" // find_high_area
 #include "farptr.h" // GET_FARVAR
 #include "biosvar.h" // EBDA_SEGMENT_MINIMUM
 
@@ -117,24 +117,14 @@ malloc_setup()
     ZoneTmpLow.top = ZoneTmpLow.cur = (u32)MAKE_FLATPTR(EBDA_SEGMENT_MINIMUM, 0);
 
     // Find memory at the top of ram.
-    u32 top = 0, bottom = 0;
-    int i;
-    for (i=e820_count-1; i>=0; i--) {
-        struct e820entry *e = &e820_list[i];
-        u64 end = e->start + e->size;
-        if (e->type != E820_RAM || end > 0xffffffff
-            || e->size < CONFIG_MAX_HIGHTABLE + MALLOC_MIN_ALIGN)
-            continue;
-        top = end;
-        bottom = e->start;
-        break;
-    }
-    if (top < 1024*1024 + CONFIG_MAX_HIGHTABLE) {
+    struct e820entry *e = find_high_area(CONFIG_MAX_HIGHTABLE+MALLOC_MIN_ALIGN);
+    if (!e) {
         // No memory above 1Meg
         memset(&ZoneHigh, 0, sizeof(ZoneHigh));
-        memset(&ZoneTmpHigh, 0, sizeof(ZoneHigh));
+        memset(&ZoneTmpHigh, 0, sizeof(ZoneTmpHigh));
         return;
     }
+    u32 top = e->start + e->size, bottom = e->start;
 
     // Memory at top of ram.
     ZoneHigh.bottom = ALIGN(top - CONFIG_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);

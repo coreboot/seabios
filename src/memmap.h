@@ -19,6 +19,7 @@ struct e820entry {
 void add_e820(u64 start, u64 size, u32 type);
 void memmap_setup();
 void memmap_finalize();
+struct e820entry *find_high_area(u32 size);
 
 // e820 map storage (defined in system.c)
 extern struct e820entry e820_list[];

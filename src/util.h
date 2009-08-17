@@ -89,10 +89,10 @@ static inline u32 __ffs(u32 word)
 }
 
 // GDT bit manipulation
-#define GDT_BASE(v)  (((u64)((v) & 0xff000000) << 56)           \
-                      | ((u64)((v) & 0x00ffffff) << 16))
-#define GDT_LIMIT(v) (((u64)((v) & 0x000f0000) << 48)   \
-                      | ((u64)((v) & 0x0000ffff) << 0))
+#define GDT_BASE(v)  ((((u64)(v) & 0xff000000) << 32)           \
+                      | (((u64)(v) & 0x00ffffff) << 16))
+#define GDT_LIMIT(v) ((((u64)(v) & 0x000f0000) << 32)   \
+                      | (((u64)(v) & 0x0000ffff) << 0))
 #define GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
 #define GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
 #define GDT_B        (0x1ULL << 54)  // Big flag
@@ -224,7 +224,7 @@ struct cbfs_file;
 struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);
 struct cbfs_file *cbfs_finddataprefix(const char *prefix, struct cbfs_file *last
                                       , int *iscomp);
-int cbfs_datasize(struct cbfs_file *file, int iscomp);
+u32 cbfs_datasize(struct cbfs_file *file, int iscomp);
 const char *cbfs_filename(struct cbfs_file *file);
 int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen, int iscomp);
 int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);

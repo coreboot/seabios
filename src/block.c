@@ -235,12 +235,14 @@ process_op(struct disk_op_s *op)
 {
     u8 type = GET_GLOBAL(Drives.drives[op->driveid].type);
     switch (type) {
+    case DTYPE_FLOPPY:
+        return process_floppy_op(op);
     case DTYPE_ATA:
         return process_ata_op(op);
     case DTYPE_ATAPI:
         return process_atapi_op(op);
-    case DTYPE_FLOPPY:
-        return process_floppy_op(op);
+    case DTYPE_RAMDISK:
+        return process_ramdisk_op(op);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

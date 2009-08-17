@@ -189,6 +189,7 @@ post()
     drive_setup();
     floppy_setup();
     ata_setup();
+    ramdisk_setup();
 
     optionrom_setup();
 

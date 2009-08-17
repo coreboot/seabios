@@ -503,7 +503,7 @@ cbfs_filename(struct cbfs_file *file)
 }
 
 // Determine the uncompressed size of a datafile.
-int
+u32
 cbfs_datasize(struct cbfs_file *file, int iscomp)
 {
     void *src = (void*)file + ntohl(file->offset);

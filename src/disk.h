@@ -188,6 +188,7 @@ struct drive_s {
 #define DTYPE_FLOPPY   0x01
 #define DTYPE_ATA      0x02
 #define DTYPE_ATAPI    0x03
+#define DTYPE_RAMDISK  0x04
 
 #define TRANSLATION_NONE  0
 #define TRANSLATION_LBA   1
@@ -226,6 +227,8 @@ void drive_setup();
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup();
+void addFloppy(int floppyid, int ftype, int driver);
+int find_floppy_type(u32 size);
 int process_floppy_op(struct disk_op_s *op);
 void floppy_tick();
 
@@ -239,5 +242,9 @@ void cdrom_13(struct bregs *regs, u8 driveid);
 void cdemu_13(struct bregs *regs);
 void cdemu_134b(struct bregs *regs);
 int cdrom_boot(int cdid);
+
+// ramdisk.c
+void ramdisk_setup();
+int process_ramdisk_op(struct disk_op_s *op);
 
 #endif // disk.h

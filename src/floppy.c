@@ -85,8 +85,8 @@ struct floppyinfo_s FloppyInfo[] VAR16_32 = {
     { {2, 40, 8}, 0x00, 0x27},
 };
 
-static void
-addFloppy(int floppyid, int ftype)
+void
+addFloppy(int floppyid, int ftype, int driver)
 {
     if (ftype <= 0 || ftype >= ARRAY_SIZE(FloppyInfo)) {
         dprintf(1, "Bad floppy type %d\n", ftype);
@@ -99,7 +99,7 @@ addFloppy(int floppyid, int ftype)
     Drives.drivecount++;
     memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
     Drives.drives[driveid].cntl_id = floppyid;
-    Drives.drives[driveid].type = DTYPE_FLOPPY;
+    Drives.drives[driveid].type = driver;
     Drives.drives[driveid].blksize = FLOPPY_SECTOR_SIZE;
     Drives.drives[driveid].floppy_type = ftype;
     Drives.drives[driveid].sectors = (u16)-1;
@@ -122,14 +122,27 @@ floppy_setup()
     } else {
         u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
         if (type & 0xf0)
-            addFloppy(0, type >> 4);
+            addFloppy(0, type >> 4, DTYPE_FLOPPY);
         if (type & 0x0f)
-            addFloppy(1, type & 0x0f);
+            addFloppy(1, type & 0x0f, DTYPE_FLOPPY);
     }
 
     outb(0x02, PORT_DMA1_MASK_REG);
 
     enable_hwirq(6, entry_0e);
+}
+
+// Find a floppy type that matches a given image size.
+int
+find_floppy_type(u32 size)
+{
+    int i;
+    for (i=1; i<ARRAY_SIZE(FloppyInfo); i++) {
+        struct chs_s *c = &FloppyInfo[i].chs;
+        if (c->cylinders * c->heads * c->spt * FLOPPY_SECTOR_SIZE == size)
+            return i;
+    }
+    return -1;
 }
 
 

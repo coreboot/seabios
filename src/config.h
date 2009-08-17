@@ -68,6 +68,8 @@
 #define CONFIG_PCI_ROOT2 0x00
 // Support searching coreboot flash format.
 #define CONFIG_COREBOOT_FLASH 0
+// Support floppy images in the coreboot flash.
+#define CONFIG_FLASH_FLOPPY 1
 // Support the lzma decompression algorighm.
 #define CONFIG_LZMA 1
 // Support finding and running option roms during post.
