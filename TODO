@@ -1,5 +1,3 @@
-Unify floppy functions and main disk functions?
-
 Add int 0x1589 support.
 
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
@@ -30,8 +28,6 @@ Possibly implement 32bit pcibios support.
 
 Allow one to select adding 32 bit code to 0xf000 or in a separate
 location.
-
-Implement bios post memory manager (PMM)?
 
 Support PCIv3 roms?  Add support for PCI "configuration code"
 extensions?  Add support for PCI permanent memory extensions to PMM?
