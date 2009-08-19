@@ -134,7 +134,7 @@ def doLayout16(sections, outname):
     # Write regular sections
     for section in restsections:
         name = section[2]
-        if name == rodatasections[0][2]:
+        if rodatasections and name == rodatasections[0][2]:
             output.write("code16_rodata = . ;\n")
         output.write("*(%s)\n" % (name,))
 
