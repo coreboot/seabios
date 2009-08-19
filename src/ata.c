@@ -115,6 +115,9 @@ ata_reset(int driveid)
                 goto done;
             }
         }
+    } else {
+        // QEMU doesn't reset dh on reset, so set it explicitly.
+        outb(ATA_CB_DH_DEV0, iobase1 + ATA_CB_DH);
     }
 
     // On a user-reset request, wait for RDY if it is an ATA device.
