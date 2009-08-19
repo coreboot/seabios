@@ -19,11 +19,10 @@ ramdisk_setup()
         return;
 
     // Find image.
-    int iscomp;
-    struct cbfs_file *file = cbfs_finddataprefix("floppyimg/", NULL, &iscomp);
+    struct cbfs_file *file = cbfs_findprefix("floppyimg/", NULL);
     if (!file)
         return;
-    u32 size = cbfs_datasize(file, iscomp);
+    u32 size = cbfs_datasize(file);
     dprintf(3, "Found floppy file %s of size %d\n", cbfs_filename(file), size);
     int ftype = find_floppy_type(size);
     if (ftype < 0) {
@@ -41,7 +40,7 @@ ramdisk_setup()
     add_e820(loc, size, E820_RESERVED);
 
     // Copy image into ram.
-    cbfs_copyfile(file, (void*)loc, size, iscomp);
+    cbfs_copyfile(file, (void*)loc, size);
 
     // Setup driver.
     dprintf(1, "Mapping CBFS floppy %s to addr %x\n", cbfs_filename(file), loc);

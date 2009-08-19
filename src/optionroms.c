@@ -227,12 +227,10 @@ run_cbfs_roms(const char *prefix, int isvga)
 {
     struct cbfs_file *file = NULL;
     for (;;) {
-        int iscomp = 0;
-        file = cbfs_finddataprefix(prefix, file, &iscomp);
+        file = cbfs_findprefix(prefix, file);
         if (!file)
             break;
-        int ret = cbfs_copyfile(file, (void*)RomEnd, BUILD_BIOS_ADDR - RomEnd
-                                , iscomp);
+        int ret = cbfs_copyfile(file, (void*)RomEnd, BUILD_BIOS_ADDR - RomEnd);
         if (ret > 0)
             init_optionrom((void*)RomEnd, 0, isvga);
     }

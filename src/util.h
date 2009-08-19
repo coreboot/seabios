@@ -222,11 +222,9 @@ void smbios_init(void);
 // coreboot.c
 struct cbfs_file;
 struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);
-struct cbfs_file *cbfs_finddataprefix(const char *prefix, struct cbfs_file *last
-                                      , int *iscomp);
-u32 cbfs_datasize(struct cbfs_file *file, int iscomp);
+u32 cbfs_datasize(struct cbfs_file *file);
 const char *cbfs_filename(struct cbfs_file *file);
-int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen, int iscomp);
+int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen);
 int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(struct cbfs_file *file);
 

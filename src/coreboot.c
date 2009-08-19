@@ -463,7 +463,7 @@ cbfs_findprefix(const char *prefix, struct cbfs_file *last)
 
 // Find a file with the given filename (possibly with ".lzma" extension).
 static struct cbfs_file *
-cbfs_finddatafile(const char *fname, int *iscomp)
+cbfs_finddatafile(const char *fname)
 {
     int fnlen = strlen(fname);
     struct cbfs_file *file = NULL;
@@ -471,28 +471,18 @@ cbfs_finddatafile(const char *fname, int *iscomp)
         file = cbfs_findprefix(fname, file);
         if (!file)
             return NULL;
-        if (file->filename[fnlen] == '\0') {
-            *iscomp = 0;
+        if (file->filename[fnlen] == '\0'
+            || strcmp(&file->filename[fnlen], ".lzma") == 0)
             return file;
-        }
-        if (strcmp(&file->filename[fnlen], ".lzma") == 0) {
-            *iscomp = 1;
-            return file;
-        }
     }
 }
 
-// Locate a datafile with the given prefix.
-struct cbfs_file *
-cbfs_finddataprefix(const char *prefix, struct cbfs_file *last, int *iscomp)
+// Determine whether the file has a ".lzma" extension.
+static int
+cbfs_iscomp(struct cbfs_file *file)
 {
-    struct cbfs_file *file = cbfs_findprefix(prefix, last);
-    if (!file)
-        return NULL;
     int fnamelen = strlen(file->filename);
-    *iscomp = (fnamelen > 5
-               && strcmp(&file->filename[fnamelen-5], ".lzma") == 0);
-    return file;
+    return fnamelen > 5 && strcmp(&file->filename[fnamelen-5], ".lzma") == 0;
 }
 
 // Return the filename of a given file.
@@ -504,24 +494,24 @@ cbfs_filename(struct cbfs_file *file)
 
 // Determine the uncompressed size of a datafile.
 u32
-cbfs_datasize(struct cbfs_file *file, int iscomp)
+cbfs_datasize(struct cbfs_file *file)
 {
     void *src = (void*)file + ntohl(file->offset);
-    if (iscomp)
+    if (cbfs_iscomp(file))
         return *(u32*)(src + LZMA_PROPERTIES_SIZE);
     return ntohl(file->len);
 }
 
 // Copy a file to memory (uncompressing if necessary)
 int
-cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen, int iscomp)
+cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
 {
     if (! CONFIG_COREBOOT_FLASH || !file)
         return -1;
 
     u32 size = ntohl(file->len);
     void *src = (void*)file + ntohl(file->offset);
-    if (iscomp)
+    if (cbfs_iscomp(file))
         // Compressed.
         return ulzma(dst, maxlen, src, size);
 
@@ -568,9 +558,7 @@ cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
     *(u32*)&fname[12] = 0x6d6f722e; // ".rom"
     fname[16] = '\0';
 
-    int iscomp;
-    struct cbfs_file *file = cbfs_finddatafile(fname, &iscomp);
-    return cbfs_copyfile(file, dst, maxlen, iscomp);
+    return cbfs_copyfile(cbfs_finddatafile(fname), dst, maxlen);
 }
 
 struct cbfs_payload_segment {
