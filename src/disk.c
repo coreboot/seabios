@@ -23,7 +23,7 @@ void
 __disk_ret(struct bregs *regs, u32 linecode, const char *fname)
 {
     u8 code = linecode;
-    if (regs->dl < 0x80)
+    if (regs->dl < EXTSTART_HD)
         SET_BDA(floppy_last_status, code);
     else
         SET_BDA(disk_last_status, code);
@@ -213,7 +213,7 @@ static void
 disk_1301(struct bregs *regs, u8 driveid)
 {
     u8 v;
-    if (regs->dl < 0x80)
+    if (regs->dl < EXTSTART_HD)
         // Floppy
         v = GET_BDA(floppy_last_status);
     else
@@ -281,7 +281,7 @@ disk_1308(struct bregs *regs, u8 driveid)
     u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads) - 1;
     u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
     u8 count;
-    if (regs->dl < 0x80) {
+    if (regs->dl < EXTSTART_HD) {
         // Floppy
         count = GET_GLOBAL(Drives.floppycount);
 
@@ -290,10 +290,14 @@ disk_1308(struct bregs *regs, u8 driveid)
         // set es & di to point to 11 byte diskette param table in ROM
         regs->es = SEG_BIOS;
         regs->di = (u32)&diskette_param_table2;
-    } else {
+    } else if (regs->dl < EXTSTART_CD) {
         // Hard drive
         count = GET_BDA(hdcount);
         nlc--;  // last sector reserved
+    } else {
+        // Not supported on CDROM
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
     }
 
     regs->al = 0;
@@ -358,8 +362,8 @@ static void
 disk_1315(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_SUCCESS);
-    if (regs->dl < 0x80) {
-        // Floppy
+    if (regs->dl < EXTSTART_HD || regs->dl >= EXTSTART_CD) {
+        // Floppy or cdrom
         regs->ah = 1;
         return;
     }
@@ -380,7 +384,7 @@ disk_1315(struct bregs *regs, u8 driveid)
 static void
 disk_1316(struct bregs *regs, u8 driveid)
 {
-    if (regs->dl >= 0x80) {
+    if (regs->dl >= EXTSTART_HD) {
         // Hard drive
         disk_ret(regs, DISK_RET_EPARAM);
         return;
@@ -419,20 +423,102 @@ disk_1344(struct bregs *regs, u8 driveid)
     extended_access(regs, driveid, CMD_VERIFY);
 }
 
+// lock
+static void
+disk_134500(struct bregs *regs, u8 driveid)
+{
+    u16 ebda_seg = get_ebda_seg();
+    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[driveid]);
+    if (locks == 0xff) {
+        regs->al = 1;
+        disk_ret(regs, DISK_RET_ETOOMANYLOCKS);
+        return;
+    }
+    SET_EBDA2(ebda_seg, cdrom_locks[driveid], locks + 1);
+    regs->al = 1;
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+// unlock
+static void
+disk_134501(struct bregs *regs, u8 driveid)
+{
+    u16 ebda_seg = get_ebda_seg();
+    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[driveid]);
+    if (locks == 0x00) {
+        regs->al = 0;
+        disk_ret(regs, DISK_RET_ENOTLOCKED);
+        return;
+    }
+    locks--;
+    SET_EBDA2(ebda_seg, cdrom_locks[driveid], locks);
+    regs->al = (locks ? 1 : 0);
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+// status
+static void
+disk_134502(struct bregs *regs, u8 driveid)
+{
+    u8 locks = GET_EBDA(cdrom_locks[driveid]);
+    regs->al = (locks ? 1 : 0);
+    disk_ret(regs, DISK_RET_SUCCESS);
+}
+
+static void
+disk_1345XX(struct bregs *regs, u8 driveid)
+{
+    disk_ret(regs, DISK_RET_EPARAM);
+}
+
 // IBM/MS lock/unlock drive
 static void
 disk_1345(struct bregs *regs, u8 driveid)
 {
-    // Always success for HD
-    disk_ret(regs, DISK_RET_SUCCESS);
+    if (regs->dl < EXTSTART_CD) {
+        // Always success for HD
+        disk_ret(regs, DISK_RET_SUCCESS);
+        return;
+    }
+
+    switch (regs->al) {
+    case 0x00: disk_134500(regs, driveid); break;
+    case 0x01: disk_134501(regs, driveid); break;
+    case 0x02: disk_134502(regs, driveid); break;
+    default:   disk_1345XX(regs, driveid); break;
+    }
 }
 
 // IBM/MS eject media
 static void
 disk_1346(struct bregs *regs, u8 driveid)
 {
-    // Volume Not Removable
-    disk_ret(regs, DISK_RET_ENOTREMOVABLE);
+    if (regs->dl < EXTSTART_CD) {
+        // Volume Not Removable
+        disk_ret(regs, DISK_RET_ENOTREMOVABLE);
+        return;
+    }
+
+    u8 locks = GET_EBDA(cdrom_locks[driveid]);
+    if (locks != 0) {
+        disk_ret(regs, DISK_RET_ELOCKED);
+        return;
+    }
+
+    // FIXME should handle 0x31 no media in device
+    // FIXME should handle 0xb5 valid request failed
+
+    // Call removable media eject
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x52;
+    call16_int(0x15, &br);
+
+    if (br.ah || br.flags & F_CF) {
+        disk_ret(regs, DISK_RET_ELOCKED);
+        return;
+    }
+    disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 // IBM/MS extended seek
@@ -588,8 +674,14 @@ disk_1348(struct bregs *regs, u8 driveid)
 static void
 disk_1349(struct bregs *regs, u8 driveid)
 {
-    // Always success for HD
-    disk_ret(regs, DISK_RET_SUCCESS);
+    if (regs->dl < EXTSTART_CD) {
+        // Always success for HD
+        disk_ret(regs, DISK_RET_SUCCESS);
+        return;
+    }
+    set_fail(regs);
+    // always send changed ??
+    regs->ah = DISK_RET_ECHANGED;
 }
 
 static void
@@ -730,7 +822,7 @@ handle_legacy_disk(struct bregs *regs, u8 extdrive)
         return;
     }
 
-    if (extdrive < 0x80) {
+    if (extdrive < EXTSTART_HD) {
         int driveid = get_driveid(regs, EXTTYPE_FLOPPY, extdrive);
         if (driveid < 0)
             goto fail;
@@ -738,15 +830,11 @@ handle_legacy_disk(struct bregs *regs, u8 extdrive)
         return;
     }
 
-    if (extdrive >= 0xe0) {
-        int driveid = get_driveid(regs, EXTTYPE_CD, extdrive - 0xe0);
-        if (driveid < 0)
-            goto fail;
-        cdrom_13(regs, driveid);
-        return;
-    }
-
-    int driveid = get_driveid(regs, EXTTYPE_HD, extdrive - 0x80);
+    int driveid;
+    if (extdrive >= EXTSTART_CD)
+        driveid = get_driveid(regs, EXTTYPE_CD, extdrive - EXTSTART_CD);
+    else
+        driveid = get_driveid(regs, EXTTYPE_HD, extdrive - EXTSTART_HD);
     if (driveid < 0)
         goto fail;
     disk_13(regs, driveid);
@@ -783,7 +871,7 @@ handle_13(struct bregs *regs)
                 cdemu_13(regs);
                 return;
             }
-            if (extdrive < 0xe0 && ((emudrive ^ extdrive) & 0x80) == 0)
+            if (extdrive < EXTSTART_CD && ((emudrive ^ extdrive) & 0x80) == 0)
                 extdrive--;
         }
     }

@@ -210,6 +210,9 @@ struct drives_s {
 #define EXTTYPE_HD 1
 #define EXTTYPE_CD 2
 
+#define EXTSTART_HD 0x80
+#define EXTSTART_CD 0xE0
+
 
 /****************************************************************
  * Function defs

@@ -13,172 +13,14 @@
 
 
 /****************************************************************
- * CDROM functions
+ * CD emulation
  ****************************************************************/
 
-// read disk drive size
 static void
-cdrom_1315(struct bregs *regs, u8 driveid)
-{
-    disk_ret(regs, DISK_RET_EADDRNOTFOUND);
-}
-
-// lock
-static void
-cdrom_134500(struct bregs *regs, u8 driveid)
-{
-    u16 ebda_seg = get_ebda_seg();
-    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[driveid]);
-    if (locks == 0xff) {
-        regs->al = 1;
-        disk_ret(regs, DISK_RET_ETOOMANYLOCKS);
-        return;
-    }
-    SET_EBDA2(ebda_seg, cdrom_locks[driveid], locks + 1);
-    regs->al = 1;
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
-// unlock
-static void
-cdrom_134501(struct bregs *regs, u8 driveid)
-{
-    u16 ebda_seg = get_ebda_seg();
-    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[driveid]);
-    if (locks == 0x00) {
-        regs->al = 0;
-        disk_ret(regs, DISK_RET_ENOTLOCKED);
-        return;
-    }
-    locks--;
-    SET_EBDA2(ebda_seg, cdrom_locks[driveid], locks);
-    regs->al = (locks ? 1 : 0);
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
-// status
-static void
-cdrom_134502(struct bregs *regs, u8 driveid)
-{
-    u8 locks = GET_EBDA(cdrom_locks[driveid]);
-    regs->al = (locks ? 1 : 0);
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
-static void
-cdrom_1345XX(struct bregs *regs, u8 driveid)
-{
-    disk_ret(regs, DISK_RET_EPARAM);
-}
-
-// IBM/MS lock/unlock drive
-static void
-cdrom_1345(struct bregs *regs, u8 driveid)
-{
-    switch (regs->al) {
-    case 0x00: cdrom_134500(regs, driveid); break;
-    case 0x01: cdrom_134501(regs, driveid); break;
-    case 0x02: cdrom_134502(regs, driveid); break;
-    default:   cdrom_1345XX(regs, driveid); break;
-    }
-}
-
-// IBM/MS eject media
-static void
-cdrom_1346(struct bregs *regs, u8 driveid)
-{
-    u8 locks = GET_EBDA(cdrom_locks[driveid]);
-    if (locks != 0) {
-        disk_ret(regs, DISK_RET_ELOCKED);
-        return;
-    }
-
-    // FIXME should handle 0x31 no media in device
-    // FIXME should handle 0xb5 valid request failed
-
-    // Call removable media eject
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.ah = 0x52;
-    call16_int(0x15, &br);
-
-    if (br.ah || br.flags & F_CF) {
-        disk_ret(regs, DISK_RET_ELOCKED);
-        return;
-    }
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
-// IBM/MS extended media change
-static void
-cdrom_1349(struct bregs *regs, u8 driveid)
-{
-    set_fail(regs);
-    // always send changed ??
-    regs->ah = DISK_RET_ECHANGED;
-}
-
-static void
-cdrom_ok(struct bregs *regs, u8 driveid)
-{
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
-static void
-cdrom_wp(struct bregs *regs, u8 driveid)
+cdemu_wp(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EWRITEPROTECT);
 }
-
-void
-cdrom_13(struct bregs *regs, u8 driveid)
-{
-    //debug_stub(regs);
-
-    switch (regs->ah) {
-    case 0x15: cdrom_1315(regs, driveid); break;
-    case 0x45: cdrom_1345(regs, driveid); break;
-    case 0x46: cdrom_1346(regs, driveid); break;
-    case 0x49: cdrom_1349(regs, driveid); break;
-
-    // These functions are the same as for hard disks
-    case 0x01:
-    case 0x41:
-    case 0x42:
-    case 0x44:
-    case 0x47:
-    case 0x48:
-    case 0x4e:
-        disk_13(regs, driveid);
-        break;
-
-    // all these functions return SUCCESS
-    case 0x00: // disk controller reset
-    case 0x09: // initialize drive parameters
-    case 0x0c: // seek to specified cylinder
-    case 0x0d: // alternate disk reset
-    case 0x10: // check drive ready
-    case 0x11: // recalibrate
-    case 0x14: // controller internal diagnostic
-    case 0x16: // detect disk change
-        cdrom_ok(regs, driveid);
-        break;
-
-    // all these functions return disk write-protected
-    case 0x03: // write disk sectors
-    case 0x05: // format disk track
-    case 0x43: // IBM/MS extended write
-        cdrom_wp(regs, driveid);
-        break;
-
-    default:   disk_13XX(regs, driveid); break;
-    }
-}
-
-
-/****************************************************************
- * CD emulation
- ****************************************************************/
 
 static void
 cdemu_1302(struct bregs *regs, u8 driveid)
@@ -232,11 +74,14 @@ cdemu_13(struct bregs *regs)
     case 0x04: cdemu_1304(regs, driveid); break;
     case 0x08: cdemu_1308(regs, driveid); break;
 
+    case 0x03:
+    case 0x05:
+        cdemu_wp(regs, driveid);
+        break;
+
     // These functions are the same as standard CDROM.
     case 0x00:
     case 0x01:
-    case 0x03:
-    case 0x05:
     case 0x09:
     case 0x0c:
     case 0x0d:
@@ -245,7 +90,7 @@ cdemu_13(struct bregs *regs)
     case 0x14:
     case 0x15:
     case 0x16:
-        cdrom_13(regs, driveid);
+        disk_13(regs, driveid);
         break;
 
     default:   disk_13XX(regs, driveid); break;
@@ -479,7 +324,7 @@ cdrom_boot(int cdid)
 
     if (media == 0) {
         // No emulation requested - return success.
-        SET_EBDA2(ebda_seg, cdemu.emulated_extdrive, 0xE0 + cdid);
+        SET_EBDA2(ebda_seg, cdemu.emulated_extdrive, EXTSTART_CD + cdid);
         return 0;
     }
 
