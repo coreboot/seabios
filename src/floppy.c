@@ -15,8 +15,12 @@
 #include "bregs.h" // struct bregs
 
 #define FLOPPY_SECTOR_SIZE 512
-
-#define BX_FLOPPY_ON_CNT 37   /* 2 seconds */
+#define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
+#define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02
+#define FLOPPY_MOTOR_TICKS 37 // ~2 seconds
+#define FLOPPY_FILLBYTE 0xf6
+#define FLOPPY_GAPLEN 0x1B
+#define FLOPPY_FORMAT_GAPLEN 0x6c
 
 // New diskette parameter table adding 3 parameters from IBM
 // Since no provisions are made for multiple drive types, most
@@ -24,17 +28,17 @@
 // floppy here
 struct floppy_ext_dbt_s diskette_param_table2 VAR16_32 = {
     .dbt = {
-        .specify1       = 0xAF,
-        .specify2       = 0x02, // head load time 0000001, DMA used
-        .shutoff_ticks  = 0x25,
-        .bps_code       = 0x02,
+        .specify1       = 0xAF, // step rate 12ms, head unload 240ms
+        .specify2       = 0x02, // head load time 4ms, DMA used
+        .shutoff_ticks  = FLOPPY_MOTOR_TICKS, // ~2 seconds
+        .bps_code       = FLOPPY_SIZE_CODE,
         .sectors        = 18,
-        .interblock_len = 0x1B,
-        .data_len       = 0xFF,
-        .gap_len        = 0x6C,
-        .fill_byte      = 0xF6,
-        .settle_time    = 0x0F,
-        .startup_time   = 0x08,
+        .interblock_len = FLOPPY_GAPLEN,
+        .data_len       = FLOPPY_DATALEN,
+        .gap_len        = FLOPPY_FORMAT_GAPLEN,
+        .fill_byte      = FLOPPY_FILLBYTE,
+        .settle_time    = 0x0F, // 15ms
+        .startup_time   = 0x08, // 1 second
     },
     .max_track      = 79,   // maximum track
     .data_rate      = 0,    // data transfer rate
@@ -46,14 +50,14 @@ struct floppy_ext_dbt_s diskette_param_table2 VAR16_32 = {
 // floppy here
 struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7) = {
     .specify1       = 0xAF,
-    .specify2       = 0x02, // head load time 0000001, DMA used
-    .shutoff_ticks  = 0x25,
-    .bps_code       = 0x02,
+    .specify2       = 0x02,
+    .shutoff_ticks  = FLOPPY_MOTOR_TICKS,
+    .bps_code       = FLOPPY_SIZE_CODE,
     .sectors        = 18,
-    .interblock_len = 0x1B,
-    .data_len       = 0xFF,
-    .gap_len        = 0x6C,
-    .fill_byte      = 0xF6,
+    .interblock_len = FLOPPY_GAPLEN,
+    .data_len       = FLOPPY_DATALEN,
+    .gap_len        = FLOPPY_FORMAT_GAPLEN,
+    .fill_byte      = FLOPPY_FILLBYTE,
     .settle_time    = 0x0F,
     .startup_time   = 0x08,
 };
@@ -200,7 +204,7 @@ floppy_prepare_controller(u8 floppyid)
     outb(dor, PORT_FD_DOR);
 
     // reset the disk motor timeout value of INT 08
-    SET_BDA(floppy_motor_counter, BX_FLOPPY_ON_CNT);
+    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
 
     // wait for drive readiness
     while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
@@ -236,7 +240,8 @@ floppy_cmd(struct disk_op_s *op, u16 count, u8 *cmd, u8 cmdlen)
     u32 addr = (u32)op->buf_fl;
 
     // check for 64K boundary overrun
-    u32 last_addr = addr + count;
+    u16 end = count - 1;
+    u32 last_addr = addr + end;
     if ((addr >> 16) != (last_addr >> 16))
         return DISK_RET_EBOUNDARY;
 
@@ -251,8 +256,8 @@ floppy_cmd(struct disk_op_s *op, u16 count, u8 *cmd, u8 cmdlen)
     outb(addr, PORT_DMA_ADDR_2);
     outb(addr>>8, PORT_DMA_ADDR_2);
     outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
-    outb(count, PORT_DMA_CNT_2);
-    outb(count>>8, PORT_DMA_CNT_2);
+    outb(end, PORT_DMA_CNT_2);
+    outb(end>>8, PORT_DMA_CNT_2);
 
     // port 0b: DMA-1 Mode Register
     // transfer type=write, channel 2
@@ -415,12 +420,12 @@ floppy_read(struct disk_op_s *op)
     data[2] = track;
     data[3] = head;
     data[4] = sector;
-    data[5] = 2; // 512 byte sector size
+    data[5] = FLOPPY_SIZE_CODE;
     data[6] = sector + op->count - 1; // last sector to read on track
-    data[7] = 0; // Gap length
-    data[8] = 0xff; // Gap length
+    data[7] = FLOPPY_GAPLEN;
+    data[8] = FLOPPY_DATALEN;
 
-    res = floppy_cmd(op, (op->count * FLOPPY_SECTOR_SIZE) - 1, data, 9);
+    res = floppy_cmd(op, op->count * FLOPPY_SECTOR_SIZE, data, 9);
     if (res)
         goto fail;
 
@@ -456,12 +461,12 @@ floppy_write(struct disk_op_s *op)
     data[2] = track;
     data[3] = head;
     data[4] = sector;
-    data[5] = 2; // 512 byte sector size
+    data[5] = FLOPPY_SIZE_CODE;
     data[6] = sector + op->count - 1; // last sector to write on track
-    data[7] = 0; // Gap length
-    data[8] = 0xff; // Gap length
+    data[7] = FLOPPY_GAPLEN;
+    data[8] = FLOPPY_DATALEN;
 
-    res = floppy_cmd(op, (op->count * FLOPPY_SECTOR_SIZE) - 1, data, 9);
+    res = floppy_cmd(op, op->count * FLOPPY_SECTOR_SIZE, data, 9);
     if (res)
         goto fail;
 
@@ -516,12 +521,12 @@ floppy_format(struct disk_op_s *op)
     u8 data[12];
     data[0] = 0x4d; // 4d: format track
     data[1] = (head << 2) | floppyid; // HD DR1 DR2
-    data[2] = 2; // 512 byte sector size
+    data[2] = FLOPPY_SIZE_CODE;
     data[3] = op->count; // number of sectors per track
-    data[4] = 0; // Gap length
-    data[5] = 0xf6; // Fill byte
+    data[4] = FLOPPY_FORMAT_GAPLEN;
+    data[5] = FLOPPY_FILLBYTE;
 
-    ret = floppy_cmd(op, (op->count * 4) - 1, data, 6);
+    ret = floppy_cmd(op, op->count * 4, data, 6);
     if (ret)
         return ret;
 
