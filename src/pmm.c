@@ -30,11 +30,12 @@ struct zone_s {
     u32 top, bottom, cur;
 };
 
-struct zone_s ZoneHigh VAR32VISIBLE, ZoneFSeg VAR32VISIBLE;
+struct zone_s ZoneLow VAR32VISIBLE, ZoneHigh VAR32VISIBLE;
+struct zone_s ZoneFSeg VAR32VISIBLE;
 struct zone_s ZoneTmpLow VAR32VISIBLE, ZoneTmpHigh VAR32VISIBLE;
 
 struct zone_s *Zones[] VAR32VISIBLE = {
-    &ZoneTmpLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
+    &ZoneTmpLow, &ZoneLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
 };
 
 // Obtain memory from a given zone.
@@ -115,6 +116,9 @@ malloc_setup()
     // Memory under 1Meg.
     ZoneTmpLow.bottom = BUILD_STACK_ADDR;
     ZoneTmpLow.top = ZoneTmpLow.cur = (u32)MAKE_FLATPTR(EBDA_SEGMENT_MINIMUM, 0);
+
+    // Permanent memory under 1Meg.  XXX - not implemented yet.
+    ZoneLow.bottom = ZoneLow.top = ZoneLow.cur = 0xa0000;
 
     // Find memory at the top of ram.
     struct e820entry *e = find_high_area(CONFIG_MAX_HIGHTABLE+MALLOC_MIN_ALIGN);
@@ -307,6 +311,12 @@ handle_pmm00(u16 *args)
     u16 flags = args[5];
     dprintf(3, "pmm00: length=%x handle=%x flags=%x\n"
             , length, handle, flags);
+    struct zone_s *lowzone = &ZoneTmpLow, *highzone = &ZoneTmpHigh;
+    if (flags & 8) {
+        // Permanent memory request.
+        lowzone = &ZoneLow;
+        highzone = &ZoneHigh;
+    }
     if (!length) {
         // Memory size request
         switch (flags & 3) {
@@ -314,12 +324,12 @@ handle_pmm00(u16 *args)
         case 0:
             return 0;
         case 1:
-            return pmm_getspace(&ZoneTmpLow);
+            return pmm_getspace(lowzone);
         case 2:
-            return pmm_getspace(&ZoneTmpHigh);
+            return pmm_getspace(highzone);
         case 3: {
-            u32 spacelow = pmm_getspace(&ZoneTmpLow);
-            u32 spacehigh = pmm_getspace(&ZoneTmpHigh);
+            u32 spacelow = pmm_getspace(lowzone);
+            u32 spacehigh = pmm_getspace(highzone);
             if (spacelow > spacehigh)
                 return spacelow;
             return spacehigh;
@@ -340,14 +350,14 @@ handle_pmm00(u16 *args)
     case 0:
         return 0;
     case 1:
-        return (u32)pmm_malloc(&ZoneTmpLow, handle, size, align);
+        return (u32)pmm_malloc(lowzone, handle, size, align);
     case 2:
-        return (u32)pmm_malloc(&ZoneTmpHigh, handle, size, align);
+        return (u32)pmm_malloc(highzone, handle, size, align);
     case 3: {
-        void *data = pmm_malloc(&ZoneTmpLow, handle, size, align);
+        void *data = pmm_malloc(lowzone, handle, size, align);
         if (data)
             return (u32)data;
-        return (u32)pmm_malloc(&ZoneTmpHigh, handle, size, align);
+        return (u32)pmm_malloc(highzone, handle, size, align);
     }
     }
 }
