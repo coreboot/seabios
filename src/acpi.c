@@ -254,7 +254,7 @@ static void
 build_fadt(struct rsdt_descriptor_rev1 *rsdt, int bdf)
 {
     struct fadt_descriptor_rev1 *fadt = malloc_high(sizeof(*fadt));
-    struct facs_descriptor_rev1 *facs = malloc_high(sizeof(*facs) + 63);
+    struct facs_descriptor_rev1 *facs = memalign_high(64, sizeof(*facs));
     void *dsdt = malloc_high(sizeof(AmlCode));
 
     if (!fadt || !facs || !dsdt) {
@@ -263,7 +263,6 @@ build_fadt(struct rsdt_descriptor_rev1 *rsdt, int bdf)
     }
 
     /* FACS */
-    facs = (void*)ALIGN((u32)facs, 64);
     memset(facs, 0, sizeof(*facs));
     facs->signature = FACS_SIGNATURE;
     facs->length = cpu_to_le32(sizeof(*facs));
@@ -432,9 +431,10 @@ acpi_bios_init(void)
         return;
 
     // Create initial rsdt table
+    struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
     struct rsdt_descriptor_rev1 *rsdt = malloc_high(sizeof(*rsdt));
-    if (!rsdt) {
-        dprintf(1, "Not enough memory for acpi rsdt table!\n");
+    if (!rsdp || !rsdt) {
+        dprintf(1, "Not enough memory for acpi rsdp/rsdt table!\n");
         return;
     }
     memset(rsdt, 0, sizeof(*rsdt));
@@ -448,11 +448,6 @@ acpi_bios_init(void)
     build_header((void*)rsdt, RSDT_SIGNATURE, rsdt->length, 1, NULL);
 
     // Build rsdp pointer table
-    struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
-    if (!rsdp) {
-        dprintf(1, "Not enough memory for acpi rsdp!\n");
-        return;
-    }
     memset(rsdp, 0, sizeof(*rsdp));
     rsdp->signature = RSDP_SIGNATURE;
     memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);

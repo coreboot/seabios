@@ -39,11 +39,12 @@ struct zone_s *Zones[] VAR32VISIBLE = {
 };
 
 // Obtain memory from a given zone.
-static void *
+void *
 zone_malloc(struct zone_s *zone, u32 size, u32 align)
 {
-    u32 newpos = (GET_PMMVAR(zone->cur) - size) / align * align;
-    if ((s32)(newpos - GET_PMMVAR(zone->bottom)) < 0)
+    u32 oldpos = GET_PMMVAR(zone->cur);
+    u32 newpos = ALIGN_DOWN(oldpos - size, align);
+    if (newpos < GET_PMMVAR(zone->bottom) || newpos > oldpos)
         // No space
         return NULL;
     SET_PMMVAR(zone->cur, newpos);
@@ -86,20 +87,6 @@ dumpZones()
         dprintf(2, "zone %d: %08x-%08x used=%d (%d%%)\n"
                 , i, zone->bottom, zone->top, used, pct);
     }
-}
-
-// Allocate memory at the top of 32bit ram.
-void *
-malloc_high(u32 size)
-{
-    return zone_malloc(&ZoneHigh, size, MALLOC_MIN_ALIGN);
-}
-
-// Allocate memory in the 0xf0000-0x100000 area of ram.
-void *
-malloc_fseg(u32 size)
-{
-    return zone_malloc(&ZoneFSeg, size, MALLOC_MIN_ALIGN);
 }
 
 void
@@ -148,7 +135,7 @@ malloc_finalize()
     dumpZones();
 
     // Give back unused high ram.
-    u32 giveback = (ZoneHigh.cur - ZoneHigh.bottom) / 4096 * 4096;
+    u32 giveback = ALIGN_DOWN(ZoneHigh.cur - ZoneHigh.bottom, PAGE_SIZE);
     add_e820(ZoneHigh.bottom, giveback, E820_RAM);
     dprintf(1, "Returned %d bytes of ZoneHigh\n", giveback);
 

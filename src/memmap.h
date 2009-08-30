@@ -21,6 +21,9 @@ void memmap_setup();
 void memmap_finalize();
 struct e820entry *find_high_area(u32 size);
 
+// A typical OS page size
+#define PAGE_SIZE 4096
+
 // e820 map storage (defined in system.c)
 extern struct e820entry e820_list[];
 extern int e820_count;

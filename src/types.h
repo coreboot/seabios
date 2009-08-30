@@ -72,11 +72,12 @@ union u64_u32_u {
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
 #define ALIGN(x,a)              __ALIGN_MASK(x,(typeof(x))(a)-1)
 #define __ALIGN_MASK(x,mask)    (((x)+(mask))&~(mask))
+#define ALIGN_DOWN(x,a)         ((x) & ~((typeof(x))(a)-1))
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
-#define NULL ((void *)0)
+#define NULL ((void*)0)
 
 #define __weak __attribute__((weak))
 #define __section(S) __attribute__((section(S)))
