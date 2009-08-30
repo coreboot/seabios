@@ -31,24 +31,23 @@ ramdisk_setup()
     }
 
     // Allocate ram for image.
-    struct e820entry *e = find_high_area(size);
-    if (!e) {
-        dprintf(3, "No ram for ramdisk\n");
+    void *pos = memalign_tmphigh(PAGE_SIZE, size);
+    if (!pos) {
+        dprintf(3, "Not enough memory for ramdisk\n");
         return;
     }
-    u32 loc = e->start + e->size - size;
-    add_e820(loc, size, E820_RESERVED);
+    add_e820((u32)pos, size, E820_RESERVED);
 
     // Copy image into ram.
-    cbfs_copyfile(file, (void*)loc, size);
+    cbfs_copyfile(file, pos, size);
 
     // Setup driver.
-    dprintf(1, "Mapping CBFS floppy %s to addr %x\n", cbfs_filename(file), loc);
-    addFloppy(loc, ftype, DTYPE_RAMDISK);
+    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
+    addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
 }
 
 static int
-ramdisk_op(struct disk_op_s *op, int iswrite)
+ramdisk_copy(struct disk_op_s *op, int iswrite)
 {
     u32 offset = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
     offset += (u32)op->lba * RAMDISK_SECTOR_SIZE;
@@ -64,15 +63,18 @@ ramdisk_op(struct disk_op_s *op, int iswrite)
         gdt[3] = opd;
     }
 
-    // Call 0x1587 to copy data.
+    // Call int 1587 to copy data.
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_CF;
     br.ah = 0x87;
     br.es = GET_SEG(SS);
     br.si = (u32)gdt;
     br.cx = op->count * RAMDISK_SECTOR_SIZE / 2;
     call16_int(0x15, &br);
 
+    if (br.flags & F_CF)
+        return DISK_RET_EBADTRACK;
     return DISK_RET_SUCCESS;
 }
 
@@ -84,9 +86,9 @@ process_ramdisk_op(struct disk_op_s *op)
 
     switch (op->command) {
     case CMD_READ:
-        return ramdisk_op(op, 0);
+        return ramdisk_copy(op, 0);
     case CMD_WRITE:
-        return ramdisk_op(op, 1);
+        return ramdisk_copy(op, 1);
     case CMD_VERIFY:
     case CMD_FORMAT:
     case CMD_RESET:
