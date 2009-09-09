@@ -8,6 +8,7 @@
 
 #include "types.h" // u8
 #include "config.h" // CONFIG_*
+#include "farptr.h" // struct segoff_s
 
 #define DISK_RET_SUCCESS       0x00
 #define DISK_RET_EPARAM        0x01
@@ -35,8 +36,7 @@ struct int13ext_s {
     u8  size;
     u8  reserved;
     u16 count;
-    u16 offset;
-    u16 segment;
+    struct segoff_s data;
     u64 lba;
 } PACKED;
 

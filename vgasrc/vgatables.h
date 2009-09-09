@@ -2,6 +2,7 @@
 #define __VGATABLES_H
 
 #include "types.h" // u8
+#include "farptr.h" // struct segoff_s
 
 /*
  *
@@ -123,10 +124,8 @@ struct saveBDAstate {
     u16 video_pagestart;
     u8 video_page;
     /* current font */
-    u16 font0_off;
-    u16 font0_seg;
-    u16 font1_off;
-    u16 font1_seg;
+    struct segoff_s font0;
+    struct segoff_s font1;
 };
 
 struct saveDACcolors {

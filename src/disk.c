@@ -180,9 +180,7 @@ extended_access(struct bregs *regs, u8 driveid, u16 command)
         return;
     }
 
-    u16 segment = GET_INT13EXT(regs, segment);
-    u16 offset = GET_INT13EXT(regs, offset);
-    dop.buf_fl = MAKE_FLATPTR(segment, offset);
+    dop.buf_fl = SEGOFF_TO_FLATPTR(GET_INT13EXT(regs, data));
     dop.count = GET_INT13EXT(regs, count);
 
     int status = send_disk_op(&dop);

@@ -152,7 +152,7 @@ __call16:
         pushw %cs
         pushw $1f               // return point
         pushw BREGS_flags(%eax) // flags
-        pushl BREGS_ip(%eax)    // CS:IP
+        pushl BREGS_code(%eax)  // CS:IP
 
         // Load calling registers.
         movl BREGS_edi(%eax), %edi

@@ -60,12 +60,12 @@ handle_resume(u8 status)
         eoi_pic2();
         // NO BREAK
     case 0x0a:
-#define BDA_JUMP_IP (((struct bios_data_area_s *)0)->jump_ip)
+#define BDA_JUMP (((struct bios_data_area_s *)0)->jump)
         // resume execution by jump via 40h:0067h
         asm volatile(
             "movw %w1, %%ds\n"
             "ljmpw *%0\n"
-            : : "m"(BDA_JUMP_IP), "r"(SEG_BDA)
+            : : "m"(BDA_JUMP), "r"(SEG_BDA)
             );
         break;
 
@@ -75,7 +75,7 @@ handle_resume(u8 status)
             "movw %w1, %%ds\n"
             "lssw %0, %%sp\n"
             "iretw\n"
-            : : "m"(BDA_JUMP_IP), "r"(SEG_BDA)
+            : : "m"(BDA_JUMP), "r"(SEG_BDA)
             );
         break;
 
@@ -85,7 +85,7 @@ handle_resume(u8 status)
             "movw %w1, %%ds\n"
             "lssw %0, %%sp\n"
             "lretw\n"
-            : : "m"(BDA_JUMP_IP), "r"(SEG_BDA)
+            : : "m"(BDA_JUMP), "r"(SEG_BDA)
             );
         break;
     }
@@ -115,13 +115,11 @@ s3_resume()
     memset(&br, 0, sizeof(br));
     if (s3_resume_vector) {
         dprintf(1, "Jump to resume vector (%x)\n", s3_resume_vector);
-        br.ip = FLATPTR_TO_OFFSET(s3_resume_vector);
-        br.cs = FLATPTR_TO_SEG(s3_resume_vector);
+        br.code = FLATPTR_TO_SEGOFF((void*)s3_resume_vector);
     } else {
         dprintf(1, "No resume vector set!\n");
         // Jump to the post vector to restart with a normal boot.
-        br.ip = (u32)reset_vector - BUILD_BIOS_ADDR;
-        br.cs = SEG_BIOS;
+        br.code = SEGOFF(SEG_BIOS, (u32)reset_vector - BUILD_BIOS_ADDR);
     }
     call16big(&br);
 }

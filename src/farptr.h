@@ -190,4 +190,23 @@ extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
 
 #endif
 
+// Definition for common 16bit segment/offset pointers.
+struct segoff_s {
+    union {
+        struct {
+            u16 offset;
+            u16 seg;
+        };
+        u32 segoff;
+    };
+};
+#define SEGOFF(s,o) ({struct segoff_s __so; __so.offset=(o); __so.seg=(s); __so;})
+
+static inline struct segoff_s FLATPTR_TO_SEGOFF(void *p) {
+    return SEGOFF(FLATPTR_TO_SEG(p), FLATPTR_TO_OFFSET(p));
+}
+static inline void *SEGOFF_TO_FLATPTR(struct segoff_s so) {
+    return MAKE_FLATPTR(so.seg, so.offset);
+}
+
 #endif // farptr.h

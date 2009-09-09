@@ -20,7 +20,7 @@ void foo(void)
     OFFSET(BREGS_esi, bregs, esi);
     OFFSET(BREGS_edi, bregs, edi);
     OFFSET(BREGS_flags, bregs, flags);
-    OFFSET(BREGS_ip, bregs, ip);
+    OFFSET(BREGS_code, bregs, code);
 
     COMMENT("BDA");
     OFFSET(BDA_ebda_seg, bios_data_area_s, ebda_seg);

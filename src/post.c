@@ -23,7 +23,7 @@
 void
 __set_irq(int vector, void *loc)
 {
-    SET_IVT(vector, SEG_BIOS, (u32)loc - BUILD_BIOS_ADDR);
+    SET_IVT(vector, SEGOFF(SEG_BIOS, (u32)loc - BUILD_BIOS_ADDR));
 }
 
 #define set_irq(vector, func) do {              \
@@ -64,7 +64,7 @@ init_ivt()
 
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
-    SET_IVT(0x79, 0, 0);
+    SET_IVT(0x79, SEGOFF(0, 0));
 
     __set_irq(0x1E, &diskette_param_table2);
 }

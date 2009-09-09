@@ -92,8 +92,7 @@ __callrom(struct rom_header *rom, u16 offset, u16 bdf)
     br.dx = 0xffff;
     br.es = SEG_BIOS;
     br.di = get_pnp_offset();
-    br.cs = seg;
-    br.ip = offset;
+    br.code = SEGOFF(seg, offset);
     call16big(&br);
 
     debug_serial_setup();

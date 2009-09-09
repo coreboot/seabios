@@ -235,10 +235,10 @@ mouse_15c206(struct bregs *regs)
 static void
 mouse_15c207(struct bregs *regs)
 {
-    u32 farptr = (regs->es << 16) | regs->bx;
+    struct segoff_s farptr = SEGOFF(regs->es, regs->bx);
     u16 ebda_seg = get_ebda_seg();
     u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
-    if (! farptr) {
+    if (! farptr.segoff) {
         /* remove handler */
         if ((mouse_flags_2 & 0x80) != 0) {
             mouse_flags_2 &= ~0x80;
@@ -311,7 +311,7 @@ process_mouse(u8 data)
     u16 Y      = GET_EBDA2(ebda_seg, mouse_data[2]);
     SET_EBDA2(ebda_seg, mouse_flag1, 0);
 
-    u32 func = GET_EBDA2(ebda_seg, far_call_pointer);
+    struct segoff_s func = GET_EBDA2(ebda_seg, far_call_pointer);
 
     asm volatile(
         "sti\n"
@@ -327,7 +327,7 @@ process_mouse(u8 data)
         "cli\n"
         "cld\n"
         :
-        : "r"(func), "r"(status), "r"(X), "r"(Y)
+        : "r"(func.segoff), "r"(status), "r"(X), "r"(Y)
         : "cc"
         );
 }

@@ -42,10 +42,10 @@ inline void
 __call16_int(struct bregs *callregs, u16 offset)
 {
     if (MODE16)
-        callregs->cs = GET_SEG(CS);
+        callregs->code.seg = GET_SEG(CS);
     else
-        callregs->cs = SEG_BIOS;
-    callregs->ip = offset;
+        callregs->code.seg = SEG_BIOS;
+    callregs->code.offset = offset;
     call16(callregs);
 }
 

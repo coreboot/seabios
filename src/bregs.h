@@ -21,6 +21,8 @@
 
 #ifndef __ASSEMBLY__
 
+#include "farptr.h" // struct segoff_s
+
 /****************************************************************
  * Registers saved/restored in romlayout.S
  ****************************************************************/
@@ -42,8 +44,7 @@ struct bregs {
     UREG(edx, dx, dh, dl);
     UREG(ecx, cx, ch, cl);
     UREG(eax, ax, ah, al);
-    u16 ip;
-    u16 cs;
+    struct segoff_s code;
     u16 flags;
 } PACKED;
 

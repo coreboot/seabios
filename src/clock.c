@@ -454,7 +454,7 @@ set_usertimer(u32 usecs, u16 seg, u16 offset)
 
     // Interval not already set.
     SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
-    SET_BDA(ptr_user_wait_complete_flag, (seg << 16) | offset);
+    SET_BDA(user_wait_complete_flag, SEGOFF(seg, offset));
     SET_BDA(user_wait_timeout, usecs);
 
     // Turn on the Periodic Interrupt timer
@@ -561,11 +561,11 @@ handle_70()
     u32 time = GET_BDA(user_wait_timeout);  // Time left in microseconds.
     if (time < 0x3D1) {
         // Done waiting - write to specified flag byte.
-        u32 segoff = GET_BDA(ptr_user_wait_complete_flag);
-        u16 segment = segoff >> 16;
-        u16 offset = segoff & 0xffff;
-        u8 oldval = GET_FARVAR(segment, *(u8*)(offset+0));
-        SET_FARVAR(segment, *(u8*)(offset+0), oldval | 0x80);
+        struct segoff_s segoff = GET_BDA(user_wait_complete_flag);
+        u16 ptr_seg = segoff.seg;
+        u8 *ptr_far = (u8*)(segoff.offset+0);
+        u8 oldval = GET_FARVAR(ptr_seg, *ptr_far);
+        SET_FARVAR(ptr_seg, *ptr_far, oldval | 0x80);
 
         clear_usertimer();
     } else {

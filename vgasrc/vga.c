@@ -312,8 +312,8 @@ save_bda_state(u16 seg, struct saveBDAstate *info)
     SET_FARVAR(seg, info->video_pagestart, GET_BDA(video_pagestart));
     SET_FARVAR(seg, info->video_page, GET_BDA(video_page));
     /* current font */
-    SET_FARVAR(seg, *(u32*)&info->font0_off, GET_IVT(0x1f).segoff);
-    SET_FARVAR(seg, *(u32*)&info->font1_off, GET_IVT(0x43).segoff);
+    SET_FARVAR(seg, info->font0, GET_IVT(0x1f));
+    SET_FARVAR(seg, info->font1, GET_IVT(0x43));
 }
 
 static void
@@ -335,10 +335,8 @@ restore_bda_state(u16 seg, struct saveBDAstate *info)
     SET_BDA(video_pagestart, GET_FARVAR(seg, info->video_pagestart));
     SET_BDA(video_page, GET_FARVAR(seg, info->video_page));
     /* current font */
-    SET_IVT(0x1f, GET_FARVAR(seg, info->font0_seg)
-            , GET_FARVAR(seg, info->font0_off));
-    SET_IVT(0x43, GET_FARVAR(seg, info->font1_seg)
-            , GET_FARVAR(seg, info->font1_off));
+    SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
+    SET_IVT(0x43, GET_FARVAR(seg, info->font1));
 }
 
 
@@ -425,8 +423,8 @@ handle_1000(struct bregs *regs)
 
     // FIXME We nearly have the good tables. to be reworked
     SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
-    SET_BDA(video_savetable_ptr, (u32)video_save_pointer_table);
-    SET_BDA(video_savetable_seg, get_global_seg());
+    SET_BDA(video_savetable
+            , SEGOFF(get_global_seg(), (u32)video_save_pointer_table));
 
     // FIXME
     SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
@@ -451,17 +449,17 @@ handle_1000(struct bregs *regs)
         call16_vgaint(0x1103, 0);
     }
     // Set the ints 0x1F and 0x43
-    SET_IVT(0x1f, get_global_seg(), (u32)&vgafont8[128 * 8]);
+    SET_IVT(0x1f, SEGOFF(get_global_seg(), (u32)&vgafont8[128 * 8]));
 
     switch (cheight) {
     case 8:
-        SET_IVT(0x43, get_global_seg(), (u32)vgafont8);
+        SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont8));
         break;
     case 14:
-        SET_IVT(0x43, get_global_seg(), (u32)vgafont14);
+        SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont14));
         break;
     case 16:
-        SET_IVT(0x43, get_global_seg(), (u32)vgafont16);
+        SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont16));
         break;
     }
 }
@@ -1103,8 +1101,10 @@ handle_101b(struct bregs *regs)
     SET_FARVAR(seg, info->static_functionality_seg, get_global_seg());
 
     // Hard coded copy from BIOS area. Should it be cleaner ?
-    memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49, 30);
-    memcpy_far(seg, info->bda_0x84, SEG_BDA, (void*)0x84, 3);
+    memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49
+               , sizeof(info->bda_0x49));
+    memcpy_far(seg, info->bda_0x84, SEG_BDA, (void*)0x84
+               , sizeof(info->bda_0x84));
 
     SET_FARVAR(seg, info->dcc_index, GET_BDA(dcc_index));
     SET_FARVAR(seg, info->colors, 16);
@@ -1368,7 +1368,7 @@ vga_post(struct bregs *regs)
         vbe_init();
 
     extern void entry_10(void);
-    SET_IVT(0x10, get_global_seg(), (u32)entry_10);
+    SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
 
     if (CONFIG_CIRRUS)
         cirrus_init();

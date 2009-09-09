@@ -323,8 +323,7 @@ call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 
     struct bregs br;
     memset(&br, 0, sizeof(br));
-    br.ip = bootip;
-    br.cs = bootseg;
+    br.code = SEGOFF(bootseg, bootip);
     // Set the magic number in ax and the boot drive in dl.
     br.dl = bootdrv;
     br.ax = 0xaa55;

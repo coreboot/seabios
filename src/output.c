@@ -327,7 +327,7 @@ dump_regs(struct bregs *regs)
             , regs->ds, regs->es, GET_SEG(SS));
     dprintf(1, "  si=%08x di=%08x bp=%08x sp=%08x cs=%04x ip=%04x  f=%04x\n"
             , regs->esi, regs->edi, regs->ebp, (u32)&regs[1]
-            , regs->cs, regs->ip, regs->flags);
+            , regs->code.seg, regs->code.offset, regs->flags);
 }
 
 // Report entry to an Interrupt Service Routine (ISR).

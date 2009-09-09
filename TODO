@@ -16,8 +16,6 @@ cvs tip.
     -- lots of mouse changes, logo, scsi/etherboot hooks, int 1589,
        floppy data rate?, int19 calls post
 
-Possibly introduce a data type for the many seg/off pairs.
-
 Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
 setup properly with respect to irqs.
 

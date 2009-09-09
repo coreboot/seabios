@@ -11,17 +11,6 @@
 #include "config.h" // CONFIG_*
 #include "disk.h" // struct chs_s
 
-struct segoff_s {
-    union {
-        struct {
-            u16 offset;
-            u16 seg;
-        };
-        u32 segoff;
-    };
-};
-#define SEGOFF(s,o) ({struct segoff_s __so; __so.offset=(o); __so.seg=(s); __so;})
-
 
 /****************************************************************
  * Interupt vector table
@@ -33,8 +22,8 @@ struct rmode_IVT {
 
 #define GET_IVT(vector)                                         \
     GET_FARVAR(SEG_IVT, ((struct rmode_IVT *)0)->ivec[vector])
-#define SET_IVT(vector, seg, off)                                       \
-    SET_FARVAR(SEG_IVT, ((struct rmode_IVT *)0)->ivec[vector].segoff, ((seg) << 16) | (off))
+#define SET_IVT(vector, segoff)                                         \
+    SET_FARVAR(SEG_IVT, ((struct rmode_IVT *)0)->ivec[vector], segoff)
 
 
 /****************************************************************
@@ -77,8 +66,7 @@ struct bios_data_area_s {
     u16 crtc_address;
     u8 video_msr;
     u8 video_pal;
-    u16 jump_ip;
-    u16 jump_cs;
+    struct segoff_s jump;
     u8 other_6b;
     u32 timer_counter;
     // 40:70
@@ -110,13 +98,12 @@ struct bios_data_area_s {
     u8 floppy_track[2];
     u8 kbd_mode;
     u8 kbd_led;
-    u32 ptr_user_wait_complete_flag;
+    struct segoff_s user_wait_complete_flag;
     u32 user_wait_timeout;
     // 40:A0
     u8 rtc_wait_flag;
     u8 other_a1[7];
-    u16 video_savetable_ptr;
-    u16 video_savetable_seg;
+    struct segoff_s video_savetable;
     u8 other_ac[4];
     // 40:B0
     u8 other_b0[10];
@@ -204,7 +191,7 @@ struct fdpt_s {
 struct extended_bios_data_area_s {
     u8 size;
     u8 reserved1[0x21];
-    u32 far_call_pointer;
+    struct segoff_s far_call_pointer;
     u8 mouse_flag1;
     u8 mouse_flag2;
     u8 mouse_data[0x08];

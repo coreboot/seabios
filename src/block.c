@@ -163,11 +163,11 @@ fill_fdpt(int driveid)
     fdpt->checksum -= checksum(fdpt, sizeof(*fdpt));
 
     if (driveid == 0)
-        SET_IVT(0x41, get_ebda_seg()
-                , offsetof(struct extended_bios_data_area_s, fdpt[0]));
+        SET_IVT(0x41, SEGOFF(get_ebda_seg(), offsetof(
+                                 struct extended_bios_data_area_s, fdpt[0])));
     else
-        SET_IVT(0x46, get_ebda_seg()
-                , offsetof(struct extended_bios_data_area_s, fdpt[1]));
+        SET_IVT(0x46, SEGOFF(get_ebda_seg(), offsetof(
+                                 struct extended_bios_data_area_s, fdpt[1])));
 }
 
 // Map a drive (that was registered via add_bcv_hd)
