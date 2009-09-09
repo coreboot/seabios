@@ -42,9 +42,9 @@ union u64_u32_u {
 # define VISIBLE32
 // Designate a variable as (only) visible to 16bit code.
 # define VAR16 __section(".data16." UNIQSEC)
-// Designate a variable as visible to both 32bit and 16bit code.
-# define VAR16_32 VAR16 __VISIBLE
-// Designate a variable visible externally.
+// Designate a variable as visible to 16bit, 32bit, and assembler code.
+# define VAR16VISIBLE VAR16 __VISIBLE
+// Designate a variable as externally visible (in addition to all internal code).
 # define VAR16EXPORT __section(".data16.export." UNIQSEC) __VISIBLE
 // Designate a variable at a specific 16bit address
 # define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
@@ -58,9 +58,9 @@ union u64_u32_u {
 # define VISIBLE16
 # define VISIBLE32 __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
-# define VAR16_32 VAR16 __VISIBLE __weak
-# define VAR16EXPORT VAR16_32
-# define VAR16FIXED(addr) VAR16_32
+# define VAR16VISIBLE VAR16 __VISIBLE __weak
+# define VAR16EXPORT VAR16VISIBLE
+# define VAR16FIXED(addr) VAR16VISIBLE
 # define VAR32VISIBLE __VISIBLE
 # define ASM16(code)
 # define ASM32(code) __ASM(code)

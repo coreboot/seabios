@@ -11,11 +11,11 @@
 #include "pic.h" // enable_hwirq
 
 // Amount of continuous ram under 4Gig
-u32 RamSize VAR16_32;
+u32 RamSize VAR16VISIBLE;
 // Amount of continuous ram >4Gig
 u64 RamSizeOver4G;
 // Space for bios tables built an run-time.
-char BiosTableSpace[CONFIG_MAX_BIOSTABLE] __aligned(MALLOC_MIN_ALIGN) VAR16_32;
+char BiosTableSpace[CONFIG_MAX_BIOSTABLE] __aligned(MALLOC_MIN_ALIGN) VAR16VISIBLE;
 
 
 /****************************************************************
@@ -134,23 +134,23 @@ struct descloc_s {
 } PACKED;
 
 // Real mode IDT descriptor
-struct descloc_s rmode_IDT_info VAR16_32 = {
+struct descloc_s rmode_IDT_info VAR16VISIBLE = {
     .length = sizeof(struct rmode_IVT) - 1,
     .addr = (u32)MAKE_FLATPTR(SEG_IVT, 0),
 };
 
 // Dummy IDT that forces a machine shutdown if an irq happens in
 // protected mode.
-u8 dummy_IDT VAR16_32;
+u8 dummy_IDT VAR16VISIBLE;
 
 // Protected mode IDT descriptor
-struct descloc_s pmode_IDT_info VAR16_32 = {
+struct descloc_s pmode_IDT_info VAR16VISIBLE = {
     .length = sizeof(dummy_IDT) - 1,
     .addr = (u32)MAKE_FLATPTR(SEG_BIOS, &dummy_IDT),
 };
 
 // GDT
-u64 rombios32_gdt[] VAR16_32 __aligned(8) = {
+u64 rombios32_gdt[] VAR16VISIBLE __aligned(8) = {
     // First entry can't be used.
     0x0000000000000000LL,
     // 32 bit flat code segment (SEG32_MODE32_CS)
@@ -168,7 +168,7 @@ u64 rombios32_gdt[] VAR16_32 __aligned(8) = {
 };
 
 // GDT descriptor
-struct descloc_s rombios32_gdt_48 VAR16_32 = {
+struct descloc_s rombios32_gdt_48 VAR16VISIBLE = {
     .length = sizeof(rombios32_gdt) - 1,
     .addr = (u32)MAKE_FLATPTR(SEG_BIOS, rombios32_gdt),
 };

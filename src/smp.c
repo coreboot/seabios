@@ -45,8 +45,8 @@ static inline u8 readb(const void *addr)
     return *(volatile const u8 *)addr;
 }
 
-struct { u32 ecx, eax, edx; } smp_mtrr[16] VAR16_32;
-u32 smp_mtrr_count VAR16_32;
+struct { u32 ecx, eax, edx; } smp_mtrr[16] VAR16VISIBLE;
+u32 smp_mtrr_count VAR16VISIBLE;
 
 void
 wrmsr_smp(u32 index, u64 val)
@@ -60,7 +60,7 @@ wrmsr_smp(u32 index, u64 val)
     smp_mtrr_count++;
 }
 
-u32 CountCPUs VAR16_32;
+u32 CountCPUs VAR16VISIBLE;
 extern void smp_ap_boot_code();
 ASM16(
     "  .global smp_ap_boot_code\n"

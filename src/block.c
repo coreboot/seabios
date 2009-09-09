@@ -11,7 +11,7 @@
 #include "util.h" // dprintf
 #include "ata.h" // process_ata_op
 
-struct drives_s Drives VAR16_32;
+struct drives_s Drives VAR16VISIBLE;
 
 
 /****************************************************************
@@ -280,6 +280,7 @@ send_disk_op(struct disk_op_s *op)
 {
     if (! CONFIG_DRIVES)
         return -1;
+    ASSERT16();
 
     return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
 }

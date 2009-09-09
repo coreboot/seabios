@@ -23,7 +23,7 @@
 
 #define IDE_TIMEOUT 32000 //32 seconds max for IDE ops
 
-struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES] VAR16_32;
+struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES] VAR16VISIBLE;
 
 
 /****************************************************************

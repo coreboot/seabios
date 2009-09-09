@@ -13,9 +13,9 @@
 #include "config.h" // CONFIG_*
 
 // The Bus/Dev/Fn of the primary VGA device.
-int VGAbdf VAR16_32;
+int VGAbdf VAR16VISIBLE;
 // Coreboot board detected.
-int CBmainboard VAR16_32;
+int CBmainboard VAR16VISIBLE;
 
 static void
 handle_155fXX(struct bregs *regs)

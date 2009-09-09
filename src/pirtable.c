@@ -9,7 +9,7 @@
 #include "util.h" // checksum
 #include "biosvar.h" // SET_EBDA
 
-u16 PirOffset VAR16_32;
+u16 PirOffset VAR16VISIBLE;
 
 struct pir_table {
     struct pir_header pir;
