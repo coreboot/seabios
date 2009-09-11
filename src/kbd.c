@@ -12,6 +12,27 @@
 #include "bregs.h" // struct bregs
 #include "ps2port.h" // i8042_flush
 
+// Bit definitions for BDA kbd_flag[012]
+#define KF0_RSHIFT       (1<<0)
+#define KF0_LSHIFT       (1<<1)
+#define KF0_CTRLACTIVE   (1<<2)
+#define KF0_ALTACTIVE    (1<<3)
+#define KF0_SCROLLACTIVE (1<<4)
+#define KF0_NUMACTIVE    (1<<5)
+#define KF0_CAPSACTIVE   (1<<6)
+
+#define KF1_LCTRL        (1<<0)
+#define KF1_LALT         (1<<1)
+#define KF1_SCROLL       (1<<4)
+#define KF1_NUM          (1<<5)
+#define KF1_CAPS         (1<<6)
+
+#define KF2_LAST_E1    (1<<0)
+#define KF2_LAST_E0    (1<<1)
+#define KF2_RCTRL      (1<<2)
+#define KF2_RALT       (1<<3)
+#define KF2_101KBD     (1<<4)
+
 static void
 keyboard_init()
 {
@@ -85,7 +106,7 @@ kbd_setup()
 {
     dprintf(3, "init keyboard\n");
     u16 x = offsetof(struct bios_data_area_s, kbd_buf);
-    SET_BDA(kbd_mode, 0x10);
+    SET_BDA(kbd_flag2, KF2_101KBD);
     SET_BDA(kbd_buf_head, x);
     SET_BDA(kbd_buf_tail, x);
     SET_BDA(kbd_buf_start_offset, x);
@@ -239,7 +260,8 @@ static void
 handle_1612(struct bregs *regs)
 {
     regs->al = GET_BDA(kbd_flag0);
-    regs->ah = (GET_BDA(kbd_flag1) & 0x73) | (GET_BDA(kbd_mode) & 0x0c);
+    regs->ah = ((GET_BDA(kbd_flag1) & ~(KF2_RCTRL|KF2_RALT))
+                | (GET_BDA(kbd_flag2) & (KF2_RCTRL|KF2_RALT)));
     //BX_DEBUG_INT16("int16: func 12 sending %04x\n",AX);
 }
 
@@ -319,7 +341,8 @@ handle_16(struct bregs *regs)
 }
 
 #define none 0
-#define MAX_SCAN_CODE 0x58
+#define MNUM KF0_NUMACTIVE
+#define MCAP KF0_CAPSACTIVE
 
 static struct scaninfo {
     u16 normal;
@@ -327,7 +350,7 @@ static struct scaninfo {
     u16 control;
     u16 alt;
     u8 lock_flags;
-} scan_to_scanascii[MAX_SCAN_CODE + 1] VAR16 = {
+} scan_to_scanascii[] VAR16 = {
     {   none,   none,   none,   none, none },
     { 0x011b, 0x011b, 0x011b, 0x0100, none }, /* escape */
     { 0x0231, 0x0221,   none, 0x7800, none }, /* 1! */
@@ -344,41 +367,41 @@ static struct scaninfo {
     { 0x0d3d, 0x0d2b,   none, 0x8300, none }, /* =+ */
     { 0x0e08, 0x0e08, 0x0e7f,   none, none }, /* backspace */
     { 0x0f09, 0x0f00,   none,   none, none }, /* tab */
-    { 0x1071, 0x1051, 0x1011, 0x1000, 0x40 }, /* Q */
-    { 0x1177, 0x1157, 0x1117, 0x1100, 0x40 }, /* W */
-    { 0x1265, 0x1245, 0x1205, 0x1200, 0x40 }, /* E */
-    { 0x1372, 0x1352, 0x1312, 0x1300, 0x40 }, /* R */
-    { 0x1474, 0x1454, 0x1414, 0x1400, 0x40 }, /* T */
-    { 0x1579, 0x1559, 0x1519, 0x1500, 0x40 }, /* Y */
-    { 0x1675, 0x1655, 0x1615, 0x1600, 0x40 }, /* U */
-    { 0x1769, 0x1749, 0x1709, 0x1700, 0x40 }, /* I */
-    { 0x186f, 0x184f, 0x180f, 0x1800, 0x40 }, /* O */
-    { 0x1970, 0x1950, 0x1910, 0x1900, 0x40 }, /* P */
+    { 0x1071, 0x1051, 0x1011, 0x1000, MCAP }, /* Q */
+    { 0x1177, 0x1157, 0x1117, 0x1100, MCAP }, /* W */
+    { 0x1265, 0x1245, 0x1205, 0x1200, MCAP }, /* E */
+    { 0x1372, 0x1352, 0x1312, 0x1300, MCAP }, /* R */
+    { 0x1474, 0x1454, 0x1414, 0x1400, MCAP }, /* T */
+    { 0x1579, 0x1559, 0x1519, 0x1500, MCAP }, /* Y */
+    { 0x1675, 0x1655, 0x1615, 0x1600, MCAP }, /* U */
+    { 0x1769, 0x1749, 0x1709, 0x1700, MCAP }, /* I */
+    { 0x186f, 0x184f, 0x180f, 0x1800, MCAP }, /* O */
+    { 0x1970, 0x1950, 0x1910, 0x1900, MCAP }, /* P */
     { 0x1a5b, 0x1a7b, 0x1a1b,   none, none }, /* [{ */
     { 0x1b5d, 0x1b7d, 0x1b1d,   none, none }, /* ]} */
     { 0x1c0d, 0x1c0d, 0x1c0a,   none, none }, /* Enter */
     {   none,   none,   none,   none, none }, /* L Ctrl */
-    { 0x1e61, 0x1e41, 0x1e01, 0x1e00, 0x40 }, /* A */
-    { 0x1f73, 0x1f53, 0x1f13, 0x1f00, 0x40 }, /* S */
-    { 0x2064, 0x2044, 0x2004, 0x2000, 0x40 }, /* D */
-    { 0x2166, 0x2146, 0x2106, 0x2100, 0x40 }, /* F */
-    { 0x2267, 0x2247, 0x2207, 0x2200, 0x40 }, /* G */
-    { 0x2368, 0x2348, 0x2308, 0x2300, 0x40 }, /* H */
-    { 0x246a, 0x244a, 0x240a, 0x2400, 0x40 }, /* J */
-    { 0x256b, 0x254b, 0x250b, 0x2500, 0x40 }, /* K */
-    { 0x266c, 0x264c, 0x260c, 0x2600, 0x40 }, /* L */
+    { 0x1e61, 0x1e41, 0x1e01, 0x1e00, MCAP }, /* A */
+    { 0x1f73, 0x1f53, 0x1f13, 0x1f00, MCAP }, /* S */
+    { 0x2064, 0x2044, 0x2004, 0x2000, MCAP }, /* D */
+    { 0x2166, 0x2146, 0x2106, 0x2100, MCAP }, /* F */
+    { 0x2267, 0x2247, 0x2207, 0x2200, MCAP }, /* G */
+    { 0x2368, 0x2348, 0x2308, 0x2300, MCAP }, /* H */
+    { 0x246a, 0x244a, 0x240a, 0x2400, MCAP }, /* J */
+    { 0x256b, 0x254b, 0x250b, 0x2500, MCAP }, /* K */
+    { 0x266c, 0x264c, 0x260c, 0x2600, MCAP }, /* L */
     { 0x273b, 0x273a,   none,   none, none }, /* ;: */
     { 0x2827, 0x2822,   none,   none, none }, /* '" */
     { 0x2960, 0x297e,   none,   none, none }, /* `~ */
     {   none,   none,   none,   none, none }, /* L shift */
     { 0x2b5c, 0x2b7c, 0x2b1c,   none, none }, /* |\ */
-    { 0x2c7a, 0x2c5a, 0x2c1a, 0x2c00, 0x40 }, /* Z */
-    { 0x2d78, 0x2d58, 0x2d18, 0x2d00, 0x40 }, /* X */
-    { 0x2e63, 0x2e43, 0x2e03, 0x2e00, 0x40 }, /* C */
-    { 0x2f76, 0x2f56, 0x2f16, 0x2f00, 0x40 }, /* V */
-    { 0x3062, 0x3042, 0x3002, 0x3000, 0x40 }, /* B */
-    { 0x316e, 0x314e, 0x310e, 0x3100, 0x40 }, /* N */
-    { 0x326d, 0x324d, 0x320d, 0x3200, 0x40 }, /* M */
+    { 0x2c7a, 0x2c5a, 0x2c1a, 0x2c00, MCAP }, /* Z */
+    { 0x2d78, 0x2d58, 0x2d18, 0x2d00, MCAP }, /* X */
+    { 0x2e63, 0x2e43, 0x2e03, 0x2e00, MCAP }, /* C */
+    { 0x2f76, 0x2f56, 0x2f16, 0x2f00, MCAP }, /* V */
+    { 0x3062, 0x3042, 0x3002, 0x3000, MCAP }, /* B */
+    { 0x316e, 0x314e, 0x310e, 0x3100, MCAP }, /* N */
+    { 0x326d, 0x324d, 0x320d, 0x3200, MCAP }, /* M */
     { 0x332c, 0x333c,   none,   none, none }, /* ,< */
     { 0x342e, 0x343e,   none,   none, none }, /* .> */
     { 0x352f, 0x353f,   none,   none, none }, /* /? */
@@ -399,19 +422,19 @@ static struct scaninfo {
     { 0x4400, 0x5d00, 0x6700, 0x7100, none }, /* F10 */
     {   none,   none,   none,   none, none }, /* Num Lock */
     {   none,   none,   none,   none, none }, /* Scroll Lock */
-    { 0x4700, 0x4737, 0x7700,   none, 0x20 }, /* 7 Home */
-    { 0x4800, 0x4838,   none,   none, 0x20 }, /* 8 UP */
-    { 0x4900, 0x4939, 0x8400,   none, 0x20 }, /* 9 PgUp */
+    { 0x4700, 0x4737, 0x7700,   none, MNUM }, /* 7 Home */
+    { 0x4800, 0x4838,   none,   none, MNUM }, /* 8 UP */
+    { 0x4900, 0x4939, 0x8400,   none, MNUM }, /* 9 PgUp */
     { 0x4a2d, 0x4a2d,   none,   none, none }, /* - */
-    { 0x4b00, 0x4b34, 0x7300,   none, 0x20 }, /* 4 Left */
-    { 0x4c00, 0x4c35,   none,   none, 0x20 }, /* 5 */
-    { 0x4d00, 0x4d36, 0x7400,   none, 0x20 }, /* 6 Right */
+    { 0x4b00, 0x4b34, 0x7300,   none, MNUM }, /* 4 Left */
+    { 0x4c00, 0x4c35,   none,   none, MNUM }, /* 5 */
+    { 0x4d00, 0x4d36, 0x7400,   none, MNUM }, /* 6 Right */
     { 0x4e2b, 0x4e2b,   none,   none, none }, /* + */
-    { 0x4f00, 0x4f31, 0x7500,   none, 0x20 }, /* 1 End */
-    { 0x5000, 0x5032,   none,   none, 0x20 }, /* 2 Down */
-    { 0x5100, 0x5133, 0x7600,   none, 0x20 }, /* 3 PgDn */
-    { 0x5200, 0x5230,   none,   none, 0x20 }, /* 0 Ins */
-    { 0x5300, 0x532e,   none,   none, 0x20 }, /* Del */
+    { 0x4f00, 0x4f31, 0x7500,   none, MNUM }, /* 1 End */
+    { 0x5000, 0x5032,   none,   none, MNUM }, /* 2 Down */
+    { 0x5100, 0x5133, 0x7600,   none, MNUM }, /* 3 PgDn */
+    { 0x5200, 0x5230,   none,   none, MNUM }, /* 0 Ins */
+    { 0x5300, 0x532e,   none,   none, MNUM }, /* Del */
     {   none,   none,   none,   none, none },
     {   none,   none,   none,   none, none },
     { 0x565c, 0x567c,   none,   none, none }, /* \| */
@@ -425,9 +448,9 @@ static struct scaninfo {
 static void noinline
 process_key(u8 scancode)
 {
-    u8 shift_flags = GET_BDA(kbd_flag0);
-    u8 mf2_flags = GET_BDA(kbd_flag1);
-    u8 mf2_state = GET_BDA(kbd_mode);
+    u8 flags0 = GET_BDA(kbd_flag0);
+    u8 flags1 = GET_BDA(kbd_flag1);
+    u8 flags2 = GET_BDA(kbd_flag2);
 
     switch (scancode) {
     case 0x00:
@@ -435,151 +458,130 @@ process_key(u8 scancode)
         return;
 
     case 0x3a: /* Caps Lock press */
-        shift_flags ^= 0x40;
-        SET_BDA(kbd_flag0, shift_flags);
-        mf2_flags |= 0x40;
-        SET_BDA(kbd_flag1, mf2_flags);
+        flags0 ^= KF0_CAPSACTIVE;
+        flags1 |= KF1_CAPS;
         break;
     case 0xba: /* Caps Lock release */
-        mf2_flags &= ~0x40;
-        SET_BDA(kbd_flag1, mf2_flags);
+        flags1 &= ~KF1_CAPS;
         break;
 
     case 0x2a: /* L Shift press */
-        shift_flags |= 0x02;
-        SET_BDA(kbd_flag0, shift_flags);
+        flags0 |= KF0_LSHIFT;
         break;
     case 0xaa: /* L Shift release */
-        shift_flags &= ~0x02;
-        SET_BDA(kbd_flag0, shift_flags);
+        flags0 &= ~KF0_LSHIFT;
         break;
 
     case 0x36: /* R Shift press */
-        shift_flags |= 0x01;
-        SET_BDA(kbd_flag0, shift_flags);
+        flags0 |= KF0_RSHIFT;
         break;
     case 0xb6: /* R Shift release */
-        shift_flags &= ~0x01;
-        SET_BDA(kbd_flag0, shift_flags);
+        flags0 &= ~KF0_RSHIFT;
         break;
 
     case 0x1d: /* Ctrl press */
-        if ((mf2_state & 0x01) == 0) {
-            shift_flags |= 0x04;
-            SET_BDA(kbd_flag0, shift_flags);
-            if (mf2_state & 0x02) {
-                mf2_state |= 0x04;
-                SET_BDA(kbd_mode, mf2_state);
-            } else {
-                mf2_flags |= 0x01;
-                SET_BDA(kbd_flag1, mf2_flags);
-            }
-        }
+        if (flags2 & KF2_LAST_E1)
+            // Part of a "pause" key
+            break;
+        flags0 |= KF0_CTRLACTIVE;
+        if (flags2 & KF2_LAST_E0)
+            flags2 |= KF2_RCTRL;
+        else
+            flags1 |= KF1_LCTRL;
         break;
     case 0x9d: /* Ctrl release */
-        if ((mf2_state & 0x01) == 0) {
-            shift_flags &= ~0x04;
-            SET_BDA(kbd_flag0, shift_flags);
-            if (mf2_state & 0x02) {
-                mf2_state &= ~0x04;
-                SET_BDA(kbd_mode, mf2_state);
-            } else {
-                mf2_flags &= ~0x01;
-                SET_BDA(kbd_flag1, mf2_flags);
-            }
-        }
+        if (flags2 & KF2_LAST_E1)
+            // Part of a "pause" key
+            break;
+        flags0 &= ~KF0_CTRLACTIVE;
+        if (flags2 & KF2_LAST_E0)
+            flags2 &= ~KF2_RCTRL;
+        else
+            flags1 &= ~KF1_LCTRL;
         break;
 
     case 0x38: /* Alt press */
-        shift_flags |= 0x08;
-        SET_BDA(kbd_flag0, shift_flags);
-        if (mf2_state & 0x02) {
-            mf2_state |= 0x08;
-            SET_BDA(kbd_mode, mf2_state);
-        } else {
-            mf2_flags |= 0x02;
-            SET_BDA(kbd_flag1, mf2_flags);
-        }
+        flags0 |= KF0_ALTACTIVE;
+        if (flags2 & KF2_LAST_E0)
+            flags2 |= KF2_RALT;
+        else
+            flags1 |= KF1_LALT;
         break;
     case 0xb8: /* Alt release */
-        shift_flags &= ~0x08;
-        SET_BDA(kbd_flag0, shift_flags);
-        if (mf2_state & 0x02) {
-            mf2_state &= ~0x08;
-            SET_BDA(kbd_mode, mf2_state);
-        } else {
-            mf2_flags &= ~0x02;
-            SET_BDA(kbd_flag1, mf2_flags);
-        }
+        flags0 &= ~KF0_ALTACTIVE;
+        if (flags2 & KF2_LAST_E0)
+            flags2 &= ~KF2_RALT;
+        else
+            flags1 &= ~KF1_LALT;
         break;
 
     case 0x45: /* Num Lock press */
-        if ((mf2_state & 0x03) == 0) {
-            mf2_flags |= 0x20;
-            SET_BDA(kbd_flag1, mf2_flags);
-            shift_flags ^= 0x20;
-            SET_BDA(kbd_flag0, shift_flags);
-        }
+        if (flags2 & (KF2_LAST_E1|KF2_LAST_E0))
+            // Part of a "pause" key?
+            break;
+        flags1 |= KF1_NUM;
+        flags0 ^= KF0_NUMACTIVE;
         break;
     case 0xc5: /* Num Lock release */
-        if ((mf2_state & 0x03) == 0) {
-            mf2_flags &= ~0x20;
-            SET_BDA(kbd_flag1, mf2_flags);
-        }
+        if (flags2 & (KF2_LAST_E1|KF2_LAST_E0))
+            // Part of a "pause" key?
+            break;
+        flags1 &= ~KF1_NUM;
         break;
 
     case 0x46: /* Scroll Lock press */
-        mf2_flags |= 0x10;
-        SET_BDA(kbd_flag1, mf2_flags);
-        shift_flags ^= 0x10;
-        SET_BDA(kbd_flag0, shift_flags);
+        flags1 |= KF1_SCROLL;
+        flags0 ^= KF0_SCROLLACTIVE;
         break;
     case 0xc6: /* Scroll Lock release */
-        mf2_flags &= ~0x10;
-        SET_BDA(kbd_flag1, mf2_flags);
+        flags1 &= ~KF1_SCROLL;
         break;
 
     case 0xe0:
         // Extended key
-        SETBITS_BDA(kbd_mode, 0x02);
+        flags2 |= KF2_LAST_E0;
+        SET_BDA(kbd_flag2, flags2);
         return;
     case 0xe1:
         // Pause key
-        SETBITS_BDA(kbd_mode, 0x01);
+        flags2 |= KF2_LAST_E1;
+        SET_BDA(kbd_flag2, flags2);
         return;
 
     default:
         if (scancode & 0x80)
             // toss key releases
             break;
-        if (scancode == 0x53 && (shift_flags & 0x0c) == 0x0c) {
+        if (scancode == 0x53
+            && ((flags0 & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
+                == (KF0_CTRLACTIVE|KF0_ALTACTIVE))) {
             // Ctrl+alt+del - reset machine.
             SET_BDA(soft_reset_flag, 0x1234);
             reset_vector();
         }
-        if (scancode > MAX_SCAN_CODE) {
+        if (scancode >= ARRAY_SIZE(scan_to_scanascii)) {
             dprintf(1, "KBD: int09h_handler(): unknown scancode read: 0x%02x!\n"
                     , scancode);
             return;
         }
         u8 asciicode;
         struct scaninfo *info = &scan_to_scanascii[scancode];
-        if (shift_flags & 0x08) { /* ALT */
+        if (flags0 & KF0_ALTACTIVE) {
             asciicode = GET_GLOBAL(info->alt);
             scancode = GET_GLOBAL(info->alt) >> 8;
-        } else if (shift_flags & 0x04) { /* CONTROL */
+        } else if (flags0 & KF0_CTRLACTIVE) {
             asciicode = GET_GLOBAL(info->control);
             scancode = GET_GLOBAL(info->control) >> 8;
-        } else if ((mf2_state & 0x02) > 0
+        } else if (flags2 & KF2_LAST_E0
                    && scancode >= 0x47 && scancode <= 0x53) {
             /* extended keys handling */
             asciicode = 0xe0;
             scancode = GET_GLOBAL(info->normal) >> 8;
-        } else if (shift_flags & 0x03) { /* LSHIFT + RSHIFT */
+        } else if (flags0 & (KF0_RSHIFT|KF0_LSHIFT)) {
             /* check if lock state should be ignored
              * because a SHIFT key are pressed */
 
-            if (shift_flags & GET_GLOBAL(info->lock_flags)) {
+            if (flags0 & GET_GLOBAL(info->lock_flags)) {
                 asciicode = GET_GLOBAL(info->normal);
                 scancode = GET_GLOBAL(info->normal) >> 8;
             } else {
@@ -588,7 +590,7 @@ process_key(u8 scancode)
             }
         } else {
             /* check if lock is on */
-            if (shift_flags & GET_GLOBAL(info->lock_flags)) {
+            if (flags0 & GET_GLOBAL(info->lock_flags)) {
                 asciicode = GET_GLOBAL(info->shift);
                 scancode = GET_GLOBAL(info->shift) >> 8;
             } else {
@@ -596,18 +598,19 @@ process_key(u8 scancode)
                 scancode = GET_GLOBAL(info->normal) >> 8;
             }
         }
-        if (scancode==0 && asciicode==0) {
-            dprintf(1, "KBD: int09h_handler():"
-                    " scancode & asciicode are zero?\n");
-        }
+        if (scancode==0 && asciicode==0)
+            dprintf(1, "KBD: scancode & asciicode are zero?\n");
         enqueue_key(scancode, asciicode);
         break;
     }
-    if ((scancode & 0x7f) != 0x1d) {
-        mf2_state &= ~0x01;
-    }
-    mf2_state &= ~0x02;
-    SET_BDA(kbd_mode, mf2_state);
+    if ((scancode & 0x7f) != 0x1d)
+        // Completed "pause" key.
+        flags2 &= ~KF2_LAST_E1;
+    flags2 &= ~KF2_LAST_E0;
+
+    SET_BDA(kbd_flag0, flags0);
+    SET_BDA(kbd_flag1, flags1);
+    SET_BDA(kbd_flag2, flags2);
 }
 
 // INT09h : Keyboard Hardware Service Entry Point

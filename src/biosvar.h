@@ -96,7 +96,7 @@ struct bios_data_area_s {
     // 40:90
     u8 floppy_media_state[4];
     u8 floppy_track[2];
-    u8 kbd_mode;
+    u8 kbd_flag2;
     u8 kbd_led;
     struct segoff_s user_wait_complete_flag;
     u32 user_wait_timeout;
