@@ -452,6 +452,20 @@ process_key(u8 scancode)
     u8 flags1 = GET_BDA(kbd_flag1);
     u8 flags2 = GET_BDA(kbd_flag2);
 
+    if (flags2 & KF2_LAST_E1) {
+        // Part of "pause" key (sequence is e1 1d 45 e1 9d c5)
+        if ((scancode & ~0x80) == 0x1d)
+            // Second key of sequence
+            return;
+        // Third key of sequence
+        if (scancode == 0xc5) {
+            // XXX - do actual pause.
+        }
+        flags2 &= ~KF2_LAST_E1;
+        SET_BDA(kbd_flag2, flags2);
+        return;
+    }
+
     switch (scancode) {
     case 0x00:
         dprintf(1, "KBD: int09 handler: AL=0\n");
@@ -480,9 +494,6 @@ process_key(u8 scancode)
         break;
 
     case 0x1d: /* Ctrl press */
-        if (flags2 & KF2_LAST_E1)
-            // Part of a "pause" key
-            break;
         flags0 |= KF0_CTRLACTIVE;
         if (flags2 & KF2_LAST_E0)
             flags2 |= KF2_RCTRL;
@@ -490,9 +501,6 @@ process_key(u8 scancode)
             flags1 |= KF1_LCTRL;
         break;
     case 0x9d: /* Ctrl release */
-        if (flags2 & KF2_LAST_E1)
-            // Part of a "pause" key
-            break;
         flags0 &= ~KF0_CTRLACTIVE;
         if (flags2 & KF2_LAST_E0)
             flags2 &= ~KF2_RCTRL;
@@ -516,16 +524,10 @@ process_key(u8 scancode)
         break;
 
     case 0x45: /* Num Lock press */
-        if (flags2 & (KF2_LAST_E1|KF2_LAST_E0))
-            // Part of a "pause" key?
-            break;
         flags1 |= KF1_NUM;
         flags0 ^= KF0_NUMACTIVE;
         break;
     case 0xc5: /* Num Lock release */
-        if (flags2 & (KF2_LAST_E1|KF2_LAST_E0))
-            // Part of a "pause" key?
-            break;
         flags1 &= ~KF1_NUM;
         break;
 
@@ -543,10 +545,9 @@ process_key(u8 scancode)
         SET_BDA(kbd_flag2, flags2);
         return;
     case 0xe1:
-        // Pause key
+        // Start of pause key sequence
         flags2 |= KF2_LAST_E1;
-        SET_BDA(kbd_flag2, flags2);
-        return;
+        break;
 
     default:
         if (scancode & 0x80)
@@ -578,8 +579,8 @@ process_key(u8 scancode)
             asciicode = 0xe0;
             scancode = GET_GLOBAL(info->normal) >> 8;
         } else if (flags0 & (KF0_RSHIFT|KF0_LSHIFT)) {
-            /* check if lock state should be ignored
-             * because a SHIFT key are pressed */
+            /* check if lock state should be ignored because a SHIFT
+             * key is pressed */
 
             if (flags0 & GET_GLOBAL(info->lock_flags)) {
                 asciicode = GET_GLOBAL(info->normal);
@@ -603,9 +604,6 @@ process_key(u8 scancode)
         enqueue_key(scancode, asciicode);
         break;
     }
-    if ((scancode & 0x7f) != 0x1d)
-        // Completed "pause" key.
-        flags2 &= ~KF2_LAST_E1;
     flags2 &= ~KF2_LAST_E0;
 
     SET_BDA(kbd_flag0, flags0);
