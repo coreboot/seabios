@@ -14,7 +14,6 @@
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
 
-#define FLOPPY_SECTOR_SIZE 512
 #define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
 #define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02
 #define FLOPPY_MOTOR_TICKS 37 // ~2 seconds
@@ -104,9 +103,9 @@ addFloppy(int floppyid, int ftype, int driver)
     memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
     Drives.drives[driveid].cntl_id = floppyid;
     Drives.drives[driveid].type = driver;
-    Drives.drives[driveid].blksize = FLOPPY_SECTOR_SIZE;
+    Drives.drives[driveid].blksize = DISK_SECTOR_SIZE;
     Drives.drives[driveid].floppy_type = ftype;
-    Drives.drives[driveid].sectors = (u16)-1;
+    Drives.drives[driveid].sectors = (u64)-1;
 
     memcpy(&Drives.drives[driveid].lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
@@ -150,7 +149,7 @@ find_floppy_type(u32 size)
     int i;
     for (i=1; i<ARRAY_SIZE(FloppyInfo); i++) {
         struct chs_s *c = &FloppyInfo[i].chs;
-        if (c->cylinders * c->heads * c->spt * FLOPPY_SECTOR_SIZE == size)
+        if (c->cylinders * c->heads * c->spt * DISK_SECTOR_SIZE == size)
             return i;
     }
     return -1;
@@ -432,7 +431,7 @@ floppy_read(struct disk_op_s *op)
     data[7] = FLOPPY_GAPLEN;
     data[8] = FLOPPY_DATALEN;
 
-    res = floppy_cmd(op, op->count * FLOPPY_SECTOR_SIZE, data, 9);
+    res = floppy_cmd(op, op->count * DISK_SECTOR_SIZE, data, 9);
     if (res)
         goto fail;
 
@@ -473,7 +472,7 @@ floppy_write(struct disk_op_s *op)
     data[7] = FLOPPY_GAPLEN;
     data[8] = FLOPPY_DATALEN;
 
-    res = floppy_cmd(op, op->count * FLOPPY_SECTOR_SIZE, data, 9);
+    res = floppy_cmd(op, op->count * DISK_SECTOR_SIZE, data, 9);
     if (res)
         goto fail;
 

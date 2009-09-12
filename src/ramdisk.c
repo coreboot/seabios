@@ -10,8 +10,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 
-#define RAMDISK_SECTOR_SIZE 512
-
 void
 describe_ramdisk(int driveid)
 {
@@ -59,7 +57,7 @@ static int
 ramdisk_copy(struct disk_op_s *op, int iswrite)
 {
     u32 offset = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
-    offset += (u32)op->lba * RAMDISK_SECTOR_SIZE;
+    offset += (u32)op->lba * DISK_SECTOR_SIZE;
     u64 opd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)op->buf_fl);
     u64 ramd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE(offset);
 
@@ -79,7 +77,7 @@ ramdisk_copy(struct disk_op_s *op, int iswrite)
     br.ah = 0x87;
     br.es = GET_SEG(SS);
     br.si = (u32)gdt;
-    br.cx = op->count * RAMDISK_SECTOR_SIZE / 2;
+    br.cx = op->count * DISK_SECTOR_SIZE / 2;
     call16_int(0x15, &br);
 
     if (br.flags & F_CF)

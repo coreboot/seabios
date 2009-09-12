@@ -1,4 +1,4 @@
-// 16bit code to access cdrom drives.
+// Support for booting from cdroms (the "El Torito" spec).
 //
 // Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
@@ -16,85 +16,113 @@
  * CD emulation
  ****************************************************************/
 
-static void
-cdemu_wp(struct bregs *regs, u8 driveid)
+static int
+cdemu_read(struct disk_op_s *op)
 {
-    disk_ret(regs, DISK_RET_EWRITEPROTECT);
-}
-
-static void
-cdemu_1302(struct bregs *regs, u8 driveid)
-{
-    cdemu_access(regs, driveid, CMD_READ);
-}
-
-static void
-cdemu_1304(struct bregs *regs, u8 driveid)
-{
-    cdemu_access(regs, driveid, CMD_VERIFY);
-}
-
-// read disk drive parameters
-static void
-cdemu_1308(struct bregs *regs, u8 driveid)
-{
-    u16 ebda_seg = get_ebda_seg();
-    u16 nlc   = GET_EBDA2(ebda_seg, cdemu.lchs.cylinders) - 1;
-    u16 nlh   = GET_EBDA2(ebda_seg, cdemu.lchs.heads) - 1;
-    u16 nlspt = GET_EBDA2(ebda_seg, cdemu.lchs.spt);
-
-    regs->al = 0x00;
-    regs->bl = 0x00;
-    regs->ch = nlc & 0xff;
-    regs->cl = ((nlc >> 2) & 0xc0) | (nlspt & 0x3f);
-    regs->dh = nlh;
-    // FIXME ElTorito Various. should send the real count of drives 1 or 2
-    // FIXME ElTorito Harddisk. should send the HD count
-    regs->dl = 0x02;
-    u8 media = GET_EBDA2(ebda_seg, cdemu.media);
-    if (media <= 3)
-        regs->bl = media * 2;
-
-    regs->es = SEG_BIOS;
-    regs->di = (u32)&diskette_param_table2;
-
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
-void
-cdemu_13(struct bregs *regs)
-{
-    //debug_stub(regs);
-
     u16 ebda_seg = get_ebda_seg();
     u8 driveid = GET_EBDA2(ebda_seg, cdemu.emulated_driveid);
+    struct disk_op_s dop;
+    dop.driveid = driveid;
+    dop.command = op->command;
+    dop.lba = GET_EBDA2(ebda_seg, cdemu.ilba) + op->lba / 4;
 
-    switch (regs->ah) {
-    case 0x02: cdemu_1302(regs, driveid); break;
-    case 0x04: cdemu_1304(regs, driveid); break;
-    case 0x08: cdemu_1308(regs, driveid); break;
+    int count = op->count;
+    op->count = 0;
+    u8 *cdbuf_far = (void*)offsetof(struct extended_bios_data_area_s, cdemu_buf);
 
-    case 0x03:
-    case 0x05:
-        cdemu_wp(regs, driveid);
-        break;
-
-    // These functions are the same as standard CDROM.
-    case 0x00:
-    case 0x01:
-    case 0x09:
-    case 0x0c:
-    case 0x0d:
-    case 0x10:
-    case 0x11:
-    case 0x14:
-    case 0x15:
-    case 0x16:
-        disk_13(regs, driveid);
-        break;
-
-    default:   disk_13XX(regs, driveid); break;
+    if (op->lba & 3) {
+        // Partial read of first block.
+        dop.count = 1;
+        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
+        int ret = process_op(&dop);
+        if (ret)
+            return ret;
+        u8 thiscount = 4 - (op->lba & 3);
+        if (thiscount > count)
+            thiscount = count;
+        count -= thiscount;
+        memcpy_far(FLATPTR_TO_SEG(op->buf_fl)
+                   , (void*)FLATPTR_TO_OFFSET(op->buf_fl)
+                   , ebda_seg, cdbuf_far + (op->lba & 3) * 512
+                   , thiscount * 512);
+        op->buf_fl += thiscount * 512;
+        op->count += thiscount;
+        dop.lba++;
     }
+
+    if (count > 3) {
+        // Read n number of regular blocks.
+        dop.count = count / 4;
+        dop.buf_fl = op->buf_fl;
+        int ret = process_op(&dop);
+        op->count += dop.count * 4;
+        if (ret)
+            return ret;
+        u8 thiscount = count & ~3;
+        count &= 3;
+        op->buf_fl += thiscount * 512;
+        dop.lba += thiscount / 4;
+    }
+
+    if (count) {
+        // Partial read on last block.
+        dop.count = 1;
+        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
+        int ret = process_op(&dop);
+        if (ret)
+            return ret;
+        u8 thiscount = count;
+        memcpy_far(FLATPTR_TO_SEG(op->buf_fl)
+                   , (void*)FLATPTR_TO_OFFSET(op->buf_fl)
+                   , ebda_seg, cdbuf_far, thiscount * 512);
+        op->count += thiscount;
+    }
+
+    return DISK_RET_SUCCESS;
+}
+
+int
+process_cdemu_op(struct disk_op_s *op)
+{
+    if (!CONFIG_CDROM_EMU)
+        return 0;
+
+    switch (op->command) {
+    case CMD_READ:
+        return cdemu_read(op);
+    case CMD_WRITE:
+    case CMD_FORMAT:
+        return DISK_RET_EWRITEPROTECT;
+    case CMD_VERIFY:
+    case CMD_RESET:
+    case CMD_SEEK:
+    case CMD_ISREADY:
+        return DISK_RET_SUCCESS;
+    default:
+        op->count = 0;
+        return DISK_RET_EPARAM;
+    }
+}
+
+int cdemu_driveid VAR16VISIBLE;
+
+void
+cdemu_setup()
+{
+    if (!CONFIG_CDROM_EMU)
+        return;
+
+    int driveid = Drives.drivecount;
+    if (driveid >= ARRAY_SIZE(Drives.drives)) {
+        cdemu_driveid = -1;
+        return;
+    }
+    Drives.drivecount++;
+    cdemu_driveid = driveid;
+    memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
+    Drives.drives[driveid].type = DTYPE_CDEMU;
+    Drives.drives[driveid].blksize = DISK_SECTOR_SIZE;
+    Drives.drives[driveid].sectors = (u64)-1;
 }
 
 struct eltorito_s {
@@ -329,7 +357,7 @@ cdrom_boot(int cdid)
     }
 
     // Emulation of a floppy/harddisk requested
-    if (! CONFIG_CDROM_EMU)
+    if (! CONFIG_CDROM_EMU || cdemu_driveid < 0)
         return 13;
 
     // Set emulated drive id and increase bios installed hardware

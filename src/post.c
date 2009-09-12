@@ -187,6 +187,7 @@ post()
     boot_setup();
 
     drive_setup();
+    cdemu_setup();
     floppy_setup();
     ata_setup();
     ramdisk_setup();

@@ -18,9 +18,6 @@
 #include "disk.h" // struct ata_s
 #include "ata.h" // ATA_CB_STAT
 
-#define IDE_SECTOR_SIZE 512
-#define CDROM_SECTOR_SIZE 2048
-
 #define IDE_TIMEOUT 32000 //32 seconds max for IDE ops
 
 struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES] VAR16VISIBLE;
@@ -352,7 +349,7 @@ ata_cmd_data(struct disk_op_s *op, int iswrite, int command)
     int ret = send_cmd(op->driveid, &cmd);
     if (ret)
         return ret;
-    return ata_transfer(op, iswrite, IDE_SECTOR_SIZE);
+    return ata_transfer(op, iswrite, DISK_SECTOR_SIZE);
 }
 
 int
@@ -547,7 +544,7 @@ static int
 init_drive_atapi(int driveid, u16 *buffer)
 {
     // Send an IDENTIFY_DEVICE_PACKET command to device
-    memset(buffer, 0, IDE_SECTOR_SIZE);
+    memset(buffer, 0, DISK_SECTOR_SIZE);
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
     dop.driveid = driveid;
@@ -594,7 +591,7 @@ static int
 init_drive_ata(int driveid, u16 *buffer)
 {
     // Send an IDENTIFY_DEVICE command to device
-    memset(buffer, 0, IDE_SECTOR_SIZE);
+    memset(buffer, 0, DISK_SECTOR_SIZE);
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
     dop.driveid = driveid;
@@ -608,7 +605,7 @@ init_drive_ata(int driveid, u16 *buffer)
     // Success - setup as ATA.
     extract_identify(driveid, buffer);
     SET_GLOBAL(Drives.drives[driveid].type, DTYPE_ATA);
-    SET_GLOBAL(Drives.drives[driveid].blksize, IDE_SECTOR_SIZE);
+    SET_GLOBAL(Drives.drives[driveid].blksize, DISK_SECTOR_SIZE);
 
     SET_GLOBAL(Drives.drives[driveid].pchs.cylinders, buffer[1]);
     SET_GLOBAL(Drives.drives[driveid].pchs.heads, buffer[3]);

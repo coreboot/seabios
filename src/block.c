@@ -255,7 +255,7 @@ describe_drive(int driveid)
  ****************************************************************/
 
 // Execute a disk_op request.
-static int
+int
 process_op(struct disk_op_s *op)
 {
     u8 type = GET_GLOBAL(Drives.drives[op->driveid].type);
@@ -268,6 +268,8 @@ process_op(struct disk_op_s *op)
         return process_atapi_op(op);
     case DTYPE_RAMDISK:
         return process_ramdisk_op(op);
+    case DTYPE_CDEMU:
+        return process_cdemu_op(op);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

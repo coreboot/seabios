@@ -43,38 +43,23 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
 #define DISK_STUB(regs)                         \
     __disk_stub((regs), __LINE__, __func__)
 
-// Obtain the requested disk lba from an old-style chs request.
-static int
-legacy_lba(struct bregs *regs, u16 lchs_seg, struct chs_s *lchs_far)
+static void
+fillLCHS(u8 driveid, u16 *nlc, u16 *nlh, u16 *nlspt)
 {
-    u8 count = regs->al;
-    u16 cylinder = regs->ch | ((((u16)regs->cl) << 2) & 0x300);
-    u16 sector = regs->cl & 0x3f;
-    u16 head = regs->dh;
-
-    if (count > 128 || count == 0 || sector == 0) {
-        dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
-                , regs->ah);
-        disk_ret(regs, DISK_RET_EPARAM);
-        return -1;
+    if (CONFIG_CDROM_EMU && driveid == GET_GLOBAL(cdemu_driveid)) {
+        // Emulated drive - get info from ebda.  (It's not possible to
+        // populate the geometry directly in the driveid because the
+        // geometry is only known after the bios segment is made
+        // read-only).
+        u16 ebda_seg = get_ebda_seg();
+        *nlc = GET_EBDA2(ebda_seg, cdemu.lchs.cylinders);
+        *nlh = GET_EBDA2(ebda_seg, cdemu.lchs.heads);
+        *nlspt = GET_EBDA2(ebda_seg, cdemu.lchs.spt);
+        return;
     }
-
-    u16 nlc = GET_FARVAR(lchs_seg, lchs_far->cylinders);
-    u16 nlh = GET_FARVAR(lchs_seg, lchs_far->heads);
-    u16 nlspt = GET_FARVAR(lchs_seg, lchs_far->spt);
-
-    // sanity check on cyl heads, sec
-    if (cylinder >= nlc || head >= nlh || sector > nlspt) {
-        dprintf(1, "int13_harddisk: function %02x, parameters out of"
-                " range %04x/%04x/%04x!\n"
-                , regs->ah, cylinder, head, sector);
-        disk_ret(regs, DISK_RET_EPARAM);
-        return -1;
-    }
-
-    // translate lchs to lba
-    return (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
-            + (u32)sector - 1);
+    *nlc = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
+    *nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    *nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
 }
 
 // Perform read/write/verify using old-style chs accesses
@@ -84,83 +69,42 @@ basic_access(struct bregs *regs, u8 driveid, u16 command)
     struct disk_op_s dop;
     dop.driveid = driveid;
     dop.command = command;
-    int lba = legacy_lba(regs, get_global_seg(), &Drives.drives[driveid].lchs);
-    if (lba < 0)
+
+    u8 count = regs->al;
+    u16 cylinder = regs->ch | ((((u16)regs->cl) << 2) & 0x300);
+    u16 sector = regs->cl & 0x3f;
+    u16 head = regs->dh;
+
+    if (count > 128 || count == 0 || sector == 0) {
+        dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
+                , regs->ah);
+        disk_ret(regs, DISK_RET_EPARAM);
         return;
-    dop.lba = lba;
-    dop.count = regs->al;
+    }
+    dop.count = count;
+
+    u16 nlc, nlh, nlspt;
+    fillLCHS(driveid, &nlc, &nlh, &nlspt);
+
+    // sanity check on cyl heads, sec
+    if (cylinder >= nlc || head >= nlh || sector > nlspt) {
+        dprintf(1, "int13_harddisk: function %02x, parameters out of"
+                " range %04x/%04x/%04x!\n"
+                , regs->ah, cylinder, head, sector);
+        disk_ret(regs, DISK_RET_EPARAM);
+        return;
+    }
+
+    // translate lchs to lba
+    dop.lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+               + (u32)sector - 1);
+
     dop.buf_fl = MAKE_FLATPTR(regs->es, regs->bx);
 
     int status = send_disk_op(&dop);
 
     regs->al = dop.count;
 
-    disk_ret(regs, status);
-}
-
-// Perform cdemu read/verify
-void
-cdemu_access(struct bregs *regs, u8 driveid, u16 command)
-{
-    struct disk_op_s dop;
-    dop.driveid = driveid;
-    dop.command = command;
-    u16 ebda_seg = get_ebda_seg();
-    int vlba = legacy_lba(
-        regs, ebda_seg
-        , (void*)offsetof(struct extended_bios_data_area_s, cdemu.lchs));
-    if (vlba < 0)
-        return;
-    dop.lba = GET_EBDA2(ebda_seg, cdemu.ilba) + vlba / 4;
-    u8 count = regs->al;
-    u8 *cdbuf_far = (void*)offsetof(struct extended_bios_data_area_s, cdemu_buf);
-    u8 *dest_far = (void*)(regs->bx+0);
-    regs->al = 0;
-    int status = DISK_RET_SUCCESS;
-
-    if (vlba & 3) {
-        dop.count = 1;
-        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
-        status = send_disk_op(&dop);
-        if (status)
-            goto fail;
-        u8 thiscount = 4 - (vlba & 3);
-        if (thiscount > count)
-            thiscount = count;
-        count -= thiscount;
-        memcpy_far(regs->es, dest_far
-                   , ebda_seg, cdbuf_far + (vlba & 3) * 512
-                   , thiscount * 512);
-        dest_far += thiscount * 512;
-        regs->al += thiscount;
-        dop.lba++;
-    }
-
-    if (count > 3) {
-        dop.count = count / 4;
-        dop.buf_fl = MAKE_FLATPTR(regs->es, dest_far);
-        status = send_disk_op(&dop);
-        regs->al += dop.count * 4;
-        if (status)
-            goto fail;
-        u8 thiscount = count & ~3;
-        count &= 3;
-        dest_far += thiscount * 512;
-        dop.lba += thiscount / 4;
-    }
-
-    if (count) {
-        dop.count = 1;
-        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
-        status = send_disk_op(&dop);
-        if (status)
-            goto fail;
-        u8 thiscount = count;
-        memcpy_far(regs->es, dest_far, ebda_seg, cdbuf_far, thiscount * 512);
-        regs->al += thiscount;
-    }
-
-fail:
     disk_ret(regs, status);
 }
 
@@ -249,8 +193,8 @@ disk_1305(struct bregs *regs, u8 driveid)
 {
     DISK_STUB(regs);
 
-    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
-    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    u16 nlc, nlh, nlspt;
+    fillLCHS(driveid, &nlc, &nlh, &nlspt);
 
     u8 num_sectors = regs->al;
     u8 head        = regs->dh;
@@ -274,16 +218,21 @@ disk_1305(struct bregs *regs, u8 driveid)
 static void
 disk_1308(struct bregs *regs, u8 driveid)
 {
+    u16 ebda_seg = get_ebda_seg();
     // Get logical geometry from table
-    u16 nlc = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders) - 1;
-    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads) - 1;
-    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    u16 nlc, nlh, nlspt;
+    fillLCHS(driveid, &nlc, &nlh, &nlspt);
+    nlc--;
+    nlh--;
     u8 count;
     if (regs->dl < EXTSTART_HD) {
         // Floppy
         count = GET_GLOBAL(Drives.floppycount);
 
-        regs->bx = GET_GLOBAL(Drives.drives[driveid].floppy_type);
+        if (CONFIG_CDROM_EMU && driveid == GET_GLOBAL(cdemu_driveid))
+            regs->bx = GET_EBDA2(ebda_seg, cdemu.media) * 2;
+        else
+            regs->bx = GET_GLOBAL(Drives.drives[driveid].floppy_type);
 
         // set es & di to point to 11 byte diskette param table in ROM
         regs->es = SEG_BIOS;
@@ -296,6 +245,16 @@ disk_1308(struct bregs *regs, u8 driveid)
         // Not supported on CDROM
         disk_ret(regs, DISK_RET_EPARAM);
         return;
+    }
+
+    if (CONFIG_CDROM_EMU && GET_EBDA2(ebda_seg, cdemu.active)) {
+        u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
+        if (((emudrive ^ regs->dl) & 0x80) == 0)
+            // Note extra drive due to emulation.
+            count++;
+        if (regs->dl < EXTSTART_HD && count > 2)
+            // Max of two floppy drives.
+            count = 2;
     }
 
     regs->al = 0;
@@ -368,9 +327,8 @@ disk_1315(struct bregs *regs, u8 driveid)
     // Hard drive
 
     // Get logical geometry from table
-    u16 nlc   = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
-    u16 nlh   = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
-    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    u16 nlc, nlh, nlspt;
+    fillLCHS(driveid, &nlc, &nlh, &nlspt);
 
     // Compute sector count seen by int13
     u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;
@@ -725,13 +683,13 @@ disk_134e(struct bregs *regs, u8 driveid)
     }
 }
 
-void
+static void
 disk_13XX(struct bregs *regs, u8 driveid)
 {
     disk_ret(regs, DISK_RET_EPARAM);
 }
 
-void
+static void
 disk_13(struct bregs *regs, u8 driveid)
 {
     //debug_stub(regs);
@@ -866,7 +824,13 @@ handle_13(struct bregs *regs)
         if (GET_EBDA2(ebda_seg, cdemu.active)) {
             u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
             if (extdrive == emudrive) {
-                cdemu_13(regs);
+                int cdemuid = GET_GLOBAL(cdemu_driveid);
+                if (regs->ah > 0x16) {
+                    // Only old-style commands supported.
+                    disk_13XX(regs, cdemuid);
+                    return;
+                }
+                disk_13(regs, cdemuid);
                 return;
             }
             if (extdrive < EXTSTART_CD && ((emudrive ^ extdrive) & 0x80) == 0)

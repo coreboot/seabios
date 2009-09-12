@@ -185,11 +185,15 @@ struct drive_s {
     u64 sectors;      // Total sectors count
 };
 
+#define DISK_SECTOR_SIZE  512
+#define CDROM_SECTOR_SIZE 2048
+
 #define DTYPE_NONE     0x00
 #define DTYPE_FLOPPY   0x01
 #define DTYPE_ATA      0x02
 #define DTYPE_ATAPI    0x03
 #define DTYPE_RAMDISK  0x04
+#define DTYPE_CDEMU    0x05
 
 #define TRANSLATION_NONE  0
 #define TRANSLATION_LBA   1
@@ -226,6 +230,7 @@ void map_floppy_drive(int driveid);
 void map_hd_drive(int driveid);
 void map_cd_drive(int driveid);
 void describe_drive(int driveid);
+int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
 void drive_setup();
 
@@ -238,14 +243,10 @@ int find_floppy_type(u32 size);
 int process_floppy_op(struct disk_op_s *op);
 void floppy_tick();
 
-// disk.c
-void disk_13(struct bregs *regs, u8 driveid);
-void disk_13XX(struct bregs *regs, u8 driveid);
-void cdemu_access(struct bregs *regs, u8 driveid, u16 command);
-
 // cdrom.c
-void cdrom_13(struct bregs *regs, u8 driveid);
-void cdemu_13(struct bregs *regs);
+extern int cdemu_driveid;
+int process_cdemu_op(struct disk_op_s *op);
+void cdemu_setup();
 void cdemu_134b(struct bregs *regs);
 int cdrom_boot(int cdid);
 
