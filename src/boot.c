@@ -96,7 +96,7 @@ add_bcv(u16 seg, u16 ip, u16 desc)
         return;
 
     struct ipl_entry_s *ie = &IPL.bcv[IPL.bcvcount++];
-    ie->type = IPL_TYPE_BEV;
+    ie->type = BCV_TYPE_EXTERNAL;
     ie->vector = (seg << 16) | ip;
     const char *d = "Legacy option rom";
     if (desc)
@@ -104,9 +104,9 @@ add_bcv(u16 seg, u16 ip, u16 desc)
     ie->description = d;
 }
 
-// Add a bcv entry for an ata harddrive
+// Add a bcv entry for an internal harddrive
 void
-add_bcv_hd(int driveid, const char *desc)
+add_bcv_internal(int driveid)
 {
     if (! CONFIG_BOOT)
         return;
@@ -114,9 +114,9 @@ add_bcv_hd(int driveid, const char *desc)
         return;
 
     struct ipl_entry_s *ie = &IPL.bcv[IPL.bcvcount++];
-    ie->type = IPL_TYPE_HARDDISK;
+    ie->type = BCV_TYPE_INTERNAL;
     ie->vector = driveid;
-    ie->description = desc;
+    ie->description = "";
 }
 
 
@@ -140,7 +140,10 @@ menu_show_floppy(struct ipl_entry_s *ie, int menupos)
 {
     int i;
     for (i = 0; i < Drives.floppycount; i++) {
-        printf("%d. floppy %d\n", menupos + i, i+1);
+        int driveid = Drives.idmap[EXTTYPE_FLOPPY][i];
+        printf("%d. Floppy [", menupos + i);
+        describe_drive(driveid);
+        printf("]\n");
     }
     return Drives.floppycount;
 }
@@ -153,9 +156,10 @@ menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
     for (i = 0; i < IPL.bcvcount; i++) {
         struct ipl_entry_s *ie = &IPL.bcv[i];
         switch (ie->type) {
-        case IPL_TYPE_HARDDISK:
-            printf("%d. ata%d-%d %s\n", menupos + i
-                   , ie->vector / 2, ie->vector % 2, ie->description);
+        case BCV_TYPE_INTERNAL:
+            printf("%d. ", menupos + i);
+            describe_drive(ie->vector);
+            printf("\n");
             break;
         default:
             menu_show_default(ie, menupos+i);
@@ -172,8 +176,9 @@ menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
     int i;
     for (i = 0; i < Drives.cdcount; i++) {
         int driveid = Drives.idmap[EXTTYPE_CD][i];
-        printf("%d. CD-Rom [ata%d-%d %s]\n", menupos + i
-               , driveid / 2, driveid % 2, Drives.drives[driveid].model);
+        printf("%d. CD-Rom [", menupos + i);
+        describe_drive(driveid);
+        printf("]\n");
     }
     return Drives.cdcount;
 }
@@ -275,10 +280,10 @@ static void
 run_bcv(struct ipl_entry_s *ie)
 {
     switch (ie->type) {
-    case IPL_TYPE_HARDDISK:
+    case BCV_TYPE_INTERNAL:
         map_hd_drive(ie->vector);
         break;
-    case IPL_TYPE_BEV:
+    case BCV_TYPE_EXTERNAL:
         call_bcv(ie->vector >> 16, ie->vector & 0xffff);
         break;
     }

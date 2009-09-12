@@ -89,17 +89,17 @@ struct floppyinfo_s FloppyInfo[] VAR16VISIBLE = {
     { {2, 40, 8}, 0x00, 0x27},
 };
 
-void
+int
 addFloppy(int floppyid, int ftype, int driver)
 {
     if (ftype <= 0 || ftype >= ARRAY_SIZE(FloppyInfo)) {
         dprintf(1, "Bad floppy type %d\n", ftype);
-        return;
+        return -1;
     }
 
     int driveid = Drives.drivecount;
     if (driveid >= ARRAY_SIZE(Drives.drives))
-        return;
+        return -1;
     Drives.drivecount++;
     memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
     Drives.drives[driveid].cntl_id = floppyid;
@@ -112,6 +112,13 @@ addFloppy(int floppyid, int ftype, int driver)
            , sizeof(FloppyInfo[ftype].chs));
 
     map_floppy_drive(driveid);
+    return driveid;
+}
+
+void
+describe_floppy(int driveid)
+{
+    printf("drive %c", 'A' + Drives.drives[driveid].cntl_id);
 }
 
 void

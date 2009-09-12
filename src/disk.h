@@ -172,7 +172,8 @@ struct drive_s {
     u8  type;         // Detected type of drive (ata/atapi/none)
     u8  removable;    // Removable device flag
     u16 blksize;      // block size
-    int cntl_id;
+    u32 cntl_id;
+    u32 cntl_info;
     u8  floppy_type;  // Type of floppy (only for floppy drives).
 
     char model[41];
@@ -224,13 +225,15 @@ void setup_translation(int driveid);
 void map_floppy_drive(int driveid);
 void map_hd_drive(int driveid);
 void map_cd_drive(int driveid);
+void describe_drive(int driveid);
 int send_disk_op(struct disk_op_s *op);
 void drive_setup();
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup();
-void addFloppy(int floppyid, int ftype, int driver);
+int addFloppy(int floppyid, int ftype, int driver);
+void describe_floppy(int driveid);
 int find_floppy_type(u32 size);
 int process_floppy_op(struct disk_op_s *op);
 void floppy_tick();
@@ -247,6 +250,7 @@ void cdemu_134b(struct bregs *regs);
 int cdrom_boot(int cdid);
 
 // ramdisk.c
+void describe_ramdisk(int driveid);
 void ramdisk_setup();
 int process_ramdisk_op(struct disk_op_s *op);
 

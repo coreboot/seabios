@@ -224,6 +224,31 @@ map_floppy_drive(int driveid)
     }
 }
 
+// Show a one line description (without trailing newline) of a drive.
+void
+describe_drive(int driveid)
+{
+    ASSERT32();
+    u8 type = GET_GLOBAL(Drives.drives[driveid].type);
+    switch (type) {
+    case DTYPE_FLOPPY:
+        describe_floppy(driveid);
+        break;
+    case DTYPE_ATA:
+        describe_ata(driveid);
+        break;
+    case DTYPE_ATAPI:
+        describe_atapi(driveid);
+        break;
+    case DTYPE_RAMDISK:
+        describe_ramdisk(driveid);
+        break;
+    default:
+        printf("Unknown");
+        break;
+    }
+}
+
 
 /****************************************************************
  * 16bit calling interface

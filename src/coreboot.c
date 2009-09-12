@@ -442,6 +442,7 @@ cbfs_findfile(const char *fname)
     return NULL;
 }
 
+// Find next file with the given filename prefix.
 struct cbfs_file *
 cbfs_findprefix(const char *prefix, struct cbfs_file *last)
 {

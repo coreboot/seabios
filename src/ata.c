@@ -11,7 +11,7 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // enable_hwirq
 #include "biosvar.h" // GET_EBDA
-#include "pci.h" // pci_find_class
+#include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "boot.h" // add_bcv_hd
@@ -527,6 +527,20 @@ extract_identify(int driveid, u16 *buffer)
 
     // Common flags.
     SET_GLOBAL(Drives.drives[driveid].removable, (buffer[0] & 0x80) ? 1 : 0);
+    SET_GLOBAL(Drives.drives[driveid].cntl_info, extract_version(buffer));
+}
+
+void
+describe_atapi(int driveid)
+{
+    u8 ataid = Drives.drives[driveid].cntl_id;
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
+    u8 version = Drives.drives[driveid].cntl_info;
+    int iscd = Drives.drives[driveid].floppy_type;
+    printf("ata%d-%d: %s ATAPI-%d %s", channel, slave
+           , Drives.drives[driveid].model, version
+           , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
 }
 
 static int
@@ -550,20 +564,30 @@ init_drive_atapi(int driveid, u16 *buffer)
     SET_GLOBAL(Drives.drives[driveid].blksize, CDROM_SECTOR_SIZE);
     SET_GLOBAL(Drives.drives[driveid].sectors, (u64)-1);
     u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
-
-    // Report drive info to user.
-    u8 ataid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
-    u8 channel = ataid / 2;
-    u8 slave = ataid % 2;
-    printf("ata%d-%d: %s ATAPI-%d %s\n", channel, slave
-           , Drives.drives[driveid].model, extract_version(buffer)
-           , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
+    SET_GLOBAL(Drives.drives[driveid].floppy_type, iscd);
 
     // fill cdidmap
     if (iscd)
         map_cd_drive(driveid);
 
     return 0;
+}
+
+void
+describe_ata(int driveid)
+{
+    u8 ataid = Drives.drives[driveid].cntl_id;
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
+    u64 sectors = Drives.drives[driveid].sectors;
+    u8 version = Drives.drives[driveid].cntl_info;
+    char *model = Drives.drives[driveid].model;
+    printf("ata%d-%d: %s ATA-%d Hard-Disk", channel, slave, model, version);
+    u64 sizeinmb = sectors >> 11;
+    if (sizeinmb < (1 << 16))
+        printf(" (%u MiBytes)", (u32)sizeinmb);
+    else
+        printf(" (%u GiBytes)", (u32)(sizeinmb >> 10));
 }
 
 static int
@@ -600,21 +624,8 @@ init_drive_ata(int driveid, u16 *buffer)
     // Setup disk geometry translation.
     setup_translation(driveid);
 
-    // Report drive info to user.
-    u8 ataid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
-    u8 channel = ataid / 2;
-    u8 slave = ataid % 2;
-    char *model = Drives.drives[driveid].model;
-    printf("ata%d-%d: %s ATA-%d Hard-Disk ", channel, slave, model
-           , extract_version(buffer));
-    u64 sizeinmb = sectors >> 11;
-    if (sizeinmb < (1 << 16))
-        printf("(%u MiBytes)\n", (u32)sizeinmb);
-    else
-        printf("(%u GiBytes)\n", (u32)(sizeinmb >> 10));
-
     // Register with bcv system.
-    add_bcv_hd(driveid, model);
+    add_bcv_internal(driveid);
 
     return 0;
 }
@@ -697,9 +708,8 @@ ata_detect()
         // check for ATAPI
         u16 buffer[256];
         int ret = init_drive_atapi(driveid, buffer);
-        if (!ret) {
-            // Found an ATAPI drive.
-        } else {
+        if (ret) {
+            // Didn't find an ATAPI drive - look for ATA drive.
             u8 st = inb(iobase1+ATA_CB_STAT);
             if (!st)
                 // Status not set - can't be a valid drive.
@@ -717,6 +727,10 @@ ata_detect()
                 continue;
         }
         SET_GLOBAL(Drives.drivecount, driveid+1);
+
+        // Report drive info to user.
+        describe_drive(driveid);
+        printf("\n");
 
         u16 resetresult = buffer[93];
         dprintf(6, "ata_detect resetresult=%04x\n", resetresult);

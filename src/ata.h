@@ -19,6 +19,8 @@ int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
 void ata_setup();
 int process_ata_op(struct disk_op_s *op);
 int process_atapi_op(struct disk_op_s *op);
+void describe_ata(int driveid);
+void describe_atapi(int driveid);
 
 // Global defines -- ATA register and register bits.
 // command block & control block regs

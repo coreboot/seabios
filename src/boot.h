@@ -28,6 +28,9 @@ struct ipl_s {
 #define IPL_TYPE_CBFS        0x20
 #define IPL_TYPE_BEV         0x80
 
+#define BCV_TYPE_EXTERNAL    0x80
+#define BCV_TYPE_INTERNAL    0x02
+
 
 /****************************************************************
  * Function defs
@@ -38,7 +41,7 @@ extern struct ipl_s IPL;
 void boot_setup();
 void add_bev(u16 seg, u16 bev, u16 desc);
 void add_bcv(u16 seg, u16 ip, u16 desc);
-void add_bcv_hd(int driveid, const char *desc);
+void add_bcv_internal(int driveid);
 void boot_prep();
 
 #endif // __BOOT_H

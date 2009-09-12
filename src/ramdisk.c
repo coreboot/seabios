@@ -13,6 +13,12 @@
 #define RAMDISK_SECTOR_SIZE 512
 
 void
+describe_ramdisk(int driveid)
+{
+    printf("%s", Drives.drives[driveid].model);
+}
+
+void
 ramdisk_setup()
 {
     if (!CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
@@ -43,7 +49,10 @@ ramdisk_setup()
 
     // Setup driver.
     dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
-    addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
+    int driveid = addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
+    if (driveid >= 0)
+        strtcpy(Drives.drives[driveid].model, cbfs_filename(file)
+                , ARRAY_SIZE(Drives.drives[driveid].model));
 }
 
 static int
