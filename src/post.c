@@ -171,6 +171,9 @@ post()
     malloc_setup();
     pmm_setup();
 
+    pci_setup();
+    smm_init();
+
     pnp_setup();
     vga_setup();
 
@@ -178,9 +181,6 @@ post()
     lpt_setup();
     serial_setup();
     mouse_setup();
-
-    pci_bios_setup();
-    smm_init();
 
     init_bios_tables();
 

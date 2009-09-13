@@ -77,7 +77,7 @@ static void pci_bios_init_bridges(u16 bdf)
 
         elcr[0] = 0x00;
         elcr[1] = 0x00;
-        for(i = 0; i < 4; i++) {
+        for (i = 0; i < 4; i++) {
             irq = pci_irqs[i];
             /* set to trigger level */
             elcr[irq >> 3] |= (1 << (irq & 7));
@@ -188,11 +188,13 @@ static void pci_bios_init_device(u16 bdf)
 }
 
 void
-pci_bios_setup(void)
+pci_setup(void)
 {
     if (CONFIG_COREBOOT)
         // Already done by coreboot.
         return;
+
+    dprintf(3, "pci setup\n");
 
     pci_bios_io_addr = 0xc000;
     pci_bios_mem_addr = 0xc0000000;

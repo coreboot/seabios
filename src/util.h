@@ -205,7 +205,7 @@ void make_bios_writable();
 void make_bios_readonly();
 
 // pciinit.c
-void pci_bios_setup(void);
+void pci_setup(void);
 
 // smm.c
 void smm_init();
