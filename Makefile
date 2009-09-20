@@ -51,7 +51,6 @@ endif
 
 OBJCOPY=objcopy
 OBJDUMP=objdump
-NM=nm
 STRIP=strip
 
 .PHONY : all FORCE
@@ -112,47 +111,43 @@ $(OUT)asm-offsets.h: $(OUT)asm-offsets.s
 
 $(OUT)ccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
+$(OUT)ccode32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
+
 $(OUT)code16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16INC) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)code32.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32)),$@)
-
-$(OUT)romlayout16.lds $(OUT)romlayout32.lds: $(OUT)code32.o $(OUT)code16.o
-	@echo "  Building layout information $@"
+$(OUT)romlayout16.lds $(OUT)romlayout32.lds $(OUT)code32.o: $(OUT)ccode32.o $(OUT)code16.o tools/layoutrom.py
+	@echo "  Building ld scripts (version \"$(VERSION)\")"
+	$(Q)echo 'const char VERSION[] = "$(VERSION)";' > $(OUT)version.c
+	$(Q)$(CC) $(CFLAGS) -c $(OUT)version.c -o $(OUT)version.o
+	$(Q)$(LD) -melf_i386 -r $(OUT)ccode32.o $(OUT)version.o -o $(OUT)code32.o
 	$(Q)$(OBJDUMP) -thr $(OUT)code32.o > $(OUT)code32.o.objdump
 	$(Q)$(OBJDUMP) -thr $(OUT)code16.o > $(OUT)code16.o.objdump
 	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32.lds
 
-$(OUT)layout16.lds: $(OUT)romlayout16.lds
-$(OUT)rombios32.lds: $(OUT)romlayout32.lds
 
-
-$(OUT)rom16.o: $(OUT)code16.o $(OUT)rom32.o $(OUT)layout16.lds
+$(OUT)rom16.o: $(OUT)code16.o $(OUT)rom32.o $(OUT)romlayout16.lds
 	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)layout16.lds $< -o $@
+	$(Q)$(LD) -r -T $(OUT)romlayout16.lds $< -o $@
 
-$(OUT)rom32.o: $(OUT)code32.o $(OUT)rombios32.lds
+$(OUT)rom32.o: $(OUT)code32.o $(OUT)romlayout32.lds
 	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)rombios32.lds $< -o $@
+	$(Q)$(LD) -r -T $(OUT)romlayout32.lds $< -o $@
 
 $(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios16.lds $(OUT)rombios.lds
 	@echo "  Linking $@ (version \"$(VERSION)\")"
-	$(Q)echo 'const char VERSION[] __attribute__((section(".data32.version"))) = "$(VERSION)";' > $(OUT)version.c
-	$(Q)$(CC) $(CFLAGS) -c $(OUT)version.c -o $(OUT)version.o
 	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32.o -o $(OUT)rom16.reloc.o
 	$(Q)$(STRIP) $(OUT)rom16.reloc.o -o $(OUT)rom16.final.o
 	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
-	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32.o $(OUT)version.o -R $(OUT)rom16.moved.o -o $@
+	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32.o -R $(OUT)rom16.moved.o -o $@
 
-$(OUT)bios.bin.elf: $(OUT)rom.o
+$(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 	@echo "  Prepping $@"
-	$(Q)$(NM) $< | ./tools/checkrom.py
-	$(Q)$(STRIP) $< -o $@
-
-$(OUT)bios.bin: $(OUT)bios.bin.elf
-	@echo "  Extracting binary $@"
-	$(Q)$(OBJCOPY) -O binary $< $@
+	$(Q)$(OBJDUMP) -thr $< > $<.objdump
+	$(Q)$(OBJCOPY) -O binary $< $(OUT)bios.bin.raw
+	$(Q)./tools/checkrom.py $<.objdump $(OUT)bios.bin.raw $(OUT)bios.bin
+	$(Q)$(STRIP) $< -o $(OUT)bios.bin.elf
 
 
 ################ VGA build rules
@@ -175,7 +170,7 @@ $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
 	@echo "  Extracting binary $@"
 	$(Q)$(OBJCOPY) -O binary $< $@
 
-$(OUT)vgabios.bin: $(OUT)vgabios.bin.raw
+$(OUT)vgabios.bin: $(OUT)vgabios.bin.raw tools/buildrom.py
 	@echo "  Finalizing rom $@"
 	$(Q)./tools/buildrom.py $< $@
 

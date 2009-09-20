@@ -4,16 +4,17 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
+#include "config.h" // BUILD_BIOS_ADDR
+
+OUTPUT_FORMAT("elf32-i386")
 OUTPUT_ARCH("i386")
 ENTRY(post32)
 SECTIONS
 {
         .text code32_start : {
                 *(.text32)
-                *(.data32.version)
 
-                . = code16_start ;
+                . = code16_start + BUILD_BIOS_ADDR - code32_start ;
                 *(.text16)
                 final_code16_end = . ;
                 }

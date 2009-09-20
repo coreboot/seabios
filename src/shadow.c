@@ -23,28 +23,8 @@
 
 // Enable shadowing and copy bios.
 static void
-copy_bios(u16 bdf)
+__make_bios_writable(u16 bdf)
 {
-    pci_config_writeb(bdf, 0x59, 0x30);
-    memcpy((void*)BUILD_BIOS_ADDR, (void*)BIOS_SRC_ADDR, BUILD_BIOS_SIZE);
-}
-
-// Make the 0xc0000-0x100000 area read/writable.
-void
-make_bios_writable()
-{
-    if (CONFIG_COREBOOT)
-        return;
-
-    dprintf(3, "enabling shadow ram\n");
-
-    // Locate chip controlling ram shadowing.
-    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441);
-    if (bdf < 0) {
-        dprintf(1, "Unable to unlock ram - bridge not found\n");
-        return;
-    }
-
     // Make ram from 0xc0000-0xf0000 writable
     int clear = 0;
     int i;
@@ -68,24 +48,46 @@ make_bios_writable()
     if (clear)
         memset((void*)BUILD_BIOS_TMP_ADDR, 0, 32*1024);
 
+    // Make ram from 0xf0000-0x100000 writable
     int reg = pci_config_readb(bdf, 0x59);
-    if (reg & 0x10) {
-        // Ram already present - just enable writes
-        pci_config_writeb(bdf, 0x59, 0x30);
+    pci_config_writeb(bdf, 0x59, 0x30);
+    if (reg & 0x10)
+        // Ram already present.
+        return;
+
+    // Copy bios.
+    memcpy((void*)BUILD_BIOS_ADDR, (void*)BIOS_SRC_ADDR, BUILD_BIOS_SIZE);
+}
+
+// Make the 0xc0000-0x100000 area read/writable.
+void
+make_bios_writable()
+{
+    if (CONFIG_COREBOOT)
+        return;
+
+    dprintf(3, "enabling shadow ram\n");
+
+    // Locate chip controlling ram shadowing.
+    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441);
+    if (bdf < 0) {
+        dprintf(1, "Unable to unlock ram - bridge not found\n");
         return;
     }
 
-    // Enable shadowing and copy bios.
-    if (IN_RANGE((u32)copy_bios, BUILD_BIOS_ADDR, BUILD_BIOS_SIZE)) {
-        // Jump to shadow enable function - use the copy in the
-        // temporary storage area so that memory does not change under
-        // the executing code.
-        u32 pos = (u32)copy_bios - BUILD_BIOS_ADDR + BIOS_SRC_ADDR;
+    int reg = pci_config_readb(bdf, 0x59);
+    if (!(reg & 0x10)) {
+        // QEMU doesn't fully implement the piix shadow capabilities -
+        // if ram isn't backing the bios segment when shadowing is
+        // disabled, the code itself wont be in memory.  So, run the
+        // code from the high-memory flash location.
+        u32 pos = (u32)__make_bios_writable - BUILD_BIOS_ADDR + BIOS_SRC_ADDR;
         void (*func)(u16 bdf) = (void*)pos;
         func(bdf);
-    } else {
-        copy_bios(bdf);
+        return;
     }
+    // Ram already present - just enable writes
+    __make_bios_writable(bdf);
 }
 
 // Make the BIOS code segment area (0xf0000) read-only.

@@ -164,12 +164,22 @@ get_pci_rom(struct rom_header *rom)
     return pci;
 }
 
+// Return the memory position up to which roms may be located.
+static inline u32
+max_rom()
+{
+    extern u8 code32_start[];
+    if ((u32)code32_start > BUILD_BIOS_ADDR)
+        return BUILD_BIOS_ADDR;
+    return (u32)code32_start;
+}
+
 // Copy a rom to its permanent location below 1MiB
 static struct rom_header *
 copy_rom(struct rom_header *rom)
 {
     u32 romsize = rom->size * 512;
-    if (RomEnd + romsize > BUILD_BIOS_ADDR) {
+    if (RomEnd + romsize > max_rom()) {
         // Option rom doesn't fit.
         dprintf(1, "Option rom %p doesn't fit.\n", rom);
         return NULL;
@@ -213,8 +223,7 @@ lookup_hardcode(u32 vendev)
         && ((OPTIONROM_VENDEV_2 >> 16)
             | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
         return copy_rom((void*)OPTIONROM_MEM_2);
-    int ret = cbfs_copy_optionrom((void*)RomEnd, BUILD_BIOS_ADDR - RomEnd
-                                  , vendev);
+    int ret = cbfs_copy_optionrom((void*)RomEnd, max_rom() - RomEnd, vendev);
     if (ret < 0)
         return NULL;
     return (void*)RomEnd;
@@ -229,7 +238,7 @@ run_cbfs_roms(const char *prefix, int isvga)
         file = cbfs_findprefix(prefix, file);
         if (!file)
             break;
-        int ret = cbfs_copyfile(file, (void*)RomEnd, BUILD_BIOS_ADDR - RomEnd);
+        int ret = cbfs_copyfile(file, (void*)RomEnd, max_rom() - RomEnd);
         if (ret > 0)
             init_optionrom((void*)RomEnd, 0, isvga);
     }
@@ -343,7 +352,7 @@ optionrom_setup()
     if (CONFIG_OPTIONROMS_DEPLOYED) {
         // Option roms are already deployed on the system.
         u32 pos = RomEnd;
-        while (pos < BUILD_BIOS_ADDR) {
+        while (pos < max_rom()) {
             int ret = init_optionrom((void*)pos, 0, 0);
             if (ret)
                 pos += OPTION_ROM_ALIGN;
