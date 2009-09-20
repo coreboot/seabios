@@ -488,10 +488,8 @@ handle_1586(struct bregs *regs)
         set_code_fail(regs, RET_ECLOCKINUSE);
         return;
     }
-    irq_enable();
     while (!statusflag)
-        cpu_relax();
-    irq_disable();
+        wait_irq();
     set_success(regs);
 }
 

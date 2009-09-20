@@ -23,6 +23,7 @@
 
 #define KF1_LCTRL        (1<<0)
 #define KF1_LALT         (1<<1)
+#define KF1_PAUSEACTIVE  (1<<3)
 #define KF1_SCROLL       (1<<4)
 #define KF1_NUM          (1<<5)
 #define KF1_CAPS         (1<<6)
@@ -160,7 +161,7 @@ dequeue_key(struct bregs *regs, int incr, int extended)
             regs->flags |= F_ZF;
             return;
         }
-        cpu_relax();
+        wait_irq();
     }
 
     u8 ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0));
@@ -233,7 +234,9 @@ static void
 handle_160a(struct bregs *regs)
 {
     u8 param[2];
+    irq_enable();
     int ret = kbd_command(ATKBD_CMD_GETID, param);
+    irq_disable();
     if (ret) {
         regs->bx = 0;
         return;
@@ -303,7 +306,9 @@ set_leds()
     if (shift_flags == led_flags)
         return;
 
+    irq_enable();
     int ret = kbd_command(ATKBD_CMD_SETLEDS, &shift_flags);
+    irq_disable();
     if (ret)
         // Error
         return;
@@ -319,8 +324,7 @@ handle_16(struct bregs *regs)
     if (! CONFIG_KEYBOARD)
         return;
 
-    irq_enable();
-
+    // XXX - set_leds should be called from irq handler
     set_leds();
 
     switch (regs->ah) {
@@ -443,10 +447,10 @@ static struct scaninfo {
 };
 
 // Handle a scancode read from the ps2 port.  Note that "noinline" is
-// used to make sure the call to call16_simpint in handle_09 doesn't
+// used to make sure the call to call16_simpint in process_key doesn't
 // have the overhead of this function's stack.
 static void noinline
-process_key(u8 scancode)
+__process_key(u8 scancode)
 {
     u8 flags0 = GET_BDA(kbd_flag0);
     u8 flags1 = GET_BDA(kbd_flag1);
@@ -457,14 +461,21 @@ process_key(u8 scancode)
         if ((scancode & ~0x80) == 0x1d)
             // Second key of sequence
             return;
-        // Third key of sequence
-        if (scancode == 0xc5) {
-            // XXX - do actual pause.
-        }
+        // Third key of sequence - clear flag.
         flags2 &= ~KF2_LAST_E1;
         SET_BDA(kbd_flag2, flags2);
+
+        if (scancode == 0xc5) {
+            // Final key in sequence.
+
+            // XXX - do actual pause.
+        }
         return;
     }
+
+    // XXX - PrtScr should cause int 0x05
+    // XXX - Ctrl+Break should cause int 0x1B
+    // XXX - SysReq should cause int 0x15/0x85
 
     switch (scancode) {
     case 0x00:
@@ -611,6 +622,21 @@ process_key(u8 scancode)
     SET_BDA(kbd_flag2, flags2);
 }
 
+static void
+process_key(u8 key)
+{
+    if (CONFIG_KBD_CALL_INT15_4F) {
+        // allow for keyboard intercept
+        u32 eax = (0x4f << 8) | key;
+        u32 flags;
+        call16_simpint(0x15, &eax, &flags);
+        if (!(flags & F_CF))
+            return;
+        key = eax;
+    }
+    __process_key(key);
+}
+
 // INT09h : Keyboard Hardware Service Entry Point
 void VISIBLE16
 handle_09()
@@ -625,18 +651,9 @@ handle_09()
         dprintf(1, "keyboard irq but no keyboard data.\n");
         goto done;
     }
-    u8 key = inb(PORT_PS2_DATA);
+    v = inb(PORT_PS2_DATA);
 
-    if (CONFIG_KBD_CALL_INT15_4F) {
-        // allow for keyboard intercept
-        u32 eax = (0x4f << 8) | key;
-        u32 flags;
-        call16_simpint(0x15, &eax, &flags);
-        if (!(flags & F_CF))
-            goto done;
-        key = eax;
-    }
-    process_key(key);
+    process_key(v);
 
 done:
     eoi_pic1();

@@ -36,6 +36,12 @@ static inline void cpu_relax(void)
     asm volatile("rep ; nop": : :"memory");
 }
 
+// Atomically enable irqs and sleep until an irq; then re-disable irqs.
+static inline void wait_irq(void)
+{
+    asm volatile("sti ; hlt ; cli ; cld": : :"memory");
+}
+
 static inline void nop(void)
 {
     asm volatile("nop");

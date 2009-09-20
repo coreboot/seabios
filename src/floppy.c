@@ -176,7 +176,6 @@ floppy_reset_controller()
 static int
 wait_floppy_irq()
 {
-    irq_enable();
     u8 v;
     for (;;) {
         if (!GET_BDA(floppy_motor_counter)) {
@@ -186,9 +185,8 @@ wait_floppy_irq()
         v = GET_BDA(floppy_recalibration_status);
         if (v & FRS_TIMEOUT)
             break;
-        cpu_relax();
+        wait_irq();
     }
-    irq_disable();
 
     v &= ~FRS_TIMEOUT;
     SET_BDA(floppy_recalibration_status, v);
