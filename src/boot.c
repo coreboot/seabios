@@ -188,7 +188,7 @@ static int
 menu_show_cbfs(struct ipl_entry_s *ie, int menupos)
 {
     int count = 0;
-    struct cbfs_file *file;
+    struct cbfs_file *file = NULL;
     for (;;) {
         file = cbfs_findprefix("img/", file);
         if (!file)
@@ -229,7 +229,7 @@ interactive_bootmenu()
     int i;
     for (i = 0; i < IPL.bevcount; i++) {
         struct ipl_entry_s *ie = &IPL.bev[i];
-        int sc = 1;
+        int sc;
         switch (ie->type) {
         case IPL_TYPE_FLOPPY:
             sc = menu_show_floppy(ie, menupos);
