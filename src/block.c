@@ -126,9 +126,9 @@ setup_translation(int driveid)
 
 // Fill in Fixed Disk Parameter Table (located in ebda).
 static void
-fill_fdpt(int driveid)
+fill_fdpt(int driveid, int hdid)
 {
-    if (driveid > 1)
+    if (hdid > 1)
         return;
 
     u16 nlc   = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
@@ -139,7 +139,7 @@ fill_fdpt(int driveid)
     u16 nph   = GET_GLOBAL(Drives.drives[driveid].pchs.heads);
     u16 npspt = GET_GLOBAL(Drives.drives[driveid].pchs.spt);
 
-    struct fdpt_s *fdpt = &get_ebda_ptr()->fdpt[driveid];
+    struct fdpt_s *fdpt = &get_ebda_ptr()->fdpt[hdid];
     fdpt->precompensation = 0xffff;
     fdpt->drive_control_byte = 0xc0 | ((nph > 8) << 3);
     fdpt->landing_zone = npc;
@@ -162,7 +162,7 @@ fill_fdpt(int driveid)
     // Checksum structure.
     fdpt->checksum -= checksum(fdpt, sizeof(*fdpt));
 
-    if (driveid == 0)
+    if (hdid == 0)
         SET_IVT(0x41, SEGOFF(get_ebda_seg(), offsetof(
                                  struct extended_bios_data_area_s, fdpt[0])));
     else
@@ -183,7 +183,7 @@ map_hd_drive(int driveid)
     SET_BDA(hdcount, hdcount + 1);
 
     // Fill "fdpt" structure.
-    fill_fdpt(hdcount);
+    fill_fdpt(driveid, hdcount);
 }
 
 // Map a cd
