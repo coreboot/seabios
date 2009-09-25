@@ -73,7 +73,7 @@ ramdisk_copy(struct disk_op_s *op, int iswrite)
     // Call int 1587 to copy data.
     struct bregs br;
     memset(&br, 0, sizeof(br));
-    br.flags = F_CF;
+    br.flags = F_CF|F_IF;
     br.ah = 0x87;
     br.es = GET_SEG(SS);
     br.si = (u32)gdt;

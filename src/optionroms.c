@@ -87,6 +87,7 @@ __callrom(struct rom_header *rom, u16 offset, u16 bdf)
 
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     br.ax = bdf;
     br.bx = 0xffff;
     br.dx = 0xffff;
@@ -442,6 +443,7 @@ vga_setup()
     dprintf(1, "Turning on vga console\n");
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     br.ax = 0x0003;
     call16_int(0x10, &br);
 

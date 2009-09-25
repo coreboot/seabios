@@ -239,6 +239,7 @@ usleep(u32 usec)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     br.ah = 0x86;
     br.cx = usec >> 16;
     br.dx = usec;
@@ -251,6 +252,7 @@ check_for_keystroke()
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     br.ah = 1;
     call16_int(0x16, &br);
     return !(br.flags & F_ZF);
@@ -262,6 +264,7 @@ get_raw_keystroke()
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     call16_int(0x16, &br);
     return br.ah;
 }

@@ -227,5 +227,6 @@ _start()
     dprintf(3, "Jump to int19\n");
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     call16_int(0x19, &br);
 }

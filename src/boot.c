@@ -328,6 +328,7 @@ call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     br.code = SEGOFF(bootseg, bootip);
     // Set the magic number in ax and the boot drive in dl.
     br.dl = bootdrv;
@@ -344,6 +345,7 @@ boot_disk(u8 bootdrv, int checksig)
     // Read sector
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     br.dl = bootdrv;
     br.es = bootseg;
     br.ah = 2;
@@ -459,6 +461,7 @@ do_boot(u16 seq_nr)
     // Boot failed: invoke the boot recovery function
     struct bregs br;
     memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
     call16_int(0x18, &br);
 }
 
