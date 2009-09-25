@@ -260,6 +260,7 @@ void pnp_setup();
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
 void *zone_malloc(struct zone_s *zone, u32 size, u32 align);
+void *zone_malloc_low(u32 size, u32 align);
 void malloc_setup();
 void malloc_finalize();
 void pmm_setup();
@@ -267,6 +268,9 @@ void pmm_finalize();
 // Minimum alignment of malloc'd memory
 #define MALLOC_MIN_ALIGN 16
 // Helper functions for memory allocation.
+static inline void *malloc_low(u32 size) {
+    return zone_malloc_low(size, MALLOC_MIN_ALIGN);
+}
 static inline void *malloc_high(u32 size) {
     return zone_malloc(&ZoneHigh, size, MALLOC_MIN_ALIGN);
 }

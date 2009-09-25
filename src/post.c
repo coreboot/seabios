@@ -78,7 +78,7 @@ init_bda()
     memset(bda, 0, sizeof(*bda));
 
     int esize = EBDA_SIZE_START;
-    SET_BDA(mem_size_kb, 640 - esize);
+    SET_BDA(mem_size_kb, BUILD_LOWRAM_END/1024 - esize);
     u16 eseg = EBDA_SEGMENT_START;
     SET_BDA(ebda_seg, eseg);
 
@@ -119,7 +119,7 @@ ram_probe(void)
     }
 
     // Don't declare any memory between 0xa0000 and 0x100000
-    add_e820(0xa0000, 0x50000, E820_HOLE);
+    add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
 
     // Mark known areas as reserved.
     u16 ebda_seg = get_ebda_seg();

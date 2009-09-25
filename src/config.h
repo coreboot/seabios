@@ -123,6 +123,8 @@
 #define BUILD_STACK_ADDR          0x7c00
 #define BUILD_S3RESUME_STACK_ADDR 0x1000
 #define BUILD_AP_BOOT_ADDR        0x10000
+#define BUILD_EBDA_MINIMUM        0x90000
+#define BUILD_LOWRAM_END          0xa0000
 #define BUILD_ROM_START           0xc0000
 #define BUILD_BIOS_ADDR           0xf0000
 #define BUILD_BIOS_SIZE           0x10000

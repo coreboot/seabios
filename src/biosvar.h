@@ -228,9 +228,7 @@ struct extended_bios_data_area_s {
 #define EBDA_SIZE_START \
     DIV_ROUND_UP(sizeof(struct extended_bios_data_area_s), 1024)
 #define EBDA_SEGMENT_START \
-    FLATPTR_TO_SEG((640 - EBDA_SIZE_START) * 1024)
-#define EBDA_SEGMENT_MINIMUM \
-    FLATPTR_TO_SEG((640 - 256) * 1024)
+    FLATPTR_TO_SEG(BUILD_LOWRAM_END - EBDA_SIZE_START*1024)
 
 // Accessor functions
 static inline u16 get_ebda_seg() {

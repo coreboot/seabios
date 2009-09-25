@@ -8,12 +8,8 @@
 #include "config.h" // BUILD_BIOS_ADDR
 #include "memmap.h" // find_high_area
 #include "farptr.h" // GET_FARVAR
-#include "biosvar.h" // EBDA_SEGMENT_MINIMUM
+#include "biosvar.h" // GET_BDA
 
-
-/****************************************************************
- * malloc
- ****************************************************************/
 
 #if MODE16
 // The 16bit pmm entry points runs in "big real" mode, and can
@@ -37,6 +33,72 @@ struct zone_s ZoneTmpLow VAR32VISIBLE, ZoneTmpHigh VAR32VISIBLE;
 struct zone_s *Zones[] VAR32VISIBLE = {
     &ZoneTmpLow, &ZoneLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
 };
+
+
+/****************************************************************
+ * ebda movement
+ ****************************************************************/
+
+// Move ebda
+static int
+relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
+{
+    u32 lowram = GET_BDA(mem_size_kb) * 1024;
+    if (oldebda != lowram)
+        // EBDA isn't at end of ram - give up.
+        return -1;
+
+    // Do copy
+    if (MODE16)
+        memcpy_far(FLATPTR_TO_SEG(newebda)
+                   , (void*)FLATPTR_TO_OFFSET(newebda)
+                   , FLATPTR_TO_SEG(oldebda)
+                   , (void*)FLATPTR_TO_OFFSET(oldebda)
+                   , ebda_size * 1024);
+    else
+        memmove((void*)newebda, (void*)oldebda, ebda_size * 1024);
+
+    // Update indexes
+    dprintf(1, "ebda moved from %x to %x\n", oldebda, newebda);
+    SET_BDA(mem_size_kb, newebda / 1024);
+    SET_BDA(ebda_seg, FLATPTR_TO_SEG(newebda));
+    return 0;
+}
+
+// Support expanding the ZoneLow dynamically.
+static int
+zonelow_expand(u32 size, u32 align)
+{
+    u16 ebda_seg = get_ebda_seg();
+    u32 ebda_pos = (u32)MAKE_FLATPTR(ebda_seg, 0);
+    u32 bottom = GET_PMMVAR(ZoneLow.bottom);
+    u32 cur = GET_PMMVAR(ZoneLow.cur);
+    u8 ebda_size = GET_EBDA2(ebda_seg, size);
+    u32 ebda_end = ebda_pos + ebda_size * 1024;
+    if (ebda_end != bottom)
+        // Something else is after ebda - can't use any existing space.
+        cur = ebda_end;
+    u32 newcur = ALIGN_DOWN(cur - size, align);
+    u32 newbottom = ALIGN_DOWN(newcur, 1024);
+    u32 newebda = ALIGN_DOWN(newbottom - ebda_size * 1024, 1024);
+    if (newebda < BUILD_EBDA_MINIMUM)
+        // Not enough space.
+        return -1;
+
+    // Move ebda
+    int ret = relocate_ebda(newebda, ebda_pos, ebda_size);
+    if (ret)
+        return ret;
+
+    // Update zone
+    SET_PMMVAR(ZoneLow.bottom, newbottom);
+    return 0;
+}
+
+
+/****************************************************************
+ * zone allocations
+ ****************************************************************/
 
 // Obtain memory from a given zone.
 void *
@@ -102,10 +164,10 @@ malloc_setup()
 
     // Memory under 1Meg.
     ZoneTmpLow.bottom = BUILD_STACK_ADDR;
-    ZoneTmpLow.top = ZoneTmpLow.cur = (u32)MAKE_FLATPTR(EBDA_SEGMENT_MINIMUM, 0);
+    ZoneTmpLow.top = ZoneTmpLow.cur = BUILD_EBDA_MINIMUM;
 
-    // Permanent memory under 1Meg.  XXX - not implemented yet.
-    ZoneLow.bottom = ZoneLow.top = ZoneLow.cur = 0xa0000;
+    // Permanent memory under 1Meg.
+    ZoneLow.bottom = ZoneLow.top = ZoneLow.cur = BUILD_LOWRAM_END;
 
     // Find memory at the top of ram.
     struct e820entry *e = find_high_area(CONFIG_MAX_HIGHTABLE+MALLOC_MIN_ALIGN);
@@ -134,6 +196,10 @@ malloc_finalize()
 
     dumpZones();
 
+    // Reserve more low-mem if needed.
+    u32 endlow = GET_BDA(mem_size_kb)*1024;
+    add_e820(endlow, BUILD_LOWRAM_END-endlow, E820_RESERVED);
+
     // Give back unused high ram.
     u32 giveback = ALIGN_DOWN(ZoneHigh.cur - ZoneHigh.bottom, PAGE_SIZE);
     add_e820(ZoneHigh.bottom, giveback, E820_RAM);
@@ -141,6 +207,17 @@ malloc_finalize()
 
     // Clear low-memory allocations.
     memset((void*)ZoneTmpLow.bottom, 0, ZoneTmpLow.top - ZoneTmpLow.bottom);
+}
+
+// Allocate memory from ZoneLow - growing the zone if needed.
+void *
+zone_malloc_low(u32 size, u32 align)
+{
+    void *ret = zone_malloc(&ZoneLow, size, align);
+    if (ret)
+        return ret;
+    zonelow_expand(size, align);
+    return zone_malloc(&ZoneLow, size, align);
 }
 
 
@@ -173,6 +250,12 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
         return NULL;
     u32 olddata = GET_PMMVAR(zone->cur);
     void *data = zone_malloc(zone, size, align);
+    if (!data && zone == &ZoneLow) {
+        // Try to expand permanent low zone.
+        zonelow_expand(size, align);
+        olddata = GET_PMMVAR(zone->cur);
+        data = zone_malloc(zone, size, align);
+    }
     if (! data) {
         zone_free(ZONEALLOC, info, oldallocdata);
         return NULL;
@@ -241,6 +324,7 @@ pmm_free(void *data)
 static u32
 pmm_getspace(struct zone_s *zone)
 {
+    // XXX - doesn't account for ZoneLow being able to grow.
     u32 space = GET_PMMVAR(zone->cur) - GET_PMMVAR(zone->bottom);
     if (zone != ZONEALLOC)
         return space;
