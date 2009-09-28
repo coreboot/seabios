@@ -70,6 +70,10 @@ union u64_u32_u {
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof(a[0]))
 #define FIELD_SIZEOF(t, f) (sizeof(((t*)0)->f))
 #define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+#define DIV_ROUND_CLOSEST(x, divisor)({                 \
+            typeof(divisor) __divisor = divisor;        \
+            (((x) + ((__divisor) / 2)) / (__divisor));  \
+        })
 #define ALIGN(x,a)              __ALIGN_MASK(x,(typeof(x))(a)-1)
 #define __ALIGN_MASK(x,mask)    (((x)+(mask))&~(mask))
 #define ALIGN_DOWN(x,a)         ((x) & ~((typeof(x))(a)-1))

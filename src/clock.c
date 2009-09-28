@@ -53,8 +53,10 @@
  * TSC timer
  ****************************************************************/
 
-#define PIT_TICK_RATE 1193182 // Underlying HZ of PIT
-#define CALIBRATE_COUNT 0x800 // Approx 1.7ms
+#define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
+#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
+#define TICKS_PER_DAY (u32)((u64)60*60*24*PIT_TICK_RATE / PIT_TICK_INTERVAL)
+#define CALIBRATE_COUNT 0x800   // Approx 1.7ms
 
 u32 cpu_khz VAR16VISIBLE;
 
@@ -189,11 +191,10 @@ timer_setup()
     init_rtc();
     rtc_updating();
     u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
-    u32 ticks = (seconds * 18206507) / 1000000;
     u32 minutes = bcd2bin(inb_cmos(CMOS_RTC_MINUTES));
-    ticks += (minutes * 10923904) / 10000;
     u32 hours = bcd2bin(inb_cmos(CMOS_RTC_HOURS));
-    ticks += (hours * 65543427) / 1000;
+    u32 ticks = (hours * 60 + minutes) * 60 + seconds;
+    ticks = ((u64)ticks * PIT_TICK_RATE) / PIT_TICK_INTERVAL;
     SET_BDA(timer_counter, ticks);
     SET_BDA(timer_rollover, 0);
 
@@ -426,7 +427,7 @@ handle_08()
     u32 counter = GET_BDA(timer_counter);
     counter++;
     // compare to one days worth of timer ticks at 18.2 hz
-    if (counter >= 0x001800B0) {
+    if (counter >= TICKS_PER_DAY) {
         // there has been a midnight rollover at this point
         counter = 0;
         SET_BDA(timer_rollover, GET_BDA(timer_rollover) + 1);
@@ -530,6 +531,8 @@ handle_1583(struct bregs *regs)
     }
 }
 
+#define USEC_PER_RTC DIV_ROUND_CLOSEST(1000000, 1024)
+
 // int70h: IRQ8 - CMOS RTC
 void VISIBLE16
 handle_70()
@@ -557,7 +560,7 @@ handle_70()
 
     // Wait Interval (Int 15, AH=83) active.
     u32 time = GET_BDA(user_wait_timeout);  // Time left in microseconds.
-    if (time < 0x3D1) {
+    if (time < USEC_PER_RTC) {
         // Done waiting - write to specified flag byte.
         struct segoff_s segoff = GET_BDA(user_wait_complete_flag);
         u16 ptr_seg = segoff.seg;
@@ -568,7 +571,7 @@ handle_70()
         clear_usertimer();
     } else {
         // Continue waiting.
-        time -= 977;
+        time -= USEC_PER_RTC;
         SET_BDA(user_wait_timeout, time);
     }
 
