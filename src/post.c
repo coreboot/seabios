@@ -19,6 +19,7 @@
 #include "bregs.h" // struct bregs
 #include "mptable.h" // mptable_init
 #include "boot.h" // IPL
+#include "usb.h" // usb_setup
 
 void
 __set_irq(int vector, void *loc)
@@ -177,6 +178,7 @@ post()
     pnp_setup();
     vga_setup();
 
+    usb_setup();
     kbd_setup();
     lpt_setup();
     serial_setup();

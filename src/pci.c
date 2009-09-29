@@ -178,3 +178,11 @@ pci_find_class(u16 classid)
     }
     return -1;
 }
+
+void
+pci_set_bus_master(u16 bdf)
+{
+    u16 val = pci_config_readw(bdf, PCI_COMMAND);
+    val |= PCI_COMMAND_MASTER;
+    pci_config_writew(bdf, PCI_COMMAND, val);
+}

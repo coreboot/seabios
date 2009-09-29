@@ -622,7 +622,7 @@ __process_key(u8 scancode)
     SET_BDA(kbd_flag2, flags2);
 }
 
-static void
+void
 process_key(u8 key)
 {
     if (CONFIG_KBD_CALL_INT15_4F) {

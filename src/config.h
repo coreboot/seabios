@@ -28,6 +28,12 @@
 #define CONFIG_DRIVES 1
 // Support floppy drive access
 #define CONFIG_FLOPPY 1
+// Support USB devices
+#define CONFIG_USB 1
+// Support USB UHCI controllers
+#define CONFIG_USB_UHCI 1
+// Support USB keyboards
+#define CONFIG_USB_KEYBOARD 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
 // Use 32bit PIO accesses on ATA (minor optimization on PCI transfers)

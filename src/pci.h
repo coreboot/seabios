@@ -29,6 +29,7 @@ u8 pci_config_readb(u16 bdf, u32 addr);
 int pci_find_vga();
 int pci_find_device(u16 vendid, u16 devid);
 int pci_find_class(u16 classid);
+void pci_set_bus_master(u16 bdf);
 
 int pci_next(int bdf, int *pmax);
 #define foreachpci(BDF, MAX)                    \

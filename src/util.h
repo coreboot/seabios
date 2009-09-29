@@ -173,11 +173,12 @@ void __debug_isr(const char *fname);
     } while (0)
 #define debug_stub(regs)                        \
     __debug_stub((regs), __LINE__, __func__)
-void hexdump(void *d, int len);
+void hexdump(const void *d, int len);
 
 // kbd.c
 void kbd_setup();
 void handle_15c2(struct bregs *regs);
+void process_key(u8 key);
 
 // mouse.c
 void mouse_setup();
@@ -276,6 +277,9 @@ static inline void *malloc_high(u32 size) {
 }
 static inline void *malloc_fseg(u32 size) {
     return zone_malloc(&ZoneFSeg, size, MALLOC_MIN_ALIGN);
+}
+static inline void *malloc_tmphigh(u32 size) {
+    return zone_malloc(&ZoneTmpHigh, size, MALLOC_MIN_ALIGN);
 }
 static inline void *memalign_tmphigh(u32 align, u32 size) {
     return zone_malloc(&ZoneTmpHigh, size, align);

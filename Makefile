@@ -13,7 +13,8 @@ OUT=out/
 # Source files
 SRCBOTH=output.c util.c block.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
         serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
-        pnpbios.c pirtable.c vgahooks.c pmm.c ramdisk.c
+        pnpbios.c pirtable.c vgahooks.c pmm.c ramdisk.c \
+        usb.c usb-uhci.c usb-hid.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c font.c
 SRC32=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
@@ -136,7 +137,7 @@ $(OUT)rom32.o: $(OUT)code32.o $(OUT)romlayout32.lds
 	$(Q)$(LD) -r -T $(OUT)romlayout32.lds $< -o $@
 
 $(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32.o $(OUT)rombios16.lds $(OUT)rombios.lds
-	@echo "  Linking $@ (version \"$(VERSION)\")"
+	@echo "  Linking $@"
 	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32.o -o $(OUT)rom16.reloc.o
 	$(Q)$(STRIP) $(OUT)rom16.reloc.o -o $(OUT)rom16.final.o
 	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o

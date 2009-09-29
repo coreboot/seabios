@@ -296,10 +296,10 @@ printf(const char *fmt, ...)
 }
 
 void
-hexdump(void *d, int len)
+hexdump(const void *d, int len)
 {
     int count=0;
-    while (len) {
+    while (len > 0) {
         if (count % 8 == 0) {
             putc(0, '\n');
             puthex(0, count*4, 8);

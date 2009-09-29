@@ -12,6 +12,7 @@
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
+#include "usb-hid.h" // usb_check_key
 
 // RTC register flags
 #define RTC_A_UIP 0x80
@@ -434,6 +435,8 @@ handle_08()
     }
 
     SET_BDA(timer_counter, counter);
+
+    usb_check_key();
 
     // chain to user timer tick INT #0x1c
     u32 eax=0, flags;
