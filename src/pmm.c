@@ -250,12 +250,14 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
         return NULL;
     u32 olddata = GET_PMMVAR(zone->cur);
     void *data = zone_malloc(zone, size, align);
+#if 0  // XXX - gcc4.3 internal compiler error - disable for now
     if (!data && zone == &ZoneLow) {
         // Try to expand permanent low zone.
         zonelow_expand(size, align);
         olddata = GET_PMMVAR(zone->cur);
         data = zone_malloc(zone, size, align);
     }
+#endif
     if (! data) {
         zone_free(ZONEALLOC, info, oldallocdata);
         return NULL;
