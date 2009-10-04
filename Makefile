@@ -14,7 +14,7 @@ OUT=out/
 SRCBOTH=output.c util.c block.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
         serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c vgahooks.c pmm.c ramdisk.c \
-        usb.c usb-uhci.c usb-hid.c
+        usb.c usb-uhci.c usb-hid.c paravirt.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c font.c
 SRC32=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \

@@ -12,6 +12,7 @@
 #include "bregs.h" // struct bregs
 #include "boot.h" // struct ipl_s
 #include "cmos.h" // inb_cmos
+#include "paravirt.h"
 
 struct ipl_s IPL;
 
@@ -206,7 +207,7 @@ menu_show_cbfs(struct ipl_entry_s *ie, int menupos)
 static void
 interactive_bootmenu()
 {
-    if (! CONFIG_BOOTMENU)
+    if (! CONFIG_BOOTMENU || ! qemu_cfg_show_boot_menu())
         return;
 
     while (get_keystroke(0) >= 0)

@@ -20,6 +20,7 @@
 #include "mptable.h" // mptable_init
 #include "boot.h" // IPL
 #include "usb.h" // usb_setup
+#include "paravirt.h"
 
 void
 __set_irq(int vector, void *loc)
@@ -183,6 +184,8 @@ post()
     lpt_setup();
     serial_setup();
     mouse_setup();
+
+    qemu_cfg_port_probe();
 
     init_bios_tables();
 
