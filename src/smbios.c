@@ -366,7 +366,7 @@ smbios_type_4_init(void *start, unsigned int cpu_number)
 
 /* Type 16 -- Physical Memory Array */
 static void *
-smbios_type_16_init(void *start)
+smbios_type_16_init(void *start, u32 memory_size_mb, int nr_mem_devs)
 {
     struct smbios_type_16 *p = (struct smbios_type_16*)start;
 
@@ -377,10 +377,9 @@ smbios_type_16_init(void *start)
     p->location = 0x01; /* other */
     p->use = 0x03; /* system memory */
     p->error_correction = 0x01; /* other */
-    u64 memsize = RamSize + RamSizeOver4G;
-    p->maximum_capacity = memsize / 1024;
+    p->maximum_capacity = memory_size_mb * 1024;
     p->memory_error_information_handle = 0xfffe; /* none provided */
-    p->number_of_memory_devices = 1;
+    p->number_of_memory_devices = nr_mem_devs;
 
     start += sizeof(struct smbios_type_16);
     *((u16 *)start) = 0;
@@ -390,21 +389,19 @@ smbios_type_16_init(void *start)
 
 /* Type 17 -- Memory Device */
 static void *
-smbios_type_17_init(void *start)
+smbios_type_17_init(void *start, u32 memory_size_mb, int instance)
 {
     struct smbios_type_17 *p = (struct smbios_type_17 *)start;
 
     p->header.type = 17;
     p->header.length = sizeof(struct smbios_type_17);
-    p->header.handle = 0x1100;
+    p->header.handle = 0x1100 + instance;
 
     p->physical_memory_array_handle = 0x1000;
     p->total_width = 64;
     p->data_width = 64;
-    /* truncate memory_size_mb to 16 bits and clear most significant
-       bit [indicates size in MB] */
-    u64 memsize = RamSize + RamSizeOver4G;
-    p->size = (u16) (memsize / (1024*1024)) & 0x7fff;
+/* TODO: should assert in case something is wrong   ASSERT((memory_size_mb & ~0x7fff) == 0); */
+    p->size = memory_size_mb;
     p->form_factor = 0x09; /* DIMM */
     p->device_set = 0;
     p->device_locator_str = 1;
@@ -413,7 +410,8 @@ smbios_type_17_init(void *start)
     p->type_detail = 0;
 
     start += sizeof(struct smbios_type_17);
-    memcpy((char *)start, "DIMM 1", 7);
+    memcpy((char *)start, "DIMM 0", 7);
+    ((char*)start)[5] += instance;
     start += 7;
     *((u8 *)start) = 0;
 
@@ -422,21 +420,16 @@ smbios_type_17_init(void *start)
 
 /* Type 19 -- Memory Array Mapped Address */
 static void *
-smbios_type_19_init(void *start)
+smbios_type_19_init(void *start, u32 memory_size_mb, int instance)
 {
     struct smbios_type_19 *p = (struct smbios_type_19 *)start;
 
     p->header.type = 19;
     p->header.length = sizeof(struct smbios_type_19);
-    p->header.handle = 0x1300;
+    p->header.handle = 0x1300 + instance;
 
-    p->starting_address = 0;
-    u64 memsize = RamSizeOver4G;
-    if (memsize)
-        memsize += 0x100000000ull;
-    else
-        memsize = RamSize;
-    p->ending_address = memsize / 1024 - 1;
+    p->starting_address = instance << 24;
+    p->ending_address = p->starting_address + (memory_size_mb << 10) - 1;
     p->memory_array_handle = 0x1000;
     p->partition_width = 1;
 
@@ -448,23 +441,18 @@ smbios_type_19_init(void *start)
 
 /* Type 20 -- Memory Device Mapped Address */
 static void *
-smbios_type_20_init(void *start)
+smbios_type_20_init(void *start, u32 memory_size_mb, int instance)
 {
     struct smbios_type_20 *p = (struct smbios_type_20 *)start;
 
     p->header.type = 20;
     p->header.length = sizeof(struct smbios_type_20);
-    p->header.handle = 0x1400;
+    p->header.handle = 0x1400 + instance;
 
-    p->starting_address = 0;
-    u64 memsize = RamSizeOver4G;
-    if (memsize)
-        memsize += 0x100000000ull;
-    else
-        memsize = RamSize;
-    p->ending_address = memsize / 1024 - 1;
-    p->memory_device_handle = 0x1100;
-    p->memory_array_mapped_address_handle = 0x1300;
+    p->starting_address = instance << 24;
+    p->ending_address = p->starting_address + (memory_size_mb << 10) - 1;
+    p->memory_device_handle = 0x1100 + instance;
+    p->memory_array_mapped_address_handle = 0x1300 + instance;
     p->partition_row_position = 1;
     p->interleave_position = 0;
     p->interleaved_data_depth = 0;
@@ -540,10 +528,22 @@ smbios_init(void)
     int cpu_num, smp_cpus = CountCPUs;
     for (cpu_num = 1; cpu_num <= smp_cpus; cpu_num++)
         add_struct(smbios_type_4_init(p, cpu_num));
-    add_struct(smbios_type_16_init(p));
-    add_struct(smbios_type_17_init(p));
-    add_struct(smbios_type_19_init(p));
-    add_struct(smbios_type_20_init(p));
+    u64 memsize = RamSizeOver4G;
+    if (memsize)
+        memsize += 0x100000000ull;
+    else
+        memsize = RamSize;
+    memsize = memsize / (1024 * 1024);
+    int nr_mem_devs = (memsize + 0x3fff) >> 14;
+    add_struct(smbios_type_16_init(p, memsize, nr_mem_devs));
+    int i;
+    for (i = 0; i < nr_mem_devs; i++) {
+        u32 dev_memsize = ((i == (nr_mem_devs - 1))
+                           ? (((memsize-1) & 0x3fff)+1) : 0x4000);
+        add_struct(smbios_type_17_init(p, dev_memsize, i));
+        add_struct(smbios_type_19_init(p, dev_memsize, i));
+        add_struct(smbios_type_20_init(p, dev_memsize, i));
+    }
     add_struct(smbios_type_32_init(p));
     add_struct(smbios_type_127_init(p));
 
