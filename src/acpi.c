@@ -43,7 +43,7 @@ struct acpi_table_header         /* ACPI common table header */
 struct rsdt_descriptor_rev1
 {
     ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
-    u32 table_offset_entry[3];  /* Array of pointers to other */
+    u32 table_offset_entry[0];  /* Array of pointers to other */
     /* ACPI tables */
 } PACKED;
 
@@ -224,8 +224,7 @@ static inline u32 cpu_to_le32(u32 x)
 }
 
 static void
-build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev
-             , struct rsdt_descriptor_rev1 *rsdt)
+build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 {
     h->signature = sig;
     h->length = cpu_to_le32(len);
@@ -237,21 +236,10 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev
     h->oem_revision = cpu_to_le32(1);
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum -= checksum(h, len);
-
-    // Add to rsdt table
-    if (!rsdt)
-        return;
-    if (rsdt->length >= sizeof(*rsdt)) {
-        dprintf(1, "No more room for rsdt entry!\n");
-        return;
-    }
-    u32 *p = (void*)rsdt + rsdt->length;
-    *p = (u32)h;
-    rsdt->length += sizeof(*p);
 }
 
-static void
-build_fadt(struct rsdt_descriptor_rev1 *rsdt, int bdf)
+static void*
+build_fadt(int bdf)
 {
     struct fadt_descriptor_rev1 *fadt = malloc_high(sizeof(*fadt));
     struct facs_descriptor_rev1 *facs = memalign_high(64, sizeof(*facs));
@@ -259,7 +247,7 @@ build_fadt(struct rsdt_descriptor_rev1 *rsdt, int bdf)
 
     if (!fadt || !facs || !dsdt) {
         dprintf(1, "Not enough memory for fadt!\n");
-        return;
+        return NULL;
     }
 
     /* FACS */
@@ -292,11 +280,13 @@ build_fadt(struct rsdt_descriptor_rev1 *rsdt, int bdf)
     /* WBINVD + PROC_C1 + PWR_BUTTON + SLP_BUTTON + FIX_RTC */
     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6));
 
-    build_header((void*)fadt, FACP_SIGNATURE, sizeof(*fadt), 1, rsdt);
+    build_header((void*)fadt, FACP_SIGNATURE, sizeof(*fadt), 1);
+
+    return fadt;
 }
 
-static void
-build_madt(struct rsdt_descriptor_rev1 *rsdt)
+static void*
+build_madt(void)
 {
     int smp_cpus = CountCPUs;
     int madt_size = (sizeof(struct multiple_apic_table)
@@ -306,7 +296,7 @@ build_madt(struct rsdt_descriptor_rev1 *rsdt)
     struct multiple_apic_table *madt = malloc_high(madt_size);
     if (!madt) {
         dprintf(1, "Not enough memory for madt!\n");
-        return;
+        return NULL;
     }
     memset(madt, 0, madt_size);
     madt->local_apic_address = cpu_to_le32(BUILD_APIC_ADDR);
@@ -351,13 +341,13 @@ build_madt(struct rsdt_descriptor_rev1 *rsdt)
         intsrcovr++;
     }
 
-    build_header((void*)madt, APIC_SIGNATURE, (void*)intsrcovr - (void*)madt
-                 , 1, rsdt);
+    build_header((void*)madt, APIC_SIGNATURE, (void*)intsrcovr - (void*)madt, 1);
+    return madt;
 }
 
 #define SSDT_SIGNATURE 0x54445353 // SSDT
-static void
-build_ssdt(struct rsdt_descriptor_rev1 *rsdt)
+static void*
+build_ssdt(void)
 {
     int smp_cpus = CountCPUs;
     int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
@@ -369,7 +359,7 @@ build_ssdt(struct rsdt_descriptor_rev1 *rsdt)
     u8 *ssdt = malloc_high(length);
     if (! ssdt) {
         dprintf(1, "No space for ssdt!\n");
-        return;
+        return NULL;
     }
 
     u8 *ssdt_ptr = ssdt;
@@ -410,11 +400,14 @@ build_ssdt(struct rsdt_descriptor_rev1 *rsdt)
         *(ssdt_ptr++) = 6;    // Processor block length
     }
 
-    build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1, rsdt);
+    build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
+
+    return ssdt;
 }
 
 struct rsdp_descriptor *RsdpAddr;
 
+#define MAX_ACPI_TABLES 20
 void
 acpi_bios_init(void)
 {
@@ -432,20 +425,37 @@ acpi_bios_init(void)
 
     // Create initial rsdt table
     struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
-    struct rsdt_descriptor_rev1 *rsdt = malloc_high(sizeof(*rsdt));
-    if (!rsdp || !rsdt) {
-        dprintf(1, "Not enough memory for acpi rsdp/rsdt table!\n");
+    if (!rsdp) {
+        dprintf(1, "Not enough memory for acpi rsdp table!\n");
         return;
     }
-    memset(rsdt, 0, sizeof(*rsdt));
-    rsdt->length = offsetof(struct rsdt_descriptor_rev1, table_offset_entry[0]);
+
+    u32 tables[MAX_ACPI_TABLES], tbl_idx = 0;
+
+#define ACPI_INIT_TABLE(X)                                   \
+    do {                                                     \
+        tables[tbl_idx] = (u32)(X);                          \
+        if (tables[tbl_idx])                                 \
+            tbl_idx++;                                       \
+    } while(0)
 
     // Add tables
-    build_fadt(rsdt, bdf);
-    build_ssdt(rsdt);
-    build_madt(rsdt);
+    ACPI_INIT_TABLE(build_fadt(bdf));
+    ACPI_INIT_TABLE(build_ssdt());
+    ACPI_INIT_TABLE(build_madt());
 
-    build_header((void*)rsdt, RSDT_SIGNATURE, rsdt->length, 1, NULL);
+    struct rsdt_descriptor_rev1 *rsdt;
+    size_t rsdt_len = sizeof(*rsdt) + sizeof(u32) * tbl_idx;
+    rsdt = malloc_high(rsdt_len);
+
+    if (!rsdt) {
+        dprintf(1, "Not enough memory for acpi rsdt table!\n");
+        return;
+    }
+    memset(rsdt, 0, rsdt_len);
+    memcpy(rsdt->table_offset_entry, tables, sizeof(u32) * tbl_idx);
+
+    build_header((void*)rsdt, RSDT_SIGNATURE, rsdt_len, 1);
 
     // Build rsdp pointer table
     memset(rsdp, 0, sizeof(*rsdp));
