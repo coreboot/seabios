@@ -12,6 +12,15 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 
+struct putcinfo {
+    void (*func)(struct putcinfo *info, char c);
+};
+
+
+/****************************************************************
+ * Debug output
+ ****************************************************************/
+
 #define DEBUG_PORT PORT_SERIAL1
 #define DEBUG_TIMEOUT 100000
 
@@ -61,13 +70,31 @@ debug_serial_flush()
             return;
 }
 
+// Write a character to debug port(s).
+static void
+putc_debug(struct putcinfo *action, char c)
+{
+    if (! CONFIG_DEBUG_LEVEL)
+        return;
+    if (! CONFIG_COREBOOT)
+        // Send character to debug port.
+        outb(c, PORT_BIOS_DEBUG);
+    if (c == '\n')
+        debug_serial('\r');
+    debug_serial(c);
+}
+
+static struct putcinfo debuginfo = { putc_debug };
+
+
+/****************************************************************
+ * Screen writing
+ ****************************************************************/
+
 // Show a character on the screen.
 static void
-screenc(u8 c)
+screenc(char c)
 {
-    if (MODE16)
-        // printf is only used in 32bit code.
-        return;
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
@@ -76,31 +103,41 @@ screenc(u8 c)
     call16_int(0x10, &br);
 }
 
+// Handle a character from a printf request.
+static void
+putc_screen(struct putcinfo *action, char c)
+{
+    if (CONFIG_SCREEN_AND_DEBUG)
+        putc_debug(action, c);
+    if (c == '\n')
+        screenc('\r');
+    screenc(c);
+}
+
+static struct putcinfo screeninfo = { putc_screen };
+
+
+/****************************************************************
+ * Xprintf code
+ ****************************************************************/
+
 // Output a character.
 static void
-putc(u16 action, char c)
+putc(struct putcinfo *action, char c)
 {
-    if (CONFIG_DEBUG_LEVEL && (CONFIG_SCREEN_AND_DEBUG || !action)) {
-        if (! CONFIG_COREBOOT)
-            // Send character to debug port.
-            outb(c, PORT_BIOS_DEBUG);
-        // Send character to serial port.
-        if (c == '\n')
-            debug_serial('\r');
-        debug_serial(c);
+    if (MODE16) {
+        // Only debugging output supported in 16bit mode.
+        putc_debug(action, c);
+        return;
     }
 
-    if (action) {
-        // Send character to video screen.
-        if (c == '\n')
-            screenc('\r');
-        screenc(c);
-    }
+    void (*func)(struct putcinfo *info, char c) = GET_GLOBAL(action->func);
+    func(action, c);
 }
 
 // Ouptut a string.
 static void
-puts(u16 action, const char *s)
+puts(struct putcinfo *action, const char *s)
 {
     for (; *s; s++)
         putc(action, *s);
@@ -108,7 +145,7 @@ puts(u16 action, const char *s)
 
 // Output a string that is in the CS segment.
 static void
-puts_cs(u16 action, const char *s)
+puts_cs(struct putcinfo *action, const char *s)
 {
     char *vs = (char*)s;
     for (;; vs++) {
@@ -121,7 +158,7 @@ puts_cs(u16 action, const char *s)
 
 // Output an unsigned integer.
 static void
-putuint(u16 action, u32 val)
+putuint(struct putcinfo *action, u32 val)
 {
     char buf[12];
     char *d = &buf[sizeof(buf) - 1];
@@ -138,7 +175,7 @@ putuint(u16 action, u32 val)
 
 // Output a single digit hex character.
 static inline void
-putsinglehex(u16 action, u32 val)
+putsinglehex(struct putcinfo *action, u32 val)
 {
     if (val <= 9)
         val = '0' + val;
@@ -149,7 +186,7 @@ putsinglehex(u16 action, u32 val)
 
 // Output an integer in hexadecimal.
 static void
-puthex(u16 action, u32 val, int width)
+puthex(struct putcinfo *action, u32 val, int width)
 {
     if (!width) {
         u32 tmp = val;
@@ -185,7 +222,7 @@ isdigit(u8 c)
 }
 
 static void
-bvprintf(u16 action, const char *fmt, va_list args)
+bvprintf(struct putcinfo *action, const char *fmt, va_list args)
 {
     const char *s = fmt;
     for (;; s++) {
@@ -259,7 +296,6 @@ bvprintf(u16 action, const char *fmt, va_list args)
         }
         s = n;
     }
-    debug_serial_flush();
 }
 
 void
@@ -268,8 +304,9 @@ panic(const char *fmt, ...)
     if (CONFIG_DEBUG_LEVEL) {
         va_list args;
         va_start(args, fmt);
-        bvprintf(0, fmt, args);
+        bvprintf(&debuginfo, fmt, args);
         va_end(args);
+        debug_serial_flush();
     }
 
     // XXX - use PANIC PORT.
@@ -283,18 +320,64 @@ __dprintf(const char *fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
-    bvprintf(0, fmt, args);
+    bvprintf(&debuginfo, fmt, args);
     va_end(args);
+    debug_serial_flush();
 }
 
 void
 printf(const char *fmt, ...)
 {
+    ASSERT32();
     va_list args;
     va_start(args, fmt);
-    bvprintf(1, fmt, args);
+    bvprintf(&screeninfo, fmt, args);
     va_end(args);
+    if (CONFIG_SCREEN_AND_DEBUG)
+        debug_serial_flush();
 }
+
+
+/****************************************************************
+ * snprintf
+ ****************************************************************/
+
+struct snprintfinfo {
+    struct putcinfo info;
+    char *str, *end;
+};
+
+static void
+putc_str(struct putcinfo *info, char c)
+{
+    struct snprintfinfo *sinfo = container_of(info, struct snprintfinfo, info);
+    if (sinfo->str >= sinfo->end)
+        return;
+    *sinfo->str = c;
+    sinfo->str++;
+}
+
+void
+snprintf(char *str, size_t size, const char *fmt, ...)
+{
+    ASSERT32();
+    if (!size)
+        return;
+    struct snprintfinfo sinfo = { { putc_str }, str, str + size };
+    va_list args;
+    va_start(args, fmt);
+    bvprintf(&sinfo.info, fmt, args);
+    va_end(args);
+    char *end = sinfo.str;
+    if (end >= sinfo.end)
+        end--;
+    *end = '\0';
+}
+
+
+/****************************************************************
+ * Misc helpers
+ ****************************************************************/
 
 void
 hexdump(const void *d, int len)
@@ -302,18 +385,18 @@ hexdump(const void *d, int len)
     int count=0;
     while (len > 0) {
         if (count % 8 == 0) {
-            putc(0, '\n');
-            puthex(0, count*4, 8);
-            putc(0, ':');
+            putc(&debuginfo, '\n');
+            puthex(&debuginfo, count*4, 8);
+            putc(&debuginfo, ':');
         } else {
-            putc(0, ' ');
+            putc(&debuginfo, ' ');
         }
-        puthex(0, *(u32*)d, 8);
+        puthex(&debuginfo, *(u32*)d, 8);
         count++;
         len-=4;
         d+=4;
     }
-    putc(0, '\n');
+    putc(&debuginfo, '\n');
     debug_serial_flush();
 }
 
@@ -336,8 +419,8 @@ dump_regs(struct bregs *regs)
 void
 __debug_isr(const char *fname)
 {
-    puts_cs(0, fname);
-    putc(0, '\n');
+    puts_cs(&debuginfo, fname);
+    putc(&debuginfo, '\n');
     debug_serial_flush();
 }
 

@@ -526,23 +526,6 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
     return size;
 }
 
-static char
-getHex(u8 x)
-{
-    if (x <= 9)
-        return '0' + x;
-    return 'a' + x - 10;
-}
-
-static u32
-hexify4(u16 x)
-{
-    return ((getHex(x&0xf) << 24)
-            | (getHex((x>>4)&0xf) << 16)
-            | (getHex((x>>8)&0xf) << 8)
-            | (getHex(x>>12)));
-}
-
 // Find and copy the optionrom for the given vendor/device id.
 int
 cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
@@ -551,14 +534,8 @@ cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
         return -1;
 
     char fname[17];
-    // Ughh - poor man's sprintf of "pci%04x,%04x.rom"
-    *(u32*)fname = 0x20696370; // "pci "
-    *(u32*)&fname[3] = hexify4(vendev);
-    fname[7] = ',';
-    *(u32*)&fname[8] = hexify4(vendev >> 16);
-    *(u32*)&fname[12] = 0x6d6f722e; // ".rom"
-    fname[16] = '\0';
-
+    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
+             , (u16)vendev, vendev >> 16);
     return cbfs_copyfile(cbfs_finddatafile(fname), dst, maxlen);
 }
 

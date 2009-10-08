@@ -156,6 +156,8 @@ void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void __dprintf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
+void snprintf(char *str, size_t size, const char *fmt, ...)
+    __attribute__ ((format (printf, 3, 4)));
 #define dprintf(lvl, fmt, args...) do {                         \
         if (CONFIG_DEBUG_LEVEL && (lvl) <= CONFIG_DEBUG_LEVEL)  \
             __dprintf((fmt) , ##args );                         \
@@ -281,11 +283,14 @@ static inline void *malloc_fseg(u32 size) {
 static inline void *malloc_tmphigh(u32 size) {
     return zone_malloc(&ZoneTmpHigh, size, MALLOC_MIN_ALIGN);
 }
-static inline void *memalign_tmphigh(u32 align, u32 size) {
-    return zone_malloc(&ZoneTmpHigh, size, align);
+static inline void *memalign_low(u32 align, u32 size) {
+    return zone_malloc_low(size, align);
 }
 static inline void *memalign_high(u32 align, u32 size) {
     return zone_malloc(&ZoneHigh, size, align);
+}
+static inline void *memalign_tmphigh(u32 align, u32 size) {
+    return zone_malloc(&ZoneTmpHigh, size, align);
 }
 
 // mtrr.c
