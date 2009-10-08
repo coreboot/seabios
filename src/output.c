@@ -84,7 +84,11 @@ putc_debug(struct putcinfo *action, char c)
     debug_serial(c);
 }
 
-struct putcinfo debuginfo VAR16VISIBLE = { putc_debug };
+#if MODE16
+static struct putcinfo debuginfo VAR16 = { putc_debug };
+#else
+static struct putcinfo debuginfo = { putc_debug };
+#endif
 
 
 /****************************************************************
