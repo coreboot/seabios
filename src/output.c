@@ -110,8 +110,9 @@ puts(u16 action, const char *s)
 static void
 puts_cs(u16 action, const char *s)
 {
-    for (;; s++) {
-        char c = GET_GLOBAL(*(u8*)s);
+    char *vs = (char*)s;
+    for (;; vs++) {
+        char c = GET_GLOBAL(*vs);
         if (!c)
             break;
         putc(action, c);
