@@ -341,7 +341,7 @@ DefinitionBlock (
                 Name(_UID, 1)
                 Name(_PRS, ResourceTemplate(){
                     Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 9, 10, 11 }
+                        { 5, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
                 {
@@ -386,7 +386,7 @@ DefinitionBlock (
                 Name(_UID, 2)
                 Name(_PRS, ResourceTemplate(){
                     Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 9, 10, 11 }
+                        { 5, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
                 {
@@ -431,7 +431,7 @@ DefinitionBlock (
                 Name(_UID, 3)
                 Name(_PRS, ResourceTemplate(){
                     Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 9, 10, 11 }
+                        { 5, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
                 {
@@ -476,7 +476,7 @@ DefinitionBlock (
                 Name(_UID, 4)
                 Name(_PRS, ResourceTemplate(){
                     Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 9, 10, 11 }
+                        { 5, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
                 {
