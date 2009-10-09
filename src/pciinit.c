@@ -19,11 +19,7 @@ static u32 pci_bios_mem_addr;
 static u32 pci_bios_bigmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
 static u8 pci_irqs[4] = {
-#if CONFIG_KVM
     10, 10, 11, 11
-#else
-    11, 9, 11, 9
-#endif
 };
 
 static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
@@ -102,7 +98,7 @@ static void pci_bios_init_device(u16 bdf)
     device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
     dprintf(1, "PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_devfn(bdf), vendor_id, device_id);
-    switch(class) {
+    switch (class) {
     case PCI_CLASS_STORAGE_IDE:
         if (vendor_id == PCI_VENDOR_ID_INTEL
             && (device_id == PCI_DEVICE_ID_INTEL_82371SB_1
