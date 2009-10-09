@@ -560,8 +560,8 @@ smbios_init(void)
     add_struct(1, p);
     add_struct(3, p);
 
-    int cpu_num, smp_cpus = CountCPUs;
-    for (cpu_num = 1; cpu_num <= smp_cpus; cpu_num++)
+    int cpu_num;
+    for (cpu_num = 1; cpu_num <= MaxCountCPUs; cpu_num++)
         add_struct(4, p, cpu_num);
     u64 memsize = RamSizeOver4G;
     if (memsize)

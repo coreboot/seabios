@@ -18,13 +18,12 @@ mptable_init(void)
 
     dprintf(3, "init MPTable\n");
 
-    int smp_cpus = CountCPUs;
-    if (smp_cpus <= 1)
+    if (MaxCountCPUs <= 1)
         // Building an mptable on uniprocessor machines confuses some OSes.
         return;
 
     int length = (sizeof(struct mptable_config_s)
-                  + sizeof(struct mpt_cpu) * smp_cpus
+                  + sizeof(struct mpt_cpu) * MaxCountCPUs
                   + sizeof(struct mpt_bus)
                   + sizeof(struct mpt_ioapic)
                   + sizeof(struct mpt_intsrc) * 16);
@@ -49,7 +48,7 @@ mptable_init(void)
     config->spec = 4;
     memcpy(config->oemid, CONFIG_CPUNAME8, sizeof(config->oemid));
     memcpy(config->productid, "0.1         ", sizeof(config->productid));
-    config->entrycount = smp_cpus + 2 + 16;
+    config->entrycount = MaxCountCPUs + 2 + 16;
     config->lapic = BUILD_APIC_ADDR;
 
     // CPU definitions.
@@ -57,14 +56,17 @@ mptable_init(void)
     cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
     struct mpt_cpu *cpus = (void*)&config[1];
     int i;
-    for (i = 0; i < smp_cpus; i++) {
+    for (i = 0; i < MaxCountCPUs; i++) {
         struct mpt_cpu *cpu = &cpus[i];
         memset(cpu, 0, sizeof(*cpu));
         cpu->type = MPT_TYPE_CPU;
         cpu->apicid = i;
         cpu->apicver = 0x11;
         /* cpu flags: enabled, bootstrap cpu */
-        cpu->cpuflag = (i == 0 ? 3 : 1);
+        if (i < CountCPUs)
+            cpu->cpuflag = 1 | (i == 0) ? 2 : 0;
+        else
+            cpu->cpuflag = 0;
         if (cpuid_signature) {
             cpu->cpusignature = cpuid_signature;
             cpu->featureflag = cpuid_features;
@@ -75,13 +77,13 @@ mptable_init(void)
     }
 
     /* isa bus */
-    struct mpt_bus *bus = (void*)&cpus[smp_cpus];
+    struct mpt_bus *bus = (void*)&cpus[MaxCountCPUs];
     memset(bus, 0, sizeof(*bus));
     bus->type = MPT_TYPE_BUS;
     memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
 
     /* ioapic */
-    u8 ioapic_id = smp_cpus;
+    u8 ioapic_id = CountCPUs;
     struct mpt_ioapic *ioapic = (void*)&bus[1];
     memset(ioapic, 0, sizeof(*ioapic));
     ioapic->type = MPT_TYPE_IOAPIC;

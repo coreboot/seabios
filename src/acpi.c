@@ -347,9 +347,8 @@ build_fadt(int bdf)
 static void*
 build_madt(void)
 {
-    int smp_cpus = CountCPUs;
     int madt_size = (sizeof(struct multiple_apic_table)
-                     + sizeof(struct madt_processor_apic) * smp_cpus
+                     + sizeof(struct madt_processor_apic) * MaxCountCPUs
                      + sizeof(struct madt_io_apic)
                      + sizeof(struct madt_intsrcovr) * 16);
     struct multiple_apic_table *madt = malloc_high(madt_size);
@@ -362,18 +361,21 @@ build_madt(void)
     madt->flags = cpu_to_le32(1);
     struct madt_processor_apic *apic = (void*)&madt[1];
     int i;
-    for (i=0; i<smp_cpus; i++) {
+    for (i=0; i<MaxCountCPUs; i++) {
         apic->type = APIC_PROCESSOR;
         apic->length = sizeof(*apic);
         apic->processor_id = i;
         apic->local_apic_id = i;
-        apic->flags = cpu_to_le32(1);
+        if (i < CountCPUs)
+            apic->flags = cpu_to_le32(1);
+        else
+            apic->flags = cpu_to_le32(0);
         apic++;
     }
     struct madt_io_apic *io_apic = (void*)apic;
     io_apic->type = APIC_IO;
     io_apic->length = sizeof(*io_apic);
-    io_apic->io_apic_id = smp_cpus;
+    io_apic->io_apic_id = CountCPUs;
     io_apic->address = cpu_to_le32(BUILD_IOAPIC_ADDR);
     io_apic->interrupt = cpu_to_le32(0);
 
@@ -408,8 +410,7 @@ build_madt(void)
 static void*
 build_ssdt(void)
 {
-    int smp_cpus = CountCPUs;
-    int acpi_cpus = smp_cpus > 0xff ? 0xff : smp_cpus;
+    int acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
     // calculate the length of processor block and scope block
     // excluding PkgLength
     int cpu_length = 13 * acpi_cpus + 4;
@@ -509,17 +510,17 @@ build_srat(void)
     if (nb_numa_nodes == 0)
         return NULL;
 
-    u64 *numadata = malloc_tmphigh(sizeof(u64) * (CountCPUs + nb_numa_nodes));
+    u64 *numadata = malloc_tmphigh(sizeof(u64) * (MaxCountCPUs + nb_numa_nodes));
     if (!numadata) {
         dprintf(1, "Not enough memory for read numa data from VM!\n");
         return NULL;
     }
 
-    qemu_cfg_get_numa_data(numadata, CountCPUs + nb_numa_nodes);
+    qemu_cfg_get_numa_data(numadata, MaxCountCPUs + nb_numa_nodes);
 
     struct system_resource_affinity_table *srat;
     int srat_size = sizeof(*srat) +
-        sizeof(struct srat_processor_affinity) * CountCPUs +
+        sizeof(struct srat_processor_affinity) * MaxCountCPUs +
         sizeof(struct srat_memory_affinity) * (nb_numa_nodes + 2);
 
     srat = malloc_high(srat_size);
@@ -534,7 +535,7 @@ build_srat(void)
     int i;
     u64 curnode;
 
-    for (i = 0; i < CountCPUs; ++i) {
+    for (i = 0; i < MaxCountCPUs; ++i) {
         core->type = SRAT_PROCESSOR;
         core->length = sizeof(*core);
         core->local_apic_id = i;
