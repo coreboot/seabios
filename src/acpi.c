@@ -207,6 +207,30 @@ struct madt_intsrcovr {
     u16 flags;
 } PACKED;
 
+/*
+ * ACPI 2.0 Generic Address Space definition.
+ */
+struct acpi_20_generic_address {
+    u8  address_space_id;
+    u8  register_bit_width;
+    u8  register_bit_offset;
+    u8  reserved;
+    u64 address;
+} PACKED;
+
+/*
+ * HPET Description Table
+ */
+struct acpi_20_hpet {
+    ACPI_TABLE_HEADER_DEF                    /* ACPI common table header */
+    u32           timer_block_id;
+    struct acpi_20_generic_address addr;
+    u8            hpet_number;
+    u16           min_tick;
+    u8            page_protect;
+} PACKED;
+#define ACPI_HPET_ADDRESS 0xFED00000UL
+
 #include "acpi-dsdt.hex"
 
 static inline u16 cpu_to_le16(u16 x)
@@ -403,6 +427,27 @@ build_ssdt(void)
     return ssdt;
 }
 
+#define HPET_SIGNATURE 0x54455048 //HPET
+static void*
+build_hpet(void)
+{
+    struct acpi_20_hpet *hpet = malloc_high(sizeof(*hpet));
+    if (!hpet) {
+        dprintf(1, "Not enough memory for hpet!\n");
+        return NULL;
+    }
+
+    memset(hpet, 0, sizeof(*hpet));
+    /* Note timer_block_id value must be kept in sync with value advertised by
+     * emulated hpet
+     */
+    hpet->timer_block_id = cpu_to_le32(0x8086a201);
+    hpet->addr.address = cpu_to_le32(ACPI_HPET_ADDRESS);
+    build_header((void*)hpet, HPET_SIGNATURE, sizeof(*hpet), 1);
+
+    return hpet;
+}
+
 struct rsdp_descriptor *RsdpAddr;
 
 #define MAX_ACPI_TABLES 20
@@ -441,6 +486,7 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_fadt(bdf));
     ACPI_INIT_TABLE(build_ssdt());
     ACPI_INIT_TABLE(build_madt());
+    ACPI_INIT_TABLE(build_hpet());
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 
