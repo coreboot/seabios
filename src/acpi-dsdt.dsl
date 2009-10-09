@@ -340,7 +340,7 @@ DefinitionBlock (
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 1)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveLow, Shared)
+                    IRQ (Level, ActiveHigh, Shared)
                         {3,4,5,6,7,9,10,11,12}
                 })
                 Method (_STA, 0, NotSerialized)
@@ -360,7 +360,7 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveLow, Shared)
+                        IRQ (Level, ActiveHigh, Shared)
                             {1}
                     })
                     CreateWordField (PRR0, 0x01, TMP)
@@ -387,7 +387,7 @@ DefinitionBlock (
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 2)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveLow, Shared)
+                    IRQ (Level, ActiveHigh, Shared)
                         {3,4,5,6,7,9,10,11,12}
                 })
                 Method (_STA, 0, NotSerialized)
@@ -407,7 +407,7 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveLow, Shared)
+                        IRQ (Level, ActiveHigh, Shared)
                             {1}
                     })
                     CreateWordField (PRR0, 0x01, TMP)
@@ -434,7 +434,7 @@ DefinitionBlock (
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 3)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveLow, Shared)
+                    IRQ (Level, ActiveHigh, Shared)
                         {3,4,5,6,7,9,10,11,12}
                 })
                 Method (_STA, 0, NotSerialized)
@@ -454,7 +454,7 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveLow, Shared)
+                        IRQ (Level, ActiveHigh, Shared)
                             {1}
                     })
                     CreateWordField (PRR0, 0x01, TMP)
@@ -481,7 +481,7 @@ DefinitionBlock (
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 4)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveLow, Shared)
+                    IRQ (Level, ActiveHigh, Shared)
                         {3,4,5,6,7,9,10,11,12}
                 })
                 Method (_STA, 0, NotSerialized)
@@ -501,7 +501,7 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveLow, Shared)
+                        IRQ (Level, ActiveHigh, Shared)
                             {1}
                     })
                     CreateWordField (PRR0, 0x01, TMP)
