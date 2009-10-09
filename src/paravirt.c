@@ -281,3 +281,15 @@ void qemu_cfg_get_numa_data(u64 *data, int n)
     for (i = 0; i < n; i++)
         qemu_cfg_read((u8*)(data + i), sizeof(u64));
 }
+
+u16 qemu_cfg_get_max_cpus(void)
+{
+    u16 cnt;
+
+    if (!qemu_cfg_present)
+        return 0;
+
+    qemu_cfg_read_entry(&cnt, QEMU_CFG_MAX_CPUS, sizeof(cnt));
+
+    return cnt;
+}

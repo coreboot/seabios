@@ -9,6 +9,7 @@
 #include "config.h" // CONFIG_*
 #include "cmos.h" // CMOS_BIOS_SMP_COUNT
 #include "farptr.h" // ASSERT32
+#include "paravirt.h"
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
@@ -61,6 +62,7 @@ wrmsr_smp(u32 index, u64 val)
 }
 
 u32 CountCPUs VAR16VISIBLE;
+u32 MaxCountCPUs VAR16VISIBLE;
 extern void smp_ap_boot_code();
 ASM16(
     "  .global smp_ap_boot_code\n"
@@ -134,7 +136,12 @@ smp_probe(void)
     // Restore memory.
     *(u64*)BUILD_AP_BOOT_ADDR = old;
 
-    dprintf(1, "Found %d cpu(s)\n", readl(&CountCPUs));
+    MaxCountCPUs = qemu_cfg_get_max_cpus();
+    if (!MaxCountCPUs || MaxCountCPUs < CountCPUs)
+        MaxCountCPUs = CountCPUs;
+
+    dprintf(1, "Found %d cpu(s) max supported %d cpu(s)\n", readl(&CountCPUs),
+        MaxCountCPUs);
 }
 
 // Reset variables to zero
