@@ -340,7 +340,7 @@ DefinitionBlock (
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 1)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveHigh, Shared)
+                    Interrupt (, Level, ActiveHigh, Shared)
                         { 5, 9, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
@@ -360,14 +360,14 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveHigh, Shared)
+                        Interrupt (, Level, ActiveHigh, Shared)
                             {1}
                     })
-                    CreateWordField (PRR0, 0x01, TMP)
+                    CreateDWordField (PRR0, 0x05, TMP)
                     Store (PRQ0, Local0)
                     If (LLess (Local0, 0x80))
                     {
-                        ShiftLeft (One, Local0, TMP)
+                        Store (Local0, TMP)
                     }
                     Else
                     {
@@ -377,17 +377,15 @@ DefinitionBlock (
                 }
                 Method (_SRS, 1, NotSerialized)
                 {
-                    CreateWordField (Arg0, 0x01, TMP)
-                    FindSetRightBit (TMP, Local0)
-                    Decrement (Local0)
-                    Store (Local0, PRQ0)
+                    CreateDWordField (Arg0, 0x05, TMP)
+                    Store (TMP, PRQ0)
                 }
         }
         Device(LNKB){
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 2)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveHigh, Shared)
+                    Interrupt (, Level, ActiveHigh, Shared)
                         { 5, 9, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
@@ -407,14 +405,14 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveHigh, Shared)
+                        Interrupt (, Level, ActiveHigh, Shared)
                             {1}
                     })
-                    CreateWordField (PRR0, 0x01, TMP)
+                    CreateDWordField (PRR0, 0x05, TMP)
                     Store (PRQ1, Local0)
                     If (LLess (Local0, 0x80))
                     {
-                        ShiftLeft (One, Local0, TMP)
+                        Store (Local0, TMP)
                     }
                     Else
                     {
@@ -424,17 +422,15 @@ DefinitionBlock (
                 }
                 Method (_SRS, 1, NotSerialized)
                 {
-                    CreateWordField (Arg0, 0x01, TMP)
-                    FindSetRightBit (TMP, Local0)
-                    Decrement (Local0)
-                    Store (Local0, PRQ1)
+                    CreateDWordField (Arg0, 0x05, TMP)
+                    Store (TMP, PRQ1)
                 }
         }
         Device(LNKC){
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 3)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveHigh, Shared)
+                    Interrupt (, Level, ActiveHigh, Shared)
                         { 5, 9, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
@@ -454,14 +450,14 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveHigh, Shared)
+                        Interrupt (, Level, ActiveHigh, Shared)
                             {1}
                     })
-                    CreateWordField (PRR0, 0x01, TMP)
+                    CreateDWordField (PRR0, 0x05, TMP)
                     Store (PRQ2, Local0)
                     If (LLess (Local0, 0x80))
                     {
-                        ShiftLeft (One, Local0, TMP)
+                        Store (Local0, TMP)
                     }
                     Else
                     {
@@ -471,17 +467,15 @@ DefinitionBlock (
                 }
                 Method (_SRS, 1, NotSerialized)
                 {
-                    CreateWordField (Arg0, 0x01, TMP)
-                    FindSetRightBit (TMP, Local0)
-                    Decrement (Local0)
-                    Store (Local0, PRQ2)
+                    CreateDWordField (Arg0, 0x05, TMP)
+                    Store (TMP, PRQ2)
                 }
         }
         Device(LNKD){
                 Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
                 Name(_UID, 4)
                 Name(_PRS, ResourceTemplate(){
-                    IRQ (Level, ActiveHigh, Shared)
+                    Interrupt (, Level, ActiveHigh, Shared)
                         { 5, 9, 10, 11 }
                 })
                 Method (_STA, 0, NotSerialized)
@@ -501,14 +495,14 @@ DefinitionBlock (
                 {
                     Name (PRR0, ResourceTemplate ()
                     {
-                        IRQ (Level, ActiveHigh, Shared)
+                        Interrupt (, Level, ActiveHigh, Shared)
                             {1}
                     })
-                    CreateWordField (PRR0, 0x01, TMP)
+                    CreateDWordField (PRR0, 0x05, TMP)
                     Store (PRQ3, Local0)
                     If (LLess (Local0, 0x80))
                     {
-                        ShiftLeft (One, Local0, TMP)
+                        Store (Local0, TMP)
                     }
                     Else
                     {
@@ -518,10 +512,8 @@ DefinitionBlock (
                 }
                 Method (_SRS, 1, NotSerialized)
                 {
-                    CreateWordField (Arg0, 0x01, TMP)
-                    FindSetRightBit (TMP, Local0)
-                    Decrement (Local0)
-                    Store (Local0, PRQ3)
+                    CreateDWordField (Arg0, 0x05, TMP)
+                    Store (TMP, PRQ3)
                 }
         }
     }
