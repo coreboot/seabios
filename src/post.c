@@ -129,7 +129,7 @@ ram_probe(void)
              , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
-    if (CONFIG_KVM)
+    if (kvm_para_available())
         // 4 pages before the bios, 3 pages for vmx tss pages, the
         // other page for EPT real mode pagetable
         add_e820(0xfffbc000, 4*4096, E820_RESERVED);
