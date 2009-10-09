@@ -543,4 +543,59 @@ DefinitionBlock (
         Zero,  /* reserved */
         Zero   /* reserved */
     })
+
+    Scope (\_GPE)
+    {
+        Name(_HID, "ACPI0006")
+
+        Method(_L00) {
+            Return(0x01)
+        }
+        Method(_L01) {
+            Return(0x01)
+        }
+        Method(_L02) {
+            Return(0x01)
+        }
+        Method(_L03) {
+            Return(0x01)
+        }
+        Method(_L04) {
+            Return(0x01)
+        }
+        Method(_L05) {
+            Return(0x01)
+        }
+        Method(_L06) {
+            Return(0x01)
+        }
+        Method(_L07) {
+            Return(0x01)
+        }
+        Method(_L08) {
+            Return(0x01)
+        }
+        Method(_L09) {
+            Return(0x01)
+        }
+        Method(_L0A) {
+            Return(0x01)
+        }
+        Method(_L0B) {
+            Return(0x01)
+        }
+        Method(_L0C) {
+            Return(0x01)
+        }
+        Method(_L0D) {
+            Return(0x01)
+        }
+        Method(_L0E) {
+            Return(0x01)
+        }
+        Method(_L0F) {
+            Return(0x01)
+        }
+    }
+
 }
