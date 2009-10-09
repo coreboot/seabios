@@ -27,6 +27,13 @@ qemu_cfg_read(u8 *buf, int len)
 }
 
 static void
+qemu_cfg_skip(int len)
+{
+    while (len--)
+        inb(PORT_QEMU_CFG_DATA);
+}
+
+static void
 qemu_cfg_read_entry(void *buf, int e, int len)
 {
     qemu_cfg_select(e);
@@ -97,5 +104,152 @@ void* qemu_cfg_next_acpi_table_load(void *addr, u16 len)
 {
     qemu_cfg_read(addr, len);
     return addr;
+}
+
+u16 qemu_cfg_smbios_entries(void)
+{
+    u16 cnt;
+
+    if (!qemu_cfg_present)
+        return 0;
+
+    qemu_cfg_read_entry(&cnt, QEMU_CFG_SMBIOS_ENTRIES, sizeof(cnt));
+
+    return cnt;
+}
+
+struct smbios_header {
+    u16 length;
+    u8 type;
+} PACKED;
+
+struct smbios_field {
+    struct smbios_header header;
+    u8 type;
+    u16 offset;
+    u8 data[];
+} PACKED;
+
+struct smbios_table {
+    struct smbios_header header;
+    u8 data[];
+} PACKED;
+
+#define SMBIOS_FIELD_ENTRY 0
+#define SMBIOS_TABLE_ENTRY 1
+
+size_t qemu_cfg_smbios_load_field(int type, size_t offset, void *addr)
+{
+    int i;
+
+    for (i = qemu_cfg_smbios_entries(); i > 0; i--) {
+        struct smbios_field field;
+
+        qemu_cfg_read((u8 *)&field, sizeof(struct smbios_header));
+        field.header.length -= sizeof(struct smbios_header);
+
+        if (field.header.type != SMBIOS_FIELD_ENTRY) {
+            qemu_cfg_skip(field.header.length);
+            continue;
+        }
+
+        qemu_cfg_read((u8 *)&field.type,
+                      sizeof(field) - sizeof(struct smbios_header));
+        field.header.length -= sizeof(field) - sizeof(struct smbios_header);
+
+        if (field.type != type || field.offset != offset) {
+            qemu_cfg_skip(field.header.length);
+            continue;
+        }
+
+        qemu_cfg_read(addr, field.header.length);
+        return (size_t)field.header.length;
+    }
+    return 0;
+}
+
+/* This goes at the beginning of every SMBIOS structure. */
+struct smbios_structure_header {
+	u8 type;
+	u8 length;
+	u16 handle;
+} PACKED;
+
+int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
+                                  unsigned *max_struct_size, char *end)
+{
+    static u64 used_bitmap[4] = { 0 };
+    char *start = *p;
+    int i;
+
+    /* Check if we've already reported these tables */
+    if (used_bitmap[(type >> 6) & 0x3] & (1ULL << (type & 0x3f)))
+        return 1;
+
+    /* Don't introduce spurious end markers */
+    if (type == 127)
+        return 0;
+
+    for (i = qemu_cfg_smbios_entries(); i > 0; i--) {
+        struct smbios_table table;
+        struct smbios_structure_header *header = (void *)*p;
+        int string;
+
+        qemu_cfg_read((u8 *)&table, sizeof(struct smbios_header));
+        table.header.length -= sizeof(struct smbios_header);
+
+        if (table.header.type != SMBIOS_TABLE_ENTRY) {
+            qemu_cfg_skip(table.header.length);
+            continue;
+        }
+
+        if (end - *p < sizeof(struct smbios_structure_header)) {
+            dprintf(1, "No more memory for additional smbios tables\n");
+            break;
+        }
+
+        qemu_cfg_read((u8 *)*p, sizeof(struct smbios_structure_header));
+        table.header.length -= sizeof(struct smbios_structure_header);
+
+        if (header->type != type) {
+            qemu_cfg_skip(table.header.length);
+            continue;
+        }
+
+        *p += sizeof(struct smbios_structure_header);
+
+        /* Entries end with a double NULL char, if there's a string at
+         * the end (length is greater than formatted length), the string
+         * terminator provides the first NULL. */
+        string = header->length < table.header.length +
+                 sizeof(struct smbios_structure_header);
+
+        /* Read the rest and terminate the entry */
+        if (end - *p < table.header.length) {
+            dprintf(1, "No memory for smbios table %d\n", header->type);
+            *p -= sizeof(struct smbios_structure_header);
+            continue;
+        }
+        qemu_cfg_read((u8 *)*p, table.header.length);
+        *p += table.header.length;
+        *((u8*)*p) = 0;
+        (*p)++;
+        if (!string) {
+            *((u8*)*p) = 0;
+            (*p)++;
+        }
+
+        (*nr_structs)++;
+        if (*p - (char *)header > *max_struct_size)
+            *max_struct_size = *p - (char *)header;
+    }
+
+    if (start != *p) {
+        /* Mark that we've reported on this type */
+        used_bitmap[(type >> 6) & 0x3] |= (1ULL << (type & 0x3f));
+        return 1;
+    }
+
+    return 0;
 }
 

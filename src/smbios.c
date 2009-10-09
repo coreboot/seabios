@@ -10,25 +10,6 @@
 #include "paravirt.h"
 
 /****************************************************************
- * UUID probe
- ****************************************************************/
-
-static void
-uuid_probe(u8 *bios_uuid)
-{
-    // Default to UUID not set
-    memset(bios_uuid, 0, 16);
-
-    if (! CONFIG_UUID_BACKDOOR)
-        return;
-    if (CONFIG_COREBOOT)
-        return;
-
-    qemu_cfg_get_uuid(bios_uuid);
-}
-
-
-/****************************************************************
  * smbios tables
  ****************************************************************/
 
@@ -229,72 +210,121 @@ smbios_entry_point_init(u16 max_structure_size,
     dprintf(1, "SMBIOS ptr=%p table=%p\n", ep, structure_table_address);
 }
 
+#define load_str_field_with_default(type, field, def)                   \
+    do {                                                                \
+        size = qemu_cfg_smbios_load_field(type,                         \
+                                 offsetof(struct smbios_type_##type,    \
+                                          field), end);                 \
+        if (size > 0) {                                                 \
+            end += size;                                                \
+        } else {                                                        \
+            memcpy(end, def, sizeof(def));                              \
+            end += sizeof(def);                                         \
+        }                                                               \
+        p->field = ++str_index;                                         \
+    } while (0)
+
+#define load_str_field_or_skip(type, field) \
+    do {                                                                \
+        size = qemu_cfg_smbios_load_field(type,                         \
+                                 offsetof(struct smbios_type_##type,    \
+                                          field), end);                 \
+        if (size > 0) {                                                 \
+            end += size;                                                \
+            p->field = ++str_index;                                     \
+        } else {                                                        \
+            p->field = 0;                                               \
+        }                                                               \
+    } while (0)
+
 /* Type 0 -- BIOS Information */
 #define RELEASE_DATE_STR "01/01/2007"
 static void *
-smbios_type_0_init(void *start)
+smbios_init_type_0(void *start)
 {
     struct smbios_type_0 *p = (struct smbios_type_0 *)start;
+    char *end = (char *)start + sizeof(struct smbios_type_0);
+    size_t size;
+    int str_index = 0;
 
     p->header.type = 0;
     p->header.length = sizeof(struct smbios_type_0);
     p->header.handle = 0;
 
-    p->vendor_str = 1;
-    p->bios_version_str = 1;
+    load_str_field_with_default(0, vendor_str, CONFIG_APPNAME);
+    load_str_field_with_default(0, bios_version_str, CONFIG_APPNAME);
+
     p->bios_starting_address_segment = 0xe800;
-    p->bios_release_date_str = 2;
+
+    load_str_field_with_default(0, bios_release_date_str, RELEASE_DATE_STR);
+
     p->bios_rom_size = 0; /* FIXME */
 
-    memset(p->bios_characteristics, 0, sizeof(p->bios_characteristics));
+    memset(p->bios_characteristics, 0, 8);
     p->bios_characteristics[0] = 0x08; /* BIOS characteristics not supported */
     p->bios_characteristics_extension_bytes[0] = 0;
     p->bios_characteristics_extension_bytes[1] = 0;
 
-    p->system_bios_major_release = 1;
-    p->system_bios_minor_release = 0;
+    if (!qemu_cfg_smbios_load_field(0, offsetof(struct smbios_type_0,
+                                                system_bios_major_release),
+                                    &p->system_bios_major_release))
+        p->system_bios_major_release = 1;
+
+    if (!qemu_cfg_smbios_load_field(0, offsetof(struct smbios_type_0,
+                                                system_bios_minor_release),
+                                    &p->system_bios_minor_release))
+        p->system_bios_minor_release = 0;
+
     p->embedded_controller_major_release = 0xff;
     p->embedded_controller_minor_release = 0xff;
 
-    start += sizeof(struct smbios_type_0);
-    memcpy((char *)start, CONFIG_APPNAME, sizeof(CONFIG_APPNAME));
-    start += sizeof(CONFIG_APPNAME);
-    memcpy((char *)start, RELEASE_DATE_STR, sizeof(RELEASE_DATE_STR));
-    start += sizeof(RELEASE_DATE_STR);
-    *((u8 *)start) = 0;
+    *end = 0;
+    end++;
 
-    return start+1;
+    return end;
 }
 
 /* Type 1 -- System Information */
 static void *
-smbios_type_1_init(void *start)
+smbios_init_type_1(void *start)
 {
     struct smbios_type_1 *p = (struct smbios_type_1 *)start;
+    char *end = (char *)start + sizeof(struct smbios_type_1);
+    size_t size;
+    int str_index = 0;
+
     p->header.type = 1;
     p->header.length = sizeof(struct smbios_type_1);
     p->header.handle = 0x100;
 
-    p->manufacturer_str = 0;
-    p->product_name_str = 0;
-    p->version_str = 0;
-    p->serial_number_str = 0;
+    load_str_field_or_skip(1, manufacturer_str);
+    load_str_field_or_skip(1, product_name_str);
+    load_str_field_or_skip(1, version_str);
+    load_str_field_or_skip(1, serial_number_str);
 
-    uuid_probe(p->uuid);
+    size = qemu_cfg_smbios_load_field(1, offsetof(struct smbios_type_1,
+                                                  uuid), &p->uuid);
+    if (size == 0)
+        memset(p->uuid, 0, 16);
 
     p->wake_up_type = 0x06; /* power switch */
-    p->sku_number_str = 0;
-    p->family_str = 0;
 
-    start += sizeof(struct smbios_type_1);
-    *((u16 *)start) = 0;
+    load_str_field_or_skip(1, sku_number_str);
+    load_str_field_or_skip(1, family_str);
 
-    return start+2;
+    *end = 0;
+    end++;
+    if (!str_index) {
+        *end = 0;
+        end++;
+    }
+
+    return end;
 }
 
 /* Type 3 -- System Enclosure */
 static void *
-smbios_type_3_init(void *start)
+smbios_init_type_3(void *start)
 {
     struct smbios_type_3 *p = (struct smbios_type_3 *)start;
 
@@ -324,7 +354,7 @@ smbios_type_3_init(void *start)
 
 /* Type 4 -- Processor Information */
 static void *
-smbios_type_4_init(void *start, unsigned int cpu_number)
+smbios_init_type_4(void *start, unsigned int cpu_number)
 {
     struct smbios_type_4 *p = (struct smbios_type_4 *)start;
 
@@ -366,7 +396,7 @@ smbios_type_4_init(void *start, unsigned int cpu_number)
 
 /* Type 16 -- Physical Memory Array */
 static void *
-smbios_type_16_init(void *start, u32 memory_size_mb, int nr_mem_devs)
+smbios_init_type_16(void *start, u32 memory_size_mb, int nr_mem_devs)
 {
     struct smbios_type_16 *p = (struct smbios_type_16*)start;
 
@@ -389,7 +419,7 @@ smbios_type_16_init(void *start, u32 memory_size_mb, int nr_mem_devs)
 
 /* Type 17 -- Memory Device */
 static void *
-smbios_type_17_init(void *start, u32 memory_size_mb, int instance)
+smbios_init_type_17(void *start, u32 memory_size_mb, int instance)
 {
     struct smbios_type_17 *p = (struct smbios_type_17 *)start;
 
@@ -420,7 +450,7 @@ smbios_type_17_init(void *start, u32 memory_size_mb, int instance)
 
 /* Type 19 -- Memory Array Mapped Address */
 static void *
-smbios_type_19_init(void *start, u32 memory_size_mb, int instance)
+smbios_init_type_19(void *start, u32 memory_size_mb, int instance)
 {
     struct smbios_type_19 *p = (struct smbios_type_19 *)start;
 
@@ -441,7 +471,7 @@ smbios_type_19_init(void *start, u32 memory_size_mb, int instance)
 
 /* Type 20 -- Memory Device Mapped Address */
 static void *
-smbios_type_20_init(void *start, u32 memory_size_mb, int instance)
+smbios_init_type_20(void *start, u32 memory_size_mb, int instance)
 {
     struct smbios_type_20 *p = (struct smbios_type_20 *)start;
 
@@ -465,7 +495,7 @@ smbios_type_20_init(void *start, u32 memory_size_mb, int instance)
 
 /* Type 32 -- System Boot Information */
 static void *
-smbios_type_32_init(void *start)
+smbios_init_type_32(void *start)
 {
     struct smbios_type_32 *p = (struct smbios_type_32 *)start;
 
@@ -483,7 +513,7 @@ smbios_type_32_init(void *start)
 
 /* Type 127 -- End of Table */
 static void *
-smbios_type_127_init(void *start)
+smbios_init_type_127(void *start)
 {
     struct smbios_type_127 *p = (struct smbios_type_127 *)start;
 
@@ -512,22 +542,27 @@ smbios_init(void)
     }
 
     u32 nr_structs = 0, max_struct_size = 0;
-    char *q, *p = start;
+    char *q, *p = start, *end = start + 2048 - sizeof(struct smbios_type_127);
 
-#define add_struct(fn) { \
-    q = (fn); \
-    nr_structs++; \
-    if ((q - p) > max_struct_size) \
-        max_struct_size = q - p; \
-    p = q; \
-}
+#define add_struct(type, args...)                                       \
+    do {                                                                \
+        if (!qemu_cfg_smbios_load_external(type, &p, &nr_structs,       \
+                                           &max_struct_size, end)) {    \
+            q = smbios_init_type_##type(args);                          \
+            nr_structs++;                                               \
+            if ((q - p) > max_struct_size)                              \
+                max_struct_size = q - p;                                \
+            p = q;                                                      \
+        }                                                               \
+    } while (0)
 
-    add_struct(smbios_type_0_init(p));
-    add_struct(smbios_type_1_init(p));
-    add_struct(smbios_type_3_init(p));
+    add_struct(0, p);
+    add_struct(1, p);
+    add_struct(3, p);
+
     int cpu_num, smp_cpus = CountCPUs;
     for (cpu_num = 1; cpu_num <= smp_cpus; cpu_num++)
-        add_struct(smbios_type_4_init(p, cpu_num));
+        add_struct(4, p, cpu_num);
     u64 memsize = RamSizeOver4G;
     if (memsize)
         memsize += 0x100000000ull;
@@ -535,17 +570,22 @@ smbios_init(void)
         memsize = RamSize;
     memsize = memsize / (1024 * 1024);
     int nr_mem_devs = (memsize + 0x3fff) >> 14;
-    add_struct(smbios_type_16_init(p, memsize, nr_mem_devs));
+    add_struct(16, p, memsize, nr_mem_devs);
     int i;
     for (i = 0; i < nr_mem_devs; i++) {
         u32 dev_memsize = ((i == (nr_mem_devs - 1))
                            ? (((memsize-1) & 0x3fff)+1) : 0x4000);
-        add_struct(smbios_type_17_init(p, dev_memsize, i));
-        add_struct(smbios_type_19_init(p, dev_memsize, i));
-        add_struct(smbios_type_20_init(p, dev_memsize, i));
+        add_struct(17, p, dev_memsize, i);
+        add_struct(19, p, dev_memsize, i);
+        add_struct(20, p, dev_memsize, i);
     }
-    add_struct(smbios_type_32_init(p));
-    add_struct(smbios_type_127_init(p));
+
+    add_struct(32, p);
+    /* Add any remaining provided entries before the end marker */
+    for (i = 0; i < 256; i++)
+        qemu_cfg_smbios_load_external(i, &p, &nr_structs, &max_struct_size,
+                                      end);
+    add_struct(127, p);
 
 #undef add_struct
 
