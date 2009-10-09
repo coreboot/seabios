@@ -34,12 +34,14 @@ static inline int kvm_para_available(void)
 #define QEMU_CFG_ARCH_LOCAL		0x8000
 #define QEMU_CFG_ACPI_TABLES		(QEMU_CFG_ARCH_LOCAL + 0)
 #define QEMU_CFG_SMBIOS_ENTRIES		(QEMU_CFG_ARCH_LOCAL + 1)
+#define QEMU_CFG_IRQ0_OVERRIDE		(QEMU_CFG_ARCH_LOCAL + 1)
 
 extern int qemu_cfg_present;
 
 void qemu_cfg_port_probe(void);
 int qemu_cfg_show_boot_menu(void);
 void qemu_cfg_get_uuid(u8 *uuid);
+int qemu_cfg_irq0_override(void);
 u16 qemu_cfg_acpi_additional_tables(void);
 u16 qemu_cfg_next_acpi_table_len(void);
 void *qemu_cfg_next_acpi_table_load(void *addr, u16 len);

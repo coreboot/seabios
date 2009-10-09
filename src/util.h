@@ -302,9 +302,6 @@ void reset_vector() __attribute__ ((noreturn));
 // misc.c
 extern u8 BiosChecksum;
 
-// mptable.c
-extern int irq0override;
-
 // version (auto generated file out/version.c)
 extern const char VERSION[];
 

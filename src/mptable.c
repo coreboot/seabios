@@ -8,12 +8,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "mptable.h" // MPTABLE_SIGNATURE
-
-#if CONFIG_KVM
-int irq0override = 1;
-#else
-int irq0override = 0;
-#endif
+#include "paravirt.h"
 
 void
 mptable_init(void)
@@ -103,7 +98,7 @@ mptable_init(void)
         intsrc->srcbusirq = i;
         intsrc->dstapic = ioapic_id;
         intsrc->dstirq = i;
-        if (irq0override) {
+        if (qemu_cfg_irq0_override()) {
             /* Destination 2 is covered by irq0->inti2 override (i ==
                0). Source IRQ 2 is unused */
             if (i == 0)

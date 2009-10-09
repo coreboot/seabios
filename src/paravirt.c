@@ -79,6 +79,18 @@ int qemu_cfg_show_boot_menu(void)
     return v;
 }
 
+int qemu_cfg_irq0_override(void)
+{
+    u8 v;
+
+    if (!qemu_cfg_present)
+        return 0;
+
+    qemu_cfg_read_entry(&v, QEMU_CFG_IRQ0_OVERRIDE, sizeof(v));
+
+    return v;
+}
+
 u16 qemu_cfg_acpi_additional_tables(void)
 {
     u16 cnt;
