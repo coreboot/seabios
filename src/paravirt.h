@@ -49,5 +49,7 @@ u16 qemu_cfg_smbios_entries(void);
 size_t qemu_cfg_smbios_load_field(int type, size_t offset, void *addr);
 int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
                                   unsigned *max_struct_size, char *end);
+int qemu_cfg_get_numa_nodes(void);
+void qemu_cfg_get_numa_data(u64 *data, int n);
 
 #endif

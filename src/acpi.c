@@ -151,7 +151,7 @@ struct multiple_apic_table
 } PACKED;
 
 
-/* Values for Type in APIC_HEADER_DEF */
+/* Values for Type in APIC sub-headers */
 
 #define APIC_PROCESSOR          0
 #define APIC_IO                 1
@@ -167,7 +167,7 @@ struct multiple_apic_table
 /*
  * MADT sub-structures (Follow MULTIPLE_APIC_DESCRIPTION_TABLE)
  */
-#define APIC_HEADER_DEF   /* Common APIC sub-structure header */\
+#define ACPI_SUB_HEADER_DEF   /* Common ACPI sub-structure header */\
     u8  type;                               \
     u8  length;
 
@@ -175,7 +175,7 @@ struct multiple_apic_table
 
 struct madt_processor_apic
 {
-    APIC_HEADER_DEF
+    ACPI_SUB_HEADER_DEF
     u8  processor_id;           /* ACPI processor id */
     u8  local_apic_id;          /* Processor's local APIC id */
 #if 0
@@ -188,7 +188,7 @@ struct madt_processor_apic
 
 struct madt_io_apic
 {
-    APIC_HEADER_DEF
+    ACPI_SUB_HEADER_DEF
     u8  io_apic_id;             /* I/O APIC ID */
     u8  reserved;               /* Reserved - must be zero */
     u32 address;                /* APIC physical address */
@@ -200,7 +200,7 @@ struct madt_io_apic
 #define PCI_ISA_IRQ_MASK    0x0e20
 
 struct madt_intsrcovr {
-    APIC_HEADER_DEF
+    ACPI_SUB_HEADER_DEF
     u8  bus;
     u8  source;
     u32 gsi;
@@ -230,6 +230,43 @@ struct acpi_20_hpet {
     u8            page_protect;
 } PACKED;
 #define ACPI_HPET_ADDRESS 0xFED00000UL
+
+/*
+ * SRAT (NUMA topology description) table
+ */
+
+#define SRAT_PROCESSOR          0
+#define SRAT_MEMORY             1
+
+struct system_resource_affinity_table
+{
+    ACPI_TABLE_HEADER_DEF
+    u32    reserved1;
+    u32    reserved2[2];
+} PACKED;
+
+struct srat_processor_affinity
+{
+    ACPI_SUB_HEADER_DEF
+    u8     proximity_lo;
+    u8     local_apic_id;
+    u32    flags;
+    u8     local_sapic_eid;
+    u8     proximity_hi[3];
+    u32    reserved;
+} PACKED;
+
+struct srat_memory_affinity
+{
+    ACPI_SUB_HEADER_DEF
+    u8     proximity[4];
+    u16    reserved1;
+    u32    base_addr_low,base_addr_high;
+    u32    length_low,length_high;
+    u32    reserved2;
+    u32    flags;
+    u32    reserved3[2];
+} PACKED;
 
 #include "acpi-dsdt.hex"
 
@@ -448,6 +485,115 @@ build_hpet(void)
     return hpet;
 }
 
+static void
+acpi_build_srat_memory(struct srat_memory_affinity *numamem,
+                       u64 base, u64 len, int node, int enabled)
+{
+    numamem->type = SRAT_MEMORY;
+    numamem->length = sizeof(*numamem);
+    memset (numamem->proximity, 0 ,4);
+    numamem->proximity[0] = node;
+    numamem->flags = cpu_to_le32(!!enabled);
+    numamem->base_addr_low = base & 0xFFFFFFFF;
+    numamem->base_addr_high = base >> 32;
+    numamem->length_low = len & 0xFFFFFFFF;
+    numamem->length_high = len >> 32;
+}
+
+#define SRAT_SIGNATURE 0x54415253 //HPET
+static void *
+build_srat(void)
+{
+    int nb_numa_nodes = qemu_cfg_get_numa_nodes();
+
+    if (nb_numa_nodes == 0)
+        return NULL;
+
+    u64 *numadata = malloc_tmphigh(sizeof(u64) * (CountCPUs + nb_numa_nodes));
+    if (!numadata) {
+        dprintf(1, "Not enough memory for read numa data from VM!\n");
+        return NULL;
+    }
+
+    qemu_cfg_get_numa_data(numadata, CountCPUs + nb_numa_nodes);
+
+    struct system_resource_affinity_table *srat;
+    int srat_size = sizeof(*srat) +
+        sizeof(struct srat_processor_affinity) * CountCPUs +
+        sizeof(struct srat_memory_affinity) * (nb_numa_nodes + 2);
+
+    srat = malloc_high(srat_size);
+    if (!srat) {
+        dprintf(1, "Not enough memory for srat table!\n");
+        return NULL;
+    }
+
+    memset(srat, 0, srat_size);
+    srat->reserved1=1;
+    struct srat_processor_affinity *core = (void*)(srat + 1);
+    int i;
+    u64 curnode;
+
+    for (i = 0; i < CountCPUs; ++i) {
+        core->type = SRAT_PROCESSOR;
+        core->length = sizeof(*core);
+        core->local_apic_id = i;
+        curnode = *numadata++;
+        core->proximity_lo = curnode;
+        memset(core->proximity_hi, 0, 3);
+        core->local_sapic_eid = 0;
+        if (i < CountCPUs)
+            core->flags = cpu_to_le32(1);
+        else
+            core->flags = 0;
+        core++;
+    }
+
+
+    /* the memory map is a bit tricky, it contains at least one hole
+     * from 640k-1M and possibly another one from 3.5G-4G.
+     */
+    struct srat_memory_affinity *numamem = (void*)core;
+    int slots = 0;
+    u64 mem_len, mem_base, next_base = 0;
+
+    acpi_build_srat_memory(numamem, 0, 640*1024, 0, 1);
+    next_base = 1024 * 1024;
+    numamem++;
+    slots++;
+    for (i = 1; i < nb_numa_nodes + 1; ++i) {
+        mem_base = next_base;
+        mem_len = *numadata++;
+        if (i == 1)
+            mem_len -= 1024 * 1024;
+        next_base = mem_base + mem_len;
+
+        /* Cut out the PCI hole */
+        if (mem_base <= RamSize && next_base > RamSize) {
+            mem_len -= next_base - RamSize;
+            if (mem_len > 0) {
+                acpi_build_srat_memory(numamem, mem_base, mem_len, i-1, 1);
+                numamem++;
+                slots++;
+            }
+            mem_base = 1ULL << 32;
+            mem_len = next_base - RamSize;
+            next_base += (1ULL << 32) - RamSize;
+        }
+        acpi_build_srat_memory(numamem, mem_base, mem_len, i-1, 1);
+        numamem++;
+        slots++;
+    }
+    for (; slots < nb_numa_nodes + 2; slots++) {
+        acpi_build_srat_memory(numamem, 0, 0, 0, 0);
+        numamem++;
+    }
+
+    build_header((void*)srat, SRAT_SIGNATURE, srat_size, 1);
+
+    return srat;
+}
+
 struct rsdp_descriptor *RsdpAddr;
 
 #define MAX_ACPI_TABLES 20
@@ -487,6 +633,7 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_ssdt());
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());
+    ACPI_INIT_TABLE(build_srat());
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 

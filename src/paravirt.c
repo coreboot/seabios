@@ -265,3 +265,19 @@ int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
     return 0;
 }
 
+int qemu_cfg_get_numa_nodes(void)
+{
+    u64 cnt;
+
+    qemu_cfg_read_entry(&cnt, QEMU_CFG_NUMA, sizeof(cnt));
+
+    return (int)cnt;
+}
+
+void qemu_cfg_get_numa_data(u64 *data, int n)
+{
+    int i;
+
+    for (i = 0; i < n; i++)
+        qemu_cfg_read((u8*)(data + i), sizeof(u64));
+}
