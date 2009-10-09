@@ -196,12 +196,8 @@ struct madt_io_apic
                                  * lines start */
 } PACKED;
 
-#if CONFIG_KVM
 /* IRQs 5,9,10,11 */
 #define PCI_ISA_IRQ_MASK    0x0e20
-#else
-#define PCI_ISA_IRQ_MASK    0x0000
-#endif
 
 struct madt_intsrcovr {
     APIC_HEADER_DEF
