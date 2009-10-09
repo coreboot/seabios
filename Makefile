@@ -175,6 +175,13 @@ $(OUT)vgabios.bin: $(OUT)vgabios.bin.raw tools/buildrom.py
 	@echo "  Finalizing rom $@"
 	$(Q)./tools/buildrom.py $< $@
 
+####### dsdt build rules
+src/acpi-dsdt.hex: src/acpi-dsdt.dsl
+	@echo "Compiling DSDT"
+	$(Q)cpp -P $< > $(OUT)acpi-dsdt.dsl.i
+	$(Q)iasl -tc -p $@ $(OUT)acpi-dsdt.dsl.i
+	$(Q)rm $(OUT)acpi-dsdt.dsl.i
+
 ####### Generic rules
 clean:
 	$(Q)rm -rf $(OUT)
