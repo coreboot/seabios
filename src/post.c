@@ -161,6 +161,8 @@ post()
     init_ivt();
     init_bda();
 
+    qemu_cfg_port_probe();
+
     pic_setup();
     timer_setup();
     mathcp_setup();
@@ -184,8 +186,6 @@ post()
     lpt_setup();
     serial_setup();
     mouse_setup();
-
-    qemu_cfg_port_probe();
 
     init_bios_tables();
 
