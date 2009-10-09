@@ -11,7 +11,7 @@
 #include "biosvar.h" // GET_EBDA
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
-
+#include "paravirt.h"
 
 /****************************************************/
 /* ACPI tables init */
@@ -443,6 +443,22 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_fadt(bdf));
     ACPI_INIT_TABLE(build_ssdt());
     ACPI_INIT_TABLE(build_madt());
+
+    u16 i, external_tables = qemu_cfg_acpi_additional_tables();
+
+    for(i = 0; i < external_tables; i++) {
+        u16 len = qemu_cfg_next_acpi_table_len();
+        void *addr = malloc_high(len);
+        if (!addr) {
+            dprintf(1, "Not enogh memory of ext acpi table of size %d!\n", len);
+            continue;
+        }
+        ACPI_INIT_TABLE(qemu_cfg_next_acpi_table_load(addr, len));
+        if (tbl_idx == MAX_ACPI_TABLES) {
+            dprintf(1, "To many external table!\n");
+            break;
+        }
+    }
 
     struct rsdt_descriptor_rev1 *rsdt;
     size_t rsdt_len = sizeof(*rsdt) + sizeof(u32) * tbl_idx;

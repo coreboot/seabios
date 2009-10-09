@@ -72,3 +72,30 @@ int qemu_cfg_show_boot_menu(void)
     return v;
 }
 
+u16 qemu_cfg_acpi_additional_tables(void)
+{
+    u16 cnt;
+
+    if (!qemu_cfg_present)
+        return 0;
+
+    qemu_cfg_read_entry(&cnt, QEMU_CFG_ACPI_TABLES, sizeof(cnt));
+
+    return cnt;
+}
+
+u16 qemu_cfg_next_acpi_table_len(void)
+{
+    u16 len;
+
+    qemu_cfg_read((u8*)&len, sizeof(len));
+
+    return len;
+}
+
+void* qemu_cfg_next_acpi_table_load(void *addr, u16 len)
+{
+    qemu_cfg_read(addr, len);
+    return addr;
+}
+

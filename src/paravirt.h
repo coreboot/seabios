@@ -40,5 +40,8 @@ extern int qemu_cfg_present;
 void qemu_cfg_port_probe(void);
 int qemu_cfg_show_boot_menu(void);
 void qemu_cfg_get_uuid(u8 *uuid);
+u16 qemu_cfg_acpi_additional_tables(void);
+u16 qemu_cfg_next_acpi_table_len(void);
+void *qemu_cfg_next_acpi_table_load(void *addr, u16 len);
 
 #endif
