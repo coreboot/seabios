@@ -34,7 +34,7 @@ static inline int kvm_para_available(void)
 #define QEMU_CFG_ARCH_LOCAL		0x8000
 #define QEMU_CFG_ACPI_TABLES		(QEMU_CFG_ARCH_LOCAL + 0)
 #define QEMU_CFG_SMBIOS_ENTRIES		(QEMU_CFG_ARCH_LOCAL + 1)
-#define QEMU_CFG_IRQ0_OVERRIDE		(QEMU_CFG_ARCH_LOCAL + 1)
+#define QEMU_CFG_IRQ0_OVERRIDE		(QEMU_CFG_ARCH_LOCAL + 2)
 
 extern int qemu_cfg_present;
 
