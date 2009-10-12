@@ -193,7 +193,7 @@ pci_setup(void)
     dprintf(3, "pci setup\n");
 
     pci_bios_io_addr = 0xc000;
-    pci_bios_mem_addr = 0xc0000000;
+    pci_bios_mem_addr = 0xf0000000;
     pci_bios_bigmem_addr = RamSize;
     if (pci_bios_bigmem_addr < 0x90000000)
         pci_bios_bigmem_addr = 0x90000000;
