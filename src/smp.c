@@ -16,36 +16,6 @@
 
 #define APIC_ENABLED 0x0100
 
-static inline void writel(void *addr, u32 val)
-{
-    *(volatile u32 *)addr = val;
-}
-
-static inline void writew(void *addr, u16 val)
-{
-    *(volatile u16 *)addr = val;
-}
-
-static inline void writeb(void *addr, u8 val)
-{
-    *(volatile u8 *)addr = val;
-}
-
-static inline u32 readl(const void *addr)
-{
-    return *(volatile const u32 *)addr;
-}
-
-static inline u16 readw(const void *addr)
-{
-    return *(volatile const u16 *)addr;
-}
-
-static inline u8 readb(const void *addr)
-{
-    return *(volatile const u8 *)addr;
-}
-
 struct { u32 ecx, eax, edx; } smp_mtrr[16] VAR16VISIBLE;
 u32 smp_mtrr_count VAR16VISIBLE;
 
