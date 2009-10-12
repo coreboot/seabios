@@ -1,13 +1,15 @@
 #ifndef __USB_UHCI_H
 #define __USB_UHCI_H
 
+#include "usb.h" // struct usb_pipe
+
 // usb-uhci.c
 struct usb_s;
 int uhci_init(struct usb_s *cntl);
 int uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
-void *uhci_alloc_intr_pipe(u32 endp, int period);
-int uhci_poll_intr(void *pipe, void *data);
+struct usb_pipe *uhci_alloc_intr_pipe(u32 endp, int period);
+int uhci_poll_intr(struct usb_pipe *pipe, void *data);
 
 
 /****************************************************************
@@ -119,7 +121,7 @@ struct uhci_qh {
 
     // Software fields
     struct uhci_td *next_td;
-    u32 reserved;
+    struct usb_pipe pipe;
 } PACKED;
 
 #define UHCI_PTR_BITS           0x000F

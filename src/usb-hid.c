@@ -10,7 +10,7 @@
 #include "usb.h" // usb_ctrlrequest
 #include "biosvar.h" // GET_GLOBAL
 
-void *keyboard_pipe VAR16VISIBLE;
+struct usb_pipe *keyboard_pipe VAR16VISIBLE;
 
 
 /****************************************************************
@@ -78,7 +78,7 @@ usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
     if (ret)
         return -1;
 
-    void *pipe = alloc_intr_pipe(inendp, epdesc->bInterval);
+    struct usb_pipe *pipe = alloc_intr_pipe(inendp, epdesc->bInterval);
     if (!pipe)
         return -1;
     keyboard_pipe = pipe;

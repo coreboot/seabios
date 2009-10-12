@@ -4,13 +4,29 @@
 
 // Local information for a usb controller.
 struct usb_s {
-    u16 bdf;
-    u16 iobase;
+    u8 type;
     u8 maxaddr;
-    void *qh;
+    u16 bdf;
+
+    union {
+        struct {
+            u16 iobase;
+            void *qh;
+        } uhci;
+        struct {
+            struct ohci_regs *regs;
+        } ohci;
+    };
 };
 
+#define USB_TYPE_UHCI 1
+#define USB_TYPE_OHCI 2
+
 extern struct usb_s USBControllers[];
+
+struct usb_pipe {
+    u32 endp;
+};
 
 #define USB_MAXADDR 127
 
@@ -20,8 +36,8 @@ int configure_usb_device(struct usb_s *cntl, int lowspeed);
 struct usb_ctrlrequest;
 int send_default_control(u32 endp, const struct usb_ctrlrequest *req
                          , void *data);
-void *alloc_intr_pipe(u32 endp, int period);
-int usb_poll_intr(void *pipe, void *data);
+struct usb_pipe *alloc_intr_pipe(u32 endp, int period);
+int usb_poll_intr(struct usb_pipe *pipe, void *data);
 
 
 /****************************************************************

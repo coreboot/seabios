@@ -48,6 +48,15 @@ u8 pci_config_readb(u16 bdf, u32 addr)
     return inb(PORT_PCI_DATA + (addr & 3));
 }
 
+void
+pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on)
+{
+    u16 val = pci_config_readw(bdf, addr);
+    val = (val & ~off) | on;
+    pci_config_writew(bdf, addr, val);
+}
+
+// Helper function for foreachpci() macro - return next device
 int
 pci_next(int bdf, int *pmax)
 {
@@ -156,10 +165,8 @@ pci_find_device(u16 vendid, u16 devid)
     int bdf, max;
     foreachpci(bdf, max) {
         u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
-        if (v != id)
-            continue;
-        // Found it.
-        return bdf;
+        if (v == id)
+            return bdf;
     }
     return -1;
 }
@@ -171,18 +178,8 @@ pci_find_class(u16 classid)
     int bdf, max;
     foreachpci(bdf, max) {
         u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
-        if (v != classid)
-            continue;
-        // Found it.
-        return bdf;
+        if (v == classid)
+            return bdf;
     }
     return -1;
-}
-
-void
-pci_set_bus_master(u16 bdf)
-{
-    u16 val = pci_config_readw(bdf, PCI_COMMAND);
-    val |= PCI_COMMAND_MASTER;
-    pci_config_writew(bdf, PCI_COMMAND, val);
 }

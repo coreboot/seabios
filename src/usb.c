@@ -10,6 +10,7 @@
 #include "pci_regs.h" // PCI_CLASS_REVISION
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
 #include "usb-uhci.h" // uhci_init
+#include "usb-ohci.h" // ohci_init
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb.h" // struct usb_s
 
@@ -19,19 +20,40 @@ static int
 send_control(u32 endp, int dir, const void *cmd, int cmdsize
              , void *data, int datasize)
 {
-    return uhci_control(endp, dir, cmd, cmdsize, data, datasize);
+    struct usb_s *cntl = endp2cntl(endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_control(endp, dir, cmd, cmdsize, data, datasize);
+    case USB_TYPE_OHCI:
+        return ohci_control(endp, dir, cmd, cmdsize, data, datasize);
+    }
 }
 
-void *
+struct usb_pipe *
 alloc_intr_pipe(u32 endp, int period)
 {
-    return uhci_alloc_intr_pipe(endp, period);
+    struct usb_s *cntl = endp2cntl(endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_alloc_intr_pipe(endp, period);
+    case USB_TYPE_OHCI:
+        return ohci_alloc_intr_pipe(endp, period);
+    }
 }
 
 int
-usb_poll_intr(void *pipe, void *data)
+usb_poll_intr(struct usb_pipe *pipe, void *data)
 {
-    return uhci_poll_intr(pipe, data);
+    struct usb_s *cntl = endp2cntl(pipe->endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_poll_intr(pipe, data);
+    case USB_TYPE_OHCI:
+        return ohci_poll_intr(pipe, data);
+    }
 }
 
 int
@@ -195,6 +217,8 @@ usb_setup()
         int devcount = 0;
         if (code == PCI_CLASS_SERIAL_USB_UHCI)
             devcount = uhci_init(cntl);
+        else if (code == PCI_CLASS_SERIAL_USB_OHCI)
+            devcount = ohci_init(cntl);
 
         if (devcount > 0) {
             // Success

@@ -23,12 +23,12 @@ reset_uhci(struct usb_s *cntl)
     pci_config_writew(cntl->bdf, USBLEGSUP, USBLEGSUP_RWC);
 
     // Reset the HC
-    outw(USBCMD_HCRESET, cntl->iobase + USBCMD);
+    outw(USBCMD_HCRESET, cntl->uhci.iobase + USBCMD);
     udelay(5);
 
     // Disable interrupts and commands (just to be safe).
-    outw(0, cntl->iobase + USBINTR);
-    outw(0, cntl->iobase + USBCMD);
+    outw(0, cntl->uhci.iobase + USBINTR);
+    outw(0, cntl->uhci.iobase + USBCMD);
 }
 
 static void
@@ -40,7 +40,7 @@ configure_uhci(struct usb_s *cntl)
     struct uhci_qh *data_qh = malloc_low(sizeof(*data_qh));
     struct uhci_qh *term_qh = malloc_high(sizeof(*term_qh));
     if (!term_td || !fl || !data_qh || !term_qh) {
-        dprintf(1, "No ram for uhci init");
+        dprintf(1, "No ram for uhci init\n");
         return;
     }
 
@@ -57,7 +57,7 @@ configure_uhci(struct usb_s *cntl)
     memset(data_qh, 0, sizeof(*data_qh));
     data_qh->element = UHCI_PTR_TERM;
     data_qh->link = (u32)term_qh | UHCI_PTR_QH;
-    cntl->qh = data_qh;
+    cntl->uhci.qh = data_qh;
 
     // Set schedule to point to primary queue head
     int i;
@@ -66,28 +66,28 @@ configure_uhci(struct usb_s *cntl)
     }
 
     // Set the frame length to the default: 1 ms exactly
-    outb(USBSOF_DEFAULT, cntl->iobase + USBSOF);
+    outb(USBSOF_DEFAULT, cntl->uhci.iobase + USBSOF);
 
     // Store the frame list base address
-    outl((u32)fl->links, cntl->iobase + USBFLBASEADD);
+    outl((u32)fl->links, cntl->uhci.iobase + USBFLBASEADD);
 
     // Set the current frame number
-    outw(0, cntl->iobase + USBFRNUM);
+    outw(0, cntl->uhci.iobase + USBFRNUM);
 }
 
 static void
 start_uhci(struct usb_s *cntl)
 {
     // Mark as configured and running with a 64-byte max packet.
-    outw(USBCMD_RS | USBCMD_CF | USBCMD_MAXP, cntl->iobase + USBCMD);
+    outw(USBCMD_RS | USBCMD_CF | USBCMD_MAXP, cntl->uhci.iobase + USBCMD);
 }
 
 // Find any devices connected to the root hub.
 static int
 check_ports(struct usb_s *cntl)
 {
-    u16 port1 = inw(cntl->iobase + USBPORTSC1);
-    u16 port2 = inw(cntl->iobase + USBPORTSC2);
+    u16 port1 = inw(cntl->uhci.iobase + USBPORTSC1);
+    u16 port2 = inw(cntl->uhci.iobase + USBPORTSC2);
 
     if (!((port1 & USBPORTSC_CCS) || (port2 & USBPORTSC_CCS)))
         // No devices
@@ -95,30 +95,30 @@ check_ports(struct usb_s *cntl)
 
     // reset ports
     if (port1 & USBPORTSC_CCS)
-        outw(USBPORTSC_PR, cntl->iobase + USBPORTSC1);
+        outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC1);
     if (port2 & USBPORTSC_CCS)
-        outw(USBPORTSC_PR, cntl->iobase + USBPORTSC2);
+        outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC2);
     mdelay(10);
-    outw(0, cntl->iobase + USBPORTSC1);
-    outw(0, cntl->iobase + USBPORTSC2);
+    outw(0, cntl->uhci.iobase + USBPORTSC1);
+    outw(0, cntl->uhci.iobase + USBPORTSC2);
     mdelay(10);
 
     // Configure ports
     int totalcount = 0;
-    port1 = inw(cntl->iobase + USBPORTSC1);
+    port1 = inw(cntl->uhci.iobase + USBPORTSC1);
     if (port1 & USBPORTSC_CCS) {
-        outw(USBPORTSC_PE, cntl->iobase + USBPORTSC1);
+        outw(USBPORTSC_PE, cntl->uhci.iobase + USBPORTSC1);
         int count = configure_usb_device(cntl, !!(port1 & USBPORTSC_LSDA));
         if (! count)
-            outw(0, cntl->iobase + USBPORTSC1);
+            outw(0, cntl->uhci.iobase + USBPORTSC1);
         totalcount += count;
     }
-    port2 = inw(cntl->iobase + USBPORTSC2);
+    port2 = inw(cntl->uhci.iobase + USBPORTSC2);
     if (port2 & USBPORTSC_CCS) {
-        outw(USBPORTSC_PE, cntl->iobase + USBPORTSC2);
+        outw(USBPORTSC_PE, cntl->uhci.iobase + USBPORTSC2);
         int count = configure_usb_device(cntl, !!(port2 & USBPORTSC_LSDA));
         if (! count)
-            outw(0, cntl->iobase + USBPORTSC2);
+            outw(0, cntl->uhci.iobase + USBPORTSC2);
         totalcount += count;
     }
     return totalcount;
@@ -130,14 +130,15 @@ uhci_init(struct usb_s *cntl)
     if (! CONFIG_USB_UHCI)
         return 0;
 
-    cntl->iobase = (pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_4)
-                    & PCI_BASE_ADDRESS_IO_MASK);
+    cntl->type = USB_TYPE_UHCI;
+    cntl->uhci.iobase = (pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_4)
+                         & PCI_BASE_ADDRESS_IO_MASK);
 
     dprintf(3, "UHCI init on dev %02x:%02x.%x (io=%x)\n"
             , pci_bdf_to_bus(cntl->bdf), pci_bdf_to_dev(cntl->bdf)
-            , pci_bdf_to_fn(cntl->bdf), cntl->iobase);
+            , pci_bdf_to_fn(cntl->bdf), cntl->uhci.iobase);
 
-    pci_set_bus_master(cntl->bdf);
+    pci_config_maskw(cntl->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
 
     reset_uhci(cntl);
     configure_uhci(cntl);
@@ -213,7 +214,7 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
     tds[i].buffer = 0;
 
     // Transfer data
-    struct uhci_qh *data_qh = cntl->qh;
+    struct uhci_qh *data_qh = cntl->uhci.qh;
     data_qh->element = (u32)&tds[0];
     int ret = wait_qh(data_qh);
     if (ret)
@@ -223,7 +224,7 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
     return 0;
 }
 
-void *
+struct usb_pipe *
 uhci_alloc_intr_pipe(u32 endp, int period)
 {
     if (! CONFIG_USB_UHCI)
@@ -259,23 +260,24 @@ uhci_alloc_intr_pipe(u32 endp, int period)
     }
 
     qh->next_td = &tds[0];
+    qh->pipe.endp = endp;
 
     // XXX - need schedule - just add to primary list for now.
-    struct uhci_qh *data_qh = cntl->qh;
+    struct uhci_qh *data_qh = cntl->uhci.qh;
     qh->link = data_qh->link;
     data_qh->link = (u32)qh | UHCI_PTR_QH;
 
-    return qh;
+    return &qh->pipe;
 }
 
 int
-uhci_poll_intr(void *pipe, void *data)
+uhci_poll_intr(struct usb_pipe *pipe, void *data)
 {
     ASSERT16();
     if (! CONFIG_USB_UHCI)
         return -1;
 
-    struct uhci_qh *qh = pipe;
+    struct uhci_qh *qh = container_of(pipe, struct uhci_qh, pipe);
     struct uhci_td *td = GET_FLATPTR(qh->next_td);
     u32 status = GET_FLATPTR(td->status);
     u32 token = GET_FLATPTR(td->token);

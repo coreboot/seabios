@@ -30,6 +30,8 @@
 #define CONFIG_USB 1
 // Support USB UHCI controllers
 #define CONFIG_USB_UHCI 1
+// Support USB OHCI controllers
+#define CONFIG_USB_OHCI 0
 // Support USB keyboards
 #define CONFIG_USB_KEYBOARD 1
 // Support for IDE disk code
