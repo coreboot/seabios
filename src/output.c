@@ -1,6 +1,6 @@
 // Raw screen writing and debug output code.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -84,8 +84,11 @@ putc_debug(struct putcinfo *action, char c)
     debug_serial(c);
 }
 
+// In 16bit mode just need a dummy variable (putc_debug is always used
+// anyway), and in 32bit mode need a pointer to the 32bit instance of
+// putc_debug().
 #if MODE16
-static struct putcinfo debuginfo VAR16 = { putc_debug };
+static struct putcinfo debuginfo VAR16;
 #else
 static struct putcinfo debuginfo = { putc_debug };
 #endif
