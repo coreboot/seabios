@@ -66,33 +66,38 @@ relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
 }
 
 // Support expanding the ZoneLow dynamically.
-static int
+static void
 zonelow_expand(u32 size, u32 align)
 {
+    u32 oldpos = GET_PMMVAR(ZoneLow.cur);
+    u32 newpos = ALIGN_DOWN(oldpos - size, align);
+    u32 bottom = GET_PMMVAR(ZoneLow.bottom);
+    if (newpos >= bottom && newpos <= oldpos)
+        // Space already present.
+        return;
     u16 ebda_seg = get_ebda_seg();
     u32 ebda_pos = (u32)MAKE_FLATPTR(ebda_seg, 0);
-    u32 bottom = GET_PMMVAR(ZoneLow.bottom);
-    u32 cur = GET_PMMVAR(ZoneLow.cur);
     u8 ebda_size = GET_EBDA2(ebda_seg, size);
     u32 ebda_end = ebda_pos + ebda_size * 1024;
-    if (ebda_end != bottom)
+    if (ebda_end != bottom) {
         // Something else is after ebda - can't use any existing space.
-        cur = ebda_end;
-    u32 newcur = ALIGN_DOWN(cur - size, align);
-    u32 newbottom = ALIGN_DOWN(newcur, 1024);
+        oldpos = ebda_end;
+        newpos = ALIGN_DOWN(oldpos - size, align);
+    }
+    u32 newbottom = ALIGN_DOWN(newpos, 1024);
     u32 newebda = ALIGN_DOWN(newbottom - ebda_size * 1024, 1024);
     if (newebda < BUILD_EBDA_MINIMUM)
         // Not enough space.
-        return -1;
+        return;
 
     // Move ebda
     int ret = relocate_ebda(newebda, ebda_pos, ebda_size);
     if (ret)
-        return ret;
+        return;
 
     // Update zone
+    SET_PMMVAR(ZoneLow.cur, oldpos);
     SET_PMMVAR(ZoneLow.bottom, newbottom);
-    return 0;
 }
 
 
@@ -101,7 +106,7 @@ zonelow_expand(u32 size, u32 align)
  ****************************************************************/
 
 // Obtain memory from a given zone.
-void *
+static void *
 zone_malloc(struct zone_s *zone, u32 size, u32 align)
 {
     u32 oldpos = GET_PMMVAR(zone->cur);
@@ -111,15 +116,6 @@ zone_malloc(struct zone_s *zone, u32 size, u32 align)
         return NULL;
     SET_PMMVAR(zone->cur, newpos);
     return (void*)newpos;
-}
-
-// Return memory to a zone (if it was the last to be allocated).
-static void
-zone_free(struct zone_s *zone, void *data, u32 olddata)
-{
-    if (! data || GET_PMMVAR(zone->cur) != (u32)data)
-        return;
-    SET_PMMVAR(zone->cur, olddata);
 }
 
 // Find the zone that contains the given data block.
@@ -134,6 +130,17 @@ zone_find(void *data)
             return zone;
     }
     return NULL;
+}
+
+// Return memory to a zone (if it was the last to be allocated).
+static int
+zone_free(void *data, u32 olddata)
+{
+    struct zone_s *zone = zone_find(data);
+    if (!zone || !data || GET_PMMVAR(zone->cur) != (u32)data)
+        return -1;
+    SET_PMMVAR(zone->cur, olddata);
+    return 0;
 }
 
 // Report the status of all the zones.
@@ -209,17 +216,6 @@ malloc_finalize()
     memset((void*)ZoneTmpLow.bottom, 0, ZoneTmpLow.top - ZoneTmpLow.bottom);
 }
 
-// Allocate memory from ZoneLow - growing the zone if needed.
-void *
-zone_malloc_low(u32 size, u32 align)
-{
-    void *ret = zone_malloc(&ZoneLow, size, align);
-    if (ret)
-        return ret;
-    zonelow_expand(size, align);
-    return zone_malloc(&ZoneLow, size, align);
-}
-
 
 /****************************************************************
  * pmm allocation
@@ -236,30 +232,25 @@ struct pmmalloc_s {
 
 struct pmmalloc_s *PMMAllocs VAR32VISIBLE;
 
-// Memory zone that pmm allocation tracking info is stored in
-#define ZONEALLOC (&ZoneTmpHigh)
-
 // Allocate memory from the given zone and track it as a PMM allocation
-static void *
+void *
 pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 {
-    u32 oldallocdata = GET_PMMVAR(ZONEALLOC->cur);
-    struct pmmalloc_s *info = zone_malloc(ZONEALLOC, sizeof(*info)
+    u32 oldallocdata = GET_PMMVAR(ZoneTmpHigh.cur);
+    struct pmmalloc_s *info = zone_malloc(&ZoneTmpHigh, sizeof(*info)
                                           , MALLOC_MIN_ALIGN);
-    if (!info)
-        return NULL;
+    if (!info) {
+        oldallocdata = GET_PMMVAR(ZoneTmpLow.cur);
+        info = zone_malloc(&ZoneTmpLow, sizeof(*info), MALLOC_MIN_ALIGN);
+        if (!info)
+            return NULL;
+    }
+    if (zone == &ZoneLow)
+        zonelow_expand(size, align);
     u32 olddata = GET_PMMVAR(zone->cur);
     void *data = zone_malloc(zone, size, align);
-#if 0  // XXX - gcc4.3 internal compiler error - disable for now
-    if (!data && zone == &ZoneLow) {
-        // Try to expand permanent low zone.
-        zonelow_expand(size, align);
-        olddata = GET_PMMVAR(zone->cur);
-        data = zone_malloc(zone, size, align);
-    }
-#endif
     if (! data) {
-        zone_free(ZONEALLOC, info, oldallocdata);
+        zone_free(info, oldallocdata);
         return NULL;
     }
     dprintf(8, "pmm_malloc zone=%p handle=%x size=%d align=%x"
@@ -277,12 +268,12 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 
 // Free a raw data block (either from a zone or from pmm alloc list).
 static void
-pmm_free_data(struct zone_s *zone, void *data, u32 olddata)
+pmm_free_data(void *data, u32 olddata)
 {
-    if (GET_PMMVAR(zone->cur) == (u32)data) {
-        zone_free(zone, data, olddata);
+    int ret = zone_free(data, olddata);
+    if (!ret)
+        // Success - done.
         return;
-    }
     struct pmmalloc_s *info;
     for (info=GET_PMMVAR(PMMAllocs); info; info = GET_PMMVAR(info->next))
         if (GET_PMMVAR(info->olddata) == (u32)data) {
@@ -295,12 +286,9 @@ pmm_free_data(struct zone_s *zone, void *data, u32 olddata)
 }
 
 // Free a data block allocated with pmm_malloc
-static int
+int
 pmm_free(void *data)
 {
-    struct zone_s *zone = zone_find(GET_PMMVAR(data));
-    if (!zone)
-        return -1;
     struct pmmalloc_s **pinfo = &PMMAllocs;
     for (;;) {
         struct pmmalloc_s *info = GET_PMMVAR(*pinfo);
@@ -310,12 +298,10 @@ pmm_free(void *data)
             SET_PMMVAR(*pinfo, GET_PMMVAR(info->next));
             u32 oldallocdata = GET_PMMVAR(info->oldallocdata);
             u32 olddata = GET_PMMVAR(info->olddata);
-            pmm_free_data(zone, data, olddata);
-            pmm_free_data(ZONEALLOC, info, oldallocdata);
-            dprintf(8, "pmm_free data=%p zone=%p olddata=%p oldallocdata=%p"
-                    " info=%p\n"
-                    , data, zone, (void*)olddata, (void*)oldallocdata
-                    , info);
+            pmm_free_data(data, olddata);
+            pmm_free_data(info, oldallocdata);
+            dprintf(8, "pmm_free data=%p olddata=%p oldallocdata=%p info=%p\n"
+                    , data, (void*)olddata, (void*)oldallocdata, info);
             return 0;
         }
         pinfo = &info->next;
@@ -328,8 +314,9 @@ pmm_getspace(struct zone_s *zone)
 {
     // XXX - doesn't account for ZoneLow being able to grow.
     u32 space = GET_PMMVAR(zone->cur) - GET_PMMVAR(zone->bottom);
-    if (zone != ZONEALLOC)
+    if (zone != &ZoneTmpHigh && zone != &ZoneTmpLow)
         return space;
+    // Account for space needed for PMM tracking.
     u32 reserve = ALIGN(sizeof(struct pmmalloc_s), MALLOC_MIN_ALIGN);
     if (space <= reserve)
         return 0;
@@ -441,7 +428,7 @@ handle_pmm01(u16 *args)
 {
     u32 handle = *(u32*)&args[1];
     dprintf(3, "pmm01: handle=%x\n", handle);
-    if (handle == 0xFFFFFFFF)
+    if (handle == PMM_DEFAULT_HANDLE)
         return 0;
     return (u32)pmm_find(handle);
 }

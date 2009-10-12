@@ -282,35 +282,39 @@ void pnp_setup();
 
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
-void *zone_malloc(struct zone_s *zone, u32 size, u32 align);
-void *zone_malloc_low(u32 size, u32 align);
 void malloc_setup();
 void malloc_finalize();
+void *pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align);
+int pmm_free(void *data);
 void pmm_setup();
 void pmm_finalize();
+#define PMM_DEFAULT_HANDLE 0xFFFFFFFF
 // Minimum alignment of malloc'd memory
 #define MALLOC_MIN_ALIGN 16
 // Helper functions for memory allocation.
 static inline void *malloc_low(u32 size) {
-    return zone_malloc_low(size, MALLOC_MIN_ALIGN);
+    return pmm_malloc(&ZoneLow, PMM_DEFAULT_HANDLE, size, MALLOC_MIN_ALIGN);
 }
 static inline void *malloc_high(u32 size) {
-    return zone_malloc(&ZoneHigh, size, MALLOC_MIN_ALIGN);
+    return pmm_malloc(&ZoneHigh, PMM_DEFAULT_HANDLE, size, MALLOC_MIN_ALIGN);
 }
 static inline void *malloc_fseg(u32 size) {
-    return zone_malloc(&ZoneFSeg, size, MALLOC_MIN_ALIGN);
+    return pmm_malloc(&ZoneFSeg, PMM_DEFAULT_HANDLE, size, MALLOC_MIN_ALIGN);
 }
 static inline void *malloc_tmphigh(u32 size) {
-    return zone_malloc(&ZoneTmpHigh, size, MALLOC_MIN_ALIGN);
+    return pmm_malloc(&ZoneTmpHigh, PMM_DEFAULT_HANDLE, size, MALLOC_MIN_ALIGN);
 }
 static inline void *memalign_low(u32 align, u32 size) {
-    return zone_malloc_low(size, align);
+    return pmm_malloc(&ZoneLow, PMM_DEFAULT_HANDLE, size, align);
 }
 static inline void *memalign_high(u32 align, u32 size) {
-    return zone_malloc(&ZoneHigh, size, align);
+    return pmm_malloc(&ZoneHigh, PMM_DEFAULT_HANDLE, size, align);
 }
 static inline void *memalign_tmphigh(u32 align, u32 size) {
-    return zone_malloc(&ZoneTmpHigh, size, align);
+    return pmm_malloc(&ZoneTmpHigh, PMM_DEFAULT_HANDLE, size, align);
+}
+static inline void free(void *data) {
+    pmm_free(data);
 }
 
 // mtrr.c
