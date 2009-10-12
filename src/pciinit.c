@@ -24,7 +24,6 @@ static u8 pci_irqs[4] = {
 
 static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 {
-    u16 cmd;
     u32 ofs, old_addr;
 
     if (region_num == PCI_ROM_SLOT) {
@@ -37,16 +36,6 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 
     pci_config_writel(bdf, ofs, addr);
     dprintf(1, "region %d: 0x%08x\n", region_num, addr);
-
-    /* enable memory mappings */
-    cmd = pci_config_readw(bdf, PCI_COMMAND);
-    if (region_num == PCI_ROM_SLOT)
-        cmd |= PCI_COMMAND_MEMORY;
-    else if (old_addr & PCI_BASE_ADDRESS_SPACE_IO)
-        cmd |= PCI_COMMAND_IO;
-    else
-        cmd |= PCI_COMMAND_MEMORY;
-    pci_config_writew(bdf, PCI_COMMAND, cmd);
 }
 
 /* return the global irq number corresponding to a given device irq
@@ -160,6 +149,9 @@ static void pci_bios_init_device(u16 bdf)
         }
         break;
     }
+
+    /* enable memory mappings */
+    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
 
     /* map the interrupt */
     pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
