@@ -18,10 +18,6 @@ mptable_init(void)
 
     dprintf(3, "init MPTable\n");
 
-    if (MaxCountCPUs <= 1)
-        // Building an mptable on uniprocessor machines confuses some OSes.
-        return;
-
     int length = (sizeof(struct mptable_config_s)
                   + sizeof(struct mpt_cpu) * MaxCountCPUs
                   + sizeof(struct mpt_bus)
