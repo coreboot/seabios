@@ -336,8 +336,8 @@ build_fadt(int bdf)
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
     fadt->gpe0_blk = cpu_to_le32(0xafe0);
     fadt->gpe0_blk_len = 4;
-    /* WBINVD + PROC_C1 + PWR_BUTTON + SLP_BUTTON + FIX_RTC */
-    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 4) | (1 << 5) | (1 << 6));
+    /* WBINVD + PROC_C1 + SLP_BUTTON + FIX_RTC */
+    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 6));
 
     build_header((void*)fadt, FACP_SIGNATURE, sizeof(*fadt), 1);
 
