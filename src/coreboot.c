@@ -11,6 +11,7 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "biosvar.h" // GET_EBDA
 #include "lzmadecode.h" // LzmaDecode
+#include "smbios.h" // smbios_init
 
 
 /****************************************************************

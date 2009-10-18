@@ -7,9 +7,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h"
-#include "ioport.h"
-#include "paravirt.h"
+#include "config.h" // CONFIG_COREBOOT
+#include "ioport.h" // outw
+#include "paravirt.h" // qemu_cfg_port_probe
+#include "smbios.h" // struct smbios_structure_header
 
 int qemu_cfg_present;
 
@@ -179,13 +180,6 @@ size_t qemu_cfg_smbios_load_field(int type, size_t offset, void *addr)
     }
     return 0;
 }
-
-/* This goes at the beginning of every SMBIOS structure. */
-struct smbios_structure_header {
-	u8 type;
-	u8 length;
-	u16 handle;
-} PACKED;
 
 int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
                                   unsigned *max_struct_size, char *end)

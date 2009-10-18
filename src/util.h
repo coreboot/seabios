@@ -246,9 +246,6 @@ void wrmsr_smp(u32 index, u64 val);
 void smp_probe(void);
 void smp_probe_setup(void);
 
-// smbios.c
-void smbios_init(void);
-
 // coreboot.c
 struct cbfs_file;
 struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);

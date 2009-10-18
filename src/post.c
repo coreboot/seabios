@@ -20,7 +20,8 @@
 #include "mptable.h" // mptable_init
 #include "boot.h" // IPL
 #include "usb.h" // usb_setup
-#include "paravirt.h"
+#include "smbios.h" // smbios_init
+#include "paravirt.h" // qemu_cfg_port_probe
 
 void
 __set_irq(int vector, void *loc)
