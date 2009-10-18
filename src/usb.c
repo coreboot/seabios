@@ -13,6 +13,7 @@
 #include "usb-ohci.h" // ohci_init
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb.h" // struct usb_s
+#include "biosvar.h" // GET_GLOBAL
 
 struct usb_s USBControllers[16] VAR16VISIBLE;
 
@@ -46,8 +47,9 @@ alloc_intr_pipe(u32 endp, int period)
 int
 usb_poll_intr(struct usb_pipe *pipe, void *data)
 {
-    struct usb_s *cntl = endp2cntl(pipe->endp);
-    switch (cntl->type) {
+    u32 endp = GET_FLATPTR(pipe->endp);
+    struct usb_s *cntl = endp2cntl(endp);
+    switch (GET_GLOBAL(cntl->type)) {
     default:
     case USB_TYPE_UHCI:
         return uhci_poll_intr(pipe, data);
@@ -185,10 +187,10 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
     if (ret)
         goto fail;
 
-    // XXX - free(config);
+    free(config);
     return 1;
 fail:
-    // XXX - free(config);
+    free(config);
     return 0;
 }
 

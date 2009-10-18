@@ -127,6 +127,12 @@ calc_future_tsc(u32 msecs)
     u32 khz = GET_GLOBAL(cpu_khz);
     return rdtscll() + ((u64)khz * msecs);
 }
+u64
+calc_future_tsc_usec(u32 usecs)
+{
+    u32 khz = GET_GLOBAL(cpu_khz);
+    return rdtscll() + ((u64)(khz/1000) * usecs);
+}
 
 
 /****************************************************************

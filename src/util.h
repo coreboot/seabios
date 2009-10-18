@@ -219,6 +219,7 @@ void ndelay(u32 count);
 void udelay(u32 count);
 void mdelay(u32 count);
 u64 calc_future_tsc(u32 msecs);
+u64 calc_future_tsc_usec(u32 usecs);
 void handle_1583(struct bregs *regs);
 void handle_1586(struct bregs *regs);
 

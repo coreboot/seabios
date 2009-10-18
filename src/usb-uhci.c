@@ -12,7 +12,6 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "usb.h" // struct usb_s
 #include "farptr.h" // GET_FLATPTR
-#include "biosvar.h" // GET_GLOBAL
 
 static void
 reset_uhci(struct usb_s *cntl)
@@ -98,7 +97,7 @@ check_ports(struct usb_s *cntl)
         outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC1);
     if (port2 & USBPORTSC_CCS)
         outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC2);
-    mdelay(10);
+    mdelay(50);
     outw(0, cntl->uhci.iobase + USBPORTSC1);
     outw(0, cntl->uhci.iobase + USBPORTSC2);
     mdelay(10);
@@ -174,7 +173,7 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
              , void *data, int datasize)
 {
     if (! CONFIG_USB_UHCI)
-        return 0;
+        return -1;
 
     dprintf(5, "uhci_control %x\n", endp);
     struct usb_s *cntl = endp2cntl(endp);

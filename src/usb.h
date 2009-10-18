@@ -15,6 +15,7 @@ struct usb_s {
         } uhci;
         struct {
             struct ohci_regs *regs;
+            void *control_ed;
         } ohci;
     };
 };

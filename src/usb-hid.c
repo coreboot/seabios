@@ -171,7 +171,7 @@ usb_check_key()
 {
     if (! CONFIG_USB_KEYBOARD)
         return;
-    void *pipe = GET_GLOBAL(keyboard_pipe);
+    struct usb_pipe *pipe = GET_GLOBAL(keyboard_pipe);
     if (!pipe)
         return;
 
