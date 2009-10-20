@@ -2,16 +2,14 @@ Add int 0x1589 support.
 
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
-  * bochs cvs (20090620):
-    -- hpet, int1589, smbios mem>16GB, mptable on 1 cpu
+  * bochs cvs (20091017):
+    -- 32bit pcibios, int1589
   * coreboot (r3348):    (bochs 20060708)
     -- no noteworthy enhancements
-  * qemu (r6125):        (bochs 20080603)
-    -- acpi hpet table
-  * kvm (1a33292):       (bochs 20081016)
-    -- acpi dsdt changes, e820 vmx pages, setup mtrrs, clear tsc, acpi
-       intsrcovr table, different pci irqs, smbios always uses 16
-       cpus, no acpi ssdt, fadt->gpe0_blk set
+  * qemu (da5ff65d):     (bochs 20090210)
+    -- changes synched
+  * kvm (e5c31442):      (bochs 20090210)
+    -- tpr patching, 16MB rom, acpi-ssdt.dsl, 4K aligned pci mem
   * virtualbox (r13560): (bochs 20061231)
     -- lots of mouse changes, logo, scsi/etherboot hooks, int 1589,
        floppy data rate?, int19 calls post
@@ -24,18 +22,15 @@ is unnecessary.
 
 Possibly implement 32bit pcibios support.
 
-Allow one to select adding 32 bit code to 0xf000 or in a separate
-location.
-
 Support PCIv3 roms?  Add support for PCI "configuration code"
-extensions?  Add support for PCI permanent memory extensions to PMM?
+extensions?
 
 Possibly add option to eliminate tsc based delays on emulators.
 
 Add a kconfig style configuration program instead of requiring users
 to modify config.h.
 
-Support usb booting?  Support usb keyboard/mice?
+Support usb booting?  Support usb mice?
 
 Add a graphical boot splash screen?
 
