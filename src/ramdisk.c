@@ -11,9 +11,9 @@
 #include "bregs.h" // struct bregs
 
 void
-describe_ramdisk(int driveid)
+describe_ramdisk(struct drive_s *drive_g)
 {
-    printf("%s", Drives.drives[driveid].model);
+    printf("%s", drive_g->model);
 }
 
 void
@@ -47,16 +47,15 @@ ramdisk_setup()
 
     // Setup driver.
     dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
-    int driveid = addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
-    if (driveid >= 0)
-        strtcpy(Drives.drives[driveid].model, cbfs_filename(file)
-                , ARRAY_SIZE(Drives.drives[driveid].model));
+    struct drive_s *drive_g = addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
+    if (drive_g)
+        strtcpy(drive_g->model, cbfs_filename(file), ARRAY_SIZE(drive_g->model));
 }
 
 static int
 ramdisk_copy(struct disk_op_s *op, int iswrite)
 {
-    u32 offset = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
+    u32 offset = GET_GLOBAL(op->drive_g->cntl_id);
     offset += (u32)op->lba * DISK_SECTOR_SIZE;
     u64 opd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)op->buf_fl);
     u64 ramd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE(offset);

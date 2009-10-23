@@ -41,7 +41,8 @@ extern struct ipl_s IPL;
 void boot_setup();
 void add_bev(u16 seg, u16 bev, u16 desc);
 void add_bcv(u16 seg, u16 ip, u16 desc);
-void add_bcv_internal(int driveid);
+struct drive_s;
+void add_bcv_internal(struct drive_s *drive_g);
 void boot_prep();
 
 #endif // __BOOT_H

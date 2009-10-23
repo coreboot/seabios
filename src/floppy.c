@@ -88,36 +88,34 @@ struct floppyinfo_s FloppyInfo[] VAR16VISIBLE = {
     { {2, 40, 8}, 0x00, 0x27},
 };
 
-int
+struct drive_s *
 addFloppy(int floppyid, int ftype, int driver)
 {
     if (ftype <= 0 || ftype >= ARRAY_SIZE(FloppyInfo)) {
         dprintf(1, "Bad floppy type %d\n", ftype);
-        return -1;
+        return NULL;
     }
 
-    int driveid = Drives.drivecount;
-    if (driveid >= ARRAY_SIZE(Drives.drives))
-        return -1;
-    Drives.drivecount++;
-    memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
-    Drives.drives[driveid].cntl_id = floppyid;
-    Drives.drives[driveid].type = driver;
-    Drives.drives[driveid].blksize = DISK_SECTOR_SIZE;
-    Drives.drives[driveid].floppy_type = ftype;
-    Drives.drives[driveid].sectors = (u64)-1;
+    struct drive_s *drive_g = allocDrive();
+    if (!drive_g)
+        return NULL;
+    drive_g->cntl_id = floppyid;
+    drive_g->type = driver;
+    drive_g->blksize = DISK_SECTOR_SIZE;
+    drive_g->floppy_type = ftype;
+    drive_g->sectors = (u64)-1;
 
-    memcpy(&Drives.drives[driveid].lchs, &FloppyInfo[ftype].chs
+    memcpy(&drive_g->lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
 
-    map_floppy_drive(driveid);
-    return driveid;
+    map_floppy_drive(drive_g);
+    return drive_g;
 }
 
 void
-describe_floppy(int driveid)
+describe_floppy(struct drive_s *drive_g)
 {
-    printf("drive %c", 'A' + Drives.drives[driveid].cntl_id);
+    printf("drive %c", 'A' + drive_g->cntl_id);
 }
 
 void
@@ -316,7 +314,7 @@ floppy_drive_recal(u8 floppyid)
 }
 
 static int
-floppy_media_sense(u8 driveid)
+floppy_media_sense(struct drive_s *drive_g)
 {
     // for now cheat and get drive type from CMOS,
     // assume media is same as drive type
@@ -349,18 +347,18 @@ floppy_media_sense(u8 driveid)
     //    110 reserved
     //    111 all other formats/drives
 
-    u8 ftype = GET_GLOBAL(Drives.drives[driveid].floppy_type);
+    u8 ftype = GET_GLOBAL(drive_g->floppy_type);
     SET_BDA(floppy_last_data_rate, GET_GLOBAL(FloppyInfo[ftype].config_data));
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(drive_g->cntl_id);
     SET_BDA(floppy_media_state[floppyid]
             , GET_GLOBAL(FloppyInfo[ftype].media_state));
     return DISK_RET_SUCCESS;
 }
 
 static int
-check_recal_drive(u8 driveid)
+check_recal_drive(struct drive_s *drive_g)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(drive_g->cntl_id);
     if ((GET_BDA(floppy_recalibration_status) & (1<<floppyid))
         && (GET_BDA(floppy_media_state[floppyid]) & FMS_MEDIA_DRIVE_ESTABLISHED))
         // Media is known.
@@ -370,7 +368,7 @@ check_recal_drive(u8 driveid)
     floppy_drive_recal(floppyid);
 
     // Sense media.
-    return floppy_media_sense(driveid);
+    return floppy_media_sense(drive_g);
 }
 
 
@@ -382,14 +380,13 @@ static void
 lba2chs(struct disk_op_s *op, u8 *track, u8 *sector, u8 *head)
 {
     u32 lba = op->lba;
-    u8 driveid = op->driveid;
 
     u32 tmp = lba + 1;
-    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    u16 nlspt = GET_GLOBAL(op->drive_g->lchs.spt);
     *sector = tmp % nlspt;
 
     tmp /= nlspt;
-    u16 nlh = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
+    u16 nlh = GET_GLOBAL(op->drive_g->lchs.heads);
     *head = tmp % nlh;
 
     tmp /= nlh;
@@ -400,7 +397,7 @@ lba2chs(struct disk_op_s *op, u8 *track, u8 *sector, u8 *head)
 static int
 floppy_reset(struct disk_op_s *op)
 {
-    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     set_diskette_current_cyl(floppyid, 0); // current cylinder
     return DISK_RET_SUCCESS;
 }
@@ -409,7 +406,7 @@ floppy_reset(struct disk_op_s *op)
 static int
 floppy_read(struct disk_op_s *op)
 {
-    int res = check_recal_drive(op->driveid);
+    int res = check_recal_drive(op->drive_g);
     if (res)
         goto fail;
 
@@ -417,7 +414,7 @@ floppy_read(struct disk_op_s *op)
     lba2chs(op, &track, &sector, &head);
 
     // send read-normal-data command (9 bytes) to controller
-    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     u8 data[12];
     data[0] = 0xe6; // e6: read normal data
     data[1] = (head << 2) | floppyid; // HD DR1 DR2
@@ -450,7 +447,7 @@ fail:
 static int
 floppy_write(struct disk_op_s *op)
 {
-    int res = check_recal_drive(op->driveid);
+    int res = check_recal_drive(op->drive_g);
     if (res)
         goto fail;
 
@@ -458,7 +455,7 @@ floppy_write(struct disk_op_s *op)
     lba2chs(op, &track, &sector, &head);
 
     // send write-normal-data command (9 bytes) to controller
-    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     u8 data[12];
     data[0] = 0xc5; // c5: write normal data
     data[1] = (head << 2) | floppyid; // HD DR1 DR2
@@ -494,7 +491,7 @@ fail:
 static int
 floppy_verify(struct disk_op_s *op)
 {
-    int res = check_recal_drive(op->driveid);
+    int res = check_recal_drive(op->drive_g);
     if (res)
         goto fail;
 
@@ -502,7 +499,7 @@ floppy_verify(struct disk_op_s *op)
     lba2chs(op, &track, &sector, &head);
 
     // ??? should track be new val from return_status[3] ?
-    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     set_diskette_current_cyl(floppyid, track);
     return DISK_RET_SUCCESS;
 fail:
@@ -514,14 +511,14 @@ fail:
 static int
 floppy_format(struct disk_op_s *op)
 {
-    int ret = check_recal_drive(op->driveid);
+    int ret = check_recal_drive(op->drive_g);
     if (ret)
         return ret;
 
     u8 head = op->lba;
 
     // send format-track command (6 bytes) to controller
-    u8 floppyid = GET_GLOBAL(Drives.drives[op->driveid].cntl_id);
+    u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     u8 data[12];
     data[0] = 0x4d; // 4d: format track
     data[1] = (head << 2) | floppyid; // HD DR1 DR2

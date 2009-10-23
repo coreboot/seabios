@@ -144,8 +144,8 @@ struct mbr_s {
 struct disk_op_s {
     u64 lba;
     void *buf_fl;
+    struct drive_s *drive_g;
     u16 count;
-    u8 driveid;
     u8 command;
 };
 
@@ -225,11 +225,13 @@ struct drives_s {
 
 // block.c
 extern struct drives_s Drives;
-void setup_translation(int driveid);
-void map_floppy_drive(int driveid);
-void map_hd_drive(int driveid);
-void map_cd_drive(int driveid);
-void describe_drive(int driveid);
+struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
+struct drive_s *allocDrive();
+void setup_translation(struct drive_s *drive_g);
+void map_floppy_drive(struct drive_s *drive_g);
+void map_hd_drive(struct drive_s *drive_g);
+void map_cd_drive(struct drive_s *drive_g);
+void describe_drive(struct drive_s *drive_g);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
 void drive_setup();
@@ -237,21 +239,21 @@ void drive_setup();
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup();
-int addFloppy(int floppyid, int ftype, int driver);
-void describe_floppy(int driveid);
+struct drive_s *addFloppy(int floppyid, int ftype, int driver);
+void describe_floppy(struct drive_s *drive_g);
 int find_floppy_type(u32 size);
 int process_floppy_op(struct disk_op_s *op);
 void floppy_tick();
 
 // cdrom.c
-extern int cdemu_driveid;
+extern struct drive_s *cdemu_drive;
 int process_cdemu_op(struct disk_op_s *op);
 void cdemu_setup();
 void cdemu_134b(struct bregs *regs);
 int cdrom_boot(int cdid);
 
 // ramdisk.c
-void describe_ramdisk(int driveid);
+void describe_ramdisk(struct drive_s *drive_g);
 void ramdisk_setup();
 int process_ramdisk_op(struct disk_op_s *op);
 

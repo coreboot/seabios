@@ -160,14 +160,14 @@ struct dpte_s {
 
 // ElTorito Device Emulation data
 struct cdemu_s {
-    u8  active;
-    u8  media;
-    u8  emulated_extdrive;
-    u8  emulated_driveid;
+    struct drive_s *emulated_drive;
     u32 ilba;
     u16 buffer_segment;
     u16 load_segment;
     u16 sector_count;
+    u8  active;
+    u8  media;
+    u8  emulated_extdrive;
 
     // Virtual device
     struct chs_s lchs;
@@ -214,7 +214,7 @@ struct extended_bios_data_area_s {
     struct dpte_s dpte;
 
     // Locks for removable devices
-    u8 cdrom_locks[CONFIG_MAX_DRIVES];
+    u8 cdrom_locks[CONFIG_MAX_EXTDRIVE];
 
     u16 boot_sequence;
 
@@ -265,10 +265,15 @@ static inline u16 get_global_seg() {
 }
 #define GET_GLOBAL(var)                         \
     GET_VAR(GLOBAL_SEGREG, (var))
-#define SET_GLOBAL(var, val) do {                                       \
-        ASSERT32();                                                     \
-        (var) = (val);                                                  \
+#define SET_GLOBAL(var, val) do {               \
+        ASSERT32();                             \
+        (var) = (val);                          \
     } while (0)
+#if MODE16
+#define ADJUST_GLOBAL_PTR(var) (var)
+#else
+#define ADJUST_GLOBAL_PTR(var) ((typeof(var))((void*)var - BUILD_BIOS_ADDR))
+#endif
 
 
 /****************************************************************

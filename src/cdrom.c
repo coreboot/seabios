@@ -20,9 +20,9 @@ static int
 cdemu_read(struct disk_op_s *op)
 {
     u16 ebda_seg = get_ebda_seg();
-    u8 driveid = GET_EBDA2(ebda_seg, cdemu.emulated_driveid);
+    struct drive_s *drive_g = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
     struct disk_op_s dop;
-    dop.driveid = driveid;
+    dop.drive_g = drive_g;
     dop.command = op->command;
     dop.lba = GET_EBDA2(ebda_seg, cdemu.ilba) + op->lba / 4;
 
@@ -104,7 +104,7 @@ process_cdemu_op(struct disk_op_s *op)
     }
 }
 
-int cdemu_driveid VAR16VISIBLE;
+struct drive_s *cdemu_drive VAR16VISIBLE;
 
 void
 cdemu_setup()
@@ -112,17 +112,15 @@ cdemu_setup()
     if (!CONFIG_CDROM_EMU)
         return;
 
-    int driveid = Drives.drivecount;
-    if (driveid >= ARRAY_SIZE(Drives.drives)) {
-        cdemu_driveid = -1;
+    struct drive_s *drive_g = allocDrive();
+    if (!drive_g) {
+        cdemu_drive = NULL;
         return;
     }
-    Drives.drivecount++;
-    cdemu_driveid = driveid;
-    memset(&Drives.drives[driveid], 0, sizeof(Drives.drives[0]));
-    Drives.drives[driveid].type = DTYPE_CDEMU;
-    Drives.drives[driveid].blksize = DISK_SECTOR_SIZE;
-    Drives.drives[driveid].sectors = (u64)-1;
+    cdemu_drive = ADJUST_GLOBAL_PTR(drive_g);
+    drive_g->type = DTYPE_CDEMU;
+    drive_g->blksize = DISK_SECTOR_SIZE;
+    drive_g->sectors = (u64)-1;
 }
 
 struct eltorito_s {
@@ -153,8 +151,8 @@ cdemu_134b(struct bregs *regs)
     SET_INT13ET(regs, media, GET_EBDA2(ebda_seg, cdemu.media));
     SET_INT13ET(regs, emulated_drive
                 , GET_EBDA2(ebda_seg, cdemu.emulated_extdrive));
-    u8 driveid = GET_EBDA2(ebda_seg, cdemu.emulated_driveid);
-    u8 cntl_id = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    struct drive_s *drive_g = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
+    u8 cntl_id = GET_GLOBAL(drive_g->cntl_id);
     SET_INT13ET(regs, controller_index, cntl_id / 2);
     SET_INT13ET(regs, device_spec, cntl_id % 2);
     SET_INT13ET(regs, ilba, GET_EBDA2(ebda_seg, cdemu.ilba));
@@ -181,13 +179,13 @@ cdemu_134b(struct bregs *regs)
 
 // Request SENSE
 static int
-atapi_get_sense(int driveid, u8 *asc, u8 *ascq)
+atapi_get_sense(struct drive_s *drive_g, u8 *asc, u8 *ascq)
 {
     u8 atacmd[12], buffer[18];
     memset(atacmd, 0, sizeof(atacmd));
     atacmd[0] = ATA_CMD_REQUEST_SENSE;
     atacmd[4] = sizeof(buffer);
-    int ret = ata_cmd_packet(driveid, atacmd, sizeof(atacmd), sizeof(buffer)
+    int ret = ata_cmd_packet(drive_g, atacmd, sizeof(atacmd), sizeof(buffer)
                              , MAKE_FLATPTR(GET_SEG(SS), buffer));
     if (ret)
         return ret;
@@ -200,12 +198,12 @@ atapi_get_sense(int driveid, u8 *asc, u8 *ascq)
 
 // Request capacity
 static int
-atapi_read_capacity(int driveid, u32 *blksize, u32 *sectors)
+atapi_read_capacity(struct drive_s *drive_g, u32 *blksize, u32 *sectors)
 {
     u8 packet[12], buf[8];
     memset(packet, 0, sizeof(packet));
     packet[0] = 0x25; /* READ CAPACITY */
-    int ret = ata_cmd_packet(driveid, packet, sizeof(packet), sizeof(buf)
+    int ret = ata_cmd_packet(drive_g, packet, sizeof(packet), sizeof(buf)
                              , MAKE_FLATPTR(GET_SEG(SS), buf));
     if (ret)
         return ret;
@@ -219,9 +217,9 @@ atapi_read_capacity(int driveid, u32 *blksize, u32 *sectors)
 }
 
 static int
-atapi_is_ready(u16 driveid)
+atapi_is_ready(struct drive_s *drive_g)
 {
-    dprintf(6, "atapi_is_ready (driveid=%d)\n", driveid);
+    dprintf(6, "atapi_is_ready (drive=%p)\n", drive_g);
 
     /* Retry READ CAPACITY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
@@ -235,13 +233,13 @@ atapi_is_ready(u16 driveid)
             return -1;
         }
 
-        int ret = atapi_read_capacity(driveid, &blksize, &sectors);
+        int ret = atapi_read_capacity(drive_g, &blksize, &sectors);
         if (!ret)
             // Success
             break;
 
         u8 asc, ascq;
-        ret = atapi_get_sense(driveid, &asc, &ascq);
+        ret = atapi_get_sense(drive_g, &asc, &ascq);
         if (ret)
             // Error - retry.
             continue;
@@ -261,7 +259,7 @@ atapi_is_ready(u16 driveid)
         }
     }
 
-    if (blksize != GET_GLOBAL(Drives.drives[driveid].blksize)) {
+    if (blksize != GET_GLOBAL(drive_g->blksize)) {
         printf("Unsupported sector size %u\n", blksize);
         return -1;
     }
@@ -274,12 +272,11 @@ atapi_is_ready(u16 driveid)
 int
 cdrom_boot(int cdid)
 {
-    // Verify device is a cdrom.
-    if (cdid >= Drives.cdcount)
+    struct drive_s *drive_g = getDrive(EXTTYPE_CD, cdid);
+    if (!drive_g)
         return 1;
-    int driveid = GET_GLOBAL(Drives.idmap[EXTTYPE_CD][cdid]);
 
-    int ret = atapi_is_ready(driveid);
+    int ret = atapi_is_ready(drive_g);
     if (ret)
         dprintf(1, "atapi_is_ready returned %d\n", ret);
 
@@ -287,7 +284,7 @@ cdrom_boot(int cdid)
     u8 buffer[2048];
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
-    dop.driveid = driveid;
+    dop.drive_g = drive_g;
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
@@ -328,7 +325,7 @@ cdrom_boot(int cdid)
     u8 media = buffer[0x21];
     SET_EBDA2(ebda_seg, cdemu.media, media);
 
-    SET_EBDA2(ebda_seg, cdemu.emulated_driveid, driveid);
+    SET_EBDA2(ebda_seg, cdemu.emulated_drive, ADJUST_GLOBAL_PTR(drive_g));
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)
@@ -357,7 +354,7 @@ cdrom_boot(int cdid)
     }
 
     // Emulation of a floppy/harddisk requested
-    if (! CONFIG_CDROM_EMU || cdemu_driveid < 0)
+    if (! CONFIG_CDROM_EMU || !cdemu_drive)
         return 13;
 
     // Set emulated drive id and increase bios installed hardware

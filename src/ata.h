@@ -14,13 +14,13 @@ struct ata_channel_s {
 // ata.c
 extern struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES];
 int cdrom_read(struct disk_op_s *op);
-int ata_cmd_packet(int driveid, u8 *cmdbuf, u8 cmdlen
+int ata_cmd_packet(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen
                    , u32 length, void *buf_fl);
 void ata_setup();
 int process_ata_op(struct disk_op_s *op);
 int process_atapi_op(struct disk_op_s *op);
-void describe_ata(int driveid);
-void describe_atapi(int driveid);
+void describe_ata(struct drive_s *drive_g);
+void describe_atapi(struct drive_s *drive_g);
 
 // Global defines -- ATA register and register bits.
 // command block & control block regs

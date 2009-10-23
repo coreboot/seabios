@@ -107,7 +107,7 @@ add_bcv(u16 seg, u16 ip, u16 desc)
 
 // Add a bcv entry for an internal harddrive
 void
-add_bcv_internal(int driveid)
+add_bcv_internal(struct drive_s *drive_g)
 {
     if (! CONFIG_BOOT)
         return;
@@ -116,7 +116,7 @@ add_bcv_internal(int driveid)
 
     struct ipl_entry_s *ie = &IPL.bcv[IPL.bcvcount++];
     ie->type = BCV_TYPE_INTERNAL;
-    ie->vector = driveid;
+    ie->vector = (u32)drive_g;
     ie->description = "";
 }
 
@@ -141,9 +141,9 @@ menu_show_floppy(struct ipl_entry_s *ie, int menupos)
 {
     int i;
     for (i = 0; i < Drives.floppycount; i++) {
-        int driveid = Drives.idmap[EXTTYPE_FLOPPY][i];
+        struct drive_s *drive_g = getDrive(EXTTYPE_FLOPPY, i);
         printf("%d. Floppy [", menupos + i);
-        describe_drive(driveid);
+        describe_drive(drive_g);
         printf("]\n");
     }
     return Drives.floppycount;
@@ -159,7 +159,7 @@ menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
         switch (ie->type) {
         case BCV_TYPE_INTERNAL:
             printf("%d. ", menupos + i);
-            describe_drive(ie->vector);
+            describe_drive((void*)ie->vector);
             printf("\n");
             break;
         default:
@@ -176,9 +176,9 @@ menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
 {
     int i;
     for (i = 0; i < Drives.cdcount; i++) {
-        int driveid = Drives.idmap[EXTTYPE_CD][i];
+        struct drive_s *drive_g = getDrive(EXTTYPE_CD, i);
         printf("%d. CD-Rom [", menupos + i);
-        describe_drive(driveid);
+        describe_drive(drive_g);
         printf("]\n");
     }
     return Drives.cdcount;
@@ -282,7 +282,7 @@ run_bcv(struct ipl_entry_s *ie)
 {
     switch (ie->type) {
     case BCV_TYPE_INTERNAL:
-        map_hd_drive(ie->vector);
+        map_hd_drive((void*)ie->vector);
         break;
     case BCV_TYPE_EXTERNAL:
         call_bcv(ie->vector >> 16, ie->vector & 0xffff);

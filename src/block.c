@@ -13,18 +13,47 @@
 
 struct drives_s Drives VAR16VISIBLE;
 
+struct drive_s *
+getDrive(u8 exttype, u8 extdriveoffset)
+{
+    // basic check : device has to be defined
+    if (extdriveoffset >= ARRAY_SIZE(Drives.idmap[0]))
+        return NULL;
+
+    // Get the ata channel
+    u8 driveid = GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]);
+
+    // basic check : device has to be valid
+    if (driveid >= ARRAY_SIZE(Drives.drives))
+        return NULL;
+
+    return &Drives.drives[driveid];
+}
+
+struct drive_s *
+allocDrive()
+{
+    int driveid = Drives.drivecount;
+    if (driveid >= ARRAY_SIZE(Drives.drives))
+        return NULL;
+    Drives.drivecount++;
+    struct drive_s *drive_g = &Drives.drives[driveid];
+    memset(drive_g, 0, sizeof(*drive_g));
+    return drive_g;
+}
+
 
 /****************************************************************
  * Disk geometry translation
  ****************************************************************/
 
 static u8
-get_translation(int driveid)
+get_translation(struct drive_s *drive_g)
 {
-    u8 type = GET_GLOBAL(Drives.drives[driveid].type);
+    u8 type = GET_GLOBAL(drive_g->type);
     if (! CONFIG_COREBOOT && type == DTYPE_ATA) {
         // Emulators pass in the translation info via nvram.
-        u8 ataid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+        u8 ataid = GET_GLOBAL(drive_g->cntl_id);
         u8 channel = ataid / 2;
         u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
         translation >>= 2 * (ataid % 4);
@@ -33,9 +62,9 @@ get_translation(int driveid)
     }
 
     // On COREBOOT, use a heuristic to determine translation type.
-    u16 heads = GET_GLOBAL(Drives.drives[driveid].pchs.heads);
-    u16 cylinders = GET_GLOBAL(Drives.drives[driveid].pchs.cylinders);
-    u16 spt = GET_GLOBAL(Drives.drives[driveid].pchs.spt);
+    u16 heads = GET_GLOBAL(drive_g->pchs.heads);
+    u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
+    u16 spt = GET_GLOBAL(drive_g->pchs.spt);
 
     if (cylinders <= 1024 && heads <= 16 && spt <= 63)
         return TRANSLATION_NONE;
@@ -45,18 +74,18 @@ get_translation(int driveid)
 }
 
 void
-setup_translation(int driveid)
+setup_translation(struct drive_s *drive_g)
 {
-    u8 translation = get_translation(driveid);
-    SET_GLOBAL(Drives.drives[driveid].translation, translation);
+    u8 translation = get_translation(drive_g);
+    SET_GLOBAL(drive_g->translation, translation);
 
-    u8 ataid = GET_GLOBAL(Drives.drives[driveid].cntl_id);
+    u8 ataid = GET_GLOBAL(drive_g->cntl_id);
     u8 channel = ataid / 2;
     u8 slave = ataid % 2;
-    u16 heads = GET_GLOBAL(Drives.drives[driveid].pchs.heads);
-    u16 cylinders = GET_GLOBAL(Drives.drives[driveid].pchs.cylinders);
-    u16 spt = GET_GLOBAL(Drives.drives[driveid].pchs.spt);
-    u64 sectors = GET_GLOBAL(Drives.drives[driveid].sectors);
+    u16 heads = GET_GLOBAL(drive_g->pchs.heads);
+    u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
+    u16 spt = GET_GLOBAL(drive_g->pchs.spt);
+    u64 sectors = GET_GLOBAL(drive_g->sectors);
 
     dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation="
             , channel, slave, cylinders, heads, spt);
@@ -114,9 +143,9 @@ setup_translation(int driveid)
         cylinders = 1024;
     dprintf(1, " LCHS=%d/%d/%d\n", cylinders, heads, spt);
 
-    SET_GLOBAL(Drives.drives[driveid].lchs.heads, heads);
-    SET_GLOBAL(Drives.drives[driveid].lchs.cylinders, cylinders);
-    SET_GLOBAL(Drives.drives[driveid].lchs.spt, spt);
+    SET_GLOBAL(drive_g->lchs.heads, heads);
+    SET_GLOBAL(drive_g->lchs.cylinders, cylinders);
+    SET_GLOBAL(drive_g->lchs.spt, spt);
 }
 
 
@@ -126,18 +155,18 @@ setup_translation(int driveid)
 
 // Fill in Fixed Disk Parameter Table (located in ebda).
 static void
-fill_fdpt(int driveid, int hdid)
+fill_fdpt(struct drive_s *drive_g, int hdid)
 {
     if (hdid > 1)
         return;
 
-    u16 nlc   = GET_GLOBAL(Drives.drives[driveid].lchs.cylinders);
-    u16 nlh   = GET_GLOBAL(Drives.drives[driveid].lchs.heads);
-    u16 nlspt = GET_GLOBAL(Drives.drives[driveid].lchs.spt);
+    u16 nlc   = GET_GLOBAL(drive_g->lchs.cylinders);
+    u16 nlh   = GET_GLOBAL(drive_g->lchs.heads);
+    u16 nlspt = GET_GLOBAL(drive_g->lchs.spt);
 
-    u16 npc   = GET_GLOBAL(Drives.drives[driveid].pchs.cylinders);
-    u16 nph   = GET_GLOBAL(Drives.drives[driveid].pchs.heads);
-    u16 npspt = GET_GLOBAL(Drives.drives[driveid].pchs.spt);
+    u16 npc   = GET_GLOBAL(drive_g->pchs.cylinders);
+    u16 nph   = GET_GLOBAL(drive_g->pchs.heads);
+    u16 npspt = GET_GLOBAL(drive_g->pchs.spt);
 
     struct fdpt_s *fdpt = &get_ebda_ptr()->fdpt[hdid];
     fdpt->precompensation = 0xffff;
@@ -172,42 +201,45 @@ fill_fdpt(int driveid, int hdid)
 
 // Map a drive (that was registered via add_bcv_hd)
 void
-map_hd_drive(int driveid)
+map_hd_drive(struct drive_s *drive_g)
 {
     // fill hdidmap
     u8 hdcount = GET_BDA(hdcount);
     if (hdcount >= ARRAY_SIZE(Drives.idmap[0]))
         return;
-    dprintf(3, "Mapping hd driveid %d to %d\n", driveid, hdcount);
+    dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdcount);
+    int driveid = drive_g - Drives.drives;
     SET_GLOBAL(Drives.idmap[EXTTYPE_HD][hdcount], driveid);
     SET_BDA(hdcount, hdcount + 1);
 
     // Fill "fdpt" structure.
-    fill_fdpt(driveid, hdcount);
+    fill_fdpt(drive_g, hdcount);
 }
 
 // Map a cd
 void
-map_cd_drive(int driveid)
+map_cd_drive(struct drive_s *drive_g)
 {
     // fill cdidmap
     u8 cdcount = GET_GLOBAL(Drives.cdcount);
     if (cdcount >= ARRAY_SIZE(Drives.idmap[0]))
         return;
-    dprintf(3, "Mapping cd driveid %d to %d\n", driveid, cdcount);
+    dprintf(3, "Mapping cd drive %p to %d\n", drive_g, cdcount);
+    int driveid = drive_g - Drives.drives;
     SET_GLOBAL(Drives.idmap[EXTTYPE_CD][cdcount], driveid);
     SET_GLOBAL(Drives.cdcount, cdcount+1);
 }
 
 // Map a floppy
 void
-map_floppy_drive(int driveid)
+map_floppy_drive(struct drive_s *drive_g)
 {
     // fill idmap
     u8 floppycount = GET_GLOBAL(Drives.floppycount);
     if (floppycount >= ARRAY_SIZE(Drives.idmap[0]))
         return;
-    dprintf(3, "Mapping floppy driveid %d to %d\n", driveid, floppycount);
+    dprintf(3, "Mapping floppy drive %p to %d\n", drive_g, floppycount);
+    int driveid = drive_g - Drives.drives;
     SET_GLOBAL(Drives.idmap[EXTTYPE_FLOPPY][floppycount], driveid);
     floppycount++;
     SET_GLOBAL(Drives.floppycount, floppycount);
@@ -226,22 +258,22 @@ map_floppy_drive(int driveid)
 
 // Show a one line description (without trailing newline) of a drive.
 void
-describe_drive(int driveid)
+describe_drive(struct drive_s *drive_g)
 {
     ASSERT32();
-    u8 type = GET_GLOBAL(Drives.drives[driveid].type);
+    u8 type = GET_GLOBAL(drive_g->type);
     switch (type) {
     case DTYPE_FLOPPY:
-        describe_floppy(driveid);
+        describe_floppy(drive_g);
         break;
     case DTYPE_ATA:
-        describe_ata(driveid);
+        describe_ata(drive_g);
         break;
     case DTYPE_ATAPI:
-        describe_atapi(driveid);
+        describe_atapi(drive_g);
         break;
     case DTYPE_RAMDISK:
-        describe_ramdisk(driveid);
+        describe_ramdisk(drive_g);
         break;
     default:
         printf("Unknown");
@@ -258,7 +290,7 @@ describe_drive(int driveid)
 int
 process_op(struct disk_op_s *op)
 {
-    u8 type = GET_GLOBAL(Drives.drives[op->driveid].type);
+    u8 type = GET_GLOBAL(op->drive_g->type);
     switch (type) {
     case DTYPE_FLOPPY:
         return process_floppy_op(op);
@@ -285,8 +317,8 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
                , op_seg, op_far
                , sizeof(dop));
 
-    dprintf(DEBUG_HDL_13, "disk_op d=%d lba=%d buf=%p count=%d cmd=%d\n"
-            , dop.driveid, (u32)dop.lba, dop.buf_fl
+    dprintf(DEBUG_HDL_13, "disk_op d=%p lba=%d buf=%p count=%d cmd=%d\n"
+            , dop.drive_g, (u32)dop.lba, dop.buf_fl
             , dop.count, dop.command);
 
     irq_enable();
