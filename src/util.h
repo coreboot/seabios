@@ -214,6 +214,9 @@ void serial_setup();
 void lpt_setup();
 
 // clock.c
+static inline int check_time(u64 end) {
+    return (s64)(rdtscll() - end) > 0;
+}
 void timer_setup();
 void ndelay(u32 count);
 void udelay(u32 count);

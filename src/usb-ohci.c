@@ -34,7 +34,7 @@ start_ohci(struct usb_s *cntl, struct ohci_hcca *hcca)
         u32 status = readl(&cntl->ohci.regs->cmdstatus);
         if (! status & OHCI_HCR)
             break;
-        if (rdtscll() > end) {
+        if (check_time(end)) {
             dprintf(1, "Timeout on ohci software reset\n");
             return -1;
         }
@@ -181,7 +181,7 @@ wait_ed(struct ohci_ed *ed)
     for (;;) {
         if (ed->hwHeadP == ed->hwTailP)
             return 0;
-        if (rdtscll() > end) {
+        if (check_time(end)) {
             dprintf(1, "Timeout on wait_ed %p\n", ed);
             return -1;
         }

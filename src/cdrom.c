@@ -228,7 +228,7 @@ atapi_is_ready(struct drive_s *drive_g)
     int in_progress = 0;
     u64 end = calc_future_tsc(5000);
     for (;;) {
-        if (rdtscll() > end) {
+        if (check_time(end)) {
             dprintf(1, "read capacity failed\n");
             return -1;
         }

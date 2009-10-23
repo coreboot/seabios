@@ -160,7 +160,7 @@ wait_qh(struct uhci_qh *qh)
     for (;;) {
         if (qh->element & UHCI_PTR_TERM)
             return 0;
-        if (rdtscll() > end) {
+        if (check_time(end)) {
             dprintf(1, "Timeout on wait_qh %p\n", qh);
             return -1;
         }

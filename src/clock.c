@@ -93,11 +93,11 @@ calibrate_tsc()
 }
 
 static void
-tscsleep(u64 diff)
+tscdelay(u64 diff)
 {
     u64 start = rdtscll();
     u64 end = start + diff;
-    while (rdtscll() <= end)
+    while (!check_time(end))
         cpu_relax();
 }
 
@@ -105,19 +105,19 @@ void
 ndelay(u32 count)
 {
     u32 khz = GET_GLOBAL(cpu_khz);
-    tscsleep(count * khz / 1000000);
+    tscdelay(count * khz / 1000000);
 }
 void
 udelay(u32 count)
 {
     u32 khz = GET_GLOBAL(cpu_khz);
-    tscsleep(count * khz / 1000);
+    tscdelay(count * khz / 1000);
 }
 void
 mdelay(u32 count)
 {
     u32 khz = GET_GLOBAL(cpu_khz);
-    tscsleep(count * khz);
+    tscdelay(count * khz);
 }
 
 // Return the TSC value that is 'msecs' time in the future.
@@ -156,7 +156,7 @@ rtc_updating()
     do {
         if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
             return 0;
-    } while (rdtscll() <= end);
+    } while (!check_time(end));
 
     // update-in-progress never transitioned to 0
     return -1;
