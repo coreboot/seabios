@@ -100,28 +100,28 @@ static inline u32 inl(u16 port) {
 }
 
 static inline void insb(u16 port, u8 *data, u32 count) {
-    asm volatile("rep insb (%%dx), %%es:(%%di)"
+    asm volatile("rep insb (%%dx), %%es:(%%edi)"
                  : "+c"(count), "+D"(data) : "d"(port) : "memory");
 }
 static inline void insw(u16 port, u16 *data, u32 count) {
-    asm volatile("rep insw (%%dx), %%es:(%%di)"
+    asm volatile("rep insw (%%dx), %%es:(%%edi)"
                  : "+c"(count), "+D"(data) : "d"(port) : "memory");
 }
 static inline void insl(u16 port, u32 *data, u32 count) {
-    asm volatile("rep insl (%%dx), %%es:(%%di)"
+    asm volatile("rep insl (%%dx), %%es:(%%edi)"
                  : "+c"(count), "+D"(data) : "d"(port) : "memory");
 }
 // XXX - outs not limited to es segment
 static inline void outsb(u16 port, u8 *data, u32 count) {
-    asm volatile("rep outsb %%es:(%%si), (%%dx)"
+    asm volatile("rep outsb %%es:(%%esi), (%%dx)"
                  : "+c"(count), "+S"(data) : "d"(port) : "memory");
 }
 static inline void outsw(u16 port, u16 *data, u32 count) {
-    asm volatile("rep outsw %%es:(%%si), (%%dx)"
+    asm volatile("rep outsw %%es:(%%esi), (%%dx)"
                  : "+c"(count), "+S"(data) : "d"(port) : "memory");
 }
 static inline void outsl(u16 port, u32 *data, u32 count) {
-    asm volatile("rep outsl %%es:(%%si), (%%dx)"
+    asm volatile("rep outsl %%es:(%%esi), (%%dx)"
                  : "+c"(count), "+S"(data) : "d"(port) : "memory");
 }
 
