@@ -40,6 +40,7 @@ await_ide(u8 mask, u8 flags, u16 base, u16 timeout)
             dprintf(1, "IDE time out\n");
             return -1;
         }
+        yield();
     }
 }
 
@@ -90,7 +91,7 @@ ata_reset(struct drive_s *drive_g)
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN | ATA_CB_DC_SRST, iobase2+ATA_CB_DC);
     udelay(5);
     outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2+ATA_CB_DC);
-    mdelay(2);
+    msleep(2);
 
     // wait for device to become not busy.
     int status = await_not_bsy(iobase1);
@@ -653,6 +654,7 @@ powerup_await_non_bsy(u16 base, u64 end)
             dprintf(1, "powerup IDE time out\n");
             return -1;
         }
+        yield();
     }
     dprintf(6, "powerup iobase=%x st=%x\n", base, status);
     return status;

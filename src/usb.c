@@ -121,7 +121,7 @@ set_address(u32 endp)
     int ret = send_default_control(endp, &req, NULL);
     if (ret)
         return 0;
-    mdelay(2);
+    msleep(2);
 
     cntl->maxaddr++;
     return mkendp(cntl, cntl->maxaddr, 0, endp2speed(endp), endp2maxsize(endp));

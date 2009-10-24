@@ -269,8 +269,6 @@ handle_15c2(struct bregs *regs)
         return;
     }
 
-    irq_enable();
-
     switch (regs->al) {
     case 0x00: mouse_15c200(regs); break;
     case 0x01: mouse_15c201(regs); break;

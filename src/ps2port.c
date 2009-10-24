@@ -54,21 +54,16 @@ int
 i8042_flush(void)
 {
     dprintf(7, "i8042_flush\n");
-    unsigned long flags = irq_save();
-
     int i;
     for (i=0; i<I8042_BUFFER_SIZE; i++) {
         u8 status = inb(PORT_PS2_STATUS);
-        if (! (status & I8042_STR_OBF)) {
-            irq_restore(flags);
+        if (! (status & I8042_STR_OBF))
             return 0;
-        }
         udelay(50);
         u8 data = inb(PORT_PS2_DATA);
         dprintf(7, "i8042 flushed %x (status=%x)\n", data, status);
     }
 
-    irq_restore(flags);
     dprintf(1, "i8042 timeout on flush\n");
     return -1;
 }
@@ -110,9 +105,7 @@ int
 i8042_command(int command, u8 *param)
 {
     dprintf(7, "i8042_command cmd=%x\n", command);
-    unsigned long flags = irq_save();
     int ret = __i8042_command(command, param);
-    irq_restore(flags);
     if (ret)
         dprintf(2, "i8042 command %x failed\n", command);
     return ret;
@@ -122,14 +115,9 @@ static int
 i8042_kbd_write(u8 c)
 {
     dprintf(7, "i8042_kbd_write c=%d\n", c);
-    unsigned long flags = irq_save();
-
     int ret = i8042_wait_write();
     if (! ret)
         outb(c, PORT_PS2_DATA);
-
-    irq_restore(flags);
-
     return ret;
 }
 
@@ -152,30 +140,31 @@ ps2_recvbyte(int aux, int needack, int timeout)
 {
     u64 end = calc_future_tsc(timeout);
     for (;;) {
+        u8 status = inb(PORT_PS2_STATUS);
+        if (status & I8042_STR_OBF) {
+            u8 data = inb(PORT_PS2_DATA);
+            dprintf(7, "ps2 read %x\n", data);
+
+            if (!!(status & I8042_STR_AUXDATA) == aux) {
+                if (!needack)
+                    return data;
+                if (data == PS2_RET_ACK)
+                    return data;
+                if (data == PS2_RET_NAK) {
+                    dprintf(1, "Got ps2 nak (status=%x); continuing\n", status);
+                    return data;
+                }
+            }
+
+            // This data not for us - XXX - just discard it for now.
+            dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
+        }
+
         if (check_time(end)) {
             dprintf(1, "ps2_recvbyte timeout\n");
             return -1;
         }
-
-        u8 status = inb(PORT_PS2_STATUS);
-        if (! (status & I8042_STR_OBF))
-            continue;
-        u8 data = inb(PORT_PS2_DATA);
-        dprintf(7, "ps2 read %x\n", data);
-
-        if (!!(status & I8042_STR_AUXDATA) == aux) {
-            if (!needack)
-                return data;
-            if (data == PS2_RET_ACK)
-                return data;
-            if (data == PS2_RET_NAK) {
-                dprintf(1, "Got ps2 nak (status=%x); continuing\n", status);
-                return data;
-            }
-        }
-
-        // This data not for us - XXX - just discard it for now.
-        dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
+        yield();
     }
 }
 

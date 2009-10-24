@@ -234,9 +234,7 @@ static void
 handle_160a(struct bregs *regs)
 {
     u8 param[2];
-    irq_enable();
     int ret = kbd_command(ATKBD_CMD_GETID, param);
-    irq_disable();
     if (ret) {
         regs->bx = 0;
         return;
@@ -306,9 +304,7 @@ set_leds()
     if (shift_flags == led_flags)
         return;
 
-    irq_enable();
     int ret = kbd_command(ATKBD_CMD_SETLEDS, &shift_flags);
-    irq_disable();
     if (ret)
         // Error
         return;

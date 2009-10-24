@@ -321,11 +321,7 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
             , dop.drive_g, (u32)dop.lba, dop.buf_fl
             , dop.count, dop.command);
 
-    irq_enable();
-
     int status = process_op(&dop);
-
-    irq_disable();
 
     // Update count with total sectors transferred.
     SET_FARVAR(op_seg, op_far->count, dop.count);

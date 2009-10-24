@@ -118,7 +118,6 @@ handle_1401(struct bregs *regs)
     if (!addr)
         return;
     struct tick_timer_s tt = initTickTimer(GET_BDA(com_timeout[regs->dx]));
-    irq_enable();
     for (;;) {
         u8 lsr = inb(addr+SEROFF_LSR);
         if ((lsr & 0x60) == 0x60) {
@@ -133,8 +132,8 @@ handle_1401(struct bregs *regs)
             regs->ah = lsr | 0x80;
             break;
         }
+        yield();
     }
-    irq_disable();
     set_success(regs);
 }
 
@@ -146,7 +145,6 @@ handle_1402(struct bregs *regs)
     if (!addr)
         return;
     struct tick_timer_s tt = initTickTimer(GET_BDA(com_timeout[regs->dx]));
-    irq_enable();
     for (;;) {
         u8 lsr = inb(addr+SEROFF_LSR);
         if (lsr & 0x01) {
@@ -160,8 +158,8 @@ handle_1402(struct bregs *regs)
             regs->ah = lsr | 0x80;
             break;
         }
+        yield();
     }
-    irq_disable();
     set_success(regs);
 }
 
@@ -265,7 +263,6 @@ handle_1700(struct bregs *regs)
         return;
 
     struct tick_timer_s tt = initTickTimer(GET_BDA(lpt_timeout[regs->dx]));
-    irq_enable();
 
     outb(regs->al, addr);
     u8 val8 = inb(addr+2);
@@ -285,9 +282,9 @@ handle_1700(struct bregs *regs)
             regs->ah = (v ^ 0x48) | 0x01;
             break;
         }
+        yield();
     }
 
-    irq_disable();
     set_success(regs);
 }
 

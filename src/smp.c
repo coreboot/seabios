@@ -98,7 +98,7 @@ smp_probe(void)
 
     // Wait for other CPUs to process the SIPI.
     if (CONFIG_COREBOOT)
-        mdelay(10);
+        msleep(10);
     else
         while (inb_cmos(CMOS_BIOS_SMP_COUNT) + 1 != readl(&CountCPUs))
             ;

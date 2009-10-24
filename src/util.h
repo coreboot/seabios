@@ -163,7 +163,8 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
-void usleep(u32 usec);
+void yield();
+void biosusleep(u32 usec);
 int get_keystroke(int msec);
 
 // output.c
@@ -221,6 +222,9 @@ void timer_setup();
 void ndelay(u32 count);
 void udelay(u32 count);
 void mdelay(u32 count);
+void nsleep(u32 count);
+void usleep(u32 count);
+void msleep(u32 count);
 u64 calc_future_tsc(u32 msecs);
 u64 calc_future_tsc_usec(u32 usecs);
 void handle_1583(struct bregs *regs);

@@ -9,7 +9,7 @@
 #include "disk.h" // DISK_RET_SUCCESS
 #include "config.h" // CONFIG_FLOPPY
 #include "biosvar.h" // SET_BDA
-#include "util.h" // irq_disable
+#include "util.h" // wait_irq
 #include "cmos.h" // inb_cmos
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
@@ -174,12 +174,11 @@ floppy_reset_controller()
 static int
 wait_floppy_irq()
 {
+    ASSERT16();
     u8 v;
     for (;;) {
-        if (!GET_BDA(floppy_motor_counter)) {
-            irq_disable();
+        if (!GET_BDA(floppy_motor_counter))
             return -1;
-        }
         v = GET_BDA(floppy_recalibration_status);
         if (v & FRS_TIMEOUT)
             break;

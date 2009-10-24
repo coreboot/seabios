@@ -25,7 +25,7 @@ start_ohci(struct usb_s *cntl, struct ohci_hcca *hcca)
     // Do reset
     writel(&cntl->ohci.regs->control, OHCI_USB_RESET | oldrwc);
     readl(&cntl->ohci.regs->control); // flush writes
-    mdelay(50);
+    msleep(50);
 
     // Do software init (min 10us, max 2ms)
     u64 end = calc_future_tsc_usec(10);
@@ -81,7 +81,7 @@ check_ohci_ports(struct usb_s *cntl)
     rha &= ~(RH_A_PSM | RH_A_OCPM);
     writel(&cntl->ohci.regs->roothub_status, RH_HS_LPSC);
     writel(&cntl->ohci.regs->roothub_b, RH_B_PPCM);
-    mdelay((rha >> 24) * 2);
+    msleep((rha >> 24) * 2);
 
     // Count and reset connected devices
     int ports = rha & RH_A_NDP;
@@ -96,7 +96,7 @@ check_ohci_ports(struct usb_s *cntl)
         // No devices connected
         goto shutdown;
 
-    mdelay(60);    // XXX - should poll instead of using timer.
+    msleep(60);    // XXX - should poll instead of using timer.
 
     totalcount = 0;
     for (i=0; i<ports; i++) {
@@ -229,7 +229,7 @@ ohci_control(u32 endp, int dir, const void *cmd, int cmdsize
 
     int ret = wait_ed(ed);
     ed->hwINFO = ED_SKIP;
-    udelay(1); // XXX - in case controller still accessing tds
+    usleep(1); // XXX - in case controller still accessing tds
     free(tds);
     return ret;
 }

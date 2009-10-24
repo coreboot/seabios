@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // irq_restore
+#include "util.h" // memcpy_far
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
 #include "memmap.h" // E820_RAM

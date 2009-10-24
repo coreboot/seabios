@@ -101,23 +101,33 @@ tscdelay(u64 diff)
         cpu_relax();
 }
 
-void
-ndelay(u32 count)
+static void
+tscsleep(u64 diff)
 {
-    u32 khz = GET_GLOBAL(cpu_khz);
-    tscdelay(count * khz / 1000000);
+    u64 start = rdtscll();
+    u64 end = start + diff;
+    while (!check_time(end))
+        yield();
 }
-void
-udelay(u32 count)
-{
-    u32 khz = GET_GLOBAL(cpu_khz);
-    tscdelay(count * khz / 1000);
+
+void ndelay(u32 count) {
+    tscdelay(count * GET_GLOBAL(cpu_khz) / 1000000);
 }
-void
-mdelay(u32 count)
-{
-    u32 khz = GET_GLOBAL(cpu_khz);
-    tscdelay(count * khz);
+void udelay(u32 count) {
+    tscdelay(count * GET_GLOBAL(cpu_khz) / 1000);
+}
+void mdelay(u32 count) {
+    tscdelay(count * GET_GLOBAL(cpu_khz));
+}
+
+void nsleep(u32 count) {
+    tscsleep(count * GET_GLOBAL(cpu_khz) / 1000000);
+}
+void usleep(u32 count) {
+    tscsleep(count * GET_GLOBAL(cpu_khz) / 1000);
+}
+void msleep(u32 count) {
+    tscsleep(count * GET_GLOBAL(cpu_khz));
 }
 
 // Return the TSC value that is 'msecs' time in the future.

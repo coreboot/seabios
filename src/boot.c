@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // irq_enable
+#include "util.h" // dprintf
 #include "biosvar.h" // GET_EBDA
 #include "config.h" // CONFIG_*
 #include "disk.h" // cdrom_boot
@@ -431,7 +431,7 @@ do_boot(u16 seq_nr)
         printf("No bootable device.\n");
         // Loop with irqs enabled - this allows ctrl+alt+delete to work.
         for (;;)
-            usleep(1000000);
+            biosusleep(1000000);
     }
 
     /* Do the loading, and set up vector as a far pointer to the boot

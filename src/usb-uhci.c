@@ -97,10 +97,10 @@ check_ports(struct usb_s *cntl)
         outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC1);
     if (port2 & USBPORTSC_CCS)
         outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC2);
-    mdelay(50);
+    msleep(50);
     outw(0, cntl->uhci.iobase + USBPORTSC1);
     outw(0, cntl->uhci.iobase + USBPORTSC2);
-    mdelay(10);
+    msleep(10);
 
     // Configure ports
     int totalcount = 0;

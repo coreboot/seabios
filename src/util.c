@@ -9,6 +9,11 @@
 #include "farptr.h" // GET_FLATPTR
 #include "biosvar.h" // get_ebda_seg
 
+
+/****************************************************************
+ * 16bit calls
+ ****************************************************************/
+
 // Call a function with a specified register state.  Note that on
 // return, the interrupt enable/disable flag may be altered.
 inline void
@@ -75,6 +80,41 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
         : "cc", "memory");
     return eax;
 }
+
+// 16bit trampoline for enabling irqs from 32bit mode.
+ASM16(
+    "  .global trampoline_yield\n"
+    "trampoline_yield:\n"
+    "  rep ; nop\n"
+    "  lretw"
+    );
+
+// Briefly permit irqs to occur.
+void
+yield()
+{
+    if (MODE16) {
+        asm volatile(
+            "sti\n"
+            "nop\n"
+            "rep ; nop\n"
+            "cli\n"
+            "cld\n"
+            : : :"memory");
+        return;
+    }
+    extern void trampoline_yield();
+    struct bregs br;
+    br.flags = F_IF;
+    br.code.seg = SEG_BIOS;
+    br.code.offset = (u32)&trampoline_yield;
+    call16big(&br);
+}
+
+
+/****************************************************************
+ * String ops
+ ****************************************************************/
 
 // Sum the bytes in the specified area.
 u8
@@ -233,9 +273,14 @@ strtcpy(char *dest, const char *src, size_t len)
     return dest;
 }
 
-// Wait for 'usec' microseconds with irqs enabled.
+
+/****************************************************************
+ * Keyboard calls
+ ****************************************************************/
+
+// Wait for 'usec' microseconds using (with irqs enabled) using int 1586.
 void
-usleep(u32 usec)
+biosusleep(u32 usec)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
@@ -278,7 +323,7 @@ get_keystroke(int msec)
             return get_raw_keystroke();
         if (msec <= 0)
             return -1;
-        usleep(50*1000);
+        biosusleep(50*1000);
         msec -= 50;
     }
 }
