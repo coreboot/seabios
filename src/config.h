@@ -187,5 +187,6 @@
 #define DEBUG_ISR_hwpic2 5
 #define DEBUG_HDL_pnp 1
 #define DEBUG_HDL_pmm 1
+#define DEBUG_thread 1
 
 #endif // config.h

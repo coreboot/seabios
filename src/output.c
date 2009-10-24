@@ -115,7 +115,7 @@ static void
 putc_screen(struct putcinfo *action, char c)
 {
     if (CONFIG_SCREEN_AND_DEBUG)
-        putc_debug(action, c);
+        putc_debug(&debuginfo, c);
     if (c == '\n')
         screenc('\r');
     screenc(c);
@@ -325,6 +325,18 @@ panic(const char *fmt, ...)
 void
 __dprintf(const char *fmt, ...)
 {
+    if (!MODE16 && CONFIG_THREADS && CONFIG_DEBUG_LEVEL >= DEBUG_thread
+        && *fmt != '\\' && *fmt != '/') {
+        struct thread_info *cur = getCurThread();
+        if (cur != &MainThread) {
+            // Show "thread id" for this debug message.
+            putc_debug(&debuginfo, '|');
+            puthex(&debuginfo, (u32)cur, 8);
+            putc_debug(&debuginfo, '|');
+            putc_debug(&debuginfo, ' ');
+        }
+    }
+
     va_list args;
     va_start(args, fmt);
     bvprintf(&debuginfo, fmt, args);

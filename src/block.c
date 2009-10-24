@@ -86,15 +86,15 @@ setup_translation(struct drive_s *drive_g)
     u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
     u16 spt = GET_GLOBAL(drive_g->pchs.spt);
     u64 sectors = GET_GLOBAL(drive_g->sectors);
+    const char *desc;
 
-    dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation="
-            , channel, slave, cylinders, heads, spt);
     switch (translation) {
+    default:
     case TRANSLATION_NONE:
-        dprintf(1, "none");
+        desc = "none";
         break;
     case TRANSLATION_LBA:
-        dprintf(1, "lba");
+        desc = "lba";
         spt = 63;
         if (sectors > 63*255*1024) {
             heads = 255;
@@ -116,7 +116,7 @@ setup_translation(struct drive_s *drive_g)
         cylinders = sect / heads;
         break;
     case TRANSLATION_RECHS:
-        dprintf(1, "r-echs");
+        desc = "r-echs";
         // Take care not to overflow
         if (heads==16) {
             if (cylinders>61439)
@@ -127,7 +127,7 @@ setup_translation(struct drive_s *drive_g)
         // then go through the large bitshift process
     case TRANSLATION_LARGE:
         if (translation == TRANSLATION_LARGE)
-            dprintf(1, "large");
+            desc = "large";
         while (cylinders > 1024) {
             cylinders >>= 1;
             heads <<= 1;
@@ -141,7 +141,11 @@ setup_translation(struct drive_s *drive_g)
     // clip to 1024 cylinders in lchs
     if (cylinders > 1024)
         cylinders = 1024;
-    dprintf(1, " LCHS=%d/%d/%d\n", cylinders, heads, spt);
+    dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation=%s LCHS=%d/%d/%d\n"
+            , channel, slave
+            , drive_g->pchs.cylinders, drive_g->pchs.heads, drive_g->pchs.spt
+            , desc
+            , cylinders, heads, spt);
 
     SET_GLOBAL(drive_g->lchs.heads, heads);
     SET_GLOBAL(drive_g->lchs.cylinders, cylinders);

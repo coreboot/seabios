@@ -134,9 +134,9 @@ struct thread_info {
     void *stackpos;
 };
 
-static struct thread_info MainThread = {&MainThread, NULL};
+struct thread_info MainThread = {&MainThread, NULL};
 
-static struct thread_info *
+struct thread_info *
 getCurThread()
 {
     u32 esp = getesp();
@@ -187,7 +187,7 @@ __end_thread(struct thread_info *old)
         pos = pos->next;
     pos->next = old->next;
     free(old);
-    dprintf(2, "=========== end thread %p\n", old);
+    dprintf(DEBUG_thread, "\\%08x/ End thread\n", (u32)old);
 }
 
 void
@@ -206,7 +206,7 @@ run_thread(void (*func)(void*), void *data)
     thread->next = cur->next;
     cur->next = thread;
 
-    dprintf(2, "=========== start thread %p\n", thread);
+    dprintf(DEBUG_thread, "/%08x\\ Start thread\n", (u32)thread);
     asm volatile(
         // Start thread
         "  pushl $1f\n"                 // store return pc
