@@ -9,6 +9,12 @@
 #include "farptr.h" // GET_FLATPTR
 #include "biosvar.h" // get_ebda_seg
 
+static inline u32 getesp() {
+    u32 esp;
+    asm("movl %%esp, %0" : "=rm"(esp));
+    return esp;
+}
+
 
 /****************************************************************
  * 16bit calls
@@ -19,6 +25,8 @@
 inline void
 call16(struct bregs *callregs)
 {
+    if (!MODE16 && getesp() > BUILD_STACK_ADDR)
+        panic("call16 with invalid stack\n");
     asm volatile(
 #if MODE16 == 1
         "calll __call16\n"
@@ -36,6 +44,8 @@ inline void
 call16big(struct bregs *callregs)
 {
     ASSERT32();
+    if (getesp() > BUILD_STACK_ADDR)
+        panic("call16 with invalid stack\n");
     asm volatile(
         "calll __call16big_from32"
         : "+a" (callregs), "+m" (*callregs)
@@ -83,32 +93,153 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
 
 // 16bit trampoline for enabling irqs from 32bit mode.
 ASM16(
-    "  .global trampoline_yield\n"
-    "trampoline_yield:\n"
+    "  .global trampoline_checkirqs\n"
+    "trampoline_checkirqs:\n"
     "  rep ; nop\n"
     "  lretw"
     );
+
+static void
+check_irqs32()
+{
+    extern void trampoline_checkirqs();
+    struct bregs br;
+    br.flags = F_IF;
+    br.code.seg = SEG_BIOS;
+    br.code.offset = (u32)&trampoline_checkirqs;
+    call16big(&br);
+}
+
+static void
+check_irqs16()
+{
+    asm volatile(
+        "sti\n"
+        "nop\n"
+        "rep ; nop\n"
+        "cli\n"
+        "cld\n"
+        : : :"memory");
+}
+
+
+/****************************************************************
+ * Threads
+ ****************************************************************/
+
+#define THREADSTACKSIZE 4096
+
+struct thread_info {
+    struct thread_info *next;
+    void *stackpos;
+};
+
+static struct thread_info MainThread = {&MainThread, NULL};
+
+static struct thread_info *
+getCurThread()
+{
+    u32 esp = getesp();
+    if (esp <= BUILD_STACK_ADDR)
+        return &MainThread;
+    return (void*)ALIGN_DOWN(esp, THREADSTACKSIZE);
+}
 
 // Briefly permit irqs to occur.
 void
 yield()
 {
     if (MODE16) {
-        asm volatile(
-            "sti\n"
-            "nop\n"
-            "rep ; nop\n"
-            "cli\n"
-            "cld\n"
-            : : :"memory");
+        // In 16bit mode, just directly check irqs.
+        check_irqs16();
         return;
     }
-    extern void trampoline_yield();
-    struct bregs br;
-    br.flags = F_IF;
-    br.code.seg = SEG_BIOS;
-    br.code.offset = (u32)&trampoline_yield;
-    call16big(&br);
+    if (! CONFIG_THREADS) {
+        check_irqs32();
+        return;
+    }
+    struct thread_info *cur = getCurThread();
+    if (cur == &MainThread)
+        // Permit irqs to fire
+        check_irqs32();
+
+    // Switch to the next thread
+    struct thread_info *next = cur->next;
+    asm volatile(
+        "  pushl $1f\n"                 // store return pc
+        "  pushl %%ebp\n"               // backup %ebp
+        "  movl %%esp, 4(%%eax)\n"      // cur->stackpos = %esp
+        "  movl 4(%%ecx), %%esp\n"      // %esp = next->stackpos
+        "  popl %%ebp\n"                // restore %ebp
+        "  retl\n"                      // restore pc
+        "1:\n"
+        : "+a"(cur), "+c"(next)
+        :
+        : "ebx", "edx", "esi", "edi", "cc", "memory");
+}
+
+// Last thing called from a thread (called on "next" stack).
+static void
+__end_thread(struct thread_info *old)
+{
+    struct thread_info *pos = &MainThread;
+    while (pos->next != old)
+        pos = pos->next;
+    pos->next = old->next;
+    free(old);
+    dprintf(2, "=========== end thread %p\n", old);
+}
+
+void
+run_thread(void (*func)(void*), void *data)
+{
+    ASSERT32();
+    if (! CONFIG_THREADS)
+        goto fail;
+    struct thread_info *thread;
+    thread = memalign_tmphigh(THREADSTACKSIZE, THREADSTACKSIZE);
+    if (!thread)
+        goto fail;
+
+    thread->stackpos = (void*)thread + THREADSTACKSIZE;
+    struct thread_info *cur = getCurThread();
+    thread->next = cur->next;
+    cur->next = thread;
+
+    dprintf(2, "=========== start thread %p\n", thread);
+    asm volatile(
+        // Start thread
+        "  pushl $1f\n"                 // store return pc
+        "  pushl %%ebp\n"               // backup %ebp
+        "  movl %%esp, 4(%%edx)\n"      // cur->stackpos = %esp
+        "  movl 4(%%ebx), %%esp\n"      // %esp = thread->stackpos
+        "  calll *%%ecx\n"              // Call func
+
+        // End thread
+        "  movl (%%ebx), %%ecx\n"       // %ecx = thread->next
+        "  movl 4(%%ecx), %%esp\n"      // %esp = next->stackpos
+        "  movl %%ebx, %%eax\n"
+        "  calll %4\n"                  // call __end_thread(thread)
+        "  popl %%ebp\n"                // restore %ebp
+        "  retl\n"                      // restore pc
+        "1:\n"
+        : "+a"(data), "+c"(func), "+b"(thread), "+d"(cur)
+        : "m"(*(u8*)__end_thread)
+        : "esi", "edi", "cc", "memory");
+    return;
+
+fail:
+    func(data);
+}
+
+void
+wait_threads()
+{
+    ASSERT32();
+    if (! CONFIG_THREADS)
+        return;
+    while (MainThread.next != &MainThread)
+        yield();
 }
 
 

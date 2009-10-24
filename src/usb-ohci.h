@@ -3,7 +3,7 @@
 
 // usb-ohci.c
 struct usb_s;
-int ohci_init(struct usb_s *cntl);
+void ohci_init(void *data);
 int ohci_control(u32 endp, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
 struct usb_pipe *ohci_alloc_intr_pipe(u32 endp, int period);

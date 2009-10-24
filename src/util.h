@@ -139,6 +139,8 @@ static inline u8 readb(const void *addr) {
 
 // util.c
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
+void run_thread(void (*func)(void*), void *data);
+void wait_threads();
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
 u8 checksum(void *buf, u32 len);
 int memcmp(const void *s1, const void *s2, size_t n);

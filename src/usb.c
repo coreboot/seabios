@@ -216,17 +216,15 @@ usb_setup()
         struct usb_s *cntl = &USBControllers[count];
         cntl->bdf = bdf;
 
-        int devcount = 0;
         if (code == PCI_CLASS_SERIAL_USB_UHCI)
-            devcount = uhci_init(cntl);
+            run_thread(uhci_init, cntl);
         else if (code == PCI_CLASS_SERIAL_USB_OHCI)
-            devcount = ohci_init(cntl);
+            run_thread(ohci_init, cntl);
+        else
+            continue;
 
-        if (devcount > 0) {
-            // Success
-            count++;
-            if (count >= ARRAY_SIZE(USBControllers))
-                break;
-        }
+        count++;
+        if (count >= ARRAY_SIZE(USBControllers))
+            break;
     }
 }

@@ -22,6 +22,8 @@
 // Screen writes are also sent to debug ports.
 #define CONFIG_SCREEN_AND_DEBUG 1
 
+// Support running hardware initialization in parallel
+#define CONFIG_THREADS 1
 // Support int13 disk/floppy drive functions
 #define CONFIG_DRIVES 1
 // Support floppy drive access

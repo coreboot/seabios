@@ -47,6 +47,7 @@ usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
     if (! CONFIG_USB_KEYBOARD)
         return -1;
     if (keyboard_pipe)
+        // XXX - this enables the first found keyboard (could be random)
         return -1;
     dprintf(2, "usb_keyboard_setup %x\n", endp);
 

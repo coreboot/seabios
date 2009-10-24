@@ -123,11 +123,12 @@ check_ports(struct usb_s *cntl)
     return totalcount;
 }
 
-int
-uhci_init(struct usb_s *cntl)
+void
+uhci_init(void *data)
 {
     if (! CONFIG_USB_UHCI)
-        return 0;
+        return;
+    struct usb_s *cntl = data;
 
     cntl->type = USB_TYPE_UHCI;
     cntl->uhci.iobase = (pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_4)
@@ -146,10 +147,7 @@ uhci_init(struct usb_s *cntl)
     int count = check_ports(cntl);
     if (! count) {
         // XXX - no devices; free data structures.
-        return 0;
     }
-
-    return count;
 }
 
 static int

@@ -5,7 +5,7 @@
 
 // usb-uhci.c
 struct usb_s;
-int uhci_init(struct usb_s *cntl);
+void uhci_init(void *data);
 int uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
 struct usb_pipe *uhci_alloc_intr_pipe(u32 endp, int period);

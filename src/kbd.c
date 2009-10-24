@@ -118,7 +118,7 @@ kbd_setup()
     if (! CONFIG_KEYBOARD)
         return;
 
-    keyboard_init();
+    run_thread(keyboard_init, NULL);
 
     enable_hwirq(1, entry_09);
 }

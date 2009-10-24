@@ -115,6 +115,23 @@ add_bcv_internal(struct drive_s *drive_g)
         return;
 
     struct ipl_entry_s *ie = &IPL.bcv[IPL.bcvcount++];
+    if (CONFIG_THREADS) {
+        // Add to bcv list with assured drive order.
+        struct ipl_entry_s *end = ie;
+        for (;;) {
+            struct ipl_entry_s *prev = ie - 1;
+            if (prev < IPL.bcv || prev->type != BCV_TYPE_INTERNAL)
+                break;
+            struct drive_s *prevdrive = (void*)prev->vector;
+            if (prevdrive->type < drive_g->type
+                || (prevdrive->type == drive_g->type
+                    && prevdrive->cntl_id < drive_g->cntl_id))
+                break;
+            ie--;
+        }
+        if (ie != end)
+            memmove(ie+1, ie, (void*)end-(void*)ie);
+    }
     ie->type = BCV_TYPE_INTERNAL;
     ie->vector = (u32)drive_g;
     ie->description = "";
@@ -296,6 +313,8 @@ boot_prep()
 {
     if (! CONFIG_BOOT)
         return;
+
+    // XXX - show available drives?
 
     // Allow user to modify BCV/IPL order.
     interactive_bootmenu();

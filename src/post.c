@@ -198,6 +198,7 @@ post()
     ata_setup();
     ramdisk_setup();
 
+    wait_threads();
     optionrom_setup();
 
     // Run BCVs

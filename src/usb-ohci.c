@@ -121,11 +121,12 @@ shutdown:
     return 0;
 }
 
-int
-ohci_init(struct usb_s *cntl)
+void
+ohci_init(void *data)
 {
     if (! CONFIG_USB_OHCI)
-        return 0;
+        return;
+    struct usb_s *cntl = data;
 
     cntl->type = USB_TYPE_OHCI;
     u32 baseaddr = pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_0);
@@ -150,7 +151,7 @@ ohci_init(struct usb_s *cntl)
     struct ohci_ed *control_ed = malloc_high(sizeof(*control_ed));
     if (!hcca || !control_ed) {
         dprintf(1, "No ram for ohci init\n");
-        return 0;
+        return;
     }
     memset(hcca, 0, sizeof(*hcca));
     memset(control_ed, 0, sizeof(*control_ed));
@@ -164,13 +165,12 @@ ohci_init(struct usb_s *cntl)
     int count = check_ohci_ports(cntl);
     if (! count)
         goto err;
-    return count;
+    return;
 
 err:
     stop_ohci(cntl);
     free(hcca);
     free(control_ed);
-    return 0;
 }
 
 static int

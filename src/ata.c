@@ -636,8 +636,10 @@ init_drive_ata(struct drive_s *dummy, u16 *buffer)
     return drive_g;
 }
 
+static u64 SpinupEnd;
+
 static int
-powerup_await_non_bsy(u16 base, u64 end)
+powerup_await_non_bsy(u16 base)
 {
     u8 orstatus = 0;
     u8 status;
@@ -650,7 +652,7 @@ powerup_await_non_bsy(u16 base, u64 end)
             dprintf(1, "powerup IDE floating\n");
             return orstatus;
         }
-        if (check_time(end)) {
+        if (check_time(SpinupEnd)) {
             dprintf(1, "powerup IDE time out\n");
             return -1;
         }
@@ -661,14 +663,15 @@ powerup_await_non_bsy(u16 base, u64 end)
 }
 
 static void
-ata_detect()
+ata_detect(void *data)
 {
+    struct ata_channel_s *atachannel = data;
+    int startid = (atachannel - ATA_channels) * 2;
     struct drive_s dummy;
     memset(&dummy, 0, sizeof(dummy));
     // Device detection
-    u64 end = calc_future_tsc(IDE_TIMEOUT);
     int ataid, last_reset_ataid=-1;
-    for (ataid=0; ataid<CONFIG_MAX_ATA_INTERFACES*2; ataid++) {
+    for (ataid=startid; ataid<startid+2; ataid++) {
         u8 channel = ataid / 2;
         u8 slave = ataid % 2;
 
@@ -677,13 +680,13 @@ ata_detect()
             break;
 
         // Wait for not-bsy.
-        int status = powerup_await_non_bsy(iobase1, end);
+        int status = powerup_await_non_bsy(iobase1);
         if (status < 0)
             continue;
         u8 newdh = slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0;
         outb(newdh, iobase1+ATA_CB_DH);
         ndelay(400);
-        status = powerup_await_non_bsy(iobase1, end);
+        status = powerup_await_non_bsy(iobase1);
         if (status < 0)
             continue;
 
@@ -732,10 +735,6 @@ ata_detect()
                 continue;
         }
 
-        // Report drive info to user.
-        describe_drive(drive_g);
-        printf("\n");
-
         u16 resetresult = buffer[93];
         dprintf(6, "ata_detect resetresult=%04x\n", resetresult);
         if (!slave && (resetresult & 0xdf61) == 0x4041)
@@ -744,8 +743,6 @@ ata_detect()
             // detection.
             ataid++;
     }
-
-    printf("\n");
 }
 
 static void
@@ -778,6 +775,7 @@ ata_init()
         SET_GLOBAL(ATA_channels[count].iobase2, port2);
         dprintf(1, "ATA controller %d at %x/%x (dev %x prog_if %x)\n"
                 , count, port1, port2, bdf, prog_if);
+        run_thread(ata_detect, &ATA_channels[count]);
         count++;
 
         if (prog_if & 4) {
@@ -791,6 +789,7 @@ ata_init()
                 , count, port1, port2, bdf, prog_if);
         SET_GLOBAL(ATA_channels[count].iobase1, port1);
         SET_GLOBAL(ATA_channels[count].iobase2, port2);
+        run_thread(ata_detect, &ATA_channels[count]);
         count++;
     }
 }
@@ -802,8 +801,9 @@ ata_setup()
         return;
 
     dprintf(3, "init hard drives\n");
+
+    SpinupEnd = calc_future_tsc(IDE_TIMEOUT);
     ata_init();
-    ata_detect();
 
     SET_BDA(disk_control_byte, 0xc0);
 
