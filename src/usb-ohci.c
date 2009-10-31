@@ -185,7 +185,7 @@ wait_ed(struct ohci_ed *ed)
             dprintf(1, "Timeout on wait_ed %p\n", ed);
             return -1;
         }
-        cpu_relax();
+        yield();
     }
 }
 

@@ -166,7 +166,7 @@ wait_qh(struct usb_s *cntl, struct uhci_qh *qh)
                     , inw(cntl->uhci.iobase + USBSTS));
             return -1;
         }
-        cpu_relax();
+        yield();
     }
 }
 
