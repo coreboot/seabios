@@ -151,7 +151,7 @@ uhci_init(void *data)
 }
 
 static int
-wait_qh(struct uhci_qh *qh)
+wait_qh(struct usb_s *cntl, struct uhci_qh *qh)
 {
     // XXX - 500ms just a guess
     u64 end = calc_future_tsc(500);
@@ -159,7 +159,11 @@ wait_qh(struct uhci_qh *qh)
         if (qh->element & UHCI_PTR_TERM)
             return 0;
         if (check_time(end)) {
-            dprintf(1, "Timeout on wait_qh %p\n", qh);
+            struct uhci_td *td = (void*)(qh->element & ~UHCI_PTR_BITS);
+            dprintf(1, "Timeout on wait_qh %p (td=%p s=%x c=%x/%x)\n"
+                    , qh, td, td->status
+                    , inw(cntl->uhci.iobase + USBCMD)
+                    , inw(cntl->uhci.iobase + USBSTS));
             return -1;
         }
         cpu_relax();
@@ -213,7 +217,7 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
     // Transfer data
     struct uhci_qh *data_qh = cntl->uhci.qh;
     data_qh->element = (u32)&tds[0];
-    int ret = wait_qh(data_qh);
+    int ret = wait_qh(cntl, data_qh);
     if (ret)
         // XXX - leak tds
         return ret;
