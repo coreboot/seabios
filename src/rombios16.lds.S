@@ -11,4 +11,5 @@ SECTIONS
         .text16 code16_start : {
                 *(.text16)
                 }
+        /DISCARD/ : { *(.discard*) }
 }
