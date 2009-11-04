@@ -11,9 +11,9 @@ VERSION=pre-0.4.3-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
 OUT=out/
 
 # Source files
-SRCBOTH=output.c util.c block.c floppy.c ata.c misc.c mouse.c kbd.c pci.c \
-        serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
-        pnpbios.c pirtable.c vgahooks.c pmm.c ramdisk.c \
+SRCBOTH=misc.c pmm.c output.c util.c block.c floppy.c ata.c mouse.c \
+        kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
+        pnpbios.c pirtable.c vgahooks.c ramdisk.c \
         usb.c usb-uhci.c usb-ohci.c usb-hid.c paravirt.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c font.c
 SRC32=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
@@ -148,7 +148,7 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 	$(Q)$(OBJDUMP) -thr $< > $<.objdump
 	$(Q)$(OBJCOPY) -O binary $< $(OUT)bios.bin.raw
 	$(Q)./tools/checkrom.py $<.objdump $(OUT)bios.bin.raw $(OUT)bios.bin
-	$(Q)$(STRIP) $< -o $(OUT)bios.bin.elf
+	$(Q)$(STRIP) -R .comment $< -o $(OUT)bios.bin.elf
 
 
 ################ VGA build rules
