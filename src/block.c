@@ -86,7 +86,7 @@ setup_translation(struct drive_s *drive_g)
     u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
     u16 spt = GET_GLOBAL(drive_g->pchs.spt);
     u64 sectors = GET_GLOBAL(drive_g->sectors);
-    const char *desc;
+    const char *desc = NULL;
 
     switch (translation) {
     default:
