@@ -60,7 +60,7 @@ mptable_init(void)
         cpu->apicver = 0x11;
         /* cpu flags: enabled, bootstrap cpu */
         if (i < CountCPUs)
-            cpu->cpuflag = 1 | (i == 0) ? 2 : 0;
+            cpu->cpuflag = 1 | ((i == 0) ? 2 : 0);
         else
             cpu->cpuflag = 0;
         if (cpuid_signature) {
