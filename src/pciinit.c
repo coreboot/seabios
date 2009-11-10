@@ -126,28 +126,28 @@ static void pci_bios_init_device(u16 bdf)
         /* default memory mappings */
         for (i = 0; i < PCI_NUM_REGIONS; i++) {
             int ofs;
-            u32 old, val, mask, size;
             if (i == PCI_ROM_SLOT)
                 ofs = PCI_ROM_ADDRESS;
             else
                 ofs = PCI_BASE_ADDRESS_0 + i * 4;
 
-            old = pci_config_readl(bdf, ofs);
+            u32 old = pci_config_readl(bdf, ofs);
+            u32 mask;
             if (i == PCI_ROM_SLOT) {
                 mask = PCI_ROM_ADDRESS_MASK;
                 pci_config_writel(bdf, ofs, mask);
             } else {
-                if (val & PCI_BASE_ADDRESS_SPACE_IO)
+                if (old & PCI_BASE_ADDRESS_SPACE_IO)
                     mask = PCI_BASE_ADDRESS_IO_MASK;
                 else
                     mask = PCI_BASE_ADDRESS_MEM_MASK;
                 pci_config_writel(bdf, ofs, ~0);
             }
-            val = pci_config_readl(bdf, ofs);
+            u32 val = pci_config_readl(bdf, ofs);
             pci_config_writel(bdf, ofs, old);
 
             if (val != 0) {
-                size = (~(val & mask)) + 1;
+                u32 size = (~(val & mask)) + 1;
                 if (val & PCI_BASE_ADDRESS_SPACE_IO)
                     paddr = &pci_bios_io_addr;
                 else if (size >= 0x04000000)
