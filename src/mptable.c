@@ -10,6 +10,15 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "paravirt.h"
 
+static inline unsigned long
+fls(unsigned long word)
+{
+    asm("bsr %1,%0"
+        : "=r" (word)
+        : "rm" (word));
+    return word + 1;
+}
+
 void
 mptable_init(void)
 {
@@ -44,16 +53,25 @@ mptable_init(void)
     config->spec = 4;
     memcpy(config->oemid, CONFIG_CPUNAME8, sizeof(config->oemid));
     memcpy(config->productid, "0.1         ", sizeof(config->productid));
-    config->entrycount = MaxCountCPUs + 2 + 16;
     config->lapic = BUILD_APIC_ADDR;
 
     // CPU definitions.
     u32 cpuid_signature, ebx, ecx, cpuid_features;
     cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
     struct mpt_cpu *cpus = (void*)&config[1];
-    int i;
-    for (i = 0; i < MaxCountCPUs; i++) {
+    int i, actual_cpu_count;
+    for (i = 0, actual_cpu_count = 0; i < MaxCountCPUs; i++) {
         struct mpt_cpu *cpu = &cpus[i];
+        int log_cpus = (ebx >> 16) & 0xff;
+        log_cpus = 1UL << fls(log_cpus - 1); /* round up to power of 2 */
+
+        /* Only populate the MPS tables with the first logical CPU in each
+           package */
+        if ((cpuid_features & (1 << 28)) && (i & (log_cpus - 1)) != 0)
+            continue;
+
+        actual_cpu_count++;
+
         memset(cpu, 0, sizeof(*cpu));
         cpu->type = MPT_TYPE_CPU;
         cpu->apicid = i;
@@ -72,8 +90,10 @@ mptable_init(void)
         }
     }
 
+    config->entrycount = actual_cpu_count + 2 + 16;
+
     /* isa bus */
-    struct mpt_bus *bus = (void*)&cpus[MaxCountCPUs];
+    struct mpt_bus *bus = (void*)&cpus[actual_cpu_count];
     memset(bus, 0, sizeof(*bus));
     bus->type = MPT_TYPE_BUS;
     memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
