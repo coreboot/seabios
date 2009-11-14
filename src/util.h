@@ -93,6 +93,13 @@ static inline u32 __ffs(u32 word)
         : "rm" (word));
     return word;
 }
+static inline u32 __fls(u32 word)
+{
+    asm("bsr %1,%0"
+        : "=r" (word)
+        : "rm" (word));
+    return word;
+}
 
 static inline void writel(void *addr, u32 val) {
     *(volatile u32 *)addr = val;
