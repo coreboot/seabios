@@ -38,6 +38,7 @@ struct mptable_config_s {
 #define MPT_TYPE_BUS 1
 #define MPT_TYPE_IOAPIC 2
 #define MPT_TYPE_INTSRC 3
+#define MPT_TYPE_LOCAL_INT 4
 
 struct mpt_cpu {
     u8 type;

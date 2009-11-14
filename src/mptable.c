@@ -23,7 +23,7 @@ mptable_init(void)
                   + sizeof(struct mpt_cpu) * MaxCountCPUs
                   + sizeof(struct mpt_bus)
                   + sizeof(struct mpt_ioapic)
-                  + sizeof(struct mpt_intsrc) * 16);
+                  + sizeof(struct mpt_intsrc) * 18);
     struct mptable_config_s *config = malloc_fseg(length);
     struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
     if (!config || !floating) {
@@ -118,6 +118,27 @@ mptable_init(void)
         intsrc++;
     }
     entrycount += intsrc - intsrcs;
+
+    /* Local interrupt assignment */
+    intsrc->type = MPT_TYPE_LOCAL_INT;
+    intsrc->irqtype = 3; /* ExtINT */
+    intsrc->irqflag = 0; /* PO, EL default */
+    intsrc->srcbus = 0;
+    intsrc->srcbusirq = 0;
+    intsrc->dstapic = 0; /* BSP == APIC #0 */
+    intsrc->dstirq = 0; /* LINTIN0 */
+    intsrc++;
+    entrycount++;
+
+    intsrc->type = MPT_TYPE_LOCAL_INT;
+    intsrc->irqtype = 1; /* NMI */
+    intsrc->irqflag = 0; /* PO, EL default */
+    intsrc->srcbus = 0;
+    intsrc->srcbusirq = 0;
+    intsrc->dstapic = 0; /* BSP == APIC #0 */
+    intsrc->dstirq = 1; /* LINTIN1 */
+    intsrc++;
+    entrycount++;
 
     // Finalize config structure.
     config->entrycount = entrycount;
