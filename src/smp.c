@@ -13,6 +13,8 @@
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
+#define APIC_LINT0   ((u8*)BUILD_APIC_ADDR + 0x350)
+#define APIC_LINT1   ((u8*)BUILD_APIC_ADDR + 0x360)
 
 #define APIC_ENABLED 0x0100
 
@@ -90,6 +92,14 @@ smp_probe(void)
     // enable local APIC
     u32 val = readl(APIC_SVR);
     writel(APIC_SVR, val | APIC_ENABLED);
+
+    if (! CONFIG_COREBOOT) {
+        /* Set LINT0 as Ext_INT, level triggered */
+        writel(APIC_LINT0, 0x8700);
+
+        /* Set LINT1 as NMI, level triggered */
+        writel(APIC_LINT1, 0x8400);
+    }
 
     // broadcast SIPI
     writel(APIC_ICR_LOW, 0x000C4500);
