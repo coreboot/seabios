@@ -193,10 +193,6 @@ send_cmd(struct drive_s *drive_g, struct ata_pio_command *cmd)
     u8 channel = ataid / 2;
     u8 slave = ataid % 2;
     u16 iobase1 = GET_GLOBAL(ATA_channels[channel].iobase1);
-    u16 iobase2 = GET_GLOBAL(ATA_channels[channel].iobase2);
-
-    // Disable interrupts
-    outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
 
     // Select device
     int status = await_not_bsy(iobase1);
@@ -310,8 +306,6 @@ ata_transfer(struct disk_op_s *op, int iswrite, int blocksize)
         return -7;
     }
 
-    // Enable interrupts
-    outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
     return 0;
 }
 
@@ -324,6 +318,9 @@ ata_transfer(struct disk_op_s *op, int iswrite, int blocksize)
 static int
 ata_cmd_data(struct disk_op_s *op, int iswrite, int command)
 {
+    u8 ataid = GET_GLOBAL(op->drive_g->cntl_id);
+    u8 channel = ataid / 2;
+    u16 iobase2 = GET_GLOBAL(ATA_channels[channel].iobase2);
     u64 lba = op->lba;
 
     struct ata_pio_command cmd;
@@ -347,10 +344,18 @@ ata_cmd_data(struct disk_op_s *op, int iswrite, int command)
     cmd.lba_high = lba >> 16;
     cmd.device = ((lba >> 24) & 0xf) | ATA_CB_DH_LBA;
 
+    // Disable interrupts
+    outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
+
     int ret = send_cmd(op->drive_g, &cmd);
     if (ret)
-        return ret;
-    return ata_transfer(op, iswrite, DISK_SECTOR_SIZE);
+        goto fail;
+    ret = ata_transfer(op, iswrite, DISK_SECTOR_SIZE);
+
+fail:
+    // Enable interrupts
+    outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
+    return ret;
 }
 
 int
@@ -382,9 +387,9 @@ process_ata_op(struct disk_op_s *op)
 
 // Low-level atapi command transmit function.
 static int
-send_atapi_cmd(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
+atapi_cmd_data(struct disk_op_s *op, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
 {
-    u8 ataid = GET_GLOBAL(drive_g->cntl_id);
+    u8 ataid = GET_GLOBAL(op->drive_g->cntl_id);
     u8 channel = ataid / 2;
     u16 iobase1 = GET_GLOBAL(ATA_channels[channel].iobase1);
     u16 iobase2 = GET_GLOBAL(ATA_channels[channel].iobase2);
@@ -398,16 +403,21 @@ send_atapi_cmd(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
     cmd.device = 0;
     cmd.command = ATA_CMD_PACKET;
 
-    int ret = send_cmd(drive_g, &cmd);
+    // Disable interrupts
+    outb(ATA_CB_DC_HD15 | ATA_CB_DC_NIEN, iobase2 + ATA_CB_DC);
+
+    int ret = send_cmd(op->drive_g, &cmd);
     if (ret)
-        return ret;
+        goto fail;
 
     // Send command to device
     outsw_fl(iobase1, MAKE_FLATPTR(GET_SEG(SS), cmdbuf), cmdlen / 2);
 
     int status = pause_await_not_bsy(iobase1, iobase2);
-    if (status < 0)
-        return status;
+    if (status < 0) {
+        ret = status;
+        goto fail;
+    }
 
     if (status & ATA_CB_STAT_ERR) {
         u8 err = inb(iobase1 + ATA_CB_ERR);
@@ -415,14 +425,21 @@ send_atapi_cmd(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
         if (err != 0x20)
             dprintf(6, "send_atapi_cmd : read error (status=%02x err=%02x)\n"
                     , status, err);
-        return -2;
+        ret = -2;
+        goto fail;
     }
     if (!(status & ATA_CB_STAT_DRQ)) {
         dprintf(6, "send_atapi_cmd : DRQ not set (status %02x)\n", status);
-        return -3;
+        ret = -3;
+        goto fail;
     }
 
-    return 0;
+    ret = ata_transfer(op, 0, blocksize);
+
+fail:
+    // Enable interrupts
+    outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
+    return ret;
 }
 
 // Read sectors from the cdrom.
@@ -439,12 +456,7 @@ cdrom_read(struct disk_op_s *op)
     atacmd[4]=(op->lba & 0x0000ff00) >> 8;
     atacmd[5]=(op->lba & 0x000000ff);
 
-    int ret = send_atapi_cmd(op->drive_g, atacmd, sizeof(atacmd)
-                             , CDROM_SECTOR_SIZE);
-    if (ret)
-        return ret;
-
-    return ata_transfer(op, 0, CDROM_SECTOR_SIZE);
+    return atapi_cmd_data(op, atacmd, sizeof(atacmd), CDROM_SECTOR_SIZE);
 }
 
 int
@@ -471,17 +483,13 @@ int
 ata_cmd_packet(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen
                , u32 length, void *buf_fl)
 {
-    int ret = send_atapi_cmd(drive_g, cmdbuf, cmdlen, length);
-    if (ret)
-        return ret;
-
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
     dop.drive_g = drive_g;
     dop.count = 1;
     dop.buf_fl = buf_fl;
 
-    return ata_transfer(&dop, 0, length);
+    return atapi_cmd_data(&dop, cmdbuf, cmdlen, length);
 }
 
 
