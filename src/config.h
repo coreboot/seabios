@@ -128,7 +128,7 @@
 #define CONFIG_BIOS_REVISION 0x01
 
 // Various memory addresses used by the code.
-#define BUILD_STACK_ADDR          0x7c00
+#define BUILD_STACK_ADDR          0x7000
 #define BUILD_S3RESUME_STACK_ADDR 0x1000
 #define BUILD_AP_BOOT_ADDR        0x10000
 #define BUILD_EBDA_MINIMUM        0x90000
