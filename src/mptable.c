@@ -36,6 +36,7 @@ mptable_init(void)
     // Detect cpu info
     u32 cpuid_signature, ebx, ecx, cpuid_features;
     cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
+    u8 apic_version = readl((u8*)BUILD_APIC_ADDR + 0x30) & 0xff;
     int pkgcpus = 1;
     if (cpuid_features & (1 << 28)) {
         /* Only populate the MPS tables with the first logical CPU in
@@ -51,7 +52,7 @@ mptable_init(void)
         memset(cpu, 0, sizeof(*cpu));
         cpu->type = MPT_TYPE_CPU;
         cpu->apicid = i;
-        cpu->apicver = 0x11;
+        cpu->apicver = apic_version;
         /* cpu flags: enabled, bootstrap cpu */
         cpu->cpuflag = (i < CountCPUs) | ((i == 0) << 1);
         if (cpuid_signature) {
