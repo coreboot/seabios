@@ -376,12 +376,15 @@ putc_str(struct putcinfo *info, char c)
     sinfo->str++;
 }
 
-void
+// Build a formatted string.  Note, this function returns the actual
+// number of bytes used (not including null) even in the overflow
+// case.
+int
 snprintf(char *str, size_t size, const char *fmt, ...)
 {
     ASSERT32();
     if (!size)
-        return;
+        return 0;
     struct snprintfinfo sinfo = { { putc_str }, str, str + size };
     va_list args;
     va_start(args, fmt);
@@ -389,8 +392,9 @@ snprintf(char *str, size_t size, const char *fmt, ...)
     va_end(args);
     char *end = sinfo.str;
     if (end >= sinfo.end)
-        end--;
+        end = sinfo.end - 1;
     *end = '\0';
+    return end - str;
 }
 
 

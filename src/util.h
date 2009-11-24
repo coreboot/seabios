@@ -187,7 +187,7 @@ void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void __dprintf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
-void snprintf(char *str, size_t size, const char *fmt, ...)
+int snprintf(char *str, size_t size, const char *fmt, ...)
     __attribute__ ((format (printf, 3, 4)));
 #define dprintf(lvl, fmt, args...) do {                         \
         if (CONFIG_DEBUG_LEVEL && (lvl) <= CONFIG_DEBUG_LEVEL)  \
