@@ -75,7 +75,9 @@ smp_probe(void)
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
     if (! (cpuid_features & CPUID_APIC)) {
         // No apic - only the main cpu is present.
+        dprintf(1, "No apic - only the main cpu is present.\n");
         CountCPUs= 1;
+        MaxCountCPUs = 1;
         return;
     }
 
