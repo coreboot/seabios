@@ -429,10 +429,12 @@ build_ssdt(void)
     // build processor scope header
     *(ssdt_ptr++) = 0x10; // ScopeOp
     if (cpu_length <= 0x3e) {
+        /* Handle 1-4 CPUs with one byte encoding */
         *(ssdt_ptr++) = cpu_length + 1;
     } else {
-        *(ssdt_ptr++) = 0x7F;
-        *(ssdt_ptr++) = (cpu_length + 2) >> 6;
+        /* Handle 5-314 CPUs with two byte encoding */
+        *(ssdt_ptr++) = 0x40 | ((cpu_length + 2) & 0xf);
+        *(ssdt_ptr++) = (cpu_length + 2) >> 4;
     }
     *(ssdt_ptr++) = '_'; // Name
     *(ssdt_ptr++) = 'P';
