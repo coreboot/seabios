@@ -158,67 +158,9 @@ dumpZones()
     }
 }
 
-void
-malloc_setup()
-{
-    ASSERT32();
-    dprintf(3, "malloc setup\n");
-
-    // Memory in 0xf0000 area.
-    memset(BiosTableSpace, 0, CONFIG_MAX_BIOSTABLE);
-    ZoneFSeg.bottom = (u32)BiosTableSpace;
-    ZoneFSeg.top = ZoneFSeg.cur = ZoneFSeg.bottom + CONFIG_MAX_BIOSTABLE;
-
-    // Memory under 1Meg.
-    ZoneTmpLow.bottom = BUILD_STACK_ADDR;
-    ZoneTmpLow.top = ZoneTmpLow.cur = BUILD_EBDA_MINIMUM;
-
-    // Permanent memory under 1Meg.
-    ZoneLow.bottom = ZoneLow.top = ZoneLow.cur = BUILD_LOWRAM_END;
-
-    // Find memory at the top of ram.
-    struct e820entry *e = find_high_area(CONFIG_MAX_HIGHTABLE+MALLOC_MIN_ALIGN);
-    if (!e) {
-        // No memory above 1Meg
-        memset(&ZoneHigh, 0, sizeof(ZoneHigh));
-        memset(&ZoneTmpHigh, 0, sizeof(ZoneTmpHigh));
-        return;
-    }
-    u32 top = e->start + e->size, bottom = e->start;
-
-    // Memory at top of ram.
-    ZoneHigh.bottom = ALIGN(top - CONFIG_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);
-    ZoneHigh.top = ZoneHigh.cur = ZoneHigh.bottom + CONFIG_MAX_HIGHTABLE;
-    add_e820(ZoneHigh.bottom, CONFIG_MAX_HIGHTABLE, E820_RESERVED);
-
-    // Memory above 1Meg
-    ZoneTmpHigh.bottom = ALIGN(bottom, MALLOC_MIN_ALIGN);
-    ZoneTmpHigh.top = ZoneTmpHigh.cur = ZoneHigh.bottom;
-}
-
-void
-malloc_finalize()
-{
-    dprintf(3, "malloc finalize\n");
-
-    dumpZones();
-
-    // Reserve more low-mem if needed.
-    u32 endlow = GET_BDA(mem_size_kb)*1024;
-    add_e820(endlow, BUILD_LOWRAM_END-endlow, E820_RESERVED);
-
-    // Give back unused high ram.
-    u32 giveback = ALIGN_DOWN(ZoneHigh.cur - ZoneHigh.bottom, PAGE_SIZE);
-    add_e820(ZoneHigh.bottom, giveback, E820_RAM);
-    dprintf(1, "Returned %d bytes of ZoneHigh\n", giveback);
-
-    // Clear low-memory allocations.
-    memset((void*)ZoneTmpLow.bottom, 0, ZoneTmpLow.top - ZoneTmpLow.bottom);
-}
-
 
 /****************************************************************
- * pmm allocation
+ * tracked memory allocations
  ****************************************************************/
 
 // Information on PMM tracked allocations
@@ -332,6 +274,66 @@ pmm_find(u32 handle)
         if (GET_PMMVAR(info->handle) == handle)
             return GET_PMMVAR(info->data);
     return NULL;
+}
+
+void
+malloc_setup()
+{
+    ASSERT32();
+    dprintf(3, "malloc setup\n");
+
+    PMMAllocs = NULL;
+
+    // Memory in 0xf0000 area.
+    memset(BiosTableSpace, 0, CONFIG_MAX_BIOSTABLE);
+    ZoneFSeg.bottom = (u32)BiosTableSpace;
+    ZoneFSeg.top = ZoneFSeg.cur = ZoneFSeg.bottom + CONFIG_MAX_BIOSTABLE;
+
+    // Memory under 1Meg.
+    ZoneTmpLow.bottom = BUILD_STACK_ADDR;
+    ZoneTmpLow.top = ZoneTmpLow.cur = BUILD_EBDA_MINIMUM;
+
+    // Permanent memory under 1Meg.
+    ZoneLow.bottom = ZoneLow.top = ZoneLow.cur = BUILD_LOWRAM_END;
+
+    // Find memory at the top of ram.
+    struct e820entry *e = find_high_area(CONFIG_MAX_HIGHTABLE+MALLOC_MIN_ALIGN);
+    if (!e) {
+        // No memory above 1Meg
+        memset(&ZoneHigh, 0, sizeof(ZoneHigh));
+        memset(&ZoneTmpHigh, 0, sizeof(ZoneTmpHigh));
+        return;
+    }
+    u32 top = e->start + e->size, bottom = e->start;
+
+    // Memory at top of ram.
+    ZoneHigh.bottom = ALIGN(top - CONFIG_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);
+    ZoneHigh.top = ZoneHigh.cur = ZoneHigh.bottom + CONFIG_MAX_HIGHTABLE;
+    add_e820(ZoneHigh.bottom, CONFIG_MAX_HIGHTABLE, E820_RESERVED);
+
+    // Memory above 1Meg
+    ZoneTmpHigh.bottom = ALIGN(bottom, MALLOC_MIN_ALIGN);
+    ZoneTmpHigh.top = ZoneTmpHigh.cur = ZoneHigh.bottom;
+}
+
+void
+malloc_finalize()
+{
+    dprintf(3, "malloc finalize\n");
+
+    dumpZones();
+
+    // Reserve more low-mem if needed.
+    u32 endlow = GET_BDA(mem_size_kb)*1024;
+    add_e820(endlow, BUILD_LOWRAM_END-endlow, E820_RESERVED);
+
+    // Give back unused high ram.
+    u32 giveback = ALIGN_DOWN(ZoneHigh.cur - ZoneHigh.bottom, PAGE_SIZE);
+    add_e820(ZoneHigh.bottom, giveback, E820_RAM);
+    dprintf(1, "Returned %d bytes of ZoneHigh\n", giveback);
+
+    // Clear low-memory allocations.
+    memset((void*)ZoneTmpLow.bottom, 0, ZoneTmpLow.top - ZoneTmpLow.bottom);
 }
 
 
@@ -479,8 +481,6 @@ pmm_setup()
         return;
 
     dprintf(3, "init PMM\n");
-
-    PMMAllocs = NULL;
 
     PMMHEADER.signature = PMM_SIGNATURE;
     PMMHEADER.entry_offset = (u32)entry_pmm - BUILD_BIOS_ADDR;
