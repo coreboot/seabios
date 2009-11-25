@@ -220,18 +220,42 @@ map_hd_drive(struct drive_s *drive_g)
     fill_fdpt(drive_g, hdcount);
 }
 
+// Find spot to add a drive
+static void
+add_ordered_drive(u8 *idmap, u8 *count, struct drive_s *drive_g)
+{
+    if (*count >= ARRAY_SIZE(Drives.idmap[0])) {
+        dprintf(1, "No room to map drive %p\n", drive_g);
+        return;
+    }
+    u8 *pos = &idmap[*count];
+    *count = *count + 1;
+    if (CONFIG_THREADS) {
+        // Add to idmap with assured drive order.
+        u8 *end = pos;
+        for (;;) {
+            u8 *prev = pos - 1;
+            if (prev < idmap)
+                break;
+            struct drive_s *prevdrive = &Drives.drives[*prev];
+            if (prevdrive->type < drive_g->type
+                || (prevdrive->type == drive_g->type
+                    && prevdrive->cntl_id < drive_g->cntl_id))
+                break;
+            pos--;
+        }
+        if (pos != end)
+            memmove(pos+1, pos, (void*)end-(void*)pos);
+    }
+    *pos = drive_g - Drives.drives;
+}
+
 // Map a cd
 void
 map_cd_drive(struct drive_s *drive_g)
 {
-    // fill cdidmap
-    u8 cdcount = GET_GLOBAL(Drives.cdcount);
-    if (cdcount >= ARRAY_SIZE(Drives.idmap[0]))
-        return;
-    dprintf(3, "Mapping cd drive %p to %d\n", drive_g, cdcount);
-    int driveid = drive_g - Drives.drives;
-    SET_GLOBAL(Drives.idmap[EXTTYPE_CD][cdcount], driveid);
-    SET_GLOBAL(Drives.cdcount, cdcount+1);
+    dprintf(3, "Mapping cd drive %p\n", drive_g);
+    add_ordered_drive(Drives.idmap[EXTTYPE_CD], &Drives.cdcount, drive_g);
 }
 
 // Map a floppy
@@ -239,21 +263,16 @@ void
 map_floppy_drive(struct drive_s *drive_g)
 {
     // fill idmap
-    u8 floppycount = GET_GLOBAL(Drives.floppycount);
-    if (floppycount >= ARRAY_SIZE(Drives.idmap[0]))
-        return;
-    dprintf(3, "Mapping floppy drive %p to %d\n", drive_g, floppycount);
-    int driveid = drive_g - Drives.drives;
-    SET_GLOBAL(Drives.idmap[EXTTYPE_FLOPPY][floppycount], driveid);
-    floppycount++;
-    SET_GLOBAL(Drives.floppycount, floppycount);
+    dprintf(3, "Mapping floppy drive %p\n", drive_g);
+    add_ordered_drive(Drives.idmap[EXTTYPE_FLOPPY], &Drives.floppycount
+                      , drive_g);
 
     // Update equipment word bits for floppy
-    if (floppycount == 1) {
+    if (Drives.floppycount == 1) {
         // 1 drive, ready for boot
         SETBITS_BDA(equipment_list_flags, 0x01);
         SET_BDA(floppy_harddisk_info, 0x07);
-    } else {
+    } else if (Drives.floppycount >= 2) {
         // 2 drives, ready for boot
         SETBITS_BDA(equipment_list_flags, 0x41);
         SET_BDA(floppy_harddisk_info, 0x77);
