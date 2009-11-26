@@ -159,51 +159,56 @@ init_bios_tables(void)
 static void
 post()
 {
+    // Detect and init ram.
     init_ivt();
     init_bda();
+    memmap_setup();
+    ram_probe();
+    malloc_setup();
 
-    qemu_cfg_port_probe();
-
+    // Init base pc hardware.
     pic_setup();
     timer_setup();
     mathcp_setup();
 
+    // Initialize smp
+    qemu_cfg_port_probe();
     smp_probe_setup();
-    memmap_setup();
-    ram_probe();
     mtrr_setup();
     smp_probe();
-    malloc_setup();
-    pmm_setup();
 
+    // Initialize pci
     pci_setup();
     smm_init();
 
+    // Run vga option rom.
+    pmm_setup();
     pnp_setup();
     vga_setup();
 
+    // Initialize hardware devices
     usb_setup();
     kbd_setup();
     lpt_setup();
     serial_setup();
     mouse_setup();
 
-    init_bios_tables();
-
     boot_setup();
-
     drive_setup();
     cdemu_setup();
     floppy_setup();
     ata_setup();
     ramdisk_setup();
 
+    // Run option roms (non vga)
+    init_bios_tables();
     wait_threads();
     optionrom_setup();
 
-    // Run BCVs
+    // Run BCVs and show optional boot menu
     boot_prep();
 
+    // Finalize data structures before boot
     pmm_finalize();
     malloc_finalize();
     memmap_finalize();
