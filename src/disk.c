@@ -190,7 +190,7 @@ disk_1304(struct bregs *regs, struct drive_s *drive_g)
 static void
 disk_1305(struct bregs *regs, struct drive_s *drive_g)
 {
-    DISK_STUB(regs);
+    debug_stub(regs);
 
     u16 nlc, nlh, nlspt;
     fillLCHS(drive_g, &nlc, &nlh, &nlspt);

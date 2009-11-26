@@ -642,12 +642,13 @@ acpi_bios_init(void)
         u16 len = qemu_cfg_next_acpi_table_len();
         void *addr = malloc_high(len);
         if (!addr) {
-            dprintf(1, "Not enogh memory of ext acpi table of size %d!\n", len);
+            dprintf(1, "Not enough memory for ext acpi table of size %d!\n"
+                    , len);
             continue;
         }
         ACPI_INIT_TABLE(qemu_cfg_next_acpi_table_load(addr, len));
         if (tbl_idx == MAX_ACPI_TABLES) {
-            dprintf(1, "To many external table!\n");
+            dprintf(1, "Too many external tables!\n");
             break;
         }
     }

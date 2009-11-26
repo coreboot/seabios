@@ -1,3 +1,5 @@
+If POST is rerun, try to do a machine reboot.
+
 Add int 0x1589 support.
 
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
