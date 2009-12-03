@@ -151,7 +151,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
                 if (data == PS2_RET_ACK)
                     return data;
                 if (data == PS2_RET_NAK) {
-                    dprintf(1, "Got ps2 nak (status=%x); continuing\n", status);
+                    dprintf(1, "Got ps2 nak (status=%x)\n", status);
                     return data;
                 }
             }
@@ -184,6 +184,8 @@ ps2_sendbyte(int aux, u8 command, int timeout)
     ret = ps2_recvbyte(aux, 1, timeout);
     if (ret < 0)
         return ret;
+    if (ret != PS2_RET_ACK)
+        return -1;
 
     return 0;
 }
