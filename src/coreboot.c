@@ -513,9 +513,18 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
 
     u32 size = ntohl(file->len);
     void *src = (void*)file + ntohl(file->offset);
-    if (cbfs_iscomp(file))
-        // Compressed.
-        return ulzma(dst, maxlen, src, size);
+    if (cbfs_iscomp(file)) {
+        // Compressed - copy to temp ram and uncompress it.
+        u32 asize = ALIGN(size, 4);
+        void *temp = malloc_tmphigh(asize);
+        if (!temp)
+            return -1;
+        iomemcpy(temp, src, asize);
+        int ret = ulzma(dst, maxlen, temp, size);
+        yield();
+        free(temp);
+        return ret;
+    }
 
     // Not compressed.
     dprintf(3, "Copying data %d@%p to %d@%p\n", size, src, maxlen, dst);
@@ -523,7 +532,7 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
         dprintf(1, "File too big to copy\n");
         return -1;
     }
-    memcpy(dst, src, size);
+    iomemcpy(dst, src, size);
     return size;
 }
 

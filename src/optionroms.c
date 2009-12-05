@@ -187,7 +187,7 @@ copy_rom(struct rom_header *rom)
     }
     dprintf(4, "Copying option rom (size %d) from %p to %x\n"
             , romsize, rom, RomEnd);
-    memcpy((void*)RomEnd, rom, romsize);
+    iomemcpy((void*)RomEnd, rom, romsize);
     return (void*)RomEnd;
 }
 
