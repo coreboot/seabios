@@ -42,8 +42,10 @@ def readserial(infile, logfile, baudrate):
             starttime = curtime
             charcount = 0
             isnewline = 1
-            sys.stdout.write("\n")
-            logfile.write("\n")
+            msg = "\n\n======= %s (adjust=%d)\n" % (
+                time.asctime(time.localtime(curtime)), ADJUSTBAUD)
+            sys.stdout.write(msg)
+            logfile.write(msg)
         lasttime = curtime
 
         # Translate unprintable chars; add timestamps
