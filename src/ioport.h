@@ -39,10 +39,10 @@
 #define PORT_LPT2              0x0278
 #define PORT_SERIAL4           0x02e8
 #define PORT_SERIAL2           0x02f8
-#define PORT_ATA2_CTRL_BASE    0x0370
+#define PORT_ATA2_CTRL_BASE    0x0374
 #define PORT_LPT1              0x0378
 #define PORT_SERIAL3           0x03e8
-#define PORT_ATA1_CTRL_BASE    0x03f0
+#define PORT_ATA1_CTRL_BASE    0x03f4
 #define PORT_FD_DOR            0x03f2
 #define PORT_FD_STATUS         0x03f4
 #define PORT_FD_DATA           0x03f5

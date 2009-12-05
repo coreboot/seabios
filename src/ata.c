@@ -766,6 +766,9 @@ init_controller(struct ata_channel_s *atachannel
     run_thread(ata_detect, atachannel);
 }
 
+#define IRQ_ATA1 14
+#define IRQ_ATA2 15
+
 static void
 ata_init()
 {
@@ -779,15 +782,17 @@ ata_init()
         if (count >= ARRAY_SIZE(ATA_channels))
             break;
 
-        u8 irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
+        u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
         u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
-        u32 port1, port2;
+        u32 port1, port2, irq;
         if (prog_if & 1) {
             port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) & ~3;
             port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_1) & ~3;
+            irq = pciirq;
         } else {
             port1 = PORT_ATA1_CMD_BASE;
             port2 = PORT_ATA1_CTRL_BASE;
+            irq = IRQ_ATA1;
         }
         init_controller(&ATA_channels[count], bdf, irq, port1, port2);
         count++;
@@ -795,9 +800,11 @@ ata_init()
         if (prog_if & 4) {
             port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_2) & ~3;
             port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_3) & ~3;
+            irq = pciirq;
         } else {
             port1 = PORT_ATA2_CMD_BASE;
             port2 = PORT_ATA2_CTRL_BASE;
+            irq = IRQ_ATA2;
         }
         init_controller(&ATA_channels[count], bdf, irq, port1, port2);
         count++;
@@ -807,9 +814,9 @@ ata_init()
         // No PCI devices found - probably a QEMU "-M isapc" machine.
         // Try using ISA ports for ATA controllers.
         init_controller(&ATA_channels[0]
-                        , -1, 14, PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE);
+                        , -1, IRQ_ATA1, PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE);
         init_controller(&ATA_channels[1]
-                        , -1, 15, PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE);
+                        , -1, IRQ_ATA2, PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE);
     }
 }
 

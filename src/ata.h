@@ -34,9 +34,10 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CB_DH    6   // device head      in/out pio_base_addr1+6
 #define ATA_CB_STAT  7   // primary status   in     pio_base_addr1+7
 #define ATA_CB_CMD   7   // command             out pio_base_addr1+7
-#define ATA_CB_ASTAT 6   // alternate status in     pio_base_addr2+6
-#define ATA_CB_DC    6   // device control      out pio_base_addr2+6
-#define ATA_CB_DA    7   // device address   in     pio_base_addr2+7
+
+#define ATA_CB_ASTAT 2   // alternate status in     pio_base_addr2+2
+#define ATA_CB_DC    2   // device control      out pio_base_addr2+2
+#define ATA_CB_DA    3   // device address   in     pio_base_addr2+3
 
 #define ATA_CB_ER_ICRC 0x80    // ATA Ultra DMA bad CRC
 #define ATA_CB_ER_BBK  0x80    // ATA bad block
