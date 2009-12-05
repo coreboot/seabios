@@ -18,6 +18,9 @@ RESTARTINTERVAL = 60
 # Alter timing reports based on how much time would be spent writing
 # to serial.
 ADJUSTBAUD = 1
+# Number of bits in a transmitted byte - 8N1 is 1 start bit + 8 data
+# bits + 1 stop bit.
+BITSPERBYTE = 10
 
 def readserial(infile, logfile, baudrate):
     lasttime = 0
@@ -54,7 +57,7 @@ def readserial(infile, logfile, baudrate):
             if isnewline:
                 delta = curtime - starttime
                 if ADJUSTBAUD:
-                    delta -= float(charcount * 9) / baudrate
+                    delta -= float(charcount * BITSPERBYTE) / baudrate
                 out += "%06.3f: " % delta
                 isnewline = 0
             oc = ord(c)
