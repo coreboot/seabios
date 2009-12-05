@@ -754,51 +754,62 @@ ata_detect(void *data)
 }
 
 static void
+init_controller(struct ata_channel_s *atachannel
+                , int bdf, int irq, u32 port1, u32 port2)
+{
+    SET_GLOBAL(atachannel->irq, irq);
+    SET_GLOBAL(atachannel->pci_bdf, bdf);
+    SET_GLOBAL(atachannel->iobase1, port1);
+    SET_GLOBAL(atachannel->iobase2, port2);
+    dprintf(1, "ATA controller %d at %x/%x (irq %d dev %x)\n"
+            , atachannel - ATA_channels, port1, port2, irq, bdf);
+    run_thread(ata_detect, atachannel);
+}
+
+static void
 ata_init()
 {
     // Scan PCI bus for ATA adapters
-    int count=0;
+    int count=0, pcicount=0;
     int bdf, max;
     foreachpci(bdf, max) {
+        pcicount++;
         if (pci_config_readw(bdf, PCI_CLASS_DEVICE) != PCI_CLASS_STORAGE_IDE)
             continue;
         if (count >= ARRAY_SIZE(ATA_channels))
             break;
 
         u8 irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
-        SET_GLOBAL(ATA_channels[count].irq, irq);
-        SET_GLOBAL(ATA_channels[count].pci_bdf, bdf);
-
         u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
         u32 port1, port2;
-
         if (prog_if & 1) {
             port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) & ~3;
             port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_1) & ~3;
         } else {
-            port1 = 0x1f0;
-            port2 = 0x3f0;
+            port1 = PORT_ATA1_CMD_BASE;
+            port2 = PORT_ATA1_CTRL_BASE;
         }
-        SET_GLOBAL(ATA_channels[count].iobase1, port1);
-        SET_GLOBAL(ATA_channels[count].iobase2, port2);
-        dprintf(1, "ATA controller %d at %x/%x (dev %x prog_if %x)\n"
-                , count, port1, port2, bdf, prog_if);
-        run_thread(ata_detect, &ATA_channels[count]);
+        init_controller(&ATA_channels[count], bdf, irq, port1, port2);
         count++;
 
         if (prog_if & 4) {
             port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_2) & ~3;
             port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_3) & ~3;
         } else {
-            port1 = 0x170;
-            port2 = 0x370;
+            port1 = PORT_ATA2_CMD_BASE;
+            port2 = PORT_ATA2_CTRL_BASE;
         }
-        dprintf(1, "ATA controller %d at %x/%x (dev %x prog_if %x)\n"
-                , count, port1, port2, bdf, prog_if);
-        SET_GLOBAL(ATA_channels[count].iobase1, port1);
-        SET_GLOBAL(ATA_channels[count].iobase2, port2);
-        run_thread(ata_detect, &ATA_channels[count]);
+        init_controller(&ATA_channels[count], bdf, irq, port1, port2);
         count++;
+    }
+
+    if (!CONFIG_COREBOOT && !pcicount && ARRAY_SIZE(ATA_channels) >= 2) {
+        // No PCI devices found - probably a QEMU "-M isapc" machine.
+        // Try using ISA ports for ATA controllers.
+        init_controller(&ATA_channels[0]
+                        , -1, 14, PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE);
+        init_controller(&ATA_channels[1]
+                        , -1, 15, PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE);
     }
 }
 

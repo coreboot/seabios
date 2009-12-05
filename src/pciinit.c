@@ -98,10 +98,10 @@ static void pci_bios_init_device(u16 bdf)
             goto default_map;
         } else {
             /* IDE: we map it as in ISA mode */
-            pci_set_io_region_addr(bdf, 0, 0x1f0);
-            pci_set_io_region_addr(bdf, 1, 0x3f4);
-            pci_set_io_region_addr(bdf, 2, 0x170);
-            pci_set_io_region_addr(bdf, 3, 0x374);
+            pci_set_io_region_addr(bdf, 0, PORT_ATA1_CMD_BASE);
+            pci_set_io_region_addr(bdf, 1, PORT_ATA1_CTRL_BASE + 4);
+            pci_set_io_region_addr(bdf, 2, PORT_ATA2_CMD_BASE);
+            pci_set_io_region_addr(bdf, 3, PORT_ATA2_CTRL_BASE + 4);
         }
         break;
     case PCI_CLASS_SYSTEM_PIC:

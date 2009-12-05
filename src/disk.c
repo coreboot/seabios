@@ -602,15 +602,25 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     SET_INT13DPT(regs, reserved1, 0);
     SET_INT13DPT(regs, reserved2, 0);
 
-    SET_INT13DPT(regs, host_bus[0], 'P');
-    SET_INT13DPT(regs, host_bus[1], 'C');
-    SET_INT13DPT(regs, host_bus[2], 'I');
-    SET_INT13DPT(regs, host_bus[3], 0);
+    int bdf = GET_GLOBAL(ATA_channels[channel].pci_bdf);
+    if (bdf != -1) {
+        SET_INT13DPT(regs, host_bus[0], 'P');
+        SET_INT13DPT(regs, host_bus[1], 'C');
+        SET_INT13DPT(regs, host_bus[2], 'I');
+        SET_INT13DPT(regs, host_bus[3], 0);
 
-    u32 bdf = GET_GLOBAL(ATA_channels[channel].pci_bdf);
-    u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
-                | (pci_bdf_to_fn(bdf) << 16));
-    SET_INT13DPT(regs, iface_path, path);
+        u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
+                    | (pci_bdf_to_fn(bdf) << 16));
+        SET_INT13DPT(regs, iface_path, path);
+    } else {
+        // ISA
+        SET_INT13DPT(regs, host_bus[0], 'I');
+        SET_INT13DPT(regs, host_bus[1], 'S');
+        SET_INT13DPT(regs, host_bus[2], 'A');
+        SET_INT13DPT(regs, host_bus[3], 0);
+
+        SET_INT13DPT(regs, iface_path, iobase1);
+    }
 
     SET_INT13DPT(regs, iface_type[0], 'A');
     SET_INT13DPT(regs, iface_type[1], 'T');
