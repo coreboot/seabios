@@ -182,10 +182,14 @@ post()
     pci_setup();
     smm_init();
 
-    // Run vga option rom.
+    // Setup interfaces that option roms may need
     pmm_setup();
     pnp_setup();
-    vga_setup();
+    init_bios_tables();
+
+    // Run vga option rom (if running synchronously)
+    if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS)
+        vga_setup();
 
     // Initialize hardware devices
     usb_setup();
@@ -201,8 +205,10 @@ post()
     ata_setup();
     ramdisk_setup();
 
-    // Run option roms (non vga)
-    init_bios_tables();
+    // Run option roms
+    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
+        // Run vga option rom (if running asynchronously)
+        vga_setup();
     wait_threads();
     optionrom_setup();
 

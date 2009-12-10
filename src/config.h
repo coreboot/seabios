@@ -24,6 +24,8 @@
 
 // Support running hardware initialization in parallel
 #define CONFIG_THREADS 1
+// Allow hardware init to run in parallel with optionrom execution
+#define CONFIG_THREAD_OPTIONROMS 0
 // Support int13 disk/floppy drive functions
 #define CONFIG_DRIVES 1
 // Support floppy drive access
@@ -187,6 +189,6 @@
 #define DEBUG_ISR_hwpic2 5
 #define DEBUG_HDL_pnp 1
 #define DEBUG_HDL_pmm 1
-#define DEBUG_thread 1
+#define DEBUG_thread 2
 
 #endif // config.h
