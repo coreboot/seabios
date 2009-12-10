@@ -134,7 +134,14 @@ struct thread_info {
     void *stackpos;
 };
 
-struct thread_info MainThread = {&MainThread, NULL};
+struct thread_info MainThread;
+
+void
+thread_setup()
+{
+    MainThread.next = &MainThread;
+    MainThread.stackpos = NULL;
+}
 
 struct thread_info *
 getCurThread()

@@ -147,6 +147,7 @@ static inline u8 readb(const void *addr) {
 // util.c
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
 extern struct thread_info MainThread;
+void thread_setup();
 struct thread_info *getCurThread();
 void run_thread(void (*func)(void*), void *data);
 void wait_threads();

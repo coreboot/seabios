@@ -165,6 +165,7 @@ post()
     memmap_setup();
     ram_probe();
     malloc_setup();
+    thread_setup();
 
     // Init base pc hardware.
     pic_setup();
