@@ -8,9 +8,8 @@
 #include "biosvar.h" // GET_BDA
 #include "util.h" // debug_enter
 #include "config.h" // CONFIG_*
-#include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
-#include "ps2port.h" // i8042_flush
+#include "ps2port.h" // kbd_command
 
 // Bit definitions for BDA kbd_flag[012]
 #define KF0_RSHIFT       (1<<0)
@@ -34,74 +33,6 @@
 #define KF2_RALT       (1<<3)
 #define KF2_101KBD     (1<<4)
 
-static void
-keyboard_init()
-{
-    /* flush incoming keys */
-    int ret = i8042_flush();
-    if (ret)
-        return;
-
-    // Controller self-test.
-    u8 param[2];
-    ret = i8042_command(I8042_CMD_CTL_TEST, param);
-    if (ret)
-        return;
-    if (param[0] != 0x55) {
-        dprintf(1, "i8042 self test failed (got %x not 0x55)\n", param[0]);
-        return;
-    }
-
-    // Controller keyboard test.
-    ret = i8042_command(I8042_CMD_KBD_TEST, param);
-    if (ret)
-        return;
-    if (param[0] != 0x00) {
-        dprintf(1, "i8042 keyboard test failed (got %x not 0x00)\n", param[0]);
-        return;
-    }
-
-    // Enable keyboard and mouse ports.
-    ret = i8042_command(I8042_CMD_KBD_ENABLE, NULL);
-    if (ret)
-        return;
-    ret = i8042_command(I8042_CMD_AUX_ENABLE, NULL);
-    if (ret)
-        return;
-
-
-    /* ------------------- keyboard side ------------------------*/
-    /* reset keyboard and self test  (keyboard side) */
-    ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
-    if (ret)
-        return;
-    if (param[0] != 0xaa) {
-        dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
-        return;
-    }
-
-    /* Disable keyboard */
-    ret = kbd_command(ATKBD_CMD_RESET_DIS, NULL);
-    if (ret)
-        return;
-
-    // Set scancode command (mode 2)
-    param[0] = 0x02;
-    ret = kbd_command(ATKBD_CMD_SSCANSET, param);
-    if (ret)
-        return;
-
-    // Keyboard Mode: scan code convert, disable mouse, enable IRQ 1
-    SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
-
-    /* Enable keyboard */
-    ret = kbd_command(ATKBD_CMD_ENABLE, NULL);
-    if (ret)
-        return;
-
-    dprintf(1, "keyboard initialized\n");
-}
-
 void
 kbd_setup()
 {
@@ -114,13 +45,6 @@ kbd_setup()
 
     SET_BDA(kbd_buf_end_offset
             , x + FIELD_SIZEOF(struct bios_data_area_s, kbd_buf));
-
-    if (! CONFIG_KEYBOARD)
-        return;
-
-    run_thread(keyboard_init, NULL);
-
-    enable_hwirq(1, entry_09);
 }
 
 static u8
@@ -621,6 +545,9 @@ __process_key(u8 scancode)
 void
 process_key(u8 key)
 {
+    if (!CONFIG_KEYBOARD)
+        return;
+
     if (CONFIG_KBD_CALL_INT15_4F) {
         // allow for keyboard intercept
         u32 eax = (0x4f << 8) | key;
@@ -631,26 +558,4 @@ process_key(u8 key)
         key = eax;
     }
     __process_key(key);
-}
-
-// INT09h : Keyboard Hardware Service Entry Point
-void VISIBLE16
-handle_09()
-{
-    debug_isr(DEBUG_ISR_09);
-    if (! CONFIG_KEYBOARD)
-        goto done;
-
-    // read key from keyboard controller
-    u8 v = inb(PORT_PS2_STATUS);
-    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA)) != I8042_STR_OBF) {
-        dprintf(1, "keyboard irq but no keyboard data.\n");
-        goto done;
-    }
-    v = inb(PORT_PS2_DATA);
-
-    process_key(v);
-
-done:
-    eoi_pic1();
 }

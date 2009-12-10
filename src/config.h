@@ -38,6 +38,8 @@
 #define CONFIG_USB_OHCI 1
 // Support USB keyboards
 #define CONFIG_USB_KEYBOARD 1
+// Support PS2 ports (keyboard and mouse)
+#define CONFIG_PS2PORT 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
 // Use 32bit PIO accesses on ATA (minor optimization on PCI transfers)
@@ -71,7 +73,7 @@
 // Disable A20 on 16bit boot
 #define CONFIG_DISABLE_A20 0
 // Support for int15c2 mouse calls
-#define CONFIG_PS2_MOUSE 1
+#define CONFIG_MOUSE 1
 // If the target machine has multiple independent root buses, the
 // extra buses may be specified here.
 #define CONFIG_PCI_ROOT1 0x00

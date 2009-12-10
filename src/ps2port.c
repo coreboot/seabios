@@ -9,6 +9,7 @@
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_EBDA
 #include "ps2port.h" // kbd_command
+#include "pic.h" // eoi_pic1
 
 
 /****************************************************************
@@ -280,4 +281,141 @@ aux_command(int command, u8 *param)
     if (ret)
         dprintf(2, "mouse command %x failed\n", command);
     return ret;
+}
+
+
+/****************************************************************
+ * IRQ handlers
+ ****************************************************************/
+
+// INT74h : PS/2 mouse hardware interrupt
+void VISIBLE16
+handle_74()
+{
+    if (! CONFIG_PS2PORT)
+        return;
+
+    debug_isr(DEBUG_ISR_74);
+
+    u8 v = inb(PORT_PS2_STATUS);
+    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
+        != (I8042_STR_OBF|I8042_STR_AUXDATA)) {
+        dprintf(1, "mouse irq but no mouse data.\n");
+        goto done;
+    }
+    v = inb(PORT_PS2_DATA);
+
+    process_mouse(v);
+
+done:
+    eoi_pic2();
+}
+
+// INT09h : Keyboard Hardware Service Entry Point
+void VISIBLE16
+handle_09()
+{
+    if (! CONFIG_PS2PORT)
+        return;
+
+    debug_isr(DEBUG_ISR_09);
+
+    // read key from keyboard controller
+    u8 v = inb(PORT_PS2_STATUS);
+    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA)) != I8042_STR_OBF) {
+        dprintf(1, "keyboard irq but no keyboard data.\n");
+        goto done;
+    }
+    v = inb(PORT_PS2_DATA);
+
+    process_key(v);
+
+done:
+    eoi_pic1();
+}
+
+
+/****************************************************************
+ * Setup
+ ****************************************************************/
+
+static void
+keyboard_init()
+{
+    /* flush incoming keys */
+    int ret = i8042_flush();
+    if (ret)
+        return;
+
+    // Controller self-test.
+    u8 param[2];
+    ret = i8042_command(I8042_CMD_CTL_TEST, param);
+    if (ret)
+        return;
+    if (param[0] != 0x55) {
+        dprintf(1, "i8042 self test failed (got %x not 0x55)\n", param[0]);
+        return;
+    }
+
+    // Controller keyboard test.
+    ret = i8042_command(I8042_CMD_KBD_TEST, param);
+    if (ret)
+        return;
+    if (param[0] != 0x00) {
+        dprintf(1, "i8042 keyboard test failed (got %x not 0x00)\n", param[0]);
+        return;
+    }
+
+    // Enable keyboard and mouse ports.
+    ret = i8042_command(I8042_CMD_KBD_ENABLE, NULL);
+    if (ret)
+        return;
+    ret = i8042_command(I8042_CMD_AUX_ENABLE, NULL);
+    if (ret)
+        return;
+
+
+    /* ------------------- keyboard side ------------------------*/
+    /* reset keyboard and self test  (keyboard side) */
+    ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
+    if (ret)
+        return;
+    if (param[0] != 0xaa) {
+        dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
+        return;
+    }
+
+    /* Disable keyboard */
+    ret = kbd_command(ATKBD_CMD_RESET_DIS, NULL);
+    if (ret)
+        return;
+
+    // Set scancode command (mode 2)
+    param[0] = 0x02;
+    ret = kbd_command(ATKBD_CMD_SSCANSET, param);
+    if (ret)
+        return;
+
+    // Keyboard Mode: scan code convert, disable mouse, enable IRQ 1
+    SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
+
+    /* Enable keyboard */
+    ret = kbd_command(ATKBD_CMD_ENABLE, NULL);
+    if (ret)
+        return;
+
+    dprintf(1, "keyboard initialized\n");
+}
+
+void
+ps2port_setup()
+{
+    if (! CONFIG_PS2PORT)
+        return;
+    dprintf(3, "init ps2port\n");
+
+    enable_hwirq(1, entry_09);
+    enable_hwirq(12, entry_74);
+
+    run_thread(keyboard_init, NULL);
 }

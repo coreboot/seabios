@@ -217,6 +217,7 @@ void process_key(u8 key);
 
 // mouse.c
 void mouse_setup();
+void process_mouse(u8 data);
 
 // system.c
 extern u32 RamSize;

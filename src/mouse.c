@@ -14,12 +14,11 @@
 void
 mouse_setup()
 {
-    if (! CONFIG_PS2_MOUSE)
+    if (! CONFIG_MOUSE)
         return;
     dprintf(3, "init mouse\n");
     // pointing device installed
     SETBITS_BDA(equipment_list_flags, 0x04);
-    enable_hwirq(12, entry_74);
 }
 
 #define RET_SUCCESS      0x00
@@ -264,7 +263,7 @@ handle_15c2(struct bregs *regs)
 {
     //debug_stub(regs);
 
-    if (! CONFIG_PS2_MOUSE) {
+    if (! CONFIG_MOUSE) {
         set_code_fail(regs, RET_EUNSUPPORTED);
         return;
     }
@@ -282,9 +281,12 @@ handle_15c2(struct bregs *regs)
     }
 }
 
-static void
+void
 process_mouse(u8 data)
 {
+    if (!CONFIG_MOUSE)
+        return;
+
     u16 ebda_seg = get_ebda_seg();
     u8 mouse_flags_1 = GET_EBDA2(ebda_seg, mouse_flag1);
     u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
@@ -328,26 +330,4 @@ process_mouse(u8 data)
         : "r"(func.segoff), "r"(status), "r"(X), "r"(Y)
         : "cc"
         );
-}
-
-// INT74h : PS/2 mouse hardware interrupt
-void VISIBLE16
-handle_74()
-{
-    debug_isr(DEBUG_ISR_74);
-    if (! CONFIG_PS2_MOUSE)
-        goto done;
-
-    u8 v = inb(PORT_PS2_STATUS);
-    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
-        != (I8042_STR_OBF|I8042_STR_AUXDATA)) {
-        dprintf(1, "mouse irq but no mouse data.\n");
-        goto done;
-    }
-    v = inb(PORT_PS2_DATA);
-
-    process_mouse(v);
-
-done:
-    eoi_pic2();
 }

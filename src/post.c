@@ -22,6 +22,7 @@
 #include "usb.h" // usb_setup
 #include "smbios.h" // smbios_init
 #include "paravirt.h" // qemu_cfg_port_probe
+#include "ps2port.h" // ps2port_setup
 
 void
 __set_irq(int vector, void *loc)
@@ -185,6 +186,8 @@ post()
     // Setup interfaces that option roms may need
     pmm_setup();
     pnp_setup();
+    kbd_setup();
+    mouse_setup();
     init_bios_tables();
 
     // Run vga option rom (if running synchronously)
@@ -193,10 +196,9 @@ post()
 
     // Initialize hardware devices
     usb_setup();
-    kbd_setup();
+    ps2port_setup();
     lpt_setup();
     serial_setup();
-    mouse_setup();
 
     boot_setup();
     drive_setup();

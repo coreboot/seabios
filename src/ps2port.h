@@ -59,5 +59,6 @@ int i8042_flush(void);
 int i8042_command(int command, u8 *param);
 int kbd_command(int command, u8 *param);
 int aux_command(int command, u8 *param);
+void ps2port_setup();
 
 #endif // ps2port.h
