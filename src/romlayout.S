@@ -70,12 +70,11 @@ transition32:
         popl %eax
         retl
 
-// Call a 16bit function from 32bit mode.
-// %eax = address of struct bregs
-// Clobbers: %e[bcd]x, %e[ds]i, flags, segment registers, idt/gdt
-        DECLFUNC __call16_from32
-        .global __call16big_from32
-__call16_from32:
+// Place CPU into 16bit mode from 32bit mode.
+// Clobbers: flags, segment registers, cr0, idt/gdt
+        DECLFUNC transition16
+        .global transition16big
+transition16:
         pushl %eax
 
         // restore data segment limits to 0xffff
@@ -96,7 +95,7 @@ __call16_from32:
         // Jump to 16bit mode
         ljmpw $SEG32_MODE16_CS, $1f
 
-__call16big_from32:
+transition16big:
         pushl %eax
 
         movl $SEG32_MODE16BIG_DS, %eax
@@ -131,13 +130,7 @@ __call16big_from32:
         movw %ax, %ss  // Assume stack is in segment 0
 
         popl %eax
-
-        // Make call.
-        calll __call16
-
-        // Return via transition32
-        jmp transition32
-
+        retl
 
 // Call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs
@@ -194,6 +187,25 @@ __call16:
         popl %ebp
 
         retl
+
+// Call a 16bit function from 32bit mode.
+// %eax = address of struct bregs
+// Clobbers: %e[bcd]x, %e[ds]i, flags, segment registers, idt/gdt
+        DECLFUNC __call16_from32
+        .global __call16big_from32
+        .code32
+__call16_from32:
+        pushl $1f
+        jmp transition16
+__call16big_from32:
+        pushl $1f
+        jmp transition16big
+
+        // Make call.
+        .code16gcc
+1:      calll __call16
+        // Return via transition32
+        jmp transition32
 
 // IRQ trampolines
         .macro IRQ_TRAMPOLINE num
@@ -285,7 +297,7 @@ entry_pmm:
         pushw %ds
         movw %ss, %cx           // Move %ss to %ds
         movw %cx, %ds
-        lea 28(%esp), %eax      // %eax points to start of args
+        leal 28(%esp), %eax     // %eax points to start of args
         calll handle_pmm
         movw %ax, 12(%esp)      // Modify %ax:%dx to return %eax
         shrl $16, %eax
@@ -319,7 +331,7 @@ entry_pnp_real:
         pushw %ds
         movw %ss, %cx           // Move %ss to %ds
         movw %cx, %ds
-        lea 28(%esp), %eax      // %eax points to start of u16 args
+        leal 28(%esp), %eax     // %eax points to start of u16 args
         calll handle_pnp
         movw %ax, 12(%esp)      // Modify %eax to return %ax
         popw %ds
