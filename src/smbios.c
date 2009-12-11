@@ -96,7 +96,8 @@ smbios_init_type_0(void *start)
     memset(p->bios_characteristics, 0, 8);
     p->bios_characteristics[0] = 0x08; /* BIOS characteristics not supported */
     p->bios_characteristics_extension_bytes[0] = 0;
-    p->bios_characteristics_extension_bytes[1] = 0;
+    /* Enable targeted content distribution. Needed for SVVP */
+    p->bios_characteristics_extension_bytes[1] = 4;
 
     if (!qemu_cfg_smbios_load_field(0, offsetof(struct smbios_type_0,
                                                 system_bios_major_release),
@@ -130,8 +131,8 @@ smbios_init_type_1(void *start)
     p->header.length = sizeof(struct smbios_type_1);
     p->header.handle = 0x100;
 
-    load_str_field_or_skip(1, manufacturer_str);
-    load_str_field_or_skip(1, product_name_str);
+    load_str_field_with_default(1, manufacturer_str, CONFIG_APPNAME);
+    load_str_field_with_default(1, product_name_str, CONFIG_APPNAME);
     load_str_field_or_skip(1, version_str);
     load_str_field_or_skip(1, serial_number_str);
 
@@ -165,7 +166,7 @@ smbios_init_type_3(void *start)
     p->header.length = sizeof(struct smbios_type_3);
     p->header.handle = 0x300;
 
-    p->manufacturer_str = 0;
+    p->manufacturer_str = 1;
     p->type = 0x01; /* other */
     p->version_str = 0;
     p->serial_number_str = 0;
@@ -180,9 +181,9 @@ smbios_init_type_3(void *start)
     p->contained_element_count = 0;
 
     start += sizeof(struct smbios_type_3);
-    *((u16 *)start) = 0;
+    memcpy((char *)start, CONFIG_APPNAME"\0\0", sizeof(CONFIG_APPNAME) + 1);
 
-    return start+2;
+    return start + sizeof(CONFIG_APPNAME) + 1;
 }
 
 /* Type 4 -- Processor Information */
@@ -198,7 +199,7 @@ smbios_init_type_4(void *start, unsigned int cpu_number)
     p->socket_designation_str = 1;
     p->processor_type = 0x03; /* CPU */
     p->processor_family = 0x01; /* other */
-    p->processor_manufacturer_str = 0;
+    p->processor_manufacturer_str = 2;
 
     u32 cpuid_signature, ebx, ecx, cpuid_features;
     cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
@@ -209,8 +210,8 @@ smbios_init_type_4(void *start, unsigned int cpu_number)
     p->voltage = 0;
     p->external_clock = 0;
 
-    p->max_speed = 0; /* unknown */
-    p->current_speed = 0; /* unknown */
+    p->max_speed = 2000;
+    p->current_speed = 2000;
 
     p->status = 0x41; /* socket populated, CPU enabled */
     p->processor_upgrade = 0x01; /* other */
@@ -221,10 +222,11 @@ smbios_init_type_4(void *start, unsigned int cpu_number)
 
     start += sizeof(struct smbios_type_4);
 
-    memcpy((char *)start, "CPU  " "\0" "" "\0" "", 7);
-	((char *)start)[4] = cpu_number + '0';
+    snprintf((char*)start, 6, "CPU%2x", cpu_number);
+    start += 6;
+    memcpy((char *)start, CONFIG_APPNAME"\0\0", sizeof(CONFIG_APPNAME) + 1);
 
-    return start+7;
+    return start + sizeof(CONFIG_APPNAME) + 1;
 }
 
 /* Type 16 -- Physical Memory Array */
@@ -239,7 +241,7 @@ smbios_init_type_16(void *start, u32 memory_size_mb, int nr_mem_devs)
 
     p->location = 0x01; /* other */
     p->use = 0x03; /* system memory */
-    p->error_correction = 0x01; /* other */
+    p->error_correction = 0x06; /* Multi-bit ECC to make Microsoft happy */
     p->maximum_capacity = memory_size_mb * 1024;
     p->memory_error_information_handle = 0xfffe; /* none provided */
     p->number_of_memory_devices = nr_mem_devs;
