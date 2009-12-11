@@ -101,6 +101,12 @@ static inline u32 __fls(u32 word)
     return word;
 }
 
+static inline u32 getesp() {
+    u32 esp;
+    asm("movl %%esp, %0" : "=rm"(esp));
+    return esp;
+}
+
 static inline void writel(void *addr, u32 val) {
     *(volatile u32 *)addr = val;
 }
@@ -145,29 +151,6 @@ static inline u8 readb(const void *addr) {
     } while (0)
 
 // util.c
-inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
-extern struct thread_info MainThread;
-void thread_setup();
-struct thread_info *getCurThread();
-void run_thread(void (*func)(void*), void *data);
-void wait_threads();
-u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
-u8 checksum(void *buf, u32 len);
-int memcmp(const void *s1, const void *s2, size_t n);
-size_t strlen(const char *s);
-int strcmp(const char *s1, const char *s2);
-inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
-inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
-void *memset(void *s, int c, size_t n);
-void *memcpy(void *d1, const void *s1, size_t len);
-#if MODE16 == 0
-#define memcpy __builtin_memcpy
-#endif
-inline void memcpy_far(u16 d_seg, void *d_far
-                       , u16 s_seg, const void *s_far, size_t len);
-void iomemcpy(void *d, const void *s, u32 len);
-void *memmove(void *d, const void *s, size_t len);
-char *strtcpy(char *dest, const char *src, size_t len);
 struct bregs;
 inline void call16(struct bregs *callregs);
 inline void call16big(struct bregs *callregs);
@@ -176,9 +159,35 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
-void yield();
+void check_irqs();
+u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
+u8 checksum(void *buf, u32 len);
+size_t strlen(const char *s);
+int memcmp(const void *s1, const void *s2, size_t n);
+int strcmp(const char *s1, const char *s2);
+inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
+inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
+void *memset(void *s, int c, size_t n);
+inline void memcpy_far(u16 d_seg, void *d_far
+                       , u16 s_seg, const void *s_far, size_t len);
+void *memcpy(void *d1, const void *s1, size_t len);
+#if MODE16 == 0
+#define memcpy __builtin_memcpy
+#endif
+void iomemcpy(void *d, const void *s, u32 len);
+void *memmove(void *d, const void *s, size_t len);
+char *strtcpy(char *dest, const char *src, size_t len);
 void biosusleep(u32 usec);
 int get_keystroke(int msec);
+
+// stacks.c
+inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
+extern struct thread_info MainThread;
+void thread_setup();
+struct thread_info *getCurThread();
+void yield();
+void run_thread(void (*func)(void*), void *data);
+void wait_threads();
 
 // output.c
 void debug_serial_setup();
