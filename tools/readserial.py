@@ -24,6 +24,9 @@ BITSPERBYTE = 10
 
 def readserial(infile, logfile, baudrate):
     lasttime = 0
+    byteadjust = 0.0
+    if ADJUSTBAUD:
+        byteadjust = float(BITSPERBYTE) / baudrate
     while 1:
         # Read data
         try:
@@ -37,31 +40,32 @@ def readserial(infile, logfile, baudrate):
             lasttime = 0
             if len(res[0]) == 1:
                 continue
-        curtime = time.time()
         d = infile.read(4096)
+        datatime = time.time()
+
+        datatime -= len(d) * byteadjust
 
         # Reset start time if no data for some time
-        if curtime - lasttime > RESTARTINTERVAL:
-            starttime = curtime
+        if datatime - lasttime > RESTARTINTERVAL:
+            starttime = datatime
             charcount = 0
             isnewline = 1
             msg = "\n\n======= %s (adjust=%d)\n" % (
-                time.asctime(time.localtime(curtime)), ADJUSTBAUD)
+                time.asctime(time.localtime(datatime)), ADJUSTBAUD)
             sys.stdout.write(msg)
             logfile.write(msg)
-        lasttime = curtime
+        lasttime = datatime
 
         # Translate unprintable chars; add timestamps
         out = ""
         for c in d:
             if isnewline:
-                delta = curtime - starttime
-                if ADJUSTBAUD:
-                    delta -= float(charcount * BITSPERBYTE) / baudrate
+                delta = datatime - starttime - (charcount * byteadjust)
                 out += "%06.3f: " % delta
                 isnewline = 0
             oc = ord(c)
             charcount += 1
+            datatime += byteadjust
             if oc == 0x0d:
                 continue
             if oc == 0x00:
