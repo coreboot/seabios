@@ -208,11 +208,16 @@ post()
     ramdisk_setup();
 
     // Run option roms
-    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
-        // Run vga option rom (if running asynchronously)
+    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS) {
+        // Run option roms while hw init still in progress.
         vga_setup();
-    wait_threads();
-    optionrom_setup();
+        optionrom_setup();
+        wait_threads();
+    } else {
+        // Wait for hw init to finish and run non-vga option roms.
+        wait_threads();
+        optionrom_setup();
+    }
 
     // Run BCVs and show optional boot menu
     boot_prep();

@@ -26,10 +26,10 @@
  ****************************************************************/
 
 // Place CPU into 32bit mode from 16bit mode.
-// Clobbers: flags, segment registers, cr0, idt/gdt
+// Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
 transition32:
-        pushl %eax
+        movl %eax, %ecx
 
         // Disable irqs (and clear direction flag)
         cli
@@ -67,15 +67,15 @@ transition32:
         movw %ax, %fs
         movw %ax, %gs
 
-        popl %eax
+        movl %ecx, %eax
         retl
 
 // Place CPU into 16bit mode from 32bit mode.
-// Clobbers: flags, segment registers, cr0, idt/gdt
+// Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition16
         .global transition16big
 transition16:
-        pushl %eax
+        movl %eax, %ecx
 
         // restore data segment limits to 0xffff
         movl $SEG32_MODE16_DS, %eax
@@ -96,7 +96,7 @@ transition16:
         ljmpw $SEG32_MODE16_CS, $1f
 
 transition16big:
-        pushl %eax
+        movl %eax, %ecx
 
         movl $SEG32_MODE16BIG_DS, %eax
         movw %ax, %ds
@@ -129,7 +129,7 @@ transition16big:
         movw %ax, %ds
         movw %ax, %ss  // Assume stack is in segment 0
 
-        popl %eax
+        movl %ecx, %eax
         retl
 
 // Call a 16bit function from 16bit mode with a specified cpu register state

@@ -228,8 +228,8 @@ iomemcpy(void *d, const void *s, u32 len)
     yield();
     while (len) {
         u32 copylen = len;
-        if (copylen > 1024)
-            copylen = 1024;
+        if (copylen > 2048)
+            copylen = 2048;
         len -= copylen;
         copylen /= 4;
         asm volatile(

@@ -206,6 +206,7 @@ struct extended_bios_data_area_s {
 
     // 0x121 - Begin custom storage.
     u8 ps2ctr;
+    int RTCusers;
 
     // El Torito Emulation data
     struct cdemu_s cdemu;

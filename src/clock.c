@@ -466,6 +466,32 @@ handle_08()
  * Periodic timer
  ****************************************************************/
 
+void
+useRTC()
+{
+    u16 ebda_seg = get_ebda_seg();
+    int count = GET_EBDA2(ebda_seg, RTCusers);
+    SET_EBDA2(ebda_seg, RTCusers, count+1);
+    if (count)
+        return;
+    // Turn on the Periodic Interrupt timer
+    u8 bRegister = inb_cmos(CMOS_STATUS_B);
+    outb_cmos(bRegister | RTC_B_PIE, CMOS_STATUS_B);
+}
+
+void
+releaseRTC()
+{
+    u16 ebda_seg = get_ebda_seg();
+    int count = GET_EBDA2(ebda_seg, RTCusers);
+    SET_EBDA2(ebda_seg, RTCusers, count-1);
+    if (count != 1)
+        return;
+    // Clear the Periodic Interrupt.
+    u8 bRegister = inb_cmos(CMOS_STATUS_B);
+    outb_cmos(bRegister & ~RTC_B_PIE, CMOS_STATUS_B);
+}
+
 static int
 set_usertimer(u32 usecs, u16 seg, u16 offset)
 {
@@ -476,22 +502,18 @@ set_usertimer(u32 usecs, u16 seg, u16 offset)
     SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
     SET_BDA(user_wait_complete_flag, SEGOFF(seg, offset));
     SET_BDA(user_wait_timeout, usecs);
-
-    // Turn on the Periodic Interrupt timer
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(bRegister | RTC_B_PIE, CMOS_STATUS_B);
-
+    useRTC();
     return 0;
 }
 
 static void
 clear_usertimer()
 {
+    if (!(GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING))
+        return;
     // Turn off status byte.
     SET_BDA(rtc_wait_flag, 0);
-    // Clear the Periodic Interrupt.
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(bRegister & ~RTC_B_PIE, CMOS_STATUS_B);
+    releaseRTC();
 }
 
 #define RET_ECLOCKINUSE  0x83
@@ -573,6 +595,8 @@ handle_70()
         goto done;
 
     // Handle Periodic Interrupt.
+
+    check_preempt();
 
     if (!GET_BDA(rtc_wait_flag))
         goto done;

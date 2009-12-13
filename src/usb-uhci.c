@@ -130,6 +130,7 @@ uhci_init(void *data)
         return;
     struct usb_s *cntl = data;
 
+    // XXX - don't call pci_config_XXX from a thread
     cntl->type = USB_TYPE_UHCI;
     cntl->uhci.iobase = (pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_4)
                          & PCI_BASE_ADDRESS_IO_MASK);
@@ -218,10 +219,12 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
     struct uhci_qh *data_qh = cntl->uhci.qh;
     data_qh->element = (u32)&tds[0];
     int ret = wait_qh(cntl, data_qh);
-    if (ret)
+    if (ret) {
+        data_qh->element = UHCI_PTR_TERM;
         // XXX - leak tds
         return ret;
-    // XXX - free(tds);
+    }
+    free(tds);
     return 0;
 }
 

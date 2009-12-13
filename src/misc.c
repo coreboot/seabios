@@ -128,11 +128,6 @@ struct bios_config_table_s BIOS_CONFIG_TABLE VAR16FIXED(0xe6f5) = {
  * GDT and IDT tables
  ****************************************************************/
 
-struct descloc_s {
-    u16 length;
-    u32 addr;
-} PACKED;
-
 // Real mode IDT descriptor
 struct descloc_s rmode_IDT_info VAR16VISIBLE = {
     .length = sizeof(struct rmode_IVT) - 1,

@@ -128,6 +128,7 @@ ohci_init(void *data)
         return;
     struct usb_s *cntl = data;
 
+    // XXX - don't call pci_config_XXX from a thread
     cntl->type = USB_TYPE_OHCI;
     u32 baseaddr = pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_0);
     cntl->ohci.regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
@@ -229,7 +230,8 @@ ohci_control(u32 endp, int dir, const void *cmd, int cmdsize
 
     int ret = wait_ed(ed);
     ed->hwINFO = ED_SKIP;
-    usleep(1); // XXX - in case controller still accessing tds
+    if (ret)
+        usleep(1); // XXX - in case controller still accessing tds
     free(tds);
     return ret;
 }

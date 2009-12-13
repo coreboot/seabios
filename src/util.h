@@ -126,16 +126,6 @@ static inline u8 readb(const void *addr) {
     return *(volatile const u8 *)addr;
 }
 
-// GDT bit manipulation
-#define GDT_BASE(v)  ((((u64)(v) & 0xff000000) << 32)           \
-                      | (((u64)(v) & 0x00ffffff) << 16))
-#define GDT_LIMIT(v) ((((u64)(v) & 0x000f0000) << 32)   \
-                      | (((u64)(v) & 0x0000ffff) << 0))
-#define GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
-#define GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
-#define GDT_B        (0x1ULL << 54)  // Big flag
-#define GDT_G        (0x1ULL << 55)  // Granularity flag
-
 #define call16_simpint(nr, peax, pflags) do {                           \
         ASSERT16();                                                     \
         asm volatile(                                                   \
@@ -149,6 +139,21 @@ static inline u8 readb(const void *addr) {
             : "i"(nr)                                                   \
             : "cc", "memory");                                          \
     } while (0)
+
+// GDT bit manipulation
+#define GDT_BASE(v)  ((((u64)(v) & 0xff000000) << 32)           \
+                      | (((u64)(v) & 0x00ffffff) << 16))
+#define GDT_LIMIT(v) ((((u64)(v) & 0x000f0000) << 32)   \
+                      | (((u64)(v) & 0x0000ffff) << 0))
+#define GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
+#define GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
+#define GDT_B        (0x1ULL << 54)  // Big flag
+#define GDT_G        (0x1ULL << 55)  // Granularity flag
+
+struct descloc_s {
+    u16 length;
+    u32 addr;
+} PACKED;
 
 // util.c
 struct bregs;
@@ -188,6 +193,9 @@ struct thread_info *getCurThread();
 void yield();
 void run_thread(void (*func)(void*), void *data);
 void wait_threads();
+void start_preempt();
+void finish_preempt();
+void check_preempt();
 
 // output.c
 void debug_serial_setup();
@@ -252,6 +260,8 @@ u64 calc_future_tsc(u32 msecs);
 u64 calc_future_tsc_usec(u32 usecs);
 void handle_1583(struct bregs *regs);
 void handle_1586(struct bregs *regs);
+void useRTC();
+void releaseRTC();
 
 // apm.c
 void VISIBLE16 handle_1553(struct bregs *regs);
