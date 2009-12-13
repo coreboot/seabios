@@ -209,7 +209,8 @@ send_cmd(struct drive_s *drive_g, struct ata_pio_command *cmd)
             return status;
     }
 
-    if (cmd->command & 0x04) {
+    if (cmd->command == ATA_CMD_READ_SECTORS_EXT
+        || cmd->command == ATA_CMD_WRITE_SECTORS_EXT) {
         outb(0x00, iobase1 + ATA_CB_FR);
         outb(cmd->sector_count2, iobase1 + ATA_CB_SC);
         outb(cmd->lba_low2, iobase1 + ATA_CB_SN);

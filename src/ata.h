@@ -112,6 +112,7 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CMD_READ_DMA_QUEUED              0xC7
 #define ATA_CMD_READ_MULTIPLE                0xC4
 #define ATA_CMD_READ_SECTORS                 0x20
+#define ATA_CMD_READ_SECTORS_EXT             0x24
 #define ATA_CMD_READ_VERIFY_SECTORS          0x40
 #define ATA_CMD_RECALIBRATE                  0x10
 #define ATA_CMD_REQUEST_SENSE                0x03
@@ -129,6 +130,7 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CMD_WRITE_DMA_QUEUED             0xCC
 #define ATA_CMD_WRITE_MULTIPLE               0xC5
 #define ATA_CMD_WRITE_SECTORS                0x30
+#define ATA_CMD_WRITE_SECTORS_EXT            0x34
 #define ATA_CMD_WRITE_VERIFY                 0x3C
 
 #endif // ata.h
