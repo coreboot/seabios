@@ -46,7 +46,7 @@ mouse_15c20000(struct bregs *regs)
     u16 ebda_seg = get_ebda_seg();
     int ret = disable_mouse(ebda_seg);
     if (ret)
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
     else
         set_code_success(regs);
 }
@@ -58,7 +58,7 @@ mouse_15c20001(struct bregs *regs)
     u16 ebda_seg = get_ebda_seg();
     u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
     if ((mouse_flags_2 & 0x80) == 0) {
-        set_code_fail(regs, RET_ENOHANDLER);
+        set_code_invalid(regs, RET_ENOHANDLER);
         return;
     }
 
@@ -69,7 +69,7 @@ mouse_15c20001(struct bregs *regs)
 
     int ret = aux_command(PSMOUSE_CMD_ENABLE, NULL);
     if (ret)
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
     else
         set_code_success(regs);
 }
@@ -77,7 +77,7 @@ mouse_15c20001(struct bregs *regs)
 static void
 mouse_15c200XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EINVFUNCTION);
+    set_code_unimplemented(regs, RET_EINVFUNCTION);
 }
 
 // Disable/Enable Mouse
@@ -98,7 +98,7 @@ mouse_15c201(struct bregs *regs)
     u8 param[2];
     int ret = aux_command(PSMOUSE_CMD_RESET_BAT, param);
     if (ret) {
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
         return;
     }
     regs->bl = param[0];
@@ -112,13 +112,13 @@ mouse_15c202(struct bregs *regs)
 {
     static u8 VAR16 sample_rates[7] = {10, 20, 40, 60, 80, 100, 200};
     if (regs->bh >= ARRAY_SIZE(sample_rates)) {
-        set_code_fail(regs, RET_EINVINPUT);
+        set_code_invalid(regs, RET_EINVINPUT);
         return;
     }
     u8 mouse_data1 = GET_GLOBAL(sample_rates[regs->bh]);
     int ret = aux_command(PSMOUSE_CMD_SETRATE, &mouse_data1);
     if (ret)
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
     else
         set_code_success(regs);
 }
@@ -133,13 +133,13 @@ mouse_15c203(struct bregs *regs)
     //      2 = 100 dpi, 4 counts per millimeter
     //      3 = 200 dpi, 8 counts per millimeter
     if (regs->bh >= 4) {
-        set_code_fail(regs, RET_EINVINPUT);
+        set_code_invalid(regs, RET_EINVINPUT);
         return;
     }
     u8 param = regs->bh;
     int ret = aux_command(PSMOUSE_CMD_SETRES, &param);
     if (ret)
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
     else
         set_code_success(regs);
 }
@@ -151,7 +151,7 @@ mouse_15c204(struct bregs *regs)
     u8 param[2];
     int ret = aux_command(PSMOUSE_CMD_GETID, param);
     if (ret) {
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
         return;
     }
     regs->bh = param[0];
@@ -163,7 +163,7 @@ static void
 mouse_15c205(struct bregs *regs)
 {
     if (regs->bh != 3) {
-        set_code_fail(regs, RET_EINTERFACE);
+        set_code_invalid(regs, RET_EINTERFACE);
         return;
     }
     u16 ebda_seg = get_ebda_seg();
@@ -181,7 +181,7 @@ mouse_15c20600(struct bregs *regs)
     u8 param[3];
     int ret = aux_command(PSMOUSE_CMD_GETINFO, param);
     if (ret) {
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
         return;
     }
     regs->bl = param[0];
@@ -196,7 +196,7 @@ mouse_15c20601(struct bregs *regs)
 {
     int ret = aux_command(PSMOUSE_CMD_SETSCALE11, NULL);
     if (ret)
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
     else
         set_code_success(regs);
 }
@@ -207,7 +207,7 @@ mouse_15c20602(struct bregs *regs)
 {
     int ret = aux_command(PSMOUSE_CMD_SETSCALE21, NULL);
     if (ret)
-        set_code_fail(regs, RET_ENEEDRESEND);
+        set_code_invalid(regs, RET_ENEEDRESEND);
     else
         set_code_success(regs);
 }
@@ -215,7 +215,7 @@ mouse_15c20602(struct bregs *regs)
 static void
 mouse_15c206XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EINVFUNCTION);
+    set_code_unimplemented(regs, RET_EINVFUNCTION);
 }
 
 // Return Status & Set Scaling Factor...
@@ -255,7 +255,7 @@ mouse_15c207(struct bregs *regs)
 static void
 mouse_15c2XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EINVFUNCTION);
+    set_code_unimplemented(regs, RET_EINVFUNCTION);
 }
 
 void
@@ -264,7 +264,7 @@ handle_15c2(struct bregs *regs)
     //debug_stub(regs);
 
     if (! CONFIG_MOUSE) {
-        set_code_fail(regs, RET_EUNSUPPORTED);
+        set_code_invalid(regs, RET_EUNSUPPORTED);
         return;
     }
 

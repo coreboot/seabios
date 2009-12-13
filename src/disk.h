@@ -101,6 +101,10 @@ struct bregs;
 void __disk_ret(struct bregs *regs, u32 linecode, const char *fname);
 #define disk_ret(regs, code) \
     __disk_ret((regs), (code) | (__LINE__ << 8), __func__)
+void __disk_ret_unimplemented(struct bregs *regs, u32 linecode
+                              , const char *fname);
+#define disk_ret_unimplemented(regs, code) \
+    __disk_ret_unimplemented((regs), (code) | (__LINE__ << 8), __func__)
 
 
 /****************************************************************

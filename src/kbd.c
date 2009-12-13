@@ -216,7 +216,7 @@ handle_16a2(struct bregs *regs)
 static void
 handle_16XX(struct bregs *regs)
 {
-    debug_stub(regs);
+    warn_unimplemented(regs);
 }
 
 static void

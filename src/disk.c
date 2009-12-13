@@ -28,15 +28,26 @@ __disk_ret(struct bregs *regs, u32 linecode, const char *fname)
     else
         SET_BDA(disk_last_status, code);
     if (code)
-        __set_code_fail(regs, linecode, fname);
+        __set_code_invalid(regs, linecode, fname);
     else
         set_code_success(regs);
+}
+
+void
+__disk_ret_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
+{
+    u8 code = linecode;
+    if (regs->dl < EXTSTART_HD)
+        SET_BDA(floppy_last_status, code);
+    else
+        SET_BDA(disk_last_status, code);
+    __set_code_unimplemented(regs, linecode, fname);
 }
 
 static void
 __disk_stub(struct bregs *regs, int lineno, const char *fname)
 {
-    __debug_stub(regs, lineno, fname);
+    __warn_unimplemented(regs, lineno, fname);
     __disk_ret(regs, DISK_RET_SUCCESS | (lineno << 8), fname);
 }
 
@@ -426,7 +437,7 @@ disk_134502(struct bregs *regs, struct drive_s *drive_g)
 static void
 disk_1345XX(struct bregs *regs, struct drive_s *drive_g)
 {
-    disk_ret(regs, DISK_RET_EPARAM);
+    disk_ret_unimplemented(regs, DISK_RET_EPARAM);
 }
 
 // IBM/MS lock/unlock drive
@@ -648,7 +659,7 @@ disk_1349(struct bregs *regs, struct drive_s *drive_g)
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
-    set_fail(regs);
+    set_invalid(regs);
     // always send changed ??
     regs->ah = DISK_RET_ECHANGED;
 }
@@ -699,7 +710,7 @@ disk_134e(struct bregs *regs, struct drive_s *drive_g)
 static void
 disk_13XX(struct bregs *regs, struct drive_s *drive_g)
 {
-    disk_ret(regs, DISK_RET_EPARAM);
+    disk_ret_unimplemented(regs, DISK_RET_EPARAM);
 }
 
 static void

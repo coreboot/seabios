@@ -79,12 +79,12 @@ static u16
 getComAddr(struct bregs *regs)
 {
     if (regs->dx >= 4) {
-        set_fail(regs);
+        set_invalid(regs);
         return 0;
     }
     u16 addr = GET_BDA(port_com[regs->dx]);
     if (! addr)
-        set_fail(regs);
+        set_invalid(regs);
     return addr;
 }
 
@@ -178,8 +178,7 @@ handle_1403(struct bregs *regs)
 static void
 handle_14XX(struct bregs *regs)
 {
-    // Unsupported
-    set_fail(regs);
+    set_unimplemented(regs);
 }
 
 // INT 14h Serial Communications Service Entry Point
@@ -245,12 +244,12 @@ static u16
 getLptAddr(struct bregs *regs)
 {
     if (regs->dx >= 3) {
-        set_fail(regs);
+        set_invalid(regs);
         return 0;
     }
     u16 addr = GET_BDA(port_lpt[regs->dx]);
     if (! addr)
-        set_fail(regs);
+        set_invalid(regs);
     return addr;
 }
 
@@ -319,8 +318,7 @@ handle_1702(struct bregs *regs)
 static void
 handle_17XX(struct bregs *regs)
 {
-    // Unsupported
-    set_fail(regs);
+    set_unimplemented(regs);
 }
 
 // INT17h : Printer Service Entry Point

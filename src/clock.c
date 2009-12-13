@@ -253,7 +253,7 @@ static void
 handle_1a02(struct bregs *regs)
 {
     if (rtc_updating()) {
-        set_fail(regs);
+        set_invalid(regs);
         return;
     }
 
@@ -302,7 +302,7 @@ handle_1a04(struct bregs *regs)
 {
     regs->ah = 0;
     if (rtc_updating()) {
-        set_fail(regs);
+        set_invalid(regs);
         return;
     }
     regs->cl = inb_cmos(CMOS_RTC_YEAR);
@@ -336,7 +336,7 @@ handle_1a05(struct bregs *regs)
     // My assumption: RegB = (RegB & 01111111b)
     if (rtc_updating()) {
         init_rtc();
-        set_fail(regs);
+        set_invalid(regs);
         return;
     }
     outb_cmos(regs->cl, CMOS_RTC_YEAR);
@@ -370,7 +370,7 @@ handle_1a06(struct bregs *regs)
     regs->ax = 0;
     if (val8 & RTC_B_AIE) {
         // Alarm interrupt enabled already
-        set_fail(regs);
+        set_invalid(regs);
         return;
     }
     if (rtc_updating()) {
@@ -411,7 +411,7 @@ handle_1a07(struct bregs *regs)
 static void
 handle_1aXX(struct bregs *regs)
 {
-    set_fail(regs);
+    set_unimplemented(regs);
 }
 
 // INT 1Ah Time-of-day Service Entry Point
@@ -527,7 +527,7 @@ handle_1586(struct bregs *regs)
     u32 count = (regs->cx << 16) | regs->dx;
     int ret = set_usertimer(count, GET_SEG(SS), (u32)&statusflag);
     if (ret) {
-        set_code_fail(regs, RET_ECLOCKINUSE);
+        set_code_invalid(regs, RET_ECLOCKINUSE);
         return;
     }
     while (!statusflag)
@@ -542,7 +542,7 @@ handle_158300(struct bregs *regs)
     int ret = set_usertimer((regs->cx << 16) | regs->dx, regs->es, regs->bx);
     if (ret)
         // Interval already set.
-        set_code_fail(regs, RET_EUNSUPPORTED);
+        set_code_invalid(regs, RET_EUNSUPPORTED);
     else
         set_success(regs);
 }
@@ -558,7 +558,7 @@ handle_158301(struct bregs *regs)
 static void
 handle_1583XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EUNSUPPORTED);
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
     regs->al--;
 }
 

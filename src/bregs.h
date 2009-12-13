@@ -79,26 +79,40 @@ set_code_success(struct bregs *regs)
 }
 
 static inline void
-set_fail_silent(struct bregs *regs)
+set_invalid_silent(struct bregs *regs)
 {
     set_cf(regs, 1);
 }
 
 static inline void
-set_code_fail_silent(struct bregs *regs, u8 code)
+set_code_invalid_silent(struct bregs *regs, u8 code)
 {
     regs->ah = code;
     set_cf(regs, 1);
 }
 
-#define set_fail(regs)                          \
-    __set_fail((regs), __LINE__, __func__)
-#define set_code_fail(regs, code)                               \
-    __set_code_fail((regs), (code) | (__LINE__ << 8), __func__)
+#define warn_invalid(regs)                      \
+    __warn_invalid((regs), __LINE__, __func__)
+#define set_invalid(regs)                       \
+    __set_invalid((regs), __LINE__, __func__)
+#define set_code_invalid(regs, code)                                    \
+    __set_code_invalid((regs), (code) | (__LINE__ << 8), __func__)
+
+#define warn_unimplemented(regs)                        \
+    __warn_unimplemented((regs), __LINE__, __func__)
+#define set_unimplemented(regs)                         \
+    __set_unimplemented((regs), __LINE__, __func__)
+#define set_code_unimplemented(regs, code)                              \
+    __set_code_unimplemented((regs), (code) | (__LINE__ << 8), __func__)
 
 // output.c
-void __set_fail(struct bregs *regs, int lineno, const char *fname);
-void __set_code_fail(struct bregs *regs, u32 linecode, const char *fname);
+void __warn_invalid(struct bregs *regs, int lineno, const char *fname);
+void __warn_unimplemented(struct bregs *regs, int lineno, const char *fname);
+void __set_invalid(struct bregs *regs, int lineno, const char *fname);
+void __set_unimplemented(struct bregs *regs, int lineno, const char *fname);
+void __set_code_invalid(struct bregs *regs, u32 linecode, const char *fname);
+void __set_code_unimplemented(struct bregs *regs, u32 linecode
+                              , const char *fname);
 
 #endif // !__ASSEMBLY__
 

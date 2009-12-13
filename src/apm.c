@@ -155,7 +155,7 @@ handle_15530a(struct bregs *regs)
 static void
 handle_15530b(struct bregs *regs)
 {
-    set_code_fail_silent(regs, RET_ENOEVENT);
+    set_code_invalid_silent(regs, RET_ENOEVENT);
 }
 
 // APM Driver Version
@@ -186,14 +186,14 @@ handle_155310(struct bregs *regs)
 static void
 handle_1553XX(struct bregs *regs)
 {
-    set_fail(regs);
+    set_unimplemented(regs);
 }
 
 void VISIBLE16
 handle_1553(struct bregs *regs)
 {
     if (! CONFIG_APMBIOS) {
-        set_code_fail(regs, RET_EUNSUPPORTED);
+        set_code_invalid(regs, RET_EUNSUPPORTED);
         return;
     }
 

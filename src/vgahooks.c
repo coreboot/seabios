@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // set_code_fail
+#include "bregs.h" // set_code_invalid
 #include "biosvar.h" // GET_GLOBAL
 #include "pci.h" // pci_find_device
 #include "pci_regs.h" // PCI_VENDOR_ID
@@ -20,7 +20,7 @@ int CBmainboard VAR16VISIBLE;
 static void
 handle_155fXX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EUNSUPPORTED);
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
 }
 
 
@@ -127,7 +127,7 @@ via_155f18(struct bregs *regs)
 
 done:
     if (fbsize < 0 || ramspeed < 0) {
-        set_code_fail(regs, RET_EUNSUPPORTED);
+        set_code_invalid(regs, RET_EUNSUPPORTED);
         return;
     }
     regs->eax = 0x5f;
@@ -139,7 +139,7 @@ done:
 static void
 via_155f19(struct bregs *regs)
 {
-    set_fail_silent(regs);
+    set_invalid_silent(regs);
 }
 
 static void

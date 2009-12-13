@@ -463,25 +463,61 @@ __debug_stub(struct bregs *regs, int lineno, const char *fname)
     dump_regs(regs);
 }
 
-// Report on a handler returning a failure notification to the caller.
+// Report on an invalid parameter.
 void
-__set_fail(struct bregs *regs, int lineno, const char *fname)
+__warn_invalid(struct bregs *regs, int lineno, const char *fname)
 {
-    dprintf(1, "fail %s:%d:\n", fname, lineno);
-    dump_regs(regs);
-    set_fail_silent(regs);
+    if (CONFIG_DEBUG_LEVEL >= DEBUG_invalid) {
+        dprintf(1, "invalid %s:%d:\n", fname, lineno);
+        dump_regs(regs);
+    }
 }
 
-// Report on a handler returning a failure code to the caller.  Note,
-// the lineno and return code are encoded in the same parameter as gcc
-// does a better job of scheduling function calls when there are 3 or
-// less parameters.
+// Report on an unimplemented feature.
 void
-__set_code_fail(struct bregs *regs, u32 linecode, const char *fname)
+__warn_unimplemented(struct bregs *regs, int lineno, const char *fname)
+{
+    if (CONFIG_DEBUG_LEVEL >= DEBUG_unimplemented) {
+        dprintf(1, "unimplemented %s:%d:\n", fname, lineno);
+        dump_regs(regs);
+    }
+}
+
+// Report a handler reporting an invalid parameter to the caller.
+void
+__set_invalid(struct bregs *regs, int lineno, const char *fname)
+{
+    __warn_invalid(regs, lineno, fname);
+    set_invalid_silent(regs);
+}
+
+// Report a call of an unimplemented function.
+void
+__set_unimplemented(struct bregs *regs, int lineno, const char *fname)
+{
+    __warn_unimplemented(regs, lineno, fname);
+    set_invalid_silent(regs);
+}
+
+// Report a handler reporting an invalid parameter code to the
+// caller.  Note, the lineno and return code are encoded in the same
+// parameter as gcc does a better job of scheduling function calls
+// when there are 3 or less parameters.
+void
+__set_code_invalid(struct bregs *regs, u32 linecode, const char *fname)
 {
     u8 code = linecode;
     u32 lineno = linecode >> 8;
-    dprintf(1, "fail %s:%d(%x):\n", fname, lineno, code);
-    dump_regs(regs);
-    set_code_fail_silent(regs, code);
+    __warn_invalid(regs, lineno, fname);
+    set_code_invalid_silent(regs, code);
+}
+
+// Report a call of an unimplemented function.
+void
+__set_code_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
+{
+    u8 code = linecode;
+    u32 lineno = linecode >> 8;
+    __warn_unimplemented(regs, lineno, fname);
+    set_code_invalid_silent(regs, code);
 }

@@ -52,7 +52,7 @@ handle_1ab102(struct bregs *regs)
         set_code_success(regs);
         return;
     }
-    set_code_fail(regs, RET_DEVICE_NOT_FOUND);
+    set_code_invalid(regs, RET_DEVICE_NOT_FOUND);
 }
 
 // find class code
@@ -72,7 +72,7 @@ handle_1ab103(struct bregs *regs)
         set_code_success(regs);
         return;
     }
-    set_code_fail(regs, RET_DEVICE_NOT_FOUND);
+    set_code_invalid(regs, RET_DEVICE_NOT_FOUND);
 }
 
 // read configuration byte
@@ -129,7 +129,7 @@ handle_1ab10e(struct bregs *regs)
 {
     struct pir_header *pirtable_g = (void*)(GET_GLOBAL(PirOffset) + 0);
     if (! pirtable_g) {
-        set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
+        set_code_invalid(regs, RET_FUNC_NOT_SUPPORTED);
         return;
     }
 
@@ -144,7 +144,7 @@ handle_1ab10e(struct bregs *regs)
     u16 pirsize = GET_GLOBAL(pirtable_g->size) - sizeof(struct pir_header);
     SET_FARVAR(regs->es, param_far->size, pirsize);
     if (bufsize < pirsize) {
-        set_code_fail(regs, RET_BUFFER_TOO_SMALL);
+        set_code_invalid(regs, RET_BUFFER_TOO_SMALL);
         return;
     }
 
@@ -165,7 +165,7 @@ handle_1ab10e(struct bregs *regs)
 static void
 handle_1ab1XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_FUNC_NOT_SUPPORTED);
+    set_code_unimplemented(regs, RET_FUNC_NOT_SUPPORTED);
 }
 
 void
@@ -174,7 +174,7 @@ handle_1ab1(struct bregs *regs)
     //debug_stub(regs);
 
     if (! CONFIG_PCIBIOS) {
-        set_fail(regs);
+        set_invalid(regs);
         return;
     }
 

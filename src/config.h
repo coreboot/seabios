@@ -172,13 +172,13 @@
 #define DEBUG_ISR_09 9
 #define DEBUG_ISR_0e 9
 #define DEBUG_HDL_10 20
-#define DEBUG_HDL_11 1
-#define DEBUG_HDL_12 1
+#define DEBUG_HDL_11 2
+#define DEBUG_HDL_12 2
 #define DEBUG_HDL_13 10
-#define DEBUG_HDL_14 1
+#define DEBUG_HDL_14 2
 #define DEBUG_HDL_15 9
 #define DEBUG_HDL_16 9
-#define DEBUG_HDL_17 1
+#define DEBUG_HDL_17 2
 #define DEBUG_HDL_18 1
 #define DEBUG_HDL_19 1
 #define DEBUG_HDL_1a 9
@@ -191,6 +191,9 @@
 #define DEBUG_ISR_hwpic2 5
 #define DEBUG_HDL_pnp 1
 #define DEBUG_HDL_pmm 1
+
+#define DEBUG_unimplemented 2
+#define DEBUG_invalid 3
 #define DEBUG_thread 2
 
 #endif // config.h

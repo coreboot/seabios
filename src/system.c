@@ -58,7 +58,7 @@ handle_152403(struct bregs *regs)
 static void
 handle_1524XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EUNSUPPORTED);
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
 }
 
 static void
@@ -198,7 +198,7 @@ handle_1591(struct bregs *regs)
 static void
 handle_154f(struct bregs *regs)
 {
-    set_fail_silent(regs);
+    set_invalid_silent(regs);
 }
 
 static void
@@ -256,7 +256,7 @@ handle_15e820(struct bregs *regs)
     int count = GET_GLOBAL(e820_count);
     if (regs->edx != 0x534D4150 || regs->bx >= count
         || regs->ecx < sizeof(e820_list[0])) {
-        set_code_fail(regs, RET_EUNSUPPORTED);
+        set_code_invalid(regs, RET_EUNSUPPORTED);
         return;
     }
 
@@ -275,7 +275,7 @@ handle_15e820(struct bregs *regs)
 static void
 handle_15e8XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EUNSUPPORTED);
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
 }
 
 static void
@@ -291,7 +291,7 @@ handle_15e8(struct bregs *regs)
 static void
 handle_15XX(struct bregs *regs)
 {
-    set_code_fail(regs, RET_EUNSUPPORTED);
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
 }
 
 // INT 15h System Services Entry Point
