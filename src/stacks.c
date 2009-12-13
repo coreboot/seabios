@@ -8,6 +8,76 @@
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 
+static inline u32 getcr0() {
+    u32 cr0;
+    asm("movl %%cr0, %0" : "=r"(cr0));
+    return cr0;
+}
+static inline void sgdt(struct descloc_s *desc) {
+    asm("sgdtl %0" : "=m"(*desc));
+}
+static inline void lgdt(struct descloc_s *desc) {
+    asm("lgdtl %0" : : "m"(*desc) : "memory");
+}
+
+// Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
+static inline int
+call32(void *func)
+{
+    ASSERT16();
+    u32 cr0 = getcr0();
+    if (cr0 & CR0_PE)
+        // Called in 16bit protected mode?!
+        return -1;
+
+    // Backup cmos index register and disable nmi
+    u8 cmosindex = inb(PORT_CMOS_INDEX);
+    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
+    inb(PORT_CMOS_DATA);
+
+    // Backup fs/gs and gdt
+    u16 fs = GET_SEG(FS), gs = GET_SEG(GS);
+    struct descloc_s gdt;
+    sgdt(&gdt);
+
+    func -= BUILD_BIOS_ADDR;
+    u32 bkup_ss, bkup_esp;
+    asm volatile(
+        // Backup ss/esp / set esp to flat stack location
+        "  movl %%ss, %0\n"
+        "  movl %%esp, %1\n"
+        "  shll $4, %0\n"
+        "  addl %0, %%esp\n"
+        "  movl %%ss, %0\n"
+
+        // Transition to 32bit mode, call yield_preempt, return to 16bit
+        "  pushl $(" __stringify(BUILD_BIOS_ADDR) " + 1f)\n"
+        "  jmp transition32\n"
+        "  .code32\n"
+        "1:calll %2\n"
+        "  pushl $2f\n"
+        "  jmp transition16big\n"
+
+        // Restore ds/ss/esp
+        "  .code16gcc\n"
+        "2:movl %0, %%ds\n"
+        "  movl %0, %%ss\n"
+        "  movl %1, %%esp\n"
+        : "=&r" (bkup_ss), "=&r" (bkup_esp)
+        : "m" (*(u8*)func)
+        : "eax", "ecx", "edx", "cc", "memory");
+
+    // Restore gdt and fs/gs
+    lgdt(&gdt);
+    SET_SEG(FS, fs);
+    SET_SEG(GS, gs);
+
+    // Restore cmos index register
+    outb(cmosindex, PORT_CMOS_INDEX);
+    inb(PORT_CMOS_DATA);
+    return 0;
+}
+
 
 /****************************************************************
  * Stack in EBDA
@@ -204,18 +274,7 @@ finish_preempt()
     dprintf(1, "Done preempt - %d checks\n", PreemptCount);
 }
 
-static inline u32 getcr0() {
-    u32 cr0;
-    asm("movl %%cr0, %0" : "=r"(cr0));
-    return cr0;
-}
-static inline void sgdt(struct descloc_s *desc) {
-    asm("sgdtl %0" : "=m"(*desc));
-}
-static inline void lgdt(struct descloc_s *desc) {
-    asm("lgdtl %0" : : "m"(*desc) : "memory");
-}
-
+extern void yield_preempt();
 #if !MODE16
 // Try to execute 32bit threads.
 void VISIBLE32
@@ -230,58 +289,10 @@ yield_preempt()
 void
 check_preempt()
 {
-    ASSERT16();
     if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS
         || !GET_GLOBAL(CanPreempt)
         || GET_GLOBAL(MainThread.next) == &MainThread)
         return;
-    u32 cr0 = getcr0();
-    if (cr0 & CR0_PE)
-        // Called in 16bit protected mode?!
-        return;
 
-    // Backup cmos index register and disable nmi
-    u8 cmosindex = inb(PORT_CMOS_INDEX);
-    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
-
-    // Backup fs/gs and gdt
-    u16 fs = GET_SEG(FS), gs = GET_SEG(GS);
-    struct descloc_s gdt;
-    sgdt(&gdt);
-
-    u32 bkup_ss, bkup_esp;
-    asm volatile(
-        // Backup ss/esp / set esp to flat stack location
-        "  movl %%ss, %0\n"
-        "  movl %%esp, %1\n"
-        "  shll $4, %0\n"
-        "  addl %0, %%esp\n"
-        "  movl %%ss, %0\n"
-
-        // Transition to 32bit mode, call yield_preempt, return to 16bit
-        "  pushl $(" __stringify(BUILD_BIOS_ADDR) " + 1f)\n"
-        "  jmp transition32\n"
-        "  .code32\n"
-        "1:calll (yield_preempt - " __stringify(BUILD_BIOS_ADDR) ")\n"
-        "  pushl $2f\n"
-        "  jmp transition16big\n"
-        "  .code16gcc\n"
-        "2:\n"
-
-        // Restore ds/ss/esp
-        "  movl %0, %%ds\n"
-        "  movl %0, %%ss\n"
-        "  movl %1, %%esp\n"
-        : "=&r" (bkup_ss), "=&r" (bkup_esp)
-        : : "eax", "ecx", "edx", "cc", "memory");
-
-    // Restore gdt and fs/gs
-    lgdt(&gdt);
-    SET_SEG(FS, fs);
-    SET_SEG(GS, gs);
-
-    // Restore cmos index register
-    outb(cmosindex, PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
+    call32(yield_preempt);
 }
