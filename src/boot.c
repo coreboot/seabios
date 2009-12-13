@@ -422,7 +422,7 @@ boot_cbfs(struct ipl_entry_s *ie)
     if (! CONFIG_COREBOOT_FLASH)
         return;
     int count = ie->subchoice;
-    struct cbfs_file *file;
+    struct cbfs_file *file = NULL;
     for (;;) {
         file = cbfs_findprefix("img/", file);
         if (!file)
