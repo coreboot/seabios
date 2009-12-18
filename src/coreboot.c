@@ -351,11 +351,6 @@ ulzma(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
  * Coreboot flash format
  ****************************************************************/
 
-// XXX - optimize
-#define ntohl(x) ((((x)&0xff)<<24) | (((x)&0xff00)<<8) | \
-                  (((x)&0xff0000) >> 8) | (((x)&0xff000000) >> 24))
-#define htonl(x) ntohl(x)
-
 #define CBFS_HEADER_MAGIC 0x4F524243
 #define CBFS_HEADPTR_ADDR 0xFFFFFFFc
 #define CBFS_VERSION1 0x31313131

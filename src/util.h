@@ -367,4 +367,11 @@ extern u8 BiosChecksum;
 // version (auto generated file out/version.c)
 extern const char VERSION[];
 
+// XXX - optimize
+#define ntohl(x) ((((x)&0xff)<<24) | (((x)&0xff00)<<8) | \
+                  (((x)&0xff0000) >> 8) | (((x)&0xff000000) >> 24))
+#define htonl(x) ntohl(x)
+#define ntohs(x) ((((x)&0xff)<<8) | (((x)&0xff00)>>8))
+#define htons(x) ntohs(x)
+
 #endif // util.h
