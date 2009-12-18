@@ -87,7 +87,7 @@
 // Support finding and running option roms during post.
 #define CONFIG_OPTIONROMS 1
 // Set if option roms are already copied to 0xc0000-0xf0000
-#define CONFIG_OPTIONROMS_DEPLOYED 1
+#define CONFIG_OPTIONROMS_DEPLOYED 0
 // When option roms are not pre-deployed, SeaBIOS can copy an optionrom
 // from flash for up to 2 devices.
 #define OPTIONROM_VENDEV_1 0x00000000
