@@ -8,6 +8,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_COREBOOT
+#include "util.h" // ntoh[ls]
 #include "ioport.h" // outw
 #include "paravirt.h" // qemu_cfg_port_probe
 #include "smbios.h" // struct smbios_structure_header
@@ -286,4 +287,40 @@ u16 qemu_cfg_get_max_cpus(void)
     qemu_cfg_read_entry(&cnt, QEMU_CFG_MAX_CPUS, sizeof(cnt));
 
     return cnt;
+}
+
+u16 qemu_cfg_first_file(QemuCfgFile *entry)
+{
+    memset(entry, 0, sizeof(*entry));
+    return qemu_cfg_next_file(entry);
+}
+
+u16 qemu_cfg_next_file(QemuCfgFile *entry)
+{
+    u16 last = ntohs(entry->select);
+    u32 e,count;
+
+    if (!qemu_cfg_present)
+        return 0;
+
+    qemu_cfg_read_entry(&count, QEMU_CFG_FILE_DIR, sizeof(count));
+    for (e = 0; e < ntohl(count); e++) {
+        qemu_cfg_read((void*)entry, sizeof(*entry));
+        if (ntohs(entry->select) > last) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+u32 qemu_cfg_read_file(QemuCfgFile *entry, void *dst, u32 maxlen)
+{
+    int len = ntohl(entry->size);
+
+    if (!qemu_cfg_present)
+        return 0;
+    if (len > maxlen)
+        return 0;
+    qemu_cfg_read_entry(dst, ntohs(entry->select), len);
+    return len;
 }

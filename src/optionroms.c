@@ -13,6 +13,7 @@
 #include "pci_regs.h" // PCI_ROM_ADDRESS
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
+#include "paravirt.h" // qemu_cfg_*
 
 
 /****************************************************************
@@ -247,6 +248,26 @@ run_cbfs_roms(const char *prefix, int isvga)
     }
 }
 
+static void
+run_qemu_roms(const char *prefix, int isvga)
+{
+    struct QemuCfgFile entry;
+    int plen = strlen(prefix);
+    int rc, dlen;
+
+    rc = qemu_cfg_first_file(&entry);
+    while (rc > 0) {
+        if (memcmp(prefix, entry.name, plen) == 0) {
+            dlen = qemu_cfg_read_file(&entry, (void*)RomEnd, max_rom() - RomEnd);
+            if (dlen > 0) {
+                dprintf(1, "init qemu rom: %s\n", entry.name);
+                init_optionrom((void*)RomEnd, 0, isvga);
+            }
+        }
+        rc = qemu_cfg_next_file(&entry);
+    }
+}
+
 
 /****************************************************************
  * PCI roms
@@ -375,6 +396,7 @@ optionrom_setup()
 
         // Find and deploy CBFS roms not associated with a device.
         run_cbfs_roms("genroms/", 0);
+        run_qemu_roms("genroms/", 0);
     }
 
     // All option roms found and deployed - now build BEV/BCV vectors.
@@ -434,6 +456,7 @@ vga_setup()
 
         // Find and deploy CBFS vga-style roms not associated with a device.
         run_cbfs_roms("vgaroms/", 1);
+        run_qemu_roms("vgaroms/", 1);
     }
 
     if (RomEnd == BUILD_ROM_START) {
