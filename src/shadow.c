@@ -29,18 +29,14 @@ __make_bios_writable(u16 bdf)
     int clear = 0;
     int i;
     for (i=0; i<6; i++) {
-        if (CONFIG_OPTIONROMS_DEPLOYED) {
-            int reg = pci_config_readb(bdf, 0x5a + i);
-            if ((reg & 0x11) != 0x11) {
-                // Need to copy optionroms to work around qemu implementation
-                void *mem = (void*)(BUILD_ROM_START + i * 32*1024);
-                memcpy((void*)BUILD_BIOS_TMP_ADDR, mem, 32*1024);
-                pci_config_writeb(bdf, 0x5a + i, 0x33);
-                memcpy(mem, (void*)BUILD_BIOS_TMP_ADDR, 32*1024);
-                clear = 1;
-            } else {
-                pci_config_writeb(bdf, 0x5a + i, 0x33);
-            }
+        int reg = pci_config_readb(bdf, 0x5a + i);
+        if ((reg & 0x11) != 0x11) {
+            // Need to copy optionroms to work around qemu implementation
+            void *mem = (void*)(BUILD_ROM_START + i * 32*1024);
+            memcpy((void*)BUILD_BIOS_TMP_ADDR, mem, 32*1024);
+            pci_config_writeb(bdf, 0x5a + i, 0x33);
+            memcpy(mem, (void*)BUILD_BIOS_TMP_ADDR, 32*1024);
+            clear = 1;
         } else {
             pci_config_writeb(bdf, 0x5a + i, 0x33);
         }
