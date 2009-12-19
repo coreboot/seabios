@@ -14,9 +14,11 @@ SECTIONS
         .text code32_start : {
                 *(.text32)
 
-                . = code16_start + BUILD_BIOS_ADDR - code32_start ;
+                . = data16_start + BUILD_BIOS_ADDR - code32_start ;
+                *(.data16)
+                . = text16_start + BUILD_BIOS_ADDR - code32_start ;
                 *(.text16)
-                final_code16_end = . ;
+                final_text16_end = . ;
                 }
         /DISCARD/ : {
                 *(.text*) *(.data*) *(.bss*) *(.rodata*)

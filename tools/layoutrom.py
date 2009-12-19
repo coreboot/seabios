@@ -142,35 +142,39 @@ def doLayout16(sections, outname):
             firstfixed, MAXPOS, total, slack,
             (float(slack) / total) * 100.0))
 
-    # Find overall start position
-    start16 = getSectionsStart(
-        textsections + rodatasections + datasections, firstfixed)
+    # Find start positions
+    text16_start = getSectionsStart(textsections, firstfixed)
+    data16_start = getSectionsStart(rodatasections + datasections, text16_start)
 
-    # Write header
+    # Write header and regular sections
     output = open(outname, 'wb')
     output.write(COMMONHEADER + """
-        .text16 0x%x : {
-                code16_start = ABSOLUTE(.) ;
+        data16_start = 0x%x ;
+        .data16 data16_start : {
                 freespace_end = . ;
-""" % start16)
-
-    # Write regular sections
-    outSections(output, textsections)
+""" % data16_start)
+    outSections(output, datasections)
     output.write("code16_rodata = . ;\n")
     outSections(output, rodatasections)
-    outSections(output, datasections)
+    output.write("""
+        }
+
+        text16_start = 0x%x ;
+        .text16 text16_start : {
+""" % text16_start)
+    outSections(output, textsections)
 
     # Write fixed sections
     for addr, section, extrasections in fixedsections:
         name = section[2]
-        output.write(". = ( 0x%x - code16_start ) ;\n" % (addr,))
+        output.write(". = ( 0x%x - text16_start ) ;\n" % (addr,))
         output.write("*(%s)\n" % (name,))
         for extrasection in extrasections:
             output.write("*(%s)\n" % (extrasection[2],))
 
     # Write trailer
     output.write("""
-                code16_end = ABSOLUTE(.) ;
+                text16_end = ABSOLUTE(.) ;
         }
 
         /* Discard regular data sections to force a link error if
@@ -179,7 +183,7 @@ def doLayout16(sections, outname):
         /DISCARD/ : { *(.text*) *(.rodata*) *(.data*) *(.bss*) *(COMMON) }
 """ + COMMONTRAILER)
 
-    return start16
+    return data16_start
 
 
 ######################################################################
