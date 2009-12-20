@@ -50,7 +50,7 @@ call32(void *func)
         "  addl %0, %%esp\n"
         "  movl %%ss, %0\n"
 
-        // Transition to 32bit mode, call yield_preempt, return to 16bit
+        // Transition to 32bit mode, call func, return to 16bit
         "  pushl $(" __stringify(BUILD_BIOS_ADDR) " + 1f)\n"
         "  jmp transition32\n"
         "  .code32\n"
@@ -148,6 +148,9 @@ static void
 switch_next(struct thread_info *cur)
 {
     struct thread_info *next = cur->next;
+    if (cur == next)
+        // Nothing to do.
+        return;
     asm volatile(
         "  pushl $1f\n"                 // store return pc
         "  pushl %%ebp\n"               // backup %ebp
