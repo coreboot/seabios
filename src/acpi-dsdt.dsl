@@ -58,7 +58,10 @@ DefinitionBlock (
 #define prt_slot2(nr) prt_slot(nr, LNKB, LNKC, LNKD, LNKA)
 #define prt_slot3(nr) prt_slot(nr, LNKC, LNKD, LNKA, LNKB)
                prt_slot0(0x0000),
-               prt_slot1(0x0001),
+               Package() { 0x0001ffff, 0, 0, 9 },
+               Package() { 0x0001ffff, 1, LNKB, 0 },
+               Package() { 0x0001ffff, 2, LNKC, 0 },
+               Package() { 0x0001ffff, 3, LNKD, 0 },
                prt_slot2(0x0002),
                prt_slot3(0x0003),
                prt_slot0(0x0004),
