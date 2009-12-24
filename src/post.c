@@ -136,7 +136,8 @@ ram_probe(void)
         // other page for EPT real mode pagetable
         add_e820(0xfffbc000, 4*4096, E820_RESERVED);
 
-    dprintf(1, "Ram Size=0x%08x\n", RamSize);
+    dprintf(1, "Ram Size=0x%08x (0x%08x%08x high)\n"
+            , RamSize, (u32)(RamSizeOver4G >> 32), (u32)RamSizeOver4G);
 }
 
 static void
