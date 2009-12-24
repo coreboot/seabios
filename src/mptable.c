@@ -9,6 +9,8 @@
 #include "config.h" // CONFIG_*
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "paravirt.h" // qemu_cfg_irq0_override
+#include "pci.h"
+#include "pci_regs.h"
 
 void
 mptable_init(void)
@@ -21,9 +23,9 @@ mptable_init(void)
     // Allocate memory
     int length = (sizeof(struct mptable_config_s)
                   + sizeof(struct mpt_cpu) * MaxCountCPUs
-                  + sizeof(struct mpt_bus)
+                  + sizeof(struct mpt_bus) * 2
                   + sizeof(struct mpt_ioapic)
-                  + sizeof(struct mpt_intsrc) * 18);
+                  + sizeof(struct mpt_intsrc) * 34);
     struct mptable_config_s *config = malloc_fseg(length);
     struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
     if (!config || !floating) {
@@ -85,7 +87,15 @@ mptable_init(void)
     struct mpt_bus *bus = (void*)cpu;
     memset(bus, 0, sizeof(*bus));
     bus->type = MPT_TYPE_BUS;
+    bus->busid = 1;
     memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
+    entrycount++;
+
+    bus++;
+    memset(bus, 0, sizeof(*bus));
+    bus->type = MPT_TYPE_BUS;
+    bus->busid = 0;
+    memcpy(bus->bustype, "PCI   ", sizeof(bus->bustype));
     entrycount++;
 
     /* ioapic */
@@ -101,9 +111,41 @@ mptable_init(void)
 
     /* irqs */
     struct mpt_intsrc *intsrcs = (void*)&ioapic[1], *intsrc = intsrcs;
-    for (i = 0; i < 16; i++) {
+    int bdf, max, dev = -1;
+    unsigned short mask = 0, pinmask;
+
+    foreachpci(bdf, max) {
+        int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
+        int irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
+        if (pin == 0)
+            continue;
+        if (dev != pci_bdf_to_dev(bdf)) {
+            dev = pci_bdf_to_dev(bdf);
+            pinmask = 0;
+        }
+        if (pinmask & (1 << pin)) /* pin was seen already */
+            continue;
+        pinmask |= (1 << pin);
+        mask |= (1 << irq);
         memset(intsrc, 0, sizeof(*intsrc));
         intsrc->type = MPT_TYPE_INTSRC;
+        intsrc->irqtype = 0; /* INT */
+        intsrc->irqflag = 1; /* active high */
+        intsrc->srcbus = 0; /* PCI bus */
+        intsrc->srcbusirq = (dev << 2) | (pin - 1);
+        intsrc->dstapic = ioapic_id;
+        intsrc->dstirq = irq;
+        intsrc++;
+    }
+
+    for (i = 0; i < 16; i++) {
+        memset(intsrc, 0, sizeof(*intsrc));
+        if (mask & (1 << i))
+            continue;
+        intsrc->type = MPT_TYPE_INTSRC;
+        intsrc->irqtype = 0; /* INT */
+        intsrc->irqflag = 0; /* conform to bus spec */
+        intsrc->srcbus = 1; /* ISA bus */
         intsrc->srcbusirq = i;
         intsrc->dstapic = ioapic_id;
         intsrc->dstirq = i;
@@ -123,7 +165,7 @@ mptable_init(void)
     intsrc->type = MPT_TYPE_LOCAL_INT;
     intsrc->irqtype = 3; /* ExtINT */
     intsrc->irqflag = 0; /* PO, EL default */
-    intsrc->srcbus = 0;
+    intsrc->srcbus = 1; /* ISA */
     intsrc->srcbusirq = 0;
     intsrc->dstapic = 0; /* BSP == APIC #0 */
     intsrc->dstirq = 0; /* LINTIN0 */
@@ -133,7 +175,7 @@ mptable_init(void)
     intsrc->type = MPT_TYPE_LOCAL_INT;
     intsrc->irqtype = 1; /* NMI */
     intsrc->irqflag = 0; /* PO, EL default */
-    intsrc->srcbus = 0;
+    intsrc->srcbus = 1; /* ISA */
     intsrc->srcbusirq = 0;
     intsrc->dstapic = 0; /* BSP == APIC #0 */
     intsrc->dstirq = 1; /* LINTIN1 */
