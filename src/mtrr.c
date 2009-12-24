@@ -24,6 +24,12 @@
 #define MTRRphysBase_MSR(reg) (0x200 + 2 * (reg))
 #define MTRRphysMask_MSR(reg) (0x200 + 2 * (reg) + 1)
 
+#define MTRR_MEMTYPE_UC 0
+#define MTRR_MEMTYPE_WC 1
+#define MTRR_MEMTYPE_WT 4
+#define MTRR_MEMTYPE_WP 5
+#define MTRR_MEMTYPE_WB 6
+
 void mtrr_setup(void)
 {
     if (CONFIG_COREBOOT)
@@ -39,7 +45,6 @@ void mtrr_setup(void)
     dprintf(3, "init mtrr\n");
 
     int i, vcnt, fix, wc;
-    u32 ram_size = GET_GLOBAL(RamSize);
     u32 mtrr_cap;
     union {
         u8 valb[8];
@@ -52,15 +57,17 @@ void mtrr_setup(void)
     wc = mtrr_cap & 0x400;
     if (!vcnt || !fix)
        return;
+
+    // Fixed MTRRs
     u.val = 0;
     for (i = 0; i < 8; ++i)
-        if (ram_size >= 65536 * (i + 1))
-            u.valb[i] = 6;
+        if (RamSize >= 65536 * (i + 1))
+            u.valb[i] = MTRR_MEMTYPE_WB;
     wrmsr_smp(MSR_MTRRfix64K_00000, u.val);
     u.val = 0;
     for (i = 0; i < 8; ++i)
-        if (ram_size >= 65536 * 8 + 16384 * (i + 1))
-            u.valb[i] = 6;
+        if (RamSize >= 65536 * 8 + 16384 * (i + 1))
+            u.valb[i] = MTRR_MEMTYPE_WB;
     wrmsr_smp(MSR_MTRRfix16K_80000, u.val);
     wrmsr_smp(MSR_MTRRfix16K_A0000, 0);
     wrmsr_smp(MSR_MTRRfix4K_C0000, 0);
@@ -71,9 +78,8 @@ void mtrr_setup(void)
     wrmsr_smp(MSR_MTRRfix4K_E8000, 0);
     wrmsr_smp(MSR_MTRRfix4K_F0000, 0);
     wrmsr_smp(MSR_MTRRfix4K_F8000, 0);
-    /* Mark 3.5-4GB as UC, anything not specified defaults to WB */
-    wrmsr_smp(MTRRphysBase_MSR(0), 0xe0000000ull | 0);
 
+    // Variable MTRRs
     int phys_bits = 36;
     cpuid(0x80000000u, &eax, &ebx, &ecx, &edx);
     if (eax >= 0x80000008) {
@@ -82,7 +88,11 @@ void mtrr_setup(void)
             phys_bits = eax & 0xff;
     }
     u64 phys_mask = ((1ull << phys_bits) - 1);
-    wrmsr_smp(MTRRphysMask_MSR(0), (~(0x20000000ull - 1) & phys_mask) | 0x800);
+    /* Mark 3.5-4GB as UC, anything not specified defaults to WB */
+    wrmsr_smp(MTRRphysBase_MSR(0), BUILD_MAX_HIGHMEM | MTRR_MEMTYPE_UC);
+    wrmsr_smp(MTRRphysMask_MSR(0)
+              , (-((1ull<<32)-BUILD_MAX_HIGHMEM) & phys_mask) | 0x800);
 
-    wrmsr_smp(MSR_MTRRdefType, 0xc06);
+    // Enable fixed and variable MTRRs; set default type.
+    wrmsr_smp(MSR_MTRRdefType, 0xc00 | MTRR_MEMTYPE_WB);
 }

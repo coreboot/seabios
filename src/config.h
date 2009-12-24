@@ -142,6 +142,7 @@
 #define BUILD_BIOS_SIZE           0x10000
 // 32KB for shadow ram copying (works around emulator deficiencies)
 #define BUILD_BIOS_TMP_ADDR       0x30000
+#define BUILD_MAX_HIGHMEM         0xe0000000
 
 #define BUILD_APIC_ADDR           0xfee00000
 #define BUILD_IOAPIC_ADDR         0xfec00000
