@@ -20,30 +20,12 @@ mptable_init(void)
 
     dprintf(3, "init MPTable\n");
 
-    // Allocate memory
-    int length = (sizeof(struct mptable_config_s)
-                  + sizeof(struct mpt_cpu) * MaxCountCPUs
-                  + sizeof(struct mpt_bus) * 2
-                  + sizeof(struct mpt_ioapic)
-                  + sizeof(struct mpt_intsrc) * 34);
-    struct mptable_config_s *config = malloc_fseg(length);
-    struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
-    if (!config || !floating) {
-        dprintf(1, "No room for MPTABLE!\n");
-        free(config);
-        free(floating);
+    // Config structure in temp area.
+    struct mptable_config_s *config = malloc_tmphigh(32*1024);
+    if (!config) {
+        dprintf(1, "No space for temp mptable\n");
         return;
     }
-
-    /* floating pointer structure */
-    memset(floating, 0, sizeof(*floating));
-    floating->signature = MPTABLE_SIGNATURE;
-    floating->physaddr = (u32)config;
-    floating->length = 1;
-    floating->spec_rev = 4;
-    floating->checksum -= checksum(floating, sizeof(*floating));
-
-    // Config structure.
     memset(config, 0, sizeof(*config));
     config->signature = MPCONFIG_SIGNATURE;
     config->spec = 4;
@@ -183,10 +165,32 @@ mptable_init(void)
     entrycount++;
 
     // Finalize config structure.
+    int length = (void*)intsrc - (void*)config;
     config->entrycount = entrycount;
-    config->length = (void*)intsrc - (void*)config;
-    config->checksum -= checksum(config, config->length);
+    config->length = length;
+    config->checksum -= checksum(config, length);
+
+    // Allocate final memory locations
+    struct mptable_config_s *finalconfig = malloc_fseg(length);
+    struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
+    if (!finalconfig || !floating) {
+        dprintf(1, "No room for MPTABLE!\n");
+        free(config);
+        free(finalconfig);
+        free(floating);
+        return;
+    }
+    memcpy(finalconfig, config, length);
+    free(config);
+
+    /* floating pointer structure */
+    memset(floating, 0, sizeof(*floating));
+    floating->signature = MPTABLE_SIGNATURE;
+    floating->physaddr = (u32)finalconfig;
+    floating->length = 1;
+    floating->spec_rev = 4;
+    floating->checksum -= checksum(floating, sizeof(*floating));
 
     dprintf(1, "MP table addr=%p MPC table addr=%p size=%d\n",
-            floating, config, config->length);
+            floating, finalconfig, length);
 }
