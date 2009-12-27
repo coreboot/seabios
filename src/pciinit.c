@@ -16,7 +16,6 @@
 
 static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
-static u32 pci_bios_bigmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
 static u8 pci_irqs[4] = {
     10, 10, 11, 11
@@ -150,8 +149,6 @@ static void pci_bios_init_device(u16 bdf)
                 u32 size = (~(val & mask)) + 1;
                 if (val & PCI_BASE_ADDRESS_SPACE_IO)
                     paddr = &pci_bios_io_addr;
-                else if (size >= 0x04000000)
-                    paddr = &pci_bios_bigmem_addr;
                 else
                     paddr = &pci_bios_mem_addr;
                 *paddr = ALIGN(*paddr, size);
@@ -197,10 +194,7 @@ pci_setup(void)
     dprintf(3, "pci setup\n");
 
     pci_bios_io_addr = 0xc000;
-    pci_bios_mem_addr = 0xf0000000;
-    pci_bios_bigmem_addr = RamSize;
-    if (pci_bios_bigmem_addr < 0x90000000)
-        pci_bios_bigmem_addr = 0x90000000;
+    pci_bios_mem_addr = BUILD_MAX_HIGHMEM;
 
     int bdf, max;
     foreachpci(bdf, max) {
