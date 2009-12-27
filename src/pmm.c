@@ -14,8 +14,13 @@
 #if MODESEGMENT
 // The 16bit pmm entry points runs in "big real" mode, and can
 // therefore read/write to the 32bit malloc variables.
-#define GET_PMMVAR(var) GET_FARVAR(0, (var))
-#define SET_PMMVAR(var, val) SET_FARVAR(0, (var), (val))
+#define GET_PMMVAR(var) ({                      \
+            SET_SEG(ES, 0);                     \
+            __GET_VAR("addr32 ", ES, (var)); })
+#define SET_PMMVAR(var, val) do {               \
+        SET_SEG(ES, 0);                         \
+        __SET_VAR("addr32 ", ES, (var), (val)); \
+    } while (0)
 #else
 #define GET_PMMVAR(var) (var)
 #define SET_PMMVAR(var, val) do { (var) = (val); } while (0)
