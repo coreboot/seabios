@@ -66,6 +66,10 @@ init_ivt()
     set_irq(0x1a, entry_1a);
     set_irq(0x40, entry_40);
 
+    // INT 60h-66h reserved for user interrupt
+    for (i=0x60; i<=0x66; i++)
+        SET_IVT(i, SEGOFF(0, 0));
+
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_IVT(0x79, SEGOFF(0, 0));
