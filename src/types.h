@@ -38,8 +38,8 @@ union u64_u32_u {
 #if MODE16 == 1
 // Notes a function as externally visible in the 16bit code chunk.
 # define VISIBLE16 __VISIBLE
-// Notes a function as externally visible in the 32bit code chunk.
-# define VISIBLE32
+// Notes a function as externally visible in the 32bit flat code chunk.
+# define VISIBLE32FLAT
 // Designate a variable as (only) visible to 16bit code.
 # define VAR16 __section(".data16." UNIQSEC)
 // Designate a variable as visible to 16bit, 32bit, and assembler code.
@@ -49,21 +49,28 @@ union u64_u32_u {
 // Designate a variable at a specific 16bit address
 # define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
 // Designate a 32bit variable also available in 16bit "big real" mode.
-# define VAR32VISIBLE __section(".discard.var32." UNIQSEC) __VISIBLE __weak
+# define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) __ASM(code)
-// Designate top-level assembler as 32bit only.
-# define ASM32(code)
+// Designate top-level assembler as 32bit flat only.
+# define ASM32FLAT(code)
+// Compile time check for a given mode.
+extern void __force_link_error__only_in_32bit_flat() __attribute__ ((noreturn));
+#define ASSERT16() do { } while (0)
+#define ASSERT32FLAT() __force_link_error__only_in_32bit_flat()
 #else
 # define VISIBLE16
-# define VISIBLE32 __VISIBLE
+# define VISIBLE32FLAT __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
 # define VAR16VISIBLE VAR16 __VISIBLE __weak
 # define VAR16EXPORT VAR16VISIBLE
 # define VAR16FIXED(addr) VAR16VISIBLE
-# define VAR32VISIBLE __VISIBLE
+# define VAR32FLATVISIBLE __VISIBLE
 # define ASM16(code)
-# define ASM32(code) __ASM(code)
+# define ASM32FLAT(code) __ASM(code)
+extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
+#define ASSERT16() __force_link_error__only_in_16bit()
+#define ASSERT32FLAT() do { } while (0)
 #endif
 
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)

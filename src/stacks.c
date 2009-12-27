@@ -168,7 +168,7 @@ switch_next(struct thread_info *cur)
 void
 yield()
 {
-    if (MODE16 || !CONFIG_THREADS) {
+    if (MODESEGMENT || !CONFIG_THREADS) {
         // Just directly check irqs.
         check_irqs();
         return;
@@ -198,7 +198,7 @@ __end_thread(struct thread_info *old)
 void
 run_thread(void (*func)(void*), void *data)
 {
-    ASSERT32();
+    ASSERT32FLAT();
     if (! CONFIG_THREADS)
         goto fail;
     struct thread_info *thread;
@@ -241,7 +241,7 @@ fail:
 void
 wait_threads()
 {
-    ASSERT32();
+    ASSERT32FLAT();
     if (! CONFIG_THREADS)
         return;
     while (MainThread.next != &MainThread)
@@ -278,9 +278,9 @@ finish_preempt()
 }
 
 extern void yield_preempt();
-#if !MODE16
+#if MODESEGMENT == 0
 // Try to execute 32bit threads.
-void VISIBLE32
+void VISIBLE32FLAT
 yield_preempt()
 {
     PreemptCount++;

@@ -84,10 +84,10 @@ putc_debug(struct putcinfo *action, char c)
     debug_serial(c);
 }
 
-// In 16bit mode just need a dummy variable (putc_debug is always used
-// anyway), and in 32bit mode need a pointer to the 32bit instance of
-// putc_debug().
-#if MODE16
+// In segmented mode just need a dummy variable (putc_debug is always
+// used anyway), and in 32bit flat mode need a pointer to the 32bit
+// instance of putc_debug().
+#if MODESEGMENT
 static struct putcinfo debuginfo VAR16;
 #else
 static struct putcinfo debuginfo = { putc_debug };
@@ -132,8 +132,8 @@ static struct putcinfo screeninfo = { putc_screen };
 static void
 putc(struct putcinfo *action, char c)
 {
-    if (MODE16) {
-        // Only debugging output supported in 16bit mode.
+    if (MODESEGMENT) {
+        // Only debugging output supported in segmented mode.
         putc_debug(action, c);
         return;
     }
@@ -325,7 +325,7 @@ panic(const char *fmt, ...)
 void
 __dprintf(const char *fmt, ...)
 {
-    if (!MODE16 && CONFIG_THREADS && CONFIG_DEBUG_LEVEL >= DEBUG_thread
+    if (!MODESEGMENT && CONFIG_THREADS && CONFIG_DEBUG_LEVEL >= DEBUG_thread
         && *fmt != '\\' && *fmt != '/') {
         struct thread_info *cur = getCurThread();
         if (cur != &MainThread) {
@@ -347,7 +347,7 @@ __dprintf(const char *fmt, ...)
 void
 printf(const char *fmt, ...)
 {
-    ASSERT32();
+    ASSERT32FLAT();
     va_list args;
     va_start(args, fmt);
     bvprintf(&screeninfo, fmt, args);
@@ -382,7 +382,7 @@ putc_str(struct putcinfo *info, char c)
 int
 snprintf(char *str, size_t size, const char *fmt, ...)
 {
-    ASSERT32();
+    ASSERT32FLAT();
     if (!size)
         return 0;
     struct snprintfinfo sinfo = { { putc_str }, str, str + size };

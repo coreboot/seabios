@@ -11,7 +11,7 @@
 #include "biosvar.h" // GET_BDA
 
 
-#if MODE16
+#if MODESEGMENT
 // The 16bit pmm entry points runs in "big real" mode, and can
 // therefore read/write to the 32bit malloc variables.
 #define GET_PMMVAR(var) GET_FARVAR(0, (var))
@@ -26,11 +26,11 @@ struct zone_s {
     u32 top, bottom, cur;
 };
 
-struct zone_s ZoneLow VAR32VISIBLE, ZoneHigh VAR32VISIBLE;
-struct zone_s ZoneFSeg VAR32VISIBLE;
-struct zone_s ZoneTmpLow VAR32VISIBLE, ZoneTmpHigh VAR32VISIBLE;
+struct zone_s ZoneLow VAR32FLATVISIBLE, ZoneHigh VAR32FLATVISIBLE;
+struct zone_s ZoneFSeg VAR32FLATVISIBLE;
+struct zone_s ZoneTmpLow VAR32FLATVISIBLE, ZoneTmpHigh VAR32FLATVISIBLE;
 
-struct zone_s *Zones[] VAR32VISIBLE = {
+struct zone_s *Zones[] VAR32FLATVISIBLE = {
     &ZoneTmpLow, &ZoneLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
 };
 
@@ -49,7 +49,7 @@ relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
         return -1;
 
     // Do copy
-    if (MODE16)
+    if (MODESEGMENT)
         memcpy_far(FLATPTR_TO_SEG(newebda)
                    , (void*)FLATPTR_TO_OFFSET(newebda)
                    , FLATPTR_TO_SEG(oldebda)
@@ -172,7 +172,7 @@ struct pmmalloc_s {
     struct pmmalloc_s *next;
 };
 
-struct pmmalloc_s *PMMAllocs VAR32VISIBLE;
+struct pmmalloc_s *PMMAllocs VAR32FLATVISIBLE;
 
 // Allocate memory from the given zone and track it as a PMM allocation
 void *
@@ -279,7 +279,7 @@ pmm_find(u32 handle)
 void
 malloc_setup()
 {
-    ASSERT32();
+    ASSERT32FLAT();
     dprintf(3, "malloc setup\n");
 
     PMMAllocs = NULL;

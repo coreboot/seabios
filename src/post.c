@@ -234,7 +234,7 @@ post()
 }
 
 // 32-bit entry point.
-void VISIBLE32
+void VISIBLE32FLAT
 _start()
 {
     init_dma();

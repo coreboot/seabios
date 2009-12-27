@@ -283,7 +283,7 @@ map_floppy_drive(struct drive_s *drive_g)
 void
 describe_drive(struct drive_s *drive_g)
 {
-    ASSERT32();
+    ASSERT32FLAT();
     u8 type = GET_GLOBAL(drive_g->type);
     switch (type) {
     case DTYPE_FLOPPY:

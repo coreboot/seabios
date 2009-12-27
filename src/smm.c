@@ -11,7 +11,7 @@
 #include "ioport.h" // outb
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 
-ASM32(
+ASM32FLAT(
     ".global smm_relocation_start\n"
     ".global smm_relocation_end\n"
     ".global smm_code_start\n"

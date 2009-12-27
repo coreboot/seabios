@@ -8,7 +8,6 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "cmos.h" // CMOS_BIOS_SMP_COUNT
-#include "farptr.h" // ASSERT32
 #include "paravirt.h"
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
@@ -70,7 +69,7 @@ ASM16(
 void
 smp_probe(void)
 {
-    ASSERT32();
+    ASSERT32FLAT();
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
     if (! (cpuid_features & CPUID_APIC)) {

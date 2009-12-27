@@ -486,7 +486,7 @@ do_boot(u16 seq_nr)
 }
 
 // Boot Failure recovery: try the next device.
-void VISIBLE32
+void VISIBLE32FLAT
 handle_18()
 {
     debug_serial_setup();
@@ -498,7 +498,7 @@ handle_18()
 }
 
 // INT 19h Boot Load Service Entry Point
-void VISIBLE32
+void VISIBLE32FLAT
 handle_19()
 {
     debug_serial_setup();

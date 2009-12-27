@@ -18,7 +18,7 @@
 inline void
 call16(struct bregs *callregs)
 {
-    if (!MODE16 && getesp() > BUILD_STACK_ADDR)
+    if (!MODESEGMENT && getesp() > BUILD_STACK_ADDR)
         panic("call16 with invalid stack\n");
     asm volatile(
 #if MODE16 == 1
@@ -36,7 +36,7 @@ call16(struct bregs *callregs)
 inline void
 call16big(struct bregs *callregs)
 {
-    ASSERT32();
+    ASSERT32FLAT();
     if (getesp() > BUILD_STACK_ADDR)
         panic("call16 with invalid stack\n");
     asm volatile(
@@ -49,7 +49,7 @@ call16big(struct bregs *callregs)
 inline void
 __call16_int(struct bregs *callregs, u16 offset)
 {
-    if (MODE16)
+    if (MODESEGMENT)
         callregs->code.seg = GET_SEG(CS);
     else
         callregs->code.seg = SEG_BIOS;
@@ -197,7 +197,7 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
 void *
 #undef memcpy
 memcpy(void *d1, const void *s1, size_t len)
-#if MODE16 == 0
+#if MODESEGMENT == 0
 #define memcpy __builtin_memcpy
 #endif
 {

@@ -176,7 +176,7 @@ void *memset(void *s, int c, size_t n);
 inline void memcpy_far(u16 d_seg, void *d_far
                        , u16 s_seg, const void *s_far, size_t len);
 void *memcpy(void *d1, const void *s1, size_t len);
-#if MODE16 == 0
+#if MODESEGMENT == 0
 #define memcpy __builtin_memcpy
 #endif
 void iomemcpy(void *d, const void *s, u32 len);
