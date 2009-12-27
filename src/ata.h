@@ -7,6 +7,7 @@
 struct ata_channel_s {
     u16 iobase1;
     u16 iobase2;
+    u16 iomaster;
     u8  irq;
     int pci_bdf;
 };
@@ -97,7 +98,6 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CMD_FLUSH_CACHE                  0xE7
 #define ATA_CMD_FORMAT_TRACK                 0x50
 #define ATA_CMD_IDENTIFY_DEVICE              0xEC
-#define ATA_CMD_IDENTIFY_DEVICE_PACKET       0xA1
 #define ATA_CMD_IDENTIFY_PACKET_DEVICE       0xA1
 #define ATA_CMD_IDLE1                        0xE3
 #define ATA_CMD_IDLE2                        0x97
@@ -109,15 +109,24 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CMD_PACKET                       0xA0
 #define ATA_CMD_READ_BUFFER                  0xE4
 #define ATA_CMD_READ_DMA                     0xC8
+#define ATA_CMD_READ_DMA_EXT                 0x25
 #define ATA_CMD_READ_DMA_QUEUED              0xC7
+#define ATA_CMD_READ_DMA_QUEUED_EXT          0x26
+#define ATA_CMD_READ_LOG_EXT                 0x2F
 #define ATA_CMD_READ_MULTIPLE                0xC4
+#define ATA_CMD_READ_MULTIPLE_EXT            0x29
+#define ATA_CMD_READ_NATIVE_MAX_ADDRESS      0xF8
+#define ATA_CMD_READ_NATIVE_MAX_ADDRESS_EXT  0x27
 #define ATA_CMD_READ_SECTORS                 0x20
 #define ATA_CMD_READ_SECTORS_EXT             0x24
 #define ATA_CMD_READ_VERIFY_SECTORS          0x40
+#define ATA_CMD_READ_VERIFY_SECTORS_EXT      0x42
 #define ATA_CMD_RECALIBRATE                  0x10
 #define ATA_CMD_REQUEST_SENSE                0x03
 #define ATA_CMD_SEEK                         0x70
 #define ATA_CMD_SET_FEATURES                 0xEF
+#define ATA_CMD_SET_MAX                      0xF9
+#define ATA_CMD_SET_MAX_ADDRESS_EXT          0x37
 #define ATA_CMD_SET_MULTIPLE_MODE            0xC6
 #define ATA_CMD_SLEEP1                       0xE6
 #define ATA_CMD_SLEEP2                       0x99
@@ -127,8 +136,12 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CMD_STANDBY_IMMEDIATE2           0x94
 #define ATA_CMD_WRITE_BUFFER                 0xE8
 #define ATA_CMD_WRITE_DMA                    0xCA
+#define ATA_CMD_WRITE_DMA_EXT                0x35
 #define ATA_CMD_WRITE_DMA_QUEUED             0xCC
+#define ATA_CMD_WRITE_DMA_QUEUED_EXT         0x36
+#define ATA_CMD_WRITE_LOG_EXT                0x3F
 #define ATA_CMD_WRITE_MULTIPLE               0xC5
+#define ATA_CMD_WRITE_MULTIPLE_EXT           0x39
 #define ATA_CMD_WRITE_SECTORS                0x30
 #define ATA_CMD_WRITE_SECTORS_EXT            0x34
 #define ATA_CMD_WRITE_VERIFY                 0x3C
