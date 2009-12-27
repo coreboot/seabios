@@ -17,10 +17,14 @@ smbios_entry_point_init(u16 max_structure_size,
                         u16 number_of_structures)
 {
     struct smbios_entry_point *ep = malloc_fseg(sizeof(*ep));
-    if (! ep) {
-        dprintf(1, "No space for smbios entry table!\n");
+    void *finaltable = malloc_high(structure_table_length);
+    if (!ep || !finaltable) {
+        dprintf(1, "No space for smbios tables!\n");
+        free(ep);
+        free(finaltable);
         return;
     }
+    memcpy(finaltable, structure_table_address, structure_table_length);
 
     memcpy(ep->anchor_string, "_SM_", 4);
     ep->length = 0x1f;
@@ -32,7 +36,7 @@ smbios_entry_point_init(u16 max_structure_size,
     memcpy(ep->intermediate_anchor_string, "_DMI_", 5);
 
     ep->structure_table_length = structure_table_length;
-    ep->structure_table_address = (u32)structure_table_address;
+    ep->structure_table_address = (u32)finaltable;
     ep->number_of_structures = number_of_structures;
     ep->smbios_bcd_revision = 0x24;
 
@@ -40,7 +44,7 @@ smbios_entry_point_init(u16 max_structure_size,
 
     ep->intermediate_checksum -= checksum((void*)ep + 0x10, ep->length - 0x10);
 
-    dprintf(1, "SMBIOS ptr=%p table=%p\n", ep, structure_table_address);
+    dprintf(1, "SMBIOS ptr=%p table=%p\n", ep, finaltable);
 }
 
 #define load_str_field_with_default(type, field, def)                   \
@@ -362,6 +366,8 @@ smbios_init_type_127(void *start)
     return start + 2;
 }
 
+#define TEMPSMBIOSSIZE (32 * 1024)
+
 void
 smbios_init(void)
 {
@@ -370,14 +376,15 @@ smbios_init(void)
 
     dprintf(3, "init SMBIOS tables\n");
 
-    char *start = malloc_high(2048); // XXX - determine real size
+    char *start = malloc_tmphigh(TEMPSMBIOSSIZE);
     if (! start) {
-        dprintf(1, "No memory for smbios tables\n");
+        dprintf(1, "No memory for temp smbios table\n");
         return;
     }
 
     u32 nr_structs = 0, max_struct_size = 0;
-    char *q, *p = start, *end = start + 2048 - sizeof(struct smbios_type_127);
+    char *q, *p = start;
+    char *end = start + TEMPSMBIOSSIZE - sizeof(struct smbios_type_127);
 
 #define add_struct(type, args...)                                       \
     do {                                                                \
@@ -425,4 +432,5 @@ smbios_init(void)
 #undef add_struct
 
     smbios_entry_point_init(max_struct_size, p - start, start, nr_structs);
+    free(start);
 }
