@@ -65,19 +65,27 @@ mptable_init(void)
     }
     int entrycount = cpu - cpus;
 
-    /* isa bus */
     struct mpt_bus *bus = (void*)cpu;
-    memset(bus, 0, sizeof(*bus));
-    bus->type = MPT_TYPE_BUS;
-    bus->busid = 1;
-    memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
-    entrycount++;
+    int bdf, max, lastbus = -1;
+    foreachpci(bdf, max) {
+        int curbus = pci_bdf_to_bus(bdf);
+        if (curbus == lastbus)
+            continue;
+        lastbus = curbus;
+        memset(bus, 0, sizeof(*bus));
+        bus->type = MPT_TYPE_BUS;
+        bus->busid = curbus;
+        memcpy(bus->bustype, "PCI   ", sizeof(bus->bustype));
+        bus++;
+        entrycount++;
+    }
 
-    bus++;
+    /* isa bus */
+    int isabusid;
     memset(bus, 0, sizeof(*bus));
     bus->type = MPT_TYPE_BUS;
-    bus->busid = 0;
-    memcpy(bus->bustype, "PCI   ", sizeof(bus->bustype));
+    isabusid = bus->busid = lastbus + 1;
+    memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
     entrycount++;
 
     /* ioapic */
@@ -93,7 +101,7 @@ mptable_init(void)
 
     /* irqs */
     struct mpt_intsrc *intsrcs = (void*)&ioapic[1], *intsrc = intsrcs;
-    int bdf, max, dev = -1;
+    int dev = -1;
     unsigned short mask = 0, pinmask;
 
     foreachpci(bdf, max) {
@@ -113,7 +121,7 @@ mptable_init(void)
         intsrc->type = MPT_TYPE_INTSRC;
         intsrc->irqtype = 0; /* INT */
         intsrc->irqflag = 1; /* active high */
-        intsrc->srcbus = 0; /* PCI bus */
+        intsrc->srcbus = pci_bdf_to_bus(bdf); /* PCI bus */
         intsrc->srcbusirq = (dev << 2) | (pin - 1);
         intsrc->dstapic = ioapic_id;
         intsrc->dstirq = irq;
@@ -127,7 +135,7 @@ mptable_init(void)
         intsrc->type = MPT_TYPE_INTSRC;
         intsrc->irqtype = 0; /* INT */
         intsrc->irqflag = 0; /* conform to bus spec */
-        intsrc->srcbus = 1; /* ISA bus */
+        intsrc->srcbus = isabusid; /* ISA bus */
         intsrc->srcbusirq = i;
         intsrc->dstapic = ioapic_id;
         intsrc->dstirq = i;
@@ -147,7 +155,7 @@ mptable_init(void)
     intsrc->type = MPT_TYPE_LOCAL_INT;
     intsrc->irqtype = 3; /* ExtINT */
     intsrc->irqflag = 0; /* PO, EL default */
-    intsrc->srcbus = 1; /* ISA */
+    intsrc->srcbus = isabusid; /* ISA */
     intsrc->srcbusirq = 0;
     intsrc->dstapic = 0; /* BSP == APIC #0 */
     intsrc->dstirq = 0; /* LINTIN0 */
@@ -157,7 +165,7 @@ mptable_init(void)
     intsrc->type = MPT_TYPE_LOCAL_INT;
     intsrc->irqtype = 1; /* NMI */
     intsrc->irqflag = 0; /* PO, EL default */
-    intsrc->srcbus = 1; /* ISA */
+    intsrc->srcbus = isabusid; /* ISA */
     intsrc->srcbusirq = 0;
     intsrc->dstapic = 0; /* BSP == APIC #0 */
     intsrc->dstirq = 1; /* LINTIN1 */
