@@ -16,13 +16,14 @@ cvs tip.
     -- lots of mouse changes, logo, scsi/etherboot hooks, int 1589,
        floppy data rate?, int19 calls post
 
+Possibly move code from entry_post in romlayout.S to C code in
+handle_resume and always call 16bit C code on post.
+
 Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
 setup properly with respect to irqs.
 
 The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
-
-Possibly implement 32bit pcibios support.
 
 Support PCIv3 roms?  Add support for PCI "configuration code"
 extensions?

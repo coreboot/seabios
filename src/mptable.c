@@ -65,6 +65,7 @@ mptable_init(void)
     }
     int entrycount = cpu - cpus;
 
+    // PCI buses
     struct mpt_bus *bus = (void*)cpu;
     int bdf, max, lastbus = -1;
     foreachpci(bdf, max) {
@@ -102,7 +103,7 @@ mptable_init(void)
     /* irqs */
     struct mpt_intsrc *intsrcs = (void*)&ioapic[1], *intsrc = intsrcs;
     int dev = -1;
-    unsigned short mask = 0, pinmask;
+    unsigned short mask = 0, pinmask = 0;
 
     foreachpci(bdf, max) {
         int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
