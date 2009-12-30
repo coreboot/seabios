@@ -260,12 +260,31 @@ get_ebda_ptr()
  * Global variables
  ****************************************************************/
 
+#if MODE16 == 0 && MODESEGMENT == 1
+// In 32bit segmented mode %cs may not be readable and the code may be
+// relocated.  The entry code sets up %gs with a readable segment and
+// the code offset can be determined by get_global_offset().
+#define GLOBAL_SEGREG GS
+static inline u32 __attribute_const get_global_offset(void) {
+    u32 ret;
+    asm("  calll 1f\n"
+        "1:popl %0\n"
+        "  subl $1b, %0"
+        : "=r"(ret));
+    return ret;
+}
+#else
 #define GLOBAL_SEGREG CS
+static inline u32 __attribute_const get_global_offset(void) {
+    return 0;
+}
+#endif
 static inline u16 get_global_seg() {
     return GET_SEG(GLOBAL_SEGREG);
 }
-#define GET_GLOBAL(var)                         \
-    GET_VAR(GLOBAL_SEGREG, (var))
+#define GET_GLOBAL(var)                                                 \
+    GET_VAR(GLOBAL_SEGREG, *(typeof(&(var)))((void*)&(var)              \
+                                             + get_global_offset()))
 #define SET_GLOBAL(var, val) do {               \
         ASSERT32FLAT();                         \
         (var) = (val);                          \

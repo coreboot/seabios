@@ -13,12 +13,13 @@ OUT=out/
 # Source files
 SRCBOTH=misc.c pmm.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
         kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
-        pnpbios.c pirtable.c vgahooks.c ramdisk.c \
+        pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c \
         usb.c usb-uhci.c usb-ohci.c usb-hid.c paravirt.c
-SRC16=$(SRCBOTH) system.c disk.c apm.c pcibios.c font.c
+SRC16=$(SRCBOTH) system.c disk.c apm.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
       lzmadecode.c
+SRC32SEG=util.c output.c pci.c pcibios.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
@@ -34,10 +35,12 @@ COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
-override CFLAGS = $(COMMONCFLAGS) -g -DMODE16=0 -DMODESEGMENT=0
-CFLAGS16INC = $(COMMONCFLAGS) -DMODE16=1 -DMODESEGMENT=1 -fno-defer-pop \
-              $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
-              $(call cc-option,$(CC),-fno-tree-switch-conversion,) \
+CFLAGS32FLAT = $(COMMONCFLAGS) -g -DMODE16=0 -DMODESEGMENT=0
+CFLAGSSEG = $(COMMONCFLAGS) -DMODESEGMENT=1 -fno-defer-pop \
+            $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
+            $(call cc-option,$(CC),-fno-tree-switch-conversion,)
+CFLAGS32SEG = $(CFLAGSSEG) -DMODE16=0 -g
+CFLAGS16INC = $(CFLAGSSEG) -DMODE16=1 \
               $(call cc-option,$(CC),--param large-stack-frame=4,)
 CFLAGS16 = $(CFLAGS16INC) -g
 
@@ -112,36 +115,46 @@ $(OUT)asm-offsets.h: $(OUT)asm-offsets.s
 
 $(OUT)ccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
-$(OUT)ccode32flat.o: ; $(call whole-compile, $(CFLAGS), $(addprefix src/, $(SRC32FLAT)),$@)
+$(OUT)code32seg.o: ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
+
+$(OUT)ccode32flat.o: ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
 
 $(OUT)code16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16INC) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)romlayout16.lds $(OUT)romlayout32flat.lds $(OUT)code32flat.o: $(OUT)ccode32flat.o $(OUT)code16.o tools/layoutrom.py
+$(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds $(OUT)code32flat.o: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)code16.o tools/layoutrom.py
 	@echo "  Building ld scripts (version \"$(VERSION)\")"
 	$(Q)echo 'const char VERSION[] = "$(VERSION)";' > $(OUT)version.c
-	$(Q)$(CC) $(CFLAGS) -c $(OUT)version.c -o $(OUT)version.o
+	$(Q)$(CC) $(CFLAGS32FLAT) -c $(OUT)version.c -o $(OUT)version.o
 	$(Q)$(LD) -melf_i386 -r $(OUT)ccode32flat.o $(OUT)version.o -o $(OUT)code32flat.o
 	$(Q)$(OBJDUMP) -thr $(OUT)code32flat.o > $(OUT)code32flat.o.objdump
+	$(Q)$(OBJDUMP) -thr $(OUT)code32seg.o > $(OUT)code32seg.o.objdump
 	$(Q)$(OBJDUMP) -thr $(OUT)code16.o > $(OUT)code16.o.objdump
-	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32flat.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32flat.lds
+	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32seg.o.objdump $(OUT)code32flat.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds
 
 
 $(OUT)rom16.o: $(OUT)code16.o $(OUT)rom32flat.o $(OUT)romlayout16.lds
 	@echo "  Linking (no relocs) $@"
 	$(Q)$(LD) -r -T $(OUT)romlayout16.lds $< -o $@
 
+$(OUT)rom32seg.o: $(OUT)code32seg.o $(OUT)romlayout32seg.lds
+	@echo "  Linking (no relocs) $@"
+	$(Q)$(LD) -r -T $(OUT)romlayout32seg.lds $< -o $@
+
 $(OUT)rom32flat.o: $(OUT)code32flat.o $(OUT)romlayout32flat.lds
 	@echo "  Linking (no relocs) $@"
 	$(Q)$(LD) -r -T $(OUT)romlayout32flat.lds $< -o $@
 
-$(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32flat.o $(OUT)rombios16.lds $(OUT)rombios.lds
+$(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32seg.o $(OUT)rom32flat.o $(OUT)rombios16.lds  $(OUT)rombios32seg.lds $(OUT)rombios.lds
 	@echo "  Linking $@"
-	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32flat.o -o $(OUT)rom16.reloc.o
+	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32seg.o -R $(OUT)rom32flat.o -o $(OUT)rom16.reloc.o
 	$(Q)$(STRIP) $(OUT)rom16.reloc.o -o $(OUT)rom16.final.o
 	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
-	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32flat.o -R $(OUT)rom16.moved.o -o $@
+	$(Q)$(LD) -T $(OUT)rombios32seg.lds $(OUT)rom32seg.o -R $(OUT)rom16.o -R $(OUT)rom32flat.o -o $(OUT)rom32seg.reloc.o
+	$(Q)$(STRIP) $(OUT)rom32seg.reloc.o -o $(OUT)rom32seg.final.o
+	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom32seg.o $(OUT)rom32seg.moved.o
+	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32seg.final.o $(OUT)rom32flat.o -R $(OUT)rom16.moved.o -R $(OUT)rom32seg.moved.o -o $@
 
 $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 	@echo "  Prepping $@"

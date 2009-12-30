@@ -172,10 +172,10 @@ get_pci_rom(struct rom_header *rom)
 static inline u32
 max_rom()
 {
-    extern u8 code32_start[];
-    if ((u32)code32_start > BUILD_BIOS_ADDR)
+    extern u8 code32flat_start[];
+    if ((u32)code32flat_start > BUILD_BIOS_ADDR)
         return BUILD_BIOS_ADDR;
-    return (u32)code32_start;
+    return (u32)code32flat_start;
 }
 
 // Copy a rom to its permanent location below 1MiB

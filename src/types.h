@@ -33,6 +33,9 @@ union u64_u32_u {
 
 #define UNIQSEC __FILE__ "." __stringify(__LINE__)
 
+extern void __force_link_error__only_in_32bit_flat() __attribute__ ((noreturn));
+extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
+
 #define __ASM(code) asm(".section .text.asm." UNIQSEC "\n\t" code)
 
 #if MODE16 == 1
@@ -40,6 +43,8 @@ union u64_u32_u {
 # define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit flat code chunk.
 # define VISIBLE32FLAT
+// Notes a function as externally visible in the 32bit segmented code chunk.
+# define VISIBLE32SEG
 // Designate a variable as (only) visible to 16bit code.
 # define VAR16 __section(".data16." UNIQSEC)
 // Designate a variable as visible to 16bit, 32bit, and assembler code.
@@ -48,6 +53,8 @@ union u64_u32_u {
 # define VAR16EXPORT __section(".data16.export." UNIQSEC) __VISIBLE
 // Designate a variable at a specific 16bit address
 # define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
+// Designate a variable as (only) visible to 32bit segmented code.
+# define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 // Designate a 32bit variable also available in 16bit "big real" mode.
 # define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
 // Designate top-level assembler as 16bit only.
@@ -55,20 +62,34 @@ union u64_u32_u {
 // Designate top-level assembler as 32bit flat only.
 # define ASM32FLAT(code)
 // Compile time check for a given mode.
-extern void __force_link_error__only_in_32bit_flat() __attribute__ ((noreturn));
 #define ASSERT16() do { } while (0)
 #define ASSERT32FLAT() __force_link_error__only_in_32bit_flat()
-#else
+#elif MODESEGMENT == 1
 # define VISIBLE16
-# define VISIBLE32FLAT __VISIBLE
+# define VISIBLE32FLAT
+# define VISIBLE32SEG __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
 # define VAR16VISIBLE VAR16 __VISIBLE __weak
 # define VAR16EXPORT VAR16VISIBLE
 # define VAR16FIXED(addr) VAR16VISIBLE
+# define VAR32SEG __section(".data32seg." UNIQSEC)
+# define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
+# define ASM16(code)
+# define ASM32FLAT(code)
+#define ASSERT16() __force_link_error__only_in_16bit()
+#define ASSERT32FLAT() __force_link_error__only_in_32bit_flat()
+#else
+# define VISIBLE16
+# define VISIBLE32FLAT __VISIBLE
+# define VISIBLE32SEG
+# define VAR16 __section(".discard.var16." UNIQSEC)
+# define VAR16VISIBLE VAR16 __VISIBLE __weak
+# define VAR16EXPORT VAR16VISIBLE
+# define VAR16FIXED(addr) VAR16VISIBLE
+# define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 # define VAR32FLATVISIBLE __VISIBLE
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)
-extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
 #define ASSERT16() __force_link_error__only_in_16bit()
 #define ASSERT32FLAT() do { } while (0)
 #endif
@@ -100,6 +121,7 @@ extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
 
 #define noinline __attribute__((noinline))
 #define __always_inline inline __attribute__((always_inline))
+#define __attribute_const __attribute__((__const__))
 
 #define __stringify_1(x)        #x
 #define __stringify(x)          __stringify_1(x)

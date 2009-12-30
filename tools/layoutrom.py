@@ -151,7 +151,6 @@ def doLayout16(sections, outname):
     output.write(COMMONHEADER + """
         data16_start = 0x%x ;
         .data16 data16_start : {
-                freespace_end = . ;
 """ % data16_start)
     outSections(output, datasections)
     output.write("code16_rodata = . ;\n")
@@ -199,23 +198,53 @@ def getSectionsPrefix(sections, prefix):
             out.append((size, align, name))
     return out
 
-# Layout the 32bit code.  This places the code as high as possible.
-def doLayout32(sections, outname, start16):
-    start16 += 0xf0000
+# Layout the 32bit segmented code.  This places the code as high as possible.
+def doLayout32seg(sections, outname, endat):
+    # Find sections to output
+    textsections = getSectionsPrefix(sections, '.text.')
+    rodatasections = (getSectionsPrefix(sections, '.rodata.str1.1')
+                      + getSectionsPrefix(sections, '.rodata.__func__.'))
+    datasections = getSectionsPrefix(sections, '.data32seg.')
+    startat = getSectionsStart(
+        textsections + rodatasections + datasections, endat)
+
+    # Write sections
+    output = open(outname, 'wb')
+    output.write(COMMONHEADER + """
+        code32seg_start = 0x%x ;
+        .text32seg code32seg_start : {
+                freespace_end = . ;
+""" % startat)
+
+    outSections(output, textsections)
+    output.write("code32seg_rodata = . ;\n")
+    outSections(output, rodatasections)
+    outSections(output, datasections)
+
+    output.write("""
+                code32seg_end = ABSOLUTE(.) ;
+        }
+        /DISCARD/ : { *(.text*) *(.rodata*) *(.data*) *(.bss*) *(COMMON) }
+""" + COMMONTRAILER)
+    return startat
+
+# Layout the 32bit flat code.  This places the code as high as possible.
+def doLayout32flat(sections, outname, endat):
+    endat += 0xf0000
     # Find sections to output
     textsections = getSectionsPrefix(sections, '.text.')
     rodatasections = getSectionsPrefix(sections, '.rodata')
     datasections = getSectionsPrefix(sections, '.data.')
     bsssections = getSectionsPrefix(sections, '.bss.')
-    start32 = getSectionsStart(
-        textsections + rodatasections + datasections + bsssections, start16, 512)
+    startat = getSectionsStart(
+        textsections + rodatasections + datasections + bsssections, endat, 512)
 
     # Write sections
     output = open(outname, 'wb')
     output.write(COMMONHEADER + """
-        .text32 0x%x : {
-                code32_start = ABSOLUTE(.) ;
-""" % start32)
+        code32flat_start = 0x%x ;
+        .text32flat code32flat_start : {
+""" % startat)
 
     outSections(output, textsections)
     output.write("code32_rodata = . ;\n")
@@ -225,63 +254,70 @@ def doLayout32(sections, outname, start16):
 
     output.write("""
                 freespace_start = . ;
-                code32_end = ABSOLUTE(.) ;
+                code32flat_end = ABSOLUTE(.) ;
         }
 """ + COMMONTRAILER)
+    return startat
 
 
 ######################################################################
 # Section garbage collection
 ######################################################################
 
+def getSectionsList(info, names):
+    out = []
+    for i in info[0]:
+        size, align, section = i
+        if section not in names:
+#            print "gc", section
+            continue
+        out.append(i)
+    return out
+
 # Note required section, and recursively set all referenced sections
 # as required.
-def keepsection(name, pri, alt):
-    if name in pri[3]:
+def keepsection(name, infos, pos=0):
+    if name in infos[pos][3]:
         # Already kept - nothing to do.
         return
-    pri[3].append(name)
-    relocs = pri[2].get(name)
+    infos[pos][3].append(name)
+    relocs = infos[pos][2].get(name)
     if relocs is None:
         return
     # Keep all sections that this section points to
     for symbol in relocs:
-        addr, section = pri[1].get(symbol, (None, None))
+        addr, section = infos[pos][1].get(symbol, (None, None))
         if (section is not None and '*' not in section
             and section[:9] != '.discard.'):
-            keepsection(section, pri, alt)
+            keepsection(section, infos, pos)
             continue
         # Not in primary sections - it may be a cross 16/32 reference
-        addr, section = alt[1].get(symbol, (None, None))
+        newpos = (pos+1)%3
+        addr, section = infos[newpos][1].get(symbol, (None, None))
         if section is not None and '*' not in section:
-            keepsection(section, alt, pri)
+            keepsection(section, infos, newpos)
+            continue
+        newpos = (pos+2)%3
+        addr, section = infos[(pos+2)%3][1].get(symbol, (None, None))
+        if section is not None and '*' not in section:
+            keepsection(section, infos, newpos)
 
 # Determine which sections are actually referenced and need to be
 # placed into the output file.
-def gc(info16, info32):
-    # pri = (sections, symbols, relocs, keep sections)
-    pri = (info16[0], info16[1], info16[2], [])
-    alt = (info32[0], info32[1], info32[2], [])
+def gc(info16, info32seg, info32flat):
+    # infos = ((sections, symbols, relocs, keep sections), ...)
+    infos = ((info16[0], info16[1], info16[2], []),
+             (info32seg[0], info32seg[1], info32seg[2], []),
+             (info32flat[0], info32flat[1], info32flat[2], []))
     # Start by keeping sections that are globally visible.
     for size, align, section in info16[0]:
         if section[:11] == '.fixedaddr.' or '.export.' in section:
-            keepsection(section, pri, alt)
+            keepsection(section, infos)
     # Return sections found.
-    sections16 = []
-    for info in info16[0]:
-        size, align, section = info
-        if section not in pri[3]:
-#            print "gc16", section
-            continue
-        sections16.append(info)
-    sections32 = []
-    for info in info32[0]:
-        size, align, section = info
-        if section not in alt[3]:
-#            print "gc32", section
-            continue
-        sections32.append(info)
-    return sections16, sections32
+    sections16 = getSectionsList(info16, infos[0][3])
+    sections32seg = getSectionsList(info32seg, infos[1][3])
+    sections32flat = getSectionsList(info32flat, infos[2][3])
+    return sections16, sections32seg, sections32flat
 
 
 ######################################################################
@@ -340,18 +376,21 @@ def parseObjDump(file):
 
 def main():
     # Get output name
-    in16, in32, out16, out32 = sys.argv[1:]
+    in16, in32seg, in32flat, out16, out32seg, out32flat = sys.argv[1:]
 
     infile16 = open(in16, 'rb')
-    infile32 = open(in32, 'rb')
+    infile32seg = open(in32seg, 'rb')
+    infile32flat = open(in32flat, 'rb')
 
     info16 = parseObjDump(infile16)
-    info32 = parseObjDump(infile32)
+    info32seg = parseObjDump(infile32seg)
+    info32flat = parseObjDump(infile32flat)
 
-    sections16, sections32 = gc(info16, info32)
+    sections16, sections32seg, sections32flat = gc(info16, info32seg, info32flat)
 
     start16 = doLayout16(sections16, out16)
-    doLayout32(sections32, out32, start16)
+    start32seg = doLayout32seg(sections32seg, out32seg, start16)
+    doLayout32flat(sections32flat, out32flat, start32seg)
 
 if __name__ == '__main__':
     main()

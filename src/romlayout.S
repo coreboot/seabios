@@ -374,6 +374,61 @@ apm32protected_entry:
         popfw
         lretl
 
+// PCI-BIOS 32bit entry point
+        DECLFUNC pcibios32_entry
+pcibios32_entry:
+        pushfl
+        pushl %gs               // Backup %gs
+        cli
+        cld
+        pushl %eax              // Save registers (matches struct bregs)
+        pushl %ecx
+        pushl %edx
+        pushl %ebx
+        pushl %ebp
+        pushl %esi
+        pushl %edi
+        pushw %es
+        pushw %ds
+        movl %ds, %eax          // Move %ds to %gs
+        movl %eax, %gs
+        movl %ss, %eax          // Move %ss to %ds
+        movl %eax, %ds
+        movl %esp, %eax         // First arg is pointer to struct bregs
+        calll handle_pcibios32
+        popw %ds                // Restore registers (from struct bregs)
+        popw %es
+        popl %edi
+        popl %esi
+        popl %ebp
+        popl %ebx
+        popl %edx
+        popl %ecx
+        popl %eax
+        popl %gs
+        popfl
+        lretl
+
+// BIOS32 support
+        EXPORTFUNC bios32_entry
+bios32_entry:
+        pushfl
+#if CONFIG_PCIBIOS
+        // Check for PCI-BIOS request
+        cmpl $0x49435024, %eax // $PCI
+        jne 1f
+        movl $BUILD_BIOS_ADDR, %ebx
+        movl $BUILD_BIOS_SIZE, %ecx
+        movl $pcibios32_entry, %edx
+        xorb %al, %al
+        jmp 2f
+#endif
+        // Unknown request
+1:      movb $0x80, %al
+        // Return to caller
+2:      popfl
+        lretl
+
 // 32bit elf entry point
         EXPORTFUNC post32
 post32:

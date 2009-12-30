@@ -189,6 +189,7 @@ post()
     smm_init();
 
     // Setup interfaces that option roms may need
+    bios32_setup();
     pmm_setup();
     pnp_setup();
     kbd_setup();

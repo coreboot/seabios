@@ -12,6 +12,10 @@
 #include "biosvar.h" // GET_EBDA
 #include "pci_regs.h" // PCI_VENDOR_ID
 
+// romlayout.S
+extern void bios32_entry();
+extern void pcibios32_entry();
+
 #define RET_FUNC_NOT_SUPPORTED 0x81
 #define RET_BAD_VENDOR_ID      0x83
 #define RET_DEVICE_NOT_FOUND   0x86
@@ -30,8 +34,7 @@ handle_1ab101(struct bregs *regs)
     regs->bx = 0x0210; // PCI version 2.10
     regs->cl = pci_bdf_to_bus(max - 1);
     regs->edx = 0x20494350; // "PCI "
-    // XXX - bochs bios code sets edi to point to 32bit code - but no
-    // reference to this in spec.
+    regs->edi = (u32)pcibios32_entry + BUILD_BIOS_ADDR;
     set_code_success(regs);
 }
 
@@ -154,7 +157,8 @@ handle_1ab10e(struct bregs *regs)
 
     // Memcpy pir table slots to dest buffer.
     memcpy_far(buf_seg, buf_far
-               , get_global_seg(), pirtable_g->slots
+               , get_global_seg()
+               , (void*)(pirtable_g->slots) + get_global_offset()
                , pirsize);
 
     // XXX - bochs bios sets bx to (1 << 9) | (1 << 11)
@@ -191,4 +195,42 @@ handle_1ab1(struct bregs *regs)
     case 0x0e: handle_1ab10e(regs); break;
     default:   handle_1ab1XX(regs); break;
     }
+}
+
+
+/****************************************************************
+ * 32bit interface
+ ****************************************************************/
+
+#if MODE16 == 0 && MODESEGMENT == 1
+// Entry point for 32bit pci bios functions.
+void VISIBLE32SEG
+handle_pcibios32(struct bregs *regs)
+{
+    debug_enter(regs, DEBUG_HDL_pcibios32);
+    handle_1ab1(regs);
+}
+#endif
+
+struct bios32_s {
+    u32 signature;
+    u32 entry;
+    u8 version;
+    u8 length;
+    u8 checksum;
+    u8 reserved[5];
+} PACKED;
+
+struct bios32_s BIOS32HEADER __aligned(16) VAR16EXPORT = {
+    .signature = 0x5f32335f, // _32_
+    .length = sizeof(BIOS32HEADER) / 16,
+};
+
+void
+bios32_setup(void)
+{
+    dprintf(3, "init bios32\n");
+
+    BIOS32HEADER.entry = (u32)bios32_entry;
+    BIOS32HEADER.checksum -= checksum(&BIOS32HEADER, sizeof(BIOS32HEADER));
 }

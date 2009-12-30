@@ -268,6 +268,7 @@ void VISIBLE16 handle_1553(struct bregs *regs);
 
 // pcibios.c
 void handle_1ab1(struct bregs *regs);
+void bios32_setup(void);
 
 // shadow.c
 void make_bios_writable();

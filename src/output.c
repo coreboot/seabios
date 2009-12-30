@@ -87,8 +87,10 @@ putc_debug(struct putcinfo *action, char c)
 // In segmented mode just need a dummy variable (putc_debug is always
 // used anyway), and in 32bit flat mode need a pointer to the 32bit
 // instance of putc_debug().
-#if MODESEGMENT
+#if MODE16
 static struct putcinfo debuginfo VAR16;
+#elif MODESEGMENT
+static struct putcinfo debuginfo VAR32SEG;
 #else
 static struct putcinfo debuginfo = { putc_debug };
 #endif

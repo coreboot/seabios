@@ -11,12 +11,15 @@ OUTPUT_ARCH("i386")
 ENTRY(post32)
 SECTIONS
 {
-        .text code32_start : {
-                *(.text32)
+        .text code32flat_start : {
+                *(.text32flat)
 
-                . = data16_start + BUILD_BIOS_ADDR - code32_start ;
+                . = code32seg_start + BUILD_BIOS_ADDR - code32flat_start ;
+                *(.text32seg)
+
+                . = data16_start + BUILD_BIOS_ADDR - code32flat_start ;
                 *(.data16)
-                . = text16_start + BUILD_BIOS_ADDR - code32_start ;
+                . = text16_start + BUILD_BIOS_ADDR - code32flat_start ;
                 *(.text16)
                 final_text16_end = . ;
                 }
