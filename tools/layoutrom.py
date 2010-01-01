@@ -274,6 +274,14 @@ def getSectionsList(info, names):
         out.append(i)
     return out
 
+# Find and keep the section associated with a symbol (if available).
+def keepsymbol(symbol, infos, pos):
+    addr, section = infos[pos][1].get(symbol, (None, None))
+    if section is None or '*' in section or section[:9] == '.discard.':
+        return -1
+    keepsection(section, infos, pos)
+    return 0
+
 # Note required section, and recursively set all referenced sections
 # as required.
 def keepsection(name, infos, pos=0):
@@ -286,21 +294,16 @@ def keepsection(name, infos, pos=0):
         return
     # Keep all sections that this section points to
     for symbol in relocs:
-        addr, section = infos[pos][1].get(symbol, (None, None))
-        if (section is not None and '*' not in section
-            and section[:9] != '.discard.'):
-            keepsection(section, infos, pos)
+        ret = keepsymbol(symbol, infos, pos)
+        if not ret:
             continue
         # Not in primary sections - it may be a cross 16/32 reference
-        newpos = (pos+1)%3
-        addr, section = infos[newpos][1].get(symbol, (None, None))
-        if section is not None and '*' not in section:
-            keepsection(section, infos, newpos)
+        ret = keepsymbol(symbol, infos, (pos+1)%3)
+        if not ret:
             continue
-        newpos = (pos+2)%3
-        addr, section = infos[(pos+2)%3][1].get(symbol, (None, None))
-        if section is not None and '*' not in section:
-            keepsection(section, infos, newpos)
+        ret = keepsymbol(symbol, infos, (pos+2)%3)
+        if not ret:
+            continue
 
 # Determine which sections are actually referenced and need to be
 # placed into the output file.
