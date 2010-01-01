@@ -28,7 +28,9 @@ _rom_header_size:
 _rom_header_entry:
         jmp _optionrom_entry
 _rom_header_checksum:
-        .space 22
+        .byte 0
+_rom_header_other:
+        .space 21
 
 
 /****************************************************************

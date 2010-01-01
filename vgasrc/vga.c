@@ -833,15 +833,15 @@ handle_101130(struct bregs *regs)
 {
     switch (regs->bh) {
     case 0x00: {
-        u32 segoff = GET_IVT(0x1f).segoff;
-        regs->es = segoff >> 16;
-        regs->bp = segoff;
+        struct segoff_s so = GET_IVT(0x1f);
+        regs->es = so.seg;
+        regs->bp = so.offset;
         break;
     }
     case 0x01: {
-        u32 segoff = GET_IVT(0x43).segoff;
-        regs->es = segoff >> 16;
-        regs->bp = segoff;
+        struct segoff_s so = GET_IVT(0x43);
+        regs->es = so.seg;
+        regs->bp = so.offset;
         break;
     }
     case 0x02:
