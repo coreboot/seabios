@@ -189,7 +189,7 @@ handle_1553XX(struct bregs *regs)
     set_unimplemented(regs);
 }
 
-void VISIBLE16
+void
 handle_1553(struct bregs *regs)
 {
     if (! CONFIG_APMBIOS) {
@@ -216,3 +216,19 @@ handle_1553(struct bregs *regs)
     default:   handle_1553XX(regs); break;
     }
 }
+
+void VISIBLE16
+handle_apm16(struct bregs *regs)
+{
+    debug_enter(regs, DEBUG_HDL_apm);
+    handle_1553(regs);
+}
+
+#if MODE16 == 0 && MODESEGMENT == 1
+void VISIBLE32SEG
+handle_apm32(struct bregs *regs)
+{
+    debug_enter(regs, DEBUG_HDL_apm);
+    handle_1553(regs);
+}
+#endif

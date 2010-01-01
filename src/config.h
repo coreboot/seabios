@@ -193,6 +193,7 @@
 #define DEBUG_HDL_pnp 1
 #define DEBUG_HDL_pmm 1
 #define DEBUG_HDL_pcibios32 9
+#define DEBUG_HDL_apm 9
 
 #define DEBUG_unimplemented 2
 #define DEBUG_invalid 3

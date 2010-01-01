@@ -264,7 +264,7 @@ void useRTC();
 void releaseRTC();
 
 // apm.c
-void VISIBLE16 handle_1553(struct bregs *regs);
+void handle_1553(struct bregs *regs);
 
 // pcibios.c
 void handle_1ab1(struct bregs *regs);

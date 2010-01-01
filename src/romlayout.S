@@ -348,7 +348,7 @@ entry_pnp_real:
 apm16protected_entry:
         pushfw          // save flags
         pushl %eax      // dummy
-        ENTRY_ARG handle_1553
+        ENTRY_ARG handle_apm16
         addw $4, %sp    // pop dummy
         popfw           // restore flags
         lretw
@@ -356,55 +356,24 @@ apm16protected_entry:
         .code32
         DECLFUNC apm32protected_entry
 apm32protected_entry:
-        pushfw
-        pushw %cs       // Setup for long jump to 16bit mode
-        pushw $1f
-        addw $8, 2(%esp)
-        ljmpw *(%esp)
-        .code16gcc
-1:
-        ENTRY_ARG_ESP handle_1553
-
-        movw $2f,(%esp) // Setup for long jump back to 32bit mode
-        subw $8, 2(%esp)
-        ljmpw *(%esp)
-        .code32
-2:
-        addl $4, %esp   // pop call address
-        popfw
+        pushfl
+        pushl %gs
+        pushl %cs               // Move second descriptor after %cs to %gs
+        addl $16, (%esp)
+        popl %gs
+        ENTRY_ARG_ESP handle_apm32
+        popl %gs
+        popfl
         lretl
 
 // PCI-BIOS 32bit entry point
         DECLFUNC pcibios32_entry
 pcibios32_entry:
         pushfl
-        pushl %gs               // Backup %gs
-        cli
-        cld
-        pushl %eax              // Save registers (matches struct bregs)
-        pushl %ecx
-        pushl %edx
-        pushl %ebx
-        pushl %ebp
-        pushl %esi
-        pushl %edi
-        pushw %es
-        pushw %ds
-        movl %ds, %eax          // Move %ds to %gs
-        movl %eax, %gs
-        movl %ss, %eax          // Move %ss to %ds
-        movl %eax, %ds
-        movl %esp, %eax         // First arg is pointer to struct bregs
-        calll handle_pcibios32
-        popw %ds                // Restore registers (from struct bregs)
-        popw %es
-        popl %edi
-        popl %esi
-        popl %ebp
-        popl %ebx
-        popl %edx
-        popl %ecx
-        popl %eax
+        pushl %gs               // Backup %gs and set %gs=%ds
+        pushl %ds
+        popl %gs
+        ENTRY_ARG_ESP handle_pcibios32
         popl %gs
         popfl
         lretl
