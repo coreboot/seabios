@@ -33,8 +33,9 @@ union u64_u32_u {
 
 #define UNIQSEC __FILE__ "." __stringify(__LINE__)
 
-extern void __force_link_error__only_in_32bit_flat() __attribute__ ((noreturn));
-extern void __force_link_error__only_in_16bit() __attribute__ ((noreturn));
+#define __noreturn __attribute__((noreturn))
+extern void __force_link_error__only_in_32bit_flat() __noreturn;
+extern void __force_link_error__only_in_16bit() __noreturn;
 
 #define __ASM(code) asm(".section .text.asm." UNIQSEC "\n\t" code)
 

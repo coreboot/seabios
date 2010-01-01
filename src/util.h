@@ -200,8 +200,7 @@ void check_preempt();
 // output.c
 void debug_serial_setup();
 void panic(const char *fmt, ...)
-    __attribute__ ((format (printf, 1, 2)))
-    __attribute__ ((noreturn));
+    __attribute__ ((format (printf, 1, 2))) __noreturn;
 void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void __dprintf(const char *fmt, ...)
@@ -360,7 +359,7 @@ static inline void free(void *data) {
 void mtrr_setup(void);
 
 // romlayout.S
-void reset_vector() __attribute__ ((noreturn));
+void reset_vector() __noreturn;
 
 // misc.c
 extern u8 BiosChecksum;
