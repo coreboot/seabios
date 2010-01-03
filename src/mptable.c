@@ -110,8 +110,8 @@ mptable_init(void)
         int irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
         if (pin == 0)
             continue;
-        if (dev != pci_bdf_to_dev(bdf)) {
-            dev = pci_bdf_to_dev(bdf);
+        if (dev != pci_bdf_to_busdev(bdf)) {
+            dev = pci_bdf_to_busdev(bdf);
             pinmask = 0;
         }
         if (pinmask & (1 << pin)) /* pin was seen already */
@@ -123,7 +123,7 @@ mptable_init(void)
         intsrc->irqtype = 0; /* INT */
         intsrc->irqflag = 1; /* active high */
         intsrc->srcbus = pci_bdf_to_bus(bdf); /* PCI bus */
-        intsrc->srcbusirq = (dev << 2) | (pin - 1);
+        intsrc->srcbusirq = (pci_bdf_to_dev(bdf) << 2) | (pin - 1);
         intsrc->dstapic = ioapic_id;
         intsrc->dstirq = irq;
         intsrc++;

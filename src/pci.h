@@ -9,6 +9,9 @@ static inline u8 pci_bdf_to_bus(u16 bdf) {
 static inline u8 pci_bdf_to_devfn(u16 bdf) {
     return bdf & 0xff;
 }
+static inline u16 pci_bdf_to_busdev(u16 bdf) {
+    return bdf & ~0x07;
+}
 static inline u8 pci_bdf_to_dev(u16 bdf) {
     return (bdf >> 3) & 0x1f;
 }
