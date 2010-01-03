@@ -55,6 +55,7 @@ void func1(struct ts *r);
 struct s1_s { int v; } g1;
 void __attribute__((externally_visible)) func2() {
     struct s1_s *l1 = &g1;
+    l1->v=0;
 }
 EOF
 cat - > $TMPFILE2 <<EOF
