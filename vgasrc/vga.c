@@ -669,7 +669,7 @@ handle_101007(struct bregs *regs)
 static void
 handle_101008(struct bregs *regs)
 {
-    regs->bh = vgahw_get_overscan_border_color(regs);
+    regs->bh = vgahw_get_overscan_border_color();
 }
 
 static void
