@@ -66,7 +66,7 @@ ASM16(
     );
 
 void
-check_irqs()
+check_irqs(void)
 {
     if (MODE16) {
         asm volatile(
@@ -288,7 +288,7 @@ biosusleep(u32 usec)
 
 // See if a keystroke is pending in the keyboard buffer.
 static int
-check_for_keystroke()
+check_for_keystroke(void)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
@@ -300,7 +300,7 @@ check_for_keystroke()
 
 // Return a keystroke - waiting forever if necessary.
 static int
-get_raw_keystroke()
+get_raw_keystroke(void)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));

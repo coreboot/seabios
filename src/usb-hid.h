@@ -5,8 +5,8 @@
 struct usb_interface_descriptor;
 int usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface
                       , int imax);
-void usb_keyboard_setup();
-void usb_check_key();
+void usb_keyboard_setup(void);
+void usb_check_key(void);
 
 
 /****************************************************************

@@ -232,11 +232,11 @@ struct extended_bios_data_area_s {
     FLATPTR_TO_SEG(BUILD_LOWRAM_END - EBDA_SIZE_START*1024)
 
 // Accessor functions
-static inline u16 get_ebda_seg() {
+static inline u16 get_ebda_seg(void) {
     return GET_BDA(ebda_seg);
 }
 static inline struct extended_bios_data_area_s *
-get_ebda_ptr()
+get_ebda_ptr(void)
 {
     ASSERT32FLAT();
     return MAKE_FLATPTR(get_ebda_seg(), 0);
@@ -279,7 +279,7 @@ static inline u32 __attribute_const get_global_offset(void) {
     return 0;
 }
 #endif
-static inline u16 get_global_seg() {
+static inline u16 get_global_seg(void) {
     return GET_SEG(GLOBAL_SEGREG);
 }
 #define GET_GLOBAL(var)                                                 \

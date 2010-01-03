@@ -17,7 +17,7 @@ describe_ramdisk(struct drive_s *drive_g)
 }
 
 void
-ramdisk_setup()
+ramdisk_setup(void)
 {
     if (!CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
         return;

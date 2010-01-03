@@ -101,7 +101,7 @@ static inline u32 __fls(u32 word)
     return word;
 }
 
-static inline u32 getesp() {
+static inline u32 getesp(void) {
     u32 esp;
     asm("movl %%esp, %0" : "=rm"(esp));
     return esp;
@@ -164,7 +164,7 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
-void check_irqs();
+void check_irqs(void);
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
 u8 checksum(void *buf, u32 len);
 size_t strlen(const char *s);
@@ -188,17 +188,17 @@ int get_keystroke(int msec);
 // stacks.c
 inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
 extern struct thread_info MainThread;
-void thread_setup();
-struct thread_info *getCurThread();
-void yield();
+void thread_setup(void);
+struct thread_info *getCurThread(void);
+void yield(void);
 void run_thread(void (*func)(void*), void *data);
-void wait_threads();
-void start_preempt();
-void finish_preempt();
-void check_preempt();
+void wait_threads(void);
+void start_preempt(void);
+void finish_preempt(void);
+void check_preempt(void);
 
 // output.c
-void debug_serial_setup();
+void debug_serial_setup(void);
 void panic(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2))) __noreturn;
 void printf(const char *fmt, ...)
@@ -227,28 +227,28 @@ void __debug_isr(const char *fname);
 void hexdump(const void *d, int len);
 
 // kbd.c
-void kbd_setup();
+void kbd_setup(void);
 void handle_15c2(struct bregs *regs);
 void process_key(u8 key);
 
 // mouse.c
-void mouse_setup();
+void mouse_setup(void);
 void process_mouse(u8 data);
 
 // system.c
 extern u32 RamSize;
 extern u64 RamSizeOver4G;
-void mathcp_setup();
+void mathcp_setup(void);
 
 // serial.c
-void serial_setup();
-void lpt_setup();
+void serial_setup(void);
+void lpt_setup(void);
 
 // clock.c
 static inline int check_time(u64 end) {
     return (s64)(rdtscll() - end) > 0;
 }
-void timer_setup();
+void timer_setup(void);
 void ndelay(u32 count);
 void udelay(u32 count);
 void mdelay(u32 count);
@@ -259,8 +259,8 @@ u64 calc_future_tsc(u32 msecs);
 u64 calc_future_tsc_usec(u32 usecs);
 void handle_1583(struct bregs *regs);
 void handle_1586(struct bregs *regs);
-void useRTC();
-void releaseRTC();
+void useRTC(void);
+void releaseRTC(void);
 
 // apm.c
 void handle_1553(struct bregs *regs);
@@ -270,14 +270,14 @@ void handle_1ab1(struct bregs *regs);
 void bios32_setup(void);
 
 // shadow.c
-void make_bios_writable();
-void make_bios_readonly();
+void make_bios_writable(void);
+void make_bios_readonly(void);
 
 // pciinit.c
 void pci_setup(void);
 
 // smm.c
-void smm_init();
+void smm_init(void);
 
 // smp.c
 extern u32 CountCPUs;
@@ -295,37 +295,37 @@ int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen);
 int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(struct cbfs_file *file);
 
-void coreboot_copy_biostable();
-void coreboot_setup();
+void coreboot_copy_biostable(void);
+void coreboot_setup(void);
 
 // vgahooks.c
 extern int VGAbdf;
-void handle_155f();
+void handle_155f(struct bregs *regs);
 void vgahook_setup(const char *vendor, const char *part);
 
 // optionroms.c
 void call_bcv(u16 seg, u16 ip);
-void optionrom_setup();
-void vga_setup();
-void s3_resume_vga_init();
+void optionrom_setup(void);
+void vga_setup(void);
+void s3_resume_vga_init(void);
 extern u32 RomEnd;
 
 // resume.c
-void init_dma();
+void init_dma(void);
 
 // pnpbios.c
 #define PNP_SIGNATURE 0x506e5024 // $PnP
-u16 get_pnp_offset();
-void pnp_setup();
+u16 get_pnp_offset(void);
+void pnp_setup(void);
 
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
-void malloc_setup();
-void malloc_finalize();
+void malloc_setup(void);
+void malloc_finalize(void);
 void *pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align);
 int pmm_free(void *data);
-void pmm_setup();
-void pmm_finalize();
+void pmm_setup(void);
+void pmm_finalize(void);
 #define PMM_DEFAULT_HANDLE 0xFFFFFFFF
 // Minimum alignment of malloc'd memory
 #define MALLOC_MIN_ALIGN 16
@@ -359,7 +359,7 @@ static inline void free(void *data) {
 void mtrr_setup(void);
 
 // romlayout.S
-void reset_vector() __noreturn;
+void reset_vector(void) __noreturn;
 
 // misc.c
 extern u8 BiosChecksum;

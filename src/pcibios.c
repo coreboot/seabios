@@ -13,8 +13,8 @@
 #include "pci_regs.h" // PCI_VENDOR_ID
 
 // romlayout.S
-extern void bios32_entry();
-extern void pcibios32_entry();
+extern void bios32_entry(void);
+extern void pcibios32_entry(void);
 
 #define RET_FUNC_NOT_SUPPORTED 0x81
 #define RET_BAD_VENDOR_ID      0x83

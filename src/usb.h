@@ -32,7 +32,7 @@ struct usb_pipe {
 #define USB_MAXADDR 127
 
 // usb.c
-void usb_setup();
+void usb_setup(void);
 int configure_usb_device(struct usb_s *cntl, int lowspeed);
 struct usb_ctrlrequest;
 int send_default_control(u32 endp, const struct usb_ctrlrequest *req

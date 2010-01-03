@@ -1330,7 +1330,7 @@ handle_10(struct bregs *regs)
  ****************************************************************/
 
 static void
-init_bios_area()
+init_bios_area(void)
 {
     // init detected hardware BIOS Area
     // set 80x25 color (not clear from RBIL but usual)

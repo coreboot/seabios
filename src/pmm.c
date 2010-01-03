@@ -150,7 +150,7 @@ zone_free(void *data, u32 olddata)
 
 // Report the status of all the zones.
 static void
-dumpZones()
+dumpZones(void)
 {
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {
@@ -282,7 +282,7 @@ pmm_find(u32 handle)
 }
 
 void
-malloc_setup()
+malloc_setup(void)
 {
     ASSERT32FLAT();
     dprintf(3, "malloc setup\n");
@@ -327,7 +327,7 @@ malloc_setup()
 }
 
 void
-malloc_finalize()
+malloc_finalize(void)
 {
     dprintf(3, "malloc finalize\n");
 
@@ -482,10 +482,10 @@ handle_pmm(u16 *args)
 }
 
 // romlayout.S
-extern void entry_pmm();
+extern void entry_pmm(void);
 
 void
-pmm_setup()
+pmm_setup(void)
 {
     if (! CONFIG_PMM)
         return;
@@ -498,7 +498,7 @@ pmm_setup()
 }
 
 void
-pmm_finalize()
+pmm_finalize(void)
 {
     if (! CONFIG_PMM)
         return;

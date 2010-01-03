@@ -4,7 +4,7 @@
 #include "types.h" // u32
 
 void acpi_bios_init(void);
-u32 find_resume_vector();
+u32 find_resume_vector(void);
 
 #define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
 

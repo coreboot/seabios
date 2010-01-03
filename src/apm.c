@@ -53,8 +53,8 @@ handle_155301(struct bregs *regs)
 }
 
 // Assembler entry points defined in romlayout.S
-extern void apm16protected_entry();
-extern void apm32protected_entry();
+extern void apm16protected_entry(void);
+extern void apm32protected_entry(void);
 
 // APM 16 bit protected mode interface connect
 static void

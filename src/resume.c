@@ -13,7 +13,7 @@
 
 // Reset DMA controller
 void
-init_dma()
+init_dma(void)
 {
     // first reset the DMA controllers
     outb(0, PORT_DMA1_MASTER_CLEAR);
@@ -95,7 +95,7 @@ handle_resume(u8 status)
 
 #if MODESEGMENT == 0
 void VISIBLE32FLAT
-s3_resume()
+s3_resume(void)
 {
     if (!CONFIG_S3_RESUME)
         panic("S3 resume support not compiled in.\n");

@@ -852,7 +852,7 @@ handle_13(struct bregs *regs)
 
 // record completion in BIOS task complete flag
 void VISIBLE16
-handle_76()
+handle_76(void)
 {
     debug_isr(DEBUG_ISR_76);
     SET_BDA(disk_interrupt_flag, 0xff);

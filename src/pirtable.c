@@ -92,7 +92,7 @@ struct pir_table PIR_TABLE __aligned(16) VAR16EXPORT = {
 #endif // CONFIG_PIRTABLE && !CONFIG_COREBOOT
 
 void
-create_pirtable()
+create_pirtable(void)
 {
     if (! CONFIG_PIRTABLE)
         return;

@@ -8,7 +8,7 @@
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 
-static inline u32 getcr0() {
+static inline u32 getcr0(void) {
     u32 cr0;
     asm("movl %%cr0, %0" : "=r"(cr0));
     return cr0;
@@ -126,7 +126,7 @@ struct thread_info VAR16VISIBLE MainThread;
 int VAR16VISIBLE CanPreempt;
 
 void
-thread_setup()
+thread_setup(void)
 {
     MainThread.next = &MainThread;
     MainThread.stackpos = NULL;
@@ -135,7 +135,7 @@ thread_setup()
 
 // Return the 'struct thread_info' for the currently running thread.
 struct thread_info *
-getCurThread()
+getCurThread(void)
 {
     u32 esp = getesp();
     if (esp <= BUILD_STACK_ADDR)
@@ -166,7 +166,7 @@ switch_next(struct thread_info *cur)
 
 // Briefly permit irqs to occur.
 void
-yield()
+yield(void)
 {
     if (MODESEGMENT || !CONFIG_THREADS) {
         // Just directly check irqs.
@@ -239,7 +239,7 @@ fail:
 
 // Wait for all threads (other than the main thread) to complete.
 void
-wait_threads()
+wait_threads(void)
 {
     ASSERT32FLAT();
     if (! CONFIG_THREADS)
@@ -257,7 +257,7 @@ static u32 PreemptCount;
 
 // Turn on RTC irqs and arrange for them to check the 32bit threads.
 void
-start_preempt()
+start_preempt(void)
 {
     if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS)
         return;
@@ -268,7 +268,7 @@ start_preempt()
 
 // Turn off RTC irqs / stop checking for thread execution.
 void
-finish_preempt()
+finish_preempt(void)
 {
     if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS)
         return;
@@ -277,11 +277,11 @@ finish_preempt()
     dprintf(1, "Done preempt - %d checks\n", PreemptCount);
 }
 
-extern void yield_preempt();
+extern void yield_preempt(void);
 #if MODESEGMENT == 0
 // Try to execute 32bit threads.
 void VISIBLE32FLAT
-yield_preempt()
+yield_preempt(void)
 {
     PreemptCount++;
     switch_next(&MainThread);
@@ -290,7 +290,7 @@ yield_preempt()
 
 // 16bit code that checks if threads are pending and executes them if so.
 void
-check_preempt()
+check_preempt(void)
 {
     if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS
         || !GET_GLOBAL(CanPreempt)

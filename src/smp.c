@@ -34,7 +34,7 @@ wrmsr_smp(u32 index, u64 val)
 
 u32 CountCPUs VAR16VISIBLE;
 u32 MaxCountCPUs VAR16VISIBLE;
-extern void smp_ap_boot_code();
+extern void smp_ap_boot_code(void);
 ASM16(
     "  .global smp_ap_boot_code\n"
     "smp_ap_boot_code:\n"

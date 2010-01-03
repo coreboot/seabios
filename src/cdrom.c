@@ -107,7 +107,7 @@ process_cdemu_op(struct disk_op_s *op)
 struct drive_s *cdemu_drive VAR16VISIBLE;
 
 void
-cdemu_setup()
+cdemu_setup(void)
 {
     if (!CONFIG_CDROM_EMU)
         return;

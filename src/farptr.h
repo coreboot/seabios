@@ -50,7 +50,7 @@ extern u16 __segment_FS, __segment_GS;
 
 // Macros for automatically choosing the appropriate memory size
 // access method.
-extern void __force_link_error__unknown_type();
+extern void __force_link_error__unknown_type(void);
 
 #define __GET_VAR(prefix, seg, var) ({          \
     typeof(var) __val;                          \

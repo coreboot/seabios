@@ -315,7 +315,7 @@ cirrus_switch_mode_setregs(u16 *data, u16 port)
 }
 
 static u16
-cirrus_get_crtc()
+cirrus_get_crtc(void)
 {
     if (inb(VGAREG_READ_MISC_OUTPUT) & 1)
         return VGAREG_VGA_CRTC_ADDRESS;
@@ -364,14 +364,14 @@ cirrus_set_video_mode(u8 mode)
 }
 
 static int
-cirrus_check()
+cirrus_check(void)
 {
     outw(0x9206, VGAREG_SEQU_ADDRESS);
     return inb(VGAREG_SEQU_DATA) == 0x12;
 }
 
 void
-cirrus_init()
+cirrus_init(void)
 {
     dprintf(1, "cirrus init\n");
     if (! cirrus_check())

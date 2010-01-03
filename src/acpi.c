@@ -677,7 +677,7 @@ acpi_bios_init(void)
 }
 
 u32
-find_resume_vector()
+find_resume_vector(void)
 {
     dprintf(4, "rsdp=%p\n", RsdpAddr);
     if (!RsdpAddr || RsdpAddr->signature != RSDP_SIGNATURE)

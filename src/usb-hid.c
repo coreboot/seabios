@@ -88,7 +88,7 @@ usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
 }
 
 void
-usb_keyboard_setup()
+usb_keyboard_setup(void)
 {
     if (! CONFIG_USB_KEYBOARD)
         return;
@@ -168,7 +168,7 @@ handle_key(struct keyevent *data)
 }
 
 void
-usb_check_key()
+usb_check_key(void)
 {
     if (! CONFIG_USB_KEYBOARD)
         return;

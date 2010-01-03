@@ -22,7 +22,7 @@ struct ipl_s IPL;
  ****************************************************************/
 
 void
-boot_setup()
+boot_setup(void)
 {
     if (! CONFIG_BOOT)
         return;
@@ -222,7 +222,7 @@ menu_show_cbfs(struct ipl_entry_s *ie, int menupos)
 
 // Show IPL option menu.
 static void
-interactive_bootmenu()
+interactive_bootmenu(void)
 {
     if (! CONFIG_BOOTMENU || ! qemu_cfg_show_boot_menu())
         return;
@@ -309,7 +309,7 @@ run_bcv(struct ipl_entry_s *ie)
 
 // Prepare for boot - show menu and run bcvs.
 void
-boot_prep()
+boot_prep(void)
 {
     if (! CONFIG_BOOT)
         return;
@@ -487,7 +487,7 @@ do_boot(u16 seq_nr)
 
 // Boot Failure recovery: try the next device.
 void VISIBLE32FLAT
-handle_18()
+handle_18(void)
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_18);
@@ -499,7 +499,7 @@ handle_18()
 
 // INT 19h Boot Load Service Entry Point
 void VISIBLE32FLAT
-handle_19()
+handle_19(void)
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_19);

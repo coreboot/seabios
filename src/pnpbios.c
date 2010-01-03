@@ -78,7 +78,7 @@ handle_pnp(u16 *args)
 }
 
 u16
-get_pnp_offset()
+get_pnp_offset(void)
 {
     if (! CONFIG_PNPBIOS)
         return (u32)pnp_string + 1 - BUILD_BIOS_ADDR;
@@ -86,11 +86,11 @@ get_pnp_offset()
 }
 
 // romlayout.S
-extern void entry_pnp_real();
-extern void entry_pnp_prot();
+extern void entry_pnp_real(void);
+extern void entry_pnp_prot(void);
 
 void
-pnp_setup()
+pnp_setup(void)
 {
     if (! CONFIG_PNPBIOS)
         return;

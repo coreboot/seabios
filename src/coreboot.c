@@ -122,7 +122,7 @@ static struct cb_memory *CBMemTable;
 
 // Populate max ram and e820 map info by scanning for a coreboot table.
 static void
-coreboot_fill_map()
+coreboot_fill_map(void)
 {
     dprintf(3, "Attempting to find coreboot table\n");
 
@@ -282,7 +282,7 @@ scan_tables(u32 start, u32 size)
 }
 
 void
-coreboot_copy_biostable()
+coreboot_copy_biostable(void)
 {
     struct cb_memory *cbm = CBMemTable;
     if (! CONFIG_COREBOOT || !cbm)
@@ -368,7 +368,7 @@ struct cbfs_header {
 static struct cbfs_header *CBHDR;
 
 static void
-cbfs_setup()
+cbfs_setup(void)
 {
     if (! CONFIG_COREBOOT_FLASH)
         return;
@@ -411,7 +411,7 @@ cbfs_verify(struct cbfs_file *file)
 
 // Return the first file in the CBFS archive
 static struct cbfs_file *
-cbfs_getfirst()
+cbfs_getfirst(void)
 {
     if (! CBHDR)
         return NULL;

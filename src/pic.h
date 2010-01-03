@@ -22,14 +22,14 @@
 #define PIC2_IRQ14 (1<<6)
 
 static inline void
-eoi_pic1()
+eoi_pic1(void)
 {
     // Send eoi (select OCW2 + eoi)
     outb(0x20, PORT_PIC1_CMD);
 }
 
 static inline void
-eoi_pic2()
+eoi_pic2(void)
 {
     // Send eoi (select OCW2 + eoi)
     outb(0x20, PORT_PIC2_CMD);
@@ -61,7 +61,7 @@ mask_pic2(u8 irq)
 }
 
 static inline u8
-get_pic1_isr()
+get_pic1_isr(void)
 {
     // 0x0b == select OCW1 + read ISR
     outb(0x0b, PORT_PIC1_CMD);
@@ -69,7 +69,7 @@ get_pic1_isr()
 }
 
 static inline u8
-get_pic2_isr()
+get_pic2_isr(void)
 {
     // 0x0b == select OCW1 + read ISR
     outb(0x0b, PORT_PIC2_CMD);
@@ -98,6 +98,6 @@ __enable_hwirq(int hwirq, void (*func)(void))
         __enable_hwirq(irq, func);              \
     } while (0)
 
-void pic_setup();
+void pic_setup(void);
 
 #endif // pic.h

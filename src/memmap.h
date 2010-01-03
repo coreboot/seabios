@@ -17,8 +17,8 @@ struct e820entry {
 };
 
 void add_e820(u64 start, u64 size, u32 type);
-void memmap_setup();
-void memmap_finalize();
+void memmap_setup(void);
+void memmap_finalize(void);
 struct e820entry *find_high_area(u32 size);
 
 // A typical OS page size

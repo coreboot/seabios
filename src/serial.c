@@ -57,7 +57,7 @@ detect_serial(u16 port, u8 timeout, u8 count)
 }
 
 void
-serial_setup()
+serial_setup(void)
 {
     if (! CONFIG_SERIAL)
         return;
@@ -224,7 +224,7 @@ detect_parport(u16 port, u8 timeout, u8 count)
 }
 
 void
-lpt_setup()
+lpt_setup(void)
 {
     if (! CONFIG_LPT)
         return;

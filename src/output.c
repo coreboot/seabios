@@ -25,7 +25,7 @@ struct putcinfo {
 #define DEBUG_TIMEOUT 100000
 
 void
-debug_serial_setup()
+debug_serial_setup(void)
 {
     if (!CONFIG_DEBUG_SERIAL)
         return;
@@ -59,7 +59,7 @@ debug_serial(char c)
 
 // Make sure all serial port writes have been completely sent.
 static void
-debug_serial_flush()
+debug_serial_flush(void)
 {
     if (!CONFIG_DEBUG_SERIAL)
         return;

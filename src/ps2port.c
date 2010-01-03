@@ -304,7 +304,7 @@ aux_command(int command, u8 *param)
  ****************************************************************/
 
 static void
-process_ps2irq()
+process_ps2irq(void)
 {
     u8 status = inb(PORT_PS2_STATUS);
     if (!(status & I8042_STR_OBF)) {
@@ -318,7 +318,7 @@ process_ps2irq()
 
 // INT74h : PS/2 mouse hardware interrupt
 void VISIBLE16
-handle_74()
+handle_74(void)
 {
     if (! CONFIG_PS2PORT)
         return;
@@ -330,7 +330,7 @@ handle_74()
 
 // INT09h : Keyboard Hardware Service Entry Point
 void VISIBLE16
-handle_09()
+handle_09(void)
 {
     if (! CONFIG_PS2PORT)
         return;
@@ -346,7 +346,7 @@ handle_09()
  ****************************************************************/
 
 static void
-keyboard_init()
+keyboard_init(void *data)
 {
     /* flush incoming keys */
     int ret = i8042_flush();
@@ -414,7 +414,7 @@ keyboard_init()
 }
 
 void
-ps2port_setup()
+ps2port_setup(void)
 {
     if (! CONFIG_PS2PORT)
         return;

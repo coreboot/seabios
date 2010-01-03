@@ -31,7 +31,7 @@ getDrive(u8 exttype, u8 extdriveoffset)
 }
 
 struct drive_s *
-allocDrive()
+allocDrive(void)
 {
     int driveid = Drives.drivecount;
     if (driveid >= ARRAY_SIZE(Drives.drives))
@@ -369,7 +369,7 @@ send_disk_op(struct disk_op_s *op)
  ****************************************************************/
 
 void
-drive_setup()
+drive_setup(void)
 {
     memset(&Drives, 0, sizeof(Drives));
     memset(&Drives.idmap, 0xff, sizeof(Drives.idmap));

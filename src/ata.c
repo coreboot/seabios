@@ -990,7 +990,7 @@ init_controller(struct ata_channel_s *atachannel
 
 // Locate and init ata controllers.
 static void
-ata_init()
+ata_init(void)
 {
     // Scan PCI bus for ATA adapters
     int count=0, pcicount=0;
@@ -1052,7 +1052,7 @@ ata_init()
 }
 
 void
-ata_setup()
+ata_setup(void)
 {
     if (!CONFIG_ATA)
         return;

@@ -195,7 +195,7 @@ fail:
 }
 
 void
-usb_setup()
+usb_setup(void)
 {
     if (! CONFIG_USB)
         return;

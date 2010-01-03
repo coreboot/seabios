@@ -34,7 +34,7 @@
 #define KF2_101KBD     (1<<4)
 
 void
-kbd_setup()
+kbd_setup(void)
 {
     dprintf(3, "init keyboard\n");
     u16 x = offsetof(struct bios_data_area_s, kbd_buf);
@@ -220,7 +220,7 @@ handle_16XX(struct bregs *regs)
 }
 
 static void
-set_leds()
+set_leds(void)
 {
     u8 shift_flags = (GET_BDA(kbd_flag0) >> 4) & 0x07;
     u8 kbd_led = GET_BDA(kbd_led);

@@ -69,7 +69,7 @@ getViaRamSpeed(u16 bdf)
 }
 
 static int
-getAMDRamSpeed()
+getAMDRamSpeed(void)
 {
     int bdf = pci_find_device(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_K8_NB_MEMCTL);
     if (bdf < 0)

@@ -119,7 +119,7 @@ describe_floppy(struct drive_s *drive_g)
 }
 
 void
-floppy_setup()
+floppy_setup(void)
 {
     if (! CONFIG_FLOPPY)
         return;
@@ -159,7 +159,7 @@ find_floppy_type(u32 size)
  ****************************************************************/
 
 static void
-floppy_reset_controller()
+floppy_reset_controller(void)
 {
     // Reset controller
     u8 val8 = inb(PORT_FD_DOR);
@@ -172,7 +172,7 @@ floppy_reset_controller()
 }
 
 static int
-wait_floppy_irq()
+wait_floppy_irq(void)
 {
     ASSERT16();
     u8 v;
@@ -570,7 +570,7 @@ process_floppy_op(struct disk_op_s *op)
 
 // INT 0Eh Diskette Hardware ISR Entry Point
 void VISIBLE16
-handle_0e()
+handle_0e(void)
 {
     debug_isr(DEBUG_ISR_0e);
     if (! CONFIG_FLOPPY)
@@ -593,7 +593,7 @@ done:
 
 // Called from int08 handler.
 void
-floppy_tick()
+floppy_tick(void)
 {
     if (! CONFIG_FLOPPY)
         return;

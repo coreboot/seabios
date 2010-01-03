@@ -19,14 +19,14 @@
  ****************************************************************/
 
 void
-vgahw_screen_disable()
+vgahw_screen_disable(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x00, VGAREG_ACTL_ADDRESS);
 }
 
 void
-vgahw_screen_enable()
+vgahw_screen_enable(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
@@ -65,7 +65,7 @@ vgahw_set_overscan_border_color(u8 color)
 }
 
 u8
-vgahw_get_overscan_border_color()
+vgahw_get_overscan_border_color(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
@@ -240,7 +240,7 @@ vgahw_set_pel_mask(u8 val)
 }
 
 u8
-vgahw_get_pel_mask()
+vgahw_get_pel_mask(void)
 {
     return inb(VGAREG_PEL_MASK);
 }
@@ -288,7 +288,7 @@ vgahw_set_text_block_specifier(u8 spec)
 }
 
 void
-get_font_access()
+get_font_access(void)
 {
     outw(0x0100, VGAREG_SEQU_ADDRESS);
     outw(0x0402, VGAREG_SEQU_ADDRESS);
@@ -300,7 +300,7 @@ get_font_access()
 }
 
 void
-release_font_access()
+release_font_access(void)
 {
     outw(0x0100, VGAREG_SEQU_ADDRESS);
     outw(0x0302, VGAREG_SEQU_ADDRESS);
@@ -318,7 +318,7 @@ release_font_access()
  ****************************************************************/
 
 static u16
-get_crtc()
+get_crtc(void)
 {
     return GET_BDA(crtc_address);
 }
@@ -365,7 +365,7 @@ vgahw_set_scan_lines(u8 lines)
 
 // Get vertical display end
 u16
-vgahw_get_vde()
+vgahw_get_vde(void)
 {
     u16 crtc_addr = get_crtc();
     outb(0x12, crtc_addr);
@@ -545,7 +545,7 @@ vgahw_enable_video_addressing(u8 disable)
 }
 
 void
-vgahw_init()
+vgahw_init(void)
 {
     // switch to color mode and enable CPU access 480 lines
     outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);

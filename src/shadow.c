@@ -57,7 +57,7 @@ __make_bios_writable(u16 bdf)
 
 // Make the 0xc0000-0x100000 area read/writable.
 void
-make_bios_writable()
+make_bios_writable(void)
 {
     if (CONFIG_COREBOOT)
         return;
@@ -88,7 +88,7 @@ make_bios_writable()
 
 // Make the BIOS code segment area (0xf0000) read-only.
 void
-make_bios_readonly()
+make_bios_readonly(void)
 {
     if (CONFIG_COREBOOT)
         return;

@@ -62,7 +62,7 @@
 u32 cpu_khz VAR16VISIBLE;
 
 static void
-calibrate_tsc()
+calibrate_tsc(void)
 {
     // Setup "timer2"
     u8 orig = inb(PORT_PS2_CTRLB);
@@ -150,7 +150,7 @@ calc_future_tsc_usec(u32 usecs)
  ****************************************************************/
 
 static int
-rtc_updating()
+rtc_updating(void)
 {
     // This function checks to see if the update-in-progress bit
     // is set in CMOS Status Register A.  If not, it returns 0.
@@ -173,7 +173,7 @@ rtc_updating()
 }
 
 static void
-pit_setup()
+pit_setup(void)
 {
     // timer0: binary count, 16bit count, mode 2
     outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
@@ -183,7 +183,7 @@ pit_setup()
 }
 
 static void
-init_rtc()
+init_rtc(void)
 {
     outb_cmos(0x26, CMOS_STATUS_A);    // 32,768Khz src, 976.5625us updates
     u8 regB = inb_cmos(CMOS_STATUS_B);
@@ -199,7 +199,7 @@ bcd2bin(u8 val)
 }
 
 void
-timer_setup()
+timer_setup(void)
 {
     dprintf(3, "init timer\n");
     calibrate_tsc();
@@ -435,7 +435,7 @@ handle_1a(struct bregs *regs)
 
 // INT 08h System Timer ISR Entry Point
 void VISIBLE16
-handle_08()
+handle_08(void)
 {
     debug_isr(DEBUG_ISR_08);
 
@@ -467,7 +467,7 @@ handle_08()
  ****************************************************************/
 
 void
-useRTC()
+useRTC(void)
 {
     u16 ebda_seg = get_ebda_seg();
     int count = GET_EBDA2(ebda_seg, RTCusers);
@@ -480,7 +480,7 @@ useRTC()
 }
 
 void
-releaseRTC()
+releaseRTC(void)
 {
     u16 ebda_seg = get_ebda_seg();
     int count = GET_EBDA2(ebda_seg, RTCusers);
@@ -507,7 +507,7 @@ set_usertimer(u32 usecs, u16 seg, u16 offset)
 }
 
 static void
-clear_usertimer()
+clear_usertimer(void)
 {
     if (!(GET_BDA(rtc_wait_flag) & RWS_WAIT_PENDING))
         return;
@@ -576,7 +576,7 @@ handle_1583(struct bregs *regs)
 
 // int70h: IRQ8 - CMOS RTC
 void VISIBLE16
-handle_70()
+handle_70(void)
 {
     debug_isr(DEBUG_ISR_70);
 

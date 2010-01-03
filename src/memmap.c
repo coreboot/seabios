@@ -42,7 +42,7 @@ insert_e820(int i, u64 start, u64 size, u32 type)
 
 // Show the current e820_list.
 static void
-dump_map()
+dump_map(void)
 {
     dprintf(1, "e820 map has %d items:\n", e820_count);
     int i;
@@ -138,14 +138,14 @@ find_high_area(u32 size)
 
 // Prep for memmap stuff - init bios table locations.
 void
-memmap_setup()
+memmap_setup(void)
 {
     e820_count = 0;
 }
 
 // Report on final memory locations.
 void
-memmap_finalize()
+memmap_finalize(void)
 {
     dump_map();
 }

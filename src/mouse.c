@@ -12,7 +12,7 @@
 #include "ps2port.h" // aux_command
 
 void
-mouse_setup()
+mouse_setup(void)
 {
     if (! CONFIG_MOUSE)
         return;

@@ -36,7 +36,7 @@ __set_irq(int vector, void *loc)
     } while (0)
 
 static void
-init_ivt()
+init_ivt(void)
 {
     dprintf(3, "init ivt\n");
 
@@ -78,7 +78,7 @@ init_ivt()
 }
 
 static void
-init_bda()
+init_bda(void)
 {
     dprintf(3, "init bda\n");
 
@@ -163,7 +163,7 @@ init_bios_tables(void)
 
 // Main setup code.
 static void
-post()
+post(void)
 {
     // Detect and init ram.
     init_ivt();
@@ -236,7 +236,7 @@ post()
 
 // 32-bit entry point.
 void VISIBLE32FLAT
-_start()
+_start(void)
 {
     init_dma();
 

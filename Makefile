@@ -25,12 +25,12 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
 
 # Default compiler flags
-COMMONCFLAGS = -Wall -Os -MD -m32 -march=i386 -mregparm=3 \
-               -mpreferred-stack-boundary=2 -mrtd -freg-struct-return \
-               -ffreestanding -fomit-frame-pointer \
-               -fno-delete-null-pointer-checks -Wno-strict-aliasing \
-               -ffunction-sections -fdata-sections -fno-common \
-               -minline-all-stringops
+COMMONCFLAGS = -Os -MD -Wall -Wold-style-definition -Wno-strict-aliasing \
+               -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
+               -mrtd -minline-all-stringops \
+               -freg-struct-return -ffreestanding -fomit-frame-pointer \
+               -fno-delete-null-pointer-checks \
+               -ffunction-sections -fdata-sections -fno-common
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)

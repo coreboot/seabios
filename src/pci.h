@@ -30,7 +30,7 @@ u16 pci_config_readw(u16 bdf, u32 addr);
 u8 pci_config_readb(u16 bdf, u32 addr);
 void pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on);
 
-int pci_find_vga();
+int pci_find_vga(void);
 int pci_find_device(u16 vendid, u16 devid);
 int pci_find_class(u16 classid);
 
@@ -41,7 +41,7 @@ int pci_next(int bdf, int *pmax);
          ; BDF=pci_next(BDF+1, &MAX))
 
 // pirtable.c
-void create_pirtable();
+void create_pirtable(void);
 
 
 /****************************************************************

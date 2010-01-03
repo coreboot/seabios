@@ -104,7 +104,7 @@ pci_next(int bdf, int *pmax)
 
 // Find a vga device with legacy address decoding enabled.
 int
-pci_find_vga()
+pci_find_vga(void)
 {
     int bdf = 0x0000, max = 0x0100;
     for (;;) {

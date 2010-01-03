@@ -169,11 +169,11 @@ void vgafb_load_font(u16 seg, void *src_far, u16 count
                      , u16 start, u8 destflags, u8 fontsize);
 
 // vgaio.c
-void vgahw_screen_disable();
-void vgahw_screen_enable();
+void vgahw_screen_disable(void);
+void vgahw_screen_enable(void);
 void vgahw_set_border_color(u8 color);
 void vgahw_set_overscan_border_color(u8 color);
-u8 vgahw_get_overscan_border_color();
+u8 vgahw_get_overscan_border_color(void);
 void vgahw_set_palette(u8 palid);
 void vgahw_set_single_palette_reg(u8 reg, u8 val);
 u8 vgahw_get_single_palette_reg(u8 reg);
@@ -185,33 +185,33 @@ void vgahw_read_video_dac_state(u8 *pmode, u8 *curpage);
 void vgahw_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
 void vgahw_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
 void vgahw_set_pel_mask(u8 val);
-u8 vgahw_get_pel_mask();
+u8 vgahw_get_pel_mask(void);
 void vgahw_save_dac_state(u16 seg, struct saveDACcolors *info);
 void vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info);
 void vgahw_sequ_write(u8 index, u8 value);
 void vgahw_grdc_write(u8 index, u8 value);
 void vgahw_set_text_block_specifier(u8 spec);
-void get_font_access();
-void release_font_access();
+void get_font_access(void);
+void release_font_access(void);
 void vgahw_set_cursor_shape(u8 start, u8 end);
 void vgahw_set_active_page(u16 address);
 void vgahw_set_cursor_pos(u16 address);
 void vgahw_set_scan_lines(u8 lines);
-u16 vgahw_get_vde();
+u16 vgahw_get_vde(void);
 void vgahw_save_state(u16 seg, struct saveVideoHardware *info);
 void vgahw_restore_state(u16 seg, struct saveVideoHardware *info);
 void vgahw_set_mode(struct VideoParam_s *vparam_g);
 void vgahw_enable_video_addressing(u8 disable);
-void vgahw_init();
+void vgahw_init(void);
 
 // clext.c
 void cirrus_set_video_mode(u8 mode);
-void cirrus_init();
+void cirrus_init(void);
 
 // vbe.c -- not implemented yet.
 #define VBE_DISPI_DISABLED              0x00
 void dispi_set_enable(int enable);
-void vbe_init();
-int vbe_has_vbe_display();
+void vbe_init(void);
+int vbe_has_vbe_display(void);
 
 #endif // vgatables.h

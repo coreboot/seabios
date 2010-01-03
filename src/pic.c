@@ -10,7 +10,7 @@
 #include "config.h" // CONFIG_*
 
 void
-pic_setup()
+pic_setup(void)
 {
     dprintf(3, "init pic\n");
     // Send ICW1 (select OCW1 + will send ICW4)
