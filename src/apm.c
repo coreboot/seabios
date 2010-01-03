@@ -224,11 +224,9 @@ handle_apm16(struct bregs *regs)
     handle_1553(regs);
 }
 
-#if MODE16 == 0 && MODESEGMENT == 1
 void VISIBLE32SEG
 handle_apm32(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_HDL_apm);
     handle_1553(regs);
 }
-#endif

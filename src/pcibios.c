@@ -202,7 +202,6 @@ handle_1ab1(struct bregs *regs)
  * 32bit interface
  ****************************************************************/
 
-#if MODE16 == 0 && MODESEGMENT == 1
 // Entry point for 32bit pci bios functions.
 void VISIBLE32SEG
 handle_pcibios32(struct bregs *regs)
@@ -210,7 +209,6 @@ handle_pcibios32(struct bregs *regs)
     debug_enter(regs, DEBUG_HDL_pcibios32);
     handle_1ab1(regs);
 }
-#endif
 
 struct bios32_s {
     u32 signature;

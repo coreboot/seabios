@@ -93,7 +93,6 @@ handle_resume(u8 status)
     panic("Unimplemented shutdown status: %02x\n", status);
 }
 
-#if MODESEGMENT == 0
 void VISIBLE32FLAT
 s3_resume(void)
 {
@@ -123,4 +122,3 @@ s3_resume(void)
     }
     call16big(&br);
 }
-#endif
