@@ -111,8 +111,8 @@ handle_1587(struct bregs *regs)
     SET_FARVAR(gdt_seg, gdt_far[1], GDT_DATA | GDT_LIMIT((6*sizeof(u64))-1)
                | GDT_BASE(loc));
     // Initialize CS descriptor
-    SET_FARVAR(gdt_seg, gdt_far[4], GDT_CODE | GDT_LIMIT(0x0ffff)
-               | GDT_BASE(0xf0000));
+    SET_FARVAR(gdt_seg, gdt_far[4], GDT_CODE | GDT_LIMIT(BUILD_BIOS_SIZE-1)
+               | GDT_BASE(BUILD_BIOS_ADDR));
     // Initialize SS descriptor
     loc = (u32)MAKE_FLATPTR(GET_SEG(SS), 0);
     SET_FARVAR(gdt_seg, gdt_far[5], GDT_DATA | GDT_LIMIT(0x0ffff)
@@ -180,6 +180,47 @@ handle_1588(struct bregs *regs)
     else
         regs->ax = (rs - 1*1024*1024) / 1024;
     set_success(regs);
+}
+
+// Switch to protected mode
+static void
+handle_1589(struct bregs *regs)
+{
+    set_a20(1);
+
+    set_pics(regs->bl, regs->bh);
+
+    u64 *gdt_far = (void*)(regs->si + 0);
+    u16 gdt_seg = regs->es;
+    SET_FARVAR(gdt_seg, gdt_far[7], GDT_CODE | GDT_LIMIT(BUILD_BIOS_SIZE-1)
+               | GDT_BASE(BUILD_BIOS_ADDR));
+
+    regs->ds = 3<<3; // 3rd gdt descriptor is %ds
+    regs->es = 4<<3; // 4th gdt descriptor is %es
+    regs->code.seg = 6<<3; // 6th gdt descriptor is %cs
+
+    set_code_success(regs);
+
+    asm volatile(
+        // Load new descriptor tables
+        "  lgdtw %%es:(1<<3)(%%si)\n"
+        "  lidtw %%es:(2<<3)(%%si)\n"
+
+        // Enable protected mode
+        "  movl %%cr0, %%eax\n"
+        "  orl $" __stringify(CR0_PE) ", %%eax\n"
+        "  movl %%eax, %%cr0\n"
+
+        // far jump to flush CPU queue after transition to protected mode
+        "  ljmpw $(7<<3), $1f\n"
+
+        // GDT points to valid descriptor table, now load SS
+        "1:movw $(5<<3), %%ax\n"
+        "  movw %%ax, %%ds\n"
+        "  movw %%ax, %%ss\n"
+        :
+        : "S"(gdt_far)
+        : "eax", "cc");
 }
 
 // Device busy interrupt.  Called by Int 16h when no key available
@@ -309,6 +350,7 @@ handle_15(struct bregs *regs)
     case 0x86: handle_1586(regs); break;
     case 0x87: handle_1587(regs); break;
     case 0x88: handle_1588(regs); break;
+    case 0x89: handle_1589(regs); break;
     case 0x90: handle_1590(regs); break;
     case 0x91: handle_1591(regs); break;
     case 0xc0: handle_15c0(regs); break;

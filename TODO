@@ -1,19 +1,15 @@
 If POST is rerun, try to do a machine reboot.
 
-Add int 0x1589 support.
-
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
-  * bochs cvs (20091017):
-    -- 32bit pcibios, int1589
+  * bochs cvs (20100104):
+    -- changes synched
   * coreboot (r3348):    (bochs 20060708)
     -- no noteworthy enhancements
-  * qemu (da5ff65d):     (bochs 20090210)
-    -- changes synched
-  * kvm (e5c31442):      (bochs 20090210)
-    -- tpr patching, 16MB rom, acpi-ssdt.dsl, 4K aligned pci mem
+  * qemu - now uses SeaBIOS
+  * kvm - now uses SeaBIOS
   * virtualbox (r13560): (bochs 20061231)
-    -- lots of mouse changes, logo, scsi/etherboot hooks, int 1589,
+    -- lots of mouse changes, logo, scsi/etherboot hooks,
        floppy data rate?, int19 calls post
 
 Possibly move code from entry_post in romlayout.S to C code in

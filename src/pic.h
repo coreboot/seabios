@@ -98,6 +98,7 @@ __enable_hwirq(int hwirq, void (*func)(void))
         __enable_hwirq(irq, func);              \
     } while (0)
 
+void set_pics(u8 irq0, u8 irq8);
 void pic_setup(void);
 
 #endif // pic.h
