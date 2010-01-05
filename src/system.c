@@ -121,44 +121,42 @@ handle_1587(struct bregs *regs)
     u16 count = regs->cx;
     asm volatile(
         // Load new descriptor tables
-        "lgdtw %%es:(1<<3)(%%si)\n"
-        "lidtw %%cs:pmode_IDT_info\n"
+        "  lgdtw %%es:(1<<3)(%%si)\n"
+        "  lidtw %%cs:pmode_IDT_info\n"
 
         // Enable protected mode
-        "movl %%cr0, %%eax\n"
-        "orl $" __stringify(CR0_PE) ", %%eax\n"
-        "movl %%eax, %%cr0\n"
+        "  movl %%cr0, %%eax\n"
+        "  orl $" __stringify(CR0_PE) ", %%eax\n"
+        "  movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to protected mode
-        "ljmpw $(4<<3), $1f\n"
-        "1:\n"
+        "  ljmpw $(4<<3), $1f\n"
 
         // GDT points to valid descriptor table, now load DS, ES
-        "movw $(2<<3), %%ax\n" // 2nd descriptor in table, TI=GDT, RPL=00
-        "movw %%ax, %%ds\n"
-        "movw $(3<<3), %%ax\n" // 3rd descriptor in table, TI=GDT, RPL=00
-        "movw %%ax, %%es\n"
+        "1:movw $(2<<3), %%ax\n" // 2nd descriptor in table, TI=GDT, RPL=00
+        "  movw %%ax, %%ds\n"
+        "  movw $(3<<3), %%ax\n" // 3rd descriptor in table, TI=GDT, RPL=00
+        "  movw %%ax, %%es\n"
 
         // move CX words from DS:SI to ES:DI
-        "xorw %%si, %%si\n"
-        "xorw %%di, %%di\n"
-        "rep movsw\n"
+        "  xorw %%si, %%si\n"
+        "  xorw %%di, %%di\n"
+        "  rep movsw\n"
 
         // Disable protected mode
-        "movl %%cr0, %%eax\n"
-        "andl $~" __stringify(CR0_PE) ", %%eax\n"
-        "movl %%eax, %%cr0\n"
+        "  movl %%cr0, %%eax\n"
+        "  andl $~" __stringify(CR0_PE) ", %%eax\n"
+        "  movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to real mode
-        "ljmpw $" __stringify(SEG_BIOS) ", $2f\n"
-        "2:\n"
+        "  ljmpw $" __stringify(SEG_BIOS) ", $2f\n"
 
         // restore IDT to normal real-mode defaults
-        "lidtw %%cs:rmode_IDT_info\n"
+        "2:lidtw %%cs:rmode_IDT_info\n"
 
         // Restore %ds (from %ss)
-        "movw %%ss, %%ax\n"
-        "movw %%ax, %%ds\n"
+        "  movw %%ss, %%ax\n"
+        "  movw %%ax, %%ds\n"
         : "+c"(count), "+S"(si)
         : : "eax", "di", "cc"); // XXX - also clobbers %es
 
