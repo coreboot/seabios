@@ -179,7 +179,9 @@ mptable_init(void)
     config->length = length;
     config->checksum -= checksum(config, length);
 
-    // Allocate final memory locations
+    // Allocate final memory locations.  (In theory the config
+    // structure can go in high memory, but Linux kernels before
+    // v2.6.30 crash with that.)
     struct mptable_config_s *finalconfig = malloc_fseg(length);
     struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
     if (!finalconfig || !floating) {
