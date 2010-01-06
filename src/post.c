@@ -117,7 +117,7 @@ ram_probe(void)
 
         // Check for memory over 4Gig
         u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
-                    | (inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
+                    | ((u32)inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
                     | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
         RamSizeOver4G = high;
         add_e820(0x100000000ull, high, E820_RAM);
