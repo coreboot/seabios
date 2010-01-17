@@ -182,7 +182,9 @@ wait_floppy_irq(void)
         v = GET_BDA(floppy_recalibration_status);
         if (v & FRS_TIMEOUT)
             break;
-        wait_irq();
+        // Could use wait_irq() here, but that causes issues on
+        // bochs, so use yield() instead.
+        yield();
     }
 
     v &= ~FRS_TIMEOUT;
