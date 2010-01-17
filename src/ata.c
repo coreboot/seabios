@@ -381,6 +381,8 @@ struct sff_dma_prd {
 static int
 ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
 {
+    if (! CONFIG_ATA_DMA)
+        return -1;
     u32 dest = (u32)op->buf_fl;
     if (dest & 1)
         // Need minimum alignment of 1.
@@ -434,6 +436,8 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
 static int
 ata_dma_transfer(struct disk_op_s *op)
 {
+    if (! CONFIG_ATA_DMA)
+        return -1;
     dprintf(16, "ata_dma_transfer id=%p buf=%p\n"
             , op->drive_g, op->buf_fl);
 
@@ -513,6 +517,8 @@ fail:
 static int
 ata_dma_cmd_data(struct disk_op_s *op, struct ata_pio_command *cmd)
 {
+    if (! CONFIG_ATA_DMA)
+        return -1;
     int ret = send_cmd(op->drive_g, cmd);
     if (ret)
         return ret;
@@ -1005,7 +1011,7 @@ ata_init(void)
         u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
         u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
         int master = 0;
-        if (prog_if & 0x80) {
+        if (CONFIG_ATA_DMA && prog_if & 0x80) {
             // Check for bus-mastering.
             u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_4);
             if (bar & PCI_BASE_ADDRESS_SPACE_IO) {

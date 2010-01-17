@@ -42,6 +42,8 @@
 #define CONFIG_PS2PORT 1
 // Support for IDE disk code
 #define CONFIG_ATA 1
+// Detect and try to use ATA bus mastering DMA controllers.
+#define CONFIG_ATA_DMA 0
 // Use 32bit PIO accesses on ATA (minor optimization on PCI transfers)
 #define CONFIG_ATA_PIO32 0
 // Support for booting from a CD
