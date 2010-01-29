@@ -29,13 +29,8 @@ mouse_setup(void)
 #define RET_ENOHANDLER   0x05
 
 static int
-disable_mouse(u16 ebda_seg)
+disable_mouse(void)
 {
-    u8 ps2ctr = GET_EBDA2(ebda_seg, ps2ctr);
-    ps2ctr |= I8042_CTR_AUXDIS;
-    ps2ctr &= ~I8042_CTR_AUXINT;
-    SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
-
     return aux_command(PSMOUSE_CMD_DISABLE, NULL);
 }
 
@@ -43,8 +38,7 @@ disable_mouse(u16 ebda_seg)
 static void
 mouse_15c20000(struct bregs *regs)
 {
-    u16 ebda_seg = get_ebda_seg();
-    int ret = disable_mouse(ebda_seg);
+    int ret = disable_mouse();
     if (ret)
         set_code_invalid(regs, RET_ENEEDRESEND);
     else
@@ -55,17 +49,11 @@ mouse_15c20000(struct bregs *regs)
 static void
 mouse_15c20001(struct bregs *regs)
 {
-    u16 ebda_seg = get_ebda_seg();
-    u8 mouse_flags_2 = GET_EBDA2(ebda_seg, mouse_flag2);
+    u8 mouse_flags_2 = GET_EBDA(mouse_flag2);
     if ((mouse_flags_2 & 0x80) == 0) {
         set_code_invalid(regs, RET_ENOHANDLER);
         return;
     }
-
-    u8 ps2ctr = GET_EBDA2(ebda_seg, ps2ctr);
-    ps2ctr &= ~I8042_CTR_AUXDIS;
-    ps2ctr |= I8042_CTR_AUXINT;
-    SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
 
     int ret = aux_command(PSMOUSE_CMD_ENABLE, NULL);
     if (ret)
@@ -241,7 +229,7 @@ mouse_15c207(struct bregs *regs)
         /* remove handler */
         if ((mouse_flags_2 & 0x80) != 0) {
             mouse_flags_2 &= ~0x80;
-            disable_mouse(ebda_seg);
+            disable_mouse();
         }
     } else {
         /* install handler */

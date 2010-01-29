@@ -97,7 +97,7 @@ struct bios_data_area_s {
     u8 floppy_media_state[4];
     u8 floppy_track[2];
     u8 kbd_flag2;
-    u8 kbd_led;
+    u8 kbd_flag3;
     struct segoff_s user_wait_complete_flag;
     u32 user_wait_timeout;
     // 40:A0
@@ -122,6 +122,33 @@ struct bios_data_area_s {
 #define FMS_MEDIA_DRIVE_ESTABLISHED (1<<4)
 #define FMS_DOUBLE_STEPPING         (1<<5)
 #define FMS_DATA_RATE_MASK          (0xc0)
+
+// Bit definitions for kbd_flag[0123]
+#define KF0_RSHIFT       (1<<0)
+#define KF0_LSHIFT       (1<<1)
+#define KF0_CTRLACTIVE   (1<<2)
+#define KF0_ALTACTIVE    (1<<3)
+#define KF0_SCROLLACTIVE (1<<4)
+#define KF0_NUMACTIVE    (1<<5)
+#define KF0_CAPSACTIVE   (1<<6)
+
+#define KF1_LCTRL        (1<<0)
+#define KF1_LALT         (1<<1)
+#define KF1_PAUSEACTIVE  (1<<3)
+#define KF1_SCROLL       (1<<4)
+#define KF1_NUM          (1<<5)
+#define KF1_CAPS         (1<<6)
+
+#define KF2_LAST_E1    (1<<0)
+#define KF2_LAST_E0    (1<<1)
+#define KF2_RCTRL      (1<<2)
+#define KF2_RALT       (1<<3)
+#define KF2_101KBD     (1<<4)
+
+#define KF3_SCROLL_LED  (1<<0)
+#define KF3_NUM_LED     (1<<1)
+#define KF3_CAPS_LED    (1<<2)
+#define KF3_CMD_PENDING (1<<6)
 
 // Accessor functions
 #define GET_BDA(var) \
@@ -205,7 +232,6 @@ struct extended_bios_data_area_s {
     u8 other2[0xC4];
 
     // 0x121 - Begin custom storage.
-    u8 ps2ctr;
     int RTCusers;
 
     // El Torito Emulation data
