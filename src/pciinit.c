@@ -194,7 +194,7 @@ pci_setup(void)
     dprintf(3, "pci setup\n");
 
     pci_bios_io_addr = 0xc000;
-    pci_bios_mem_addr = BUILD_MAX_HIGHMEM;
+    pci_bios_mem_addr = BUILD_PCIMEM_START;
 
     int bdf, max;
     foreachpci(bdf, max) {
