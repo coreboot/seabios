@@ -528,6 +528,7 @@ build_srat(void)
     srat = malloc_high(srat_size);
     if (!srat) {
         dprintf(1, "Not enough memory for srat table!\n");
+        free(numadata);
         return NULL;
     }
 
@@ -594,6 +595,7 @@ build_srat(void)
 
     build_header((void*)srat, SRAT_SIGNATURE, srat_size, 1);
 
+    free(numadata);
     return srat;
 }
 
