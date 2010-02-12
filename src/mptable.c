@@ -36,7 +36,11 @@ mptable_init(void)
     // Detect cpu info
     u32 cpuid_signature, ebx, ecx, cpuid_features;
     cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
-    u8 apic_version = readl((u8*)BUILD_APIC_ADDR + 0x30) & 0xff;
+    if (! cpuid_signature) {
+        // Use default values.
+        cpuid_signature = 0x600;
+        cpuid_features = 0x201;
+    }
     int pkgcpus = 1;
     if (cpuid_features & (1 << 28)) {
         /* Only populate the MPS tables with the first logical CPU in
@@ -44,6 +48,7 @@ mptable_init(void)
         pkgcpus = (ebx >> 16) & 0xff;
         pkgcpus = 1 << (__fls(pkgcpus - 1) + 1); /* round up to power of 2 */
     }
+    u8 apic_version = readl((u8*)BUILD_APIC_ADDR + 0x30) & 0xff;
 
     // CPU definitions.
     struct mpt_cpu *cpus = (void*)&config[1], *cpu = cpus;
@@ -55,13 +60,8 @@ mptable_init(void)
         cpu->apicver = apic_version;
         /* cpu flags: enabled, bootstrap cpu */
         cpu->cpuflag = (i < CountCPUs) | ((i == 0) << 1);
-        if (cpuid_signature) {
-            cpu->cpusignature = cpuid_signature;
-            cpu->featureflag = cpuid_features;
-        } else {
-            cpu->cpusignature = 0x600;
-            cpu->featureflag = 0x201;
-        }
+        cpu->cpusignature = cpuid_signature;
+        cpu->featureflag = cpuid_features;
         cpu++;
     }
     int entrycount = cpu - cpus;
