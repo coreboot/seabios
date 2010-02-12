@@ -44,7 +44,7 @@ alloc_intr_pipe(u32 endp, int period)
     }
 }
 
-int
+int noinline
 usb_poll_intr(struct usb_pipe *pipe, void *data)
 {
     u32 endp = GET_FLATPTR(pipe->endp);

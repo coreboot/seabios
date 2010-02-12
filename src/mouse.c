@@ -269,7 +269,7 @@ handle_15c2(struct bregs *regs)
     }
 }
 
-void
+void noinline
 process_mouse(u8 data)
 {
     if (!CONFIG_MOUSE)

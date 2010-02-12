@@ -30,16 +30,19 @@ set_protocol(u32 endp, u16 val)
 }
 
 static int
-set_idle(u32 endp, u8 val)
+set_idle(u32 endp, int ms)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
     req.bRequest = HID_REQ_SET_IDLE;
-    req.wValue = val<<8;
+    req.wValue = (ms/4)<<8;
     req.wIndex = 0;
     req.wLength = 0;
     return send_default_control(endp, &req, NULL);
 }
+
+#define KEYREPEATWAITMS 500
+#define KEYREPEATMS 33
 
 int
 usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
@@ -75,7 +78,7 @@ usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
     if (ret)
         return -1;
     // Only send reports on a new key event.
-    ret = set_idle(endp, 0);
+    ret = set_idle(endp, KEYREPEATMS);
     if (ret)
         return -1;
 
@@ -121,6 +124,8 @@ static u16 ModifierToScanCode[] VAR16 = {
     0x001d, 0x002a, 0x0038, 0xe05b, 0xe01d, 0x0036, 0xe038, 0xe05c
 };
 
+#define RELEASEBIT 0x80
+
 struct keyevent {
     u8 modifiers;
     u8 reserved;
@@ -135,8 +140,8 @@ prockeys(u16 keys)
         if (key == 0xe1) {
             // Pause key
             process_key(0xe1);
-            process_key(0x1d | (keys & 0x80));
-            process_key(0x45 | (keys & 0x80));
+            process_key(0x1d | (keys & RELEASEBIT));
+            process_key(0x45 | (keys & RELEASEBIT));
             return;
         }
         process_key(key);
@@ -145,26 +150,89 @@ prockeys(u16 keys)
 }
 
 static void
+procscankey(u8 key, u8 flags)
+{
+    if (key >= ARRAY_SIZE(KeyToScanCode))
+        return;
+    u16 keys = GET_GLOBAL(KeyToScanCode[key]);
+    if (keys)
+        prockeys(keys | flags);
+}
+
+static void
+procmodkey(u8 mods, u8 flags)
+{
+    int i;
+    for (i=0; mods; i++)
+        if (mods & (1<<i)) {
+            // Modifier key change.
+            prockeys(GET_GLOBAL(ModifierToScanCode[i]) | flags);
+            mods &= ~(1<<i);
+        }
+}
+
+static void noinline
 handle_key(struct keyevent *data)
 {
     dprintf(5, "Got key %x %x\n", data->modifiers, data->keys[0]);
-    // XXX
+
+    // Load old keys.
+    u16 ebda_seg = get_ebda_seg();
+    struct usbkeyinfo old;
+    old.data = GET_EBDA2(ebda_seg, usbkey_last.data);
+
+    // Check for keys no longer pressed.
+    int addpos = 0;
     int i;
-    for (i=0; i<8; i++)
-        if (data->modifiers & (1<<i))
-            prockeys(GET_GLOBAL(ModifierToScanCode[i]));
+    for (i=0; i<ARRAY_SIZE(old.keys); i++) {
+        u8 key = old.keys[i];
+        if (!key)
+            break;
+        int j;
+        for (j=0;; j++) {
+            if (j>=ARRAY_SIZE(data->keys)) {
+                // Key released.
+                procscankey(key, RELEASEBIT);
+                if (i+1 >= ARRAY_SIZE(old.keys) || !old.keys[i+1])
+                    // Last pressed key released - disable repeat.
+                    old.repeatcount = 0xff;
+                break;
+            }
+            if (data->keys[j] == key) {
+                // Key still pressed.
+                data->keys[j] = 0;
+                old.keys[addpos++] = key;
+                break;
+            }
+        }
+    }
+    procmodkey(old.modifiers & ~data->modifiers, RELEASEBIT);
+
+    // Process new keys
+    procmodkey(data->modifiers & ~old.modifiers, 0);
+    old.modifiers = data->modifiers;
     for (i=0; i<ARRAY_SIZE(data->keys); i++) {
         u8 key = data->keys[i];
-        if (key >= ARRAY_SIZE(KeyToScanCode))
-            continue;
-        key = GET_GLOBAL(KeyToScanCode[key]);
         if (!key)
             continue;
-        prockeys(key);
+        // New key pressed.
+        procscankey(key, 0);
+        old.keys[addpos++] = key;
+        old.repeatcount = KEYREPEATWAITMS / KEYREPEATMS + 1;
     }
-    for (i=0; i<8; i++)
-        if (data->modifiers & (1<<i))
-            prockeys(GET_GLOBAL(ModifierToScanCode[i]) | 0x80);
+    if (addpos < ARRAY_SIZE(old.keys))
+        old.keys[addpos] = 0;
+
+    // Check for key repeat event.
+    if (addpos) {
+        if (!old.repeatcount)
+            procscankey(old.keys[addpos-1], 0);
+        else if (old.repeatcount != 0xff)
+            old.repeatcount--;
+    }
+
+    // Update old keys
+    SET_EBDA2(ebda_seg, usbkey_last.data, old.data);
 }
 
 void
