@@ -197,6 +197,7 @@ fail:
 void
 usb_setup(void)
 {
+    ASSERT32FLAT();
     if (! CONFIG_USB)
         return;
 

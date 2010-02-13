@@ -1060,6 +1060,7 @@ ata_init(void)
 void
 ata_setup(void)
 {
+    ASSERT32FLAT();
     if (!CONFIG_ATA)
         return;
 

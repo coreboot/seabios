@@ -419,6 +419,7 @@ keyboard_init(void *data)
 void
 ps2port_setup(void)
 {
+    ASSERT32FLAT();
     if (! CONFIG_PS2PORT)
         return;
     dprintf(3, "init ps2port\n");
