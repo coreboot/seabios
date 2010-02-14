@@ -19,7 +19,7 @@ smbios_entry_point_init(u16 max_structure_size,
     struct smbios_entry_point *ep = malloc_fseg(sizeof(*ep));
     void *finaltable = malloc_high(structure_table_length);
     if (!ep || !finaltable) {
-        dprintf(1, "No space for smbios tables!\n");
+        warn_noalloc();
         free(ep);
         free(finaltable);
         return;
@@ -378,7 +378,7 @@ smbios_init(void)
 
     char *start = malloc_tmphigh(TEMPSMBIOSSIZE);
     if (! start) {
-        dprintf(1, "No memory for temp smbios table\n");
+        warn_noalloc();
         return;
     }
 

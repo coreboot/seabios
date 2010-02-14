@@ -209,7 +209,7 @@ copy_pir(void *pos)
         return;
     void *newpos = malloc_fseg(p->size);
     if (!newpos) {
-        dprintf(1, "No room to copy PIR table!\n");
+        warn_noalloc();
         return;
     }
     dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
@@ -231,7 +231,7 @@ copy_mptable(void *pos)
     u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
     struct mptable_floating_s *newpos = malloc_fseg(length + mpclength);
     if (!newpos) {
-        dprintf(1, "No room to copy MPTABLE!\n");
+        warn_noalloc();
         return;
     }
     dprintf(1, "Copying MPTABLE from %p/%x to %p\n", pos, p->physaddr, newpos);
@@ -259,7 +259,7 @@ copy_acpi_rsdp(void *pos)
     }
     void *newpos = malloc_fseg(length);
     if (!newpos) {
-        dprintf(1, "No room to copy ACPI RSDP table!\n");
+        warn_noalloc();
         return;
     }
     dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
@@ -375,8 +375,8 @@ cbfs_setup(void)
 
     CBHDR = *(void **)CBFS_HEADPTR_ADDR;
     if (CBHDR->magic != htonl(CBFS_HEADER_MAGIC)) {
-        dprintf(1, "Unable to find CBFS (got %x not %x)\n"
-                , CBHDR->magic, htonl(CBFS_HEADER_MAGIC));
+        dprintf(1, "Unable to find CBFS (ptr=%p; got %x not %x)\n"
+                , CBHDR, CBHDR->magic, htonl(CBFS_HEADER_MAGIC));
         CBHDR = NULL;
         return;
     }
@@ -524,7 +524,7 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
     // Not compressed.
     dprintf(3, "Copying data %d@%p to %d@%p\n", size, src, maxlen, dst);
     if (size > maxlen) {
-        dprintf(1, "File too big to copy\n");
+        warn_noalloc();
         return -1;
     }
     iomemcpy(dst, src, size);

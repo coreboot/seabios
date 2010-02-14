@@ -23,7 +23,7 @@ mptable_init(void)
     // Config structure in temp area.
     struct mptable_config_s *config = malloc_tmphigh(32*1024);
     if (!config) {
-        dprintf(1, "No space for temp mptable\n");
+        warn_noalloc();
         return;
     }
     memset(config, 0, sizeof(*config));
@@ -186,7 +186,7 @@ mptable_init(void)
     struct mptable_config_s *finalconfig = malloc_fseg(length);
     struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
     if (!finalconfig || !floating) {
-        dprintf(1, "No room for MPTABLE!\n");
+        warn_noalloc();
         free(config);
         free(finalconfig);
         free(floating);

@@ -37,7 +37,7 @@ await_ide(u8 mask, u8 flags, u16 base, u16 timeout)
         if ((status & mask) == flags)
             return status;
         if (check_time(end)) {
-            dprintf(1, "IDE time out\n");
+            warn_timeout();
             return -1;
         }
         yield();
@@ -109,7 +109,7 @@ ata_reset(struct drive_s *drive_g)
                 break;
             // Change drive request failed to take effect - retry.
             if (check_time(end)) {
-                dprintf(1, "ata_reset slave time out\n");
+                warn_timeout();
                 goto done;
             }
         }
@@ -458,7 +458,7 @@ ata_dma_transfer(struct disk_op_s *op)
         // Transfer in progress
         if (check_time(end)) {
             // Timeout.
-            dprintf(1, "IDE DMA timeout\n");
+            warn_timeout();
             break;
         }
         yield();
@@ -883,7 +883,7 @@ powerup_await_non_bsy(u16 base)
             return orstatus;
         }
         if (check_time(SpinupEnd)) {
-            dprintf(1, "powerup IDE time out\n");
+            warn_timeout();
             return -1;
         }
         yield();

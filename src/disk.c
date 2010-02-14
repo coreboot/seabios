@@ -88,8 +88,7 @@ basic_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
     u16 head = regs->dh;
 
     if (count > 128 || count == 0 || sector == 0) {
-        dprintf(1, "int13_harddisk: function %02x, parameter out of range!\n"
-                , regs->ah);
+        warn_invalid(regs);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
@@ -100,9 +99,7 @@ basic_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
 
     // sanity check on cyl heads, sec
     if (cylinder >= nlc || head >= nlh || sector > nlspt) {
-        dprintf(1, "int13_harddisk: function %02x, parameters out of"
-                " range %04x/%04x/%04x!\n"
-                , regs->ah, cylinder, head, sector);
+        warn_invalid(regs);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
@@ -130,8 +127,7 @@ extended_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
     dop.command = command;
     dop.drive_g = drive_g;
     if (dop.lba >= GET_GLOBAL(drive_g->sectors)) {
-        dprintf(1, "int13_harddisk: function %02x. LBA out of range\n"
-                , regs->ah);
+        warn_invalid(regs);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }

@@ -485,6 +485,21 @@ __warn_unimplemented(struct bregs *regs, int lineno, const char *fname)
     }
 }
 
+// Report on an allocation failure.
+void
+__warn_noalloc(int lineno, const char *fname)
+{
+    dprintf(1, "WARNING - Unable to allocate resource at %s:%d!\n"
+            , fname, lineno);
+}
+
+// Report on a timeout exceeded.
+void
+__warn_timeout(int lineno, const char *fname)
+{
+    dprintf(1, "WARNING - Timeout at %s:%d!\n", fname, lineno);
+}
+
 // Report a handler reporting an invalid parameter to the caller.
 void
 __set_invalid(struct bregs *regs, int lineno, const char *fname)

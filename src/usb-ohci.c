@@ -35,7 +35,7 @@ start_ohci(struct usb_s *cntl, struct ohci_hcca *hcca)
         if (! status & OHCI_HCR)
             break;
         if (check_time(end)) {
-            dprintf(1, "Timeout on ohci software reset\n");
+            warn_timeout();
             return -1;
         }
     }
@@ -153,7 +153,7 @@ ohci_init(void *data)
     struct ohci_ed *intr_ed = malloc_high(sizeof(*intr_ed));
     struct ohci_ed *control_ed = malloc_high(sizeof(*control_ed));
     if (!hcca || !intr_ed || !control_ed) {
-        dprintf(1, "No ram for ohci init\n");
+        warn_noalloc();
         goto free;
     }
     memset(hcca, 0, sizeof(*hcca));
@@ -192,7 +192,7 @@ wait_ed(struct ohci_ed *ed)
         if (ed->hwHeadP == ed->hwTailP)
             return 0;
         if (check_time(end)) {
-            dprintf(1, "Timeout on wait_ed %p\n", ed);
+            warn_timeout();
             return -1;
         }
         yield();

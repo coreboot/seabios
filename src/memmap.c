@@ -27,7 +27,7 @@ static void
 insert_e820(int i, u64 start, u64 size, u32 type)
 {
     if (e820_count >= CONFIG_MAX_E820) {
-        dprintf(1, "Overflowed e820 list!\n");
+        warn_noalloc();
         return;
     }
 

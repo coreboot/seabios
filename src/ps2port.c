@@ -32,7 +32,7 @@ i8042_wait_read(void)
             return 0;
         udelay(50);
     }
-    dprintf(1, "i8042 timeout on wait read\n");
+    warn_timeout();
     return -1;
 }
 
@@ -47,7 +47,7 @@ i8042_wait_write(void)
             return 0;
         udelay(50);
     }
-    dprintf(1, "i8042 timeout on wait write\n");
+    warn_timeout();
     return -1;
 }
 
@@ -65,7 +65,7 @@ i8042_flush(void)
         dprintf(7, "i8042 flushed %x (status=%x)\n", data, status);
     }
 
-    dprintf(1, "i8042 timeout on flush\n");
+    warn_timeout();
     return -1;
 }
 
@@ -189,7 +189,9 @@ ps2_recvbyte(int aux, int needack, int timeout)
         }
 
         if (check_time(end)) {
-            dprintf(1, "ps2_recvbyte timeout\n");
+            // Don't warn on second byte of a reset
+            if (timeout > 100)
+                warn_timeout();
             return -1;
         }
         yield();

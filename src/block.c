@@ -224,7 +224,7 @@ static void
 add_ordered_drive(u8 *idmap, u8 *count, struct drive_s *drive_g)
 {
     if (*count >= ARRAY_SIZE(Drives.idmap[0])) {
-        dprintf(1, "No room to map drive %p\n", drive_g);
+        warn_noalloc();
         return;
     }
     u8 *pos = &idmap[*count];

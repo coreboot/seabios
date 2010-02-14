@@ -37,7 +37,7 @@ ramdisk_setup(void)
     // Allocate ram for image.
     void *pos = memalign_tmphigh(PAGE_SIZE, size);
     if (!pos) {
-        dprintf(3, "Not enough memory for ramdisk\n");
+        warn_noalloc();
         return;
     }
     add_e820((u32)pos, size, E820_RESERVED);

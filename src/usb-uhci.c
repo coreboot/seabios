@@ -40,12 +40,12 @@ configure_uhci(struct usb_s *cntl)
     struct uhci_qh *data_qh = malloc_high(sizeof(*data_qh));
     struct uhci_qh *term_qh = malloc_high(sizeof(*term_qh));
     if (!term_td || !fl || !intr_qh || !data_qh || !term_qh) {
+        warn_noalloc();
         free(term_td);
         free(fl);
         free(intr_qh);
         free(data_qh);
         free(term_qh);
-        dprintf(1, "No ram for uhci init\n");
         return;
     }
 
@@ -169,6 +169,7 @@ wait_qh(struct usb_s *cntl, struct uhci_qh *qh)
         if (qh->element & UHCI_PTR_TERM)
             return 0;
         if (check_time(end)) {
+            warn_timeout();
             struct uhci_td *td = (void*)(qh->element & ~UHCI_PTR_BITS);
             dprintf(1, "Timeout on wait_qh %p (td=%p s=%x c=%x/%x)\n"
                     , qh, td, td->status

@@ -185,7 +185,7 @@ copy_rom(struct rom_header *rom)
     u32 romsize = rom->size * 512;
     if (RomEnd + romsize > max_rom()) {
         // Option rom doesn't fit.
-        dprintf(1, "Option rom %p doesn't fit.\n", rom);
+        warn_noalloc();
         return NULL;
     }
     dprintf(4, "Copying option rom (size %d) from %p to %x\n"

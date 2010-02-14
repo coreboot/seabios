@@ -211,7 +211,7 @@ int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
         }
 
         if (end - *p < sizeof(struct smbios_structure_header)) {
-            dprintf(1, "No more memory for additional smbios tables\n");
+            warn_noalloc();
             break;
         }
 
@@ -233,7 +233,7 @@ int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
 
         /* Read the rest and terminate the entry */
         if (end - *p < table.header.length) {
-            dprintf(1, "No memory for smbios table %d\n", header->type);
+            warn_noalloc();
             *p -= sizeof(struct smbios_structure_header);
             continue;
         }

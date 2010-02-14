@@ -303,7 +303,7 @@ build_fadt(int bdf)
     void *dsdt = malloc_high(sizeof(AmlCode));
 
     if (!fadt || !facs || !dsdt) {
-        dprintf(1, "Not enough memory for fadt!\n");
+        warn_noalloc();
         return NULL;
     }
 
@@ -353,7 +353,7 @@ build_madt(void)
                      + sizeof(struct madt_intsrcovr) * 16);
     struct multiple_apic_table *madt = malloc_high(madt_size);
     if (!madt) {
-        dprintf(1, "Not enough memory for madt!\n");
+        warn_noalloc();
         return NULL;
     }
     memset(madt, 0, madt_size);
@@ -418,7 +418,7 @@ build_ssdt(void)
     int length = sizeof(struct acpi_table_header) + 3 + cpu_length;
     u8 *ssdt = malloc_high(length);
     if (! ssdt) {
-        dprintf(1, "No space for ssdt!\n");
+        warn_noalloc();
         return NULL;
     }
 
@@ -473,7 +473,7 @@ build_hpet(void)
 {
     struct acpi_20_hpet *hpet = malloc_high(sizeof(*hpet));
     if (!hpet) {
-        dprintf(1, "Not enough memory for hpet!\n");
+        warn_noalloc();
         return NULL;
     }
 
@@ -514,7 +514,7 @@ build_srat(void)
 
     u64 *numadata = malloc_tmphigh(sizeof(u64) * (MaxCountCPUs + nb_numa_nodes));
     if (!numadata) {
-        dprintf(1, "Not enough memory for read numa data from VM!\n");
+        warn_noalloc();
         return NULL;
     }
 
@@ -527,7 +527,7 @@ build_srat(void)
 
     srat = malloc_high(srat_size);
     if (!srat) {
-        dprintf(1, "Not enough memory for srat table!\n");
+        warn_noalloc();
         free(numadata);
         return NULL;
     }
@@ -620,7 +620,7 @@ acpi_bios_init(void)
     // Create initial rsdt table
     struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
     if (!rsdp) {
-        dprintf(1, "Not enough memory for acpi rsdp table!\n");
+        warn_noalloc();
         return;
     }
 
@@ -646,13 +646,12 @@ acpi_bios_init(void)
         u16 len = qemu_cfg_next_acpi_table_len();
         void *addr = malloc_high(len);
         if (!addr) {
-            dprintf(1, "Not enough memory for ext acpi table of size %d!\n"
-                    , len);
+            warn_noalloc();
             continue;
         }
         ACPI_INIT_TABLE(qemu_cfg_next_acpi_table_load(addr, len));
         if (tbl_idx == MAX_ACPI_TABLES) {
-            dprintf(1, "Too many external tables!\n");
+            warn_noalloc();
             break;
         }
     }
@@ -662,7 +661,7 @@ acpi_bios_init(void)
     rsdt = malloc_high(rsdt_len);
 
     if (!rsdt) {
-        dprintf(1, "Not enough memory for acpi rsdt table!\n");
+        warn_noalloc();
         return;
     }
     memset(rsdt, 0, rsdt_len);
