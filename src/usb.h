@@ -75,6 +75,15 @@ static inline u8 endp2maxsize(u32 endp) {
  * usb structs and flags
  ****************************************************************/
 
+// USB mandated timings (in ms)
+#define USB_TIME_SIGATT 100
+#define USB_TIME_ATTDB  100
+#define USB_TIME_DRST   10
+#define USB_TIME_DRSTR  50
+#define USB_TIME_RSTRCY 10
+
+#define USB_TIME_SETADDR_RECOVERY 2
+
 #define USB_PID_OUT                     0xe1
 #define USB_PID_IN                      0x69
 #define USB_PID_SETUP                   0x2d

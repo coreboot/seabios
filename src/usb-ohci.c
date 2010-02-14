@@ -25,7 +25,7 @@ start_ohci(struct usb_s *cntl, struct ohci_hcca *hcca)
     // Do reset
     writel(&cntl->ohci.regs->control, OHCI_USB_RESET | oldrwc);
     readl(&cntl->ohci.regs->control); // flush writes
-    msleep(50);
+    msleep(USB_TIME_DRSTR);
 
     // Do software init (min 10us, max 2ms)
     u64 end = calc_future_tsc_usec(10);
@@ -96,7 +96,8 @@ check_ohci_ports(struct usb_s *cntl)
         // No devices connected
         goto shutdown;
 
-    msleep(60);    // XXX - should poll instead of using timer.
+    // XXX - should poll instead of using timer.
+    msleep(USB_TIME_DRSTR + USB_TIME_RSTRCY);
 
     totalcount = 0;
     for (i=0; i<ports; i++) {

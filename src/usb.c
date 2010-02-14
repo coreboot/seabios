@@ -125,7 +125,7 @@ set_address(u32 endp)
     int ret = send_default_control(endp, &req, NULL);
     if (ret)
         return 0;
-    msleep(2);
+    msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
     return mkendp(cntl, cntl->maxaddr, 0, endp2speed(endp), endp2maxsize(endp));
