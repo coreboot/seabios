@@ -82,38 +82,49 @@ check_ohci_ports(struct usb_s *cntl)
     writel(&cntl->ohci.regs->roothub_status, RH_HS_LPSC);
     writel(&cntl->ohci.regs->roothub_b, RH_B_PPCM);
     msleep((rha >> 24) * 2);
+    // XXX - need to sleep for USB_TIME_SIGATT if just powered up?
 
     // Count and reset connected devices
     int ports = rha & RH_A_NDP;
     int totalcount = 0;
     int i;
-    for (i=0; i<ports; i++)
-        if (readl(&cntl->ohci.regs->roothub_portstatus[i]) & RH_PS_CCS) {
-            writel(&cntl->ohci.regs->roothub_portstatus[i], RH_PS_PRS);
-            totalcount++;
+    for (i=0; i<ports; i++) {
+        u32 sts = readl(&cntl->ohci.regs->roothub_portstatus[i]);
+        if (!(sts & RH_PS_CCS))
+            continue;
+        // XXX - need to wait for USB_TIME_ATTDB if just powered up?
+        writel(&cntl->ohci.regs->roothub_portstatus[i], RH_PS_PRS);
+        u64 end = calc_future_tsc(USB_TIME_DRSTR * 2);
+        for (;;) {
+            sts = readl(&cntl->ohci.regs->roothub_portstatus[i]);
+            if (!(sts & RH_PS_PRS))
+                // XXX - need to ensure USB_TIME_DRSTR time in reset?
+                break;
+            if (check_time(end)) {
+                // Timeout.
+                warn_timeout();
+                goto shutdown;
+            }
+            yield();
         }
+
+        if ((sts & (RH_PS_CCS|RH_PS_PES)) != (RH_PS_CCS|RH_PS_PES))
+            // Device no longer present
+            continue;
+
+        msleep(USB_TIME_RSTRCY);
+
+        // XXX - should try to parallelize configuration.
+        int count = configure_usb_device(cntl, !!(sts & RH_PS_LSDA));
+        if (! count)
+            // Shutdown port
+            writel(&cntl->ohci.regs->roothub_portstatus[i]
+                   , RH_PS_CCS|RH_PS_LSDA);
+        totalcount += count;
+    }
     if (!totalcount)
         // No devices connected
         goto shutdown;
-
-    // XXX - should poll instead of using timer.
-    msleep(USB_TIME_DRSTR + USB_TIME_RSTRCY);
-
-    totalcount = 0;
-    for (i=0; i<ports; i++) {
-        u32 sts = readl(&cntl->ohci.regs->roothub_portstatus[i]);
-        if ((sts & (RH_PS_CCS|RH_PS_PES)) == (RH_PS_CCS|RH_PS_PES)) {
-            int count = configure_usb_device(cntl, !!(sts & RH_PS_LSDA));
-            if (! count)
-                // Shutdown port
-                writel(&cntl->ohci.regs->roothub_portstatus[i]
-                       , RH_PS_CCS|RH_PS_LSDA);
-            totalcount += count;
-        }
-    }
-    if (!totalcount)
-        goto shutdown;
-
     return totalcount;
 
 shutdown:
