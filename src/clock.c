@@ -54,8 +54,6 @@
  * TSC timer
  ****************************************************************/
 
-#define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
-#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
 #define TICKS_PER_DAY (u32)((u64)60*60*24*PIT_TICK_RATE / PIT_TICK_INTERVAL)
 #define CALIBRATE_COUNT 0x800   // Approx 1.7ms
 

@@ -245,6 +245,8 @@ void serial_setup(void);
 void lpt_setup(void);
 
 // clock.c
+#define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
+#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
 static inline int check_time(u64 end) {
     return (s64)(rdtscll() - end) > 0;
 }

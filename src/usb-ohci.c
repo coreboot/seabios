@@ -149,12 +149,18 @@ ohci_init(void *data)
 
     // Allocate memory
     struct ohci_hcca *hcca = memalign_high(256, sizeof(*hcca));
+    struct ohci_ed *intr_ed = malloc_high(sizeof(*intr_ed));
     struct ohci_ed *control_ed = malloc_high(sizeof(*control_ed));
-    if (!hcca || !control_ed) {
+    if (!hcca || !intr_ed || !control_ed) {
         dprintf(1, "No ram for ohci init\n");
-        return;
+        goto free;
     }
     memset(hcca, 0, sizeof(*hcca));
+    memset(intr_ed, 0, sizeof(*intr_ed));
+    intr_ed->hwINFO = ED_SKIP;
+    int i;
+    for (i=0; i<ARRAY_SIZE(hcca->int_table); i++)
+        hcca->int_table[i] = (u32)intr_ed;
     memset(control_ed, 0, sizeof(*control_ed));
     control_ed->hwINFO = ED_SKIP;
     cntl->ohci.control_ed = control_ed;
@@ -170,7 +176,9 @@ ohci_init(void *data)
 
 err:
     stop_ohci(cntl);
+free:
     free(hcca);
+    free(intr_ed);
     free(control_ed);
 }
 
@@ -245,18 +253,21 @@ struct ohci_pipe {
 };
 
 struct usb_pipe *
-ohci_alloc_intr_pipe(u32 endp, int period)
+ohci_alloc_intr_pipe(u32 endp, int frameexp)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
 
-    dprintf(7, "ohci_alloc_intr_pipe %x %d\n", endp, period);
+    dprintf(7, "ohci_alloc_intr_pipe %x %d\n", endp, frameexp);
+    if (frameexp > 5)
+        frameexp = 5;
     struct usb_s *cntl = endp2cntl(endp);
     int maxpacket = endp2maxsize(endp);
     int lowspeed = endp2speed(endp);
     int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
-    // XXX - just grab 20 for now.
-    int count = 20;
+    // Determine number of entries needed for 2 timer ticks.
+    int ms = 1<<frameexp;
+    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
     struct ohci_pipe *pipe = malloc_low(sizeof(*pipe));
     struct ohci_td *tds = malloc_low(sizeof(*tds) * count);
     void *data = malloc_low(maxpacket * count);
@@ -267,7 +278,6 @@ ohci_alloc_intr_pipe(u32 endp, int period)
     ed->hwHeadP = (u32)&tds[0];
     ed->hwTailP = (u32)&tds[count-1];
     ed->hwINFO = devaddr | (maxpacket << 16) | (lowspeed ? ED_LOWSPEED : 0);
-    ed->hwNextED = 0;
 
     int i;
     for (i=0; i<count-1; i++) {
@@ -277,11 +287,20 @@ ohci_alloc_intr_pipe(u32 endp, int period)
         tds[i].hwBE = tds[i].hwCBP + maxpacket - 1;
     }
 
-    // XXX - need schedule - just add to primary list for now.
+    // Add to interrupt schedule.
     barrier();
     struct ohci_hcca *hcca = (void*)cntl->ohci.regs->hcca;
-    for (i=0; i<ARRAY_SIZE(hcca->int_table); i++)
-        hcca->int_table[i] = (u32)ed;
+    if (frameexp == 0) {
+        // Add to existing interrupt entry.
+        struct ohci_ed *intr_ed = (void*)hcca->int_table[0];
+        ed->hwNextED = intr_ed->hwNextED;
+        intr_ed->hwNextED = (u32)ed;
+    } else {
+        int startpos = 1<<(frameexp-1);
+        ed->hwNextED = hcca->int_table[startpos];
+        for (i=startpos; i<ARRAY_SIZE(hcca->int_table); i+=ms)
+            hcca->int_table[i] = (u32)ed;
+    }
 
     pipe->data = data;
     pipe->count = count;

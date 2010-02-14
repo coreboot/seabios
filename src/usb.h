@@ -11,7 +11,7 @@ struct usb_s {
     union {
         struct {
             u16 iobase;
-            void *qh;
+            void *qh, *framelist;
         } uhci;
         struct {
             struct ohci_regs *regs;

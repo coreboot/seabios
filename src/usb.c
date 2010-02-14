@@ -35,12 +35,16 @@ struct usb_pipe *
 alloc_intr_pipe(u32 endp, int period)
 {
     struct usb_s *cntl = endp2cntl(endp);
+    // Find the exponential period of the requested time.
+    if (period <= 0)
+        period = 1;
+    int frameexp = __fls(period);
     switch (cntl->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_intr_pipe(endp, period);
+        return uhci_alloc_intr_pipe(endp, frameexp);
     case USB_TYPE_OHCI:
-        return ohci_alloc_intr_pipe(endp, period);
+        return ohci_alloc_intr_pipe(endp, frameexp);
     }
 }
 

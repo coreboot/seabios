@@ -36,9 +36,15 @@ configure_uhci(struct usb_s *cntl)
     // Allocate ram for schedule storage
     struct uhci_td *term_td = malloc_high(sizeof(*term_td));
     struct uhci_framelist *fl = memalign_high(sizeof(*fl), sizeof(*fl));
-    struct uhci_qh *data_qh = malloc_low(sizeof(*data_qh));
+    struct uhci_qh *intr_qh = malloc_high(sizeof(*intr_qh));
+    struct uhci_qh *data_qh = malloc_high(sizeof(*data_qh));
     struct uhci_qh *term_qh = malloc_high(sizeof(*term_qh));
-    if (!term_td || !fl || !data_qh || !term_qh) {
+    if (!term_td || !fl || !intr_qh || !data_qh || !term_qh) {
+        free(term_td);
+        free(fl);
+        free(intr_qh);
+        free(data_qh);
+        free(term_qh);
         dprintf(1, "No ram for uhci init\n");
         return;
     }
@@ -58,11 +64,14 @@ configure_uhci(struct usb_s *cntl)
     data_qh->link = (u32)term_qh | UHCI_PTR_QH;
     cntl->uhci.qh = data_qh;
 
-    // Set schedule to point to primary queue head
+    // Set schedule to point to primary intr queue head
+    memset(intr_qh, 0, sizeof(*intr_qh));
+    intr_qh->element = UHCI_PTR_TERM;
+    intr_qh->link = (u32)data_qh | UHCI_PTR_QH;
     int i;
-    for (i=0; i<ARRAY_SIZE(fl->links); i++) {
-        fl->links[i] = (u32)data_qh | UHCI_PTR_QH;
-    }
+    for (i=0; i<ARRAY_SIZE(fl->links); i++)
+        fl->links[i] = (u32)intr_qh | UHCI_PTR_QH;
+    cntl->uhci.framelist = fl;
 
     // Set the frame length to the default: 1 ms exactly
     outb(USBSOF_DEFAULT, cntl->uhci.iobase + USBSOF);
@@ -229,26 +238,28 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
 }
 
 struct usb_pipe *
-uhci_alloc_intr_pipe(u32 endp, int period)
+uhci_alloc_intr_pipe(u32 endp, int frameexp)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
 
-    dprintf(7, "uhci_alloc_intr_pipe %x %d\n", endp, period);
+    dprintf(7, "uhci_alloc_intr_pipe %x %d\n", endp, frameexp);
+    if (frameexp > 10)
+        frameexp = 10;
     struct usb_s *cntl = endp2cntl(endp);
     int maxpacket = endp2maxsize(endp);
     int lowspeed = endp2speed(endp);
     int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
-    // XXX - just grab 20 for now.
-    int count = 20;
+    // Determine number of entries needed for 2 timer ticks.
+    int ms = 1<<frameexp;
+    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
     struct uhci_qh *qh = malloc_low(sizeof(*qh));
     struct uhci_td *tds = malloc_low(sizeof(*tds) * count);
-    if (!qh || !tds)
+    if (!qh || !tds || maxpacket > sizeof(tds[0].data)) {
+        free(qh);
+        free(tds);
         return NULL;
-    if (maxpacket > sizeof(tds[0].data))
-        // XXX - free qh/tds
-        return NULL;
-
+    }
     qh->element = (u32)tds;
     int toggle = 0;
     int i;
@@ -266,10 +277,19 @@ uhci_alloc_intr_pipe(u32 endp, int period)
     qh->next_td = &tds[0];
     qh->pipe.endp = endp;
 
-    // XXX - need schedule - just add to primary list for now.
-    struct uhci_qh *data_qh = cntl->uhci.qh;
-    qh->link = data_qh->link;
-    data_qh->link = (u32)qh | UHCI_PTR_QH;
+    // Add to interrupt schedule.
+    struct uhci_framelist *fl = cntl->uhci.framelist;
+    if (frameexp == 0) {
+        // Add to existing interrupt entry.
+        struct uhci_qh *intr_qh = (void*)(fl->links[0] & ~UHCI_PTR_BITS);
+        qh->link = intr_qh->link;
+        intr_qh->link = (u32)qh | UHCI_PTR_QH;
+    } else {
+        int startpos = 1<<(frameexp-1);
+        qh->link = fl->links[startpos];
+        for (i=startpos; i<ARRAY_SIZE(fl->links); i+=ms)
+            fl->links[i] = (u32)qh | UHCI_PTR_QH;
+    }
 
     return &qh->pipe;
 }

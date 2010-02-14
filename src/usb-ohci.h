@@ -6,7 +6,7 @@ struct usb_s;
 void ohci_init(void *data);
 int ohci_control(u32 endp, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
-struct usb_pipe *ohci_alloc_intr_pipe(u32 endp, int period);
+struct usb_pipe *ohci_alloc_intr_pipe(u32 endp, int frameexp);
 int ohci_poll_intr(struct usb_pipe *pipe, void *data);
 
 
