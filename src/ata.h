@@ -15,8 +15,7 @@ struct ata_channel_s {
 // ata.c
 extern struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES];
 int cdrom_read(struct disk_op_s *op);
-int ata_cmd_packet(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen
-                   , u32 length, void *buf_fl);
+int atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
 void ata_setup(void);
 int process_ata_op(struct disk_op_s *op);
 int process_atapi_op(struct disk_op_s *op);
@@ -143,7 +142,5 @@ void describe_atapi(struct drive_s *drive_g);
 #define ATA_CMD_SET_FEATURES                 0xEF
 #define ATA_CMD_READ_NATIVE_MAX_ADDRESS      0xF8
 #define ATA_CMD_SET_MAX                      0xF9
-
-#define ATA_CMD_REQUEST_SENSE                0x03
 
 #endif // ata.h

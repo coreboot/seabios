@@ -10,6 +10,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_EBDA
 #include "ata.h" // ATA_CMD_REQUEST_SENSE
+#include "blockcmd.h" // CDB_CMD_REQUEST_SENSE
 
 
 /****************************************************************
@@ -167,6 +168,8 @@ cdemu_134b(struct bregs *regs)
     if (regs->al == 0x00) {
         // FIXME ElTorito Various. Should be handled accordingly to spec
         SET_EBDA2(ebda_seg, cdemu.active, 0x00); // bye bye
+
+        // XXX - update floppy/hd count.
     }
 
     disk_ret(regs, DISK_RET_SUCCESS);
@@ -179,47 +182,47 @@ cdemu_134b(struct bregs *regs)
 
 // Request SENSE
 static int
-atapi_get_sense(struct drive_s *drive_g, u8 *asc, u8 *ascq)
+atapi_get_sense(struct disk_op_s *op, u8 *asc, u8 *ascq)
 {
-    u8 atacmd[12], buffer[18];
-    memset(atacmd, 0, sizeof(atacmd));
-    atacmd[0] = ATA_CMD_REQUEST_SENSE;
-    atacmd[4] = sizeof(buffer);
-    int ret = ata_cmd_packet(drive_g, atacmd, sizeof(atacmd), sizeof(buffer)
-                             , MAKE_FLATPTR(GET_SEG(SS), buffer));
+    struct cdb_request_sense cmd;
+    struct cdbres_request_sense data;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_REQUEST_SENSE;
+    cmd.length = sizeof(data);
+    op->count = 1;
+    op->buf_fl = &data;
+    int ret = atapi_cmd_data(op, &cmd, sizeof(data));
     if (ret)
         return ret;
 
-    *asc = buffer[12];
-    *ascq = buffer[13];
-
+    *asc = data.asc;
+    *ascq = data.ascq;
     return 0;
 }
 
 // Request capacity
 static int
-atapi_read_capacity(struct drive_s *drive_g, u32 *blksize, u32 *sectors)
+atapi_read_capacity(struct disk_op_s *op, u32 *blksize, u32 *sectors)
 {
-    u8 packet[12], buf[8];
-    memset(packet, 0, sizeof(packet));
-    packet[0] = 0x25; /* READ CAPACITY */
-    int ret = ata_cmd_packet(drive_g, packet, sizeof(packet), sizeof(buf)
-                             , MAKE_FLATPTR(GET_SEG(SS), buf));
+    struct cdb_read_capacity cmd;
+    struct cdbres_read_capacity data;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_READ_CAPACITY;
+    op->count = 1;
+    op->buf_fl = &data;
+    int ret = atapi_cmd_data(op, &cmd, sizeof(data));
     if (ret)
         return ret;
 
-    *blksize = (((u32)buf[4] << 24) | ((u32)buf[5] << 16)
-                | ((u32)buf[6] << 8) | ((u32)buf[7] << 0));
-    *sectors = (((u32)buf[0] << 24) | ((u32)buf[1] << 16)
-                | ((u32)buf[2] << 8) | ((u32)buf[3] << 0));
-
+    *blksize = ntohl(data.blksize);
+    *sectors = ntohl(data.sectors);
     return 0;
 }
 
 static int
-atapi_is_ready(struct drive_s *drive_g)
+atapi_is_ready(struct disk_op_s *op)
 {
-    dprintf(6, "atapi_is_ready (drive=%p)\n", drive_g);
+    dprintf(6, "atapi_is_ready (drive=%p)\n", op->drive_g);
 
     /* Retry READ CAPACITY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
@@ -233,13 +236,13 @@ atapi_is_ready(struct drive_s *drive_g)
             return -1;
         }
 
-        int ret = atapi_read_capacity(drive_g, &blksize, &sectors);
+        int ret = atapi_read_capacity(op, &blksize, &sectors);
         if (!ret)
             // Success
             break;
 
         u8 asc, ascq;
-        ret = atapi_get_sense(drive_g, &asc, &ascq);
+        ret = atapi_get_sense(op, &asc, &ascq);
         if (ret)
             // Error - retry.
             continue;
@@ -259,7 +262,7 @@ atapi_is_ready(struct drive_s *drive_g)
         }
     }
 
-    if (blksize != GET_GLOBAL(drive_g->blksize)) {
+    if (blksize != GET_GLOBAL(op->drive_g->blksize)) {
         printf("Unsupported sector size %u\n", blksize);
         return -1;
     }
@@ -272,19 +275,18 @@ atapi_is_ready(struct drive_s *drive_g)
 int
 cdrom_boot(int cdid)
 {
-    struct drive_s *drive_g = getDrive(EXTTYPE_CD, cdid);
-    if (!drive_g)
+    struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
+    dop.drive_g = getDrive(EXTTYPE_CD, cdid);
+    if (!dop.drive_g)
         return 1;
 
-    int ret = atapi_is_ready(drive_g);
+    int ret = atapi_is_ready(&dop);
     if (ret)
         dprintf(1, "atapi_is_ready returned %d\n", ret);
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
-    struct disk_op_s dop;
-    memset(&dop, 0, sizeof(dop));
-    dop.drive_g = drive_g;
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
@@ -325,7 +327,7 @@ cdrom_boot(int cdid)
     u8 media = buffer[0x21];
     SET_EBDA2(ebda_seg, cdemu.media, media);
 
-    SET_EBDA2(ebda_seg, cdemu.emulated_drive, ADJUST_GLOBAL_PTR(drive_g));
+    SET_EBDA2(ebda_seg, cdemu.emulated_drive, ADJUST_GLOBAL_PTR(dop.drive_g));
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)
@@ -362,6 +364,7 @@ cdrom_boot(int cdid)
     if (media < 4) {
         // Floppy emulation
         SET_EBDA2(ebda_seg, cdemu.emulated_extdrive, 0x00);
+        // XXX - get and set actual floppy count.
         SETBITS_BDA(equipment_list_flags, 0x41);
 
         switch (media) {

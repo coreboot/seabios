@@ -17,6 +17,7 @@
 #include "boot.h" // add_bcv_hd
 #include "disk.h" // struct ata_s
 #include "ata.h" // ATA_CB_STAT
+#include "blockcmd.h" // CDB_CMD_READ_10
 
 #define IDE_TIMEOUT 32000 //32 seconds max for IDE ops
 
@@ -596,9 +597,11 @@ process_ata_op(struct disk_op_s *op)
  * ATAPI functions
  ****************************************************************/
 
+#define CDROM_CDB_SIZE 12
+
 // Low-level atapi command transmit function.
-static int
-atapi_cmd_data(struct disk_op_s *op, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
+int
+atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
     u8 ataid = GET_GLOBAL(op->drive_g->cntl_id);
     u8 channel = ataid / 2;
@@ -622,7 +625,7 @@ atapi_cmd_data(struct disk_op_s *op, u8 *cmdbuf, u8 cmdlen, u16 blocksize)
         goto fail;
 
     // Send command to device
-    outsw_fl(iobase1, MAKE_FLATPTR(GET_SEG(SS), cmdbuf), cmdlen / 2);
+    outsw_fl(iobase1, MAKE_FLATPTR(GET_SEG(SS), cdbcmd), CDROM_CDB_SIZE / 2);
 
     int status = pause_await_not_bsy(iobase1, iobase2);
     if (status < 0) {
@@ -657,17 +660,12 @@ fail:
 int
 cdrom_read(struct disk_op_s *op)
 {
-    u8 atacmd[12];
-    memset(atacmd, 0, sizeof(atacmd));
-    atacmd[0]=0x28;                         // READ command
-    atacmd[7]=(op->count & 0xff00) >> 8;    // Sectors
-    atacmd[8]=(op->count & 0x00ff);
-    atacmd[2]=(op->lba & 0xff000000) >> 24; // LBA
-    atacmd[3]=(op->lba & 0x00ff0000) >> 16;
-    atacmd[4]=(op->lba & 0x0000ff00) >> 8;
-    atacmd[5]=(op->lba & 0x000000ff);
-
-    return atapi_cmd_data(op, atacmd, sizeof(atacmd), CDROM_SECTOR_SIZE);
+    struct cdb_rwdata_10 cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_READ_10;
+    cmd.lba = htonl(op->lba);
+    cmd.count = htons(op->count);
+    return atapi_cmd_data(op, &cmd, CDROM_SECTOR_SIZE);
 }
 
 // 16bit command demuxer for ATAPI cdroms.
@@ -687,20 +685,6 @@ process_atapi_op(struct disk_op_s *op)
     default:
         return process_ata_misc_op(op);
     }
-}
-
-// Send a simple atapi command to a drive.
-int
-ata_cmd_packet(struct drive_s *drive_g, u8 *cmdbuf, u8 cmdlen
-               , u32 length, void *buf_fl)
-{
-    struct disk_op_s dop;
-    memset(&dop, 0, sizeof(dop));
-    dop.drive_g = drive_g;
-    dop.count = 1;
-    dop.buf_fl = buf_fl;
-
-    return atapi_cmd_data(&dop, cmdbuf, cmdlen, length);
 }
 
 
