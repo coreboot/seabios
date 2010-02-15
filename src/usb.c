@@ -12,6 +12,7 @@
 #include "usb-uhci.h" // uhci_init
 #include "usb-ohci.h" // ohci_init
 #include "usb-hid.h" // usb_keyboard_setup
+#include "usb-hub.h" // usb_hub_init
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
 
@@ -171,10 +172,11 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
     // Determine if a driver exists for this device - only look at the
     // first interface of the first configuration.
     struct usb_interface_descriptor *iface = (void*)(&config[1]);
-    if (iface->bInterfaceClass != USB_CLASS_HID
-        || iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT
-        || iface->bInterfaceProtocol != USB_INTERFACE_PROTOCOL_KEYBOARD)
-        // Not a "boot" keyboard
+    if ((iface->bInterfaceClass != USB_CLASS_HID
+         || iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT
+         || iface->bInterfaceProtocol != USB_INTERFACE_PROTOCOL_KEYBOARD)
+        && (iface->bInterfaceClass != USB_CLASS_HUB))
+        // Not a supported device.
         goto fail;
 
     // Set the address and configure device.
@@ -186,6 +188,10 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
         goto fail;
 
     // Configure driver.
+    if (iface->bInterfaceClass == USB_CLASS_HUB) {
+        free(config);
+        return usb_hub_init(endp);
+    }
     ret = usb_keyboard_init(endp, iface, ((void*)config + config->wTotalLength
                                           - (void*)iface));
     if (ret)

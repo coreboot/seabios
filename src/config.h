@@ -36,6 +36,8 @@
 #define CONFIG_USB_UHCI 1
 // Support USB OHCI controllers
 #define CONFIG_USB_OHCI 1
+// Support USB hubs
+#define CONFIG_USB_HUB 1
 // Support USB keyboards
 #define CONFIG_USB_KEYBOARD 1
 // Support PS2 ports (keyboard and mouse)
