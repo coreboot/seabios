@@ -174,7 +174,7 @@ procmodkey(u8 mods, u8 flags)
 static void noinline
 handle_key(struct keyevent *data)
 {
-    dprintf(5, "Got key %x %x\n", data->modifiers, data->keys[0]);
+    dprintf(9, "Got key %x %x\n", data->modifiers, data->keys[0]);
 
     // Load old keys.
     u16 ebda_seg = get_ebda_seg();

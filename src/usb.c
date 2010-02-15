@@ -148,7 +148,7 @@ set_configuration(u32 endp, u16 val)
 int
 configure_usb_device(struct usb_s *cntl, int lowspeed)
 {
-    dprintf(1, "config_usb: %p %d\n", cntl, lowspeed);
+    dprintf(3, "config_usb: %p %d\n", cntl, lowspeed);
 
     // Get device info
     u32 endp = mkendp(cntl, 0, 0, lowspeed, 8);
