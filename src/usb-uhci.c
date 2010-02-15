@@ -94,6 +94,7 @@ start_uhci(struct usb_s *cntl)
 static int
 check_ports(struct usb_s *cntl)
 {
+    // XXX - if just powered up, need to wait for USB_TIME_SIGATT?
     u16 port1 = inw(cntl->uhci.iobase + USBPORTSC1);
     u16 port2 = inw(cntl->uhci.iobase + USBPORTSC2);
 
@@ -101,29 +102,34 @@ check_ports(struct usb_s *cntl)
         // No devices
         return 0;
 
+    // XXX - if just powered up, need to wait for USB_TIME_ATTDB?
+
     // reset ports
     if (port1 & USBPORTSC_CCS)
         outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC1);
     if (port2 & USBPORTSC_CCS)
         outw(USBPORTSC_PR, cntl->uhci.iobase + USBPORTSC2);
     msleep(USB_TIME_DRSTR);
-    outw(0, cntl->uhci.iobase + USBPORTSC1);
-    outw(0, cntl->uhci.iobase + USBPORTSC2);
-    msleep(USB_TIME_RSTRCY);
 
     // Configure ports
     int totalcount = 0;
+    outw(0, cntl->uhci.iobase + USBPORTSC1);
+    udelay(6); // 64 high-speed bit times
     port1 = inw(cntl->uhci.iobase + USBPORTSC1);
     if (port1 & USBPORTSC_CCS) {
         outw(USBPORTSC_PE, cntl->uhci.iobase + USBPORTSC1);
+        msleep(USB_TIME_RSTRCY);
         int count = configure_usb_device(cntl, !!(port1 & USBPORTSC_LSDA));
         if (! count)
             outw(0, cntl->uhci.iobase + USBPORTSC1);
         totalcount += count;
     }
+    outw(0, cntl->uhci.iobase + USBPORTSC2);
+    udelay(6);
     port2 = inw(cntl->uhci.iobase + USBPORTSC2);
     if (port2 & USBPORTSC_CCS) {
         outw(USBPORTSC_PE, cntl->uhci.iobase + USBPORTSC2);
+        msleep(USB_TIME_RSTRCY);
         int count = configure_usb_device(cntl, !!(port2 & USBPORTSC_LSDA));
         if (! count)
             outw(0, cntl->uhci.iobase + USBPORTSC2);
