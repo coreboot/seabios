@@ -36,6 +36,7 @@ static inline int kvm_para_available(void)
 #define QEMU_CFG_ACPI_TABLES		(QEMU_CFG_ARCH_LOCAL + 0)
 #define QEMU_CFG_SMBIOS_ENTRIES		(QEMU_CFG_ARCH_LOCAL + 1)
 #define QEMU_CFG_IRQ0_OVERRIDE		(QEMU_CFG_ARCH_LOCAL + 2)
+#define QEMU_CFG_E820_TABLE		(QEMU_CFG_ARCH_LOCAL + 3)
 
 extern int qemu_cfg_present;
 
@@ -61,8 +62,16 @@ typedef struct QemuCfgFile {
     char name[56];
 } QemuCfgFile;
 
+struct e820_reservation {
+    u64 address;
+    u64 length;
+    u32 type;
+};
+
 u16 qemu_cfg_first_file(QemuCfgFile *entry);
 u16 qemu_cfg_next_file(QemuCfgFile *entry);
 u32 qemu_cfg_read_file(QemuCfgFile *entry, void *dst, u32 maxlen);
+u32 qemu_cfg_e820_entries(void);
+void* qemu_cfg_e820_load_next(void *addr);
 
 #endif

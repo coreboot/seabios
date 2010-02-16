@@ -132,6 +132,23 @@ u16 qemu_cfg_smbios_entries(void)
     return cnt;
 }
 
+u32 qemu_cfg_e820_entries(void)
+{
+    u32 cnt;
+
+    if (!qemu_cfg_present)
+        return 0;
+
+    qemu_cfg_read_entry(&cnt, QEMU_CFG_E820_TABLE, sizeof(cnt));
+    return cnt;
+}
+
+void* qemu_cfg_e820_load_next(void *addr)
+{
+    qemu_cfg_read(addr, sizeof(struct e820_reservation));
+    return addr;
+}
+
 struct smbios_header {
     u16 length;
     u8 type;

@@ -135,10 +135,21 @@ ram_probe(void)
              , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
-    if (kvm_para_available())
+    u32 count = qemu_cfg_e820_entries();
+    if (count) {
+        struct e820_reservation entry;
+        int i;
+
+        for (i = 0; i < count; i++) {
+            qemu_cfg_e820_load_next(&entry);
+            add_e820(entry.address, entry.length, entry.type);
+        }
+    } else if (kvm_para_available()) {
+        // Backwards compatibility - provide hard coded range.
         // 4 pages before the bios, 3 pages for vmx tss pages, the
         // other page for EPT real mode pagetable
         add_e820(0xfffbc000, 4*4096, E820_RESERVED);
+    }
 
     dprintf(1, "Ram Size=0x%08x (0x%08x%08x high)\n"
             , RamSize, (u32)(RamSizeOver4G >> 32), (u32)RamSizeOver4G);
