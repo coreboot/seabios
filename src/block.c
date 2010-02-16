@@ -16,30 +16,9 @@ struct drives_s Drives VAR16VISIBLE;
 struct drive_s *
 getDrive(u8 exttype, u8 extdriveoffset)
 {
-    // basic check : device has to be defined
     if (extdriveoffset >= ARRAY_SIZE(Drives.idmap[0]))
         return NULL;
-
-    // Get the ata channel
-    u8 driveid = GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]);
-
-    // basic check : device has to be valid
-    if (driveid >= ARRAY_SIZE(Drives.drives))
-        return NULL;
-
-    return &Drives.drives[driveid];
-}
-
-struct drive_s *
-allocDrive(void)
-{
-    int driveid = Drives.drivecount;
-    if (driveid >= ARRAY_SIZE(Drives.drives))
-        return NULL;
-    Drives.drivecount++;
-    struct drive_s *drive_g = &Drives.drives[driveid];
-    memset(drive_g, 0, sizeof(*drive_g));
-    return drive_g;
+    return RETRIEVE_GLOBAL_PTR(GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]));
 }
 
 
@@ -208,11 +187,12 @@ map_hd_drive(struct drive_s *drive_g)
 {
     // fill hdidmap
     u8 hdcount = GET_BDA(hdcount);
-    if (hdcount >= ARRAY_SIZE(Drives.idmap[0]))
+    if (hdcount >= ARRAY_SIZE(Drives.idmap[0])) {
+        warn_noalloc();
         return;
+    }
     dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdcount);
-    int driveid = drive_g - Drives.drives;
-    SET_GLOBAL(Drives.idmap[EXTTYPE_HD][hdcount], driveid);
+    Drives.idmap[EXTTYPE_HD][hdcount] = STORE_GLOBAL_PTR(drive_g);
     SET_BDA(hdcount, hdcount + 1);
 
     // Fill "fdpt" structure.
@@ -221,22 +201,22 @@ map_hd_drive(struct drive_s *drive_g)
 
 // Find spot to add a drive
 static void
-add_ordered_drive(u8 *idmap, u8 *count, struct drive_s *drive_g)
+add_ordered_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
 {
     if (*count >= ARRAY_SIZE(Drives.idmap[0])) {
         warn_noalloc();
         return;
     }
-    u8 *pos = &idmap[*count];
+    struct drive_s **pos = &idmap[*count];
     *count = *count + 1;
     if (CONFIG_THREADS) {
         // Add to idmap with assured drive order.
-        u8 *end = pos;
+        struct drive_s **end = pos;
         for (;;) {
-            u8 *prev = pos - 1;
+            struct drive_s **prev = pos - 1;
             if (prev < idmap)
                 break;
-            struct drive_s *prevdrive = &Drives.drives[*prev];
+            struct drive_s *prevdrive = *prev;
             if (prevdrive->type < drive_g->type
                 || (prevdrive->type == drive_g->type
                     && prevdrive->cntl_id < drive_g->cntl_id))
@@ -246,7 +226,7 @@ add_ordered_drive(u8 *idmap, u8 *count, struct drive_s *drive_g)
         if (pos != end)
             memmove(pos+1, pos, (void*)end-(void*)pos);
     }
-    *pos = drive_g - Drives.drives;
+    *pos = STORE_GLOBAL_PTR(drive_g);
 }
 
 // Map a cd
@@ -312,6 +292,7 @@ describe_drive(struct drive_s *drive_g)
 int
 process_op(struct disk_op_s *op)
 {
+    ASSERT16();
     u8 type = GET_GLOBAL(op->drive_g->type);
     switch (type) {
     case DTYPE_FLOPPY:
@@ -355,9 +336,9 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 int
 send_disk_op(struct disk_op_s *op)
 {
+    ASSERT16();
     if (! CONFIG_DRIVES)
         return -1;
-    ASSERT16();
 
     return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
 }
@@ -371,5 +352,4 @@ void
 drive_setup(void)
 {
     memset(&Drives, 0, sizeof(Drives));
-    memset(&Drives.idmap, 0xff, sizeof(Drives.idmap));
 }

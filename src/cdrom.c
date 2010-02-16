@@ -113,12 +113,14 @@ cdemu_setup(void)
     if (!CONFIG_CDROM_EMU)
         return;
 
-    struct drive_s *drive_g = allocDrive();
-    if (!drive_g) {
+    struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
+    if (! drive_g) {
+        warn_noalloc();
         cdemu_drive = NULL;
         return;
     }
-    cdemu_drive = ADJUST_GLOBAL_PTR(drive_g);
+    memset(drive_g, 0, sizeof(*drive_g));
+    cdemu_drive = STORE_GLOBAL_PTR(drive_g);
     drive_g->type = DTYPE_CDEMU;
     drive_g->blksize = DISK_SECTOR_SIZE;
     drive_g->sectors = (u64)-1;
@@ -327,7 +329,7 @@ cdrom_boot(int cdid)
     u8 media = buffer[0x21];
     SET_EBDA2(ebda_seg, cdemu.media, media);
 
-    SET_EBDA2(ebda_seg, cdemu.emulated_drive, ADJUST_GLOBAL_PTR(dop.drive_g));
+    SET_EBDA2(ebda_seg, cdemu.emulated_drive, STORE_GLOBAL_PTR(dop.drive_g));
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)

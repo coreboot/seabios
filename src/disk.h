@@ -173,7 +173,7 @@ struct chs_s {
 };
 
 struct drive_s {
-    u8  type;         // Detected type of drive (ata/atapi/none)
+    u8  type;         // Driver type (DTYPE_*)
     u8  removable;    // Removable device flag
     u16 blksize;      // block size
     u32 cntl_id;
@@ -205,14 +205,10 @@ struct drive_s {
 #define TRANSLATION_RECHS 3
 
 struct drives_s {
-    // info on each internally handled drive
-    struct drive_s drives[CONFIG_MAX_DRIVES];
-    u8 drivecount;
-    //
-    // map between bios floppy/hd/cd id and driveid index into drives[]
+    // map between bios floppy/hd/cd id and drive_s struct
     u8 floppycount;
     u8 cdcount;
-    u8 idmap[3][CONFIG_MAX_EXTDRIVE];
+    struct drive_s *idmap[3][CONFIG_MAX_EXTDRIVE];
 };
 
 #define EXTTYPE_FLOPPY 0
@@ -230,7 +226,6 @@ struct drives_s {
 // block.c
 extern struct drives_s Drives;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
-struct drive_s *allocDrive(void);
 void setup_translation(struct drive_s *drive_g);
 void map_floppy_drive(struct drive_s *drive_g);
 void map_hd_drive(struct drive_s *drive_g);

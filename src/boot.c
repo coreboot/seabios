@@ -321,7 +321,7 @@ boot_prep(void)
 
     // Setup floppy boot order
     int override = IPL.bev[0].subchoice;
-    int tmp = Drives.idmap[EXTTYPE_FLOPPY][0];
+    struct drive_s *tmp = Drives.idmap[EXTTYPE_FLOPPY][0];
     Drives.idmap[EXTTYPE_FLOPPY][0] = Drives.idmap[EXTTYPE_FLOPPY][override];
     Drives.idmap[EXTTYPE_FLOPPY][override] = tmp;
 

@@ -96,9 +96,12 @@ addFloppy(int floppyid, int ftype, int driver)
         return NULL;
     }
 
-    struct drive_s *drive_g = allocDrive();
-    if (!drive_g)
+    struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
+    if (!drive_g) {
+        warn_noalloc();
         return NULL;
+    }
+    memset(drive_g, 0, sizeof(*drive_g));
     drive_g->cntl_id = floppyid;
     drive_g->type = driver;
     drive_g->blksize = DISK_SECTOR_SIZE;

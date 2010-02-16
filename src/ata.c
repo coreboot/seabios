@@ -775,9 +775,12 @@ init_drive_atapi(struct drive_s *dummy, u16 *buffer)
         return NULL;
 
     // Success - setup as ATAPI.
-    struct drive_s *drive_g = allocDrive();
-    if (! drive_g)
+    struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
+    if (! drive_g) {
+        warn_noalloc();
         return NULL;
+    }
+    memset(drive_g, 0, sizeof(*drive_g));
     SET_GLOBAL(drive_g->cntl_id, dummy->cntl_id);
     extract_identify(drive_g, buffer);
     SET_GLOBAL(drive_g->type, DTYPE_ATAPI);
@@ -821,9 +824,12 @@ init_drive_ata(struct drive_s *dummy, u16 *buffer)
         return NULL;
 
     // Success - setup as ATA.
-    struct drive_s *drive_g = allocDrive();
-    if (! drive_g)
+    struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
+    if (! drive_g) {
+        warn_noalloc();
         return NULL;
+    }
+    memset(drive_g, 0, sizeof(*drive_g));
     SET_GLOBAL(drive_g->cntl_id, dummy->cntl_id);
     extract_identify(drive_g, buffer);
     SET_GLOBAL(drive_g->type, DTYPE_ATA);

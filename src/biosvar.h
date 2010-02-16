@@ -329,9 +329,11 @@ static inline u16 get_global_seg(void) {
         (var) = (val);                          \
     } while (0)
 #if MODESEGMENT
-#define ADJUST_GLOBAL_PTR(var) (var)
+#define STORE_GLOBAL_PTR(var) (var)
+#define RETRIEVE_GLOBAL_PTR(var) (var)
 #else
-#define ADJUST_GLOBAL_PTR(var) ((typeof(var))((void*)var - BUILD_BIOS_ADDR))
+#define STORE_GLOBAL_PTR(var) ((typeof(var))((void*)var - BUILD_BIOS_ADDR))
+#define RETRIEVE_GLOBAL_PTR(var) ((typeof(var))((void*)var + BUILD_BIOS_ADDR))
 #endif
 
 
