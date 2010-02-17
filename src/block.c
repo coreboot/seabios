@@ -40,10 +40,15 @@ get_translation(struct drive_s *drive_g)
         return translation;
     }
 
-    // On COREBOOT, use a heuristic to determine translation type.
+    // Otherwise use a heuristic to determine translation type.
     u16 heads = GET_GLOBAL(drive_g->pchs.heads);
     u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
     u16 spt = GET_GLOBAL(drive_g->pchs.spt);
+    u64 sectors = GET_GLOBAL(drive_g->sectors);
+    u64 psectors = (u64)heads * cylinders * spt;
+    if (!heads || !cylinders || !spt || psectors > sectors)
+        // pchs doesn't look valid - use LBA.
+        return TRANSLATION_LBA;
 
     if (cylinders <= 1024 && heads <= 16 && spt <= 63)
         return TRANSLATION_NONE;
@@ -58,9 +63,6 @@ setup_translation(struct drive_s *drive_g)
     u8 translation = get_translation(drive_g);
     SET_GLOBAL(drive_g->translation, translation);
 
-    u8 ataid = GET_GLOBAL(drive_g->cntl_id);
-    u8 channel = ataid / 2;
-    u8 slave = ataid % 2;
     u16 heads = GET_GLOBAL(drive_g->pchs.heads);
     u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
     u16 spt = GET_GLOBAL(drive_g->pchs.spt);
@@ -120,11 +122,12 @@ setup_translation(struct drive_s *drive_g)
     // clip to 1024 cylinders in lchs
     if (cylinders > 1024)
         cylinders = 1024;
-    dprintf(1, "ata%d-%d: PCHS=%u/%d/%d translation=%s LCHS=%d/%d/%d\n"
-            , channel, slave
+    dprintf(1, "drive %p: PCHS=%u/%d/%d translation=%s LCHS=%d/%d/%d s=%d\n"
+            , drive_g
             , drive_g->pchs.cylinders, drive_g->pchs.heads, drive_g->pchs.spt
             , desc
-            , cylinders, heads, spt);
+            , cylinders, heads, spt
+            , (u32)sectors);
 
     SET_GLOBAL(drive_g->lchs.heads, heads);
     SET_GLOBAL(drive_g->lchs.cylinders, cylinders);
