@@ -55,4 +55,9 @@ struct cdbres_request_sense {
     u32 reserved_0e;
 } PACKED;
 
+// blockcmd.c
+int cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data);
+int cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data);
+int cdb_read(struct disk_op_s *op);
+
 #endif // blockcmd.h

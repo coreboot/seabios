@@ -653,32 +653,18 @@ atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 fail:
     // Enable interrupts
     outb(ATA_CB_DC_HD15, iobase2+ATA_CB_DC);
-    return ret;
-}
-
-// Read sectors from the cdrom.
-int
-cdrom_read(struct disk_op_s *op)
-{
-    struct cdb_rwdata_10 cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_READ_10;
-    cmd.lba = htonl(op->lba);
-    cmd.count = htons(op->count);
-    return atapi_cmd_data(op, &cmd, CDROM_SECTOR_SIZE);
+    if (ret)
+        return DISK_RET_EBADTRACK;
+    return DISK_RET_SUCCESS;
 }
 
 // 16bit command demuxer for ATAPI cdroms.
 int
 process_atapi_op(struct disk_op_s *op)
 {
-    int ret;
     switch (op->command) {
     case CMD_READ:
-        ret = cdrom_read(op);
-        if (ret)
-            return DISK_RET_EBADTRACK;
-        return DISK_RET_SUCCESS;
+        return cdb_read(op);
     case CMD_FORMAT:
     case CMD_WRITE:
         return DISK_RET_EWRITEPROTECT;

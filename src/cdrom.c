@@ -182,45 +182,6 @@ cdemu_134b(struct bregs *regs)
  * CD booting
  ****************************************************************/
 
-// Request SENSE
-static int
-atapi_get_sense(struct disk_op_s *op, u8 *asc, u8 *ascq)
-{
-    struct cdb_request_sense cmd;
-    struct cdbres_request_sense data;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_REQUEST_SENSE;
-    cmd.length = sizeof(data);
-    op->count = 1;
-    op->buf_fl = &data;
-    int ret = atapi_cmd_data(op, &cmd, sizeof(data));
-    if (ret)
-        return ret;
-
-    *asc = data.asc;
-    *ascq = data.ascq;
-    return 0;
-}
-
-// Request capacity
-static int
-atapi_read_capacity(struct disk_op_s *op, u32 *blksize, u32 *sectors)
-{
-    struct cdb_read_capacity cmd;
-    struct cdbres_read_capacity data;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_READ_CAPACITY;
-    op->count = 1;
-    op->buf_fl = &data;
-    int ret = atapi_cmd_data(op, &cmd, sizeof(data));
-    if (ret)
-        return ret;
-
-    *blksize = ntohl(data.blksize);
-    *sectors = ntohl(data.sectors);
-    return 0;
-}
-
 static int
 atapi_is_ready(struct disk_op_s *op)
 {
@@ -229,7 +190,7 @@ atapi_is_ready(struct disk_op_s *op)
     /* Retry READ CAPACITY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
      * 30 seconds is added. */
-    u32 blksize, sectors;
+    struct cdbres_read_capacity info;
     int in_progress = 0;
     u64 end = calc_future_tsc(5000);
     for (;;) {
@@ -238,24 +199,24 @@ atapi_is_ready(struct disk_op_s *op)
             return -1;
         }
 
-        int ret = atapi_read_capacity(op, &blksize, &sectors);
+        int ret = cdb_read_capacity(op, &info);
         if (!ret)
             // Success
             break;
 
-        u8 asc, ascq;
-        ret = atapi_get_sense(op, &asc, &ascq);
+        struct cdbres_request_sense sense;
+        ret = cdb_get_sense(op, &sense);
         if (ret)
             // Error - retry.
             continue;
 
         // Sense succeeded.
-        if (asc == 0x3a) { /* MEDIUM NOT PRESENT */
+        if (sense.asc == 0x3a) { /* MEDIUM NOT PRESENT */
             dprintf(1, "Device reports MEDIUM NOT PRESENT\n");
             return -1;
         }
 
-        if (asc == 0x04 && ascq == 0x01 && !in_progress) {
+        if (sense.asc == 0x04 && sense.ascq == 0x01 && !in_progress) {
             /* IN PROGRESS OF BECOMING READY */
             printf("Waiting for device to detect medium... ");
             /* Allow 30 seconds more */
@@ -264,6 +225,7 @@ atapi_is_ready(struct disk_op_s *op)
         }
     }
 
+    u32 blksize = ntohl(info.blksize), sectors = ntohl(info.sectors);
     if (blksize != GET_GLOBAL(op->drive_g->blksize)) {
         printf("Unsupported sector size %u\n", blksize);
         return -1;
@@ -292,7 +254,7 @@ cdrom_boot(int cdid)
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);
-    ret = cdrom_read(&dop);
+    ret = cdb_read(&dop);
     if (ret)
         return 3;
 
@@ -307,7 +269,8 @@ cdrom_boot(int cdid)
 
     // And we read the Boot Catalog
     dop.lba = lba;
-    ret = cdrom_read(&dop);
+    dop.count = 1;
+    ret = cdb_read(&dop);
     if (ret)
         return 7;
 
@@ -347,7 +310,7 @@ cdrom_boot(int cdid)
     dop.lba = lba;
     dop.count = DIV_ROUND_UP(nbsectors, 4);
     dop.buf_fl = MAKE_FLATPTR(boot_segment, 0);
-    ret = cdrom_read(&dop);
+    ret = cdb_read(&dop);
     if (ret)
         return 12;
 
