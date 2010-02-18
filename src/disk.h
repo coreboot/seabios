@@ -173,20 +173,21 @@ struct chs_s {
 };
 
 struct drive_s {
-    u8  type;         // Driver type (DTYPE_*)
-    u8  removable;    // Removable device flag
-    u16 blksize;      // block size
+    u8 type;            // Driver type (DTYPE_*)
+    u8 floppy_type;     // Type of floppy (only for floppy drives).
+    struct chs_s lchs;  // Logical CHS
+    u64 sectors;        // Total sectors count
+
+    // Info for EDD calls
+    u16 blksize;        // block size
+    struct chs_s pchs;  // Physical CHS
+    u8 translation;     // type of translation
+
+    // Driver specific
     u32 cntl_id;
     u32 cntl_info;
-    u8  floppy_type;  // Type of floppy (only for floppy drives).
-
+    u8 removable;       // Removable device flag
     char model[41];
-
-    u8  translation;  // type of translation
-    struct chs_s  lchs;         // Logical CHS
-    struct chs_s  pchs;         // Physical CHS
-
-    u64 sectors;      // Total sectors count
 };
 
 #define DISK_SECTOR_SIZE  512
