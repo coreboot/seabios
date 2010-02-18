@@ -253,6 +253,120 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
 }
 
 struct usb_pipe *
+uhci_alloc_bulk_pipe(u32 endp)
+{
+    if (! CONFIG_USB_UHCI)
+        return NULL;
+    struct usb_s *cntl = endp2cntl(endp);
+    dprintf(7, "uhci_alloc_bulk_pipe %x\n", endp);
+
+    // Allocate a queue head.
+    struct uhci_qh *qh = malloc_low(sizeof(*qh));
+    if (!qh) {
+        warn_noalloc();
+        return NULL;
+    }
+    qh->element = UHCI_PTR_TERM;
+    qh->next_td = 0;
+    qh->pipe.endp = endp;
+
+    // Add queue head to controller list.
+    struct uhci_qh *data_qh = cntl->uhci.qh;
+    qh->link = data_qh->link;
+    barrier();
+    data_qh->link = (u32)qh | UHCI_PTR_QH;
+
+    return &qh->pipe;
+}
+
+static int
+wait_td(struct uhci_td *td)
+{
+    u64 end = calc_future_tsc(5000); // XXX - lookup real time.
+    u32 status;
+    for (;;) {
+        status = td->status;
+        if (!(status & TD_CTRL_ACTIVE))
+            break;
+        if (check_time(end)) {
+            warn_timeout();
+            return -1;
+        }
+        yield();
+    }
+    if (status & TD_CTRL_ANY_ERROR) {
+        dprintf(1, "wait_td error - status=%x\n", status);
+        return -2;
+    }
+    return 0;
+}
+
+#define STACKTDS 4
+#define TDALIGN 16
+
+int
+uhci_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize)
+{
+    struct uhci_qh *qh = container_of(pipe, struct uhci_qh, pipe);
+    u32 endp = GET_FLATPTR(qh->pipe.endp);
+    dprintf(7, "uhci_send_bulk qh=%p endp=%x dir=%d data=%p size=%d\n"
+            , qh, endp, dir, data, datasize);
+    int maxpacket = endp2maxsize(endp);
+    int lowspeed = endp2speed(endp);
+    int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
+    int toggle = (u32)GET_FLATPTR(qh->next_td); // XXX
+
+    // Allocate 4 tds on stack (16byte aligned)
+    u8 tdsbuf[sizeof(struct uhci_td) * STACKTDS + TDALIGN - 1];
+    struct uhci_td *tds = (void*)ALIGN((u32)tdsbuf, TDALIGN);
+    memset(tds, 0, sizeof(*tds) * STACKTDS);
+
+    // Enable tds
+    SET_FLATPTR(qh->element, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
+
+    int tdpos = 0;
+    while (datasize) {
+        struct uhci_td *td = &tds[tdpos++ % STACKTDS];
+        int ret = wait_td(td);
+        if (ret)
+            goto fail;
+
+        int transfer = datasize;
+        if (transfer > maxpacket)
+            transfer = maxpacket;
+        struct uhci_td *nexttd_fl = MAKE_FLATPTR(GET_SEG(SS)
+                                                 , &tds[tdpos % STACKTDS]);
+        td->link = (transfer==datasize ? UHCI_PTR_TERM : (u32)nexttd_fl);
+        td->token = (uhci_explen(transfer) | toggle
+                     | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
+                     | (dir ? USB_PID_IN : USB_PID_OUT));
+        td->buffer = data;
+        barrier();
+        td->status = (uhci_maxerr(3) | (lowspeed ? TD_CTRL_LS : 0)
+                      | TD_CTRL_ACTIVE);
+        toggle ^= TD_TOKEN_TOGGLE;
+
+        data += transfer;
+        datasize -= transfer;
+    }
+    int i;
+    for (i=0; i<STACKTDS; i++) {
+        struct uhci_td *td = &tds[tdpos++ % STACKTDS];
+        int ret = wait_td(td);
+        if (ret)
+            goto fail;
+    }
+
+    SET_FLATPTR(qh->next_td, (void*)toggle); // XXX
+    return 0;
+fail:
+    dprintf(1, "uhci_send_bulk failed\n");
+    SET_FLATPTR(qh->element, UHCI_PTR_TERM);
+    uhci_waittick();
+    return -1;
+}
+
+struct usb_pipe *
 uhci_alloc_intr_pipe(u32 endp, int frameexp)
 {
     if (! CONFIG_USB_UHCI)

@@ -1,0 +1,25 @@
+#ifndef __USB_MSC_H
+#define __USB_MSC_H
+
+// usb-msc.c
+struct disk_op_s;
+int usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+struct usb_interface_descriptor;
+int usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax);
+int process_usb_op(struct disk_op_s *op);
+struct drive_s;
+void describe_usb(struct drive_s *drive_g);
+
+
+/****************************************************************
+ * MSC flags
+ ****************************************************************/
+
+#define US_SC_SCSI      0x06
+
+#define US_PR_BULK      0x50
+
+#define USB_MSC_TYPE_DISK  0x00
+#define USB_MSC_TYPE_CDROM 0x05
+
+#endif // ush-msc.h

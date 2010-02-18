@@ -10,6 +10,7 @@
 #include "cmos.h" // inb_cmos
 #include "util.h" // dprintf
 #include "ata.h" // process_ata_op
+#include "usb-msc.h" // process_usb_op
 
 struct drives_s Drives VAR16VISIBLE;
 
@@ -280,6 +281,9 @@ describe_drive(struct drive_s *drive_g)
     case DTYPE_RAMDISK:
         describe_ramdisk(drive_g);
         break;
+    case DTYPE_USB:
+        describe_usb(drive_g);
+        break;
     default:
         printf("Unknown");
         break;
@@ -308,6 +312,8 @@ process_op(struct disk_op_s *op)
         return process_ramdisk_op(op);
     case DTYPE_CDEMU:
         return process_cdemu_op(op);
+    case DTYPE_USB:
+        return process_usb_op(op);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

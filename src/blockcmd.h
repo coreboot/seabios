@@ -32,6 +32,7 @@ struct cdbres_read_capacity {
     u32 blksize;
 } PACKED;
 
+#define CDB_CMD_INQUIRY 0x12
 #define CDB_CMD_REQUEST_SENSE 0x03
 
 struct cdb_request_sense {
@@ -55,9 +56,22 @@ struct cdbres_request_sense {
     u32 reserved_0e;
 } PACKED;
 
+struct cdbres_inquiry {
+    u8 pdt;
+    u8 removable;
+    u8 reserved_02[2];
+    u8 additional;
+    u8 reserved_05[3];
+    char vendor[8];
+    char product[16];
+    char rev[4];
+} PACKED;
+
 // blockcmd.c
+int cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data);
 int cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data);
 int cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data);
+int cdb_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data);
 int cdb_read(struct disk_op_s *op);
 
 #endif // blockcmd.h

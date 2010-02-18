@@ -13,6 +13,7 @@
 #include "usb-ohci.h" // ohci_init
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb-hub.h" // usb_hub_init
+#include "usb-msc.h" // usb_msc_init
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
 
@@ -35,6 +36,33 @@ send_control(u32 endp, int dir, const void *cmd, int cmdsize
         return uhci_control(endp, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_OHCI:
         return ohci_control(endp, dir, cmd, cmdsize, data, datasize);
+    }
+}
+
+struct usb_pipe *
+alloc_bulk_pipe(u32 endp)
+{
+    struct usb_s *cntl = endp2cntl(endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_alloc_bulk_pipe(endp);
+    case USB_TYPE_OHCI:
+        return NULL;
+    }
+}
+
+int
+usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize)
+{
+    u32 endp = GET_FLATPTR(pipe->endp);
+    struct usb_s *cntl = endp2cntl(endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_send_bulk(pipe, dir, data, datasize);
+    case USB_TYPE_OHCI:
+        return -1;
     }
 }
 
@@ -220,6 +248,7 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
     if ((iface->bInterfaceClass != USB_CLASS_HID
          || iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT
          || iface->bInterfaceProtocol != USB_INTERFACE_PROTOCOL_KEYBOARD)
+        && (iface->bInterfaceClass != USB_CLASS_MASS_STORAGE)
         && (iface->bInterfaceClass != USB_CLASS_HUB))
         // Not a supported device.
         goto fail;
@@ -237,8 +266,11 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
         free(config);
         return usb_hub_init(endp);
     }
-    ret = usb_keyboard_init(endp, iface, ((void*)config + config->wTotalLength
-                                          - (void*)iface));
+    int imax = (void*)config + config->wTotalLength - (void*)iface;
+    if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE)
+        ret = usb_msc_init(endp, iface, imax);
+    else
+        ret = usb_keyboard_init(endp, iface, imax);
     if (ret)
         goto fail;
 

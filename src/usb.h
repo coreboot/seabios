@@ -37,6 +37,8 @@ int configure_usb_device(struct usb_s *cntl, int lowspeed);
 struct usb_ctrlrequest;
 int send_default_control(u32 endp, const struct usb_ctrlrequest *req
                          , void *data);
+int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
+struct usb_pipe *alloc_bulk_pipe(u32 endp);
 struct usb_pipe *alloc_intr_pipe(u32 endp, int period);
 int usb_poll_intr(struct usb_pipe *pipe, void *data);
 struct usb_interface_descriptor;

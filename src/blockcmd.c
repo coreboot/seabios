@@ -10,7 +10,9 @@
 #include "disk.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "ata.h" // atapi_cmd_data
+#include "usb-msc.h" // usb_cmd_data
 
+// Route command to low-level handler.
 static int
 cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
@@ -18,10 +20,24 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     switch (type) {
     case DTYPE_ATAPI:
         return atapi_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_USB:
+        return usb_cmd_data(op, cdbcmd, blocksize);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;
     }
+}
+
+int
+cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
+{
+    struct cdb_request_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_INQUIRY;
+    cmd.length = sizeof(*data);
+    op->count = 1;
+    op->buf_fl = data;
+    return cdb_cmd_data(op, &cmd, sizeof(*data));
 }
 
 // Request SENSE
@@ -58,5 +74,5 @@ cdb_read(struct disk_op_s *op)
     cmd.command = CDB_CMD_READ_10;
     cmd.lba = htonl(op->lba);
     cmd.count = htons(op->count);
-    return cdb_cmd_data(op, &cmd, CDROM_SECTOR_SIZE);
+    return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
 }

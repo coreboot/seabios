@@ -199,6 +199,7 @@ struct drive_s {
 #define DTYPE_ATAPI    0x03
 #define DTYPE_RAMDISK  0x04
 #define DTYPE_CDEMU    0x05
+#define DTYPE_USB      0x06
 
 #define TRANSLATION_NONE  0
 #define TRANSLATION_LBA   1

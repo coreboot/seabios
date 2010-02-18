@@ -8,6 +8,8 @@ struct usb_s;
 void uhci_init(void *data);
 int uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
+struct usb_pipe *uhci_alloc_bulk_pipe(u32 endp);
+int uhci_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
 struct usb_pipe *uhci_alloc_intr_pipe(u32 endp, int frameexp);
 int uhci_poll_intr(struct usb_pipe *pipe, void *data);
 
