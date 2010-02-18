@@ -72,6 +72,7 @@ configure_uhci(struct usb_s *cntl)
     for (i=0; i<ARRAY_SIZE(fl->links); i++)
         fl->links[i] = (u32)intr_qh | UHCI_PTR_QH;
     cntl->uhci.framelist = fl;
+    barrier();
 
     // Set the frame length to the default: 1 ms exactly
     outb(USBSOF_DEFAULT, cntl->uhci.iobase + USBSOF);
@@ -187,6 +188,13 @@ wait_qh(struct usb_s *cntl, struct uhci_qh *qh)
     }
 }
 
+static void
+uhci_waittick(void)
+{
+    // XXX - implement real tick detection.
+    msleep(2);
+}
+
 int
 uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
              , void *data, int datasize)
@@ -233,15 +241,15 @@ uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
 
     // Transfer data
     struct uhci_qh *data_qh = cntl->uhci.qh;
+    barrier();
     data_qh->element = (u32)&tds[0];
     int ret = wait_qh(cntl, data_qh);
     if (ret) {
         data_qh->element = UHCI_PTR_TERM;
-        // XXX - leak tds
-        return ret;
+        uhci_waittick();
     }
     free(tds);
-    return 0;
+    return ret;
 }
 
 struct usb_pipe *
@@ -262,11 +270,12 @@ uhci_alloc_intr_pipe(u32 endp, int frameexp)
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
     struct uhci_qh *qh = malloc_low(sizeof(*qh));
     struct uhci_td *tds = malloc_low(sizeof(*tds) * count);
-    if (!qh || !tds || maxpacket > sizeof(tds[0].data)) {
-        free(qh);
-        free(tds);
-        return NULL;
+    if (!qh || !tds) {
+        warn_noalloc();
+        goto fail;
     }
+    if (maxpacket > sizeof(tds[0].data))
+        goto fail;
     qh->element = (u32)tds;
     int toggle = 0;
     int i;
@@ -290,15 +299,21 @@ uhci_alloc_intr_pipe(u32 endp, int frameexp)
         // Add to existing interrupt entry.
         struct uhci_qh *intr_qh = (void*)(fl->links[0] & ~UHCI_PTR_BITS);
         qh->link = intr_qh->link;
+        barrier();
         intr_qh->link = (u32)qh | UHCI_PTR_QH;
     } else {
         int startpos = 1<<(frameexp-1);
         qh->link = fl->links[startpos];
+        barrier();
         for (i=startpos; i<ARRAY_SIZE(fl->links); i+=ms)
             fl->links[i] = (u32)qh | UHCI_PTR_QH;
     }
 
     return &qh->pipe;
+fail:
+    free(qh);
+    free(tds);
+    return NULL;
 }
 
 int
@@ -324,6 +339,7 @@ uhci_poll_intr(struct usb_pipe *pipe, void *data)
 
     // Reenable this td.
     u32 next = GET_FLATPTR(td->link);
+    barrier();
     SET_FLATPTR(td->status, (uhci_maxerr(0) | (status & TD_CTRL_LS)
                              | TD_CTRL_ACTIVE));
     SET_FLATPTR(qh->next_td, (void*)(next & ~UHCI_PTR_BITS));
