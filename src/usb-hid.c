@@ -54,30 +54,20 @@ usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
         return -1;
     dprintf(2, "usb_keyboard_setup %x\n", endp);
 
-    struct usb_endpoint_descriptor *epdesc = (void*)&iface[1];
-    for (;;) {
-        if ((void*)epdesc >= (void*)iface + imax
-            || epdesc->bDescriptorType == USB_DT_INTERFACE) {
-            dprintf(1, "No keyboard intr in?\n");
-            return -1;
-        }
-        if (epdesc->bDescriptorType == USB_DT_ENDPOINT
-            && (epdesc->bEndpointAddress & USB_ENDPOINT_DIR_MASK) == USB_DIR_IN
-            && ((epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK)
-                == USB_ENDPOINT_XFER_INT)
-            && epdesc->wMaxPacketSize == 8)
-            break;
-        epdesc = (void*)epdesc + epdesc->bLength;
+    // Find intr in endpoint.
+    struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
+        iface, imax, USB_ENDPOINT_XFER_INT, USB_DIR_IN);
+    if (!epdesc || epdesc->wMaxPacketSize != 8) {
+        dprintf(1, "No keyboard intr in?\n");
+        return -1;
     }
-    u32 inendp = mkendp(endp2cntl(endp), endp2devaddr(endp)
-                        , epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK
-                        , endp2speed(endp), epdesc->wMaxPacketSize);
+    u32 inendp = mkendpFromDesc(endp, epdesc);
 
     // Enable "boot" protocol.
     int ret = set_protocol(endp, 1);
     if (ret)
         return -1;
-    // Only send reports on a new key event.
+    // Periodically send reports to enable key repeat.
     ret = set_idle(endp, KEYREPEATMS);
     if (ret)
         return -1;

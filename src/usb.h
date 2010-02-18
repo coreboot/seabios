@@ -39,6 +39,10 @@ int send_default_control(u32 endp, const struct usb_ctrlrequest *req
                          , void *data);
 struct usb_pipe *alloc_intr_pipe(u32 endp, int period);
 int usb_poll_intr(struct usb_pipe *pipe, void *data);
+struct usb_interface_descriptor;
+struct usb_endpoint_descriptor *findEndPointDesc(
+    struct usb_interface_descriptor *iface, int imax, int type, int dir);
+u32 mkendpFromDesc(u32 endp, struct usb_endpoint_descriptor *epdesc);
 
 
 /****************************************************************

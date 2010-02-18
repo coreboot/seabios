@@ -18,6 +18,12 @@
 
 struct usb_s USBControllers[16] VAR16VISIBLE;
 
+
+/****************************************************************
+ * Controller function wrappers
+ ****************************************************************/
+
+// Send a message on a control pipe using the default control descriptor.
 static int
 send_control(u32 endp, int dir, const void *cmd, int cmdsize
              , void *data, int datasize)
@@ -63,6 +69,40 @@ usb_poll_intr(struct usb_pipe *pipe, void *data)
     }
 }
 
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
+// Find the first endpoing of a given type in an interface description.
+struct usb_endpoint_descriptor *
+findEndPointDesc(struct usb_interface_descriptor *iface, int imax
+                 , int type, int dir)
+{
+    struct usb_endpoint_descriptor *epdesc = (void*)&iface[1];
+    for (;;) {
+        if ((void*)epdesc >= (void*)iface + imax
+            || epdesc->bDescriptorType == USB_DT_INTERFACE) {
+            return NULL;
+        }
+        if (epdesc->bDescriptorType == USB_DT_ENDPOINT
+            && (epdesc->bEndpointAddress & USB_ENDPOINT_DIR_MASK) == dir
+            && (epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK) == type)
+            return epdesc;
+        epdesc = (void*)epdesc + epdesc->bLength;
+    }
+}
+
+// Build an encoded "endp" from an endpoint descriptor.
+u32
+mkendpFromDesc(u32 endp, struct usb_endpoint_descriptor *epdesc)
+{
+    return mkendp(endp2cntl(endp), endp2devaddr(endp)
+                  , epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK
+                  , endp2speed(endp), epdesc->wMaxPacketSize);
+}
+
+// Send a message to the default control pipe of a device.
 int
 send_default_control(u32 endp, const struct usb_ctrlrequest *req, void *data)
 {
@@ -143,6 +183,11 @@ set_configuration(u32 endp, u16 val)
     req.wLength = 0;
     return send_default_control(endp, &req, NULL);
 }
+
+
+/****************************************************************
+ * Initialization and enumeration
+ ****************************************************************/
 
 // Called for every found device - see if a driver is available for
 // this device and do setup if so.
