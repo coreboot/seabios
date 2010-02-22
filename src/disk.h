@@ -177,17 +177,14 @@ struct drive_s {
     u8 floppy_type;     // Type of floppy (only for floppy drives).
     struct chs_s lchs;  // Logical CHS
     u64 sectors;        // Total sectors count
+    char *desc;         // Drive description (only available during POST)
+    u32 cntl_id;        // Unique id for a given driver type.
+    u8 removable;       // Is media removable (currently unused)
 
     // Info for EDD calls
+    u8 translation;     // type of translation
     u16 blksize;        // block size
     struct chs_s pchs;  // Physical CHS
-    u8 translation;     // type of translation
-
-    // Driver specific
-    u32 cntl_id;
-    u32 cntl_info;
-    u8 removable;       // Removable device flag
-    char model[41];
 };
 
 #define DISK_SECTOR_SIZE  512
@@ -200,6 +197,8 @@ struct drive_s {
 #define DTYPE_RAMDISK  0x04
 #define DTYPE_CDEMU    0x05
 #define DTYPE_USB      0x06
+
+#define MAXDESCSIZE 80
 
 #define TRANSLATION_NONE  0
 #define TRANSLATION_LBA   1
@@ -232,7 +231,6 @@ void setup_translation(struct drive_s *drive_g);
 void map_floppy_drive(struct drive_s *drive_g);
 void map_hd_drive(struct drive_s *drive_g);
 void map_cd_drive(struct drive_s *drive_g);
-void describe_drive(struct drive_s *drive_g);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
 void drive_setup(void);
@@ -241,7 +239,6 @@ void drive_setup(void);
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup(void);
 struct drive_s *addFloppy(int floppyid, int ftype, int driver);
-void describe_floppy(struct drive_s *drive_g);
 int find_floppy_type(u32 size);
 int process_floppy_op(struct disk_op_s *op);
 void floppy_tick(void);
@@ -254,7 +251,6 @@ void cdemu_134b(struct bregs *regs);
 int cdrom_boot(int cdid);
 
 // ramdisk.c
-void describe_ramdisk(struct drive_s *drive_g);
 void ramdisk_setup(void);
 int process_ramdisk_op(struct disk_op_s *op);
 

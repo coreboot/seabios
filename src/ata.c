@@ -711,44 +711,23 @@ extract_version(u16 *buffer)
     return version;
 }
 
-// Extract common information from IDENTIFY commands.
-static void
-extract_identify(struct drive_s *drive_g, u16 *buffer)
-{
-    dprintf(3, "Identify w0=%x w2=%x\n", buffer[0], buffer[2]);
+#define MAXMODEL 40
 
+// Extract the ATA/ATAPI model info.
+static char *
+extract_model(char *model, u16 *buffer)
+{
     // Read model name
-    char *model = drive_g->model;
-    int maxsize = ARRAY_SIZE(drive_g->model);
     int i;
-    for (i=0; i<maxsize/2; i++) {
-        u16 v = buffer[27+i];
-        model[i*2] = v >> 8;
-        model[i*2+1] = v & 0xff;
-    }
-    model[maxsize-1] = 0x00;
+    for (i=0; i<MAXMODEL/2; i++)
+        *(u16*)&model[i*2] = ntohs(buffer[27+i]);
+    model[MAXMODEL] = 0x00;
 
     // Trim trailing spaces from model name.
-    for (i=maxsize-2; i>0 && model[i] == 0x20; i--)
+    for (i=MAXMODEL-1; i>0 && model[i] == 0x20; i--)
         model[i] = 0x00;
 
-    // Common flags.
-    SET_GLOBAL(drive_g->removable, (buffer[0] & 0x80) ? 1 : 0);
-    SET_GLOBAL(drive_g->cntl_info, extract_version(buffer));
-}
-
-// Print out a description of the given atapi drive.
-void
-describe_atapi(struct drive_s *drive_g)
-{
-    u8 ataid = drive_g->cntl_id;
-    u8 channel = ataid / 2;
-    u8 slave = ataid % 2;
-    u8 version = drive_g->cntl_info;
-    int iscd = drive_g->floppy_type;
-    printf("ata%d-%d: %s ATAPI-%d %s", channel, slave
-           , drive_g->model, version
-           , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
+    return model;
 }
 
 // Detect if the given drive is an atapi - initialize it if so.
@@ -761,43 +740,35 @@ init_drive_atapi(struct drive_s *dummy, u16 *buffer)
         return NULL;
 
     // Success - setup as ATAPI.
+    char *desc = malloc_tmp(MAXDESCSIZE);
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    if (! drive_g) {
+    if (!drive_g || !desc) {
         warn_noalloc();
+        free(desc);
+        free(drive_g);
         return NULL;
     }
     memset(drive_g, 0, sizeof(*drive_g));
     SET_GLOBAL(drive_g->cntl_id, dummy->cntl_id);
-    extract_identify(drive_g, buffer);
     SET_GLOBAL(drive_g->type, DTYPE_ATAPI);
     SET_GLOBAL(drive_g->blksize, CDROM_SECTOR_SIZE);
     SET_GLOBAL(drive_g->sectors, (u64)-1);
+    SET_GLOBAL(drive_g->removable, (buffer[0] & 0x80) ? 1 : 0);
     u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
-    SET_GLOBAL(drive_g->floppy_type, iscd);
+    u8 ataid = drive_g->cntl_id;
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
+    char model[MAXMODEL+1];
+    drive_g->desc = desc;
+    snprintf(desc, MAXDESCSIZE, "ata%d-%d: %s ATAPI-%d %s", channel, slave
+             , extract_model(model, buffer), extract_version(buffer)
+             , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
 
     // fill cdidmap
     if (iscd)
         map_cd_drive(drive_g);
 
     return drive_g;
-}
-
-// Print out a description of the given ata drive.
-void
-describe_ata(struct drive_s *drive_g)
-{
-    u8 ataid = drive_g->cntl_id;
-    u8 channel = ataid / 2;
-    u8 slave = ataid % 2;
-    u64 sectors = drive_g->sectors;
-    u8 version = drive_g->cntl_info;
-    char *model = drive_g->model;
-    printf("ata%d-%d: %s ATA-%d Hard-Disk", channel, slave, model, version);
-    u64 sizeinmb = sectors >> 11;
-    if (sizeinmb < (1 << 16))
-        printf(" (%u MiBytes)", (u32)sizeinmb);
-    else
-        printf(" (%u GiBytes)", (u32)(sizeinmb >> 10));
 }
 
 // Detect if the given drive is a regular ata drive - initialize it if so.
@@ -810,14 +781,16 @@ init_drive_ata(struct drive_s *dummy, u16 *buffer)
         return NULL;
 
     // Success - setup as ATA.
+    char *desc = malloc_tmp(MAXDESCSIZE);
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    if (! drive_g) {
+    if (!drive_g || !desc) {
         warn_noalloc();
+        free(desc);
+        free(drive_g);
         return NULL;
     }
     memset(drive_g, 0, sizeof(*drive_g));
     SET_GLOBAL(drive_g->cntl_id, dummy->cntl_id);
-    extract_identify(drive_g, buffer);
     SET_GLOBAL(drive_g->type, DTYPE_ATA);
     SET_GLOBAL(drive_g->blksize, DISK_SECTOR_SIZE);
 
@@ -831,6 +804,22 @@ init_drive_ata(struct drive_s *dummy, u16 *buffer)
     else
         sectors = *(u32*)&buffer[60]; // word 60 and word 61
     SET_GLOBAL(drive_g->sectors, sectors);
+    SET_GLOBAL(drive_g->removable, (buffer[0] & 0x80) ? 1 : 0);
+    u8 ataid = drive_g->cntl_id;
+    u8 channel = ataid / 2;
+    u8 slave = ataid % 2;
+    u64 adjsize = sectors >> 11;
+    char adjprefix = 'M';
+    if (adjsize >= (1 << 16)) {
+        adjsize >>= 10;
+        adjprefix = 'G';
+    }
+    char model[MAXMODEL+1];
+    drive_g->desc = desc;
+    snprintf(desc, MAXDESCSIZE, "ata%d-%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
+             , channel, slave
+             , extract_model(model, buffer), extract_version(buffer)
+             , (u32)adjsize, adjprefix);
 
     // Setup disk geometry translation.
     setup_translation(drive_g);

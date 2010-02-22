@@ -262,34 +262,6 @@ map_floppy_drive(struct drive_s *drive_g)
     }
 }
 
-// Show a one line description (without trailing newline) of a drive.
-void
-describe_drive(struct drive_s *drive_g)
-{
-    ASSERT32FLAT();
-    u8 type = GET_GLOBAL(drive_g->type);
-    switch (type) {
-    case DTYPE_FLOPPY:
-        describe_floppy(drive_g);
-        break;
-    case DTYPE_ATA:
-        describe_ata(drive_g);
-        break;
-    case DTYPE_ATAPI:
-        describe_atapi(drive_g);
-        break;
-    case DTYPE_RAMDISK:
-        describe_ramdisk(drive_g);
-        break;
-    case DTYPE_USB:
-        describe_usb(drive_g);
-        break;
-    default:
-        printf("Unknown");
-        break;
-    }
-}
-
 
 /****************************************************************
  * 16bit calling interface

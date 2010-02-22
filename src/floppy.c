@@ -96,9 +96,12 @@ addFloppy(int floppyid, int ftype, int driver)
         return NULL;
     }
 
+    char *desc = malloc_tmp(MAXDESCSIZE);
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    if (!drive_g) {
+    if (!drive_g || !desc) {
         warn_noalloc();
+        free(desc);
+        free(drive_g);
         return NULL;
     }
     memset(drive_g, 0, sizeof(*drive_g));
@@ -107,18 +110,14 @@ addFloppy(int floppyid, int ftype, int driver)
     drive_g->blksize = DISK_SECTOR_SIZE;
     drive_g->floppy_type = ftype;
     drive_g->sectors = (u64)-1;
+    drive_g->desc = desc;
+    snprintf(desc, MAXDESCSIZE, "drive %c", 'A' + floppyid);
 
     memcpy(&drive_g->lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
 
     map_floppy_drive(drive_g);
     return drive_g;
-}
-
-void
-describe_floppy(struct drive_s *drive_g)
-{
-    printf("drive %c", 'A' + drive_g->cntl_id);
 }
 
 void

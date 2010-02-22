@@ -159,9 +159,7 @@ menu_show_floppy(struct ipl_entry_s *ie, int menupos)
     int i;
     for (i = 0; i < Drives.floppycount; i++) {
         struct drive_s *drive_g = getDrive(EXTTYPE_FLOPPY, i);
-        printf("%d. Floppy [", menupos + i);
-        describe_drive(drive_g);
-        printf("]\n");
+        printf("%d. Floppy [%s]\n", menupos + i, drive_g->desc);
     }
     return Drives.floppycount;
 }
@@ -173,11 +171,10 @@ menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
     int i;
     for (i = 0; i < IPL.bcvcount; i++) {
         struct ipl_entry_s *ie = &IPL.bcv[i];
+        struct drive_s *drive_g = (void*)ie->vector;
         switch (ie->type) {
         case BCV_TYPE_INTERNAL:
-            printf("%d. ", menupos + i);
-            describe_drive((void*)ie->vector);
-            printf("\n");
+            printf("%d. %s\n", menupos + i, drive_g->desc);
             break;
         default:
             menu_show_default(ie, menupos+i);
@@ -194,9 +191,7 @@ menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
     int i;
     for (i = 0; i < Drives.cdcount; i++) {
         struct drive_s *drive_g = getDrive(EXTTYPE_CD, i);
-        printf("%d. CD-Rom [", menupos + i);
-        describe_drive(drive_g);
-        printf("]\n");
+        printf("%d. CD-Rom [%s]\n", menupos + i, drive_g->desc);
     }
     return Drives.cdcount;
 }

@@ -11,12 +11,6 @@
 #include "bregs.h" // struct bregs
 
 void
-describe_ramdisk(struct drive_s *drive_g)
-{
-    printf("%s", drive_g->model);
-}
-
-void
 ramdisk_setup(void)
 {
     if (!CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
@@ -48,8 +42,8 @@ ramdisk_setup(void)
     // Setup driver.
     dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
     struct drive_s *drive_g = addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
-    if (drive_g)
-        strtcpy(drive_g->model, cbfs_filename(file), ARRAY_SIZE(drive_g->model));
+    if (!drive_g)
+        strtcpy(drive_g->desc, cbfs_filename(file), MAXDESCSIZE);
 }
 
 static int

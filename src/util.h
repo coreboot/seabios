@@ -385,6 +385,12 @@ static inline void *malloc_fseg(u32 size) {
 static inline void *malloc_tmphigh(u32 size) {
     return pmm_malloc(&ZoneTmpHigh, PMM_DEFAULT_HANDLE, size, MALLOC_MIN_ALIGN);
 }
+static inline void *malloc_tmp(u32 size) {
+    void *ret = malloc_tmphigh(size);
+    if (ret)
+        return ret;
+    return pmm_malloc(&ZoneTmpLow, PMM_DEFAULT_HANDLE, size, MALLOC_MIN_ALIGN);
+}
 static inline void *memalign_low(u32 align, u32 size) {
     return pmm_malloc(&ZoneLow, PMM_DEFAULT_HANDLE, size, align);
 }

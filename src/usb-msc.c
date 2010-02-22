@@ -13,12 +13,9 @@
 #include "disk.h" // DTYPE_USB
 #include "boot.h" // add_bcv_internal
 
-#define DESCSIZE 80
-
 struct usbdrive_s {
     struct drive_s drive;
     struct usb_pipe *bulkin, *bulkout;
-    char *desc;
 };
 
 
@@ -131,14 +128,6 @@ process_usb_op(struct disk_op_s *op)
     }
 }
 
-void
-describe_usb(struct drive_s *drive_g)
-{
-    struct usbdrive_s *udrive_g = container_of(
-        drive_g, struct usbdrive_s, drive);
-    printf("%s", udrive_g->desc);
-}
-
 
 /****************************************************************
  * Setup
@@ -212,7 +201,7 @@ usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
         goto fail;
 
     // Allocate drive structure.
-    char *desc = malloc_tmphigh(DESCSIZE);
+    char *desc = malloc_tmphigh(MAXDESCSIZE);
     struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
     if (!udrive_g || !desc) {
         warn_noalloc();
@@ -241,6 +230,7 @@ usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
             , strtcpy(product, data.product, sizeof(product))
             , strtcpy(rev, data.rev, sizeof(rev))
             , pdt, removable);
+    udrive_g->drive.removable = removable;
 
     if (pdt == USB_MSC_TYPE_CDROM)
         ret = setup_drive_cdrom(&dop);
@@ -249,8 +239,8 @@ usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
     if (ret)
         goto fail;
 
-    snprintf(desc, DESCSIZE, "USB Drive %s %s %s", vendor, product, rev);
-    udrive_g->desc = desc;
+    snprintf(desc, MAXDESCSIZE, "USB Drive %s %s %s", vendor, product, rev);
+    udrive_g->drive.desc = desc;
 
     return 0;
 fail:
