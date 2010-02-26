@@ -485,6 +485,14 @@ __warn_unimplemented(struct bregs *regs, int lineno, const char *fname)
     }
 }
 
+// Report a detected internal inconsistency.
+void
+__warn_internalerror(int lineno, const char *fname)
+{
+    dprintf(1, "WARNING - internal error detected at %s:%d!\n"
+            , fname, lineno);
+}
+
 // Report on an allocation failure.
 void
 __warn_noalloc(int lineno, const char *fname)

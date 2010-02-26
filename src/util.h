@@ -227,6 +227,7 @@ void __debug_isr(const char *fname);
 void __debug_stub(struct bregs *regs, int lineno, const char *fname);
 void __warn_invalid(struct bregs *regs, int lineno, const char *fname);
 void __warn_unimplemented(struct bregs *regs, int lineno, const char *fname);
+void __warn_internalerror(int lineno, const char *fname);
 void __warn_noalloc(int lineno, const char *fname);
 void __warn_timeout(int lineno, const char *fname);
 void __set_invalid(struct bregs *regs, int lineno, const char *fname);
@@ -254,6 +255,8 @@ void hexdump(const void *d, int len);
     __warn_invalid((regs), __LINE__, __func__)
 #define warn_unimplemented(regs)                        \
     __warn_unimplemented((regs), __LINE__, __func__)
+#define warn_internalerror()                    \
+    __warn_internalerror(__LINE__, __func__)
 #define warn_noalloc()                          \
     __warn_noalloc(__LINE__, __func__)
 #define warn_timeout()                          \
