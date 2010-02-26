@@ -24,18 +24,50 @@ struct usb_s USBControllers[16] VAR16VISIBLE;
  * Controller function wrappers
  ****************************************************************/
 
-// Send a message on a control pipe using the default control descriptor.
-static int
-send_control(u32 endp, int dir, const void *cmd, int cmdsize
-             , void *data, int datasize)
+// Free an allocated control or bulk pipe.
+void
+free_pipe(struct usb_pipe *pipe)
+{
+    ASSERT32FLAT();
+    if (!pipe)
+        return;
+    struct usb_s *cntl = endp2cntl(pipe->endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_free_pipe(pipe);
+    case USB_TYPE_OHCI:
+        return ohci_free_pipe(pipe);
+    }
+}
+
+// Allocate a control pipe (which can only be used by 32bit code)
+static struct usb_pipe *
+alloc_control_pipe(u32 endp)
 {
     struct usb_s *cntl = endp2cntl(endp);
     switch (cntl->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_control(endp, dir, cmd, cmdsize, data, datasize);
+        return uhci_alloc_control_pipe(endp);
     case USB_TYPE_OHCI:
-        return ohci_control(endp, dir, cmd, cmdsize, data, datasize);
+        return ohci_alloc_control_pipe(endp);
+    }
+}
+
+// Send a message on a control pipe using the default control descriptor.
+static int
+send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
+             , void *data, int datasize)
+{
+    ASSERT32FLAT();
+    struct usb_s *cntl = endp2cntl(pipe->endp);
+    switch (cntl->type) {
+    default:
+    case USB_TYPE_UHCI:
+        return uhci_control(pipe, dir, cmd, cmdsize, data, datasize);
+    case USB_TYPE_OHCI:
+        return ohci_control(pipe, dir, cmd, cmdsize, data, datasize);
     }
 }
 
@@ -121,10 +153,18 @@ findEndPointDesc(struct usb_interface_descriptor *iface, int imax
     }
 }
 
+// Change endpoint characteristics of the default control pipe.
+static void
+usb_alter_control(struct usb_pipe *pipe, u32 endp)
+{
+    pipe->endp = endp;
+}
+
 // Build an encoded "endp" from an endpoint descriptor.
 u32
-mkendpFromDesc(u32 endp, struct usb_endpoint_descriptor *epdesc)
+mkendpFromDesc(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 {
+    u32 endp = pipe->endp;
     return mkendp(endp2cntl(endp), endp2devaddr(endp)
                   , epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK
                   , endp2speed(endp), epdesc->wMaxPacketSize);
@@ -132,15 +172,16 @@ mkendpFromDesc(u32 endp, struct usb_endpoint_descriptor *epdesc)
 
 // Send a message to the default control pipe of a device.
 int
-send_default_control(u32 endp, const struct usb_ctrlrequest *req, void *data)
+send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
+                     , void *data)
 {
-    return send_control(endp, req->bRequestType & USB_DIR_IN
+    return send_control(pipe, req->bRequestType & USB_DIR_IN
                         , req, sizeof(*req), data, req->wLength);
 }
 
 // Get the first 8 bytes of the device descriptor.
 static int
-get_device_info8(struct usb_device_descriptor *dinfo, u32 endp)
+get_device_info8(struct usb_pipe *pipe, struct usb_device_descriptor *dinfo)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
@@ -148,11 +189,11 @@ get_device_info8(struct usb_device_descriptor *dinfo, u32 endp)
     req.wValue = USB_DT_DEVICE<<8;
     req.wIndex = 0;
     req.wLength = 8;
-    return send_default_control(endp, &req, dinfo);
+    return send_default_control(pipe, &req, dinfo);
 }
 
 static struct usb_config_descriptor *
-get_device_config(u32 endp)
+get_device_config(struct usb_pipe *pipe)
 {
     struct usb_config_descriptor cfg;
 
@@ -162,7 +203,7 @@ get_device_config(u32 endp)
     req.wValue = USB_DT_CONFIG<<8;
     req.wIndex = 0;
     req.wLength = sizeof(cfg);
-    int ret = send_default_control(endp, &req, &cfg);
+    int ret = send_default_control(pipe, &req, &cfg);
     if (ret)
         return NULL;
 
@@ -170,18 +211,19 @@ get_device_config(u32 endp)
     if (!config)
         return NULL;
     req.wLength = cfg.wTotalLength;
-    ret = send_default_control(endp, &req, config);
+    ret = send_default_control(pipe, &req, config);
     if (ret)
         return NULL;
     //hexdump(config, cfg.wTotalLength);
     return config;
 }
 
-static u32
-set_address(u32 endp)
+static struct usb_pipe *
+set_address(struct usb_pipe *pipe)
 {
-    dprintf(3, "set_address %x\n", endp);
-    struct usb_s *cntl = endp2cntl(endp);
+    ASSERT32FLAT();
+    dprintf(3, "set_address %x\n", pipe->endp);
+    struct usb_s *cntl = endp2cntl(pipe->endp);
     if (cntl->maxaddr >= USB_MAXADDR)
         return 0;
 
@@ -191,17 +233,19 @@ set_address(u32 endp)
     req.wValue = cntl->maxaddr + 1;
     req.wIndex = 0;
     req.wLength = 0;
-    int ret = send_default_control(endp, &req, NULL);
+    int ret = send_default_control(pipe, &req, NULL);
     if (ret)
         return 0;
     msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
-    return mkendp(cntl, cntl->maxaddr, 0, endp2speed(endp), endp2maxsize(endp));
+    u32 endp = mkendp(cntl, cntl->maxaddr, 0
+                      , endp2speed(pipe->endp), endp2maxsize(pipe->endp));
+    return alloc_control_pipe(endp);
 }
 
 static int
-set_configuration(u32 endp, u16 val)
+set_configuration(struct usb_pipe *pipe, u16 val)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
@@ -209,7 +253,7 @@ set_configuration(u32 endp, u16 val)
     req.wValue = val;
     req.wIndex = 0;
     req.wLength = 0;
-    return send_default_control(endp, &req, NULL);
+    return send_default_control(pipe, &req, NULL);
 }
 
 
@@ -222,12 +266,20 @@ set_configuration(u32 endp, u16 val)
 int
 configure_usb_device(struct usb_s *cntl, int lowspeed)
 {
+    ASSERT32FLAT();
     dprintf(3, "config_usb: %p %d\n", cntl, lowspeed);
 
     // Get device info
+    struct usb_pipe *defpipe = cntl->defaultpipe;
     u32 endp = mkendp(cntl, 0, 0, lowspeed, 8);
+    if (!defpipe) {
+        cntl->defaultpipe = defpipe = alloc_control_pipe(endp);
+        if (!defpipe)
+            return 0;
+    }
+    usb_alter_control(defpipe, endp);
     struct usb_device_descriptor dinfo;
-    int ret = get_device_info8(&dinfo, endp);
+    int ret = get_device_info8(defpipe, &dinfo);
     if (ret)
         return 0;
     dprintf(3, "device rev=%04x cls=%02x sub=%02x proto=%02x size=%02x\n"
@@ -236,9 +288,11 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
     if (dinfo.bMaxPacketSize0 < 8 || dinfo.bMaxPacketSize0 > 64)
         return 0;
     endp = mkendp(cntl, 0, 0, lowspeed, dinfo.bMaxPacketSize0);
+    usb_alter_control(defpipe, endp);
 
     // Get configuration
-    struct usb_config_descriptor *config = get_device_config(endp);
+    struct usb_pipe *pipe = NULL;
+    struct usb_config_descriptor *config = get_device_config(defpipe);
     if (!config)
         return 0;
 
@@ -254,26 +308,25 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
         goto fail;
 
     // Set the address and configure device.
-    endp = set_address(endp);
-    if (!endp)
+    pipe = set_address(defpipe);
+    if (!pipe)
         goto fail;
-    ret = set_configuration(endp, config->bConfigurationValue);
+    ret = set_configuration(pipe, config->bConfigurationValue);
     if (ret)
         goto fail;
 
     // Configure driver.
-    if (iface->bInterfaceClass == USB_CLASS_HUB) {
-        free(config);
-        return usb_hub_init(endp);
-    }
     int imax = (void*)config + config->wTotalLength - (void*)iface;
-    if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE)
-        ret = usb_msc_init(endp, iface, imax);
+    if (iface->bInterfaceClass == USB_CLASS_HUB)
+        ret = usb_hub_init(pipe);
+    else if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE)
+        ret = usb_msc_init(pipe, iface, imax);
     else
-        ret = usb_keyboard_init(endp, iface, imax);
+        ret = usb_keyboard_init(pipe, iface, imax);
     if (ret)
         goto fail;
 
+    free_pipe(pipe);
     free(config);
     return 1;
 fail:
@@ -290,6 +343,7 @@ usb_setup(void)
 
     dprintf(3, "init usb\n");
 
+    memset(&USBControllers, 0, sizeof(USBControllers));
     usb_keyboard_setup();
 
     // Look for USB controllers

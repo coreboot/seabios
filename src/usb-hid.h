@@ -3,8 +3,9 @@
 
 // usb-hid.c
 struct usb_interface_descriptor;
-int usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface
-                      , int imax);
+struct usb_pipe;
+int usb_keyboard_init(struct usb_pipe *pipe
+                      , struct usb_interface_descriptor *iface, int imax);
 void usb_keyboard_setup(void);
 void usb_check_key(void);
 

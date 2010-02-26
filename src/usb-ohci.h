@@ -4,7 +4,10 @@
 // usb-ohci.c
 struct usb_s;
 void ohci_init(void *data);
-int ohci_control(u32 endp, int dir, const void *cmd, int cmdsize
+struct usb_pipe;
+void ohci_free_pipe(struct usb_pipe *p);
+struct usb_pipe *ohci_alloc_control_pipe(u32 endp);
+int ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
 struct usb_pipe *ohci_alloc_intr_pipe(u32 endp, int frameexp);
 int ohci_poll_intr(struct usb_pipe *pipe, void *data);
@@ -94,6 +97,7 @@ struct ohci_regs {
 #define OHCI_CTRL_CBSR  (3 << 0)
 #define OHCI_CTRL_PLE   (1 << 2)
 #define OHCI_CTRL_CLE   (1 << 4)
+#define OHCI_CTRL_BLE   (1 << 5)
 #define OHCI_CTRL_HCFS  (3 << 6)
 #       define OHCI_USB_RESET   (0 << 6)
 #       define OHCI_USB_OPER    (2 << 6)

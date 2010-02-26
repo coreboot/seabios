@@ -50,7 +50,7 @@ struct csw_s {
 int
 usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
-    dprintf(1, "usb_cmd_data id=%p write=%d count=%d bs=%d buf=%p\n"
+    dprintf(16, "usb_cmd_data id=%p write=%d count=%d bs=%d buf=%p\n"
             , op->drive_g, 0, op->count, blocksize, op->buf_fl);
     struct usbdrive_s *udrive_g = container_of(
         op->drive_g, struct usbdrive_s, drive);
@@ -173,7 +173,8 @@ setup_drive_hd(struct disk_op_s *op)
 
 // Configure a usb msc device.
 int
-usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
+usb_msc_init(struct usb_pipe *pipe
+             , struct usb_interface_descriptor *iface, int imax)
 {
     if (!CONFIG_USB_MSC)
         return -1;
@@ -193,9 +194,9 @@ usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
         iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
     if (!indesc || !outdesc)
         goto fail;
-    u32 inendp = mkendpFromDesc(endp, indesc);
+    u32 inendp = mkendpFromDesc(pipe, indesc);
     struct usb_pipe *bulkin = alloc_bulk_pipe(inendp);
-    u32 outendp = mkendpFromDesc(endp, outdesc);
+    u32 outendp = mkendpFromDesc(pipe, outdesc);
     struct usb_pipe *bulkout = alloc_bulk_pipe(outendp);
     if (!bulkin || !bulkout)
         goto fail;

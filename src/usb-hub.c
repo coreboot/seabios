@@ -10,7 +10,7 @@
 #include "usb.h" // struct usb_s
 
 static int
-get_hub_desc(struct usb_hub_descriptor *desc, u32 endp)
+get_hub_desc(struct usb_pipe *pipe, struct usb_hub_descriptor *desc)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_DEVICE;
@@ -18,11 +18,11 @@ get_hub_desc(struct usb_hub_descriptor *desc, u32 endp)
     req.wValue = USB_DT_HUB<<8;
     req.wIndex = 0;
     req.wLength = sizeof(*desc);
-    return send_default_control(endp, &req, desc);
+    return send_default_control(pipe, &req, desc);
 }
 
 static int
-set_port_feature(int port, int feature, u32 endp)
+set_port_feature(struct usb_pipe *pipe, int port, int feature)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_OTHER;
@@ -30,11 +30,11 @@ set_port_feature(int port, int feature, u32 endp)
     req.wValue = feature;
     req.wIndex = port;
     req.wLength = 0;
-    return send_default_control(endp, &req, NULL);
+    return send_default_control(pipe, &req, NULL);
 }
 
 static int
-clear_port_feature(int port, int feature, u32 endp)
+clear_port_feature(struct usb_pipe *pipe, int port, int feature)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_OTHER;
@@ -42,11 +42,11 @@ clear_port_feature(int port, int feature, u32 endp)
     req.wValue = feature;
     req.wIndex = port;
     req.wLength = 0;
-    return send_default_control(endp, &req, NULL);
+    return send_default_control(pipe, &req, NULL);
 }
 
 static int
-get_port_status(int port, struct usb_port_status *sts, u32 endp)
+get_port_status(struct usb_pipe *pipe, int port, struct usb_port_status *sts)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_OTHER;
@@ -54,25 +54,25 @@ get_port_status(int port, struct usb_port_status *sts, u32 endp)
     req.wValue = 0;
     req.wIndex = port;
     req.wLength = sizeof(*sts);
-    return send_default_control(endp, &req, sts);
+    return send_default_control(pipe, &req, sts);
 }
 
 // Configure a usb hub and then find devices connected to it.
 int
-usb_hub_init(u32 endp)
+usb_hub_init(struct usb_pipe *pipe)
 {
     if (!CONFIG_USB_HUB)
-        return 0;
+        return -1;
 
     struct usb_hub_descriptor desc;
-    int ret = get_hub_desc(&desc, endp);
+    int ret = get_hub_desc(pipe, &desc);
     if (ret)
         return ret;
 
     // Turn on power to all ports.
     int i;
     for (i=1; i<=desc.bNbrPorts; i++) {
-        ret = set_port_feature(i, USB_PORT_FEAT_POWER, endp);
+        ret = set_port_feature(pipe, i, USB_PORT_FEAT_POWER);
         if (ret)
             goto fail;
     }
@@ -83,11 +83,11 @@ usb_hub_init(u32 endp)
     // possibly wait USB_TIME_ATTDB.
 
     // Detect down stream devices.
-    struct usb_s *cntl = endp2cntl(endp);
+    struct usb_s *cntl = endp2cntl(pipe->endp);
     int totalcount = 0;
     for (i=1; i<=desc.bNbrPorts; i++) {
         struct usb_port_status sts;
-        ret = get_port_status(i, &sts, endp);
+        ret = get_port_status(pipe, i, &sts);
         if (ret)
             goto fail;
         if (!(sts.wPortStatus & USB_PORT_STAT_CONNECTION))
@@ -95,14 +95,14 @@ usb_hub_init(u32 endp)
             continue;
 
         // Reset port.
-        ret = set_port_feature(i, USB_PORT_FEAT_RESET, endp);
+        ret = set_port_feature(pipe, i, USB_PORT_FEAT_RESET);
         if (ret)
             goto fail;
 
         // Wait for reset to complete.
         u64 end = calc_future_tsc(USB_TIME_DRST * 2);
         for (;;) {
-            ret = get_port_status(i, &sts, endp);
+            ret = get_port_status(pipe, i, &sts);
             if (ret)
                 goto fail;
             if (!(sts.wPortStatus & USB_PORT_STAT_RESET))
@@ -123,16 +123,19 @@ usb_hub_init(u32 endp)
             cntl, !!(sts.wPortStatus & USB_PORT_STAT_LOW_SPEED));
         if (! count) {
             // Shutdown port
-            ret = clear_port_feature(i, USB_PORT_FEAT_ENABLE, endp);
+            ret = clear_port_feature(pipe, i, USB_PORT_FEAT_ENABLE);
             if (ret)
                 goto fail;
         }
         totalcount += count;
     }
 
-    return totalcount;
+    dprintf(1, "Initialized USB HUB (%d ports used)\n", totalcount);
+    if (totalcount)
+        return 0;
+    return -1;
 
 fail:
     dprintf(1, "Failure on hub setup\n");
-    return 0;
+    return -1;
 }

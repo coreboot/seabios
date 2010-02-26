@@ -2,7 +2,8 @@
 #define __USB_HUB_H
 
 // usb-hub.c
-int usb_hub_init(u32 endp);
+struct usb_pipe;
+int usb_hub_init(struct usb_pipe *pipe);
 
 
 /****************************************************************

@@ -2,20 +2,24 @@
 #ifndef __USB_H
 #define __USB_H
 
+struct usb_pipe {
+    u32 endp;
+};
+
 // Local information for a usb controller.
 struct usb_s {
     u8 type;
     u8 maxaddr;
     u16 bdf;
+    struct usb_pipe *defaultpipe;
 
     union {
         struct {
             u16 iobase;
-            void *qh, *framelist;
+            void *control_qh, *bulk_qh, *framelist;
         } uhci;
         struct {
             struct ohci_regs *regs;
-            void *control_ed;
         } ohci;
     };
 };
@@ -25,26 +29,24 @@ struct usb_s {
 
 extern struct usb_s USBControllers[];
 
-struct usb_pipe {
-    u32 endp;
-};
-
 #define USB_MAXADDR 127
 
 // usb.c
 void usb_setup(void);
 int configure_usb_device(struct usb_s *cntl, int lowspeed);
 struct usb_ctrlrequest;
-int send_default_control(u32 endp, const struct usb_ctrlrequest *req
+int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                          , void *data);
 int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
+void free_pipe(struct usb_pipe *pipe);
 struct usb_pipe *alloc_bulk_pipe(u32 endp);
 struct usb_pipe *alloc_intr_pipe(u32 endp, int period);
 int usb_poll_intr(struct usb_pipe *pipe, void *data);
 struct usb_interface_descriptor;
 struct usb_endpoint_descriptor *findEndPointDesc(
     struct usb_interface_descriptor *iface, int imax, int type, int dir);
-u32 mkendpFromDesc(u32 endp, struct usb_endpoint_descriptor *epdesc);
+u32 mkendpFromDesc(struct usb_pipe *pipe
+                   , struct usb_endpoint_descriptor *epdesc);
 
 
 /****************************************************************

@@ -18,7 +18,7 @@ struct usb_pipe *keyboard_pipe VAR16VISIBLE;
  ****************************************************************/
 
 static int
-set_protocol(u32 endp, u16 val)
+set_protocol(struct usb_pipe *pipe, u16 val)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
@@ -26,11 +26,11 @@ set_protocol(u32 endp, u16 val)
     req.wValue = val;
     req.wIndex = 0;
     req.wLength = 0;
-    return send_default_control(endp, &req, NULL);
+    return send_default_control(pipe, &req, NULL);
 }
 
 static int
-set_idle(u32 endp, int ms)
+set_idle(struct usb_pipe *pipe, int ms)
 {
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
@@ -38,21 +38,22 @@ set_idle(u32 endp, int ms)
     req.wValue = (ms/4)<<8;
     req.wIndex = 0;
     req.wLength = 0;
-    return send_default_control(endp, &req, NULL);
+    return send_default_control(pipe, &req, NULL);
 }
 
 #define KEYREPEATWAITMS 500
 #define KEYREPEATMS 33
 
 int
-usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
+usb_keyboard_init(struct usb_pipe *pipe
+                  , struct usb_interface_descriptor *iface, int imax)
 {
     if (! CONFIG_USB_KEYBOARD)
         return -1;
     if (keyboard_pipe)
         // XXX - this enables the first found keyboard (could be random)
         return -1;
-    dprintf(2, "usb_keyboard_setup %x\n", endp);
+    dprintf(2, "usb_keyboard_setup %x\n", pipe->endp);
 
     // Find intr in endpoint.
     struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
@@ -61,22 +62,22 @@ usb_keyboard_init(u32 endp, struct usb_interface_descriptor *iface, int imax)
         dprintf(1, "No keyboard intr in?\n");
         return -1;
     }
-    u32 inendp = mkendpFromDesc(endp, epdesc);
 
     // Enable "boot" protocol.
-    int ret = set_protocol(endp, 1);
+    int ret = set_protocol(pipe, 1);
     if (ret)
         return -1;
     // Periodically send reports to enable key repeat.
-    ret = set_idle(endp, KEYREPEATMS);
+    ret = set_idle(pipe, KEYREPEATMS);
     if (ret)
         return -1;
 
-    struct usb_pipe *pipe = alloc_intr_pipe(inendp, epdesc->bInterval);
-    if (!pipe)
+    u32 inendp = mkendpFromDesc(pipe, epdesc);
+    keyboard_pipe = alloc_intr_pipe(inendp, epdesc->bInterval);
+    if (!keyboard_pipe)
         return -1;
-    keyboard_pipe = pipe;
 
+    dprintf(1, "USB keyboard initialized\n");
     return 0;
 }
 

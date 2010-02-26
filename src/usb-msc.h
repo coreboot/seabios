@@ -5,7 +5,9 @@
 struct disk_op_s;
 int usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
 struct usb_interface_descriptor;
-int usb_msc_init(u32 endp, struct usb_interface_descriptor *iface, int imax);
+struct usb_pipe;
+int usb_msc_init(struct usb_pipe *pipe
+                 , struct usb_interface_descriptor *iface, int imax);
 int process_usb_op(struct disk_op_s *op);
 
 

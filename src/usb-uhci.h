@@ -1,12 +1,12 @@
 #ifndef __USB_UHCI_H
 #define __USB_UHCI_H
 
-#include "usb.h" // struct usb_pipe
-
 // usb-uhci.c
-struct usb_s;
 void uhci_init(void *data);
-int uhci_control(u32 endp, int dir, const void *cmd, int cmdsize
+struct usb_pipe;
+void uhci_free_pipe(struct usb_pipe *pipe);
+struct usb_pipe *uhci_alloc_control_pipe(u32 endp);
+int uhci_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
 struct usb_pipe *uhci_alloc_bulk_pipe(u32 endp);
 int uhci_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
@@ -120,10 +120,6 @@ struct uhci_td {
 struct uhci_qh {
     u32 link;
     u32 element;
-
-    // Software fields
-    struct uhci_td *next_td;
-    struct usb_pipe pipe;
 } PACKED;
 
 #define UHCI_PTR_BITS           0x000F

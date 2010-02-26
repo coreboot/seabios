@@ -415,7 +415,7 @@ keyboard_init(void *data)
     if (ret)
         return;
 
-    dprintf(1, "keyboard initialized\n");
+    dprintf(1, "PS2 keyboard initialized\n");
 }
 
 void
