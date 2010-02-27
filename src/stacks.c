@@ -248,6 +248,26 @@ wait_threads(void)
         yield();
 }
 
+void
+mutex_lock(struct mutex_s *mutex)
+{
+    ASSERT32FLAT();
+    if (! CONFIG_THREADS)
+        return;
+    while (mutex->isLocked)
+        yield();
+    mutex->isLocked = 1;
+}
+
+void
+mutex_unlock(struct mutex_s *mutex)
+{
+    ASSERT32FLAT();
+    if (! CONFIG_THREADS)
+        return;
+    mutex->isLocked = 0;
+}
+
 
 /****************************************************************
  * Thread preemption
