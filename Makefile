@@ -14,11 +14,11 @@ OUT=out/
 SRCBOTH=misc.c pmm.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
         kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
-        usb.c usb-uhci.c usb-ohci.c usb-hid.c usb-hub.c usb-msc.c paravirt.c
+        usb.c usb-uhci.c usb-ohci.c usb-hid.c usb-msc.c
 SRC16=$(SRCBOTH) system.c disk.c apm.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
-      lzmadecode.c
+      lzmadecode.c usb-hub.c paravirt.c
 SRC32SEG=util.c output.c pci.c pcibios.c apm.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
