@@ -112,9 +112,6 @@ struct uhci_td {
     u32 status;
     u32 token;
     void *buffer;
-
-    // Software fields
-    u32 data[4];
 } PACKED;
 
 struct uhci_qh {

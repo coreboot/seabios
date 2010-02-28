@@ -514,12 +514,11 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
     struct uhci_pipe *pipe = malloc_low(sizeof(*pipe));
     struct uhci_td *tds = malloc_low(sizeof(*tds) * count);
-    if (!pipe || !tds) {
+    void *data = malloc_low(maxpacket * count);
+    if (!pipe || !tds || !data) {
         warn_noalloc();
         goto fail;
     }
-    if (maxpacket > sizeof(tds[0].data))
-        goto fail;
     memset(pipe, 0, sizeof(*pipe));
     pipe->qh.element = (u32)tds;
     pipe->next_td = &tds[0];
@@ -535,7 +534,7 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
         tds[i].token = (uhci_explen(maxpacket) | toggle
                         | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
                         | USB_PID_IN);
-        tds[i].buffer = &tds[i].data;
+        tds[i].buffer = data + maxpacket * i;
         toggle ^= TD_TOKEN_TOGGLE;
     }
 
@@ -563,6 +562,7 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
 fail:
     free(pipe);
     free(tds);
+    free(data);
     return NULL;
 }
 
@@ -583,16 +583,17 @@ uhci_poll_intr(struct usb_pipe *p, void *data)
     // XXX - check for errors.
 
     // Copy data.
+    void *tddata = GET_FLATPTR(td->buffer);
     memcpy_far(GET_SEG(SS), data
-               , FLATPTR_TO_SEG(td->data), (void*)FLATPTR_TO_OFFSET(td->data)
+               , FLATPTR_TO_SEG(tddata), (void*)FLATPTR_TO_OFFSET(tddata)
                , uhci_expected_length(token));
 
     // Reenable this td.
-    u32 next = GET_FLATPTR(td->link);
+    struct uhci_td *next = (void*)(GET_FLATPTR(td->link) & ~UHCI_PTR_BITS);
+    SET_FLATPTR(pipe->next_td, next);
     barrier();
     SET_FLATPTR(td->status, (uhci_maxerr(0) | (status & TD_CTRL_LS)
                              | TD_CTRL_ACTIVE));
-    SET_FLATPTR(pipe->next_td, (void*)(next & ~UHCI_PTR_BITS));
 
     return 0;
 }
