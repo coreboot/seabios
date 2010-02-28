@@ -58,7 +58,8 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
 static void
 fillLCHS(struct drive_s *drive_g, u16 *nlc, u16 *nlh, u16 *nlspt)
 {
-    if (CONFIG_CDROM_EMU && drive_g == GET_GLOBAL(cdemu_drive)) {
+    if (CONFIG_CDROM_EMU
+        && drive_g == GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf))) {
         // Emulated drive - get info from ebda.  (It's not possible to
         // populate the geometry directly in the driveid because the
         // geometry is only known after the bios segment is made
@@ -236,7 +237,8 @@ disk_1308(struct bregs *regs, struct drive_s *drive_g)
         // Floppy
         count = GET_GLOBAL(Drives.floppycount);
 
-        if (CONFIG_CDROM_EMU && drive_g == GET_GLOBAL(cdemu_drive))
+        if (CONFIG_CDROM_EMU
+            && drive_g == GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf)))
             regs->bx = GET_EBDA2(ebda_seg, cdemu.media) * 2;
         else
             regs->bx = GET_GLOBAL(drive_g->floppy_type);
@@ -556,12 +558,13 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
                  , offsetof(struct extended_bios_data_area_s, dpte));
 
     // Fill in dpte
-    u8 ataid = GET_GLOBAL(drive_g->cntl_id);
-    u8 channel = ataid / 2;
-    u8 slave = ataid % 2;
-    u16 iobase1 = GET_GLOBAL(ATA_channels[channel].iobase1);
-    u16 iobase2 = GET_GLOBAL(ATA_channels[channel].iobase2);
-    u8 irq = GET_GLOBAL(ATA_channels[channel].irq);
+    struct atadrive_s *adrive_g = container_of(
+        drive_g, struct atadrive_s, drive);
+    struct ata_channel_s *chan_gf = GET_GLOBAL(adrive_g->chan_gf);
+    u8 slave = GET_GLOBAL(adrive_g->slave);
+    u16 iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
+    u16 iobase2 = GET_GLOBALFLAT(chan_gf->iobase2);
+    u8 irq = GET_GLOBALFLAT(chan_gf->irq);
 
     u16 options = 0;
     if (type == DTYPE_ATA) {
@@ -610,7 +613,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     SET_INT13DPT(regs, reserved1, 0);
     SET_INT13DPT(regs, reserved2, 0);
 
-    int bdf = GET_GLOBAL(ATA_channels[channel].pci_bdf);
+    int bdf = GET_GLOBALFLAT(chan_gf->pci_bdf);
     if (bdf != -1) {
         SET_INT13DPT(regs, host_bus[0], 'P');
         SET_INT13DPT(regs, host_bus[1], 'C');
@@ -829,13 +832,14 @@ handle_13(struct bregs *regs)
             u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
             if (extdrive == emudrive) {
                 // Access to an emulated drive.
-                struct drive_s *cdemu = GET_GLOBAL(cdemu_drive);
+                struct drive_s *cdemu_g;
+                cdemu_g = GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf));
                 if (regs->ah > 0x16) {
                     // Only old-style commands supported.
-                    disk_13XX(regs, cdemu);
+                    disk_13XX(regs, cdemu_g);
                     return;
                 }
-                disk_13(regs, cdemu);
+                disk_13(regs, cdemu_g);
                 return;
             }
             if (extdrive < EXTSTART_CD && ((emudrive ^ extdrive) & 0x80) == 0)

@@ -19,7 +19,10 @@ getDrive(u8 exttype, u8 extdriveoffset)
 {
     if (extdriveoffset >= ARRAY_SIZE(Drives.idmap[0]))
         return NULL;
-    return RETRIEVE_GLOBAL_PTR(GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]));
+    struct drive_s *drive_gf = GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]);
+    if (!drive_gf)
+        return NULL;
+    return GLOBALFLAT2GLOBAL(drive_gf);
 }
 
 
@@ -196,7 +199,7 @@ map_hd_drive(struct drive_s *drive_g)
         return;
     }
     dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdcount);
-    Drives.idmap[EXTTYPE_HD][hdcount] = STORE_GLOBAL_PTR(drive_g);
+    Drives.idmap[EXTTYPE_HD][hdcount] = drive_g;
     SET_BDA(hdcount, hdcount + 1);
 
     // Fill "fdpt" structure.
@@ -230,7 +233,7 @@ add_ordered_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
         if (pos != end)
             memmove(pos+1, pos, (void*)end-(void*)pos);
     }
-    *pos = STORE_GLOBAL_PTR(drive_g);
+    *pos = drive_g;
 }
 
 // Map a cd

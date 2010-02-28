@@ -21,7 +21,8 @@ static int
 cdemu_read(struct disk_op_s *op)
 {
     u16 ebda_seg = get_ebda_seg();
-    struct drive_s *drive_g = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
+    struct drive_s *drive_g;
+    drive_g = GLOBALFLAT2GLOBAL(GET_EBDA2(ebda_seg, cdemu.emulated_drive_gf));
     struct disk_op_s dop;
     dop.drive_g = drive_g;
     dop.command = op->command;
@@ -105,7 +106,7 @@ process_cdemu_op(struct disk_op_s *op)
     }
 }
 
-struct drive_s *cdemu_drive VAR16VISIBLE;
+struct drive_s *cdemu_drive_gf VAR16VISIBLE;
 
 void
 cdemu_setup(void)
@@ -116,11 +117,11 @@ cdemu_setup(void)
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
     if (! drive_g) {
         warn_noalloc();
-        cdemu_drive = NULL;
+        cdemu_drive_gf = NULL;
         return;
     }
     memset(drive_g, 0, sizeof(*drive_g));
-    cdemu_drive = STORE_GLOBAL_PTR(drive_g);
+    cdemu_drive_gf = drive_g;
     drive_g->type = DTYPE_CDEMU;
     drive_g->blksize = DISK_SECTOR_SIZE;
     drive_g->sectors = (u64)-1;
@@ -154,8 +155,10 @@ cdemu_134b(struct bregs *regs)
     SET_INT13ET(regs, media, GET_EBDA2(ebda_seg, cdemu.media));
     SET_INT13ET(regs, emulated_drive
                 , GET_EBDA2(ebda_seg, cdemu.emulated_extdrive));
-    struct drive_s *drive_g = GET_EBDA2(ebda_seg, cdemu.emulated_drive);
-    u8 cntl_id = GET_GLOBAL(drive_g->cntl_id);
+    struct drive_s *drive_gf = GET_EBDA2(ebda_seg, cdemu.emulated_drive_gf);
+    u8 cntl_id = 0;
+    if (drive_gf)
+        cntl_id = GET_GLOBALFLAT(drive_gf->cntl_id);
     SET_INT13ET(regs, controller_index, cntl_id / 2);
     SET_INT13ET(regs, device_spec, cntl_id % 2);
     SET_INT13ET(regs, ilba, GET_EBDA2(ebda_seg, cdemu.ilba));
@@ -292,7 +295,7 @@ cdrom_boot(int cdid)
     u8 media = buffer[0x21];
     SET_EBDA2(ebda_seg, cdemu.media, media);
 
-    SET_EBDA2(ebda_seg, cdemu.emulated_drive, STORE_GLOBAL_PTR(dop.drive_g));
+    SET_EBDA2(ebda_seg, cdemu.emulated_drive_gf, dop.drive_g);
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)
@@ -321,7 +324,7 @@ cdrom_boot(int cdid)
     }
 
     // Emulation of a floppy/harddisk requested
-    if (! CONFIG_CDROM_EMU || !cdemu_drive)
+    if (! CONFIG_CDROM_EMU || !cdemu_drive_gf)
         return 13;
 
     // Set emulated drive id and increase bios installed hardware

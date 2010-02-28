@@ -125,9 +125,6 @@
 #define CONFIG_MAX_BIOSTABLE 2048
 // Space to reserve in high-memory for tables
 #define CONFIG_MAX_HIGHTABLE (64*1024)
-
-// Maximum number of ATA controllers to support
-#define CONFIG_MAX_ATA_INTERFACES 4
 // Largest supported externaly facing drive id
 #define CONFIG_MAX_EXTDRIVE 16
 

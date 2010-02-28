@@ -187,7 +187,7 @@ struct dpte_s {
 
 // ElTorito Device Emulation data
 struct cdemu_s {
-    struct drive_s *emulated_drive;
+    struct drive_s *emulated_drive_gf;
     u32 ilba;
     u16 buffer_segment;
     u16 load_segment;
@@ -329,12 +329,12 @@ static inline u16 get_global_seg(void) {
         (var) = (val);                          \
     } while (0)
 #if MODESEGMENT
-#define STORE_GLOBAL_PTR(var) (var)
-#define RETRIEVE_GLOBAL_PTR(var) (var)
+#define GLOBALFLAT2GLOBAL(var) ((typeof(var))((void*)(var) - BUILD_BIOS_ADDR))
 #else
-#define STORE_GLOBAL_PTR(var) ((typeof(var))((void*)var - BUILD_BIOS_ADDR))
-#define RETRIEVE_GLOBAL_PTR(var) ((typeof(var))((void*)var + BUILD_BIOS_ADDR))
+#define GLOBALFLAT2GLOBAL(var) (var)
 #endif
+// Access a "flat" pointer known to point to the f-segment.
+#define GET_GLOBALFLAT(var) GET_GLOBAL(*GLOBALFLAT2GLOBAL(&(var)))
 
 
 /****************************************************************

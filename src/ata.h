@@ -3,17 +3,24 @@
 
 #include "types.h" // u8
 #include "config.h" // CONFIG_MAX_ATA_INTERFACES
+#include "disk.h" // struct drive_s
 
 struct ata_channel_s {
     u16 iobase1;
     u16 iobase2;
     u16 iomaster;
     u8  irq;
+    u8  chanid;
     int pci_bdf;
 };
 
+struct atadrive_s {
+    struct drive_s drive;
+    struct ata_channel_s *chan_gf;
+    u8 slave;
+};
+
 // ata.c
-extern struct ata_channel_s ATA_channels[CONFIG_MAX_ATA_INTERFACES];
 int cdrom_read(struct disk_op_s *op);
 int atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
 void ata_setup(void);

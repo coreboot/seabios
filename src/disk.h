@@ -244,7 +244,7 @@ int process_floppy_op(struct disk_op_s *op);
 void floppy_tick(void);
 
 // cdrom.c
-extern struct drive_s *cdemu_drive;
+extern struct drive_s *cdemu_drive_gf;
 int process_cdemu_op(struct disk_op_s *op);
 void cdemu_setup(void);
 void cdemu_134b(struct bregs *regs);
