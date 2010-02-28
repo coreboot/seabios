@@ -429,7 +429,7 @@ ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
     int devaddr = dummy->devaddr | (dummy->ep << 7);
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
-    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
+    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms)+1;
     struct ohci_pipe *pipe = malloc_low(sizeof(*pipe));
     struct ohci_td *tds = malloc_low(sizeof(*tds) * count);
     void *data = malloc_low(maxpacket * count);
