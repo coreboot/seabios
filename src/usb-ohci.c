@@ -300,10 +300,9 @@ ohci_free_pipe(struct usb_pipe *p)
 {
     if (! CONFIG_USB_OHCI)
         return;
+    dprintf(7, "ohci_free_pipe %p\n", p);
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-    u32 endp = pipe->pipe.endp;
-    dprintf(7, "ohci_free_pipe %x\n", endp);
-    struct usb_s *cntl = endp2cntl(endp);
+    struct usb_s *cntl = pipe->pipe.cntl;
 
     u32 *pos = &cntl->ohci.regs->ed_controlhead;
     for (;;) {
@@ -324,12 +323,12 @@ ohci_free_pipe(struct usb_pipe *p)
 }
 
 struct usb_pipe *
-ohci_alloc_control_pipe(u32 endp)
+ohci_alloc_control_pipe(struct usb_pipe *dummy)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
-    struct usb_s *cntl = endp2cntl(endp);
-    dprintf(7, "ohci_alloc_control_pipe %x\n", endp);
+    struct usb_s *cntl = dummy->cntl;
+    dprintf(7, "ohci_alloc_control_pipe %p\n", cntl);
 
     // Allocate a queue head.
     struct ohci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
@@ -339,7 +338,7 @@ ohci_alloc_control_pipe(u32 endp)
     }
     memset(pipe, 0, sizeof(*pipe));
     pipe->ed.hwINFO = ED_SKIP;
-    pipe->pipe.endp = endp;
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     // Add queue head to controller list.
     pipe->ed.hwNextED = cntl->ohci.regs->ed_controlhead;
@@ -354,18 +353,17 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
 {
     if (! CONFIG_USB_OHCI)
         return -1;
+    dprintf(5, "ohci_control %p\n", p);
     if (datasize > 4096) {
         // XXX - should support larger sizes.
         warn_noalloc();
         return -1;
     }
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-    u32 endp = pipe->pipe.endp;
-    dprintf(5, "ohci_control %x\n", endp);
-    struct usb_s *cntl = endp2cntl(endp);
-    int maxpacket = endp2maxsize(endp);
-    int lowspeed = endp2speed(endp);
-    int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
+    struct usb_s *cntl = pipe->pipe.cntl;
+    int maxpacket = pipe->pipe.maxpacket;
+    int lowspeed = pipe->pipe.lowspeed;
+    int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
 
     // Setup transfer descriptors
     struct ohci_td *tds = malloc_tmphigh(sizeof(*tds) * 3);
@@ -400,18 +398,18 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
 }
 
 struct usb_pipe *
-ohci_alloc_intr_pipe(u32 endp, int frameexp)
+ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
+    struct usb_s *cntl = dummy->cntl;
+    dprintf(7, "ohci_alloc_intr_pipe %p %d\n", cntl, frameexp);
 
-    dprintf(7, "ohci_alloc_intr_pipe %x %d\n", endp, frameexp);
     if (frameexp > 5)
         frameexp = 5;
-    struct usb_s *cntl = endp2cntl(endp);
-    int maxpacket = endp2maxsize(endp);
-    int lowspeed = endp2speed(endp);
-    int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
+    int maxpacket = dummy->maxpacket;
+    int lowspeed = dummy->lowspeed;
+    int devaddr = dummy->devaddr | (dummy->ep << 7);
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
@@ -452,7 +450,7 @@ ohci_alloc_intr_pipe(u32 endp, int frameexp)
     pipe->data = data;
     pipe->count = count;
     pipe->tds = tds;
-    pipe->pipe.endp = endp;
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     return &pipe->pipe;
 
 err:
@@ -482,8 +480,7 @@ ohci_poll_intr(struct usb_pipe *p, void *data)
     // XXX - check for errors.
 
     // Copy data.
-    u32 endp = GET_FLATPTR(pipe->pipe.endp);
-    int maxpacket = endp2maxsize(endp);
+    int maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
     void *pipedata = GET_FLATPTR(pipe->data);
     void *intrdata = pipedata + maxpacket * pos;
     memcpy_far(GET_SEG(SS), data

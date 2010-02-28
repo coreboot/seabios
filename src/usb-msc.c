@@ -194,10 +194,8 @@ usb_msc_init(struct usb_pipe *pipe
         iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
     if (!indesc || !outdesc)
         goto fail;
-    u32 inendp = mkendpFromDesc(pipe, indesc);
-    struct usb_pipe *bulkin = alloc_bulk_pipe(inendp);
-    u32 outendp = mkendpFromDesc(pipe, outdesc);
-    struct usb_pipe *bulkout = alloc_bulk_pipe(outendp);
+    struct usb_pipe *bulkin = alloc_bulk_pipe(pipe, indesc);
+    struct usb_pipe *bulkout = alloc_bulk_pipe(pipe, outdesc);
     if (!bulkin || !bulkout)
         goto fail;
 

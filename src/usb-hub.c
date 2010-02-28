@@ -168,7 +168,7 @@ usb_hub_init(struct usb_pipe *pipe)
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
     hub.pipe = pipe;
-    hub.cntl = endp2cntl(pipe->endp);
+    hub.cntl = pipe->cntl;
     hub.powerwait = desc.bPwrOn2PwrGood * 2;
 
     // Launch a thread for every port.

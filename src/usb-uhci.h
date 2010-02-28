@@ -4,14 +4,14 @@
 // usb-uhci.c
 void uhci_init(void *data);
 struct usb_pipe;
-void uhci_free_pipe(struct usb_pipe *pipe);
-struct usb_pipe *uhci_alloc_control_pipe(u32 endp);
-int uhci_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
+void uhci_free_pipe(struct usb_pipe *p);
+struct usb_pipe *uhci_alloc_control_pipe(struct usb_pipe *dummy);
+int uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
-struct usb_pipe *uhci_alloc_bulk_pipe(u32 endp);
-int uhci_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
-struct usb_pipe *uhci_alloc_intr_pipe(u32 endp, int frameexp);
-int uhci_poll_intr(struct usb_pipe *pipe, void *data);
+struct usb_pipe *uhci_alloc_bulk_pipe(struct usb_pipe *dummy);
+int uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);
+struct usb_pipe *uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp);
+int uhci_poll_intr(struct usb_pipe *p, void *data);
 
 
 /****************************************************************

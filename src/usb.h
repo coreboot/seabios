@@ -5,7 +5,13 @@
 #include "util.h" // struct mutex_s
 
 struct usb_pipe {
-    u32 endp;
+    struct usb_s *cntl;
+    u8 type;
+    u8 ep;
+    u8 devaddr;
+    u8 lowspeed;
+    u16 maxpacket;
+    u8 toggle;
 };
 
 // Local information for a usb controller.
@@ -33,54 +39,6 @@ struct usb_s {
 extern struct usb_s USBControllers[];
 
 #define USB_MAXADDR 127
-
-// usb.c
-void usb_setup(void);
-struct usb_pipe *usb_set_address(struct usb_s *cntl, int lowspeed);
-int configure_usb_device(struct usb_pipe *pipe);
-struct usb_ctrlrequest;
-int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
-                         , void *data);
-int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
-void free_pipe(struct usb_pipe *pipe);
-struct usb_pipe *alloc_bulk_pipe(u32 endp);
-struct usb_pipe *alloc_intr_pipe(u32 endp, int period);
-int usb_poll_intr(struct usb_pipe *pipe, void *data);
-struct usb_interface_descriptor;
-struct usb_endpoint_descriptor *findEndPointDesc(
-    struct usb_interface_descriptor *iface, int imax, int type, int dir);
-u32 mkendpFromDesc(struct usb_pipe *pipe
-                   , struct usb_endpoint_descriptor *epdesc);
-
-
-/****************************************************************
- * endpoint definition
- ****************************************************************/
-
-static inline u32
-mkendp(struct usb_s *cntl, u8 devaddr, u8 ep, u8 lowspeed, u8 maxsize)
-{
-    u8 bus = cntl-USBControllers;
-    u8 size = __ffs(maxsize);
-    return (size<<25) | (lowspeed<<24) | (bus<<16) | (devaddr<<8) | ep;
-}
-
-static inline u8 endp2ep(u32 endp) {
-    return endp;
-}
-static inline u8 endp2devaddr(u32 endp) {
-    return endp>>8;
-}
-static inline struct usb_s *endp2cntl(u32 endp) {
-    u8 bus = endp>>16;
-    return &USBControllers[bus];
-}
-static inline u8 endp2speed(u32 endp) {
-    return (endp>>24) & 1;
-}
-static inline u8 endp2maxsize(u32 endp) {
-    return 1 << (endp>>25);
-}
 
 
 /****************************************************************
@@ -215,5 +173,28 @@ struct usb_endpoint_descriptor {
 #define USB_ENDPOINT_XFER_BULK          2
 #define USB_ENDPOINT_XFER_INT           3
 #define USB_ENDPOINT_MAX_ADJUSTABLE     0x80
+
+
+/****************************************************************
+ * function defs
+ ****************************************************************/
+
+// usb.c
+void usb_setup(void);
+struct usb_pipe *usb_set_address(struct usb_s *cntl, int lowspeed);
+int configure_usb_device(struct usb_pipe *pipe);
+int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
+                         , void *data);
+int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
+void free_pipe(struct usb_pipe *pipe);
+struct usb_pipe *alloc_bulk_pipe(struct usb_pipe *pipe
+                                 , struct usb_endpoint_descriptor *epdesc);
+struct usb_pipe *alloc_intr_pipe(struct usb_pipe *pipe
+                                 , struct usb_endpoint_descriptor *epdesc);
+int usb_poll_intr(struct usb_pipe *pipe, void *data);
+struct usb_endpoint_descriptor *findEndPointDesc(
+    struct usb_interface_descriptor *iface, int imax, int type, int dir);
+u32 mkendpFromDesc(struct usb_pipe *pipe
+                   , struct usb_endpoint_descriptor *epdesc);
 
 #endif // usb.h

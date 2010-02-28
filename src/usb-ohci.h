@@ -6,11 +6,11 @@ struct usb_s;
 void ohci_init(void *data);
 struct usb_pipe;
 void ohci_free_pipe(struct usb_pipe *p);
-struct usb_pipe *ohci_alloc_control_pipe(u32 endp);
+struct usb_pipe *ohci_alloc_control_pipe(struct usb_pipe *dummy);
 int ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
-struct usb_pipe *ohci_alloc_intr_pipe(u32 endp, int frameexp);
-int ohci_poll_intr(struct usb_pipe *pipe, void *data);
+struct usb_pipe *ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp);
+int ohci_poll_intr(struct usb_pipe *p, void *data);
 
 
 /****************************************************************

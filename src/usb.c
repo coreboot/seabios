@@ -31,8 +31,7 @@ free_pipe(struct usb_pipe *pipe)
     ASSERT32FLAT();
     if (!pipe)
         return;
-    struct usb_s *cntl = endp2cntl(pipe->endp);
-    switch (cntl->type) {
+    switch (pipe->type) {
     default:
     case USB_TYPE_UHCI:
         return uhci_free_pipe(pipe);
@@ -41,17 +40,17 @@ free_pipe(struct usb_pipe *pipe)
     }
 }
 
-// Allocate a control pipe (which can only be used by 32bit code)
+// Allocate a control pipe to a default endpoint (which can only be
+// used by 32bit code)
 static struct usb_pipe *
-alloc_control_pipe(u32 endp)
+alloc_default_control_pipe(struct usb_pipe *dummy)
 {
-    struct usb_s *cntl = endp2cntl(endp);
-    switch (cntl->type) {
+    switch (dummy->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_control_pipe(endp);
+        return uhci_alloc_control_pipe(dummy);
     case USB_TYPE_OHCI:
-        return ohci_alloc_control_pipe(endp);
+        return ohci_alloc_control_pipe(dummy);
     }
 }
 
@@ -61,8 +60,7 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
              , void *data, int datasize)
 {
     ASSERT32FLAT();
-    struct usb_s *cntl = endp2cntl(pipe->endp);
-    switch (cntl->type) {
+    switch (pipe->type) {
     default:
     case USB_TYPE_UHCI:
         return uhci_control(pipe, dir, cmd, cmdsize, data, datasize);
@@ -71,61 +69,70 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
     }
 }
 
-struct usb_pipe *
-alloc_bulk_pipe(u32 endp)
+// Fill "pipe" endpoint info from an endpoint descriptor.
+static void
+desc2pipe(struct usb_pipe *newpipe, struct usb_pipe *origpipe
+          , struct usb_endpoint_descriptor *epdesc)
 {
-    struct usb_s *cntl = endp2cntl(endp);
-    switch (cntl->type) {
+    memcpy(newpipe, origpipe, sizeof(*newpipe));
+    newpipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+    newpipe->maxpacket = epdesc->wMaxPacketSize;
+}
+
+struct usb_pipe *
+alloc_bulk_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
+{
+    struct usb_pipe dummy;
+    desc2pipe(&dummy, pipe, epdesc);
+    switch (pipe->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_bulk_pipe(endp);
+        return uhci_alloc_bulk_pipe(&dummy);
     case USB_TYPE_OHCI:
         return NULL;
     }
 }
 
 int
-usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize)
+usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
 {
-    u32 endp = GET_FLATPTR(pipe->endp);
-    struct usb_s *cntl = endp2cntl(endp);
-    switch (cntl->type) {
+    switch (GET_FLATPTR(pipe_fl->type)) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_send_bulk(pipe, dir, data, datasize);
+        return uhci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_OHCI:
         return -1;
     }
 }
 
 struct usb_pipe *
-alloc_intr_pipe(u32 endp, int period)
+alloc_intr_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 {
-    struct usb_s *cntl = endp2cntl(endp);
+    struct usb_pipe dummy;
+    desc2pipe(&dummy, pipe, epdesc);
     // Find the exponential period of the requested time.
+    int period = epdesc->bInterval;
     if (period <= 0)
         period = 1;
     int frameexp = __fls(period);
-    switch (cntl->type) {
+    switch (pipe->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_intr_pipe(endp, frameexp);
+        return uhci_alloc_intr_pipe(&dummy, frameexp);
     case USB_TYPE_OHCI:
-        return ohci_alloc_intr_pipe(endp, frameexp);
+        return ohci_alloc_intr_pipe(&dummy, frameexp);
     }
 }
 
 int noinline
-usb_poll_intr(struct usb_pipe *pipe, void *data)
+usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 {
-    u32 endp = GET_FLATPTR(pipe->endp);
-    struct usb_s *cntl = endp2cntl(endp);
-    switch (GET_GLOBAL(cntl->type)) {
+    switch (GET_FLATPTR(pipe_fl->type)) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_poll_intr(pipe, data);
+        return uhci_poll_intr(pipe_fl, data);
     case USB_TYPE_OHCI:
-        return ohci_poll_intr(pipe, data);
+        return ohci_poll_intr(pipe_fl, data);
     }
 }
 
@@ -151,23 +158,6 @@ findEndPointDesc(struct usb_interface_descriptor *iface, int imax
             return epdesc;
         epdesc = (void*)epdesc + epdesc->bLength;
     }
-}
-
-// Change endpoint characteristics of the default control pipe.
-static void
-usb_alter_control(struct usb_pipe *pipe, u32 endp)
-{
-    pipe->endp = endp;
-}
-
-// Build an encoded "endp" from an endpoint descriptor.
-u32
-mkendpFromDesc(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
-{
-    u32 endp = pipe->endp;
-    return mkendp(endp2cntl(endp), endp2devaddr(endp)
-                  , epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK
-                  , endp2speed(endp), epdesc->wMaxPacketSize);
 }
 
 // Send a message to the default control pipe of a device.
@@ -246,13 +236,18 @@ usb_set_address(struct usb_s *cntl, int lowspeed)
         return NULL;
 
     struct usb_pipe *defpipe = cntl->defaultpipe;
-    u32 endp = mkendp(cntl, 0, 0, lowspeed, 8);
     if (!defpipe) {
-        cntl->defaultpipe = defpipe = alloc_control_pipe(endp);
+        // Create a pipe for the default address.
+        struct usb_pipe dummy;
+        memset(&dummy, 0, sizeof(dummy));
+        dummy.cntl = cntl;
+        dummy.type = cntl->type;
+        dummy.maxpacket = 8;
+        cntl->defaultpipe = defpipe = alloc_default_control_pipe(&dummy);
         if (!defpipe)
             return NULL;
     }
-    usb_alter_control(defpipe, endp);
+    defpipe->lowspeed = lowspeed;
 
     msleep(USB_TIME_RSTRCY);
 
@@ -269,8 +264,10 @@ usb_set_address(struct usb_s *cntl, int lowspeed)
     msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
-    endp = mkendp(cntl, cntl->maxaddr, 0, lowspeed, 8);
-    return alloc_control_pipe(endp);
+    defpipe->devaddr = cntl->maxaddr;
+    struct usb_pipe *pipe = alloc_default_control_pipe(defpipe);
+    defpipe->devaddr = 0;
+    return pipe;
 }
 
 // Called for every found device - see if a driver is available for
@@ -279,8 +276,7 @@ int
 configure_usb_device(struct usb_pipe *pipe)
 {
     ASSERT32FLAT();
-    struct usb_s *cntl = endp2cntl(pipe->endp);
-    dprintf(3, "config_usb: %p\n", cntl);
+    dprintf(3, "config_usb: %p\n", pipe);
 
     // Set the max packet size for endpoint 0 of this device.
     struct usb_device_descriptor dinfo;
@@ -292,9 +288,7 @@ configure_usb_device(struct usb_pipe *pipe)
             , dinfo.bDeviceProtocol, dinfo.bMaxPacketSize0);
     if (dinfo.bMaxPacketSize0 < 8 || dinfo.bMaxPacketSize0 > 64)
         return 0;
-    u32 endp = mkendp(cntl, endp2devaddr(pipe->endp), 0
-                      , endp2speed(pipe->endp), dinfo.bMaxPacketSize0);
-    usb_alter_control(pipe, endp);
+    pipe->maxpacket = dinfo.bMaxPacketSize0;
 
     // Get configuration
     struct usb_config_descriptor *config = get_device_config(pipe);

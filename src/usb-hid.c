@@ -53,7 +53,7 @@ usb_keyboard_init(struct usb_pipe *pipe
     if (keyboard_pipe)
         // XXX - this enables the first found keyboard (could be random)
         return -1;
-    dprintf(2, "usb_keyboard_setup %x\n", pipe->endp);
+    dprintf(2, "usb_keyboard_setup %p\n", pipe);
 
     // Find intr in endpoint.
     struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
@@ -72,8 +72,7 @@ usb_keyboard_init(struct usb_pipe *pipe
     if (ret)
         return -1;
 
-    u32 inendp = mkendpFromDesc(pipe, epdesc);
-    keyboard_pipe = alloc_intr_pipe(inendp, epdesc->bInterval);
+    keyboard_pipe = alloc_intr_pipe(pipe, epdesc);
     if (!keyboard_pipe)
         return -1;
 

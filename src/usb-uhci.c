@@ -251,10 +251,9 @@ uhci_free_pipe(struct usb_pipe *p)
 {
     if (! CONFIG_USB_UHCI)
         return;
+    dprintf(7, "uhci_free_pipe %p\n", p);
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
-    u32 endp = pipe->pipe.endp;
-    dprintf(7, "uhci_free_pipe %x\n", endp);
-    struct usb_s *cntl = endp2cntl(endp);
+    struct usb_s *cntl = pipe->pipe.cntl;
 
     struct uhci_framelist *fl = cntl->uhci.framelist;
     struct uhci_qh *pos = (void*)(fl->links[0] & ~UHCI_PTR_BITS);
@@ -281,12 +280,12 @@ uhci_free_pipe(struct usb_pipe *p)
 }
 
 struct usb_pipe *
-uhci_alloc_control_pipe(u32 endp)
+uhci_alloc_control_pipe(struct usb_pipe *dummy)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
-    struct usb_s *cntl = endp2cntl(endp);
-    dprintf(7, "uhci_alloc_control_pipe %x\n", endp);
+    struct usb_s *cntl = dummy->cntl;
+    dprintf(7, "uhci_alloc_control_pipe %p\n", cntl);
 
     // Allocate a queue head.
     struct uhci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
@@ -294,9 +293,9 @@ uhci_alloc_control_pipe(u32 endp)
         warn_noalloc();
         return NULL;
     }
+    memset(pipe, 0, sizeof(*pipe));
     pipe->qh.element = UHCI_PTR_TERM;
-    pipe->next_td = 0;
-    pipe->pipe.endp = endp;
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     // Add queue head to controller list.
     struct uhci_qh *control_qh = cntl->uhci.control_qh;
@@ -315,14 +314,13 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     ASSERT32FLAT();
     if (! CONFIG_USB_UHCI)
         return -1;
+    dprintf(5, "uhci_control %p\n", p);
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
-    u32 endp = pipe->pipe.endp;
 
-    dprintf(5, "uhci_control %x\n", endp);
-    struct usb_s *cntl = endp2cntl(endp);
-    int maxpacket = endp2maxsize(endp);
-    int lowspeed = endp2speed(endp);
-    int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
+    struct usb_s *cntl = pipe->pipe.cntl;
+    int maxpacket = pipe->pipe.maxpacket;
+    int lowspeed = pipe->pipe.lowspeed;
+    int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
 
     // Setup transfer descriptors
     int count = 2 + DIV_ROUND_UP(datasize, maxpacket);
@@ -368,12 +366,12 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
 }
 
 struct usb_pipe *
-uhci_alloc_bulk_pipe(u32 endp)
+uhci_alloc_bulk_pipe(struct usb_pipe *dummy)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
-    struct usb_s *cntl = endp2cntl(endp);
-    dprintf(7, "uhci_alloc_bulk_pipe %x\n", endp);
+    struct usb_s *cntl = dummy->cntl;
+    dprintf(7, "uhci_alloc_bulk_pipe %p\n", cntl);
 
     // Allocate a queue head.
     struct uhci_pipe *pipe = malloc_low(sizeof(*pipe));
@@ -381,9 +379,9 @@ uhci_alloc_bulk_pipe(u32 endp)
         warn_noalloc();
         return NULL;
     }
+    memset(pipe, 0, sizeof(*pipe));
     pipe->qh.element = UHCI_PTR_TERM;
-    pipe->next_td = 0;
-    pipe->pipe.endp = endp;
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     // Add queue head to controller list.
     struct uhci_qh *bulk_qh = cntl->uhci.bulk_qh;
@@ -423,13 +421,13 @@ int
 uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
 {
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
-    u32 endp = GET_FLATPTR(pipe->pipe.endp);
-    dprintf(7, "uhci_send_bulk qh=%p endp=%x dir=%d data=%p size=%d\n"
-            , &pipe->qh, endp, dir, data, datasize);
-    int maxpacket = endp2maxsize(endp);
-    int lowspeed = endp2speed(endp);
-    int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
-    int toggle = (u32)GET_FLATPTR(pipe->next_td); // XXX
+    dprintf(7, "uhci_send_bulk qh=%p dir=%d data=%p size=%d\n"
+            , &pipe->qh, dir, data, datasize);
+    int maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
+    int lowspeed = GET_FLATPTR(pipe->pipe.lowspeed);
+    int devaddr = (GET_FLATPTR(pipe->pipe.devaddr)
+                   | (GET_FLATPTR(pipe->pipe.ep) << 7));
+    int toggle = GET_FLATPTR(pipe->pipe.toggle) ? TD_TOKEN_TOGGLE : 0;
 
     // Allocate 4 tds on stack (16byte aligned)
     u8 tdsbuf[sizeof(struct uhci_td) * STACKTDS + TDALIGN - 1];
@@ -472,28 +470,28 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
             goto fail;
     }
 
-    SET_FLATPTR(pipe->next_td, (void*)toggle); // XXX
+    SET_FLATPTR(pipe->pipe.toggle, !!toggle);
     return 0;
 fail:
     dprintf(1, "uhci_send_bulk failed\n");
     SET_FLATPTR(pipe->qh.element, UHCI_PTR_TERM);
-    uhci_waittick(endp2cntl(endp));
+    uhci_waittick(GET_FLATPTR(pipe->pipe.cntl));
     return -1;
 }
 
 struct usb_pipe *
-uhci_alloc_intr_pipe(u32 endp, int frameexp)
+uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
+    struct usb_s *cntl = dummy->cntl;
+    dprintf(7, "uhci_alloc_intr_pipe %p %d\n", cntl, frameexp);
 
-    dprintf(7, "uhci_alloc_intr_pipe %x %d\n", endp, frameexp);
     if (frameexp > 10)
         frameexp = 10;
-    struct usb_s *cntl = endp2cntl(endp);
-    int maxpacket = endp2maxsize(endp);
-    int lowspeed = endp2speed(endp);
-    int devaddr = endp2devaddr(endp) | (endp2ep(endp) << 7);
+    int maxpacket = dummy->maxpacket;
+    int lowspeed = dummy->lowspeed;
+    int devaddr = dummy->devaddr | (dummy->ep << 7);
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
@@ -505,7 +503,11 @@ uhci_alloc_intr_pipe(u32 endp, int frameexp)
     }
     if (maxpacket > sizeof(tds[0].data))
         goto fail;
+    memset(pipe, 0, sizeof(*pipe));
     pipe->qh.element = (u32)tds;
+    pipe->next_td = &tds[0];
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+
     int toggle = 0;
     int i;
     for (i=0; i<count; i++) {
@@ -518,9 +520,6 @@ uhci_alloc_intr_pipe(u32 endp, int frameexp)
         tds[i].buffer = &tds[i].data;
         toggle ^= TD_TOKEN_TOGGLE;
     }
-
-    pipe->next_td = &tds[0];
-    pipe->pipe.endp = endp;
 
     // Add to interrupt schedule.
     struct uhci_framelist *fl = cntl->uhci.framelist;
