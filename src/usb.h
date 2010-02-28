@@ -14,29 +14,17 @@ struct usb_pipe {
     u8 toggle;
 };
 
-// Local information for a usb controller.
+// Common information for usb controllers.
 struct usb_s {
-    u8 type;
-    u8 maxaddr;
-    u16 bdf;
     struct usb_pipe *defaultpipe;
     struct mutex_s resetlock;
-
-    union {
-        struct {
-            u16 iobase;
-            void *control_qh, *bulk_qh, *framelist;
-        } uhci;
-        struct {
-            struct ohci_regs *regs;
-        } ohci;
-    };
+    int busid;
+    u8 type;
+    u8 maxaddr;
 };
 
 #define USB_TYPE_UHCI 1
 #define USB_TYPE_OHCI 2
-
-extern struct usb_s USBControllers[];
 
 #define USB_MAXADDR 127
 

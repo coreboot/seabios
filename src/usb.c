@@ -17,8 +17,6 @@
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
 
-struct usb_s USBControllers[16] VAR16VISIBLE;
-
 
 /****************************************************************
  * Controller function wrappers
@@ -338,7 +336,6 @@ usb_setup(void)
 
     dprintf(3, "init usb\n");
 
-    memset(&USBControllers, 0, sizeof(USBControllers));
     usb_keyboard_setup();
 
     // Look for USB controllers
@@ -350,18 +347,13 @@ usb_setup(void)
         if (code >> 8 != PCI_CLASS_SERIAL_USB)
             continue;
 
-        struct usb_s *cntl = &USBControllers[count];
-        cntl->bdf = bdf;
-
         if (code == PCI_CLASS_SERIAL_USB_UHCI)
-            run_thread(uhci_init, cntl);
+            uhci_init(bdf, count);
         else if (code == PCI_CLASS_SERIAL_USB_OHCI)
-            run_thread(ohci_init, cntl);
+            ohci_init(bdf, count);
         else
             continue;
 
         count++;
-        if (count >= ARRAY_SIZE(USBControllers))
-            break;
     }
 }

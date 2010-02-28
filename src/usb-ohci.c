@@ -15,6 +15,11 @@
 
 #define FIT                     (1 << 31)
 
+struct usb_ohci_s {
+    struct usb_s usb;
+    struct ohci_regs *regs;
+};
+
 
 /****************************************************************
  * Root hub
@@ -25,8 +30,9 @@ init_ohci_port(void *data)
 {
     struct usbhub_s *hub = data;
     u32 port = hub->port; // XXX - find better way to pass port
+    struct usb_ohci_s *cntl = container_of(hub->cntl, struct usb_ohci_s, usb);
 
-    u32 sts = readl(&hub->cntl->ohci.regs->roothub_portstatus[port]);
+    u32 sts = readl(&cntl->regs->roothub_portstatus[port]);
     if (!(sts & RH_PS_CCS))
         // No device.
         goto done;
@@ -34,11 +40,11 @@ init_ohci_port(void *data)
     // XXX - need to wait for USB_TIME_ATTDB if just powered up?
 
     // Signal reset
-    mutex_lock(&hub->cntl->resetlock);
-    writel(&hub->cntl->ohci.regs->roothub_portstatus[port], RH_PS_PRS);
+    mutex_lock(&cntl->usb.resetlock);
+    writel(&cntl->regs->roothub_portstatus[port], RH_PS_PRS);
     u64 end = calc_future_tsc(USB_TIME_DRSTR * 2);
     for (;;) {
-        sts = readl(&hub->cntl->ohci.regs->roothub_portstatus[port]);
+        sts = readl(&cntl->regs->roothub_portstatus[port]);
         if (!(sts & RH_PS_PRS))
             // XXX - need to ensure USB_TIME_DRSTR time in reset?
             break;
@@ -55,18 +61,17 @@ init_ohci_port(void *data)
         goto resetfail;
 
     // Set address of port
-    struct usb_pipe *pipe = usb_set_address(hub->cntl, !!(sts & RH_PS_LSDA));
+    struct usb_pipe *pipe = usb_set_address(&cntl->usb, !!(sts & RH_PS_LSDA));
     if (!pipe)
         goto resetfail;
-    mutex_unlock(&hub->cntl->resetlock);
+    mutex_unlock(&cntl->usb.resetlock);
 
     // Configure the device
     int count = configure_usb_device(pipe);
     free_pipe(pipe);
     if (! count)
         // Shutdown port
-        writel(&hub->cntl->ohci.regs->roothub_portstatus[port]
-               , RH_PS_CCS|RH_PS_LSDA);
+        writel(&cntl->regs->roothub_portstatus[port], RH_PS_CCS|RH_PS_LSDA);
     hub->devcount += count;
 done:
     hub->threads--;
@@ -74,29 +79,28 @@ done:
 
 resetfail:
     // Shutdown port
-    writel(&hub->cntl->ohci.regs->roothub_portstatus[port]
-           , RH_PS_CCS|RH_PS_LSDA);
-    mutex_unlock(&hub->cntl->resetlock);
+    writel(&cntl->regs->roothub_portstatus[port], RH_PS_CCS|RH_PS_LSDA);
+    mutex_unlock(&cntl->usb.resetlock);
     goto done;
 }
 
 // Find any devices connected to the root hub.
 static int
-check_ohci_ports(struct usb_s *cntl)
+check_ohci_ports(struct usb_ohci_s *cntl)
 {
     ASSERT32FLAT();
     // Turn on power for all devices on roothub.
-    u32 rha = readl(&cntl->ohci.regs->roothub_a);
+    u32 rha = readl(&cntl->regs->roothub_a);
     rha &= ~(RH_A_PSM | RH_A_OCPM);
-    writel(&cntl->ohci.regs->roothub_status, RH_HS_LPSC);
-    writel(&cntl->ohci.regs->roothub_b, RH_B_PPCM);
+    writel(&cntl->regs->roothub_status, RH_HS_LPSC);
+    writel(&cntl->regs->roothub_b, RH_B_PPCM);
     msleep((rha >> 24) * 2);
     // XXX - need to sleep for USB_TIME_SIGATT if just powered up?
 
     // Lanuch a thread per port.
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
-    hub.cntl = cntl;
+    hub.cntl = &cntl->usb;
     int ports = rha & RH_A_NDP;
     hub.threads = ports;
     int i;
@@ -118,23 +122,23 @@ check_ohci_ports(struct usb_s *cntl)
  ****************************************************************/
 
 static int
-start_ohci(struct usb_s *cntl, struct ohci_hcca *hcca)
+start_ohci(struct usb_ohci_s *cntl, struct ohci_hcca *hcca)
 {
-    u32 oldfminterval = readl(&cntl->ohci.regs->fminterval);
-    u32 oldrwc = readl(&cntl->ohci.regs->control) & OHCI_CTRL_RWC;
+    u32 oldfminterval = readl(&cntl->regs->fminterval);
+    u32 oldrwc = readl(&cntl->regs->control) & OHCI_CTRL_RWC;
 
     // XXX - check if already running?
 
     // Do reset
-    writel(&cntl->ohci.regs->control, OHCI_USB_RESET | oldrwc);
-    readl(&cntl->ohci.regs->control); // flush writes
+    writel(&cntl->regs->control, OHCI_USB_RESET | oldrwc);
+    readl(&cntl->regs->control); // flush writes
     msleep(USB_TIME_DRSTR);
 
     // Do software init (min 10us, max 2ms)
     u64 end = calc_future_tsc_usec(10);
-    writel(&cntl->ohci.regs->cmdstatus, OHCI_HCR);
+    writel(&cntl->regs->cmdstatus, OHCI_HCR);
     for (;;) {
-        u32 status = readl(&cntl->ohci.regs->cmdstatus);
+        u32 status = readl(&cntl->regs->cmdstatus);
         if (! status & OHCI_HCR)
             break;
         if (check_time(end)) {
@@ -144,62 +148,41 @@ start_ohci(struct usb_s *cntl, struct ohci_hcca *hcca)
     }
 
     // Init memory
-    writel(&cntl->ohci.regs->ed_controlhead, 0);
-    writel(&cntl->ohci.regs->ed_bulkhead, 0);
-    writel(&cntl->ohci.regs->hcca, (u32)hcca);
+    writel(&cntl->regs->ed_controlhead, 0);
+    writel(&cntl->regs->ed_bulkhead, 0);
+    writel(&cntl->regs->hcca, (u32)hcca);
 
     // Init fminterval
     u32 fi = oldfminterval & 0x3fff;
-    writel(&cntl->ohci.regs->fminterval
+    writel(&cntl->regs->fminterval
            , (((oldfminterval & FIT) ^ FIT)
               | fi | (((6 * (fi - 210)) / 7) << 16)));
-    writel(&cntl->ohci.regs->periodicstart, ((9 * fi) / 10) & 0x3fff);
-    readl(&cntl->ohci.regs->control); // flush writes
+    writel(&cntl->regs->periodicstart, ((9 * fi) / 10) & 0x3fff);
+    readl(&cntl->regs->control); // flush writes
 
     // XXX - verify that fminterval was setup correctly.
 
     // Go into operational state
-    writel(&cntl->ohci.regs->control
+    writel(&cntl->regs->control
            , (OHCI_CTRL_CBSR | OHCI_CTRL_CLE | OHCI_CTRL_PLE
               | OHCI_USB_OPER | oldrwc));
-    readl(&cntl->ohci.regs->control); // flush writes
+    readl(&cntl->regs->control); // flush writes
 
     return 0;
 }
 
 static void
-stop_ohci(struct usb_s *cntl)
+stop_ohci(struct usb_ohci_s *cntl)
 {
-    u32 oldrwc = readl(&cntl->ohci.regs->control) & OHCI_CTRL_RWC;
-    writel(&cntl->ohci.regs->control, oldrwc);
-    readl(&cntl->ohci.regs->control); // flush writes
+    u32 oldrwc = readl(&cntl->regs->control) & OHCI_CTRL_RWC;
+    writel(&cntl->regs->control, oldrwc);
+    readl(&cntl->regs->control); // flush writes
 }
 
-void
-ohci_init(void *data)
+static void
+configure_ohci(void *data)
 {
-    if (! CONFIG_USB_OHCI)
-        return;
-    struct usb_s *cntl = data;
-
-    // XXX - don't call pci_config_XXX from a thread
-    cntl->type = USB_TYPE_OHCI;
-    u32 baseaddr = pci_config_readl(cntl->bdf, PCI_BASE_ADDRESS_0);
-    cntl->ohci.regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
-
-    dprintf(3, "OHCI init on dev %02x:%02x.%x (regs=%p)\n"
-            , pci_bdf_to_bus(cntl->bdf), pci_bdf_to_dev(cntl->bdf)
-            , pci_bdf_to_fn(cntl->bdf), cntl->ohci.regs);
-
-    // Enable bus mastering and memory access.
-    pci_config_maskw(cntl->bdf, PCI_COMMAND
-                     , 0, PCI_COMMAND_MASTER|PCI_COMMAND_MEMORY);
-
-    // XXX - check for and disable SMM control?
-
-    // Disable interrupts
-    writel(&cntl->ohci.regs->intrdisable, ~0);
-    writel(&cntl->ohci.regs->intrstatus, ~0);
+    struct usb_ohci_s *cntl = data;
 
     // Allocate memory
     struct ohci_hcca *hcca = memalign_high(256, sizeof(*hcca));
@@ -220,7 +203,7 @@ ohci_init(void *data)
         goto err;
 
     int count = check_ohci_ports(cntl);
-    free_pipe(cntl->defaultpipe);
+    free_pipe(cntl->usb.defaultpipe);
     if (! count)
         goto err;
     return;
@@ -230,6 +213,36 @@ err:
 free:
     free(hcca);
     free(intr_ed);
+}
+
+void
+ohci_init(u16 bdf, int busid)
+{
+    if (! CONFIG_USB_OHCI)
+        return;
+    struct usb_ohci_s *cntl = malloc_tmphigh(sizeof(*cntl));
+    memset(cntl, 0, sizeof(*cntl));
+    cntl->usb.busid = busid;
+    cntl->usb.type = USB_TYPE_OHCI;
+
+    u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
+    cntl->regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
+
+    dprintf(3, "OHCI init on dev %02x:%02x.%x (regs=%p)\n"
+            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
+            , pci_bdf_to_fn(bdf), cntl->regs);
+
+    // Enable bus mastering and memory access.
+    pci_config_maskw(bdf, PCI_COMMAND
+                     , 0, PCI_COMMAND_MASTER|PCI_COMMAND_MEMORY);
+
+    // XXX - check for and disable SMM control?
+
+    // Disable interrupts
+    writel(&cntl->regs->intrdisable, ~0);
+    writel(&cntl->regs->intrstatus, ~0);
+
+    run_thread(configure_ohci, cntl);
 }
 
 
@@ -255,10 +268,10 @@ wait_ed(struct ohci_ed *ed)
 
 // Wait for next USB frame to start - for ensuring safe memory release.
 static void
-ohci_waittick(struct usb_s *cntl)
+ohci_waittick(struct usb_ohci_s *cntl)
 {
     barrier();
-    struct ohci_hcca *hcca = (void*)cntl->ohci.regs->hcca;
+    struct ohci_hcca *hcca = (void*)cntl->regs->hcca;
     u32 startframe = hcca->frame_no;
     u64 end = calc_future_tsc(1000 * 5);
     for (;;) {
@@ -273,15 +286,15 @@ ohci_waittick(struct usb_s *cntl)
 }
 
 static void
-signal_freelist(struct usb_s *cntl)
+signal_freelist(struct usb_ohci_s *cntl)
 {
-    u32 v = readl(&cntl->ohci.regs->control);
+    u32 v = readl(&cntl->regs->control);
     if (v & OHCI_CTRL_CLE) {
-        writel(&cntl->ohci.regs->control, v & ~(OHCI_CTRL_CLE|OHCI_CTRL_BLE));
+        writel(&cntl->regs->control, v & ~(OHCI_CTRL_CLE|OHCI_CTRL_BLE));
         ohci_waittick(cntl);
-        writel(&cntl->ohci.regs->ed_controlcurrent, 0);
-        writel(&cntl->ohci.regs->ed_bulkcurrent, 0);
-        writel(&cntl->ohci.regs->control, v);
+        writel(&cntl->regs->ed_controlcurrent, 0);
+        writel(&cntl->regs->ed_bulkcurrent, 0);
+        writel(&cntl->regs->control, v);
     } else {
         ohci_waittick(cntl);
     }
@@ -302,9 +315,10 @@ ohci_free_pipe(struct usb_pipe *p)
         return;
     dprintf(7, "ohci_free_pipe %p\n", p);
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-    struct usb_s *cntl = pipe->pipe.cntl;
+    struct usb_ohci_s *cntl = container_of(
+        pipe->pipe.cntl, struct usb_ohci_s, usb);
 
-    u32 *pos = &cntl->ohci.regs->ed_controlhead;
+    u32 *pos = &cntl->regs->ed_controlhead;
     for (;;) {
         struct ohci_ed *next = (void*)*pos;
         if (!next) {
@@ -327,8 +341,9 @@ ohci_alloc_control_pipe(struct usb_pipe *dummy)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
-    struct usb_s *cntl = dummy->cntl;
-    dprintf(7, "ohci_alloc_control_pipe %p\n", cntl);
+    struct usb_ohci_s *cntl = container_of(
+        dummy->cntl, struct usb_ohci_s, usb);
+    dprintf(7, "ohci_alloc_control_pipe %p\n", &cntl->usb);
 
     // Allocate a queue head.
     struct ohci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
@@ -341,9 +356,9 @@ ohci_alloc_control_pipe(struct usb_pipe *dummy)
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     // Add queue head to controller list.
-    pipe->ed.hwNextED = cntl->ohci.regs->ed_controlhead;
+    pipe->ed.hwNextED = cntl->regs->ed_controlhead;
     barrier();
-    cntl->ohci.regs->ed_controlhead = (u32)&pipe->ed;
+    cntl->regs->ed_controlhead = (u32)&pipe->ed;
     return &pipe->pipe;
 }
 
@@ -360,7 +375,8 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         return -1;
     }
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-    struct usb_s *cntl = pipe->pipe.cntl;
+    struct usb_ohci_s *cntl = container_of(
+        pipe->pipe.cntl, struct usb_ohci_s, usb);
     int maxpacket = pipe->pipe.maxpacket;
     int lowspeed = pipe->pipe.lowspeed;
     int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
@@ -387,7 +403,7 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     pipe->ed.hwTailP = (u32)&tds[3];
     barrier();
     pipe->ed.hwINFO = devaddr | (maxpacket << 16) | (lowspeed ? ED_LOWSPEED : 0);
-    writel(&cntl->ohci.regs->cmdstatus, OHCI_CLF);
+    writel(&cntl->regs->cmdstatus, OHCI_CLF);
 
     int ret = wait_ed(&pipe->ed);
     pipe->ed.hwINFO = ED_SKIP;
@@ -402,8 +418,9 @@ ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
-    struct usb_s *cntl = dummy->cntl;
-    dprintf(7, "ohci_alloc_intr_pipe %p %d\n", cntl, frameexp);
+    struct usb_ohci_s *cntl = container_of(
+        dummy->cntl, struct usb_ohci_s, usb);
+    dprintf(7, "ohci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
 
     if (frameexp > 5)
         frameexp = 5;
@@ -434,7 +451,7 @@ ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
 
     // Add to interrupt schedule.
     barrier();
-    struct ohci_hcca *hcca = (void*)cntl->ohci.regs->hcca;
+    struct ohci_hcca *hcca = (void*)cntl->regs->hcca;
     if (frameexp == 0) {
         // Add to existing interrupt entry.
         struct ohci_ed *intr_ed = (void*)hcca->int_table[0];
