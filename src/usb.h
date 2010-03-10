@@ -11,7 +11,6 @@ struct usb_pipe {
     u8 devaddr;
     u8 lowspeed;
     u16 maxpacket;
-    u8 toggle;
 };
 
 // Common information for usb controllers.

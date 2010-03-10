@@ -352,8 +352,8 @@ ohci_alloc_control_pipe(struct usb_pipe *dummy)
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
-    pipe->ed.hwINFO = ED_SKIP;
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+    pipe->ed.hwINFO = ED_SKIP;
 
     // Add queue head to controller list.
     pipe->ed.hwNextED = cntl->regs->ed_controlhead;
@@ -383,24 +383,34 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
 
     // Setup transfer descriptors
     struct ohci_td *tds = malloc_tmphigh(sizeof(*tds) * 3);
-    tds[0].hwINFO = TD_DP_SETUP | TD_T_DATA0 | TD_CC;
-    tds[0].hwCBP = (u32)cmd;
-    tds[0].hwNextTD = (u32)&tds[1];
-    tds[0].hwBE = (u32)cmd + cmdsize - 1;
-    tds[1].hwINFO = (dir ? TD_DP_IN : TD_DP_OUT) | TD_T_DATA1 | TD_CC;
-    tds[1].hwCBP = datasize ? (u32)data : 0;
-    tds[1].hwNextTD = (u32)&tds[2];
-    tds[1].hwBE = (u32)data + datasize - 1;
-    tds[2].hwINFO = (dir ? TD_DP_OUT : TD_DP_IN) | TD_T_DATA1 | TD_CC;
-    tds[2].hwCBP = 0;
-    tds[2].hwNextTD = (u32)&tds[3];
-    tds[2].hwBE = 0;
+    if (!tds) {
+        warn_noalloc();
+        return -1;
+    }
+    struct ohci_td *td = tds;
+    td->hwINFO = TD_DP_SETUP | TD_T_DATA0 | TD_CC;
+    td->hwCBP = (u32)cmd;
+    td->hwNextTD = (u32)&td[1];
+    td->hwBE = (u32)cmd + cmdsize - 1;
+    td++;
+    if (datasize) {
+        td->hwINFO = (dir ? TD_DP_IN : TD_DP_OUT) | TD_T_DATA1 | TD_CC;
+        td->hwCBP = (u32)data;
+        td->hwNextTD = (u32)&td[1];
+        td->hwBE = (u32)data + datasize - 1;
+        td++;
+    }
+    td->hwINFO = (dir ? TD_DP_OUT : TD_DP_IN) | TD_T_DATA1 | TD_CC;
+    td->hwCBP = 0;
+    td->hwNextTD = (u32)&td[1];
+    td->hwBE = 0;
+    td++;
 
     // Transfer data
     pipe->ed.hwINFO = ED_SKIP;
     barrier();
-    pipe->ed.hwHeadP = (u32)&tds[0];
-    pipe->ed.hwTailP = (u32)&tds[3];
+    pipe->ed.hwHeadP = (u32)tds;
+    pipe->ed.hwTailP = (u32)td;
     barrier();
     pipe->ed.hwINFO = devaddr | (maxpacket << 16) | (lowspeed ? ED_LOWSPEED : 0);
     writel(&cntl->regs->cmdstatus, OHCI_CLF);
@@ -435,6 +445,11 @@ ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
     void *data = malloc_low(maxpacket * count);
     if (!pipe || !tds || !data)
         goto err;
+    memset(pipe, 0, sizeof(*pipe));
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+    pipe->data = data;
+    pipe->count = count;
+    pipe->tds = tds;
 
     struct ohci_ed *ed = &pipe->ed;
     ed->hwHeadP = (u32)&tds[0];
@@ -464,10 +479,6 @@ ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
             hcca->int_table[i] = (u32)ed;
     }
 
-    pipe->data = data;
-    pipe->count = count;
-    pipe->tds = tds;
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     return &pipe->pipe;
 
 err:
@@ -510,7 +521,7 @@ ohci_poll_intr(struct usb_pipe *p, void *data)
     SET_FLATPTR(tail->hwCBP, (u32)intrdata);
     SET_FLATPTR(tail->hwNextTD, (u32)next);
     SET_FLATPTR(tail->hwBE, (u32)intrdata + maxpacket - 1);
-
+    barrier();
     SET_FLATPTR(pipe->ed.hwTailP, (u32)next);
 
     return 0;

@@ -12,7 +12,6 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "usb.h" // struct usb_s
 #include "farptr.h" // GET_FLATPTR
-#include "biosvar.h" // GET_GLOBAL
 #include "usb-hub.h" // struct usbhub_s
 
 struct usb_uhci_s {
@@ -181,6 +180,7 @@ fail:
     free(fl);
     free(intr_qh);
     free(term_qh);
+    free(cntl);
 }
 
 void
@@ -255,6 +255,7 @@ struct uhci_pipe {
     struct uhci_td *next_td;
     struct usb_pipe pipe;
     u16 iobase;
+    u8 toggle;
 };
 
 void
@@ -306,9 +307,9 @@ uhci_alloc_control_pipe(struct usb_pipe *dummy)
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.element = UHCI_PTR_TERM;
     pipe->iobase = cntl->iobase;
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     // Add queue head to controller list.
     struct uhci_qh *control_qh = cntl->control_qh;
@@ -339,6 +340,10 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     // Setup transfer descriptors
     int count = 2 + DIV_ROUND_UP(datasize, maxpacket);
     struct uhci_td *tds = malloc_tmphigh(sizeof(*tds) * count);
+    if (!tds) {
+        warn_noalloc();
+        return -1;
+    }
 
     tds[0].link = (u32)&tds[1] | UHCI_PTR_DEPTH;
     tds[0].status = (uhci_maxerr(3) | (lowspeed ? TD_CTRL_LS : 0)
@@ -395,9 +400,9 @@ uhci_alloc_bulk_pipe(struct usb_pipe *dummy)
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.element = UHCI_PTR_TERM;
     pipe->iobase = cntl->iobase;
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     // Add queue head to controller list.
     struct uhci_qh *bulk_qh = cntl->bulk_qh;
@@ -436,6 +441,8 @@ wait_td(struct uhci_td *td)
 int
 uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
 {
+    if (! CONFIG_USB_UHCI)
+        return -1;
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
     dprintf(7, "uhci_send_bulk qh=%p dir=%d data=%p size=%d\n"
             , &pipe->qh, dir, data, datasize);
@@ -443,7 +450,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     int lowspeed = GET_FLATPTR(pipe->pipe.lowspeed);
     int devaddr = (GET_FLATPTR(pipe->pipe.devaddr)
                    | (GET_FLATPTR(pipe->pipe.ep) << 7));
-    int toggle = GET_FLATPTR(pipe->pipe.toggle) ? TD_TOKEN_TOGGLE : 0;
+    int toggle = GET_FLATPTR(pipe->toggle) ? TD_TOKEN_TOGGLE : 0;
 
     // Allocate 4 tds on stack (16byte aligned)
     u8 tdsbuf[sizeof(struct uhci_td) * STACKTDS + TDALIGN - 1];
@@ -451,6 +458,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     memset(tds, 0, sizeof(*tds) * STACKTDS);
 
     // Enable tds
+    barrier();
     SET_FLATPTR(pipe->qh.element, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
 
     int tdpos = 0;
@@ -486,7 +494,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
             goto fail;
     }
 
-    SET_FLATPTR(pipe->pipe.toggle, !!toggle);
+    SET_FLATPTR(pipe->toggle, !!toggle);
     return 0;
 fail:
     dprintf(1, "uhci_send_bulk failed\n");
@@ -512,6 +520,7 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
+    count = ALIGN(count, 2);
     struct uhci_pipe *pipe = malloc_low(sizeof(*pipe));
     struct uhci_td *tds = malloc_low(sizeof(*tds) * count);
     void *data = malloc_low(maxpacket * count);
@@ -520,10 +529,10 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
         goto fail;
     }
     memset(pipe, 0, sizeof(*pipe));
+    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.element = (u32)tds;
     pipe->next_td = &tds[0];
     pipe->iobase = cntl->iobase;
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
 
     int toggle = 0;
     int i;
