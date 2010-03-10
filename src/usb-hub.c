@@ -126,7 +126,8 @@ init_hub_port(void *data)
 
     // Set address of port
     struct usb_pipe *pipe = usb_set_address(
-        hub->cntl, !!(sts.wPortStatus & USB_PORT_STAT_LOW_SPEED));
+        hub, port, ((sts.wPortStatus & USB_PORT_STAT_SPEED_MASK)
+                    >> USB_PORT_STAT_SPEED_SHIFT));
     if (!pipe)
         goto resetfail;
     mutex_unlock(&hub->cntl->resetlock);

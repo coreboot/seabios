@@ -36,6 +36,8 @@
 #define CONFIG_USB_UHCI 1
 // Support USB OHCI controllers
 #define CONFIG_USB_OHCI 1
+// Support USB EHCI controllers
+#define CONFIG_USB_EHCI 1
 // Support USB disks
 #define CONFIG_USB_MSC 1
 // Support USB hubs

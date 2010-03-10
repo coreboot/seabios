@@ -61,7 +61,7 @@ init_ohci_port(void *data)
         goto resetfail;
 
     // Set address of port
-    struct usb_pipe *pipe = usb_set_address(&cntl->usb, !!(sts & RH_PS_LSDA));
+    struct usb_pipe *pipe = usb_set_address(hub, port, !!(sts & RH_PS_LSDA));
     if (!pipe)
         goto resetfail;
     mutex_unlock(&cntl->usb.resetlock);
@@ -378,7 +378,7 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     struct usb_ohci_s *cntl = container_of(
         pipe->pipe.cntl, struct usb_ohci_s, usb);
     int maxpacket = pipe->pipe.maxpacket;
-    int lowspeed = pipe->pipe.lowspeed;
+    int lowspeed = pipe->pipe.speed;
     int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
 
     // Setup transfer descriptors
@@ -435,7 +435,7 @@ ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
     if (frameexp > 5)
         frameexp = 5;
     int maxpacket = dummy->maxpacket;
-    int lowspeed = dummy->lowspeed;
+    int lowspeed = dummy->speed;
     int devaddr = dummy->devaddr | (dummy->ep << 7);
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;

@@ -9,8 +9,10 @@ struct usb_pipe {
     u8 type;
     u8 ep;
     u8 devaddr;
-    u8 lowspeed;
+    u8 speed;
     u16 maxpacket;
+    u8 tt_devaddr;
+    u8 tt_port;
 };
 
 // Common information for usb controllers.
@@ -24,6 +26,11 @@ struct usb_s {
 
 #define USB_TYPE_UHCI 1
 #define USB_TYPE_OHCI 2
+#define USB_TYPE_EHCI 3
+
+#define USB_FULLSPEED 0
+#define USB_LOWSPEED  1
+#define USB_HIGHSPEED 2
 
 #define USB_MAXADDR 127
 
@@ -168,7 +175,8 @@ struct usb_endpoint_descriptor {
 
 // usb.c
 void usb_setup(void);
-struct usb_pipe *usb_set_address(struct usb_s *cntl, int lowspeed);
+struct usbhub_s;
+struct usb_pipe *usb_set_address(struct usbhub_s *hub, int port, int speed);
 int configure_usb_device(struct usb_pipe *pipe);
 int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                          , void *data);

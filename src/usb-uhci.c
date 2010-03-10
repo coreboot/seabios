@@ -53,7 +53,7 @@ init_uhci_port(void *data)
         goto resetfail;
     outw(USBPORTSC_PE, ioport);
     struct usb_pipe *pipe = usb_set_address(
-        &cntl->usb, !!(status & USBPORTSC_LSDA));
+        hub, port, !!(status & USBPORTSC_LSDA));
     if (!pipe)
         goto resetfail;
     mutex_unlock(&cntl->usb.resetlock);
@@ -334,7 +334,7 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         pipe->pipe.cntl, struct usb_uhci_s, usb);
 
     int maxpacket = pipe->pipe.maxpacket;
-    int lowspeed = pipe->pipe.lowspeed;
+    int lowspeed = pipe->pipe.speed;
     int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
 
     // Setup transfer descriptors
@@ -447,7 +447,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     dprintf(7, "uhci_send_bulk qh=%p dir=%d data=%p size=%d\n"
             , &pipe->qh, dir, data, datasize);
     int maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
-    int lowspeed = GET_FLATPTR(pipe->pipe.lowspeed);
+    int lowspeed = GET_FLATPTR(pipe->pipe.speed);
     int devaddr = (GET_FLATPTR(pipe->pipe.devaddr)
                    | (GET_FLATPTR(pipe->pipe.ep) << 7));
     int toggle = GET_FLATPTR(pipe->toggle) ? TD_TOKEN_TOGGLE : 0;
@@ -515,7 +515,7 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
     if (frameexp > 10)
         frameexp = 10;
     int maxpacket = dummy->maxpacket;
-    int lowspeed = dummy->lowspeed;
+    int lowspeed = dummy->speed;
     int devaddr = dummy->devaddr | (dummy->ep << 7);
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;

@@ -11,6 +11,7 @@
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
 #include "usb-uhci.h" // uhci_init
 #include "usb-ohci.h" // ohci_init
+#include "usb-ehci.h" // ehci_init
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb-hub.h" // usb_hub_init
 #include "usb-msc.h" // usb_msc_init
@@ -35,6 +36,8 @@ free_pipe(struct usb_pipe *pipe)
         return uhci_free_pipe(pipe);
     case USB_TYPE_OHCI:
         return ohci_free_pipe(pipe);
+    case USB_TYPE_EHCI:
+        return ehci_free_pipe(pipe);
     }
 }
 
@@ -49,6 +52,8 @@ alloc_default_control_pipe(struct usb_pipe *dummy)
         return uhci_alloc_control_pipe(dummy);
     case USB_TYPE_OHCI:
         return ohci_alloc_control_pipe(dummy);
+    case USB_TYPE_EHCI:
+        return ehci_alloc_control_pipe(dummy);
     }
 }
 
@@ -64,6 +69,8 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
         return uhci_control(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_OHCI:
         return ohci_control(pipe, dir, cmd, cmdsize, data, datasize);
+    case USB_TYPE_EHCI:
+        return ehci_control(pipe, dir, cmd, cmdsize, data, datasize);
     }
 }
 
@@ -88,6 +95,8 @@ alloc_bulk_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
         return uhci_alloc_bulk_pipe(&dummy);
     case USB_TYPE_OHCI:
         return NULL;
+    case USB_TYPE_EHCI:
+        return ehci_alloc_bulk_pipe(&dummy);
     }
 }
 
@@ -100,6 +109,8 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
         return uhci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_OHCI:
         return -1;
+    case USB_TYPE_EHCI:
+        return ehci_send_bulk(pipe_fl, dir, data, datasize);
     }
 }
 
@@ -110,15 +121,19 @@ alloc_intr_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
     desc2pipe(&dummy, pipe, epdesc);
     // Find the exponential period of the requested time.
     int period = epdesc->bInterval;
-    if (period <= 0)
-        period = 1;
-    int frameexp = __fls(period);
+    int frameexp;
+    if (pipe->speed != USB_HIGHSPEED)
+        frameexp = (period <= 0) ? 0 : __fls(period);
+    else
+        frameexp = (period <= 4) ? 0 : period - 4;
     switch (pipe->type) {
     default:
     case USB_TYPE_UHCI:
         return uhci_alloc_intr_pipe(&dummy, frameexp);
     case USB_TYPE_OHCI:
         return ohci_alloc_intr_pipe(&dummy, frameexp);
+    case USB_TYPE_EHCI:
+        return ehci_alloc_intr_pipe(&dummy, frameexp);
     }
 }
 
@@ -131,6 +146,8 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
         return uhci_poll_intr(pipe_fl, data);
     case USB_TYPE_OHCI:
         return ohci_poll_intr(pipe_fl, data);
+    case USB_TYPE_EHCI:
+        return ehci_poll_intr(pipe_fl, data);
     }
 }
 
@@ -226,9 +243,10 @@ set_configuration(struct usb_pipe *pipe, u16 val)
 // Assign an address to a device in the default state on the given
 // controller.
 struct usb_pipe *
-usb_set_address(struct usb_s *cntl, int lowspeed)
+usb_set_address(struct usbhub_s *hub, int port, int speed)
 {
     ASSERT32FLAT();
+    struct usb_s *cntl = hub->cntl;
     dprintf(3, "set_address %p\n", cntl);
     if (cntl->maxaddr >= USB_MAXADDR)
         return NULL;
@@ -245,7 +263,18 @@ usb_set_address(struct usb_s *cntl, int lowspeed)
         if (!defpipe)
             return NULL;
     }
-    defpipe->lowspeed = lowspeed;
+    defpipe->speed = speed;
+    if (hub->pipe) {
+        if (hub->pipe->speed == USB_HIGHSPEED) {
+            defpipe->tt_devaddr = hub->pipe->devaddr;
+            defpipe->tt_port = port;
+        } else {
+            defpipe->tt_devaddr = hub->pipe->tt_devaddr;
+            defpipe->tt_port = hub->pipe->tt_port;
+        }
+    } else {
+        defpipe->tt_devaddr = defpipe->tt_port = 0;
+    }
 
     msleep(USB_TIME_RSTRCY);
 
@@ -339,6 +368,7 @@ usb_setup(void)
     usb_keyboard_setup();
 
     // Look for USB controllers
+    int ehcibdf = -1;
     int count = 0;
     int bdf, max;
     foreachpci(bdf, max) {
@@ -347,13 +377,37 @@ usb_setup(void)
         if (code >> 8 != PCI_CLASS_SERIAL_USB)
             continue;
 
-        if (code == PCI_CLASS_SERIAL_USB_UHCI)
-            uhci_init(bdf, count);
-        else if (code == PCI_CLASS_SERIAL_USB_OHCI)
-            ohci_init(bdf, count);
-        else
-            continue;
+        if (bdf > ehcibdf) {
+            // Check to see if this device has an ehci controller
+            ehcibdf = bdf;
+            u32 ehcicode = code;
+            int found = 0;
+            for (;;) {
+                if (ehcicode == PCI_CLASS_SERIAL_USB_EHCI) {
+                    // Found an ehci controller.
+                    int ret = ehci_init(ehcibdf, count++, bdf);
+                    if (ret)
+                        // Error
+                        break;
+                    count += found;
+                    bdf = ehcibdf;
+                    code = 0;
+                    break;
+                }
+                if (ehcicode >> 8 == PCI_CLASS_SERIAL_USB)
+                    found++;
+                ehcibdf = pci_next(ehcibdf+1, &max);
+                if (ehcibdf < 0
+                    || pci_bdf_to_busdev(ehcibdf) != pci_bdf_to_busdev(bdf))
+                    // No ehci controller found.
+                    break;
+                ehcicode = pci_config_readl(ehcibdf, PCI_CLASS_REVISION) >> 8;
+            }
+        }
 
-        count++;
+        if (code == PCI_CLASS_SERIAL_USB_UHCI)
+            uhci_init(bdf, count++);
+        else if (code == PCI_CLASS_SERIAL_USB_OHCI)
+            ohci_init(bdf, count++);
     }
 }
