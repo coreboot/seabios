@@ -218,32 +218,6 @@ get_device_config(struct usb_pipe *pipe)
     return config;
 }
 
-static struct usb_pipe *
-set_address(struct usb_pipe *pipe)
-{
-    ASSERT32FLAT();
-    dprintf(3, "set_address %x\n", pipe->endp);
-    struct usb_s *cntl = endp2cntl(pipe->endp);
-    if (cntl->maxaddr >= USB_MAXADDR)
-        return 0;
-
-    struct usb_ctrlrequest req;
-    req.bRequestType = USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
-    req.bRequest = USB_REQ_SET_ADDRESS;
-    req.wValue = cntl->maxaddr + 1;
-    req.wIndex = 0;
-    req.wLength = 0;
-    int ret = send_default_control(pipe, &req, NULL);
-    if (ret)
-        return 0;
-    msleep(USB_TIME_SETADDR_RECOVERY);
-
-    cntl->maxaddr++;
-    u32 endp = mkendp(cntl, cntl->maxaddr, 0
-                      , endp2speed(pipe->endp), endp2maxsize(pipe->endp));
-    return alloc_control_pipe(endp);
-}
-
 static int
 set_configuration(struct usb_pipe *pipe, u16 val)
 {
@@ -261,25 +235,56 @@ set_configuration(struct usb_pipe *pipe, u16 val)
  * Initialization and enumeration
  ****************************************************************/
 
-// Called for every found device - see if a driver is available for
-// this device and do setup if so.
-int
-configure_usb_device(struct usb_s *cntl, int lowspeed)
+// Assign an address to a device in the default state on the given
+// controller.
+struct usb_pipe *
+usb_set_address(struct usb_s *cntl, int lowspeed)
 {
     ASSERT32FLAT();
-    dprintf(3, "config_usb: %p %d\n", cntl, lowspeed);
+    dprintf(3, "set_address %p\n", cntl);
+    if (cntl->maxaddr >= USB_MAXADDR)
+        return NULL;
 
-    // Get device info
     struct usb_pipe *defpipe = cntl->defaultpipe;
     u32 endp = mkendp(cntl, 0, 0, lowspeed, 8);
     if (!defpipe) {
         cntl->defaultpipe = defpipe = alloc_control_pipe(endp);
         if (!defpipe)
-            return 0;
+            return NULL;
     }
     usb_alter_control(defpipe, endp);
+
+    msleep(USB_TIME_RSTRCY);
+
+    struct usb_ctrlrequest req;
+    req.bRequestType = USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
+    req.bRequest = USB_REQ_SET_ADDRESS;
+    req.wValue = cntl->maxaddr + 1;
+    req.wIndex = 0;
+    req.wLength = 0;
+    int ret = send_default_control(defpipe, &req, NULL);
+    if (ret)
+        return NULL;
+
+    msleep(USB_TIME_SETADDR_RECOVERY);
+
+    cntl->maxaddr++;
+    endp = mkendp(cntl, cntl->maxaddr, 0, lowspeed, 8);
+    return alloc_control_pipe(endp);
+}
+
+// Called for every found device - see if a driver is available for
+// this device and do setup if so.
+int
+configure_usb_device(struct usb_pipe *pipe)
+{
+    ASSERT32FLAT();
+    struct usb_s *cntl = endp2cntl(pipe->endp);
+    dprintf(3, "config_usb: %p\n", cntl);
+
+    // Set the max packet size for endpoint 0 of this device.
     struct usb_device_descriptor dinfo;
-    int ret = get_device_info8(defpipe, &dinfo);
+    int ret = get_device_info8(pipe, &dinfo);
     if (ret)
         return 0;
     dprintf(3, "device rev=%04x cls=%02x sub=%02x proto=%02x size=%02x\n"
@@ -287,12 +292,12 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
             , dinfo.bDeviceProtocol, dinfo.bMaxPacketSize0);
     if (dinfo.bMaxPacketSize0 < 8 || dinfo.bMaxPacketSize0 > 64)
         return 0;
-    endp = mkendp(cntl, 0, 0, lowspeed, dinfo.bMaxPacketSize0);
-    usb_alter_control(defpipe, endp);
+    u32 endp = mkendp(cntl, endp2devaddr(pipe->endp), 0
+                      , endp2speed(pipe->endp), dinfo.bMaxPacketSize0);
+    usb_alter_control(pipe, endp);
 
     // Get configuration
-    struct usb_pipe *pipe = NULL;
-    struct usb_config_descriptor *config = get_device_config(defpipe);
+    struct usb_config_descriptor *config = get_device_config(pipe);
     if (!config)
         return 0;
 
@@ -307,10 +312,7 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
         // Not a supported device.
         goto fail;
 
-    // Set the address and configure device.
-    pipe = set_address(defpipe);
-    if (!pipe)
-        goto fail;
+    // Set the configuration.
     ret = set_configuration(pipe, config->bConfigurationValue);
     if (ret)
         goto fail;
@@ -326,7 +328,6 @@ configure_usb_device(struct usb_s *cntl, int lowspeed)
     if (ret)
         goto fail;
 
-    free_pipe(pipe);
     free(config);
     return 1;
 fail:

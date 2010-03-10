@@ -1,6 +1,16 @@
 #ifndef __USB_HUB_H
 #define __USB_HUB_H
 
+struct usbhub_s {
+    struct usb_pipe *pipe;
+    struct usb_s *cntl;
+    struct mutex_s lock;
+    u32 powerwait;
+    u32 port;
+    u32 threads;
+    u32 devcount;
+};
+
 // usb-hub.c
 struct usb_pipe;
 int usb_hub_init(struct usb_pipe *pipe);

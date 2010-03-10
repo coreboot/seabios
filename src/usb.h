@@ -2,6 +2,8 @@
 #ifndef __USB_H
 #define __USB_H
 
+#include "util.h" // struct mutex_s
+
 struct usb_pipe {
     u32 endp;
 };
@@ -12,6 +14,7 @@ struct usb_s {
     u8 maxaddr;
     u16 bdf;
     struct usb_pipe *defaultpipe;
+    struct mutex_s resetlock;
 
     union {
         struct {
@@ -33,7 +36,8 @@ extern struct usb_s USBControllers[];
 
 // usb.c
 void usb_setup(void);
-int configure_usb_device(struct usb_s *cntl, int lowspeed);
+struct usb_pipe *usb_set_address(struct usb_s *cntl, int lowspeed);
+int configure_usb_device(struct usb_pipe *pipe);
 struct usb_ctrlrequest;
 int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                          , void *data);
