@@ -103,6 +103,7 @@ smp_probe(void)
     }
 
     // broadcast SIPI
+    barrier();
     writel(APIC_ICR_LOW, 0x000C4500);
     u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
     writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
@@ -113,7 +114,7 @@ smp_probe(void)
     } else {
         u8 cmos_smp_count = inb_cmos(CMOS_BIOS_SMP_COUNT);
         while (cmos_smp_count + 1 != readl(&CountCPUs))
-             ;
+            yield();
     }
 
     // Restore memory.
