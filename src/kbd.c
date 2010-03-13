@@ -11,6 +11,28 @@
 #include "bregs.h" // struct bregs
 #include "ps2port.h" // kbd_command
 
+// Bit definitions for BDA kbd_flag[012]
+#define KF0_RSHIFT       (1<<0)
+#define KF0_LSHIFT       (1<<1)
+#define KF0_CTRLACTIVE   (1<<2)
+#define KF0_ALTACTIVE    (1<<3)
+#define KF0_SCROLLACTIVE (1<<4)
+#define KF0_NUMACTIVE    (1<<5)
+#define KF0_CAPSACTIVE   (1<<6)
+
+#define KF1_LCTRL        (1<<0)
+#define KF1_LALT         (1<<1)
+#define KF1_PAUSEACTIVE  (1<<3)
+#define KF1_SCROLL       (1<<4)
+#define KF1_NUM          (1<<5)
+#define KF1_CAPS         (1<<6)
+
+#define KF2_LAST_E1    (1<<0)
+#define KF2_LAST_E0    (1<<1)
+#define KF2_RCTRL      (1<<2)
+#define KF2_RALT       (1<<3)
+#define KF2_101KBD     (1<<4)
+
 void
 kbd_setup(void)
 {
@@ -201,7 +223,7 @@ static void
 set_leds(void)
 {
     u8 shift_flags = (GET_BDA(kbd_flag0) >> 4) & 0x07;
-    u8 kbd_led = GET_BDA(kbd_flag3);
+    u8 kbd_led = GET_BDA(kbd_led);
     u8 led_flags = kbd_led & 0x07;
     if (shift_flags == led_flags)
         return;
@@ -211,7 +233,7 @@ set_leds(void)
         // Error
         return;
     kbd_led = (kbd_led & ~0x07) | shift_flags;
-    SET_BDA(kbd_flag3, kbd_led);
+    SET_BDA(kbd_led, kbd_led);
 }
 
 // INT 16h Keyboard Service Entry Point

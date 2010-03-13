@@ -151,18 +151,6 @@ process_ps2byte(u8 status, u8 data)
         process_key(data);
 }
 
-static void
-process_ps2bytes(void)
-{
-    for (;;) {
-        u8 status = inb(PORT_PS2_STATUS);
-        if (!(status & I8042_STR_OBF))
-            return;
-        u8 data = inb(PORT_PS2_DATA);
-        process_ps2byte(status, data);
-    }
-}
-
 static int
 ps2_recvbyte(int aux, int needack, int timeout)
 {
@@ -223,13 +211,22 @@ ps2_sendbyte(int aux, u8 command, int timeout)
 static int
 ps2_command(int aux, int command, u8 *param)
 {
-    int ret;
+    int ret2;
     int receive = (command >> 8) & 0xf;
     int send = (command >> 12) & 0xf;
 
-    // Disable processing of interrupts.
-    u8 kbdflag = GET_BDA(kbd_flag3);
-    SET_BDA(kbd_flag3, kbdflag | KF3_CMD_PENDING);
+    // Disable interrupts and keyboard/mouse.
+    u8 ps2ctr = GET_EBDA(ps2ctr);
+    u8 newctr = ps2ctr;
+    if (aux)
+        newctr |= I8042_CTR_KBDDIS;
+    else
+        newctr |= I8042_CTR_AUXDIS;
+    newctr &= ~(I8042_CTR_KBDINT|I8042_CTR_AUXINT);
+    dprintf(6, "i8042 ctr old=%x new=%x\n", ps2ctr, newctr);
+    int ret = i8042_command(I8042_CMD_CTL_WCTR, &newctr);
+    if (ret)
+        return ret;
 
     if (command == ATKBD_CMD_RESET_BAT) {
         // Reset is special wrt timeouts.
@@ -275,10 +272,10 @@ ps2_command(int aux, int command, u8 *param)
     ret = 0;
 
 fail:
-    // Restore processing of interrupts.
-    if (!(kbdflag & KF3_CMD_PENDING))
-        process_ps2bytes();
-    SET_BDA(kbd_flag3, kbdflag);
+    // Restore interrupts and keyboard/mouse.
+    ret2 = i8042_command(I8042_CMD_CTL_WCTR, &ps2ctr);
+    if (ret2)
+        return ret2;
 
     return ret;
 }
@@ -311,10 +308,14 @@ aux_command(int command, u8 *param)
 static void
 process_ps2irq(void)
 {
-    if (GET_BDA(kbd_flag3) & KF3_CMD_PENDING)
-        // PS/2 command in progress - it will handle this event.
+    u8 status = inb(PORT_PS2_STATUS);
+    if (!(status & I8042_STR_OBF)) {
+        dprintf(1, "ps2 irq but no data.\n");
         return;
-    process_ps2bytes();
+    }
+    u8 data = inb(PORT_PS2_DATA);
+
+    process_ps2byte(status, data);
 }
 
 // INT74h : PS/2 mouse hardware interrupt
@@ -403,12 +404,8 @@ keyboard_init(void *data)
     if (ret)
         return;
 
-    // Mode: scan code convert, enable IRQ 1, enable IRQ 12
-    param[0] = I8042_CTR_XLATE | I8042_CTR_KBDINT | I8042_CTR_AUXINT;
-    ret = i8042_command(I8042_CMD_CTL_WCTR, param);
-    if (ret)
-        return;
-    CLEARBITS_BDA(kbd_flag3, KF3_CMD_PENDING);
+    // Keyboard Mode: scan code convert, disable mouse, enable IRQ 1
+    SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
 
     /* Enable keyboard */
     ret = kbd_command(ATKBD_CMD_ENABLE, NULL);
@@ -426,8 +423,6 @@ ps2port_setup(void)
         return;
     dprintf(3, "init ps2port\n");
 
-    // Setup irqs, but disable them until init complete.
-    SETBITS_BDA(kbd_flag3, KF3_CMD_PENDING);
     enable_hwirq(1, entry_09);
     enable_hwirq(12, entry_74);
 
