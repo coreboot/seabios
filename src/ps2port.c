@@ -157,8 +157,8 @@ ps2_recvbyte(int aux, int needack, int timeout)
                 }
             }
 
-            // This data not for us - XXX - just discard it for now.
-            dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
+            // This data not part of command - just discard it.
+            dprintf(1, "Discarding ps2 data %02x (status=%02x)\n", data, status);
         }
 
         if (check_time(end)) {
@@ -202,12 +202,8 @@ ps2_command(int aux, int command, u8 *param)
 
     // Disable interrupts and keyboard/mouse.
     u8 ps2ctr = GET_EBDA(ps2ctr);
-    u8 newctr = ps2ctr;
-    if (aux)
-        newctr |= I8042_CTR_KBDDIS;
-    else
-        newctr |= I8042_CTR_AUXDIS;
-    newctr &= ~(I8042_CTR_KBDINT|I8042_CTR_AUXINT);
+    u8 newctr = ((ps2ctr | I8042_CTR_AUXDIS | I8042_CTR_KBDDIS)
+                 & ~(I8042_CTR_KBDINT|I8042_CTR_AUXINT));
     dprintf(6, "i8042 ctr old=%x new=%x\n", ps2ctr, newctr);
     int ret = i8042_command(I8042_CMD_CTL_WCTR, &newctr);
     if (ret)
@@ -215,6 +211,15 @@ ps2_command(int aux, int command, u8 *param)
 
     // Flush any interrupts already pending.
     yield();
+
+    // Enable port command is being sent to.
+    if (aux)
+        newctr &= ~I8042_CTR_AUXDIS;
+    else
+        newctr &= ~I8042_CTR_KBDDIS;
+    ret = i8042_command(I8042_CMD_CTL_WCTR, &newctr);
+    if (ret)
+        goto fail;
 
     if (command == ATKBD_CMD_RESET_BAT) {
         // Reset is special wrt timeouts and bytes received.
@@ -328,10 +333,14 @@ handle_74(void)
     u8 v = inb(PORT_PS2_STATUS);
     if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
         != (I8042_STR_OBF|I8042_STR_AUXDATA)) {
-        dprintf(1, "mouse irq but no mouse data.\n");
+        dprintf(1, "ps2 mouse irq but no mouse data.\n");
         goto done;
     }
     v = inb(PORT_PS2_DATA);
+
+    if (!(GET_EBDA(ps2ctr) & I8042_CTR_AUXINT))
+        // Interrupts not enabled.
+        goto done;
 
     process_mouse(v);
 
@@ -350,11 +359,15 @@ handle_09(void)
 
     // read key from keyboard controller
     u8 v = inb(PORT_PS2_STATUS);
-    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA)) != I8042_STR_OBF) {
-        dprintf(1, "keyboard irq but no keyboard data.\n");
+    if (v & I8042_STR_AUXDATA) {
+        dprintf(1, "ps2 keyboard irq but found mouse data?!\n");
         goto done;
     }
     v = inb(PORT_PS2_DATA);
+
+    if (!(GET_EBDA(ps2ctr) & I8042_CTR_KBDINT))
+        // Interrupts not enabled.
+        goto done;
 
     process_key(v);
 
@@ -394,13 +407,8 @@ keyboard_init(void *data)
         return;
     }
 
-    // Enable keyboard and mouse ports.
-    ret = i8042_command(I8042_CMD_KBD_ENABLE, NULL);
-    if (ret)
-        return;
-    ret = i8042_command(I8042_CMD_AUX_ENABLE, NULL);
-    if (ret)
-        return;
+    // Disable keyboard and mouse events.
+    SET_EBDA(ps2ctr, I8042_CTR_KBDDIS | I8042_CTR_AUXDIS);
 
 
     /* ------------------- keyboard side ------------------------*/
@@ -424,7 +432,7 @@ keyboard_init(void *data)
     if (ret)
         return;
 
-    // Keyboard Mode: scan code convert, disable mouse, enable IRQ 1
+    // Keyboard Mode: disable mouse, scan code convert, enable kbd IRQ
     SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
 
     /* Enable keyboard */
