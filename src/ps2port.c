@@ -232,7 +232,7 @@ ps2_command(int aux, int command, u8 *param)
     yield();
 
     if (command == ATKBD_CMD_RESET_BAT) {
-        // Reset is special wrt timeouts.
+        // Reset is special wrt timeouts and bytes received.
 
         // Send command.
         ret = ps2_sendbyte(aux, command, 1000);
@@ -249,6 +249,29 @@ ps2_command(int aux, int command, u8 *param)
             // Some devices only respond with one byte on reset.
             ret = 0;
         param[1] = ret;
+    } else if (command == ATKBD_CMD_GETID) {
+        // Getid is special wrt bytes received.
+
+        // Send command.
+        ret = ps2_sendbyte(aux, command, 200);
+        if (ret)
+            goto fail;
+
+        // Receive parameters.
+        ret = ps2_recvbyte(aux, 0, 500);
+        if (ret < 0)
+            goto fail;
+        param[0] = ret;
+        if (ret == 0xab || ret == 0xac || ret == 0x2b || ret == 0x5d
+            || ret == 0x60 || ret == 0x47) {
+            // These ids (keyboards) return two bytes.
+            ret = ps2_recvbyte(aux, 0, 500);
+            if (ret < 0)
+                goto fail;
+            param[1] = ret;
+        } else {
+            param[1] = 0;
+        }
     } else {
         // Send command.
         ret = ps2_sendbyte(aux, command, 200);
