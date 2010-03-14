@@ -228,6 +228,9 @@ ps2_command(int aux, int command, u8 *param)
     if (ret)
         return ret;
 
+    // Flush any interrupts already pending.
+    yield();
+
     if (command == ATKBD_CMD_RESET_BAT) {
         // Reset is special wrt timeouts.
 
