@@ -226,6 +226,7 @@ timer_setup(void)
 static void
 handle_1a00(struct bregs *regs)
 {
+    yield();
     u32 ticks = GET_BDA(timer_counter);
     regs->cx = ticks >> 16;
     regs->dx = ticks;

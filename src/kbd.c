@@ -73,6 +73,7 @@ enqueue_key(u8 scan_code, u8 ascii_code)
 static void
 dequeue_key(struct bregs *regs, int incr, int extended)
 {
+    yield();
     u16 buffer_head;
     u16 buffer_tail;
     for (;;) {
@@ -126,6 +127,7 @@ handle_1601(struct bregs *regs)
 static void
 handle_1602(struct bregs *regs)
 {
+    yield();
     regs->al = GET_BDA(kbd_flag0);
 }
 
@@ -184,6 +186,7 @@ handle_1611(struct bregs *regs)
 static void
 handle_1612(struct bregs *regs)
 {
+    yield();
     regs->al = GET_BDA(kbd_flag0);
     regs->ah = ((GET_BDA(kbd_flag1) & ~(KF2_RCTRL|KF2_RALT))
                 | (GET_BDA(kbd_flag2) & (KF2_RCTRL|KF2_RALT)));
