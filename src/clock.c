@@ -156,18 +156,19 @@ rtc_updating(void)
     // to 0, and will return 0 if such a transition occurs.  A -1
     // is returned only after timing out.  The maximum period
     // that this bit should be set is constrained to (1984+244)
-    // useconds, so we wait for 3 msec max.
+    // useconds, but we wait for longer just to be sure.
 
     if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
         return 0;
-    u64 end = calc_future_tsc(3);
-    do {
+    u64 end = calc_future_tsc(15);
+    for (;;) {
         if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
             return 0;
-    } while (!check_time(end));
-
-    // update-in-progress never transitioned to 0
-    return -1;
+        if (check_time(end))
+            // update-in-progress never transitioned to 0
+            return -1;
+        yield();
+    }
 }
 
 static void
