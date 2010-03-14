@@ -144,15 +144,18 @@ static inline u8 readb(const void *addr) {
 #define call16_simpint(nr, peax, pflags) do {                           \
         ASSERT16();                                                     \
         asm volatile(                                                   \
+            "pushl %%ebp\n"                                             \
+            "sti\n"                                                     \
             "stc\n"                                                     \
             "int %2\n"                                                  \
             "pushfl\n"                                                  \
             "popl %1\n"                                                 \
             "cli\n"                                                     \
-            "cld"                                                       \
-            : "+a"(*peax), "=r"(*pflags)                                \
+            "cld\n"                                                     \
+            "popl %%ebp"                                                \
+            : "+a"(*peax), "=c"(*pflags)                                \
             : "i"(nr)                                                   \
-            : "cc", "memory");                                          \
+            : "ebx", "edx", "esi", "edi", "cc", "memory");              \
     } while (0)
 
 // GDT bit manipulation

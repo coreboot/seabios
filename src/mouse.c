@@ -305,15 +305,17 @@ process_mouse(u8 data)
         return;
     }
 
-    //BX_DEBUG_INT74("int74_function: make_farcall=1\n");
     u16 status = GET_EBDA2(ebda_seg, mouse_data[0]);
     u16 X      = GET_EBDA2(ebda_seg, mouse_data[1]);
     u16 Y      = GET_EBDA2(ebda_seg, mouse_data[2]);
     SET_EBDA2(ebda_seg, mouse_flag1, 0);
 
     struct segoff_s func = GET_EBDA2(ebda_seg, far_call_pointer);
+    dprintf(16, "mouse farcall s=%04x x=%04x y=%04x func=%04x:%04x\n"
+            , status, X, Y, func.seg, func.offset);
 
     asm volatile(
+        "pushl %%ebp\n"
         "sti\n"
 
         "pushl %0\n"
@@ -326,8 +328,8 @@ process_mouse(u8 data)
 
         "cli\n"
         "cld\n"
+        "popl %%ebp"
+        : "+a"(func.segoff), "+c"(status), "+d"(X), "+b"(Y)
         :
-        : "r"(func.segoff), "r"(status), "r"(X), "r"(Y)
-        : "cc"
-        );
+        : "edi", "esi", "cc", "memory");
 }
