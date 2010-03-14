@@ -136,21 +136,6 @@ i8042_aux_write(u8 c)
 #define PS2_RET_ACK             0xfa
 #define PS2_RET_NAK             0xfe
 
-static void
-process_ps2byte(u8 status, u8 data)
-{
-    if (!MODE16) {
-        // Don't pull in all of keyboard/mouse code into 32bit code -
-        // just discard the data.
-        dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
-        return;
-    }
-    if (status & I8042_STR_AUXDATA)
-        process_mouse(data);
-    else
-        process_key(data);
-}
-
 static int
 ps2_recvbyte(int aux, int needack, int timeout)
 {
@@ -172,8 +157,8 @@ ps2_recvbyte(int aux, int needack, int timeout)
                 }
             }
 
-            // Data not part of this command.
-            process_ps2byte(status, data);
+            // This data not for us - XXX - just discard it for now.
+            dprintf(1, "Discarding ps2 data %x (status=%x)\n", data, status);
         }
 
         if (check_time(end)) {
@@ -331,19 +316,6 @@ aux_command(int command, u8 *param)
  * IRQ handlers
  ****************************************************************/
 
-static void
-process_ps2irq(void)
-{
-    u8 status = inb(PORT_PS2_STATUS);
-    if (!(status & I8042_STR_OBF)) {
-        dprintf(1, "ps2 irq but no data.\n");
-        return;
-    }
-    u8 data = inb(PORT_PS2_DATA);
-
-    process_ps2byte(status, data);
-}
-
 // INT74h : PS/2 mouse hardware interrupt
 void VISIBLE16
 handle_74(void)
@@ -352,7 +324,18 @@ handle_74(void)
         return;
 
     debug_isr(DEBUG_ISR_74);
-    process_ps2irq();
+
+    u8 v = inb(PORT_PS2_STATUS);
+    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
+        != (I8042_STR_OBF|I8042_STR_AUXDATA)) {
+        dprintf(1, "mouse irq but no mouse data.\n");
+        goto done;
+    }
+    v = inb(PORT_PS2_DATA);
+
+    process_mouse(v);
+
+done:
     eoi_pic2();
 }
 
@@ -364,7 +347,18 @@ handle_09(void)
         return;
 
     debug_isr(DEBUG_ISR_09);
-    process_ps2irq();
+
+    // read key from keyboard controller
+    u8 v = inb(PORT_PS2_STATUS);
+    if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA)) != I8042_STR_OBF) {
+        dprintf(1, "keyboard irq but no keyboard data.\n");
+        goto done;
+    }
+    v = inb(PORT_PS2_DATA);
+
+    process_key(v);
+
+done:
     eoi_pic1();
 }
 
