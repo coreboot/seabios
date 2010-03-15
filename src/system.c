@@ -143,6 +143,11 @@ handle_1587(struct bregs *regs)
         "  xorw %%di, %%di\n"
         "  rep movsw\n"
 
+        // Restore DS and ES segment limits to 0xffff
+        "  movw $(5<<3), %%ax\n" // 5th descriptor in table (SS)
+        "  movw %%ax, %%ds\n"
+        "  movw %%ax, %%es\n"
+
         // Disable protected mode
         "  movl %%cr0, %%eax\n"
         "  andl $~" __stringify(CR0_PE) ", %%eax\n"
