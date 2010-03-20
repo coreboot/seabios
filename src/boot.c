@@ -48,7 +48,7 @@ boot_setup(void)
         ie++;
     }
 
-    if (CONFIG_COREBOOT_FLASH) {
+    if (CONFIG_COREBOOT && CONFIG_COREBOOT_FLASH) {
         ie->type = IPL_TYPE_CBFS;
         ie->description = "CBFS";
         ie++;
@@ -414,7 +414,7 @@ boot_cdrom(struct ipl_entry_s *ie)
 static void
 boot_cbfs(struct ipl_entry_s *ie)
 {
-    if (! CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return;
     int count = ie->subchoice;
     struct cbfs_file *file = NULL;

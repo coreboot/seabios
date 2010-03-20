@@ -87,7 +87,7 @@
 #define CONFIG_PCI_ROOT1 0x00
 #define CONFIG_PCI_ROOT2 0x00
 // Support searching coreboot flash format.
-#define CONFIG_COREBOOT_FLASH 0
+#define CONFIG_COREBOOT_FLASH 1
 // Support floppy images in the coreboot flash.
 #define CONFIG_FLASH_FLOPPY 1
 // Support the lzma decompression algorighm.

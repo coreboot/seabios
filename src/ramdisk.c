@@ -13,7 +13,7 @@
 void
 ramdisk_setup(void)
 {
-    if (!CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
         return;
 
     // Find image.
@@ -81,7 +81,7 @@ ramdisk_copy(struct disk_op_s *op, int iswrite)
 int
 process_ramdisk_op(struct disk_op_s *op)
 {
-    if (!CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
         return 0;
 
     switch (op->command) {

@@ -370,7 +370,7 @@ static struct cbfs_header *CBHDR;
 static void
 cbfs_setup(void)
 {
-    if (! CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return;
 
     CBHDR = *(void **)CBFS_HEADPTR_ADDR;
@@ -442,7 +442,7 @@ cbfs_findfile(const char *fname)
 struct cbfs_file *
 cbfs_findprefix(const char *prefix, struct cbfs_file *last)
 {
-    if (! CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return NULL;
 
     dprintf(3, "Searching CBFS for prefix %s\n", prefix);
@@ -503,7 +503,7 @@ cbfs_datasize(struct cbfs_file *file)
 int
 cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
 {
-    if (! CONFIG_COREBOOT_FLASH || !file)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !file)
         return -1;
 
     u32 size = ntohl(file->len);
@@ -535,7 +535,7 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
 int
 cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
 {
-    if (! CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return -1;
 
     char fname[17];
@@ -566,7 +566,7 @@ struct cbfs_payload {
 void
 cbfs_run_payload(struct cbfs_file *file)
 {
-    if (!CONFIG_COREBOOT_FLASH || !file)
+    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !file)
         return;
     dprintf(1, "Run %s\n", file->filename);
     struct cbfs_payload *pay = (void*)file + ntohl(file->offset);
