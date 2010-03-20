@@ -481,6 +481,7 @@ disk_1346(struct bregs *regs, struct drive_s *drive_g)
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.ah = 0x52;
+    br.dl = regs->dl;
     call16_int(0x15, &br);
 
     if (br.ah || br.flags & F_CF) {
