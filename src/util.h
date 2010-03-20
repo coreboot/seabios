@@ -216,6 +216,7 @@ void mutex_lock(struct mutex_s *mutex);
 void mutex_unlock(struct mutex_s *mutex);
 void start_preempt(void);
 void finish_preempt(void);
+int wait_preempt(void);
 void check_preempt(void);
 
 // output.c

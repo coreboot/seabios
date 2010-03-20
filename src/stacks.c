@@ -297,6 +297,18 @@ finish_preempt(void)
     dprintf(1, "Done preempt - %d checks\n", PreemptCount);
 }
 
+// Check if preemption is on, and wait for it to complete if so.
+int
+wait_preempt(void)
+{
+    if (MODESEGMENT || !CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS
+        || !CanPreempt)
+        return 0;
+    while (CanPreempt)
+        yield();
+    return 1;
+}
+
 extern void yield_preempt(void);
 #if MODESEGMENT == 0
 // Try to execute 32bit threads.

@@ -114,6 +114,9 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
 
+#define likely(x)       __builtin_expect(!!(x), 1)
+#define unlikely(x)     __builtin_expect(!!(x), 0)
+
 #define NULL ((void*)0)
 
 #define __weak __attribute__((weak))

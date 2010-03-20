@@ -74,12 +74,18 @@ relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
 static void
 zonelow_expand(u32 size, u32 align)
 {
-    u32 oldpos = GET_PMMVAR(ZoneLow.cur);
-    u32 newpos = ALIGN_DOWN(oldpos - size, align);
-    u32 bottom = GET_PMMVAR(ZoneLow.bottom);
-    if (newpos >= bottom && newpos <= oldpos)
-        // Space already present.
-        return;
+    u32 oldpos, newpos, bottom;
+    for (;;) {
+        oldpos = GET_PMMVAR(ZoneLow.cur);
+        newpos = ALIGN_DOWN(oldpos - size, align);
+        bottom = GET_PMMVAR(ZoneLow.bottom);
+        if (newpos >= bottom && newpos <= oldpos)
+            // Space already present.
+            return;
+        // Make sure to not move ebda while an optionrom is running.
+        if (likely(!wait_preempt()))
+            break;
+    }
     u16 ebda_seg = get_ebda_seg();
     u32 ebda_pos = (u32)MAKE_FLATPTR(ebda_seg, 0);
     u8 ebda_size = GET_EBDA2(ebda_seg, size);
