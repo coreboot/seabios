@@ -195,7 +195,7 @@ uhci_init(u16 bdf, int busid)
     cntl->iobase = (pci_config_readl(bdf, PCI_BASE_ADDRESS_4)
                     & PCI_BASE_ADDRESS_IO_MASK);
 
-    dprintf(3, "UHCI init on dev %02x:%02x.%x (io=%x)\n"
+    dprintf(1, "UHCI init on dev %02x:%02x.%x (io=%x)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
             , pci_bdf_to_fn(bdf), cntl->iobase);
 

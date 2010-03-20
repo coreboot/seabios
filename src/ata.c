@@ -775,6 +775,7 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
              , adrive_g->chan_gf->chanid, adrive_g->slave
              , extract_model(model, buffer), extract_version(buffer)
              , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
+    dprintf(1, "%s\n", adrive_g->drive.desc);
 
     // fill cdidmap
     if (iscd)
@@ -821,6 +822,7 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
              , adrive_g->chan_gf->chanid, adrive_g->slave
              , extract_model(model, buffer), extract_version(buffer)
              , (u32)adjsize, adjprefix);
+    dprintf(1, "%s\n", adrive_g->drive.desc);
 
     // Setup disk geometry translation.
     setup_translation(&adrive_g->drive);
@@ -845,7 +847,7 @@ powerup_await_non_bsy(u16 base)
             break;
         orstatus |= status;
         if (orstatus == 0xff) {
-            dprintf(1, "powerup IDE floating\n");
+            dprintf(4, "powerup IDE floating\n");
             return orstatus;
         }
         if (check_time(SpinupEnd)) {

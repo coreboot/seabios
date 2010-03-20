@@ -260,7 +260,7 @@ ehci_init(u16 bdf, int busid, int compbdf)
     cntl->caps = caps;
     cntl->regs = (void*)caps + readb(&caps->caplength);
 
-    dprintf(3, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
+    dprintf(1, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
             , pci_bdf_to_fn(bdf), cntl->regs);
 

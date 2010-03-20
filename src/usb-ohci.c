@@ -228,7 +228,7 @@ ohci_init(u16 bdf, int busid)
     u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
     cntl->regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
 
-    dprintf(3, "OHCI init on dev %02x:%02x.%x (regs=%p)\n"
+    dprintf(1, "OHCI init on dev %02x:%02x.%x (regs=%p)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
             , pci_bdf_to_fn(bdf), cntl->regs);
 
