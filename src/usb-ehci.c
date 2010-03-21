@@ -74,18 +74,20 @@ init_ehci_port(void *data)
         portsc |= PORT_POWER;
         writel(portreg, portsc);
         msleep(EHCI_TIME_POSTPOWER);
-        portsc = readl(portreg);
+    } else {
+        msleep(1); // XXX - time for connect to be detected.
     }
+    portsc = readl(portreg);
 
     if (!(portsc & PORT_CONNECT))
         // No device present
-        goto done;
+        goto doneearly;
 
     if ((portsc & PORT_LINESTATUS_MASK) == PORT_LINESTATUS_KSTATE) {
         // low speed device
         cntl->legacycount++;
         writel(portreg, portsc | PORT_OWNER);
-        goto done;
+        goto doneearly;
     }
 
     // XXX - if just powered up, need to wait for USB_TIME_ATTDB?
@@ -109,9 +111,16 @@ init_ehci_port(void *data)
         writel(portreg, portsc | PORT_OWNER);
         goto resetfail;
     }
+
+    if (! --cntl->checkports)
+        ehci_startcompanion(cntl);
+
     struct usb_pipe *pipe = usb_set_address(hub, port, USB_HIGHSPEED);
-    if (!pipe)
-        goto resetfail;
+    if (!pipe) {
+        writel(portreg, portsc & ~PORT_PE);
+        mutex_unlock(&cntl->usb.resetlock);
+        goto done;
+    }
     mutex_unlock(&cntl->usb.resetlock);
 
     // Configure port
@@ -122,13 +131,14 @@ init_ehci_port(void *data)
         writel(portreg, portsc & ~PORT_PE);
     hub->devcount += count;
 done:
-    if (! --cntl->checkports)
-        ehci_startcompanion(cntl);
     hub->threads--;
     return;
 
 resetfail:
     mutex_unlock(&cntl->usb.resetlock);
+doneearly:
+    if (! --cntl->checkports)
+        ehci_startcompanion(cntl);
     goto done;
 }
 
