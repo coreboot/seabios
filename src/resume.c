@@ -96,6 +96,7 @@ handle_resume(u8 status)
 void VISIBLE32FLAT
 s3_resume(void)
 {
+    ASSERT32FLAT();
     if (!CONFIG_S3_RESUME)
         panic("S3 resume support not compiled in.\n");
 

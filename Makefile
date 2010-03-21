@@ -42,7 +42,7 @@ CFLAGSSEG = $(COMMONCFLAGS) -DMODESEGMENT=1 -fno-defer-pop \
             $(call cc-option,$(CC),-fno-tree-switch-conversion,)
 CFLAGS32SEG = $(CFLAGSSEG) -DMODE16=0 -g
 CFLAGS16INC = $(CFLAGSSEG) -DMODE16=1 \
-              $(call cc-option,$(CC),--param large-stack-frame=4,)
+              $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
 CFLAGS16 = $(CFLAGS16INC) -g
 
 all: $(OUT) $(OUT)bios.bin
