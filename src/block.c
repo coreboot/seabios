@@ -324,7 +324,7 @@ send_disk_op(struct disk_op_s *op)
     if (! CONFIG_DRIVES)
         return -1;
 
-    return stack_hop((u32)op, GET_SEG(SS), 0, __send_disk_op);
+    return stack_hop((u32)op, GET_SEG(SS), __send_disk_op);
 }
 
 

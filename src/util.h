@@ -204,7 +204,7 @@ void biosusleep(u32 usec);
 int get_keystroke(int msec);
 
 // stacks.c
-inline u32 stack_hop(u32 eax, u32 edx, u32 ecx, void *func);
+inline u32 stack_hop(u32 eax, u32 edx, void *func);
 extern struct thread_info MainThread;
 void thread_setup(void);
 struct thread_info *getCurThread(void);

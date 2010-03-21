@@ -40,7 +40,6 @@ call32(void *func)
     struct descloc_s gdt;
     sgdt(&gdt);
 
-    func -= BUILD_BIOS_ADDR;
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
@@ -54,7 +53,7 @@ call32(void *func)
         "  pushl $(" __stringify(BUILD_BIOS_ADDR) " + 1f)\n"
         "  jmp transition32\n"
         "  .code32\n"
-        "1:calll %2\n"
+        "1:calll *%2\n"
         "  pushl $2f\n"
         "  jmp transition16big\n"
 
@@ -64,7 +63,7 @@ call32(void *func)
         "  movl %0, %%ss\n"
         "  movl %1, %%esp\n"
         : "=&r" (bkup_ss), "=&r" (bkup_esp)
-        : "m" (*(u8*)func)
+        : "r" (func)
         : "eax", "ecx", "edx", "cc", "memory");
 
     // Restore gdt and fs/gs
@@ -85,7 +84,7 @@ call32(void *func)
 
 // Switch to the extra stack in ebda and call a function.
 inline u32
-stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
+stack_hop(u32 eax, u32 edx, void *func)
 {
     ASSERT16();
     u16 ebda_seg = get_ebda_seg(), bkup_ss;
@@ -99,13 +98,13 @@ stack_hop(u32 eax, u32 edx, u32 ecx, void *func)
         "movw %w6, %%ss\n"
         "movl %5, %%esp\n"
         // Call func
-        "calll %7\n"
+        "calll *%2\n"
         // Restore segments and stack
         "movw %w3, %%ds\n"
         "movw %w3, %%ss\n"
         "movl %4, %%esp"
-        : "+a" (eax), "+d" (edx), "+c" (ecx), "=&r" (bkup_ss), "=&r" (bkup_esp)
-        : "i" (EBDA_OFFSET_TOP_STACK), "r" (ebda_seg), "m" (*(u8*)func)
+        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
+        : "i" (EBDA_OFFSET_TOP_STACK), "r" (ebda_seg)
         : "cc", "memory");
     return eax;
 }
