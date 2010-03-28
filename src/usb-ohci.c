@@ -11,7 +11,6 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "usb.h" // struct usb_s
 #include "farptr.h" // GET_FLATPTR
-#include "usb-hub.h" // struct usbhub_s
 
 #define FIT                     (1 << 31)
 
@@ -25,23 +24,36 @@ struct usb_ohci_s {
  * Root hub
  ****************************************************************/
 
-static void
-init_ohci_port(void *data)
+// Check if device attached to port
+static int
+ohci_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    struct usbhub_s *hub = data;
-    u32 port = hub->port; // XXX - find better way to pass port
     struct usb_ohci_s *cntl = container_of(hub->cntl, struct usb_ohci_s, usb);
-
     u32 sts = readl(&cntl->regs->roothub_portstatus[port]);
     if (!(sts & RH_PS_CCS))
         // No device.
-        goto done;
+        return -1;
 
     // XXX - need to wait for USB_TIME_ATTDB if just powered up?
 
-    // Signal reset
-    mutex_lock(&cntl->usb.resetlock);
+    return 0;
+}
+
+// Disable port
+static void
+ohci_hub_disconnect(struct usbhub_s *hub, u32 port)
+{
+    struct usb_ohci_s *cntl = container_of(hub->cntl, struct usb_ohci_s, usb);
+    writel(&cntl->regs->roothub_portstatus[port], RH_PS_CCS|RH_PS_LSDA);
+}
+
+// Reset device on port
+static int
+ohci_hub_reset(struct usbhub_s *hub, u32 port)
+{
+    struct usb_ohci_s *cntl = container_of(hub->cntl, struct usb_ohci_s, usb);
     writel(&cntl->regs->roothub_portstatus[port], RH_PS_PRS);
+    u32 sts;
     u64 end = calc_future_tsc(USB_TIME_DRSTR * 2);
     for (;;) {
         sts = readl(&cntl->regs->roothub_portstatus[port]);
@@ -51,38 +63,24 @@ init_ohci_port(void *data)
         if (check_time(end)) {
             // Timeout.
             warn_timeout();
-            goto resetfail;
+            ohci_hub_disconnect(hub, port);
+            return -1;
         }
         yield();
     }
 
     if ((sts & (RH_PS_CCS|RH_PS_PES)) != (RH_PS_CCS|RH_PS_PES))
         // Device no longer present
-        goto resetfail;
+        return -1;
 
-    // Set address of port
-    struct usb_pipe *pipe = usb_set_address(hub, port, !!(sts & RH_PS_LSDA));
-    if (!pipe)
-        goto resetfail;
-    mutex_unlock(&cntl->usb.resetlock);
-
-    // Configure the device
-    int count = configure_usb_device(pipe);
-    free_pipe(pipe);
-    if (! count)
-        // Shutdown port
-        writel(&cntl->regs->roothub_portstatus[port], RH_PS_CCS|RH_PS_LSDA);
-    hub->devcount += count;
-done:
-    hub->threads--;
-    return;
-
-resetfail:
-    // Shutdown port
-    writel(&cntl->regs->roothub_portstatus[port], RH_PS_CCS|RH_PS_LSDA);
-    mutex_unlock(&cntl->usb.resetlock);
-    goto done;
+    return !!(sts & RH_PS_LSDA);
 }
+
+static struct usbhub_op_s ohci_HubOp = {
+    .detect = ohci_hub_detect,
+    .reset = ohci_hub_reset,
+    .disconnect = ohci_hub_disconnect,
+};
 
 // Find any devices connected to the root hub.
 static int
@@ -97,22 +95,12 @@ check_ohci_ports(struct usb_ohci_s *cntl)
     msleep((rha >> 24) * 2);
     // XXX - need to sleep for USB_TIME_SIGATT if just powered up?
 
-    // Lanuch a thread per port.
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
     hub.cntl = &cntl->usb;
-    int ports = rha & RH_A_NDP;
-    hub.threads = ports;
-    int i;
-    for (i=0; i<ports; i++) {
-        hub.port = i;
-        run_thread(init_ohci_port, &hub);
-    }
-
-    // Wait for threads to complete.
-    while (hub.threads)
-        yield();
-
+    hub.portcount = rha & RH_A_NDP;
+    hub.op = &ohci_HubOp;
+    usb_enumerate(&hub);
     return hub.devcount;
 }
 

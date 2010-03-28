@@ -4,6 +4,7 @@
 
 #include "util.h" // struct mutex_s
 
+// Information on a USB end point.
 struct usb_pipe {
     struct usb_s *cntl;
     u8 type;
@@ -22,6 +23,26 @@ struct usb_s {
     int busid;
     u8 type;
     u8 maxaddr;
+};
+
+// Information for enumerating USB hubs
+struct usbhub_s {
+    struct usbhub_op_s *op;
+    struct usb_pipe *pipe;
+    struct usb_s *cntl;
+    struct mutex_s lock;
+    u32 powerwait;
+    u32 port;
+    u32 threads;
+    u32 portcount;
+    u32 devcount;
+};
+
+// Hub callback (32bit) info
+struct usbhub_op_s {
+    int (*detect)(struct usbhub_s *hub, u32 port);
+    int (*reset)(struct usbhub_s *hub, u32 port);
+    void (*disconnect)(struct usbhub_s *hub, u32 port);
 };
 
 #define USB_TYPE_UHCI 1
@@ -175,9 +196,7 @@ struct usb_endpoint_descriptor {
 
 // usb.c
 void usb_setup(void);
-struct usbhub_s;
-struct usb_pipe *usb_set_address(struct usbhub_s *hub, int port, int speed);
-int configure_usb_device(struct usb_pipe *pipe);
+void usb_enumerate(struct usbhub_s *hub);
 int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                          , void *data);
 int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);

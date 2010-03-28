@@ -12,7 +12,6 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "usb.h" // struct usb_s
 #include "farptr.h" // GET_FLATPTR
-#include "usb-hub.h" // struct usbhub_s
 
 struct usb_uhci_s {
     struct usb_s usb;
@@ -26,54 +25,58 @@ struct usb_uhci_s {
  * Root hub
  ****************************************************************/
 
-static void
-init_uhci_port(void *data)
+// Check if device attached to a given port
+static int
+uhci_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    struct usbhub_s *hub = data;
-    u32 port = hub->port; // XXX - find better way to pass port
     struct usb_uhci_s *cntl = container_of(hub->cntl, struct usb_uhci_s, usb);
     u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
 
     u16 status = inw(ioport);
     if (!(status & USBPORTSC_CCS))
         // No device
-        goto done;
+        return -1;
 
     // XXX - if just powered up, need to wait for USB_TIME_ATTDB?
 
-    // Reset port
+    // Begin reset on port
     outw(USBPORTSC_PR, ioport);
     msleep(USB_TIME_DRSTR);
-    mutex_lock(&cntl->usb.resetlock);
+    return 0;
+}
+
+// Reset device on port
+static int
+uhci_hub_reset(struct usbhub_s *hub, u32 port)
+{
+    struct usb_uhci_s *cntl = container_of(hub->cntl, struct usb_uhci_s, usb);
+    u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
+
+    // Finish reset on port
     outw(0, ioport);
     udelay(6); // 64 high-speed bit times
-    status = inw(ioport);
+    u16 status = inw(ioport);
     if (!(status & USBPORTSC_CCS))
         // No longer connected
-        goto resetfail;
+        return -1;
     outw(USBPORTSC_PE, ioport);
-    struct usb_pipe *pipe = usb_set_address(
-        hub, port, !!(status & USBPORTSC_LSDA));
-    if (!pipe)
-        goto resetfail;
-    mutex_unlock(&cntl->usb.resetlock);
-
-    // Configure port
-    int count = configure_usb_device(pipe);
-    free_pipe(pipe);
-    if (! count)
-        // Disable port
-        outw(0, ioport);
-    hub->devcount += count;
-done:
-    hub->threads--;
-    return;
-
-resetfail:
-    outw(0, ioport);
-    mutex_unlock(&cntl->usb.resetlock);
-    goto done;
+    return !!(status & USBPORTSC_LSDA);
 }
+
+// Disable port
+static void
+uhci_hub_disconnect(struct usbhub_s *hub, u32 port)
+{
+    struct usb_uhci_s *cntl = container_of(hub->cntl, struct usb_uhci_s, usb);
+    u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
+    outw(0, ioport);
+}
+
+static struct usbhub_op_s uhci_HubOp = {
+    .detect = uhci_hub_detect,
+    .reset = uhci_hub_reset,
+    .disconnect = uhci_hub_disconnect,
+};
 
 // Find any devices connected to the root hub.
 static int
@@ -83,17 +86,9 @@ check_uhci_ports(struct usb_uhci_s *cntl)
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
     hub.cntl = &cntl->usb;
-    hub.threads = 2;
-
-    // Launch a thread for every port.
-    run_thread(init_uhci_port, &hub);
-    hub.port = 1;
-    run_thread(init_uhci_port, &hub);
-
-    // Wait for threads to complete.
-    while (hub.threads)
-        yield();
-
+    hub.portcount = 2;
+    hub.op = &uhci_HubOp;
+    usb_enumerate(&hub);
     return hub.devcount;
 }
 

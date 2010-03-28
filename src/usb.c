@@ -242,7 +242,7 @@ set_configuration(struct usb_pipe *pipe, u16 val)
 
 // Assign an address to a device in the default state on the given
 // controller.
-struct usb_pipe *
+static struct usb_pipe *
 usb_set_address(struct usbhub_s *hub, int port, int speed)
 {
     ASSERT32FLAT();
@@ -299,7 +299,7 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
 
 // Called for every found device - see if a driver is available for
 // this device and do setup if so.
-int
+static int
 configure_usb_device(struct usb_pipe *pipe)
 {
     ASSERT32FLAT();
@@ -354,6 +354,66 @@ configure_usb_device(struct usb_pipe *pipe)
 fail:
     free(config);
     return 0;
+}
+
+static void
+usb_init_hub_port(void *data)
+{
+    struct usbhub_s *hub = data;
+    u32 port = hub->port; // XXX - find better way to pass port
+
+    // Detect if device present (and possibly start reset)
+    int ret = hub->op->detect(hub, port);
+    if (ret)
+        // No device present
+        goto done;
+
+    // Reset port and determine device speed
+    mutex_lock(&hub->cntl->resetlock);
+    ret = hub->op->reset(hub, port);
+    if (ret < 0)
+        // Reset failed
+        goto resetfail;
+
+    // Set address of port
+    struct usb_pipe *pipe = usb_set_address(hub, port, ret);
+    if (!pipe) {
+        hub->op->disconnect(hub, port);
+        goto resetfail;
+    }
+    mutex_unlock(&hub->cntl->resetlock);
+
+    // Configure the device
+    int count = configure_usb_device(pipe);
+    free_pipe(pipe);
+    if (!count)
+        hub->op->disconnect(hub, port);
+    hub->devcount += count;
+done:
+    hub->threads--;
+    return;
+
+resetfail:
+    mutex_unlock(&hub->cntl->resetlock);
+    goto done;
+}
+
+void
+usb_enumerate(struct usbhub_s *hub)
+{
+    u32 portcount = hub->portcount;
+    hub->threads = portcount;
+
+    // Launch a thread for every port.
+    int i;
+    for (i=0; i<portcount; i++) {
+        hub->port = i;
+        run_thread(usb_init_hub_port, hub);
+    }
+
+    // Wait for threads to complete.
+    while (hub->threads)
+        yield();
 }
 
 void

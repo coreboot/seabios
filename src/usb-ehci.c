@@ -13,7 +13,6 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "usb.h" // struct usb_s
 #include "farptr.h" // GET_FLATPTR
-#include "usb-hub.h" // struct usbhub_s
 #include "usb-uhci.h" // init_uhci
 #include "usb-ohci.h" // init_ohci
 
@@ -40,13 +39,17 @@ struct usb_ehci_s {
 #define EHCI_TIME_POSTPOWER 20
 #define EHCI_TIME_POSTRESET 2
 
-// Start processing of companion controllers for full/low speed devices
+// Check if need companion controllers for full/low speed devices
 static void
-ehci_startcompanion(struct usb_ehci_s *cntl)
+ehci_note_port(struct usb_ehci_s *cntl)
 {
+    if (--cntl->checkports)
+        // Ports still being detected.
+        return;
     if (! cntl->legacycount)
         // No full/low speed devices found.
         return;
+    // Start companion controllers.
     int i;
     for (i=0; i<ARRAY_SIZE(cntl->companion); i++) {
         u16 type = cntl->companion[i].type;
@@ -59,13 +62,11 @@ ehci_startcompanion(struct usb_ehci_s *cntl)
     }
 }
 
-static void
-init_ehci_port(void *data)
+// Check if device attached to port
+static int
+ehci_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    struct usbhub_s *hub = data;
-    u32 port = hub->port; // XXX - find better way to pass port
     struct usb_ehci_s *cntl = container_of(hub->cntl, struct usb_ehci_s, usb);
-
     u32 *portreg = &cntl->regs->portsc[port];
     u32 portsc = readl(portreg);
 
@@ -92,15 +93,31 @@ init_ehci_port(void *data)
 
     // XXX - if just powered up, need to wait for USB_TIME_ATTDB?
 
-    // Reset port
+    // Begin reset on port
     portsc = (portsc & ~PORT_PE) | PORT_RESET;
     writel(portreg, portsc);
     msleep(USB_TIME_DRSTR);
-    mutex_lock(&cntl->usb.resetlock);
+    return 0;
+
+doneearly:
+    ehci_note_port(cntl);
+    return -1;
+}
+
+// Reset device on port
+static int
+ehci_hub_reset(struct usbhub_s *hub, u32 port)
+{
+    struct usb_ehci_s *cntl = container_of(hub->cntl, struct usb_ehci_s, usb);
+    u32 *portreg = &cntl->regs->portsc[port];
+    u32 portsc = readl(portreg);
+
+    // Finish reset on port
     portsc &= ~PORT_RESET;
     writel(portreg, portsc);
     msleep(EHCI_TIME_POSTRESET);
 
+    int rv = -1;
     portsc = readl(portreg);
     if (!(portsc & PORT_CONNECT))
         // No longer connected
@@ -112,58 +129,39 @@ init_ehci_port(void *data)
         goto resetfail;
     }
 
-    if (! --cntl->checkports)
-        ehci_startcompanion(cntl);
-
-    struct usb_pipe *pipe = usb_set_address(hub, port, USB_HIGHSPEED);
-    if (!pipe) {
-        writel(portreg, portsc & ~PORT_PE);
-        mutex_unlock(&cntl->usb.resetlock);
-        goto done;
-    }
-    mutex_unlock(&cntl->usb.resetlock);
-
-    // Configure port
-    int count = configure_usb_device(pipe);
-    free_pipe(pipe);
-    if (! count)
-        // Disable port
-        writel(portreg, portsc & ~PORT_PE);
-    hub->devcount += count;
-done:
-    hub->threads--;
-    return;
-
+    rv = USB_HIGHSPEED;
 resetfail:
-    mutex_unlock(&cntl->usb.resetlock);
-doneearly:
-    if (! --cntl->checkports)
-        ehci_startcompanion(cntl);
-    goto done;
+    ehci_note_port(cntl);
+    return rv;
 }
+
+// Disable port
+static void
+ehci_hub_disconnect(struct usbhub_s *hub, u32 port)
+{
+    struct usb_ehci_s *cntl = container_of(hub->cntl, struct usb_ehci_s, usb);
+    u32 *portreg = &cntl->regs->portsc[port];
+    u32 portsc = readl(portreg);
+    writel(portreg, portsc & ~PORT_PE);
+}
+
+static struct usbhub_op_s ehci_HubOp = {
+    .detect = ehci_hub_detect,
+    .reset = ehci_hub_reset,
+    .disconnect = ehci_hub_disconnect,
+};
 
 // Find any devices connected to the root hub.
 static int
 check_ehci_ports(struct usb_ehci_s *cntl)
 {
     ASSERT32FLAT();
-
-    // Launch a thread for every port.
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
     hub.cntl = &cntl->usb;
-    int ports = cntl->checkports;
-    hub.threads = ports;
-    int i;
-    for (i=0; i<ports; i++) {
-        hub.port = i;
-        run_thread(init_ehci_port, &hub);
-    }
-
-    // Wait for threads to complete.
-    while (hub.threads)
-        yield();
-
+    hub.portcount = cntl->checkports;
+    hub.op = &ehci_HubOp;
+    usb_enumerate(&hub);
     return hub.devcount;
 }
 

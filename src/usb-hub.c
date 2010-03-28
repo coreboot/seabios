@@ -28,7 +28,7 @@ set_port_feature(struct usbhub_s *hub, int port, int feature)
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_OTHER;
     req.bRequest = USB_REQ_SET_FEATURE;
     req.wValue = feature;
-    req.wIndex = port;
+    req.wIndex = port + 1;
     req.wLength = 0;
     mutex_lock(&hub->lock);
     int ret = send_default_control(hub->pipe, &req, NULL);
@@ -43,7 +43,7 @@ clear_port_feature(struct usbhub_s *hub, int port, int feature)
     req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_OTHER;
     req.bRequest = USB_REQ_CLEAR_FEATURE;
     req.wValue = feature;
-    req.wIndex = port;
+    req.wIndex = port + 1;
     req.wLength = 0;
     mutex_lock(&hub->lock);
     int ret = send_default_control(hub->pipe, &req, NULL);
@@ -58,7 +58,7 @@ get_port_status(struct usbhub_s *hub, int port, struct usb_port_status *sts)
     req.bRequestType = USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_OTHER;
     req.bRequest = USB_REQ_GET_STATUS;
     req.wValue = 0;
-    req.wIndex = port;
+    req.wIndex = port + 1;
     req.wLength = sizeof(*sts);
     mutex_lock(&hub->lock);
     int ret = send_default_control(hub->pipe, &req, sts);
@@ -66,12 +66,10 @@ get_port_status(struct usbhub_s *hub, int port, struct usb_port_status *sts)
     return ret;
 }
 
-static void
-init_hub_port(void *data)
+// Check if device attached to port
+static int
+usb_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    struct usbhub_s *hub = data;
-    u32 port = hub->port; // XXX - find better way to pass port
-
     // Turn on power to port.
     int ret = set_port_feature(hub, port, USB_PORT_FEAT_POWER);
     if (ret)
@@ -92,29 +90,48 @@ init_hub_port(void *data)
             break;
         if (check_time(end))
             // No device found.
-            goto done;
+            return -1;
         msleep(5);
     }
 
     // XXX - wait USB_TIME_ATTDB time?
 
-    // Reset port.
-    mutex_lock(&hub->cntl->resetlock);
-    ret = set_port_feature(hub, port, USB_PORT_FEAT_RESET);
+    return 0;
+
+fail:
+    dprintf(1, "Failure on hub port %d detect\n", port);
+    return -1;
+}
+
+// Disable port
+static void
+usb_hub_disconnect(struct usbhub_s *hub, u32 port)
+{
+    int ret = clear_port_feature(hub, port, USB_PORT_FEAT_ENABLE);
     if (ret)
-        goto resetfail;
+        dprintf(1, "Failure on hub port %d disconnect\n", port);
+}
+
+// Reset device on port
+static int
+usb_hub_reset(struct usbhub_s *hub, u32 port)
+{
+    int ret = set_port_feature(hub, port, USB_PORT_FEAT_RESET);
+    if (ret)
+        goto fail;
 
     // Wait for reset to complete.
-    end = calc_future_tsc(USB_TIME_DRST * 2);
+    struct usb_port_status sts;
+    u64 end = calc_future_tsc(USB_TIME_DRST * 2);
     for (;;) {
         ret = get_port_status(hub, port, &sts);
         if (ret)
-            goto resetfail;
+            goto fail;
         if (!(sts.wPortStatus & USB_PORT_STAT_RESET))
             break;
         if (check_time(end)) {
             warn_timeout();
-            goto resetfail;
+            goto fail;
         }
         msleep(5);
     }
@@ -122,36 +139,22 @@ init_hub_port(void *data)
     // Reset complete.
     if (!(sts.wPortStatus & USB_PORT_STAT_CONNECTION))
         // Device no longer present
-        goto resetfail;
+        return -1;
 
-    // Set address of port
-    struct usb_pipe *pipe = usb_set_address(
-        hub, port, ((sts.wPortStatus & USB_PORT_STAT_SPEED_MASK)
-                    >> USB_PORT_STAT_SPEED_SHIFT));
-    if (!pipe)
-        goto resetfail;
-    mutex_unlock(&hub->cntl->resetlock);
+    return ((sts.wPortStatus & USB_PORT_STAT_SPEED_MASK)
+            >> USB_PORT_STAT_SPEED_SHIFT);
 
-    // Configure the device
-    int count = configure_usb_device(pipe);
-    free_pipe(pipe);
-    if (!count) {
-        ret = clear_port_feature(hub, port, USB_PORT_FEAT_ENABLE);
-        if (ret)
-            goto fail;
-    }
-    hub->devcount += count;
-done:
-    hub->threads--;
-    return;
-
-resetfail:
-    clear_port_feature(hub, port, USB_PORT_FEAT_ENABLE);
-    mutex_unlock(&hub->cntl->resetlock);
 fail:
-    dprintf(1, "Failure on hub port %d setup\n", port);
-    goto done;
+    dprintf(1, "Failure on hub port %d reset\n", port);
+    usb_hub_disconnect(hub, port);
+    return -1;
 }
+
+static struct usbhub_op_s HubOp = {
+    .detect = usb_hub_detect,
+    .reset = usb_hub_reset,
+    .disconnect = usb_hub_disconnect,
+};
 
 // Configure a usb hub and then find devices connected to it.
 int
@@ -171,18 +174,9 @@ usb_hub_init(struct usb_pipe *pipe)
     hub.pipe = pipe;
     hub.cntl = pipe->cntl;
     hub.powerwait = desc.bPwrOn2PwrGood * 2;
-
-    // Launch a thread for every port.
-    int i;
-    for (i=1; i<=desc.bNbrPorts; i++) {
-        hub.port = i;
-        hub.threads++;
-        run_thread(init_hub_port, &hub);
-    }
-
-    // Wait for threads to complete.
-    while (hub.threads)
-        yield();
+    hub.portcount = desc.bNbrPorts;
+    hub.op = &HubOp;
+    usb_enumerate(&hub);
 
     dprintf(1, "Initialized USB HUB (%d ports used)\n", hub.devcount);
     if (hub.devcount)
