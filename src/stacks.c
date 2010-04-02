@@ -116,9 +116,12 @@ stack_hop(u32 eax, u32 edx, void *func)
 
 #define THREADSTACKSIZE 4096
 
+// Thread info - stored at bottom of each thread stack - don't change
+// without also updating the inline assembler below.
 struct thread_info {
     struct thread_info *next;
     void *stackpos;
+    struct thread_info **pprev;
 };
 
 struct thread_info VAR16VISIBLE MainThread;
@@ -128,6 +131,7 @@ void
 thread_setup(void)
 {
     MainThread.next = &MainThread;
+    MainThread.pprev = &MainThread.next;
     MainThread.stackpos = NULL;
     CanPreempt = 0;
 }
@@ -185,10 +189,8 @@ yield(void)
 static void
 __end_thread(struct thread_info *old)
 {
-    struct thread_info *pos = &MainThread;
-    while (pos->next != old)
-        pos = pos->next;
-    pos->next = old->next;
+    old->next->pprev = old->pprev;
+    *old->pprev = old->next;
     free(old);
     dprintf(DEBUG_thread, "\\%08x/ End thread\n", (u32)old);
 }
@@ -207,8 +209,10 @@ run_thread(void (*func)(void*), void *data)
 
     thread->stackpos = (void*)thread + THREADSTACKSIZE;
     struct thread_info *cur = getCurThread();
-    thread->next = cur->next;
-    cur->next = thread;
+    thread->next = cur;
+    thread->pprev = cur->pprev;
+    cur->pprev = &thread->next;
+    *thread->pprev = thread;
 
     dprintf(DEBUG_thread, "/%08x\\ Start thread\n", (u32)thread);
     asm volatile(
@@ -289,11 +293,14 @@ start_preempt(void)
 void
 finish_preempt(void)
 {
-    if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS)
+    if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS) {
+        yield();
         return;
+    }
     CanPreempt = 0;
     releaseRTC();
     dprintf(1, "Done preempt - %d checks\n", PreemptCount);
+    yield();
 }
 
 // Check if preemption is on, and wait for it to complete if so.

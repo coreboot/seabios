@@ -470,7 +470,9 @@ vga_setup(void)
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
     br.ax = 0x0003;
+    start_preempt();
     call16_int(0x10, &br);
+    finish_preempt();
 
     // Write to screen.
     printf("Starting SeaBIOS (version %s)\n\n", VERSION);
