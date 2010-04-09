@@ -187,18 +187,6 @@ usb_msc_init(struct usb_pipe *pipe
         return -1;
     }
 
-    // Find bulk in and bulk out endpoints.
-    struct usb_endpoint_descriptor *indesc = findEndPointDesc(
-        iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_IN);
-    struct usb_endpoint_descriptor *outdesc = findEndPointDesc(
-        iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
-    if (!indesc || !outdesc)
-        goto fail;
-    struct usb_pipe *bulkin = alloc_bulk_pipe(pipe, indesc);
-    struct usb_pipe *bulkout = alloc_bulk_pipe(pipe, outdesc);
-    if (!bulkin || !bulkout)
-        goto fail;
-
     // Allocate drive structure.
     char *desc = malloc_tmphigh(MAXDESCSIZE);
     struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
@@ -208,8 +196,18 @@ usb_msc_init(struct usb_pipe *pipe
     }
     memset(udrive_g, 0, sizeof(*udrive_g));
     udrive_g->drive.type = DTYPE_USB;
-    udrive_g->bulkin = bulkin;
-    udrive_g->bulkout = bulkout;
+
+    // Find bulk in and bulk out endpoints.
+    struct usb_endpoint_descriptor *indesc = findEndPointDesc(
+        iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_IN);
+    struct usb_endpoint_descriptor *outdesc = findEndPointDesc(
+        iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
+    if (!indesc || !outdesc)
+        goto fail;
+    udrive_g->bulkin = alloc_bulk_pipe(pipe, indesc);
+    udrive_g->bulkout = alloc_bulk_pipe(pipe, outdesc);
+    if (!udrive_g->bulkin || !udrive_g->bulkout)
+        goto fail;
 
     // Validate drive and find block size and sector count.
     struct disk_op_s dop;
