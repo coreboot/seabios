@@ -405,8 +405,6 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
             // Too many descriptors..
             return -1;
         u32 count = bytes;
-        if (count > 0x10000)
-            count = 0x10000;
         u32 max = 0x10000 - (dest & 0xffff);
         if (count > max)
             count = max;
