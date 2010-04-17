@@ -117,7 +117,7 @@ zonelow_expand(u32 size, u32 align)
  ****************************************************************/
 
 // Obtain memory from a given zone.
-static void *
+static void * __malloc
 zone_malloc(struct zone_s *zone, u32 size, u32 align)
 {
     u32 oldpos = GET_PMMVAR(zone->cur);
@@ -186,7 +186,7 @@ struct pmmalloc_s {
 struct pmmalloc_s *PMMAllocs VAR32FLATVISIBLE;
 
 // Allocate memory from the given zone and track it as a PMM allocation
-void *
+void * __malloc
 pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 {
     u32 oldallocdata = GET_PMMVAR(ZoneTmpHigh.cur);

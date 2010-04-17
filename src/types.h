@@ -129,6 +129,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 
 #define noinline __attribute__((noinline))
 #define __always_inline inline __attribute__((always_inline))
+#define __malloc __attribute__((__malloc__))
 #define __attribute_const __attribute__((__const__))
 
 #define __stringify_1(x)        #x
