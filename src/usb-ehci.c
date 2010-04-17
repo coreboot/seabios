@@ -198,6 +198,7 @@ configure_ehci(void *data)
             warn_timeout();
             goto fail;
         }
+        yield();
     }
 
     // Disable interrupts (just to be safe).
