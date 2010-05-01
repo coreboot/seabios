@@ -236,6 +236,7 @@ interactive_bootmenu(void)
         ;
 
     printf("Select boot device:\n\n");
+    wait_threads();
 
     int subcount[ARRAY_SIZE(IPL.bev)];
     int menupos = 1;
@@ -306,13 +307,16 @@ run_bcv(struct ipl_entry_s *ie)
 void
 boot_prep(void)
 {
-    if (! CONFIG_BOOT)
+    if (! CONFIG_BOOT) {
+        wait_threads();
         return;
+    }
 
     // XXX - show available drives?
 
     // Allow user to modify BCV/IPL order.
     interactive_bootmenu();
+    wait_threads();
 
     // Setup floppy boot order
     int override = IPL.bev[0].subchoice;

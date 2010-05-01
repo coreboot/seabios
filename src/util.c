@@ -294,7 +294,9 @@ check_for_keystroke(void)
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
     br.ah = 1;
+    start_preempt();
     call16_int(0x16, &br);
+    finish_preempt();
     return !(br.flags & F_ZF);
 }
 
@@ -305,7 +307,9 @@ get_raw_keystroke(void)
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
+    start_preempt();
     call16_int(0x16, &br);
+    finish_preempt();
     return br.ah;
 }
 
@@ -318,7 +322,9 @@ get_keystroke(int msec)
             return get_raw_keystroke();
         if (msec <= 0)
             return -1;
+        start_preempt();
         biosusleep(50*1000);
+        finish_preempt();
         msec -= 50;
     }
 }

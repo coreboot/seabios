@@ -172,6 +172,20 @@ init_bios_tables(void)
     acpi_bios_init();
 }
 
+// Initialize hardware devices
+static void
+init_hw(void)
+{
+    usb_setup();
+    ps2port_setup();
+    lpt_setup();
+    serial_setup();
+
+    floppy_setup();
+    ata_setup();
+    ramdisk_setup();
+}
+
 // Main setup code.
 static void
 post(void)
@@ -180,6 +194,7 @@ post(void)
     init_ivt();
     init_bda();
     memmap_setup();
+    qemu_cfg_port_probe();
     ram_probe();
     malloc_setup();
     thread_setup();
@@ -189,15 +204,25 @@ post(void)
     timer_setup();
     mathcp_setup();
 
-    // Initialize smp
-    qemu_cfg_port_probe();
+    // Initialize mtrr
     smp_probe_setup();
     mtrr_setup();
-    smp_probe();
 
     // Initialize pci
     pci_setup();
     smm_init();
+
+    // Initialize internal tables
+    boot_setup();
+    drive_setup();
+    cdemu_setup();
+
+    // Start hardware initialization (if optionrom threading)
+    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
+        init_hw();
+
+    // Find and initialize other cpus
+    smp_probe();
 
     // Setup interfaces that option roms may need
     bios32_setup();
@@ -207,34 +232,17 @@ post(void)
     mouse_setup();
     init_bios_tables();
 
-    // Run vga option rom (if running synchronously)
-    if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS)
-        vga_setup();
+    // Run vga option rom
+    vga_setup();
 
-    // Initialize hardware devices
-    usb_setup();
-    ps2port_setup();
-    lpt_setup();
-    serial_setup();
-
-    boot_setup();
-    drive_setup();
-    cdemu_setup();
-    floppy_setup();
-    ata_setup();
-    ramdisk_setup();
+    // Do hardware initialization (if running synchronously)
+    if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS) {
+        init_hw();
+        wait_threads();
+    }
 
     // Run option roms
-    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS) {
-        // Run option roms while hw init still in progress.
-        vga_setup();
-        optionrom_setup();
-        wait_threads();
-    } else {
-        // Wait for hw init to finish and run non-vga option roms.
-        wait_threads();
-        optionrom_setup();
-    }
+    optionrom_setup();
 
     // Run BCVs and show optional boot menu
     boot_prep();

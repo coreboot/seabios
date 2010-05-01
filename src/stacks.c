@@ -193,6 +193,8 @@ __end_thread(struct thread_info *old)
     *old->pprev = old->next;
     free(old);
     dprintf(DEBUG_thread, "\\%08x/ End thread\n", (u32)old);
+    if (MainThread.next == &MainThread)
+        dprintf(1, "All threads complete.\n");
 }
 
 // Create a new thread and start executing 'func' in it.
@@ -299,7 +301,7 @@ finish_preempt(void)
     }
     CanPreempt = 0;
     releaseRTC();
-    dprintf(1, "Done preempt - %d checks\n", PreemptCount);
+    dprintf(9, "Done preempt - %d checks\n", PreemptCount);
     yield();
 }
 
