@@ -17,6 +17,7 @@ struct usb_pipe *keyboard_pipe VAR16VISIBLE;
  * Setup
  ****************************************************************/
 
+// Send USB HID protocol message.
 static int
 set_protocol(struct usb_pipe *pipe, u16 val)
 {
@@ -29,6 +30,7 @@ set_protocol(struct usb_pipe *pipe, u16 val)
     return send_default_control(pipe, &req, NULL);
 }
 
+// Send USB HID SetIdle request.
 static int
 set_idle(struct usb_pipe *pipe, int ms)
 {
@@ -93,6 +95,7 @@ usb_keyboard_setup(void)
  * Keyboard events
  ****************************************************************/
 
+// Mapping from USB key id to ps2 key sequence.
 static u16 KeyToScanCode[] VAR16 = {
     0x0000, 0x0000, 0x0000, 0x0000, 0x001e, 0x0030, 0x002e, 0x0020,
     0x0012, 0x0021, 0x0022, 0x0023, 0x0017, 0x0024, 0x0025, 0x0026,
@@ -109,6 +112,7 @@ static u16 KeyToScanCode[] VAR16 = {
     0x0048, 0x0049, 0x0052, 0x0053
 };
 
+// Mapping from USB modifier id to ps2 key sequence.
 static u16 ModifierToScanCode[] VAR16 = {
     //lcntl, lshift, lalt, lgui, rcntl, rshift, ralt, rgui
     0x001d, 0x002a, 0x0038, 0xe05b, 0xe01d, 0x0036, 0xe038, 0xe05c
@@ -116,12 +120,14 @@ static u16 ModifierToScanCode[] VAR16 = {
 
 #define RELEASEBIT 0x80
 
+// Format of USB event data
 struct keyevent {
     u8 modifiers;
     u8 reserved;
     u8 keys[6];
 };
 
+// Translate data from KeyToScanCode[] to calls to process_key().
 static void
 prockeys(u16 keys)
 {
@@ -139,6 +145,7 @@ prockeys(u16 keys)
     process_key(keys);
 }
 
+// Handle a USB key press/release event.
 static void
 procscankey(u8 key, u8 flags)
 {
@@ -149,6 +156,7 @@ procscankey(u8 key, u8 flags)
         prockeys(keys | flags);
 }
 
+// Handle a USB modifier press/release event.
 static void
 procmodkey(u8 mods, u8 flags)
 {
@@ -161,6 +169,7 @@ procmodkey(u8 mods, u8 flags)
         }
 }
 
+// Process USB keyboard data.
 static void noinline
 handle_key(struct keyevent *data)
 {
@@ -225,6 +234,7 @@ handle_key(struct keyevent *data)
     SET_EBDA2(ebda_seg, usbkey_last.data, old.data);
 }
 
+// Check for USB events pending - called periodically from timer interrupt.
 void
 usb_check_key(void)
 {
