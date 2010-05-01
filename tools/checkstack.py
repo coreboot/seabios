@@ -7,7 +7,7 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
 # Usage:
-#   objdump -m i386 -M i8086 -M suffix -d out/rom16.reloc.o | tools/checkstack.py
+#   objdump -m i386 -M i8086 -M suffix -d out/rom16.o | tools/checkstack.py
 
 import sys
 import re

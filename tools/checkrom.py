@@ -29,34 +29,27 @@ def main():
         finalsize = 128*1024
 
     # Sanity checks
-    c16e = syms['text16_end'] + 0xf0000
-    f16e = syms['final_text16_end']
-    if c16e != f16e:
-        print "Error!  16bit code moved during linking (0x%x vs 0x%x)" % (
-            c16e, f16e)
+    start = syms['code32flat_start']
+    end = syms['code32flat_end']
+    expend = layoutrom.BUILD_BIOS_ADDR + layoutrom.BUILD_BIOS_SIZE
+    if end != expend:
+        print "Error!  Code does not end at 0x%x (got 0x%x)" % (
+            expend, end)
         sys.exit(1)
     if datasize > finalsize:
         print "Error!  Code is too big (0x%x vs 0x%x)" % (
             datasize, finalsize)
         sys.exit(1)
-    actualdatasize = f16e - syms['code32flat_start']
-    if datasize != actualdatasize:
+    expdatasize = end - start
+    if datasize != expdatasize:
         print "Error!  Unknown extra data (0x%x vs 0x%x)" % (
-            datasize, actualdatasize)
+            datasize, expdatasize)
         sys.exit(1)
 
     # Print statistics
-    sizefree = syms['freespace_end'] - syms['freespace_start']
-    size16 = syms['text16_end'] - syms['data16_start']
-    size32seg = syms['code32seg_end'] - syms['code32seg_start']
-    size32flat = syms['code32flat_end'] - syms['code32flat_start']
-    totalc = size16+size32seg+size32flat
-    print "16bit size:           %d" % size16
-    print "32bit segmented size: %d" % size32seg
-    print "32bit flat size:      %d" % size32flat
     print "Total size: %d  Free space: %d  Percent used: %.1f%% (%dKiB rom)" % (
-        totalc, sizefree + finalsize - datasize
-        , (totalc / float(finalsize)) * 100.0
+        datasize, finalsize - datasize
+        , (datasize / float(finalsize)) * 100.0
         , finalsize / 1024)
 
     # Write final file

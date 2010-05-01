@@ -100,6 +100,9 @@ endef
 endif
 endif
 
+%.strip.o: %.o
+	@echo "  Stripping $@"
+	$(Q)$(STRIP) $< -o $@
 
 $(OUT)%.s: %.c
 	@echo "  Compiling to assembler $@"
@@ -135,27 +138,17 @@ $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds $(OUT)c
 	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32seg.o.objdump $(OUT)code32flat.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds
 
 
-$(OUT)rom16.o: $(OUT)code16.o $(OUT)rom32flat.o $(OUT)romlayout16.lds
-	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)romlayout16.lds $< -o $@
+$(OUT)rom16.o: $(OUT)code16.o $(OUT)romlayout16.lds
+	@echo "  Linking $@"
+	$(Q)$(LD) -T $(OUT)romlayout16.lds $< -o $@
 
 $(OUT)rom32seg.o: $(OUT)code32seg.o $(OUT)romlayout32seg.lds
-	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)romlayout32seg.lds $< -o $@
-
-$(OUT)rom32flat.o: $(OUT)code32flat.o $(OUT)romlayout32flat.lds
-	@echo "  Linking (no relocs) $@"
-	$(Q)$(LD) -r -T $(OUT)romlayout32flat.lds $< -o $@
-
-$(OUT)rom.o: $(OUT)rom16.o $(OUT)rom32seg.o $(OUT)rom32flat.o $(OUT)rombios16.lds  $(OUT)rombios32seg.lds $(OUT)rombios.lds
 	@echo "  Linking $@"
-	$(Q)$(LD) -T $(OUT)rombios16.lds $(OUT)rom16.o -R $(OUT)rom32seg.o -R $(OUT)rom32flat.o -o $(OUT)rom16.reloc.o
-	$(Q)$(STRIP) $(OUT)rom16.reloc.o -o $(OUT)rom16.final.o
-	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom16.o $(OUT)rom16.moved.o
-	$(Q)$(LD) -T $(OUT)rombios32seg.lds $(OUT)rom32seg.o -R $(OUT)rom16.o -R $(OUT)rom32flat.o -o $(OUT)rom32seg.reloc.o
-	$(Q)$(STRIP) $(OUT)rom32seg.reloc.o -o $(OUT)rom32seg.final.o
-	$(Q)$(OBJCOPY) --adjust-vma 0xf0000 $(OUT)rom32seg.o $(OUT)rom32seg.moved.o
-	$(Q)$(LD) -T $(OUT)rombios.lds $(OUT)rom16.final.o $(OUT)rom32seg.final.o $(OUT)rom32flat.o -R $(OUT)rom16.moved.o -R $(OUT)rom32seg.moved.o -o $@
+	$(Q)$(LD) -T $(OUT)romlayout32seg.lds $< -o $@
+
+$(OUT)rom.o: $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o $(OUT)romlayout32flat.lds
+	@echo "  Linking $@"
+	$(Q)$(LD) -T $(OUT)romlayout32flat.lds $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o -o $@
 
 $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 	@echo "  Prepping $@"
