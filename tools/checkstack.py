@@ -40,7 +40,9 @@ def calcmaxstack(funcs, funcaddr):
     seenbefore = {}
     totcalls = 0
     for insnaddr, calladdr, usage in info[6]:
-        callinfo = funcs[calladdr]
+        callinfo = funcs.get(calladdr)
+        if callinfo is None:
+            continue
         if callinfo[2] is None:
             calcmaxstack(funcs, calladdr)
         if callinfo[0] not in seenbefore:
@@ -74,19 +76,19 @@ def calcmaxstack(funcs, funcaddr):
 
 # Try to arrange output so that functions that call each other are
 # near each other.
-def orderfuncs(funcnames, availnames, funcs):
-    l = [(availnames[name][5], name)
-         for name in funcnames if name in availnames]
+def orderfuncs(funcaddrs, availfuncs):
+    l = [(availfuncs[funcaddr][5], availfuncs[funcaddr][0], funcaddr)
+         for funcaddr in funcaddrs if funcaddr in availfuncs]
     l.sort()
     l.reverse()
     out = []
     while l:
-        count, name = l.pop(0)
-        if name not in availnames:
+        count, name, funcaddr = l.pop(0)
+        if funcaddr not in availfuncs:
             continue
-        callnames = [funcs[calls[1]][0] for calls in availnames[name][6]]
-        del availnames[name]
-        out = out + orderfuncs(callnames, availnames, funcs) + [name]
+        calladdrs = [calls[1] for calls in availfuncs[funcaddr][6]]
+        del availfuncs[funcaddr]
+        out = out + orderfuncs(calladdrs, availfuncs) + [funcaddr]
     return out
 
 # Update function info with a found "yield" point.
@@ -188,30 +190,27 @@ def calc():
         #print "other", repr(line)
 
     # Calculate maxstackusage
-    bynames = {}
     for funcaddr, info in funcs.items():
-        bynames[info[0]] = info
         if info[2] is not None:
             continue
         calcmaxstack(funcs, funcaddr)
 
     # Sort functions for output
-    funcnames = bynames.keys()
-    funcnames = orderfuncs(funcnames, bynames.copy(), funcs)
+    funcaddrs = orderfuncs(funcs.keys(), funcs.copy())
 
     # Show all functions
     print OUTPUTDESC
-    for funcname in funcnames:
+    for funcaddr in funcaddrs:
         name, basicusage, maxusage, yieldusage, maxyieldusage, count, calls = \
-            bynames[funcname]
+            funcs[funcaddr]
         if maxusage == 0 and maxyieldusage is None:
             continue
         yieldstr = ""
         if maxyieldusage is not None:
             yieldstr = ",%d" % maxyieldusage
-        print "\n%s[%d,%d%s]:" % (funcname, basicusage, maxusage, yieldstr)
+        print "\n%s[%d,%d%s]:" % (name, basicusage, maxusage, yieldstr)
         for insnaddr, calladdr, stackusage in calls:
-            callinfo = funcs[calladdr]
+            callinfo = funcs.get(calladdr, ("<unknown>", 0, 0, 0, None))
             yieldstr = ""
             if callinfo[4] is not None:
                 yieldstr = ",%d" % (stackusage + callinfo[4])
