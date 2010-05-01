@@ -9,7 +9,7 @@
 #include "util.h" // debug_isr
 #include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
-#include "ps2port.h" // aux_command
+#include "ps2port.h" // ps2_mouse_command
 
 void
 mouse_setup(void)
@@ -19,6 +19,12 @@ mouse_setup(void)
     dprintf(3, "init mouse\n");
     // pointing device installed
     SETBITS_BDA(equipment_list_flags, 0x04);
+}
+
+static inline int
+mouse_command(int command, u8 *param)
+{
+    return ps2_mouse_command(command, param);
 }
 
 #define RET_SUCCESS      0x00
@@ -36,7 +42,7 @@ disable_mouse(u16 ebda_seg)
     ps2ctr &= ~I8042_CTR_AUXINT;
     SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
 
-    return aux_command(PSMOUSE_CMD_DISABLE, NULL);
+    return mouse_command(PSMOUSE_CMD_DISABLE, NULL);
 }
 
 // Disable Mouse
@@ -67,7 +73,7 @@ mouse_15c20001(struct bregs *regs)
     ps2ctr |= I8042_CTR_AUXINT;
     SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
 
-    int ret = aux_command(PSMOUSE_CMD_ENABLE, NULL);
+    int ret = mouse_command(PSMOUSE_CMD_ENABLE, NULL);
     if (ret)
         set_code_invalid(regs, RET_ENEEDRESEND);
     else
@@ -96,7 +102,7 @@ static void
 mouse_15c201(struct bregs *regs)
 {
     u8 param[2];
-    int ret = aux_command(PSMOUSE_CMD_RESET_BAT, param);
+    int ret = mouse_command(PSMOUSE_CMD_RESET_BAT, param);
     if (ret) {
         set_code_invalid(regs, RET_ENEEDRESEND);
         return;
@@ -116,7 +122,7 @@ mouse_15c202(struct bregs *regs)
         return;
     }
     u8 mouse_data1 = GET_GLOBAL(sample_rates[regs->bh]);
-    int ret = aux_command(PSMOUSE_CMD_SETRATE, &mouse_data1);
+    int ret = mouse_command(PSMOUSE_CMD_SETRATE, &mouse_data1);
     if (ret)
         set_code_invalid(regs, RET_ENEEDRESEND);
     else
@@ -137,7 +143,7 @@ mouse_15c203(struct bregs *regs)
         return;
     }
     u8 param = regs->bh;
-    int ret = aux_command(PSMOUSE_CMD_SETRES, &param);
+    int ret = mouse_command(PSMOUSE_CMD_SETRES, &param);
     if (ret)
         set_code_invalid(regs, RET_ENEEDRESEND);
     else
@@ -149,7 +155,7 @@ static void
 mouse_15c204(struct bregs *regs)
 {
     u8 param[2];
-    int ret = aux_command(PSMOUSE_CMD_GETID, param);
+    int ret = mouse_command(PSMOUSE_CMD_GETID, param);
     if (ret) {
         set_code_invalid(regs, RET_ENEEDRESEND);
         return;
@@ -179,7 +185,7 @@ static void
 mouse_15c20600(struct bregs *regs)
 {
     u8 param[3];
-    int ret = aux_command(PSMOUSE_CMD_GETINFO, param);
+    int ret = mouse_command(PSMOUSE_CMD_GETINFO, param);
     if (ret) {
         set_code_invalid(regs, RET_ENEEDRESEND);
         return;
@@ -194,7 +200,7 @@ mouse_15c20600(struct bregs *regs)
 static void
 mouse_15c20601(struct bregs *regs)
 {
-    int ret = aux_command(PSMOUSE_CMD_SETSCALE11, NULL);
+    int ret = mouse_command(PSMOUSE_CMD_SETSCALE11, NULL);
     if (ret)
         set_code_invalid(regs, RET_ENEEDRESEND);
     else
@@ -205,7 +211,7 @@ mouse_15c20601(struct bregs *regs)
 static void
 mouse_15c20602(struct bregs *regs)
 {
-    int ret = aux_command(PSMOUSE_CMD_SETSCALE21, NULL);
+    int ret = mouse_command(PSMOUSE_CMD_SETSCALE21, NULL);
     if (ret)
         set_code_invalid(regs, RET_ENEEDRESEND);
     else

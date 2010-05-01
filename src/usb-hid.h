@@ -7,7 +7,9 @@ struct usb_pipe;
 int usb_keyboard_init(struct usb_pipe *pipe
                       , struct usb_interface_descriptor *iface, int imax);
 void usb_keyboard_setup(void);
+inline int usb_kbd_active(void);
 void usb_check_key(void);
+inline int usb_kbd_command(int command, u8 *param);
 
 
 /****************************************************************

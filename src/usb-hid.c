@@ -9,6 +9,7 @@
 #include "config.h" // CONFIG_*
 #include "usb.h" // usb_ctrlrequest
 #include "biosvar.h" // GET_GLOBAL
+#include "ps2port.h" // ATKBD_CMD_GETID
 
 struct usb_pipe *keyboard_pipe VAR16VISIBLE;
 
@@ -250,5 +251,27 @@ usb_check_key(void)
         if (ret)
             break;
         handle_key(&data);
+    }
+}
+
+// Test if USB keyboard is active.
+inline int
+usb_kbd_active(void)
+{
+    return GET_GLOBAL(keyboard_pipe) != NULL;
+}
+
+// Handle a ps2 style keyboard command.
+inline int
+usb_kbd_command(int command, u8 *param)
+{
+    switch (command) {
+    case ATKBD_CMD_GETID:
+        // Return the id of a standard AT keyboard.
+        param[0] = 0xab;
+        param[1] = 0x83;
+        return 0;
+    default:
+        return -1;
     }
 }

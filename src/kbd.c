@@ -9,7 +9,8 @@
 #include "util.h" // debug_enter
 #include "config.h" // CONFIG_*
 #include "bregs.h" // struct bregs
-#include "ps2port.h" // kbd_command
+#include "ps2port.h" // ps2_kbd_command
+#include "usb-hid.h" // usb_kbd_command
 
 // Bit definitions for BDA kbd_flag[012]
 #define KF0_RSHIFT       (1<<0)
@@ -107,6 +108,14 @@ dequeue_key(struct bregs *regs, int incr, int extended)
     if (buffer_head >= buffer_end)
         buffer_head = buffer_start;
     SET_BDA(kbd_buf_head, buffer_head);
+}
+
+static inline int
+kbd_command(int command, u8 *param)
+{
+    if (usb_kbd_active())
+        return usb_kbd_command(command, param);
+    return ps2_kbd_command(command, param);
 }
 
 // read keyboard input

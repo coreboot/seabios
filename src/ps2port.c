@@ -8,7 +8,7 @@
 #include "ioport.h" // inb
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_EBDA
-#include "ps2port.h" // kbd_command
+#include "ps2port.h" // ps2_kbd_command
 #include "pic.h" // eoi_pic1
 
 
@@ -194,7 +194,7 @@ ps2_sendbyte(int aux, u8 command, int timeout)
 }
 
 static int
-ps2_command(int aux, int command, u8 *param)
+__ps2_command(int aux, int command, u8 *param)
 {
     int ret2;
     int receive = (command >> 8) & 0xf;
@@ -296,24 +296,26 @@ fail:
     return ret;
 }
 
-int
-kbd_command(int command, u8 *param)
+static int
+ps2_command(int aux, int command, u8 *param)
 {
-    dprintf(7, "kbd_command cmd=%x\n", command);
-    int ret = ps2_command(0, command, param);
+    dprintf(7, "ps2_command aux=%d cmd=%x\n", aux, command);
+    int ret = __ps2_command(aux, command, param);
     if (ret)
-        dprintf(2, "keyboard command %x failed\n", command);
+        dprintf(2, "ps2 command %x failed (aux=%d)\n", command, aux);
     return ret;
 }
 
 int
-aux_command(int command, u8 *param)
+ps2_kbd_command(int command, u8 *param)
 {
-    dprintf(7, "aux_command cmd=%x\n", command);
-    int ret = ps2_command(1, command, param);
-    if (ret)
-        dprintf(2, "mouse command %x failed\n", command);
-    return ret;
+    return ps2_command(0, command, param);
+}
+
+int
+ps2_mouse_command(int command, u8 *param)
+{
+    return ps2_command(1, command, param);
 }
 
 
@@ -413,7 +415,7 @@ keyboard_init(void *data)
 
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
-    ret = kbd_command(ATKBD_CMD_RESET_BAT, param);
+    ret = ps2_kbd_command(ATKBD_CMD_RESET_BAT, param);
     if (ret)
         return;
     if (param[0] != 0xaa) {
@@ -422,13 +424,13 @@ keyboard_init(void *data)
     }
 
     /* Disable keyboard */
-    ret = kbd_command(ATKBD_CMD_RESET_DIS, NULL);
+    ret = ps2_kbd_command(ATKBD_CMD_RESET_DIS, NULL);
     if (ret)
         return;
 
     // Set scancode command (mode 2)
     param[0] = 0x02;
-    ret = kbd_command(ATKBD_CMD_SSCANSET, param);
+    ret = ps2_kbd_command(ATKBD_CMD_SSCANSET, param);
     if (ret)
         return;
 
@@ -436,7 +438,7 @@ keyboard_init(void *data)
     SET_EBDA(ps2ctr, I8042_CTR_AUXDIS | I8042_CTR_XLATE | I8042_CTR_KBDINT);
 
     /* Enable keyboard */
-    ret = kbd_command(ATKBD_CMD_ENABLE, NULL);
+    ret = ps2_kbd_command(ATKBD_CMD_ENABLE, NULL);
     if (ret)
         return;
 
