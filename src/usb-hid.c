@@ -61,7 +61,7 @@ usb_kbd_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
         return -1;
 
     // Enable "boot" protocol.
-    int ret = set_protocol(pipe, 1);
+    int ret = set_protocol(pipe, 0);
     if (ret)
         return -1;
     // Periodically send reports to enable key repeat.
@@ -90,7 +90,7 @@ usb_mouse_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
         return -1;
 
     // Enable "boot" protocol.
-    int ret = set_protocol(pipe, 1);
+    int ret = set_protocol(pipe, 0);
     if (ret)
         return -1;
 
