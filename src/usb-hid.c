@@ -12,6 +12,7 @@
 #include "ps2port.h" // ATKBD_CMD_GETID
 
 struct usb_pipe *keyboard_pipe VAR16VISIBLE;
+struct usb_pipe *mouse_pipe VAR16VISIBLE;
 
 
 /****************************************************************
@@ -47,24 +48,17 @@ set_idle(struct usb_pipe *pipe, int ms)
 #define KEYREPEATWAITMS 500
 #define KEYREPEATMS 33
 
-int
-usb_keyboard_init(struct usb_pipe *pipe
-                  , struct usb_interface_descriptor *iface, int imax)
+static int
+usb_kbd_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_KEYBOARD)
         return -1;
     if (keyboard_pipe)
         // XXX - this enables the first found keyboard (could be random)
         return -1;
-    dprintf(2, "usb_keyboard_setup %p\n", pipe);
 
-    // Find intr in endpoint.
-    struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
-        iface, imax, USB_ENDPOINT_XFER_INT, USB_DIR_IN);
-    if (!epdesc || epdesc->wMaxPacketSize != 8) {
-        dprintf(1, "No keyboard intr in?\n");
+    if (epdesc->wMaxPacketSize != 8)
         return -1;
-    }
 
     // Enable "boot" protocol.
     int ret = set_protocol(pipe, 1);
@@ -83,12 +77,66 @@ usb_keyboard_init(struct usb_pipe *pipe
     return 0;
 }
 
-void
-usb_keyboard_setup(void)
+static int
+usb_mouse_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 {
-    if (! CONFIG_USB_KEYBOARD)
-        return;
-    keyboard_pipe = NULL;
+    if (! CONFIG_USB_MOUSE)
+        return -1;
+    if (mouse_pipe)
+        // XXX - this enables the first found mouse (could be random)
+        return -1;
+
+    if (epdesc->wMaxPacketSize < 3 || epdesc->wMaxPacketSize > 8)
+        return -1;
+
+    // Enable "boot" protocol.
+    int ret = set_protocol(pipe, 1);
+    if (ret)
+        return -1;
+
+    mouse_pipe = alloc_intr_pipe(pipe, epdesc);
+    if (!mouse_pipe)
+        return -1;
+
+    dprintf(1, "USB mouse initialized\n");
+    return 0;
+}
+
+// Initialize a found USB HID device (if applicable).
+int
+usb_hid_init(struct usb_pipe *pipe
+             , struct usb_interface_descriptor *iface, int imax)
+{
+    if (! CONFIG_USB_KEYBOARD || ! CONFIG_USB_MOUSE)
+        return -1;
+    dprintf(2, "usb_hid_init %p\n", pipe);
+
+    if (iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT)
+        // Doesn't support boot protocol.
+        return -1;
+
+    // Find intr in endpoint.
+    struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
+        iface, imax, USB_ENDPOINT_XFER_INT, USB_DIR_IN);
+    if (!epdesc) {
+        dprintf(1, "No usb hid intr in?\n");
+        return -1;
+    }
+
+    if (iface->bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
+        return usb_kbd_init(pipe, epdesc);
+    if (iface->bInterfaceProtocol == USB_INTERFACE_PROTOCOL_MOUSE)
+        return usb_mouse_init(pipe, epdesc);
+    return -1;
+}
+
+void
+usb_hid_setup(void)
+{
+    if (CONFIG_USB_KEYBOARD)
+        keyboard_pipe = NULL;
+    if (CONFIG_USB_MOUSE)
+        mouse_pipe = NULL;
 }
 
 
@@ -121,7 +169,7 @@ static u16 ModifierToScanCode[] VAR16 = {
 
 #define RELEASEBIT 0x80
 
-// Format of USB event data
+// Format of USB keyboard event data
 struct keyevent {
     u8 modifiers;
     u8 reserved;
@@ -235,8 +283,8 @@ handle_key(struct keyevent *data)
     SET_EBDA2(ebda_seg, usbkey_last.data, old.data);
 }
 
-// Check for USB events pending - called periodically from timer interrupt.
-void
+// Check if a USB keyboard event is pending and process it if so.
+static void
 usb_check_key(void)
 {
     if (! CONFIG_USB_KEYBOARD)
@@ -258,6 +306,8 @@ usb_check_key(void)
 inline int
 usb_kbd_active(void)
 {
+    if (! CONFIG_USB_KEYBOARD)
+        return 0;
     return GET_GLOBAL(keyboard_pipe) != NULL;
 }
 
@@ -265,6 +315,9 @@ usb_kbd_active(void)
 inline int
 usb_kbd_command(int command, u8 *param)
 {
+    if (! CONFIG_USB_KEYBOARD)
+        return -1;
+    dprintf(9, "usb keyboard cmd=%x\n", command);
     switch (command) {
     case ATKBD_CMD_GETID:
         // Return the id of a standard AT keyboard.
@@ -274,4 +327,101 @@ usb_kbd_command(int command, u8 *param)
     default:
         return -1;
     }
+}
+
+
+/****************************************************************
+ * Mouse events
+ ****************************************************************/
+
+// Format of USB mouse event data
+struct mouseevent {
+    u8 buttons;
+    u8 x, y;
+    u8 reserved[5];
+};
+
+// Process USB mouse data.
+static void
+handle_mouse(struct mouseevent *data)
+{
+    dprintf(9, "Got mouse b=%x x=%x y=%x\n", data->buttons, data->x, data->y);
+
+    s8 x = data->x, y = -data->y;
+    u8 flag = ((data->buttons & 0x7) | (1<<3)
+               | (x & 0x80 ? (1<<4) : 0) | (y & 0x80 ? (1<<5) : 0));
+    process_mouse(flag);
+    process_mouse(x);
+    process_mouse(y);
+}
+
+// Check if a USB mouse event is pending and process it if so.
+static void
+usb_check_mouse(void)
+{
+    if (! CONFIG_USB_MOUSE)
+        return;
+    struct usb_pipe *pipe = GET_GLOBAL(mouse_pipe);
+    if (!pipe)
+        return;
+
+    for (;;) {
+        struct mouseevent data;
+        int ret = usb_poll_intr(pipe, &data);
+        if (ret)
+            break;
+        handle_mouse(&data);
+    }
+}
+
+// Test if USB mouse is active.
+inline int
+usb_mouse_active(void)
+{
+    if (! CONFIG_USB_MOUSE)
+        return 0;
+    return GET_GLOBAL(mouse_pipe) != NULL;
+}
+
+// Handle a ps2 style mouse command.
+inline int
+usb_mouse_command(int command, u8 *param)
+{
+    if (! CONFIG_USB_MOUSE)
+        return -1;
+    dprintf(9, "usb mouse cmd=%x\n", command);
+    switch (command) {
+    case PSMOUSE_CMD_ENABLE:
+    case PSMOUSE_CMD_DISABLE:
+    case PSMOUSE_CMD_SETSCALE11:
+        return 0;
+    case PSMOUSE_CMD_SETSCALE21:
+    case PSMOUSE_CMD_SETRATE:
+    case PSMOUSE_CMD_SETRES:
+        // XXX
+        return 0;
+    case PSMOUSE_CMD_RESET_BAT:
+    case PSMOUSE_CMD_GETID:
+        // Return the id of a standard AT mouse.
+        param[0] = 0xaa;
+        param[1] = 0x00;
+        return 0;
+
+    case PSMOUSE_CMD_GETINFO:
+        param[0] = 0x00;
+        param[1] = 4;
+        param[2] = 100;
+        return 0;
+
+    default:
+        return -1;
+    }
+}
+
+// Check for USB events pending - called periodically from timer interrupt.
+void
+usb_check_event(void)
+{
+    usb_check_key();
+    usb_check_mouse();
 }

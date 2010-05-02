@@ -10,6 +10,7 @@
 #include "pic.h" // eoi_pic2
 #include "bregs.h" // struct bregs
 #include "ps2port.h" // ps2_mouse_command
+#include "usb-hid.h" // usb_mouse_command
 
 void
 mouse_setup(void)
@@ -24,6 +25,8 @@ mouse_setup(void)
 static inline int
 mouse_command(int command, u8 *param)
 {
+    if (usb_mouse_active())
+        return usb_mouse_command(command, param);
     return ps2_mouse_command(command, param);
 }
 

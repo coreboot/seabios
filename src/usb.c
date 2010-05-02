@@ -325,11 +325,9 @@ configure_usb_device(struct usb_pipe *pipe)
     // Determine if a driver exists for this device - only look at the
     // first interface of the first configuration.
     struct usb_interface_descriptor *iface = (void*)(&config[1]);
-    if ((iface->bInterfaceClass != USB_CLASS_HID
-         || iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT
-         || iface->bInterfaceProtocol != USB_INTERFACE_PROTOCOL_KEYBOARD)
-        && (iface->bInterfaceClass != USB_CLASS_MASS_STORAGE)
-        && (iface->bInterfaceClass != USB_CLASS_HUB))
+    if (iface->bInterfaceClass != USB_CLASS_HID
+        && iface->bInterfaceClass != USB_CLASS_MASS_STORAGE
+        && iface->bInterfaceClass != USB_CLASS_HUB)
         // Not a supported device.
         goto fail;
 
@@ -345,7 +343,7 @@ configure_usb_device(struct usb_pipe *pipe)
     else if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE)
         ret = usb_msc_init(pipe, iface, imax);
     else
-        ret = usb_keyboard_init(pipe, iface, imax);
+        ret = usb_hid_init(pipe, iface, imax);
     if (ret)
         goto fail;
 
@@ -425,7 +423,7 @@ usb_setup(void)
 
     dprintf(3, "init usb\n");
 
-    usb_keyboard_setup();
+    usb_hid_setup();
 
     // Look for USB controllers
     int ehcibdf = -1;

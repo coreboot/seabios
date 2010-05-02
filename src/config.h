@@ -44,6 +44,8 @@
 #define CONFIG_USB_HUB 1
 // Support USB keyboards
 #define CONFIG_USB_KEYBOARD 1
+// Support USB mice
+#define CONFIG_USB_MOUSE 1
 // Support PS2 ports (keyboard and mouse)
 #define CONFIG_PS2PORT 1
 // Support for IDE disk code
