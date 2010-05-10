@@ -197,6 +197,7 @@ struct drive_s {
 #define DTYPE_RAMDISK  0x04
 #define DTYPE_CDEMU    0x05
 #define DTYPE_USB      0x06
+#define DTYPE_VIRTIO   0x07
 
 #define MAXDESCSIZE 80
 

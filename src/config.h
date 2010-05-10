@@ -136,6 +136,9 @@
 #define CONFIG_SUBMODEL_ID   0x00
 #define CONFIG_BIOS_REVISION 0x01
 
+// Support boot from virtio storage
+#define CONFIG_VIRTIO_BLK 1
+
 // Various memory addresses used by the code.
 #define BUILD_STACK_ADDR          0x7000
 #define BUILD_S3RESUME_STACK_ADDR 0x1000

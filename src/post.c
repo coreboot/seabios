@@ -23,6 +23,7 @@
 #include "smbios.h" // smbios_init
 #include "paravirt.h" // qemu_cfg_port_probe
 #include "ps2port.h" // ps2port_setup
+#include "virtio-blk.h" // virtio_blk_setup
 
 void
 __set_irq(int vector, void *loc)
@@ -184,6 +185,7 @@ init_hw(void)
     floppy_setup();
     ata_setup();
     ramdisk_setup();
+    virtio_blk_setup();
 }
 
 // Main setup code.

@@ -11,6 +11,7 @@
 #include "util.h" // dprintf
 #include "ata.h" // process_ata_op
 #include "usb-msc.h" // process_usb_op
+#include "virtio-blk.h" // process_virtio_op
 
 struct drives_s Drives VAR16VISIBLE;
 
@@ -289,6 +290,8 @@ process_op(struct disk_op_s *op)
         return process_cdemu_op(op);
     case DTYPE_USB:
         return process_usb_op(op);
+    case DTYPE_VIRTIO:
+	return process_virtio_op(op);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;
