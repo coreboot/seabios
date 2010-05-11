@@ -1,6 +1,8 @@
 #ifndef _VIRTIO_PCI_H
 #define _VIRTIO_PCI_H
 
+#include "ioport.h" // inl
+
 /* A 32-bit r/o bitmask of the features supported by the host */
 #define VIRTIO_PCI_HOST_FEATURES        0
 
@@ -92,6 +94,7 @@ static inline void vp_del_vq(unsigned int ioaddr, int queue_index)
    outl(0, ioaddr + VIRTIO_PCI_QUEUE_PFN);
 }
 
+struct vring_virtqueue;
 int vp_find_vq(unsigned int ioaddr, int queue_index,
                struct vring_virtqueue *vq);
 #endif /* _VIRTIO_PCI_H_ */

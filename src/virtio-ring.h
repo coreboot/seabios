@@ -1,6 +1,9 @@
 #ifndef _VIRTIO_RING_H
 #define _VIRTIO_RING_H
 
+#include "types.h" // u64
+#include "memmap.h" // PAGE_SIZE
+
 #define PAGE_SHIFT 12
 #define PAGE_MASK  (PAGE_SIZE-1)
 

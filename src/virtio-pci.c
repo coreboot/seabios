@@ -17,6 +17,8 @@
 
 #include "virtio-ring.h"
 #include "virtio-pci.h"
+#include "config.h" // CONFIG_DEBUG_LEVEL
+#include "util.h" // dprintf
 
 int vp_find_vq(unsigned int ioaddr, int queue_index,
                struct vring_virtqueue *vq)

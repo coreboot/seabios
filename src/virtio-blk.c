@@ -10,7 +10,12 @@
 #include "util.h" // dprintf
 #include "pci.h" // foreachpci
 #include "config.h" // CONFIG_*
+#include "biosvar.h" // GET_GLOBAL
+#include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
+#include "pci_regs.h" // PCI_VENDOR_ID
+#include "boot.h" // add_bcv_internal
 #include "virtio-pci.h"
+#include "virtio-ring.h"
 #include "virtio-blk.h"
 #include "disk.h"
 

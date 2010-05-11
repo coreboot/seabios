@@ -420,7 +420,7 @@ smbios_init(void)
                       : 16384);
         add_struct(17, p, dev_mb, i);
     }
-        
+
     add_struct(19, p, 0, RamSize >> 20, 0);
     if (RamSizeOver4G)
         add_struct(19, p, 4096, RamSizeOver4G >> 20, 1);

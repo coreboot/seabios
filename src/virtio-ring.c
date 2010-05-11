@@ -18,10 +18,12 @@
 
 #include "virtio-ring.h"
 #include "virtio-pci.h"
+#include "biosvar.h" // GET_GLOBAL
+#include "util.h" // dprintf
 
 #define BUG() do {                                      \
         dprintf(1, "BUG: failure at %s:%d/%s()!\n",     \
-                __FILE__, __LINE__, __FUNCTION__);      \
+                __FILE__, __LINE__, __func__);          \
                 while(1);                               \
         } while (0)
 #define BUG_ON(condition) do { if (condition) BUG(); } while (0)
