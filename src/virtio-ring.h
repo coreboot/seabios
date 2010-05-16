@@ -72,7 +72,7 @@ struct vring {
          + PAGE_MASK) & ~PAGE_MASK) + \
          (sizeof(struct vring_used) + sizeof(struct vring_used_elem) * num))
 
-typedef unsigned char virtio_queue_t[PAGE_MASK + vring_size(MAX_QUEUE_NUM)];
+typedef unsigned char virtio_queue_t[vring_size(MAX_QUEUE_NUM)];
 
 struct vring_virtqueue {
    virtio_queue_t queue;

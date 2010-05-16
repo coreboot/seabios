@@ -58,7 +58,7 @@ virtio_blk_read(struct disk_op_s *op)
 
     /* Wait for reply */
     while (!vring_more_used(vq))
-        udelay(5);
+        usleep(5);
 
     /* Reclaim virtqueue element */
     vring_get_buf(vq, NULL);
@@ -104,7 +104,7 @@ virtio_blk_setup(void)
                 pci_bdf_to_dev(bdf));
         char *desc = malloc_tmphigh(MAXDESCSIZE);
         struct virtiodrive_s *vdrive_g = malloc_fseg(sizeof(*vdrive_g));
-        struct vring_virtqueue *vq = malloc_low(sizeof(*vq));
+        struct vring_virtqueue *vq = memalign_low(PAGE_SIZE, sizeof(*vq));
         if (!vdrive_g || !desc || !vq) {
             free(vdrive_g);
             free(desc);
@@ -131,7 +131,7 @@ virtio_blk_setup(void)
             free(desc);
             free(vq);
             dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
-                    pci_bdf_to_bus (bdf), pci_bdf_to_dev(bdf));
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
             continue;
         }
 
@@ -141,7 +141,7 @@ virtio_blk_setup(void)
         vdrive_g->drive.blksize = cfg.blk_size;
         vdrive_g->drive.sectors = cfg.capacity;
         dprintf(3, "virtio-blk %x:%x blksize=%d sectors=%u\n",
-                pci_bdf_to_bus (bdf), pci_bdf_to_dev(bdf),
+                pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
                 vdrive_g->drive.blksize, (u32)vdrive_g->drive.sectors);
 
         vdrive_g->drive.pchs.cylinders = cfg.cylinders;
@@ -160,4 +160,3 @@ virtio_blk_setup(void)
                       VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
     }
 }
-
