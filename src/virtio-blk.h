@@ -16,6 +16,8 @@ struct virtio_blk_config
     u32 opt_io_size;
 } __attribute__((packed));
 
+#define VIRTIO_BLK_F_BLK_SIZE 6
+
 /* These two define direction. */
 #define VIRTIO_BLK_T_IN		0
 #define VIRTIO_BLK_T_OUT	1

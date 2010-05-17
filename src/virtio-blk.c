@@ -127,22 +127,33 @@ virtio_blk_setup(void)
                       VIRTIO_CONFIG_S_DRIVER );
 
         if (vp_find_vq(ioaddr, 0, vdrive_g->vq) < 0 ) {
+            dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
+        next:
             free(vdrive_g);
             free(desc);
             free(vq);
-            dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
-                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
             continue;
         }
 
         struct virtio_blk_config cfg;
         vp_get(ioaddr, 0, &cfg, sizeof(cfg));
 
-        vdrive_g->drive.blksize = cfg.blk_size;
+        u32 f = vp_get_features(ioaddr);
+        vdrive_g->drive.blksize = (f & (1 << VIRTIO_BLK_F_BLK_SIZE)) ?
+            cfg.blk_size : DISK_SECTOR_SIZE;
+
         vdrive_g->drive.sectors = cfg.capacity;
         dprintf(3, "virtio-blk %x:%x blksize=%d sectors=%u\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
                 vdrive_g->drive.blksize, (u32)vdrive_g->drive.sectors);
+
+        if (vdrive_g->drive.blksize != DISK_SECTOR_SIZE) {
+            dprintf(1, "virtio-blk %x:%x block size %d is unsupported\n",
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
+                    vdrive_g->drive.blksize);
+            goto next;
+        }
 
         vdrive_g->drive.pchs.cylinders = cfg.cylinders;
         vdrive_g->drive.pchs.heads = cfg.heads;

@@ -105,6 +105,8 @@ static inline void vring_init(struct vring *vr,
    vr->desc = phys_to_virt(pa);
 
    vr->avail = (struct vring_avail *)&vr->desc[num];
+   /* disable interrupts */
+   vr->avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
 
    /* physical address of used must be page aligned */
 
