@@ -38,8 +38,10 @@
 int vring_more_used(struct vring_virtqueue *vq)
 {
     struct vring_used *used = GET_FLATPTR(vq->vring.used);
-    wmb();
-    return GET_FLATPTR(vq->last_used_idx) != GET_FLATPTR(used->idx);
+    int more = GET_FLATPTR(vq->last_used_idx) != GET_FLATPTR(used->idx);
+    /* Make sure ring reads are done after idx read above. */
+    smp_rmb();
+    return more;
 }
 
 /*
@@ -63,7 +65,6 @@ void vring_detach(struct vring_virtqueue *vq, unsigned int head)
     /* link it with free list and point to it */
 
     SET_FLATPTR(desc[i].next, GET_FLATPTR(vq->free_head));
-    wmb();
     SET_FLATPTR(vq->free_head, head);
 }
 
@@ -85,7 +86,6 @@ int vring_get_buf(struct vring_virtqueue *vq, unsigned int *len)
 //    BUG_ON(!vring_more_used(vq));
 
     elem = &used->ring[GET_FLATPTR(vq->last_used_idx) % GET_FLATPTR(vr->num)];
-    wmb();
     id = GET_FLATPTR(elem->id);
     if (len != NULL)
         *len = GET_FLATPTR(elem->len);
@@ -136,7 +136,6 @@ void vring_add_buf(struct vring_virtqueue *vq,
 
     av = (GET_FLATPTR(avail->idx) + num_added) % GET_FLATPTR(vr->num);
     SET_FLATPTR(avail->ring[av], head);
-    wmb();
 }
 
 void vring_kick(unsigned int ioaddr, struct vring_virtqueue *vq, int num_added)
@@ -144,9 +143,9 @@ void vring_kick(unsigned int ioaddr, struct vring_virtqueue *vq, int num_added)
     struct vring *vr = &vq->vring;
     struct vring_avail *avail = GET_FLATPTR(vr->avail);
 
-    wmb();
+    /* Make sure idx update is done after ring write. */
+    smp_wmb();
     SET_FLATPTR(avail->idx, GET_FLATPTR(avail->idx) + num_added);
 
-    mb();
     vp_notify(ioaddr, GET_FLATPTR(vq->queue_index));
 }

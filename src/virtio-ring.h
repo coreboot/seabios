@@ -9,8 +9,9 @@
 
 #define virt_to_phys(v) (unsigned long)(v)
 #define phys_to_virt(p) (void*)(p)
-#define wmb() barrier()
-#define mb() barrier()
+/* Compiler barrier is enough as an x86 CPU does not reorder reads or writes */
+#define smp_rmb() barrier()
+#define smp_wmb() barrier()
 
 /* Status byte for guest to report progress, and synchronize features. */
 /* We have seen device and processed generic fields (VIRTIO_CONFIG_F_VIRTIO) */
