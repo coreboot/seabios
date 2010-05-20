@@ -143,12 +143,10 @@ void vring_kick(unsigned int ioaddr, struct vring_virtqueue *vq, int num_added)
 {
     struct vring *vr = &vq->vring;
     struct vring_avail *avail = GET_FLATPTR(vr->avail);
-    struct vring_used *used = GET_FLATPTR(vq->vring.used);
 
     wmb();
     SET_FLATPTR(avail->idx, GET_FLATPTR(avail->idx) + num_added);
 
     mb();
-    if (!(GET_FLATPTR(used->flags) & VRING_USED_F_NO_NOTIFY))
-        vp_notify(ioaddr, GET_FLATPTR(vq->queue_index));
+    vp_notify(ioaddr, GET_FLATPTR(vq->queue_index));
 }
