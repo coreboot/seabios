@@ -20,7 +20,7 @@ SRC16=$(SRCBOTH) system.c disk.c apm.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
       lzmadecode.c usb-hub.c paravirt.c
-SRC32SEG=util.c output.c pci.c pcibios.c apm.c
+SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)

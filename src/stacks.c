@@ -8,6 +8,20 @@
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 
+// Thread info - stored at bottom of each thread stack - don't change
+// without also updating the inline assembler below.
+struct thread_info {
+    struct thread_info *next;
+    void *stackpos;
+    struct thread_info **pprev;
+};
+struct thread_info VAR16VISIBLE MainThread;
+
+
+/****************************************************************
+ * Low level helpers
+ ****************************************************************/
+
 static inline u32 getcr0(void) {
     u32 cr0;
     asm("movl %%cr0, %0" : "=r"(cr0));
@@ -77,6 +91,65 @@ call32(void *func)
     return 0;
 }
 
+// 16bit trampoline for enabling irqs from 32bit mode.
+ASM16(
+    "  .global trampoline_checkirqs\n"
+    "trampoline_checkirqs:\n"
+    "  rep ; nop\n"
+    "  lretw"
+    );
+
+static void
+check_irqs(void)
+{
+    if (MODESEGMENT) {
+        asm volatile(
+            "sti\n"
+            "nop\n"
+            "rep ; nop\n"
+            "cli\n"
+            "cld\n"
+            : : :"memory");
+        return;
+    }
+    extern void trampoline_checkirqs();
+    struct bregs br;
+    br.flags = F_IF;
+    br.code.seg = SEG_BIOS;
+    br.code.offset = (u32)&trampoline_checkirqs;
+    call16big(&br);
+}
+
+// 16bit trampoline for waiting for an irq from 32bit mode.
+ASM16(
+    "  .global trampoline_waitirq\n"
+    "trampoline_waitirq:\n"
+    "  sti\n"
+    "  hlt\n"
+    "  lretw"
+    );
+
+// Wait for next irq to occur.
+void
+wait_irq(void)
+{
+    if (MODESEGMENT) {
+        asm volatile("sti ; hlt ; cli ; cld": : :"memory");
+        return;
+    }
+    if (CONFIG_THREADS && MainThread.next != &MainThread) {
+        // Threads still active - do a yield instead.
+        yield();
+        return;
+    }
+    extern void trampoline_waitirq();
+    struct bregs br;
+    br.flags = 0;
+    br.code.seg = SEG_BIOS;
+    br.code.offset = (u32)&trampoline_waitirq;
+    call16big(&br);
+}
+
 
 /****************************************************************
  * Stack in EBDA
@@ -115,16 +188,6 @@ stack_hop(u32 eax, u32 edx, void *func)
  ****************************************************************/
 
 #define THREADSTACKSIZE 4096
-
-// Thread info - stored at bottom of each thread stack - don't change
-// without also updating the inline assembler below.
-struct thread_info {
-    struct thread_info *next;
-    void *stackpos;
-    struct thread_info **pprev;
-};
-
-struct thread_info VAR16VISIBLE MainThread;
 int VAR16VISIBLE CanPreempt;
 
 void

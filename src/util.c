@@ -57,35 +57,6 @@ __call16_int(struct bregs *callregs, u16 offset)
     call16(callregs);
 }
 
-// 16bit trampoline for enabling irqs from 32bit mode.
-ASM16(
-    "  .global trampoline_checkirqs\n"
-    "trampoline_checkirqs:\n"
-    "  rep ; nop\n"
-    "  lretw"
-    );
-
-void
-check_irqs(void)
-{
-    if (MODE16) {
-        asm volatile(
-            "sti\n"
-            "nop\n"
-            "rep ; nop\n"
-            "cli\n"
-            "cld\n"
-            : : :"memory");
-    } else {
-        extern void trampoline_checkirqs();
-        struct bregs br;
-        br.flags = F_IF;
-        br.code.seg = SEG_BIOS;
-        br.code.offset = (u32)&trampoline_checkirqs;
-        call16big(&br);
-    }
-}
-
 
 /****************************************************************
  * String ops

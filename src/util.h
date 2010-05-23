@@ -21,7 +21,7 @@ static inline void irq_enable(void)
 static inline unsigned long irq_save(void)
 {
     unsigned long flags;
-    asm volatile("pushfl ; popl %0" : "=g" (flags));
+    asm volatile("pushfl ; popl %0" : "=g" (flags): :"memory");
     irq_disable();
     return flags;
 }
@@ -36,12 +36,6 @@ static inline void cpu_relax(void)
     asm volatile("rep ; nop": : :"memory");
 }
 
-// Atomically enable irqs and sleep until an irq; then re-disable irqs.
-static inline void wait_irq(void)
-{
-    asm volatile("sti ; hlt ; cli ; cld": : :"memory");
-}
-
 static inline void nop(void)
 {
     asm volatile("nop");
@@ -49,12 +43,12 @@ static inline void nop(void)
 
 static inline void hlt(void)
 {
-    asm volatile("hlt");
+    asm volatile("hlt": : :"memory");
 }
 
 static inline void wbinvd(void)
 {
-    asm volatile("wbinvd");
+    asm volatile("wbinvd": : :"memory");
 }
 
 #define CPUID_MSR (1 << 5)
@@ -182,7 +176,6 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
-void check_irqs(void);
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
 u8 checksum(void *buf, u32 len);
 size_t strlen(const char *s);
@@ -209,6 +202,7 @@ extern struct thread_info MainThread;
 void thread_setup(void);
 struct thread_info *getCurThread(void);
 void yield(void);
+void wait_irq(void);
 void run_thread(void (*func)(void*), void *data);
 void wait_threads(void);
 struct mutex_s { u32 isLocked; };
