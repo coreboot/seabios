@@ -662,6 +662,8 @@ fail:
 int
 process_atapi_op(struct disk_op_s *op)
 {
+    if (!CONFIG_ATA)
+        return 0;
     switch (op->command) {
     case CMD_READ:
         return cdb_read(op);
@@ -984,8 +986,10 @@ ata_init(void)
 
         u32 port1, port2, irq;
         if (prog_if & 1) {
-            port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) & ~3;
-            port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_1) & ~3;
+            port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_0)
+                     & PCI_BASE_ADDRESS_IO_MASK);
+            port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_1)
+                     & PCI_BASE_ADDRESS_IO_MASK);
             irq = pciirq;
         } else {
             port1 = PORT_ATA1_CMD_BASE;
@@ -996,8 +1000,10 @@ ata_init(void)
         count++;
 
         if (prog_if & 4) {
-            port1 = pci_config_readl(bdf, PCI_BASE_ADDRESS_2) & ~3;
-            port2 = pci_config_readl(bdf, PCI_BASE_ADDRESS_3) & ~3;
+            port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_2)
+                     & PCI_BASE_ADDRESS_IO_MASK);
+            port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_3)
+                     & PCI_BASE_ADDRESS_IO_MASK);
             irq = pciirq;
         } else {
             port1 = PORT_ATA2_CMD_BASE;
