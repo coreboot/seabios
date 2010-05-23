@@ -68,6 +68,8 @@ virtio_blk_read(struct disk_op_s *op)
 int
 process_virtio_op(struct disk_op_s *op)
 {
+    if (! CONFIG_VIRTIO_BLK || CONFIG_COREBOOT)
+        return 0;
     switch (op->command) {
     case CMD_READ:
         return virtio_blk_read(op);
@@ -162,7 +164,7 @@ void
 virtio_blk_setup(void)
 {
     ASSERT32FLAT();
-    if (! CONFIG_VIRTIO_BLK)
+    if (! CONFIG_VIRTIO_BLK || CONFIG_COREBOOT)
         return;
 
     dprintf(3, "init virtio-blk\n");
