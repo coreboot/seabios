@@ -111,6 +111,8 @@ fail:
 int
 process_usb_op(struct disk_op_s *op)
 {
+    if (!CONFIG_USB_MSC)
+        return 0;
     switch (op->command) {
     case CMD_READ:
         return cdb_read(op);
