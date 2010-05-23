@@ -231,14 +231,18 @@ calc_future_timer_ticks(u32 count)
 {
     return (GET_BDA(timer_counter) + count + 1) % TICKS_PER_DAY;
 }
+
 // Return the timer value that is 'msecs' time in the future.
 u32
 calc_future_timer(u32 msecs)
 {
+    if (!msecs)
+        return GET_BDA(timer_counter);
     u32 kticks = DIV_ROUND_UP((u64)(msecs * PIT_TICK_RATE), PIT_TICK_INTERVAL);
     u32 ticks = DIV_ROUND_UP(kticks, 1000);
     return calc_future_timer_ticks(ticks);
 }
+
 // Check if the given timer value has passed.
 int
 check_timer(u32 end)

@@ -244,19 +244,6 @@ strtcpy(char *dest, const char *src, size_t len)
  * Keyboard calls
  ****************************************************************/
 
-// Wait for 'usec' microseconds using (with irqs enabled) using int 1586.
-void
-biosusleep(u32 usec)
-{
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
-    br.ah = 0x86;
-    br.cx = usec >> 16;
-    br.dx = usec;
-    call16_int(0x15, &br);
-}
-
 // See if a keystroke is pending in the keyboard buffer.
 static int
 check_for_keystroke(void)
@@ -265,9 +252,7 @@ check_for_keystroke(void)
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
     br.ah = 1;
-    start_preempt();
     call16_int(0x16, &br);
-    finish_preempt();
     return !(br.flags & F_ZF);
 }
 
@@ -278,9 +263,7 @@ get_raw_keystroke(void)
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
-    start_preempt();
     call16_int(0x16, &br);
-    finish_preempt();
     return br.ah;
 }
 
@@ -288,14 +271,12 @@ get_raw_keystroke(void)
 int
 get_keystroke(int msec)
 {
+    u32 end = calc_future_timer(msec);
     for (;;) {
         if (check_for_keystroke())
             return get_raw_keystroke();
-        if (msec <= 0)
+        if (check_timer(end))
             return -1;
-        start_preempt();
-        biosusleep(50*1000);
-        finish_preempt();
-        msec -= 50;
+        wait_irq();
     }
 }

@@ -193,7 +193,6 @@ void *memcpy(void *d1, const void *s1, size_t len);
 void iomemcpy(void *d, const void *s, u32 len);
 void *memmove(void *d, const void *s, size_t len);
 char *strtcpy(char *dest, const char *src, size_t len);
-void biosusleep(u32 usec);
 int get_keystroke(int msec);
 
 // stacks.c
