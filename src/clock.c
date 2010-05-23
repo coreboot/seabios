@@ -95,7 +95,7 @@ tscdelay(u64 diff)
 {
     u64 start = rdtscll();
     u64 end = start + diff;
-    while (!check_time(end))
+    while (!check_tsc(end))
         cpu_relax();
 }
 
@@ -104,7 +104,7 @@ tscsleep(u64 diff)
 {
     u64 start = rdtscll();
     u64 end = start + diff;
-    while (!check_time(end))
+    while (!check_tsc(end))
         yield();
 }
 
@@ -164,7 +164,7 @@ rtc_updating(void)
     for (;;) {
         if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
             return 0;
-        if (check_time(end))
+        if (check_tsc(end))
             // update-in-progress never transitioned to 0
             return -1;
         yield();

@@ -35,7 +35,7 @@ await_ide(u8 mask, u8 flags, u16 base, u16 timeout)
         u8 status = inb(base+ATA_CB_STAT);
         if ((status & mask) == flags)
             return status;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return -1;
         }
@@ -106,7 +106,7 @@ ata_reset(struct atadrive_s *adrive_g)
             if (inb(iobase1 + ATA_CB_DH) == ATA_CB_DH_DEV1)
                 break;
             // Change drive request failed to take effect - retry.
-            if (check_time(end)) {
+            if (check_tsc(end)) {
                 warn_timeout();
                 goto done;
             }
@@ -453,7 +453,7 @@ ata_dma_transfer(struct disk_op_s *op)
         if (status & BM_STATUS_IRQ)
             break;
         // Transfer in progress
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             // Timeout.
             warn_timeout();
             break;
@@ -850,7 +850,7 @@ powerup_await_non_bsy(u16 base)
             dprintf(4, "powerup IDE floating\n");
             return orstatus;
         }
-        if (check_time(SpinupEnd)) {
+        if (check_tsc(SpinupEnd)) {
             warn_timeout();
             return -1;
         }

@@ -214,7 +214,7 @@ wait_qh(struct usb_uhci_s *cntl, struct uhci_qh *qh)
     for (;;) {
         if (qh->element & UHCI_PTR_TERM)
             return 0;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             struct uhci_td *td = (void*)(qh->element & ~UHCI_PTR_BITS);
             dprintf(1, "Timeout on wait_qh %p (td=%p s=%x c=%x/%x)\n"
@@ -237,7 +237,7 @@ uhci_waittick(u16 iobase)
     for (;;) {
         if (inw(iobase + USBFRNUM) != startframe)
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return;
         }
@@ -417,7 +417,7 @@ wait_td(struct uhci_td *td)
         status = td->status;
         if (!(status & TD_CTRL_ACTIVE))
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return -1;
         }

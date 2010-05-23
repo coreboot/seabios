@@ -60,7 +60,7 @@ ohci_hub_reset(struct usbhub_s *hub, u32 port)
         if (!(sts & RH_PS_PRS))
             // XXX - need to ensure USB_TIME_DRSTR time in reset?
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             // Timeout.
             warn_timeout();
             ohci_hub_disconnect(hub, port);
@@ -129,7 +129,7 @@ start_ohci(struct usb_ohci_s *cntl, struct ohci_hcca *hcca)
         u32 status = readl(&cntl->regs->cmdstatus);
         if (! status & OHCI_HCR)
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return -1;
         }
@@ -246,7 +246,7 @@ wait_ed(struct ohci_ed *ed)
     for (;;) {
         if (ed->hwHeadP == ed->hwTailP)
             return 0;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return -1;
         }
@@ -265,7 +265,7 @@ ohci_waittick(struct usb_ohci_s *cntl)
     for (;;) {
         if (hcca->frame_no != startframe)
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return;
         }

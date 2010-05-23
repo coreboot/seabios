@@ -161,7 +161,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
             dprintf(1, "Discarding ps2 data %02x (status=%02x)\n", data, status);
         }
 
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             // Don't warn on second byte of a reset
             if (timeout > 100)
                 warn_timeout();

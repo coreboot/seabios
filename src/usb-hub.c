@@ -88,7 +88,7 @@ usb_hub_detect(struct usbhub_s *hub, u32 port)
         if (sts.wPortStatus & USB_PORT_STAT_CONNECTION)
             // Device connected.
             break;
-        if (check_time(end))
+        if (check_tsc(end))
             // No device found.
             return -1;
         msleep(5);
@@ -129,7 +129,7 @@ usb_hub_reset(struct usbhub_s *hub, u32 port)
             goto fail;
         if (!(sts.wPortStatus & USB_PORT_STAT_RESET))
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             goto fail;
         }

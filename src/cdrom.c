@@ -197,7 +197,7 @@ atapi_is_ready(struct disk_op_s *op)
     int in_progress = 0;
     u64 end = calc_future_tsc(5000);
     for (;;) {
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             dprintf(1, "read capacity failed\n");
             return -1;
         }

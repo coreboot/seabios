@@ -194,7 +194,7 @@ configure_ehci(void *data)
         cmd = readl(&cntl->regs->usbcmd);
         if (!(cmd & CMD_HCRESET))
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             goto fail;
         }
@@ -314,7 +314,7 @@ ehci_wait_qh(struct usb_ehci_s *cntl, struct ehci_qh *qh)
         if (qh->qtd_next & EHCI_PTR_TERM)
             // XXX - confirm
             return 0;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return -1;
         }
@@ -341,7 +341,7 @@ ehci_waittick(struct usb_ehci_s *cntl)
             if (!(cmd & CMD_IAAD))
                 break;
         }
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return;
         }
@@ -354,7 +354,7 @@ ehci_waittick(struct usb_ehci_s *cntl)
         sts = readl(&cntl->regs->usbsts);
         if (sts & STS_IAA)
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return;
         }
@@ -566,7 +566,7 @@ ehci_wait_td(struct ehci_qtd *td)
         status = td->token;
         if (!(status & QTD_STS_ACTIVE))
             break;
-        if (check_time(end)) {
+        if (check_tsc(end)) {
             warn_timeout();
             return -1;
         }
