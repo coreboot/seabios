@@ -307,8 +307,10 @@ map_pcirom(u16 bdf, u32 vendev)
 
     struct rom_header *rom = (void*)orig;
     for (;;) {
-        dprintf(5, "Inspecting possible rom at %p (dv=%08x bdf=%x)\n"
-                , rom, vendev, bdf);
+        dprintf(5, "Inspecting possible rom at %p (vd=%04x:%04x"
+                " bdf=%02x:%02x.%x)\n"
+                , rom, pci_vd_to_ven(vendev), pci_vd_to_dev(vendev)
+                , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
         if (rom->signature != OPTION_ROM_SIGNATURE) {
             dprintf(6, "No option rom signature (got %x)\n", rom->signature);
             goto fail;
@@ -319,7 +321,7 @@ map_pcirom(u16 bdf, u32 vendev)
             goto fail;
         }
 
-        u32 vd = (pci->device << 16) | pci->vendor;
+        u32 vd = pci_vd(pci->vendor, pci->device);
         if (vd == vendev && pci->type == PCIROM_CODETYPE_X86)
             // A match
             break;
@@ -346,9 +348,9 @@ static int
 init_pcirom(u16 bdf, int isvga)
 {
     u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
-    dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (dev/ven %08x)\n"
+    dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (vd %04x:%04x)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
-            , vendev);
+            , pci_vd_to_ven(vendev), pci_vd_to_dev(vendev));
     struct rom_header *rom = lookup_hardcode(vendev);
     if (! rom)
         rom = map_pcirom(bdf, vendev);

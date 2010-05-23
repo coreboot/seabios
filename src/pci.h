@@ -22,6 +22,16 @@ static inline u16 pci_to_bdf(int bus, int dev, int fn) {
     return (bus<<8) | (dev<<3) | fn;
 }
 
+static inline u32 pci_vd(u16 vendor, u16 device) {
+    return (device << 16) | vendor;
+}
+static inline u16 pci_vd_to_ven(u32 vd) {
+    return vd & 0xffff;
+}
+static inline u16 pci_vd_to_dev(u32 vd) {
+    return vd >> 16;
+}
+
 void pci_config_writel(u16 bdf, u32 addr, u32 val);
 void pci_config_writew(u16 bdf, u32 addr, u16 val);
 void pci_config_writeb(u16 bdf, u32 addr, u8 val);
