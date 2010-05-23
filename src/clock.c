@@ -54,7 +54,6 @@
  * TSC timer
  ****************************************************************/
 
-#define TICKS_PER_DAY (u32)((u64)60*60*24*PIT_TICK_RATE / PIT_TICK_INTERVAL)
 #define CALIBRATE_COUNT 0x800   // Approx 1.7ms
 
 u32 cpu_khz VAR16VISIBLE;
@@ -222,6 +221,31 @@ timer_setup(void)
 /****************************************************************
  * Standard clock functions
  ****************************************************************/
+
+#define TICKS_PER_DAY (u32)((u64)60*60*24*PIT_TICK_RATE / PIT_TICK_INTERVAL)
+
+// Calculate the timer value at 'count' number of full timer ticks in
+// the future.
+u32
+calc_future_timer_ticks(u32 count)
+{
+    return (GET_BDA(timer_counter) + count + 1) % TICKS_PER_DAY;
+}
+// Return the timer value that is 'msecs' time in the future.
+u32
+calc_future_timer(u32 msecs)
+{
+    u32 kticks = DIV_ROUND_UP((u64)(msecs * PIT_TICK_RATE), PIT_TICK_INTERVAL);
+    u32 ticks = DIV_ROUND_UP(kticks, 1000);
+    return calc_future_timer_ticks(ticks);
+}
+// Check if the given timer value has passed.
+int
+check_timer(u32 end)
+{
+    return (((GET_BDA(timer_counter) + TICKS_PER_DAY - end) % TICKS_PER_DAY)
+            < (TICKS_PER_DAY/2));
+}
 
 // get current clock count
 static void

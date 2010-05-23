@@ -9,31 +9,6 @@
 #include "util.h" // debug_enter
 #include "bregs.h" // struct bregs
 
-// Timers based on 18.2Hz clock irq.
-struct tick_timer_s {
-    u16 last_tick, remaining;
-};
-
-struct tick_timer_s
-initTickTimer(u16 count)
-{
-    struct tick_timer_s tt = {GET_BDA(timer_counter), count};
-    return tt;
-}
-
-int
-checkTickTimer(struct tick_timer_s *tt)
-{
-    u16 timer = GET_BDA(timer_counter);
-    if (tt->last_tick != timer) {
-        tt->last_tick = timer;
-        tt->last_tick--;
-        if (!tt->last_tick)
-            return 1;
-    }
-    return 0;
-}
-
 
 /****************************************************************
  * COM ports
@@ -117,7 +92,7 @@ handle_1401(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
-    struct tick_timer_s tt = initTickTimer(GET_BDA(com_timeout[regs->dx]));
+    u32 end = calc_future_timer_ticks(GET_BDA(com_timeout[regs->dx]));
     for (;;) {
         u8 lsr = inb(addr+SEROFF_LSR);
         if ((lsr & 0x60) == 0x60) {
@@ -127,7 +102,7 @@ handle_1401(struct bregs *regs)
             regs->ah = lsr;
             break;
         }
-        if (checkTickTimer(&tt)) {
+        if (check_timer(end)) {
             // Timed out - can't write data.
             regs->ah = lsr | 0x80;
             break;
@@ -144,7 +119,7 @@ handle_1402(struct bregs *regs)
     u16 addr = getComAddr(regs);
     if (!addr)
         return;
-    struct tick_timer_s tt = initTickTimer(GET_BDA(com_timeout[regs->dx]));
+    u32 end = calc_future_timer_ticks(GET_BDA(com_timeout[regs->dx]));
     for (;;) {
         u8 lsr = inb(addr+SEROFF_LSR);
         if (lsr & 0x01) {
@@ -153,7 +128,7 @@ handle_1402(struct bregs *regs)
             regs->ah = lsr;
             break;
         }
-        if (checkTickTimer(&tt)) {
+        if (check_timer(end)) {
             // Timed out - can't read data.
             regs->ah = lsr | 0x80;
             break;
@@ -261,7 +236,7 @@ handle_1700(struct bregs *regs)
     if (!addr)
         return;
 
-    struct tick_timer_s tt = initTickTimer(GET_BDA(lpt_timeout[regs->dx]));
+    u32 end = calc_future_timer_ticks(GET_BDA(lpt_timeout[regs->dx]));
 
     outb(regs->al, addr);
     u8 val8 = inb(addr+2);
@@ -276,7 +251,7 @@ handle_1700(struct bregs *regs)
             regs->ah = v ^ 0x48;
             break;
         }
-        if (checkTickTimer(&tt)) {
+        if (check_timer(end)) {
             // Timeout
             regs->ah = (v ^ 0x48) | 0x01;
             break;
