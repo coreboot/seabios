@@ -119,23 +119,6 @@ add_e820(u64 start, u64 size, u32 type)
     //dump_map();
 }
 
-// Find highest area of 32bit memory that can hold the given size.
-struct e820entry *
-find_high_area(u32 size)
-{
-    int i;
-    for (i=e820_count-1; i>=0; i--) {
-        struct e820entry *e = &e820_list[i];
-        u64 end = e->start + e->size;
-        if (e->type != E820_RAM || end > 0xffffffff || e->size < size)
-            continue;
-        if (end < 1024*1024 + size)
-            break;
-        return e;
-    }
-    return NULL;
-}
-
 // Prep for memmap stuff - init bios table locations.
 void
 memmap_setup(void)
