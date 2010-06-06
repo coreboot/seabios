@@ -21,7 +21,7 @@ mptable_init(void)
     dprintf(3, "init MPTable\n");
 
     // Config structure in temp area.
-    struct mptable_config_s *config = malloc_tmphigh(32*1024);
+    struct mptable_config_s *config = malloc_tmp(32*1024);
     if (!config) {
         warn_noalloc();
         return;
@@ -67,7 +67,7 @@ mptable_init(void)
     int entrycount = cpu - cpus;
 
     // PCI buses
-    struct mpt_bus *bus = (void*)cpu;
+    struct mpt_bus *buses = (void*)cpu, *bus = buses;
     int bdf, max, lastbus = -1;
     foreachpci(bdf, max) {
         int curbus = pci_bdf_to_bus(bdf);
@@ -79,7 +79,6 @@ mptable_init(void)
         bus->busid = curbus;
         memcpy(bus->bustype, "PCI   ", sizeof(bus->bustype));
         bus++;
-        entrycount++;
     }
 
     /* isa bus */
@@ -88,11 +87,12 @@ mptable_init(void)
     bus->type = MPT_TYPE_BUS;
     isabusid = bus->busid = lastbus + 1;
     memcpy(bus->bustype, "ISA   ", sizeof(bus->bustype));
-    entrycount++;
+    bus++;
+    entrycount += bus - buses;
 
     /* ioapic */
     u8 ioapic_id = CountCPUs;
-    struct mpt_ioapic *ioapic = (void*)&bus[1];
+    struct mpt_ioapic *ioapic = (void*)bus;
     memset(ioapic, 0, sizeof(*ioapic));
     ioapic->type = MPT_TYPE_IOAPIC;
     ioapic->apicid = ioapic_id;
@@ -151,7 +151,6 @@ mptable_init(void)
         }
         intsrc++;
     }
-    entrycount += intsrc - intsrcs;
 
     /* Local interrupt assignment */
     intsrc->type = MPT_TYPE_LOCAL_INT;
@@ -162,7 +161,6 @@ mptable_init(void)
     intsrc->dstapic = 0; /* BSP == APIC #0 */
     intsrc->dstirq = 0; /* LINTIN0 */
     intsrc++;
-    entrycount++;
 
     intsrc->type = MPT_TYPE_LOCAL_INT;
     intsrc->irqtype = 1; /* NMI */
@@ -172,7 +170,7 @@ mptable_init(void)
     intsrc->dstapic = 0; /* BSP == APIC #0 */
     intsrc->dstirq = 1; /* LINTIN1 */
     intsrc++;
-    entrycount++;
+    entrycount += intsrc - intsrcs;
 
     // Finalize config structure.
     int length = (void*)intsrc - (void*)config;
