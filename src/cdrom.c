@@ -17,6 +17,9 @@
  * CD emulation
  ****************************************************************/
 
+struct drive_s *cdemu_drive_gf VAR16VISIBLE;
+u8 *cdemu_buf_fl VAR16VISIBLE;
+
 static int
 cdemu_read(struct disk_op_s *op)
 {
@@ -30,12 +33,12 @@ cdemu_read(struct disk_op_s *op)
 
     int count = op->count;
     op->count = 0;
-    u8 *cdbuf_far = (void*)offsetof(struct extended_bios_data_area_s, cdemu_buf);
+    u8 *cdbuf_fl = GET_GLOBAL(cdemu_buf_fl);
 
     if (op->lba & 3) {
         // Partial read of first block.
         dop.count = 1;
-        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
+        dop.buf_fl = cdbuf_fl;
         int ret = process_op(&dop);
         if (ret)
             return ret;
@@ -43,10 +46,7 @@ cdemu_read(struct disk_op_s *op)
         if (thiscount > count)
             thiscount = count;
         count -= thiscount;
-        memcpy_far(FLATPTR_TO_SEG(op->buf_fl)
-                   , (void*)FLATPTR_TO_OFFSET(op->buf_fl)
-                   , ebda_seg, cdbuf_far + (op->lba & 3) * 512
-                   , thiscount * 512);
+        memcpy_fl(op->buf_fl, cdbuf_fl + (op->lba & 3) * 512, thiscount * 512);
         op->buf_fl += thiscount * 512;
         op->count += thiscount;
         dop.lba++;
@@ -69,14 +69,12 @@ cdemu_read(struct disk_op_s *op)
     if (count) {
         // Partial read on last block.
         dop.count = 1;
-        dop.buf_fl = MAKE_FLATPTR(ebda_seg, cdbuf_far);
+        dop.buf_fl = cdbuf_fl;
         int ret = process_op(&dop);
         if (ret)
             return ret;
         u8 thiscount = count;
-        memcpy_far(FLATPTR_TO_SEG(op->buf_fl)
-                   , (void*)FLATPTR_TO_OFFSET(op->buf_fl)
-                   , ebda_seg, cdbuf_far, thiscount * 512);
+        memcpy_fl(op->buf_fl, cdbuf_fl, thiscount * 512);
         op->count += thiscount;
     }
 
@@ -106,22 +104,27 @@ process_cdemu_op(struct disk_op_s *op)
     }
 }
 
-struct drive_s *cdemu_drive_gf VAR16VISIBLE;
-
 void
 cdemu_setup(void)
 {
     if (!CONFIG_CDROM_EMU)
         return;
+    cdemu_drive_gf = NULL;
+    cdemu_buf_fl = NULL;
+    if (!Drives.cdcount)
+        return;
 
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    if (! drive_g) {
+    u8 *buf = malloc_low(CDROM_SECTOR_SIZE);
+    if (!drive_g || !buf) {
         warn_noalloc();
-        cdemu_drive_gf = NULL;
+        free(drive_g);
+        free(buf);
         return;
     }
-    memset(drive_g, 0, sizeof(*drive_g));
     cdemu_drive_gf = drive_g;
+    cdemu_buf_fl = buf;
+    memset(drive_g, 0, sizeof(*drive_g));
     drive_g->type = DTYPE_CDEMU;
     drive_g->blksize = DISK_SECTOR_SIZE;
     drive_g->sectors = (u64)-1;

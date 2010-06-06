@@ -217,7 +217,6 @@ post(void)
     // Initialize internal tables
     boot_setup();
     drive_setup();
-    cdemu_setup();
 
     // Start hardware initialization (if optionrom threading)
     if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
@@ -250,6 +249,7 @@ post(void)
     boot_prep();
 
     // Finalize data structures before boot
+    cdemu_setup();
     pmm_finalize();
     malloc_finalize();
     memmap_finalize();

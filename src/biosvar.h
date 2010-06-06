@@ -234,8 +234,6 @@ struct extended_bios_data_area_s {
 
     // Stack space available for code that needs it.
     u8 extra_stack[512] __aligned(8);
-
-    u8 cdemu_buf[2048 * !!CONFIG_CDROM_EMU];
 } PACKED;
 
 // The initial size and location of EBDA
