@@ -121,7 +121,6 @@ addSpace(struct zone_s *zone, void *start, void *end)
     tempdetail.datainfo.pprev = pprev;
     tempdetail.datainfo.data = tempdetail.datainfo.dataend = start;
     tempdetail.datainfo.allocend = end;
-    tempdetail.handle = PMM_DEFAULT_HANDLE;
     struct allocdetail_s *tempdetailp = MAKE_FLATPTR(GET_SEG(SS), &tempdetail);
     SET_PMMVAR(*pprev, &tempdetailp->datainfo);
     if (info)
@@ -144,11 +143,8 @@ addSpace(struct zone_s *zone, void *start, void *end)
     }
 
     // Replace temp alloc space with final alloc space
-    SET_PMMVAR(detail->datainfo.next, tempdetail.datainfo.next);
-    SET_PMMVAR(detail->datainfo.pprev, tempdetail.datainfo.pprev);
-    SET_PMMVAR(detail->datainfo.data, tempdetail.datainfo.data);
-    SET_PMMVAR(detail->datainfo.dataend, tempdetail.datainfo.dataend);
-    SET_PMMVAR(detail->datainfo.allocend, tempdetail.datainfo.allocend);
+    memcpy_fl(&detail->datainfo, &tempdetailp->datainfo
+              , sizeof(detail->datainfo));
     SET_PMMVAR(detail->handle, PMM_DEFAULT_HANDLE);
 
     SET_PMMVAR(*tempdetail.datainfo.pprev, &detail->datainfo);
@@ -275,15 +271,9 @@ relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
         // EBDA isn't at end of ram - give up.
         return -1;
 
-    // Do copy
-    if (MODESEGMENT)
-        memcpy_far(FLATPTR_TO_SEG(newebda)
-                   , (void*)FLATPTR_TO_OFFSET(newebda)
-                   , FLATPTR_TO_SEG(oldebda)
-                   , (void*)FLATPTR_TO_OFFSET(oldebda)
-                   , ebda_size * 1024);
-    else
-        memmove((void*)newebda, (void*)oldebda, ebda_size * 1024);
+    // Do copy (this assumes memcpy copies forward - otherwise memmove
+    // is needed)
+    memcpy_fl((void*)newebda, (void*)oldebda, ebda_size * 1024);
 
     // Update indexes
     dprintf(1, "ebda moved from %x to %x\n", oldebda, newebda);

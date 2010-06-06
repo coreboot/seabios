@@ -165,6 +165,17 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
         : "cc", "memory");
 }
 
+inline void
+memcpy_fl(void *d_fl, const void *s_fl, size_t len)
+{
+    if (MODESEGMENT)
+        memcpy_far(FLATPTR_TO_SEG(d_fl), (void*)FLATPTR_TO_OFFSET(d_fl)
+                   , FLATPTR_TO_SEG(s_fl), (void*)FLATPTR_TO_OFFSET(s_fl)
+                   , len);
+    else
+        memcpy(d_fl, s_fl, len);
+}
+
 void *
 #undef memcpy
 memcpy(void *d1, const void *s1, size_t len)

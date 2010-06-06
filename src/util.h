@@ -186,6 +186,7 @@ inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
 void *memset(void *s, int c, size_t n);
 inline void memcpy_far(u16 d_seg, void *d_far
                        , u16 s_seg, const void *s_far, size_t len);
+void memcpy_fl(void *d_fl, const void *s_fl, size_t len);
 void *memcpy(void *d1, const void *s1, size_t len);
 #if MODESEGMENT == 0
 #define memcpy __builtin_memcpy
