@@ -184,11 +184,13 @@ $(OUT)vgabios.bin: $(OUT)vgabios.bin.raw tools/buildrom.py
 	$(Q)./tools/buildrom.py $< $@
 
 ####### dsdt build rules
-src/acpi-dsdt.hex: src/acpi-dsdt.dsl
+src/%.hex: src/%.dsl
 	@echo "Compiling DSDT"
-	$(Q)cpp -P $< > $(OUT)acpi-dsdt.dsl.i
-	$(Q)iasl -tc -p $@ $(OUT)acpi-dsdt.dsl.i
-	$(Q)rm $(OUT)acpi-dsdt.dsl.i
+	$(Q)cpp -P $< > $(OUT)$*.dsl.i
+	$(Q)iasl -tc -p $(OUT)$* $(OUT)$*.dsl.i
+	$(Q)cp $(OUT)$*.hex $@
+
+$(OUT)ccode32flat.o: src/acpi-dsdt.hex
 
 ####### Generic rules
 clean:
