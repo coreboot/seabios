@@ -17,6 +17,23 @@ int VGAbdf VAR16VISIBLE;
 // Coreboot board detected.
 int CBmainboard VAR16VISIBLE;
 
+#define MAINBOARD_DEFAULT	0
+#define KONTRON_986LCD_M	1
+#define GETAC_P470		2
+#define RODA_RK886EX		3
+
+struct mainboards {
+	char *vendor;
+	char *device;
+	int type;
+};
+
+struct mainboards mainboard_list[] = {
+	{ "KONTRON",	"986LCD-M",	KONTRON_986LCD_M },
+	{ "GETAC",	"P470",		GETAC_P470 },
+	{ "RODA",	"RK886EX",	RODA_RK886EX },
+};
+
 static void
 handle_155fXX(struct bregs *regs)
 {
@@ -154,6 +171,89 @@ via_155f(struct bregs *regs)
     }
 }
 
+/****************************************************************
+ * Intel VGA hooks
+ ****************************************************************/
+#define BOOT_DISPLAY_DEFAULT	(0)
+#define BOOT_DISPLAY_CRT        (1 << 0)
+#define BOOT_DISPLAY_TV         (1 << 1)
+#define BOOT_DISPLAY_EFP        (1 << 2)
+#define BOOT_DISPLAY_LCD        (1 << 3)
+#define BOOT_DISPLAY_CRT2       (1 << 4)
+#define BOOT_DISPLAY_TV2        (1 << 5)
+#define BOOT_DISPLAY_EFP2       (1 << 6)
+#define BOOT_DISPLAY_LCD2       (1 << 7)
+ 
+static void
+roda_155f35(struct bregs *regs)
+{
+    regs->ax = 0x005f;
+    // regs->cl = BOOT_DISPLAY_DEFAULT;
+    regs->cl = BOOT_DISPLAY_LCD;
+    set_success(regs);
+}
+
+static void
+roda_155f40(struct bregs *regs)
+{
+    u8 display_id;
+    //display_id = inb(0x60f) & 0x0f; // Correct according to Crete
+    display_id = 3; // Correct according to empirical studies
+
+    regs->ax = 0x005f;
+    regs->cl = display_id;
+    set_success(regs);
+}
+
+static void
+roda_155f(struct bregs *regs)
+{
+    dprintf(1, "Executing RODA specific interrupt %02x.\n", regs->al);
+    switch (regs->al) {
+    case 0x35: roda_155f35(regs); break;
+    case 0x40: roda_155f40(regs); break;
+    default:   handle_155fXX(regs); break;
+    }
+}
+
+static void
+kontron_155f35(struct bregs *regs)
+{
+    regs->ax = 0x005f;
+    regs->cl = BOOT_DISPLAY_CRT;
+    set_success(regs);
+}
+
+static void
+kontron_155f40(struct bregs *regs)
+{
+    u8 display_id;
+    display_id = 3;
+
+    regs->ax = 0x005f;
+    regs->cl = display_id;
+    set_success(regs);
+}
+
+static void
+kontron_155f(struct bregs *regs)
+{
+    dprintf(1, "Executing Kontron specific interrupt %02x.\n", regs->al);
+    switch (regs->al) {
+    case 0x35: kontron_155f35(regs); break;
+    case 0x40: kontron_155f40(regs); break;
+    default:   handle_155fXX(regs); break;
+    }
+}
+
+static void
+getac_155f(struct bregs *regs)
+{
+    dprintf(1, "Executing Getac specific interrupt %02x.\n", regs->al);
+    switch (regs->al) {
+    default:   handle_155fXX(regs); break;
+    }
+}
 
 /****************************************************************
  * Entry and setup
@@ -163,19 +263,33 @@ via_155f(struct bregs *regs)
 void
 handle_155f(struct bregs *regs)
 {
+    int bdf, cbmb;
+
     if (! CONFIG_VGAHOOKS)
         goto fail;
 
-    // XXX - Use this value later.
-    //int cbmb = GET_GLOBAL(CBmainboard);
+    cbmb = GET_GLOBAL(CBmainboard);
 
-    int bdf = GET_GLOBAL(VGAbdf);
-    if (bdf < 0)
-        goto fail;
-    u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
-    if (vendor == PCI_VENDOR_ID_VIA) {
-        via_155f(regs);
-        return;
+    switch (cbmb) {
+    case KONTRON_986LCD_M:
+        kontron_155f(regs);
+	return;
+    case RODA_RK886EX:
+        roda_155f(regs);
+	return;
+    case GETAC_P470:
+        getac_155f(regs);
+	return;
+    case MAINBOARD_DEFAULT:
+        bdf = GET_GLOBAL(VGAbdf);
+        if (bdf < 0)
+            goto fail;
+
+        u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
+        if (vendor == PCI_VENDOR_ID_VIA) {
+            via_155f(regs);
+            return;
+        }
     }
 
 fail:
@@ -186,8 +300,18 @@ fail:
 void
 vgahook_setup(const char *vendor, const char *part)
 {
+    int i;
+
     if (! CONFIG_VGAHOOKS)
         return;
-    // XXX - add support later.
+
     CBmainboard = 0;
+    for (i=0; i<(sizeof(mainboard_list) / sizeof(mainboard_list[0])); i++) {
+        if (!strcmp(vendor, mainboard_list[i].vendor) &&
+            !strcmp(part, mainboard_list[i].device)) {
+            printf("Found mainboard %s %s\n", vendor, part); 
+            CBmainboard = mainboard_list[i].type;
+            break;
+        }
+    }
 }
