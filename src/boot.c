@@ -29,9 +29,9 @@ boot_setup(void)
     dprintf(3, "init boot device ordering\n");
 
     memset(&IPL, 0, sizeof(IPL));
+    struct ipl_entry_s *ie = &IPL.bev[0];
 
     // Floppy drive
-    struct ipl_entry_s *ie = &IPL.bev[0];
     ie->type = IPL_TYPE_FLOPPY;
     ie->description = "Floppy";
     ie++;
@@ -44,7 +44,7 @@ boot_setup(void)
     // CDROM
     if (CONFIG_CDROM_BOOT) {
         ie->type = IPL_TYPE_CDROM;
-        ie->description = "CD-Rom";
+        ie->description = "DVD/CD";
         ie++;
     }
 
@@ -191,7 +191,7 @@ menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
     int i;
     for (i = 0; i < Drives.cdcount; i++) {
         struct drive_s *drive_g = getDrive(EXTTYPE_CD, i);
-        printf("%d. CD-Rom [%s]\n", menupos + i, drive_g->desc);
+        printf("%d. DVD/CD [%s]\n", menupos + i, drive_g->desc);
     }
     return Drives.cdcount;
 }

@@ -774,7 +774,7 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     snprintf(adrive_g->drive.desc, MAXDESCSIZE, "ata%d-%d: %s ATAPI-%d %s"
              , adrive_g->chan_gf->chanid, adrive_g->slave
              , extract_model(model, buffer), extract_version(buffer)
-             , (iscd ? "CD-Rom/DVD-Rom" : "Device"));
+             , (iscd ? "DVD/CD" : "Device"));
     dprintf(1, "%s\n", adrive_g->drive.desc);
 
     // fill cdidmap
