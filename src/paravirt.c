@@ -306,38 +306,48 @@ u16 qemu_cfg_get_max_cpus(void)
     return cnt;
 }
 
-u16 qemu_cfg_first_file(QemuCfgFile *entry)
-{
-    memset(entry, 0, sizeof(*entry));
-    return qemu_cfg_next_file(entry);
-}
+static QemuCfgFile LastFile;
 
-u16 qemu_cfg_next_file(QemuCfgFile *entry)
+static u32
+__cfg_next_prefix_file(const char *prefix, int prefixlen, u32 prevselect)
 {
-    u16 last = ntohs(entry->select);
-    u32 e,count;
-
     if (!qemu_cfg_present)
         return 0;
 
+    u32 count;
     qemu_cfg_read_entry(&count, QEMU_CFG_FILE_DIR, sizeof(count));
-    for (e = 0; e < ntohl(count); e++) {
-        qemu_cfg_read((void*)entry, sizeof(*entry));
-        if (ntohs(entry->select) > last) {
-            return 1;
-        }
+    count = ntohl(count);
+    u32 e;
+    for (e = 0; e < count; e++) {
+        qemu_cfg_read((void*)&LastFile, sizeof(LastFile));
+        u32 select = ntohs(LastFile.select);
+        if (select <= prevselect)
+            continue;
+        if (memcmp(prefix, LastFile.name, prefixlen) == 0)
+            return select;
     }
     return 0;
 }
 
-u32 qemu_cfg_read_file(QemuCfgFile *entry, void *dst, u32 maxlen)
+u32 qemu_cfg_next_prefix_file(const char *prefix, u32 prevselect)
 {
-    int len = ntohl(entry->size);
+    return __cfg_next_prefix_file(prefix, strlen(prefix), prevselect);
+}
 
+u32 qemu_cfg_find_file(const char *name)
+{
+    return __cfg_next_prefix_file(name, strlen(name) + 1, 0);
+}
+
+int qemu_cfg_read_file(u32 select, void *dst, u32 maxlen)
+{
     if (!qemu_cfg_present)
-        return 0;
+        return -1;
+    if (!select || select != ntohs(LastFile.select))
+        return -1;
+    int len = ntohl(LastFile.size);
     if (len > maxlen)
-        return 0;
-    qemu_cfg_read_entry(dst, ntohs(entry->select), len);
+        return -1;
+    qemu_cfg_read_entry(dst, select, len);
     return len;
 }

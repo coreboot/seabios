@@ -338,13 +338,12 @@ void smp_probe_setup(void);
 
 // coreboot.c
 struct cbfs_file;
+struct cbfs_file *cbfs_finddatafile(const char *fname);
 struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);
 u32 cbfs_datasize(struct cbfs_file *file);
 const char *cbfs_filename(struct cbfs_file *file);
 int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen);
-int cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev);
 void cbfs_run_payload(struct cbfs_file *file);
-
 void coreboot_copy_biostable(void);
 void coreboot_setup(void);
 

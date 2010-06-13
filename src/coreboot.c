@@ -459,7 +459,7 @@ cbfs_findprefix(const char *prefix, struct cbfs_file *last)
 }
 
 // Find a file with the given filename (possibly with ".lzma" extension).
-static struct cbfs_file *
+struct cbfs_file *
 cbfs_finddatafile(const char *fname)
 {
     int fnlen = strlen(fname);
@@ -529,19 +529,6 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
     }
     iomemcpy(dst, src, size);
     return size;
-}
-
-// Find and copy the optionrom for the given vendor/device id.
-int
-cbfs_copy_optionrom(void *dst, u32 maxlen, u32 vendev)
-{
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
-        return -1;
-
-    char fname[17];
-    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
-             , (u16)vendev, vendev >> 16);
-    return cbfs_copyfile(cbfs_finddatafile(fname), dst, maxlen);
 }
 
 struct cbfs_payload_segment {

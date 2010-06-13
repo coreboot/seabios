@@ -68,9 +68,27 @@ struct e820_reservation {
     u32 type;
 };
 
-u16 qemu_cfg_first_file(QemuCfgFile *entry);
-u16 qemu_cfg_next_file(QemuCfgFile *entry);
-u32 qemu_cfg_read_file(QemuCfgFile *entry, void *dst, u32 maxlen);
+u32 qemu_cfg_next_prefix_file(const char *prefix, u32 prevselect);
+u32 qemu_cfg_find_file(const char *name);
+int qemu_cfg_read_file(u32 select, void *dst, u32 maxlen);
+
+// Wrappers that select cbfs or qemu_cfg file interface.
+static inline u32 romfile_findprefix(const char *prefix, u32 previd) {
+    if (CONFIG_COREBOOT)
+        return (u32)cbfs_findprefix(prefix, (void*)previd);
+    return qemu_cfg_next_prefix_file(prefix, previd);
+}
+static inline u32 romfile_find(const char *name) {
+    if (CONFIG_COREBOOT)
+        return (u32)cbfs_finddatafile(name);
+    return qemu_cfg_find_file(name);
+}
+static inline int romfile_copy(u32 fileid, void *dst, u32 maxlen) {
+    if (CONFIG_COREBOOT)
+        return cbfs_copyfile((void*)fileid, dst, maxlen);
+    return qemu_cfg_read_file(fileid, dst, maxlen);
+}
+
 u32 qemu_cfg_e820_entries(void);
 void* qemu_cfg_e820_load_next(void *addr);
 

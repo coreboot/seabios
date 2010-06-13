@@ -227,44 +227,28 @@ lookup_hardcode(u32 vendev)
         && ((OPTIONROM_VENDEV_2 >> 16)
             | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
         return copy_rom((void*)OPTIONROM_MEM_2);
-    int ret = cbfs_copy_optionrom((void*)RomEnd, max_rom() - RomEnd, vendev);
-    if (ret < 0)
+    char fname[17];
+    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
+             , pci_vd_to_ven(vendev), pci_vd_to_dev(vendev));
+    int ret = romfile_copy(romfile_find(fname), (void*)RomEnd
+                           , max_rom() - RomEnd);
+    if (ret <= 0)
         return NULL;
     return (void*)RomEnd;
 }
 
 // Run all roms in a given CBFS directory.
 static void
-run_cbfs_roms(const char *prefix, int isvga)
+run_file_roms(const char *prefix, int isvga)
 {
-    struct cbfs_file *file = NULL;
+    u32 file = 0;
     for (;;) {
-        file = cbfs_findprefix(prefix, file);
+        file = romfile_findprefix(prefix, file);
         if (!file)
             break;
-        int ret = cbfs_copyfile(file, (void*)RomEnd, max_rom() - RomEnd);
+        int ret = romfile_copy(file, (void*)RomEnd, max_rom() - RomEnd);
         if (ret > 0)
             init_optionrom((void*)RomEnd, 0, isvga);
-    }
-}
-
-static void
-run_qemu_roms(const char *prefix, int isvga)
-{
-    struct QemuCfgFile entry;
-    int plen = strlen(prefix);
-    int rc, dlen;
-
-    rc = qemu_cfg_first_file(&entry);
-    while (rc > 0) {
-        if (memcmp(prefix, entry.name, plen) == 0) {
-            dlen = qemu_cfg_read_file(&entry, (void*)RomEnd, max_rom() - RomEnd);
-            if (dlen > 0) {
-                dprintf(1, "init qemu rom: %s\n", entry.name);
-                init_optionrom((void*)RomEnd, 0, isvga);
-            }
-        }
-        rc = qemu_cfg_next_file(&entry);
     }
 }
 
@@ -397,8 +381,7 @@ optionrom_setup(void)
         }
 
         // Find and deploy CBFS roms not associated with a device.
-        run_cbfs_roms("genroms/", 0);
-        run_qemu_roms("genroms/", 0);
+        run_file_roms("genroms/", 0);
     }
 
     // All option roms found and deployed - now build BEV/BCV vectors.
@@ -457,8 +440,7 @@ vga_setup(void)
             init_pcirom(bdf, 1);
 
         // Find and deploy CBFS vga-style roms not associated with a device.
-        run_cbfs_roms("vgaroms/", 1);
-        run_qemu_roms("vgaroms/", 1);
+        run_file_roms("vgaroms/", 1);
     }
 
     if (RomEnd == BUILD_ROM_START) {
