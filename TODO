@@ -15,9 +15,6 @@ cvs tip.
 Possibly move code from entry_post in romlayout.S to C code in
 handle_resume and always call 16bit C code on post.
 
-Audit all sti/cli calls.  Audit all call16 calls to make sure flags is
-setup properly with respect to irqs.
-
 The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
 
@@ -28,8 +25,6 @@ Possibly add option to eliminate tsc based delays on emulators.
 
 Add a kconfig style configuration program instead of requiring users
 to modify config.h.
-
-Support usb booting?  Support usb mice?
 
 Add a graphical boot splash screen?
 
