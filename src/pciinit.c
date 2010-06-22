@@ -14,6 +14,8 @@
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
 
+static void pci_bios_init_device_in_bus(int bus);
+
 static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
 static u32 pci_bios_prefmem_addr;
@@ -172,6 +174,95 @@ static void pci_bios_init_bridges(u16 bdf)
     }
 }
 
+#define PCI_IO_ALIGN            4096
+#define PCI_IO_SHIFT            8
+#define PCI_MEMORY_ALIGN        (1UL << 20)
+#define PCI_MEMORY_SHIFT        16
+#define PCI_PREF_MEMORY_ALIGN   (1UL << 20)
+#define PCI_PREF_MEMORY_SHIFT   16
+
+static void pci_bios_init_device_bridge(u16 bdf)
+{
+    pci_bios_allocate_region(bdf, 0);
+    pci_bios_allocate_region(bdf, 1);
+    pci_bios_allocate_region(bdf, PCI_ROM_SLOT);
+
+    u32 io_old = pci_bios_io_addr;
+    u32 mem_old = pci_bios_mem_addr;
+    u32 prefmem_old = pci_bios_prefmem_addr;
+
+    /* IO BASE is assumed to be 16 bit */
+    pci_bios_io_addr = ALIGN(pci_bios_io_addr, PCI_IO_ALIGN);
+    pci_bios_mem_addr = ALIGN(pci_bios_mem_addr, PCI_MEMORY_ALIGN);
+    pci_bios_prefmem_addr =
+        ALIGN(pci_bios_prefmem_addr, PCI_PREF_MEMORY_ALIGN);
+
+    u32 io_base = pci_bios_io_addr;
+    u32 mem_base = pci_bios_mem_addr;
+    u32 prefmem_base = pci_bios_prefmem_addr;
+
+    u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
+    if (secbus > 0) {
+        pci_bios_init_device_in_bus(secbus);
+    }
+
+    pci_bios_io_addr = ALIGN(pci_bios_io_addr, PCI_IO_ALIGN);
+    pci_bios_mem_addr = ALIGN(pci_bios_mem_addr, PCI_MEMORY_ALIGN);
+    pci_bios_prefmem_addr =
+        ALIGN(pci_bios_prefmem_addr, PCI_PREF_MEMORY_ALIGN);
+
+    u32 io_end = pci_bios_io_addr;
+    if (io_end == io_base) {
+        pci_bios_io_addr = io_old;
+        io_base = 0xffff;
+        io_end = 1;
+    }
+    pci_config_writeb(bdf, PCI_IO_BASE, io_base >> PCI_IO_SHIFT);
+    pci_config_writew(bdf, PCI_IO_BASE_UPPER16, 0);
+    pci_config_writeb(bdf, PCI_IO_LIMIT, (io_end - 1) >> PCI_IO_SHIFT);
+    pci_config_writew(bdf, PCI_IO_LIMIT_UPPER16, 0);
+
+    u32 mem_end = pci_bios_mem_addr;
+    if (mem_end == mem_base) {
+        pci_bios_mem_addr = mem_old;
+        mem_base = 0xffffffff;
+        mem_end = 1;
+    }
+    pci_config_writew(bdf, PCI_MEMORY_BASE, mem_base >> PCI_MEMORY_SHIFT);
+    pci_config_writew(bdf, PCI_MEMORY_LIMIT, (mem_end -1) >> PCI_MEMORY_SHIFT);
+
+    u32 prefmem_end = pci_bios_prefmem_addr;
+    if (prefmem_end == prefmem_base) {
+        pci_bios_prefmem_addr = prefmem_old;
+        prefmem_base = 0xffffffff;
+        prefmem_end = 1;
+    }
+    pci_config_writew(bdf, PCI_PREF_MEMORY_BASE,
+                      prefmem_base >> PCI_PREF_MEMORY_SHIFT);
+    pci_config_writew(bdf, PCI_PREF_MEMORY_LIMIT,
+                      (prefmem_end - 1) >> PCI_PREF_MEMORY_SHIFT);
+    pci_config_writel(bdf, PCI_PREF_BASE_UPPER32, 0);
+    pci_config_writel(bdf, PCI_PREF_LIMIT_UPPER32, 0);
+
+    dprintf(1, "PCI: br io   = [0x%x, 0x%x)\n", io_base, io_end);
+    dprintf(1, "PCI: br mem  = [0x%x, 0x%x)\n", mem_base, mem_end);
+    dprintf(1, "PCI: br pref = [0x%x, 0x%x)\n", prefmem_base, prefmem_end);
+
+    u16 cmd = pci_config_readw(bdf, PCI_COMMAND);
+    cmd &= ~PCI_COMMAND_IO;
+    if (io_end > io_base) {
+        cmd |= PCI_COMMAND_IO;
+    }
+    cmd &= ~PCI_COMMAND_MEMORY;
+    if (mem_end > mem_base || prefmem_end > prefmem_base) {
+        cmd |= PCI_COMMAND_MEMORY;
+    }
+    cmd |= PCI_COMMAND_MASTER;
+    pci_config_writew(bdf, PCI_COMMAND, cmd);
+
+    pci_config_maskw(bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_SERR);
+}
+
 static void pci_bios_init_device(u16 bdf)
 {
     int class;
@@ -216,6 +307,9 @@ static void pci_bios_init_device(u16 bdf)
             pci_set_io_region_addr(bdf, 0, 0x80800000);
         }
         break;
+    case PCI_CLASS_BRIDGE_PCI:
+        pci_bios_init_device_bridge(bdf);
+        break;
     default:
         /* default memory mappings */
         pci_bios_allocate_regions(bdf);
@@ -244,6 +338,14 @@ static void pci_bios_init_device(u16 bdf)
         pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
         pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
         pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
+    }
+}
+
+static void pci_bios_init_device_in_bus(int bus)
+{
+    int bdf, max;
+    foreachpci_in_bus(bdf, max, bus) {
+        pci_bios_init_device(bdf);
     }
 }
 
@@ -334,7 +436,5 @@ pci_setup(void)
     foreachpci(bdf, max) {
         pci_bios_init_bridges(bdf);
     }
-    foreachpci(bdf, max) {
-        pci_bios_init_device(bdf);
-    }
+    pci_bios_init_device_in_bus(0 /* host bus */);
 }
