@@ -37,6 +37,50 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
     dprintf(1, "region %d: 0x%08x\n", region_num, addr);
 }
 
+static void pci_bios_allocate_region(u16 bdf, int region_num)
+{
+    u32 *paddr;
+    int ofs;
+    if (region_num == PCI_ROM_SLOT)
+        ofs = PCI_ROM_ADDRESS;
+    else
+        ofs = PCI_BASE_ADDRESS_0 + region_num * 4;
+
+    u32 old = pci_config_readl(bdf, ofs);
+    u32 mask;
+    if (region_num == PCI_ROM_SLOT) {
+        mask = PCI_ROM_ADDRESS_MASK;
+        pci_config_writel(bdf, ofs, mask);
+    } else {
+        if (old & PCI_BASE_ADDRESS_SPACE_IO)
+            mask = PCI_BASE_ADDRESS_IO_MASK;
+        else
+            mask = PCI_BASE_ADDRESS_MEM_MASK;
+        pci_config_writel(bdf, ofs, ~0);
+    }
+    u32 val = pci_config_readl(bdf, ofs);
+    pci_config_writel(bdf, ofs, old);
+
+    if (val != 0) {
+        u32 size = (~(val & mask)) + 1;
+        if (val & PCI_BASE_ADDRESS_SPACE_IO)
+            paddr = &pci_bios_io_addr;
+        else
+            paddr = &pci_bios_mem_addr;
+        *paddr = ALIGN(*paddr, size);
+        pci_set_io_region_addr(bdf, region_num, *paddr);
+        *paddr += size;
+    }
+}
+
+static void pci_bios_allocate_regions(u16 bdf)
+{
+    int i;
+    for (i = 0; i < PCI_NUM_REGIONS; i++) {
+        pci_bios_allocate_region(bdf, i);
+    }
+}
+
 /* return the global irq number corresponding to a given device irq
    pin. We could also use the bus number to have a more precise
    mapping. */
@@ -78,8 +122,7 @@ static void pci_bios_init_bridges(u16 bdf)
 static void pci_bios_init_device(u16 bdf)
 {
     int class;
-    u32 *paddr;
-    int i, pin, pic_irq, vendor_id, device_id;
+    int pin, pic_irq, vendor_id, device_id;
 
     class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
     vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
@@ -94,7 +137,7 @@ static void pci_bios_init_device(u16 bdf)
             /* PIIX3/PIIX4 IDE */
             pci_config_writew(bdf, 0x40, 0x8000); // enable IDE0
             pci_config_writew(bdf, 0x42, 0x8000); // enable IDE1
-            goto default_map;
+            pci_bios_allocate_regions(bdf);
         } else {
             /* IDE: we map it as in ISA mode */
             pci_set_io_region_addr(bdf, 0, PORT_ATA1_CMD_BASE);
@@ -121,41 +164,8 @@ static void pci_bios_init_device(u16 bdf)
         }
         break;
     default:
-    default_map:
         /* default memory mappings */
-        for (i = 0; i < PCI_NUM_REGIONS; i++) {
-            int ofs;
-            if (i == PCI_ROM_SLOT)
-                ofs = PCI_ROM_ADDRESS;
-            else
-                ofs = PCI_BASE_ADDRESS_0 + i * 4;
-
-            u32 old = pci_config_readl(bdf, ofs);
-            u32 mask;
-            if (i == PCI_ROM_SLOT) {
-                mask = PCI_ROM_ADDRESS_MASK;
-                pci_config_writel(bdf, ofs, mask);
-            } else {
-                if (old & PCI_BASE_ADDRESS_SPACE_IO)
-                    mask = PCI_BASE_ADDRESS_IO_MASK;
-                else
-                    mask = PCI_BASE_ADDRESS_MEM_MASK;
-                pci_config_writel(bdf, ofs, ~0);
-            }
-            u32 val = pci_config_readl(bdf, ofs);
-            pci_config_writel(bdf, ofs, old);
-
-            if (val != 0) {
-                u32 size = (~(val & mask)) + 1;
-                if (val & PCI_BASE_ADDRESS_SPACE_IO)
-                    paddr = &pci_bios_io_addr;
-                else
-                    paddr = &pci_bios_mem_addr;
-                *paddr = ALIGN(*paddr, size);
-                pci_set_io_region_addr(bdf, i, *paddr);
-                *paddr += size;
-            }
-        }
+        pci_bios_allocate_regions(bdf);
         break;
     }
 
