@@ -27,7 +27,11 @@ static u32 pci_bar(u16 bdf, int region_num)
     if (region_num != PCI_ROM_SLOT) {
         return PCI_BASE_ADDRESS_0 + region_num * 4;
     }
-    return PCI_ROM_ADDRESS;
+
+#define PCI_HEADER_TYPE_MULTI_FUNCTION 0x80
+    u8 type = pci_config_readb(bdf, PCI_HEADER_TYPE);
+    type &= ~PCI_HEADER_TYPE_MULTI_FUNCTION;
+    return type == PCI_HEADER_TYPE_BRIDGE ? PCI_ROM_ADDRESS1 : PCI_ROM_ADDRESS;
 }
 
 static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
