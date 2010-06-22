@@ -16,6 +16,7 @@
 
 static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
+static u32 pci_bios_prefmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
 static u8 pci_irqs[4] = {
     10, 10, 11, 11
@@ -66,21 +67,54 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
     u32 val = pci_config_readl(bdf, ofs);
     pci_config_writel(bdf, ofs, old);
 
+    u32 size = (~(val & mask)) + 1;
     if (val != 0) {
-        u32 size = (~(val & mask)) + 1;
-        if (val & PCI_BASE_ADDRESS_SPACE_IO)
+        if (val & PCI_BASE_ADDRESS_SPACE_IO) {
             paddr = &pci_bios_io_addr;
-        else
+            if (ALIGN(*paddr, size) + size >= 64 * 1024) {
+                dprintf(1,
+                        "io region of (bdf 0x%x bar %d) can't be mapped.\n",
+                        bdf, region_num);
+                size = 0;
+            }
+        } else if ((val & PCI_BASE_ADDRESS_MEM_PREFETCH) &&
+                 /* keep behaviour on bus = 0 */
+                 pci_bdf_to_bus(bdf) != 0 &&
+                 /* If pci_bios_prefmem_addr == 0, keep old behaviour */
+                 pci_bios_prefmem_addr != 0) {
+            paddr = &pci_bios_prefmem_addr;
+            if (ALIGN(*paddr, size) + size >= BUILD_PCIPREFMEM_END) {
+                dprintf(1,
+                        "prefmem region of (bdf 0x%x bar %d) can't be mapped. "
+                        "decrease BUILD_PCIMEM_SIZE and recompile. size %x\n",
+                        bdf, region_num, BUILD_PCIPREFMEM_SIZE);
+                size = 0;
+            }
+        } else {
             paddr = &pci_bios_mem_addr;
-        *paddr = ALIGN(*paddr, size);
-        pci_set_io_region_addr(bdf, region_num, *paddr);
-        *paddr += size;
+            if (ALIGN(*paddr, size) + size >= BUILD_PCIMEM_END) {
+                dprintf(1,
+                        "mem region of (bdf 0x%x bar %d) can't be mapped. "
+                        "increase BUILD_PCIMEM_SIZE and recompile. size %x\n",
+                        bdf, region_num, BUILD_PCIMEM_SIZE);
+                size = 0;
+            }
+        }
+        if (size > 0) {
+            *paddr = ALIGN(*paddr, size);
+            pci_set_io_region_addr(bdf, region_num, *paddr);
+            *paddr += size;
+        }
     }
 
     int is_64bit = !(val & PCI_BASE_ADDRESS_SPACE_IO) &&
         (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64;
     if (is_64bit) {
-        pci_config_writel(bdf, ofs + 4, 0);
+        if (size > 0) {
+            pci_config_writel(bdf, ofs + 4, 0);
+        } else {
+            pci_config_writel(bdf, ofs + 4, ~0);
+        }
     }
     return is_64bit;
 }
@@ -220,6 +254,7 @@ pci_setup(void)
 
     pci_bios_io_addr = 0xc000;
     pci_bios_mem_addr = BUILD_PCIMEM_START;
+    pci_bios_prefmem_addr = BUILD_PCIPREFMEM_START;
 
     int bdf, max;
     foreachpci(bdf, max) {

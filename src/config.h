@@ -161,7 +161,24 @@
 // 32KB for shadow ram copying (works around emulator deficiencies)
 #define BUILD_BIOS_TMP_ADDR       0x30000
 #define BUILD_MAX_HIGHMEM         0xe0000000
+
+// Support old pci mem assignment behaviour
+//#define CONFIG_OLD_PCIMEM_ASSIGNMENT    1
+#if CONFIG_OLD_PCIMEM_ASSIGNMENT
 #define BUILD_PCIMEM_START        0xf0000000
+#define BUILD_PCIMEM_SIZE         (BUILD_PCIMEM_END - BUILD_PCIMEM_START)
+#define BUILD_PCIMEM_END          0xfec00000    /* IOAPIC is mapped at */
+#define BUILD_PCIPREFMEM_START    0
+#define BUILD_PCIPREFMEM_SIZE     0
+#define BUILD_PCIPREFMEM_END      0
+#else
+#define BUILD_PCIMEM_START        0xf0000000
+#define BUILD_PCIMEM_SIZE         0x08000000    /* half- of pci window */
+#define BUILD_PCIMEM_END          (BUILD_PCIMEM_START + BUILD_PCIMEM_SIZE)
+#define BUILD_PCIPREFMEM_START    BUILD_PCIMEM_END
+#define BUILD_PCIPREFMEM_SIZE     (BUILD_PCIPREFMEM_END - BUILD_PCIPREFMEM_START)
+#define BUILD_PCIPREFMEM_END      0xfec00000    /* IOAPIC is mapped at */
+#endif
 
 #define BUILD_APIC_ADDR           0xfee00000
 #define BUILD_IOAPIC_ADDR         0xfec00000
