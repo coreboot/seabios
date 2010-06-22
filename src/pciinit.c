@@ -247,6 +247,74 @@ static void pci_bios_init_device(u16 bdf)
     }
 }
 
+static void
+pci_bios_init_bus_rec(int bus, u8 *pci_bus)
+{
+    int bdf, max;
+    u16 class;
+
+    dprintf(1, "PCI: %s bus = 0x%x\n", __func__, bus);
+
+    /* prevent accidental access to unintended devices */
+    foreachpci_in_bus(bdf, max, bus) {
+        class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
+        if (class == PCI_CLASS_BRIDGE_PCI) {
+            pci_config_writeb(bdf, PCI_SECONDARY_BUS, 255);
+            pci_config_writeb(bdf, PCI_SUBORDINATE_BUS, 0);
+        }
+    }
+
+    foreachpci_in_bus(bdf, max, bus) {
+        class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
+        if (class != PCI_CLASS_BRIDGE_PCI) {
+            continue;
+        }
+        dprintf(1, "PCI: %s bdf = 0x%x\n", __func__, bdf);
+
+        u8 pribus = pci_config_readb(bdf, PCI_PRIMARY_BUS);
+        if (pribus != bus) {
+            dprintf(1, "PCI: primary bus = 0x%x -> 0x%x\n", pribus, bus);
+            pci_config_writeb(bdf, PCI_PRIMARY_BUS, bus);
+        } else {
+            dprintf(1, "PCI: primary bus = 0x%x\n", pribus);
+        }
+
+        u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
+        (*pci_bus)++;
+        if (*pci_bus != secbus) {
+            dprintf(1, "PCI: secondary bus = 0x%x -> 0x%x\n",
+                    secbus, *pci_bus);
+            secbus = *pci_bus;
+            pci_config_writeb(bdf, PCI_SECONDARY_BUS, secbus);
+        } else {
+            dprintf(1, "PCI: secondary bus = 0x%x\n", secbus);
+        }
+
+        /* set to max for access to all subordinate buses.
+           later set it to accurate value */
+        u8 subbus = pci_config_readb(bdf, PCI_SUBORDINATE_BUS);
+        pci_config_writeb(bdf, PCI_SUBORDINATE_BUS, 255);
+
+        pci_bios_init_bus_rec(secbus, pci_bus);
+
+        if (subbus != *pci_bus) {
+            dprintf(1, "PCI: subordinate bus = 0x%x -> 0x%x\n",
+                    subbus, *pci_bus);
+            subbus = *pci_bus;
+        } else {
+            dprintf(1, "PCI: subordinate bus = 0x%x\n", subbus);
+        }
+        pci_config_writeb(bdf, PCI_SUBORDINATE_BUS, subbus);
+    }
+}
+
+static void
+pci_bios_init_bus(void)
+{
+    u8 pci_bus = 0;
+    pci_bios_init_bus_rec(0 /* host bus */, &pci_bus);
+}
+
 void
 pci_setup(void)
 {
@@ -259,6 +327,8 @@ pci_setup(void)
     pci_bios_io_addr = 0xc000;
     pci_bios_mem_addr = BUILD_PCIMEM_START;
     pci_bios_prefmem_addr = BUILD_PCIPREFMEM_START;
+
+    pci_bios_init_bus();
 
     int bdf, max;
     foreachpci(bdf, max) {
