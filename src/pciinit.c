@@ -37,7 +37,12 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
     dprintf(1, "region %d: 0x%08x\n", region_num, addr);
 }
 
-static void pci_bios_allocate_region(u16 bdf, int region_num)
+/*
+ * return value
+ *      0:     32bit BAR
+ *      non 0: 64bit BAR
+ */
+static int pci_bios_allocate_region(u16 bdf, int region_num)
 {
     u32 *paddr;
     int ofs;
@@ -71,13 +76,23 @@ static void pci_bios_allocate_region(u16 bdf, int region_num)
         pci_set_io_region_addr(bdf, region_num, *paddr);
         *paddr += size;
     }
+
+    int is_64bit = !(val & PCI_BASE_ADDRESS_SPACE_IO) &&
+        (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64;
+    if (is_64bit) {
+        pci_config_writel(bdf, ofs + 4, 0);
+    }
+    return is_64bit;
 }
 
 static void pci_bios_allocate_regions(u16 bdf)
 {
     int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
-        pci_bios_allocate_region(bdf, i);
+        int is_64bit = pci_bios_allocate_region(bdf, i);
+        if (is_64bit){
+            i++;
+        }
     }
 }
 
