@@ -21,6 +21,9 @@ static inline u8 pci_bdf_to_fn(u16 bdf) {
 static inline u16 pci_to_bdf(int bus, int dev, int fn) {
     return (bus<<8) | (dev<<3) | fn;
 }
+static inline u16 pci_bus_devfn_to_bdf(int bus, u16 devfn) {
+    return (bus << 8) | devfn;
+}
 
 static inline u32 pci_vd(u16 vendor, u16 device) {
     return (device << 16) | vendor;
@@ -49,6 +52,13 @@ int pci_next(int bdf, int *pmax);
     for (MAX=0x0100, BDF=pci_next(0, &MAX)      \
          ; BDF >= 0                             \
          ; BDF=pci_next(BDF+1, &MAX))
+
+#define foreachpci_in_bus(BDF, MAX, BUS)                                \
+    for (MAX = pci_bus_devfn_to_bdf(BUS, 0) + 0x0100,                   \
+         BDF = pci_next(pci_bus_devfn_to_bdf(BUS, 0), &MAX)             \
+         ; BDF >= 0 && BDF < pci_bus_devfn_to_bdf(BUS, 0) + 0x0100      \
+         ; MAX = pci_bus_devfn_to_bdf(BUS, 0) + 0x0100,                 \
+           BDF = pci_next(BDF + 1, &MAX))
 
 // pirtable.c
 void create_pirtable(void);
