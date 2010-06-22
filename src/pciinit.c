@@ -22,15 +22,19 @@ static u8 pci_irqs[4] = {
     10, 10, 11, 11
 };
 
+static u32 pci_bar(u16 bdf, int region_num)
+{
+    if (region_num != PCI_ROM_SLOT) {
+        return PCI_BASE_ADDRESS_0 + region_num * 4;
+    }
+    return PCI_ROM_ADDRESS;
+}
+
 static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 {
     u32 ofs, old_addr;
 
-    if (region_num == PCI_ROM_SLOT) {
-        ofs = PCI_ROM_ADDRESS;
-    } else {
-        ofs = PCI_BASE_ADDRESS_0 + region_num * 4;
-    }
+    ofs = pci_bar(bdf, region_num);
 
     old_addr = pci_config_readl(bdf, ofs);
 
@@ -46,11 +50,7 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 static int pci_bios_allocate_region(u16 bdf, int region_num)
 {
     u32 *paddr;
-    int ofs;
-    if (region_num == PCI_ROM_SLOT)
-        ofs = PCI_ROM_ADDRESS;
-    else
-        ofs = PCI_BASE_ADDRESS_0 + region_num * 4;
+    u32 ofs = pci_bar(bdf, region_num);
 
     u32 old = pci_config_readl(bdf, ofs);
     u32 mask;
