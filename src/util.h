@@ -359,6 +359,10 @@ void vga_setup(void);
 void s3_resume_vga_init(void);
 extern u32 RomEnd;
 
+// bootsplash.c
+void enable_vga_console(void);
+void disable_bootsplash(void);
+
 // resume.c
 void init_dma(void);
 

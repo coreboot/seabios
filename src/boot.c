@@ -345,6 +345,9 @@ call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 {
     dprintf(1, "Booting from %04x:%04x\n", bootseg, bootip);
 
+    /* Go back to text, the OS might expect it... (Can't do this any later) */
+    disable_bootsplash();
+
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;

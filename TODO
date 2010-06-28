@@ -26,6 +26,4 @@ Possibly add option to eliminate tsc based delays on emulators.
 Add a kconfig style configuration program instead of requiring users
 to modify config.h.
 
-Add a graphical boot splash screen?
-
 Possibly support sending debug information over EHCI debug port.
