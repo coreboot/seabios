@@ -339,14 +339,21 @@ u32 qemu_cfg_find_file(const char *name)
     return __cfg_next_prefix_file(name, strlen(name) + 1, 0);
 }
 
+int qemu_cfg_size_file(u32 select)
+{
+    if (select != ntohs(LastFile.select))
+        return -1;
+    return ntohl(LastFile.size);
+}
+
 int qemu_cfg_read_file(u32 select, void *dst, u32 maxlen)
 {
     if (!qemu_cfg_present)
         return -1;
     if (!select || select != ntohs(LastFile.select))
         return -1;
-    int len = ntohl(LastFile.size);
-    if (len > maxlen)
+    int len = qemu_cfg_size_file(select);
+    if (len < 0 || len > maxlen)
         return -1;
     qemu_cfg_read_entry(dst, select, len);
     return len;
