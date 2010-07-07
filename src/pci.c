@@ -183,3 +183,23 @@ pci_find_class(u16 classid)
     }
     return -1;
 }
+
+int pci_init_device(const struct pci_device_id *ids, u16 bdf, void *arg)
+{
+    u16 vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
+    u16 device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
+    u16 class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
+
+    while (ids->vendid || ids->class_mask) {
+        if ((ids->vendid == PCI_ANY_ID || ids->vendid == vendor_id) &&
+            (ids->devid == PCI_ANY_ID || ids->devid == device_id) &&
+            !((ids->class ^ class) & ids->class_mask)) {
+            if (ids->func) {
+                ids->func(bdf, arg);
+            }
+            return 0;
+        }
+        ids++;
+    }
+    return -1;
+}

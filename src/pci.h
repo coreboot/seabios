@@ -60,6 +60,40 @@ int pci_next(int bdf, int *pmax);
          ; MAX = pci_bus_devfn_to_bdf(BUS, 0) + 0x0100,                 \
            BDF = pci_next(BDF + 1, &MAX))
 
+#define PCI_ANY_ID      (~0)
+struct pci_device_id {
+    u32 vendid;
+    u32 devid;
+    u32 class;
+    u32 class_mask;
+    void (*func)(u16 bdf, void *arg);
+};
+
+#define PCI_DEVICE(vendor_id, device_id, init_func)     \
+    {                                                   \
+        .vendid = (vendor_id),                          \
+        .devid = (device_id),                           \
+        .class = PCI_ANY_ID,                            \
+        .class_mask = 0,                                \
+        .func = (init_func)                             \
+    }
+
+#define PCI_DEVICE_CLASS(vendor_id, device_id, class_code, init_func)   \
+    {                                                                   \
+        .vendid = (vendor_id),                                          \
+        .devid = (device_id),                                           \
+        .class = (class_code),                                          \
+        .class_mask = ~0,                                               \
+        .func = (init_func)                                             \
+    }
+
+#define PCI_DEVICE_END                          \
+    {                                           \
+        .vendid = 0,                            \
+    }
+
+int pci_init_device(const struct pci_device_id *table, u16 bdf, void *arg);
+
 // pirtable.c
 void create_pirtable(void);
 
