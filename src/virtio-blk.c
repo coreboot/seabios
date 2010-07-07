@@ -62,6 +62,12 @@ virtio_blk_read(struct disk_op_s *op)
 
     /* Reclaim virtqueue element */
     vring_get_buf(vq, NULL);
+
+    /* Clear interrupt status register.  Avoid leaving interrupts stuck if
+     * VRING_AVAIL_F_NO_INTERRUPT was ignored and interrupts were raised.
+     */
+    vp_get_isr(GET_GLOBAL(vdrive_g->ioaddr));
+
     return status == VIRTIO_BLK_S_OK ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
 }
 
