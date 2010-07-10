@@ -10,6 +10,7 @@
 #include "biosvar.h" // GET_EBDA
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_COMMAND
+#include "dev-i440fx.h"
 
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
@@ -20,7 +21,7 @@ static u32 pci_bios_io_addr;
 static u32 pci_bios_mem_addr;
 static u32 pci_bios_prefmem_addr;
 /* host irqs corresponding to PCI irqs A-D */
-static u8 pci_irqs[4] = {
+const u8 pci_irqs[4] = {
     10, 10, 11, 11
 };
 
@@ -125,7 +126,7 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
     return is_64bit;
 }
 
-static void pci_bios_allocate_regions(u16 bdf)
+void pci_bios_allocate_regions(u16 bdf, void *arg)
 {
     int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
@@ -145,34 +146,15 @@ static int pci_slot_get_pirq(u16 bdf, int irq_num)
     return (irq_num + slot_addend) & 3;
 }
 
-static void pci_bios_init_bridges(u16 bdf)
-{
-    u16 vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
-    u16 device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
+static const struct pci_device_id pci_isa_bridge_tbl[] = {
+    /* PIIX3/PIIX4 PCI to ISA bridge */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_0,
+               piix_isa_bridge_init),
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_0,
+               piix_isa_bridge_init),
 
-    if (vendor_id == PCI_VENDOR_ID_INTEL
-        && (device_id == PCI_DEVICE_ID_INTEL_82371SB_0
-            || device_id == PCI_DEVICE_ID_INTEL_82371AB_0)) {
-        int i, irq;
-        u8 elcr[2];
-
-        /* PIIX3/PIIX4 PCI to ISA bridge */
-
-        elcr[0] = 0x00;
-        elcr[1] = 0x00;
-        for (i = 0; i < 4; i++) {
-            irq = pci_irqs[i];
-            /* set to trigger level */
-            elcr[irq >> 3] |= (1 << (irq & 7));
-            /* activate irq remapping in PIIX */
-            pci_config_writeb(bdf, 0x60 + i, irq);
-        }
-        outb(elcr[0], 0x4d0);
-        outb(elcr[1], 0x4d1);
-        dprintf(1, "PIIX3/PIIX4 init: elcr=%02x %02x\n",
-                elcr[0], elcr[1]);
-    }
-}
+    PCI_DEVICE_END
+};
 
 #define PCI_IO_ALIGN            4096
 #define PCI_IO_SHIFT            8
@@ -181,7 +163,7 @@ static void pci_bios_init_bridges(u16 bdf)
 #define PCI_PREF_MEMORY_ALIGN   (1UL << 20)
 #define PCI_PREF_MEMORY_SHIFT   16
 
-static void pci_bios_init_device_bridge(u16 bdf)
+static void pci_bios_init_device_bridge(u16 bdf, void *arg)
 {
     pci_bios_allocate_region(bdf, 0);
     pci_bios_allocate_region(bdf, 1);
@@ -263,58 +245,73 @@ static void pci_bios_init_device_bridge(u16 bdf)
     pci_config_maskw(bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_SERR);
 }
 
+static void storage_ide_init(u16 bdf, void *arg)
+{
+    /* IDE: we map it as in ISA mode */
+    pci_set_io_region_addr(bdf, 0, PORT_ATA1_CMD_BASE);
+    pci_set_io_region_addr(bdf, 1, PORT_ATA1_CTRL_BASE);
+    pci_set_io_region_addr(bdf, 2, PORT_ATA2_CMD_BASE);
+    pci_set_io_region_addr(bdf, 3, PORT_ATA2_CTRL_BASE);
+}
+
+static void pic_ibm_init(u16 bdf, void *arg)
+{
+    /* PIC, IBM, MPIC & MPIC2 */
+    pci_set_io_region_addr(bdf, 0, 0x80800000 + 0x00040000);
+}
+
+static void apple_macio_init(u16 bdf, void *arg)
+{
+    /* macio bridge */
+    pci_set_io_region_addr(bdf, 0, 0x80800000);
+}
+
+static const struct pci_device_id pci_class_tbl[] = {
+    /* STORAGE IDE */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_1,
+                     PCI_CLASS_STORAGE_IDE, piix_ide_init),
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB,
+                     PCI_CLASS_STORAGE_IDE, piix_ide_init),
+    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE,
+                     storage_ide_init),
+
+    /* PIC, IBM, MIPC & MPIC2 */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0x0046, PCI_CLASS_SYSTEM_PIC,
+                     pic_ibm_init),
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0xFFFF, PCI_CLASS_SYSTEM_PIC,
+                     pic_ibm_init),
+
+    /* 0xff00 */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0017, 0xff00, apple_macio_init),
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0022, 0xff00, apple_macio_init),
+
+    /* PCI bridge */
+    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_BRIDGE_PCI,
+                     pci_bios_init_device_bridge),
+
+    /* default */
+    PCI_DEVICE(PCI_ANY_ID, PCI_ANY_ID, pci_bios_allocate_regions),
+
+    PCI_DEVICE_END,
+};
+
+static const struct pci_device_id pci_device_tbl[] = {
+    /* PIIX4 Power Management device (for ACPI) */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
+               piix4_pm_init),
+
+    PCI_DEVICE_END,
+};
+
 static void pci_bios_init_device(u16 bdf)
 {
-    int class;
     int pin, pic_irq, vendor_id, device_id;
 
-    class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
     vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
     device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
     dprintf(1, "PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_devfn(bdf), vendor_id, device_id);
-    switch (class) {
-    case PCI_CLASS_STORAGE_IDE:
-        if (vendor_id == PCI_VENDOR_ID_INTEL
-            && (device_id == PCI_DEVICE_ID_INTEL_82371SB_1
-                || device_id == PCI_DEVICE_ID_INTEL_82371AB)) {
-            /* PIIX3/PIIX4 IDE */
-            pci_config_writew(bdf, 0x40, 0x8000); // enable IDE0
-            pci_config_writew(bdf, 0x42, 0x8000); // enable IDE1
-            pci_bios_allocate_regions(bdf);
-        } else {
-            /* IDE: we map it as in ISA mode */
-            pci_set_io_region_addr(bdf, 0, PORT_ATA1_CMD_BASE);
-            pci_set_io_region_addr(bdf, 1, PORT_ATA1_CTRL_BASE);
-            pci_set_io_region_addr(bdf, 2, PORT_ATA2_CMD_BASE);
-            pci_set_io_region_addr(bdf, 3, PORT_ATA2_CTRL_BASE);
-        }
-        break;
-    case PCI_CLASS_SYSTEM_PIC:
-        /* PIC */
-        if (vendor_id == PCI_VENDOR_ID_IBM) {
-            /* IBM */
-            if (device_id == 0x0046 || device_id == 0xFFFF) {
-                /* MPIC & MPIC2 */
-                pci_set_io_region_addr(bdf, 0, 0x80800000 + 0x00040000);
-            }
-        }
-        break;
-    case 0xff00:
-        if (vendor_id == PCI_VENDOR_ID_APPLE &&
-            (device_id == 0x0017 || device_id == 0x0022)) {
-            /* macio bridge */
-            pci_set_io_region_addr(bdf, 0, 0x80800000);
-        }
-        break;
-    case PCI_CLASS_BRIDGE_PCI:
-        pci_bios_init_device_bridge(bdf);
-        break;
-    default:
-        /* default memory mappings */
-        pci_bios_allocate_regions(bdf);
-        break;
-    }
+    pci_init_device(pci_class_tbl, bdf, NULL);
 
     /* enable memory mappings */
     pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
@@ -327,18 +324,7 @@ static void pci_bios_init_device(u16 bdf)
         pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pic_irq);
     }
 
-    if (vendor_id == PCI_VENDOR_ID_INTEL
-        && device_id == PCI_DEVICE_ID_INTEL_82371AB_3) {
-        /* PIIX4 Power Management device (for ACPI) */
-
-        // acpi sci is hardwired to 9
-        pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
-
-        pci_config_writel(bdf, 0x40, PORT_ACPI_PM_BASE | 1);
-        pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
-        pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
-        pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
-    }
+    pci_init_device(pci_device_tbl, bdf, NULL);
 }
 
 static void pci_bios_init_device_in_bus(int bus)
@@ -434,7 +420,7 @@ pci_setup(void)
 
     int bdf, max;
     foreachpci(bdf, max) {
-        pci_bios_init_bridges(bdf);
+        pci_init_device(pci_isa_bridge_tbl, bdf, NULL);
     }
     pci_bios_init_device_in_bus(0 /* host bus */);
 }

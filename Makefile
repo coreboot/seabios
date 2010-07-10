@@ -19,7 +19,7 @@ SRCBOTH=misc.c pmm.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
 SRC16=$(SRCBOTH) system.c disk.c apm.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
-      lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c
+      lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c dev-i440fx.c
 SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
