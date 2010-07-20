@@ -203,3 +203,15 @@ int pci_init_device(const struct pci_device_id *ids, u16 bdf, void *arg)
     }
     return -1;
 }
+
+int pci_find_init_device(const struct pci_device_id *ids, void *arg)
+{
+    int bdf, max;
+
+    foreachpci(bdf, max) {
+        if (pci_init_device(ids, bdf, arg) == 0) {
+            return bdf;
+        }
+    }
+    return -1;
+}
