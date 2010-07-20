@@ -335,6 +335,10 @@ void make_bios_readonly(void);
 void make_bios_writable_intel(u16 bdf, u32 pam0);
 void make_bios_readonly_intel(u16 bdf, u32 pam0);
 
+// smm.c
+void smm_save_and_copy(void);
+void smm_relocate_and_restore(void);
+
 // pciinit.c
 extern const u8 pci_irqs[4];
 void pci_bios_allocate_regions(u16 bdf, void *arg);

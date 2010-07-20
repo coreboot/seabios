@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outb
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "dev-i440fx.h"
 
 ASM32FLAT(
     ".global smm_relocation_start\n"
@@ -73,45 +74,19 @@ extern u8 smm_relocation_start, smm_relocation_end;
 extern u8 smm_code_start, smm_code_end;
 
 void
-smm_init(void)
+smm_save_and_copy(void)
 {
-    if (CONFIG_COREBOOT)
-        // SMM only supported on emulators.
-        return;
-    if (!CONFIG_USE_SMM)
-        return;
-
-    dprintf(3, "init smm\n");
-
-    // This code is hardcoded for PIIX4 Power Management device.
-    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL
-                              , PCI_DEVICE_ID_INTEL_82371AB_3);
-    if (bdf < 0)
-        // Device not found
-        return;
-    int i440_bdf = pci_find_device(PCI_VENDOR_ID_INTEL
-                                   , PCI_DEVICE_ID_INTEL_82441);
-    if (i440_bdf < 0)
-        return;
-
-    /* check if SMM init is already done */
-    u32 value = pci_config_readl(bdf, 0x58);
-    if (value & (1 << 25))
-        return;
-
-    /* enable the SMM memory window */
-    pci_config_writeb(i440_bdf, 0x72, 0x02 | 0x48);
-
     /* save original memory content */
     memcpy((void *)BUILD_SMM_ADDR, (void *)BUILD_SMM_INIT_ADDR, BUILD_SMM_SIZE);
 
     /* copy the SMM relocation code */
     memcpy((void *)BUILD_SMM_INIT_ADDR, &smm_relocation_start,
            &smm_relocation_end - &smm_relocation_start);
+}
 
-    /* enable SMI generation when writing to the APMC register */
-    pci_config_writel(bdf, 0x58, value | (1 << 25));
-
+void
+smm_relocate_and_restore(void)
+{
     /* init APM status port */
     outb(0x01, PORT_SMI_STATUS);
 
@@ -129,7 +104,24 @@ smm_init(void)
     memcpy((void *)BUILD_SMM_ADDR, &smm_code_start
            , &smm_code_end - &smm_code_start);
     wbinvd();
+}
 
-    /* close the SMM memory window and enable normal SMM */
-    pci_config_writeb(i440_bdf, 0x72, 0x02 | 0x08);
+static const struct pci_device_id smm_init_tbl[] = {
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
+               piix4_apmc_smm_init),
+
+    PCI_DEVICE_END,
+};
+
+void
+smm_init(void)
+{
+    if (CONFIG_COREBOOT)
+        // SMM only supported on emulators.
+        return;
+    if (!CONFIG_USE_SMM)
+        return;
+
+    dprintf(3, "init smm\n");
+    pci_find_init_device(smm_init_tbl, NULL);
 }
