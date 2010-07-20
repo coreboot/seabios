@@ -332,6 +332,8 @@ void bios32_setup(void);
 // shadow.c
 void make_bios_writable(void);
 void make_bios_readonly(void);
+void make_bios_writable_intel(u16 bdf, u32 pam0);
+void make_bios_readonly_intel(u16 bdf, u32 pam0);
 
 // pciinit.c
 extern const u8 pci_irqs[4];

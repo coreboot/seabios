@@ -17,6 +17,18 @@
 #include "acpi.h"
 #include "dev-i440fx.h"
 
+#define I440FX_PAM0     0x59
+
+void i440fx_bios_make_writable(u16 bdf, void *arg)
+{
+    make_bios_writable_intel(bdf, I440FX_PAM0);
+}
+
+void i440fx_bios_make_readonly(u16 bdf, void *arg)
+{
+    make_bios_readonly_intel(bdf, I440FX_PAM0);
+}
+
 /* PIIX3/PIIX4 PCI to ISA bridge */
 void piix_isa_bridge_init(u16 bdf, void *arg)
 {
