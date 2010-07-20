@@ -522,6 +522,13 @@ build_srat(void)
     return srat;
 }
 
+static const struct pci_device_id acpi_find_tbl[] = {
+    /* PIIX4 Power Management device. */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3, NULL),
+
+    PCI_DEVICE_END,
+};
+
 struct rsdp_descriptor *RsdpAddr;
 
 #define MAX_ACPI_TABLES 20
@@ -534,8 +541,7 @@ acpi_bios_init(void)
     dprintf(3, "init ACPI tables\n");
 
     // This code is hardcoded for PIIX4 Power Management device.
-    int bdf = pci_find_device(PCI_VENDOR_ID_INTEL
-                              , PCI_DEVICE_ID_INTEL_82371AB_3);
+    int bdf = pci_find_init_device(acpi_find_tbl, NULL);
     if (bdf < 0)
         // Device not found
         return;
