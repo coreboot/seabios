@@ -14,6 +14,7 @@
 #include "ioport.h" // outb
 #include "pci.h" // pci_config_writeb
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
+#include "acpi.h"
 #include "dev-i440fx.h"
 
 /* PIIX3/PIIX4 PCI to ISA bridge */
@@ -54,4 +55,18 @@ void piix4_pm_init(u16 bdf, void *arg)
     pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
     pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
     pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
+}
+
+#define PIIX4_ACPI_ENABLE       0xf1
+#define PIIX4_ACPI_DISABLE      0xf0
+#define PIIX4_GPE0_BLK          0xafe0
+#define PIIX4_GPE0_BLK_LEN      4
+
+void piix4_fadt_init(u16 bdf, void *arg)
+{
+    struct fadt_descriptor_rev1 *fadt = arg;
+    fadt->acpi_enable = PIIX4_ACPI_ENABLE;
+    fadt->acpi_disable = PIIX4_ACPI_DISABLE;
+    fadt->gpe0_blk = cpu_to_le32(PIIX4_GPE0_BLK);
+    fadt->gpe0_blk_len = PIIX4_GPE0_BLK_LEN;
 }

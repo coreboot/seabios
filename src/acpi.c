@@ -12,6 +12,7 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "paravirt.h"
+#include "dev-i440fx.h" // piix4_fadt_init
 
 /****************************************************/
 /* ACPI tables init */
@@ -212,6 +213,14 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
     h->checksum -= checksum(h, len);
 }
 
+static const struct pci_device_id fadt_init_tbl[] = {
+    /* PIIX4 Power Management device (for ACPI) */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
+               piix4_fadt_init),
+
+    PCI_DEVICE_END
+};
+
 static void*
 build_fadt(int bdf)
 {
@@ -241,8 +250,6 @@ build_fadt(int bdf)
     int pm_sci_int = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
     fadt->sci_int = cpu_to_le16(pm_sci_int);
     fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
-    fadt->acpi_enable = 0xf1;
-    fadt->acpi_disable = 0xf0;
     fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
     fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
     fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
@@ -251,8 +258,7 @@ build_fadt(int bdf)
     fadt->pm_tmr_len = 4;
     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
-    fadt->gpe0_blk = cpu_to_le32(0xafe0);
-    fadt->gpe0_blk_len = 4;
+    pci_init_device(fadt_init_tbl, bdf, fadt);
     /* WBINVD + PROC_C1 + SLP_BUTTON + FIX_RTC */
     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 6));
 
