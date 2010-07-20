@@ -270,16 +270,6 @@ struct srat_memory_affinity
 
 #include "acpi-dsdt.hex"
 
-static inline u16 cpu_to_le16(u16 x)
-{
-    return x;
-}
-
-static inline u32 cpu_to_le32(u32 x)
-{
-    return x;
-}
-
 static void
 build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 {

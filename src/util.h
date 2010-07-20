@@ -110,6 +110,16 @@ static inline u32 __htonl(u32 val) {
 #define htons(x) __htons_constant(x)
 #define ntohs(x) htons(x)
 
+static inline u16 cpu_to_le16(u16 x)
+{
+    return x;
+}
+
+static inline u32 cpu_to_le32(u32 x)
+{
+    return x;
+}
+
 static inline u32 getesp(void) {
     u32 esp;
     asm("movl %%esp, %0" : "=rm"(esp));
