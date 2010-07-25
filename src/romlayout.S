@@ -105,7 +105,7 @@ transition16big:
         movw %ax, %fs
         movw %ax, %gs
 
-        ljmpl $SEG32_MODE16BIG_CS, $(BUILD_BIOS_ADDR + 1f)
+        ljmpw $SEG32_MODE16BIG_CS, $1f
 
         .code16gcc
 1:
