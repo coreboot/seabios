@@ -162,15 +162,19 @@ static inline u8 readb(const void *addr) {
             : "ebx", "edx", "esi", "edi", "cc", "memory");              \
     } while (0)
 
-// GDT bit manipulation
-#define GDT_BASE(v)  ((((u64)(v) & 0xff000000) << 32)           \
-                      | (((u64)(v) & 0x00ffffff) << 16))
-#define GDT_LIMIT(v) ((((u64)(v) & 0x000f0000) << 32)   \
-                      | (((u64)(v) & 0x0000ffff) << 0))
+// GDT bits
 #define GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
 #define GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
 #define GDT_B        (0x1ULL << 54)  // Big flag
 #define GDT_G        (0x1ULL << 55)  // Granularity flag
+// GDT bits for segment base
+#define GDT_BASE(v)  ((((u64)(v) & 0xff000000) << 32)           \
+                      | (((u64)(v) & 0x00ffffff) << 16))
+// GDT bits for segment limit (0-1Meg)
+#define GDT_LIMIT(v) ((((u64)(v) & 0x000f0000) << 32)   \
+                      | (((u64)(v) & 0x0000ffff) << 0))
+// GDT bits for segment limit (0-4Gig in 4K chunks)
+#define GDT_GRANLIMIT(v) (GDT_G | GDT_LIMIT((v) >> 12))
 
 struct descloc_s {
     u16 length;
