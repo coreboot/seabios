@@ -116,12 +116,8 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
 
     int is_64bit = !(val & PCI_BASE_ADDRESS_SPACE_IO) &&
         (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64;
-    if (is_64bit) {
-        if (size > 0) {
-            pci_config_writel(bdf, ofs + 4, 0);
-        } else {
-            pci_config_writel(bdf, ofs + 4, ~0);
-        }
+    if (is_64bit && size > 0) {
+        pci_config_writel(bdf, ofs + 4, 0);
     }
     return is_64bit;
 }
