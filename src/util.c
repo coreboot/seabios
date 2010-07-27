@@ -202,24 +202,27 @@ memcpy(void *d1, const void *s1, size_t len)
     return d1;
 }
 
-// Copy from memory mapped IO.  IO mem is very slow, so yield
-// periodically.  'len' must be 4 byte aligned.
+// Copy to/from memory mapped IO.  IO mem is very slow, so yield
+// periodically.
 void
 iomemcpy(void *d, const void *s, u32 len)
 {
     yield();
-    while (len) {
+    while (len > 3) {
         u32 copylen = len;
         if (copylen > 2048)
             copylen = 2048;
-        len -= copylen;
         copylen /= 4;
+        len -= copylen * 4;
         asm volatile(
             "rep movsl (%%esi),%%es:(%%edi)"
             : "+c"(copylen), "+S"(s), "+D"(d)
             : : "cc", "memory");
         yield();
     }
+    if (len)
+        // Copy any remaining bytes.
+        memcpy(d, s, len);
 }
 
 void *

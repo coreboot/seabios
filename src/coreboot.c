@@ -510,11 +510,10 @@ cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen)
     void *src = (void*)file + ntohl(file->offset);
     if (cbfs_iscomp(file)) {
         // Compressed - copy to temp ram and uncompress it.
-        u32 asize = ALIGN(size, 4);
-        void *temp = malloc_tmphigh(asize);
+        void *temp = malloc_tmphigh(size);
         if (!temp)
             return -1;
-        iomemcpy(temp, src, asize);
+        iomemcpy(temp, src, size);
         int ret = ulzma(dst, maxlen, temp, size);
         yield();
         free(temp);
