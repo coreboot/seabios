@@ -1,6 +1,7 @@
 // Option rom scanning code.
 //
 // Copyright (C) 2009-2010  coresystems GmbH
+// Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -10,9 +11,6 @@
 #include "util.h" // dprintf
 #include "jpeg.h" // splash
 
-/****************************************************************
- * Definitions
- ****************************************************************/
 
 /****************************************************************
  * VESA structures
@@ -91,21 +89,6 @@ static void enable_vga_text_console(void)
     call16_int(0x10, &br);
     finish_preempt();
 
-    if (CONFIG_BOOTSPLASH) {
-        /* Switch back to start of the framebuffer
-         * (disable "double buffering")
-         */
-        memset(&br, 0, sizeof(br));
-        br.flags = F_IF;
-        br.ax = 0x4f07;
-        br.bl = 0x02;
-        br.ecx = 0;
-
-        start_preempt();
-        call16_int(0x10, &br);
-        finish_preempt();
-    }
-
     // Write to screen.
     printf("Starting SeaBIOS (version %s)\n\n", VERSION);
 }
@@ -115,7 +98,7 @@ void enable_vga_console(void)
     struct vesa_info *vesa_info = NULL;
     struct vesa_mode_info *mode_info = NULL;
     struct jpeg_decdata *decdata = NULL;
-    unsigned char *jpeg = NULL;
+    u8 *jpeg = NULL, *picture = NULL;
 
     /* Needs coreboot support for CBFS */
     if (!CONFIG_BOOTSPLASH || !CONFIG_COREBOOT)
@@ -125,11 +108,14 @@ void enable_vga_console(void)
         goto gotext;
     int filesize = cbfs_datasize(file);
 
+    int imagesize = (CONFIG_BOOTSPLASH_X * CONFIG_BOOTSPLASH_Y *
+                     (CONFIG_BOOTSPLASH_DEPTH / 8));
     jpeg = malloc_tmphigh(filesize);
+    picture = malloc_tmphigh(imagesize);
     vesa_info = malloc_tmplow(sizeof(*vesa_info));
     mode_info = malloc_tmplow(sizeof(*mode_info));
     decdata = malloc_tmphigh(sizeof(*decdata));
-    if (!jpeg || !vesa_info || !mode_info || !decdata) {
+    if (!jpeg || !picture || !vesa_info || !mode_info || !decdata) {
         warn_noalloc();
         goto gotext;
     }
@@ -191,13 +177,6 @@ void enable_vga_console(void)
         goto gotext;
     }
 
-    /* Switching Intel IGD to 1MB video memory will break this. Who cares. */
-    int imagesize = CONFIG_BOOTSPLASH_X * CONFIG_BOOTSPLASH_Y *
-                        (CONFIG_BOOTSPLASH_DEPTH / 8);
-
-    /* We use "double buffering" to make things look nicer */
-    framebuffer += imagesize;
-
     dprintf(8, "framebuffer: %x\n", (u32)framebuffer);
     dprintf(8, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
     dprintf(8, "bits per pixel: %d\n", mode_info->bits_per_pixel);
@@ -206,7 +185,7 @@ void enable_vga_console(void)
     dprintf(8, "Copying boot splash screen...\n");
     cbfs_copyfile(file, jpeg, filesize);
     dprintf(8, "Decompressing boot splash screen...\n");
-    int ret = jpeg_decode(jpeg, framebuffer, CONFIG_BOOTSPLASH_X,
+    int ret = jpeg_decode(jpeg, picture, CONFIG_BOOTSPLASH_X,
                           CONFIG_BOOTSPLASH_Y, CONFIG_BOOTSPLASH_DEPTH, decdata);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
@@ -214,21 +193,11 @@ void enable_vga_console(void)
     }
 
     /* Show the picture */
-    memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
-    br.ax = 0x4f07;
-    br.bl = 0x02;
-    br.ecx = imagesize;
-    start_preempt();
-    call16_int(0x10, &br);
-    finish_preempt();
-    if (br.ax != 0x4f) {
-        dprintf(1, "display_start failed (ax=%04x).\n", br.ax);
-        goto gotext;
-    }
+    iomemcpy(framebuffer, picture, imagesize);
 
 cleanup:
     free(jpeg);
+    free(picture);
     free(vesa_info);
     free(mode_info);
     free(decdata);
