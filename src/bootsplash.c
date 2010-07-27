@@ -112,25 +112,33 @@ static void enable_vga_text_console(void)
 
 void enable_vga_console(void)
 {
+    struct vesa_info *vesa_info = NULL;
+    struct vesa_mode_info *mode_info = NULL;
+    struct jpeg_decdata *decdata = NULL;
+    unsigned char *jpeg = NULL;
+
     /* Needs coreboot support for CBFS */
-    if (!CONFIG_BOOTSPLASH || !CONFIG_COREBOOT) {
-        enable_vga_text_console();
-        return;
-    }
+    if (!CONFIG_BOOTSPLASH || !CONFIG_COREBOOT)
+        goto gotext;
+    struct cbfs_file *file = cbfs_finddatafile("bootsplash.jpg");
+    if (!file)
+        goto gotext;
+    int filesize = cbfs_datasize(file);
 
-    struct bregs br;
-    struct vesa_info *vesa_info;
-    struct vesa_mode_info *mode_info;
-    struct jpeg_decdata *decdata;
-
+    jpeg = malloc_tmphigh(filesize);
     vesa_info = malloc_tmplow(sizeof(*vesa_info));
     mode_info = malloc_tmplow(sizeof(*mode_info));
     decdata = malloc_tmphigh(sizeof(*decdata));
+    if (!jpeg || !vesa_info || !mode_info || !decdata) {
+        warn_noalloc();
+        goto gotext;
+    }
 
     /* Check whether we have a VESA 2.0 compliant BIOS */
     memset(vesa_info, 0, sizeof(struct vesa_info));
     memcpy(vesa_info, "VBE2", 4);
 
+    struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
     br.ax = 0x4f00;
@@ -140,15 +148,14 @@ void enable_vga_console(void)
     call16_int(0x10, &br);
     finish_preempt();
 
-    if(strcmp("VESA", (char *)vesa_info) != 0) {
+    if (strcmp("VESA", (char *)vesa_info) != 0) {
         dprintf(1,"No VBE2 found.\n");
-        goto cleanup;
+        goto gotext;
     }
 
     /* Print some debugging information about our card. */
     char *vendor = SEGOFF_TO_FLATPTR(vesa_info->oem_vendor_name_ptr);
     char *product = SEGOFF_TO_FLATPTR(vesa_info->oem_product_name_ptr);
-
     dprintf(8, "VESA %d.%d\nVENDOR: %s\nPRODUCT: %s\n",
             vesa_info->vesa_version>>8, vesa_info->vesa_version&0xff,
             vendor, product);
@@ -167,8 +174,7 @@ void enable_vga_console(void)
     finish_preempt();
     if (br.ax != 0x4f) {
         dprintf(1, "get_mode failed.\n");
-        enable_vga_text_console();
-        goto cleanup;
+        goto gotext;
     }
     unsigned char *framebuffer = (unsigned char *) (mode_info->phys_base_ptr);
 
@@ -182,8 +188,7 @@ void enable_vga_console(void)
     finish_preempt();
     if (br.ax != 0x4f) {
         dprintf(1, "set_mode failed.\n");
-        enable_vga_text_console();
-        goto cleanup;
+        goto gotext;
     }
 
     /* Switching Intel IGD to 1MB video memory will break this. Who cares. */
@@ -198,33 +203,14 @@ void enable_vga_console(void)
     dprintf(8, "bits per pixel: %d\n", mode_info->bits_per_pixel);
 
     /* Look for bootsplash.jpg in CBFS and decompress it... */
-    int ret = 0;
-    unsigned char *jpeg = NULL;
-
-    struct cbfs_file *file = cbfs_finddatafile("bootsplash.jpg");
-    int filesize = 0;
-
-    if (file) {
-        filesize = cbfs_datasize(file);
-        jpeg = malloc_tmphigh(filesize);
-    } else {
-        dprintf(1, "Could not find boot splash screen \"bootsplash.jpg\"\n");
-    }
-    if(jpeg) {
-        dprintf(8, "Copying boot splash screen...\n");
-        cbfs_copyfile(file, jpeg, filesize);
-        dprintf(8, "Decompressing boot splash screen...\n");
-        ret = jpeg_decode(jpeg, framebuffer, CONFIG_BOOTSPLASH_X,
+    dprintf(8, "Copying boot splash screen...\n");
+    cbfs_copyfile(file, jpeg, filesize);
+    dprintf(8, "Decompressing boot splash screen...\n");
+    int ret = jpeg_decode(jpeg, framebuffer, CONFIG_BOOTSPLASH_X,
                           CONFIG_BOOTSPLASH_Y, CONFIG_BOOTSPLASH_DEPTH, decdata);
-        if (ret)
-            dprintf(1, "Failed with return code %d...\n", ret);
-    } else {
-        ret = -1;
-    }
-    free(jpeg);
     if (ret) {
-        enable_vga_text_console();
-        goto cleanup;
+        dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
+        goto gotext;
     }
 
     /* Show the picture */
@@ -238,13 +224,18 @@ void enable_vga_console(void)
     finish_preempt();
     if (br.ax != 0x4f) {
         dprintf(1, "display_start failed (ax=%04x).\n", br.ax);
-        enable_vga_text_console();
+        goto gotext;
     }
 
 cleanup:
-    free (vesa_info);
-    free (mode_info);
-    free (decdata);
+    free(jpeg);
+    free(vesa_info);
+    free(mode_info);
+    free(decdata);
+    return;
+gotext:
+    enable_vga_text_console();
+    goto cleanup;
 }
 
 void
