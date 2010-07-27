@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
 #include "jpeg.h" // splash
+#include "biosvar.h" // SET_EBDA
 
 
 /****************************************************************
@@ -99,7 +100,7 @@ static void enable_vga_text_console(void)
     call16_int10(&br);
 
     // Write to screen.
-    printf("Starting SeaBIOS (version %s)\n\n", VERSION);
+    printf("SeaBIOS (version %s)\n\n", VERSION);
 }
 
 void enable_vga_console(void)
@@ -181,7 +182,7 @@ void enable_vga_console(void)
     dprintf(8, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
     dprintf(8, "bits per pixel: %d\n", mode_info->bits_per_pixel);
 
-    /* Look for bootsplash.jpg in CBFS and decompress it... */
+    /* Decompress jpeg */
     dprintf(8, "Copying boot splash screen...\n");
     cbfs_copyfile(file, jpeg, filesize);
     dprintf(8, "Decompressing boot splash screen...\n");
@@ -194,6 +195,7 @@ void enable_vga_console(void)
 
     /* Show the picture */
     iomemcpy(framebuffer, picture, imagesize);
+    SET_EBDA(bootsplash_active, 1);
 
 cleanup:
     free(jpeg);
@@ -210,7 +212,8 @@ gotext:
 void
 disable_bootsplash(void)
 {
-    if (! CONFIG_BOOTSPLASH)
+    if (! CONFIG_BOOTSPLASH || !GET_EBDA(bootsplash_active))
         return;
+    SET_EBDA(bootsplash_active, 0);
     enable_vga_text_console();
 }

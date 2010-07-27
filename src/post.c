@@ -1,6 +1,6 @@
 // 32bit code to Power On Self Test (POST) a machine.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -275,6 +275,12 @@ _start(void)
 
     // Write protect bios memory.
     make_bios_readonly();
+
+    // Disable bootsplash if something has hooked int19.
+    extern void entry_19_official(void);
+    if (GET_IVT(0x19).segoff
+        != SEGOFF(SEG_BIOS, (u32)entry_19_official - BUILD_BIOS_ADDR).segoff)
+        disable_bootsplash();
 
     // Invoke int 19 to start boot process.
     dprintf(3, "Jump to int19\n");

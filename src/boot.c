@@ -1,6 +1,6 @@
 // Code to load disk image and start system boot.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -343,11 +343,10 @@ boot_prep(void)
 static void
 call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 {
-    dprintf(1, "Booting from %04x:%04x\n", bootseg, bootip);
-
     /* Go back to text, the OS might expect it... (Can't do this any later) */
     disable_bootsplash();
 
+    dprintf(1, "Booting from %04x:%04x\n", bootseg, bootip);
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
@@ -431,6 +430,7 @@ boot_cbfs(struct ipl_entry_s *ie)
             return;
         if (count--)
             continue;
+        disable_bootsplash();
         cbfs_run_payload(file);
     }
 }
@@ -462,7 +462,7 @@ do_boot(u16 seq_nr)
     printf("Booting from %s...\n"
            , strtcpy(desc, ie->description, ARRAY_SIZE(desc)));
 
-    switch(ie->type) {
+    switch (ie->type) {
     case IPL_TYPE_FLOPPY:
         boot_disk(0x00, IPL.checkfloppysig);
         break;

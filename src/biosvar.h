@@ -1,6 +1,6 @@
 // Variable layouts of bios.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __BIOSVAR_H
@@ -216,6 +216,7 @@ struct extended_bios_data_area_s {
     u8 other2[0xC4];
 
     // 0x121 - Begin custom storage.
+    u8 bootsplash_active;
     u8 ps2ctr;
     struct usbkeyinfo usbkey_last;
 
