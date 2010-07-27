@@ -1,6 +1,6 @@
 // 16bit code to handle system clocks.
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -238,7 +238,7 @@ calc_future_timer(u32 msecs)
 {
     if (!msecs)
         return GET_BDA(timer_counter);
-    u32 kticks = DIV_ROUND_UP((u64)(msecs * PIT_TICK_RATE), PIT_TICK_INTERVAL);
+    u32 kticks = DIV_ROUND_UP((u64)msecs * PIT_TICK_RATE, PIT_TICK_INTERVAL);
     u32 ticks = DIV_ROUND_UP(kticks, 1000);
     return calc_future_timer_ticks(ticks);
 }
