@@ -1,6 +1,6 @@
 // MPTable generation (on emulators)
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -59,7 +59,7 @@ mptable_init(void)
         cpu->apicid = i;
         cpu->apicver = apic_version;
         /* cpu flags: enabled, bootstrap cpu */
-        cpu->cpuflag = (i < CountCPUs) | ((i == 0) << 1);
+        cpu->cpuflag = ((i<CountCPUs) ? 0x01 : 0x00) | ((i==0) ? 0x02 : 0x00);
         cpu->cpusignature = cpuid_signature;
         cpu->featureflag = cpuid_features;
         cpu++;
