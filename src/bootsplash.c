@@ -22,14 +22,14 @@ struct vesa_info
 {
     u8 vesa_signature[4];
     u16 vesa_version;
-    u32 oem_string_ptr;
+    struct segoff_s oem_string_ptr;
     u8 capabilities[4];
-    u32 video_mode_ptr;
+    struct segoff_s video_mode_ptr;
     u16 total_memory;
     u16 oem_software_rev;
-    u32 oem_vendor_name_ptr;
-    u32 oem_product_name_ptr;
-    u32 oem_product_rev_ptr;
+    struct segoff_s oem_vendor_name_ptr;
+    struct segoff_s oem_product_name_ptr;
+    struct segoff_s oem_product_rev_ptr;
     u8 reserved[222];
     u8 oem_data[256];
 } PACKED;
@@ -123,8 +123,8 @@ void enable_vga_console(void)
     struct vesa_mode_info *mode_info;
     struct jpeg_decdata *decdata;
 
-    vesa_info = malloc_tmphigh(sizeof(*vesa_info));
-    mode_info = malloc_tmphigh(sizeof(*mode_info));
+    vesa_info = malloc_tmplow(sizeof(*vesa_info));
+    mode_info = malloc_tmplow(sizeof(*mode_info));
     decdata = malloc_tmphigh(sizeof(*decdata));
 
     /* Check whether we have a VESA 2.0 compliant BIOS */
@@ -146,16 +146,12 @@ void enable_vga_console(void)
     }
 
     /* Print some debugging information about our card. */
-    char *vendor, *product;
-    vendor = (char *)(((vesa_info->oem_vendor_name_ptr & 0xffff0000) >> 12) |
-                    (vesa_info->oem_vendor_name_ptr & 0xffff));
-
-    product = (char *)(((vesa_info->oem_product_name_ptr & 0xffff0000) >> 12) |
-                    (vesa_info->oem_product_name_ptr & 0xffff));
+    char *vendor = SEGOFF_TO_FLATPTR(vesa_info->oem_vendor_name_ptr);
+    char *product = SEGOFF_TO_FLATPTR(vesa_info->oem_product_name_ptr);
 
     dprintf(8, "VESA %d.%d\nVENDOR: %s\nPRODUCT: %s\n",
-                    vesa_info->vesa_version>>8,vesa_info->vesa_version&0xff,
-                    vendor, product);
+            vesa_info->vesa_version>>8, vesa_info->vesa_version&0xff,
+            vendor, product);
 
     /* Get information about our graphics mode, like the
      * framebuffer start address
@@ -197,9 +193,9 @@ void enable_vga_console(void)
     /* We use "double buffering" to make things look nicer */
     framebuffer += imagesize;
 
-    dprintf(9, "framebuffer: %x\n", (u32)framebuffer);
-    dprintf(9, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
-    dprintf(9, "bits per pixel: %d\n", mode_info->bits_per_pixel);
+    dprintf(8, "framebuffer: %x\n", (u32)framebuffer);
+    dprintf(8, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
+    dprintf(8, "bits per pixel: %d\n", mode_info->bits_per_pixel);
 
     /* Look for bootsplash.jpg in CBFS and decompress it... */
     int ret = 0;
@@ -215,15 +211,13 @@ void enable_vga_console(void)
         dprintf(1, "Could not find boot splash screen \"bootsplash.jpg\"\n");
     }
     if(jpeg) {
-        dprintf(9, "Copying boot splash screen...\n");
+        dprintf(8, "Copying boot splash screen...\n");
         cbfs_copyfile(file, jpeg, filesize);
-        dprintf(9, "Decompressing boot splash screen...\n");
-        start_preempt();
+        dprintf(8, "Decompressing boot splash screen...\n");
         ret = jpeg_decode(jpeg, framebuffer, CONFIG_BOOTSPLASH_X,
-                         CONFIG_BOOTSPLASH_Y, CONFIG_BOOTSPLASH_DEPTH, decdata);
-        finish_preempt();
+                          CONFIG_BOOTSPLASH_Y, CONFIG_BOOTSPLASH_DEPTH, decdata);
         if (ret)
-            dprintf(1, "Failed with return code %x...\n", ret);
+            dprintf(1, "Failed with return code %d...\n", ret);
     } else {
         ret = -1;
     }
@@ -243,7 +237,7 @@ void enable_vga_console(void)
     call16_int(0x10, &br);
     finish_preempt();
     if (br.ax != 0x4f) {
-        dprintf(1, "display_start failed.\n");
+        dprintf(1, "display_start failed (ax=%04x).\n", br.ax);
         enable_vga_text_console();
     }
 
