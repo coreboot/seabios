@@ -73,9 +73,21 @@ struct vesa_mode_info
  * Helper functions
  ****************************************************************/
 
+// Call int10 vga handler.
+static void
+call16_int10(struct bregs *br)
+{
+    br->flags = F_IF;
+    start_preempt();
+    call16_int(0x10, br);
+    finish_preempt();
+}
+
+
 /****************************************************************
  * VGA text / graphics console
  ****************************************************************/
+
 static void enable_vga_text_console(void)
 {
     dprintf(1, "Turning on vga text mode console\n");
@@ -83,11 +95,8 @@ static void enable_vga_text_console(void)
 
     /* Enable VGA text mode */
     memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
     br.ax = 0x0003;
-    start_preempt();
-    call16_int(0x10, &br);
-    finish_preempt();
+    call16_int10(&br);
 
     // Write to screen.
     printf("Starting SeaBIOS (version %s)\n\n", VERSION);
@@ -126,13 +135,10 @@ void enable_vga_console(void)
 
     struct bregs br;
     memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
     br.ax = 0x4f00;
     br.di = FLATPTR_TO_OFFSET(vesa_info);
     br.es = FLATPTR_TO_SEG(vesa_info);
-    start_preempt();
-    call16_int(0x10, &br);
-    finish_preempt();
+    call16_int10(&br);
 
     if (strcmp("VESA", (char *)vesa_info) != 0) {
         dprintf(1,"No VBE2 found.\n");
@@ -150,14 +156,11 @@ void enable_vga_console(void)
      * framebuffer start address
      */
     memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
     br.ax = 0x4f01;
     br.cx = (1 << 14) | CONFIG_BOOTSPLASH_VESA_MODE;
     br.di = FLATPTR_TO_OFFSET(mode_info);
     br.es = FLATPTR_TO_SEG(mode_info);
-    start_preempt();
-    call16_int(0x10, &br);
-    finish_preempt();
+    call16_int10(&br);
     if (br.ax != 0x4f) {
         dprintf(1, "get_mode failed.\n");
         goto gotext;
@@ -166,12 +169,9 @@ void enable_vga_console(void)
 
     /* Switch to graphics mode */
     memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
     br.ax = 0x4f02;
     br.bx = (1 << 14) | CONFIG_BOOTSPLASH_VESA_MODE;
-    start_preempt();
-    call16_int(0x10, &br);
-    finish_preempt();
+    call16_int10(&br);
     if (br.ax != 0x4f) {
         dprintf(1, "set_mode failed.\n");
         goto gotext;
