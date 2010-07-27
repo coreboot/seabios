@@ -19,7 +19,7 @@
 
 struct vesa_info
 {
-    u8 vesa_signature[4];
+    u32 vesa_signature;
     u16 vesa_version;
     struct segoff_s oem_string_ptr;
     u8 capabilities[4];
@@ -32,6 +32,9 @@ struct vesa_info
     u8 reserved[222];
     u8 oem_data[256];
 } PACKED;
+
+#define VESA_SIGNATURE 0x41534556 // VESA
+#define VBE2_SIGNATURE 0x32454256 // VBE2
 
 struct vesa_mode_info
 {
@@ -132,16 +135,14 @@ void enable_vga_console(void)
 
     /* Check whether we have a VESA 2.0 compliant BIOS */
     memset(vesa_info, 0, sizeof(struct vesa_info));
-    memcpy(vesa_info, "VBE2", 4);
-
+    vesa_info->vesa_signature = VBE2_SIGNATURE;
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.ax = 0x4f00;
     br.di = FLATPTR_TO_OFFSET(vesa_info);
     br.es = FLATPTR_TO_SEG(vesa_info);
     call16_int10(&br);
-
-    if (strcmp("VESA", (char *)vesa_info) != 0) {
+    if (vesa_info->vesa_signature != VESA_SIGNATURE) {
         dprintf(1,"No VBE2 found.\n");
         goto gotext;
     }
