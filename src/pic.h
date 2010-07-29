@@ -8,6 +8,7 @@
 #define __PIC_H
 
 #include "ioport.h" // PORT_PIC*
+#include "biosvar.h" // SET_IVT
 
 // PORT_PIC1 bitdefs
 #define PIC1_IRQ0  (1<<0)
@@ -76,11 +77,8 @@ get_pic2_isr(void)
     return inb(PORT_PIC2_CMD);
 }
 
-// post.c
-void __set_irq(int vector, void *loc);
-
 static inline void
-__enable_hwirq(int hwirq, void (*func)(void))
+enable_hwirq(int hwirq, struct segoff_s func)
 {
     int vector;
     if (hwirq < 8) {
@@ -90,13 +88,8 @@ __enable_hwirq(int hwirq, void (*func)(void))
         unmask_pic2(1 << (hwirq - 8));
         vector = 0x70 + hwirq - 8;
     }
-    __set_irq(vector, func);
+    SET_IVT(vector, func);
 }
-
-#define enable_hwirq(irq, func) do {            \
-        extern void func (void);                \
-        __enable_hwirq(irq, func);              \
-    } while (0)
 
 void set_pics(u8 irq0, u8 irq8);
 void pic_setup(void);

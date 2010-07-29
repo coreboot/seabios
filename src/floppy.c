@@ -139,7 +139,7 @@ floppy_setup(void)
 
     outb(0x02, PORT_DMA1_MASK_REG);
 
-    enable_hwirq(6, entry_0e);
+    enable_hwirq(6, FUNC16(entry_0e));
 }
 
 // Find a floppy type that matches a given image size.

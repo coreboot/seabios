@@ -25,17 +25,6 @@
 #include "ps2port.h" // ps2port_setup
 #include "virtio-blk.h" // virtio_blk_setup
 
-void
-__set_irq(int vector, void *loc)
-{
-    SET_IVT(vector, SEGOFF(SEG_BIOS, (u32)loc - BUILD_BIOS_ADDR));
-}
-
-#define set_irq(vector, func) do {              \
-        extern void func (void);                \
-        __set_irq(vector, func);                \
-    } while (0)
-
 static void
 init_ivt(void)
 {
@@ -44,28 +33,28 @@ init_ivt(void)
     // Initialize all vectors to the default handler.
     int i;
     for (i=0; i<256; i++)
-        set_irq(i, entry_iret_official);
+        SET_IVT(i, FUNC16(entry_iret_official));
 
     // Initialize all hw vectors to a default hw handler.
     for (i=0x08; i<=0x0f; i++)
-        set_irq(i, entry_hwpic1);
+        SET_IVT(i, FUNC16(entry_hwpic1));
     for (i=0x70; i<=0x77; i++)
-        set_irq(i, entry_hwpic2);
+        SET_IVT(i, FUNC16(entry_hwpic2));
 
     // Initialize software handlers.
-    set_irq(0x02, entry_02);
-    set_irq(0x10, entry_10);
-    set_irq(0x11, entry_11);
-    set_irq(0x12, entry_12);
-    set_irq(0x13, entry_13_official);
-    set_irq(0x14, entry_14);
-    set_irq(0x15, entry_15);
-    set_irq(0x16, entry_16);
-    set_irq(0x17, entry_17);
-    set_irq(0x18, entry_18);
-    set_irq(0x19, entry_19_official);
-    set_irq(0x1a, entry_1a);
-    set_irq(0x40, entry_40);
+    SET_IVT(0x02, FUNC16(entry_02));
+    SET_IVT(0x10, FUNC16(entry_10));
+    SET_IVT(0x11, FUNC16(entry_11));
+    SET_IVT(0x12, FUNC16(entry_12));
+    SET_IVT(0x13, FUNC16(entry_13_official));
+    SET_IVT(0x14, FUNC16(entry_14));
+    SET_IVT(0x15, FUNC16(entry_15));
+    SET_IVT(0x16, FUNC16(entry_16));
+    SET_IVT(0x17, FUNC16(entry_17));
+    SET_IVT(0x18, FUNC16(entry_18));
+    SET_IVT(0x19, FUNC16(entry_19_official));
+    SET_IVT(0x1a, FUNC16(entry_1a));
+    SET_IVT(0x40, FUNC16(entry_40));
 
     // INT 60h-66h reserved for user interrupt
     for (i=0x60; i<=0x66; i++)
@@ -75,7 +64,7 @@ init_ivt(void)
     // this is used by 'gardian angel' protection system
     SET_IVT(0x79, SEGOFF(0, 0));
 
-    __set_irq(0x1E, &diskette_param_table2);
+    SET_IVT(0x1E, SEGOFF(SEG_BIOS, (u32)&diskette_param_table2 - BUILD_BIOS_ADDR));
 }
 
 static void
@@ -277,9 +266,7 @@ _start(void)
     make_bios_readonly();
 
     // Disable bootsplash if something has hooked int19.
-    extern void entry_19_official(void);
-    if (GET_IVT(0x19).segoff
-        != SEGOFF(SEG_BIOS, (u32)entry_19_official - BUILD_BIOS_ADDR).segoff)
+    if (GET_IVT(0x19).segoff != FUNC16(entry_19_official).segoff)
         disable_bootsplash();
 
     // Invoke int 19 to start boot process.

@@ -213,8 +213,8 @@ timer_setup(void)
     SET_BDA(timer_counter, ticks);
     SET_BDA(timer_rollover, 0);
 
-    enable_hwirq(0, entry_08);
-    enable_hwirq(8, entry_70);
+    enable_hwirq(0, FUNC16(entry_08));
+    enable_hwirq(8, FUNC16(entry_70));
 }
 
 

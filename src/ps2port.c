@@ -453,8 +453,8 @@ ps2port_setup(void)
         return;
     dprintf(3, "init ps2port\n");
 
-    enable_hwirq(1, entry_09);
-    enable_hwirq(12, entry_74);
+    enable_hwirq(1, FUNC16(entry_09));
+    enable_hwirq(12, FUNC16(entry_74));
 
     run_thread(keyboard_init, NULL);
 }

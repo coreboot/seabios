@@ -1038,5 +1038,5 @@ ata_setup(void)
 
     SET_BDA(disk_control_byte, 0xc0);
 
-    enable_hwirq(14, entry_76);
+    enable_hwirq(14, FUNC16(entry_76));
 }
