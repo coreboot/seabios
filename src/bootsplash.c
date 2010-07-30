@@ -110,8 +110,8 @@ void enable_vga_console(void)
 {
     struct vesa_info *vesa_info = NULL;
     struct vesa_mode_info *mode_info = NULL;
-    struct jpeg_decdata *decdata = NULL;
-    u8 *jpeg = NULL, *picture = NULL;
+    struct jpeg_decdata *jpeg = NULL;
+    u8 *filedata = NULL, *picture = NULL;
 
     /* Needs coreboot support for CBFS */
     if (!CONFIG_BOOTSPLASH || !CONFIG_COREBOOT)
@@ -123,12 +123,12 @@ void enable_vga_console(void)
 
     int imagesize = (CONFIG_BOOTSPLASH_X * CONFIG_BOOTSPLASH_Y *
                      (CONFIG_BOOTSPLASH_DEPTH / 8));
-    jpeg = malloc_tmphigh(filesize);
+    filedata = malloc_tmphigh(filesize);
     picture = malloc_tmphigh(imagesize);
     vesa_info = malloc_tmplow(sizeof(*vesa_info));
     mode_info = malloc_tmplow(sizeof(*mode_info));
-    decdata = jpeg_alloc();
-    if (!jpeg || !picture || !vesa_info || !mode_info || !decdata) {
+    jpeg = jpeg_alloc();
+    if (!filedata || !picture || !vesa_info || !mode_info || !jpeg) {
         warn_noalloc();
         goto gotext;
     }
@@ -185,14 +185,14 @@ void enable_vga_console(void)
 
     /* Decompress jpeg */
     dprintf(8, "Copying boot splash screen...\n");
-    cbfs_copyfile(file, jpeg, filesize);
+    cbfs_copyfile(file, filedata, filesize);
     dprintf(8, "Decompressing boot splash screen...\n");
-    int ret = jpeg_decode(decdata, jpeg);
+    int ret = jpeg_decode(jpeg, filedata);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
         goto gotext;
     }
-    ret = jpeg_show(decdata, picture, CONFIG_BOOTSPLASH_X, CONFIG_BOOTSPLASH_Y
+    ret = jpeg_show(jpeg, picture, CONFIG_BOOTSPLASH_X, CONFIG_BOOTSPLASH_Y
                     , CONFIG_BOOTSPLASH_DEPTH);
     if (ret) {
         dprintf(1, "jpeg_show failed with return code %d...\n", ret);
@@ -204,11 +204,11 @@ void enable_vga_console(void)
     SET_EBDA(bootsplash_active, 1);
 
 cleanup:
-    free(jpeg);
+    free(filedata);
     free(picture);
     free(vesa_info);
     free(mode_info);
-    free(decdata);
+    free(jpeg);
     return;
 gotext:
     enable_vga_text_console();
