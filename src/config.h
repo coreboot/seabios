@@ -123,14 +123,6 @@
 #define CONFIG_S3_RESUME_VGA_INIT 0
 // Support boot splash
 #define CONFIG_BOOTSPLASH 0
-// boot splash X resolution
-#define CONFIG_BOOTSPLASH_X 1024
-// boot splash Y resolution
-#define CONFIG_BOOTSPLASH_Y 768
-// boot splash color depth
-#define CONFIG_BOOTSPLASH_DEPTH 16
-// boot splash VESA mode (could be generated)
-#define CONFIG_BOOTSPLASH_VESA_MODE 0x117
 // define it if the (emulated) hardware supports SMM mode
 #define CONFIG_USE_SMM 1
 // Maximum number of map entries in the e820 map

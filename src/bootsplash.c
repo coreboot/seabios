@@ -67,7 +67,7 @@ struct vesa_mode_info
     u8 reserved_mask_size;
     u8 reserved_mask_pos;
     u8 direct_color_mode_info;
-    u32 phys_base_ptr;
+    void *phys_base_ptr;
     u32 offscreen_mem_offset;
     u16 offscreen_mem_size;
     u8 reserved[206];
@@ -106,6 +106,40 @@ static void enable_vga_text_console(void)
     printf("SeaBIOS (version %s)\n\n", VERSION);
 }
 
+static int
+find_videomode(struct vesa_info *vesa_info, struct vesa_mode_info *mode_info
+               , int width, int height)
+{
+    dprintf(3, "Finding vesa mode with dimensions %d/%d\n", width, height);
+    u16 *videomodes = SEGOFF_TO_FLATPTR(vesa_info->video_mode_ptr);
+    for (;; videomodes++) {
+        u16 videomode = *videomodes;
+        if (videomode == 0xffff) {
+            dprintf(1, "Unable to find vesa video mode dimensions %d/%d\n"
+                    , width, height);
+            return -1;
+        }
+        struct bregs br;
+        memset(&br, 0, sizeof(br));
+        br.ax = 0x4f01;
+        br.cx = (1 << 14) | videomode;
+        br.di = FLATPTR_TO_OFFSET(mode_info);
+        br.es = FLATPTR_TO_SEG(mode_info);
+        call16_int10(&br);
+        if (br.ax != 0x4f) {
+            dprintf(1, "get_mode failed.\n");
+            continue;
+        }
+        if (mode_info->x_resolution != width
+            || mode_info->y_resolution != height)
+            continue;
+        u8 depth = mode_info->bits_per_pixel;
+        if (depth != 16 && depth != 24 && depth != 32)
+            continue;
+        return videomode;
+    }
+}
+
 void enable_vga_console(void)
 {
     struct vesa_info *vesa_info = NULL;
@@ -121,14 +155,11 @@ void enable_vga_console(void)
         goto gotext;
     int filesize = cbfs_datasize(file);
 
-    int imagesize = (CONFIG_BOOTSPLASH_X * CONFIG_BOOTSPLASH_Y *
-                     (CONFIG_BOOTSPLASH_DEPTH / 8));
     filedata = malloc_tmphigh(filesize);
-    picture = malloc_tmphigh(imagesize);
     vesa_info = malloc_tmplow(sizeof(*vesa_info));
     mode_info = malloc_tmplow(sizeof(*mode_info));
     jpeg = jpeg_alloc();
-    if (!filedata || !picture || !vesa_info || !mode_info || !jpeg) {
+    if (!filedata || !jpeg || !vesa_info || !mode_info) {
         warn_noalloc();
         goto gotext;
     }
@@ -150,52 +181,51 @@ void enable_vga_console(void)
     /* Print some debugging information about our card. */
     char *vendor = SEGOFF_TO_FLATPTR(vesa_info->oem_vendor_name_ptr);
     char *product = SEGOFF_TO_FLATPTR(vesa_info->oem_product_name_ptr);
-    dprintf(8, "VESA %d.%d\nVENDOR: %s\nPRODUCT: %s\n",
+    dprintf(3, "VESA %d.%d\nVENDOR: %s\nPRODUCT: %s\n",
             vesa_info->vesa_version>>8, vesa_info->vesa_version&0xff,
             vendor, product);
 
-    /* Get information about our graphics mode, like the
-     * framebuffer start address
-     */
-    memset(&br, 0, sizeof(br));
-    br.ax = 0x4f01;
-    br.cx = (1 << 14) | CONFIG_BOOTSPLASH_VESA_MODE;
-    br.di = FLATPTR_TO_OFFSET(mode_info);
-    br.es = FLATPTR_TO_SEG(mode_info);
-    call16_int10(&br);
-    if (br.ax != 0x4f) {
-        dprintf(1, "get_mode failed.\n");
-        goto gotext;
-    }
-    unsigned char *framebuffer = (unsigned char *) (mode_info->phys_base_ptr);
-
-    /* Switch to graphics mode */
-    memset(&br, 0, sizeof(br));
-    br.ax = 0x4f02;
-    br.bx = (1 << 14) | CONFIG_BOOTSPLASH_VESA_MODE;
-    call16_int10(&br);
-    if (br.ax != 0x4f) {
-        dprintf(1, "set_mode failed.\n");
-        goto gotext;
-    }
-
-    dprintf(8, "framebuffer: %x\n", (u32)framebuffer);
-    dprintf(8, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
-    dprintf(8, "bits per pixel: %d\n", mode_info->bits_per_pixel);
-
-    /* Decompress jpeg */
-    dprintf(8, "Copying boot splash screen...\n");
+    // Parse jpeg and get image size.
     cbfs_copyfile(file, filedata, filesize);
-    dprintf(8, "Decompressing boot splash screen...\n");
     int ret = jpeg_decode(jpeg, filedata);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
         goto gotext;
     }
-    ret = jpeg_show(jpeg, picture, CONFIG_BOOTSPLASH_X, CONFIG_BOOTSPLASH_Y
-                    , CONFIG_BOOTSPLASH_DEPTH);
+    int width, height;
+    jpeg_get_size(jpeg, &width, &height);
+
+    // Try to find a graphics mode with the corresponding dimensions.
+    int videomode = find_videomode(vesa_info, mode_info, width, height);
+    if (videomode < 0)
+        goto gotext;
+    void *framebuffer = mode_info->phys_base_ptr;
+    int depth = mode_info->bits_per_pixel;
+    dprintf(3, "mode: %04x\n", videomode);
+    dprintf(3, "framebuffer: %p\n", framebuffer);
+    dprintf(3, "bytes per scanline: %d\n", mode_info->bytes_per_scanline);
+    dprintf(3, "bits per pixel: %d\n", depth);
+
+    // Allocate space for image and decompress it.
+    int imagesize = width * height * (depth / 8);
+    picture = malloc_tmphigh(imagesize);
+    if (!picture) {
+        warn_noalloc();
+        goto gotext;
+    }
+    ret = jpeg_show(jpeg, picture, width, height, depth);
     if (ret) {
         dprintf(1, "jpeg_show failed with return code %d...\n", ret);
+        goto gotext;
+    }
+
+    /* Switch to graphics mode */
+    memset(&br, 0, sizeof(br));
+    br.ax = 0x4f02;
+    br.bx = (1 << 14) | videomode;
+    call16_int10(&br);
+    if (br.ax != 0x4f) {
+        dprintf(1, "set_mode failed.\n");
         goto gotext;
     }
 
