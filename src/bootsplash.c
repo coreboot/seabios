@@ -11,14 +11,14 @@
 #include "util.h" // dprintf
 #include "jpeg.h" // splash
 #include "biosvar.h" // SET_EBDA
+#include "paravirt.h" // romfile_find
 
 
 /****************************************************************
  * VESA structures
  ****************************************************************/
 
-struct vesa_info
-{
+struct vesa_info {
     u32 vesa_signature;
     u16 vesa_version;
     struct segoff_s oem_string_ptr;
@@ -36,8 +36,7 @@ struct vesa_info
 #define VESA_SIGNATURE 0x41534556 // VESA
 #define VBE2_SIGNATURE 0x32454256 // VBE2
 
-struct vesa_mode_info
-{
+struct vesa_mode_info {
     u16 mode_attributes;
     u8 win_a_attributes;
     u8 win_b_attributes;
@@ -73,6 +72,7 @@ struct vesa_mode_info
     u8 reserved[206];
 } PACKED;
 
+
 /****************************************************************
  * Helper functions
  ****************************************************************/
@@ -92,7 +92,8 @@ call16_int10(struct bregs *br)
  * VGA text / graphics console
  ****************************************************************/
 
-static void enable_vga_text_console(void)
+static void
+enable_vga_text_console(void)
 {
     dprintf(1, "Turning on vga text mode console\n");
     struct bregs br;
@@ -140,20 +141,20 @@ find_videomode(struct vesa_info *vesa_info, struct vesa_mode_info *mode_info
     }
 }
 
-void enable_vga_console(void)
+void
+enable_vga_console(void)
 {
     struct vesa_info *vesa_info = NULL;
     struct vesa_mode_info *mode_info = NULL;
     struct jpeg_decdata *jpeg = NULL;
     u8 *filedata = NULL, *picture = NULL;
 
-    /* Needs coreboot support for CBFS */
-    if (!CONFIG_BOOTSPLASH || !CONFIG_COREBOOT)
+    if (!CONFIG_BOOTSPLASH)
         goto gotext;
-    struct cbfs_file *file = cbfs_finddatafile("bootsplash.jpg");
+    u32 file = romfile_find("bootsplash.jpg");
     if (!file)
         goto gotext;
-    int filesize = cbfs_datasize(file);
+    int filesize = romfile_size(file);
 
     filedata = malloc_tmphigh(filesize);
     vesa_info = malloc_tmplow(sizeof(*vesa_info));
@@ -186,7 +187,7 @@ void enable_vga_console(void)
             vendor, product);
 
     // Parse jpeg and get image size.
-    cbfs_copyfile(file, filedata, filesize);
+    romfile_copy(file, filedata, filesize);
     int ret = jpeg_decode(jpeg, filedata);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
@@ -248,7 +249,7 @@ gotext:
 void
 disable_bootsplash(void)
 {
-    if (!CONFIG_BOOTSPLASH  || !CONFIG_COREBOOT || !GET_EBDA(bootsplash_active))
+    if (!CONFIG_BOOTSPLASH || !GET_EBDA(bootsplash_active))
         return;
     SET_EBDA(bootsplash_active, 0);
     enable_vga_text_console();
