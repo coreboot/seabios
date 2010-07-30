@@ -187,10 +187,15 @@ void enable_vga_console(void)
     dprintf(8, "Copying boot splash screen...\n");
     cbfs_copyfile(file, jpeg, filesize);
     dprintf(8, "Decompressing boot splash screen...\n");
-    int ret = jpeg_decode(jpeg, picture, CONFIG_BOOTSPLASH_X,
-                          CONFIG_BOOTSPLASH_Y, CONFIG_BOOTSPLASH_DEPTH, decdata);
+    int ret = jpeg_decode(decdata, jpeg);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
+        goto gotext;
+    }
+    ret = jpeg_show(decdata, picture, CONFIG_BOOTSPLASH_X, CONFIG_BOOTSPLASH_Y
+                    , CONFIG_BOOTSPLASH_DEPTH);
+    if (ret) {
+        dprintf(1, "jpeg_show failed with return code %d...\n", ret);
         goto gotext;
     }
 

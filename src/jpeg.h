@@ -3,8 +3,9 @@
 
 struct jpeg_decdata;
 struct jpeg_decdata *jpeg_alloc(void);
-int jpeg_decode(unsigned char *, unsigned char *, int, int, int,
-                struct jpeg_decdata *);
-int jpeg_check_size(struct jpeg_decdata *, unsigned char *, int, int);
+int jpeg_decode(struct jpeg_decdata *jpeg, unsigned char *buf);
+void jpeg_get_size(struct jpeg_decdata *jpeg, int *width, int *height);
+int jpeg_show(struct jpeg_decdata *jpeg, unsigned char *pic
+              , int width, int height, int depth);
 
 #endif

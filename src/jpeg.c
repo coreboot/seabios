@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Novell Inc.
+ * Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -177,6 +178,8 @@ struct jpeg_decdata {
     unsigned char quant[4][64];
     struct dec_hufftbl dhuff[4];
     struct in in;
+
+    int height, width;
 };
 
 static int getbyte(struct jpeg_decdata *jpeg)
@@ -292,29 +295,11 @@ struct jpeg_decdata *jpeg_alloc(void)
     return jpeg;
 }
 
-int jpeg_check_size(struct jpeg_decdata *jpeg, unsigned char *buf
-                    , int width, int height)
-{
-    jpeg->datap = buf;
-    getbyte(jpeg);
-    getbyte(jpeg);
-    readtables(jpeg, M_SOF0);
-    getword(jpeg);
-    getbyte(jpeg);
-    if (height != getword(jpeg) || width != getword(jpeg))
-        return 0;
-    return 1;
-}
-
-int jpeg_decode(unsigned char *buf, unsigned char *pic,
-                int width, int height, int depth,
-                struct jpeg_decdata *jpeg)
+int jpeg_decode(struct jpeg_decdata *jpeg, unsigned char *buf)
 {
     int i, j, m, tac, tdc;
-    int mcusx, mcusy, mx, my;
-    int max[6];
 
-    if (!jpeg || !buf || !pic)
+    if (!jpeg || !buf)
         return -1;
     jpeg->datap = buf;
     if (getbyte(jpeg) != 0xff)
@@ -327,11 +312,9 @@ int jpeg_decode(unsigned char *buf, unsigned char *pic,
     i = getbyte(jpeg);
     if (i != 8)
         return ERR_NOT_8BIT;
-    if (((getword(jpeg) + 15) & ~15) != height)
-        return ERR_HEIGHT_MISMATCH;
-    if (((getword(jpeg) + 15) & ~15) != width)
-        return ERR_WIDTH_MISMATCH;
-    if ((height & 15) || (width & 15))
+    jpeg->height = getword(jpeg);
+    jpeg->width = getword(jpeg);
+    if ((jpeg->height & 15) || (jpeg->width & 15))
         return ERR_BAD_WIDTH_OR_HEIGHT;
     jpeg->info.nc = getbyte(jpeg);
     if (jpeg->info.nc > MAXCOMP)
@@ -387,10 +370,6 @@ int jpeg_decode(unsigned char *buf, unsigned char *pic,
         || jpeg->dscans[2].hv != 0x11)
         return ERR_NOT_YCBCR_221111;
 
-    mcusx = width >> 4;
-    mcusy = height >> 4;
-
-
     idctqtab(jpeg->quant[jpeg->dscans[0].tq], jpeg->dquant[0]);
     idctqtab(jpeg->quant[jpeg->dscans[1].tq], jpeg->dquant[1]);
     idctqtab(jpeg->quant[jpeg->dscans[2].tq], jpeg->dquant[2]);
@@ -405,6 +384,29 @@ int jpeg_decode(unsigned char *buf, unsigned char *pic,
 #endif
 
     dec_initscans(jpeg);
+
+    return 0;
+}
+
+void jpeg_get_size(struct jpeg_decdata *jpeg, int *width, int *height)
+{
+    *width = jpeg->width;
+    *height = jpeg->height;
+}
+
+int jpeg_show(struct jpeg_decdata *jpeg, unsigned char *pic
+              , int width, int height, int depth)
+{
+    int m, mcusx, mcusy, mx, my;
+    int max[6];
+
+    if (jpeg->height != height)
+        return ERR_HEIGHT_MISMATCH;
+    if (jpeg->width != width)
+        return ERR_WIDTH_MISMATCH;
+
+    mcusx = jpeg->width >> 4;
+    mcusy = jpeg->height >> 4;
 
     jpeg->dscans[0].next = 6 - 4;
     jpeg->dscans[1].next = 6 - 4 - 1;
