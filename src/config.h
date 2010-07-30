@@ -122,7 +122,7 @@
 // Run the vga rom during S3 resume.
 #define CONFIG_S3_RESUME_VGA_INIT 0
 // Support boot splash
-#define CONFIG_BOOTSPLASH 0
+#define CONFIG_BOOTSPLASH 1
 // define it if the (emulated) hardware supports SMM mode
 #define CONFIG_USE_SMM 1
 // Maximum number of map entries in the e820 map

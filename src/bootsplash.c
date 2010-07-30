@@ -248,7 +248,7 @@ gotext:
 void
 disable_bootsplash(void)
 {
-    if (! CONFIG_BOOTSPLASH || !GET_EBDA(bootsplash_active))
+    if (!CONFIG_BOOTSPLASH  || !CONFIG_COREBOOT || !GET_EBDA(bootsplash_active))
         return;
     SET_EBDA(bootsplash_active, 0);
     enable_vga_text_console();
