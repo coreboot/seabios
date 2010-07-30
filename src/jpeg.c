@@ -97,11 +97,9 @@ struct dec_hufftbl {
     unsigned int llvals[1 << DECBITS];
 };
 
-static void decode_mcus
-__P((struct in *, int *, int, struct scan *, int *));
+static void decode_mcus __P((struct in *, int *, int, struct scan *, int *));
 static int dec_readmarker __P((struct in *));
-static void dec_makehuff
-__P((struct dec_hufftbl *, int *, unsigned char *));
+static void dec_makehuff __P((struct dec_hufftbl *, int *, unsigned char *));
 
 static void setinput __P((struct in *, unsigned char *));
 /*********************************/
@@ -123,6 +121,24 @@ static void col221111_32 __P((int *, unsigned char *, int));
 
 /*********************************/
 
+#define ERR_NO_SOI 1
+#define ERR_NOT_8BIT 2
+#define ERR_HEIGHT_MISMATCH 3
+#define ERR_WIDTH_MISMATCH 4
+#define ERR_BAD_WIDTH_OR_HEIGHT 5
+#define ERR_TOO_MANY_COMPPS 6
+#define ERR_ILLEGAL_HV 7
+#define ERR_QUANT_TABLE_SELECTOR 8
+#define ERR_NOT_YCBCR_221111 9
+#define ERR_UNKNOWN_CID_IN_SCAN 10
+#define ERR_NOT_SEQUENTIAL_DCT 11
+#define ERR_WRONG_MARKER 12
+#define ERR_NO_EOI 13
+#define ERR_BAD_TABLES 14
+#define ERR_DEPTH_MISMATCH 15
+
+/*********************************/
+
 #define M_SOI   0xd8
 #define M_APP0  0xe0
 #define M_DQT   0xdb
@@ -133,21 +149,6 @@ static void col221111_32 __P((int *, unsigned char *, int));
 #define M_RST0  0xd0
 #define M_EOI   0xd9
 #define M_COM   0xfe
-
-static unsigned char *datap;
-
-static int getbyte(void)
-{
-    return *datap++;
-}
-
-static int getword(void)
-{
-    int c1, c2;
-    c1 = *datap++;
-    c2 = *datap++;
-    return c1 << 8 | c2;
-}
 
 struct comp {
     int cid;
@@ -164,29 +165,42 @@ struct jpginfo {
     int rm;   /* next restart marker */
 };
 
-static struct jpginfo info;
-static struct comp comps[MAXCOMP];
+struct jpeg_decdata {
+    int dcts[6 * 64 + 16];
+    int out[64 * 6];
+    int dquant[3][64];
 
-static struct scan dscans[MAXCOMP];
+    unsigned char *datap;
+    struct jpginfo info;
+    struct comp comps[MAXCOMP];
+    struct scan dscans[MAXCOMP];
+    unsigned char quant[4][64];
+    struct dec_hufftbl dhuff[4];
+    struct in in;
+};
 
-static unsigned char quant[4][64];
+static int getbyte(struct jpeg_decdata *jpeg)
+{
+    return *jpeg->datap++;
+}
 
-static struct dec_hufftbl dhuff[4];
+static int getword(struct jpeg_decdata *jpeg)
+{
+    int c1, c2;
+    c1 = *jpeg->datap++;
+    c2 = *jpeg->datap++;
+    return c1 << 8 | c2;
+}
 
-#define dec_huffdc (dhuff + 0)
-#define dec_huffac (dhuff + 2)
-
-static struct in in;
-
-static int readtables(int till)
+static int readtables(struct jpeg_decdata *jpeg, int till)
 {
     int m, l, i, j, lq, pq, tq;
     int tc, th, tt;
 
     for (;;) {
-        if (getbyte() != 0xff)
+        if (getbyte(jpeg) != 0xff)
             return -1;
-        if ((m = getbyte()) == till)
+        if ((m = getbyte(jpeg)) == till)
             break;
 
         switch (m) {
@@ -194,9 +208,9 @@ static int readtables(int till)
             return 0;
 
         case M_DQT:
-            lq = getword();
+            lq = getword(jpeg);
             while (lq > 2) {
-                pq = getbyte();
+                pq = getbyte(jpeg);
                 tq = pq & 15;
                 if (tq > 3)
                     return -1;
@@ -204,176 +218,184 @@ static int readtables(int till)
                 if (pq != 0)
                     return -1;
                 for (i = 0; i < 64; i++)
-                    quant[tq][i] = getbyte();
+                    jpeg->quant[tq][i] = getbyte(jpeg);
                 lq -= 64 + 1;
             }
             break;
 
         case M_DHT:
-            l = getword();
+            l = getword(jpeg);
             while (l > 2) {
                 int hufflen[16], k;
                 unsigned char huffvals[256];
 
-                tc = getbyte();
+                tc = getbyte(jpeg);
                 th = tc & 15;
                 tc >>= 4;
                 tt = tc * 2 + th;
                 if (tc > 1 || th > 1)
                     return -1;
                 for (i = 0; i < 16; i++)
-                    hufflen[i] = getbyte();
+                    hufflen[i] = getbyte(jpeg);
                 l -= 1 + 16;
                 k = 0;
                 for (i = 0; i < 16; i++) {
                     for (j = 0; j < hufflen[i]; j++)
-                        huffvals[k++] = getbyte();
+                        huffvals[k++] = getbyte(jpeg);
                     l -= hufflen[i];
                 }
-                dec_makehuff(dhuff + tt, hufflen, huffvals);
+                dec_makehuff(jpeg->dhuff + tt, hufflen, huffvals);
             }
             break;
 
         case M_DRI:
-            l = getword();
-            info.dri = getword();
+            l = getword(jpeg);
+            jpeg->info.dri = getword(jpeg);
             break;
 
         default:
-            l = getword();
+            l = getword(jpeg);
             while (l-- > 2)
-                getbyte();
+                getbyte(jpeg);
             break;
         }
     }
     return 0;
 }
 
-static void dec_initscans(void)
+static void dec_initscans(struct jpeg_decdata *jpeg)
 {
     int i;
 
-    info.nm = info.dri + 1;
-    info.rm = M_RST0;
-    for (i = 0; i < info.ns; i++)
-        dscans[i].dc = 0;
+    jpeg->info.nm = jpeg->info.dri + 1;
+    jpeg->info.rm = M_RST0;
+    for (i = 0; i < jpeg->info.ns; i++)
+        jpeg->dscans[i].dc = 0;
 }
 
-static int dec_checkmarker(void)
+static int dec_checkmarker(struct jpeg_decdata *jpeg)
 {
     int i;
 
-    if (dec_readmarker(&in) != info.rm)
+    if (dec_readmarker(&jpeg->in) != jpeg->info.rm)
         return -1;
-    info.nm = info.dri;
-    info.rm = (info.rm + 1) & ~0x08;
-    for (i = 0; i < info.ns; i++)
-        dscans[i].dc = 0;
+    jpeg->info.nm = jpeg->info.dri;
+    jpeg->info.rm = (jpeg->info.rm + 1) & ~0x08;
+    for (i = 0; i < jpeg->info.ns; i++)
+        jpeg->dscans[i].dc = 0;
     return 0;
 }
 
-int jpeg_check_size(unsigned char *buf, int width, int height)
+struct jpeg_decdata *jpeg_alloc(void)
 {
-    datap = buf;
-    getbyte();
-    getbyte();
-    readtables(M_SOF0);
-    getword();
-    getbyte();
-    if (height != getword() || width != getword())
+    struct jpeg_decdata *jpeg = malloc_tmphigh(sizeof(*jpeg));
+    return jpeg;
+}
+
+int jpeg_check_size(struct jpeg_decdata *jpeg, unsigned char *buf
+                    , int width, int height)
+{
+    jpeg->datap = buf;
+    getbyte(jpeg);
+    getbyte(jpeg);
+    readtables(jpeg, M_SOF0);
+    getword(jpeg);
+    getbyte(jpeg);
+    if (height != getword(jpeg) || width != getword(jpeg))
         return 0;
     return 1;
 }
 
 int jpeg_decode(unsigned char *buf, unsigned char *pic,
                 int width, int height, int depth,
-                struct jpeg_decdata *decdata)
+                struct jpeg_decdata *jpeg)
 {
     int i, j, m, tac, tdc;
     int mcusx, mcusy, mx, my;
     int max[6];
 
-    if (!decdata || !buf || !pic)
+    if (!jpeg || !buf || !pic)
         return -1;
-    datap = buf;
-    if (getbyte() != 0xff)
+    jpeg->datap = buf;
+    if (getbyte(jpeg) != 0xff)
         return ERR_NO_SOI;
-    if (getbyte() != M_SOI)
+    if (getbyte(jpeg) != M_SOI)
         return ERR_NO_SOI;
-    if (readtables(M_SOF0))
+    if (readtables(jpeg, M_SOF0))
         return ERR_BAD_TABLES;
-    getword();
-    i = getbyte();
+    getword(jpeg);
+    i = getbyte(jpeg);
     if (i != 8)
         return ERR_NOT_8BIT;
-    if (((getword() + 15) & ~15) != height)
+    if (((getword(jpeg) + 15) & ~15) != height)
         return ERR_HEIGHT_MISMATCH;
-    if (((getword() + 15) & ~15) != width)
+    if (((getword(jpeg) + 15) & ~15) != width)
         return ERR_WIDTH_MISMATCH;
     if ((height & 15) || (width & 15))
         return ERR_BAD_WIDTH_OR_HEIGHT;
-    info.nc = getbyte();
-    if (info.nc > MAXCOMP)
+    jpeg->info.nc = getbyte(jpeg);
+    if (jpeg->info.nc > MAXCOMP)
         return ERR_TOO_MANY_COMPPS;
-    for (i = 0; i < info.nc; i++) {
+    for (i = 0; i < jpeg->info.nc; i++) {
         int h, v;
-        comps[i].cid = getbyte();
-        comps[i].hv = getbyte();
-        v = comps[i].hv & 15;
-        h = comps[i].hv >> 4;
-        comps[i].tq = getbyte();
+        jpeg->comps[i].cid = getbyte(jpeg);
+        jpeg->comps[i].hv = getbyte(jpeg);
+        v = jpeg->comps[i].hv & 15;
+        h = jpeg->comps[i].hv >> 4;
+        jpeg->comps[i].tq = getbyte(jpeg);
         if (h > 3 || v > 3)
             return ERR_ILLEGAL_HV;
-        if (comps[i].tq > 3)
+        if (jpeg->comps[i].tq > 3)
             return ERR_QUANT_TABLE_SELECTOR;
     }
-    if (readtables(M_SOS))
+    if (readtables(jpeg, M_SOS))
         return ERR_BAD_TABLES;
-    getword();
-    info.ns = getbyte();
-    if (info.ns != 3)
+    getword(jpeg);
+    jpeg->info.ns = getbyte(jpeg);
+    if (jpeg->info.ns != 3)
         return ERR_NOT_YCBCR_221111;
     for (i = 0; i < 3; i++) {
-        dscans[i].cid = getbyte();
-        tdc = getbyte();
+        jpeg->dscans[i].cid = getbyte(jpeg);
+        tdc = getbyte(jpeg);
         tac = tdc & 15;
         tdc >>= 4;
         if (tdc > 1 || tac > 1)
             return ERR_QUANT_TABLE_SELECTOR;
-        for (j = 0; j < info.nc; j++)
-            if (comps[j].cid == dscans[i].cid)
+        for (j = 0; j < jpeg->info.nc; j++)
+            if (jpeg->comps[j].cid == jpeg->dscans[i].cid)
                 break;
-        if (j == info.nc)
+        if (j == jpeg->info.nc)
             return ERR_UNKNOWN_CID_IN_SCAN;
-        dscans[i].hv = comps[j].hv;
-        dscans[i].tq = comps[j].tq;
-        dscans[i].hudc.dhuff = dec_huffdc + tdc;
-        dscans[i].huac.dhuff = dec_huffac + tac;
+        jpeg->dscans[i].hv = jpeg->comps[j].hv;
+        jpeg->dscans[i].tq = jpeg->comps[j].tq;
+        jpeg->dscans[i].hudc.dhuff = &jpeg->dhuff[tdc];
+        jpeg->dscans[i].huac.dhuff = &jpeg->dhuff[2 + tac];
     }
 
-    i = getbyte();
-    j = getbyte();
-    m = getbyte();
+    i = getbyte(jpeg);
+    j = getbyte(jpeg);
+    m = getbyte(jpeg);
 
     if (i != 0 || j != 63 || m != 0)
         return ERR_NOT_SEQUENTIAL_DCT;
 
-    if (dscans[0].cid != 1 || dscans[1].cid != 2 || dscans[2].cid != 3)
+    if (jpeg->dscans[0].cid != 1 || jpeg->dscans[1].cid != 2
+        || jpeg->dscans[2].cid != 3)
         return ERR_NOT_YCBCR_221111;
 
-    if (dscans[0].hv != 0x22 || dscans[1].hv != 0x11
-        || dscans[2].hv != 0x11)
+    if (jpeg->dscans[0].hv != 0x22 || jpeg->dscans[1].hv != 0x11
+        || jpeg->dscans[2].hv != 0x11)
         return ERR_NOT_YCBCR_221111;
 
     mcusx = width >> 4;
     mcusy = height >> 4;
 
 
-    idctqtab(quant[dscans[0].tq], decdata->dquant[0]);
-    idctqtab(quant[dscans[1].tq], decdata->dquant[1]);
-    idctqtab(quant[dscans[2].tq], decdata->dquant[2]);
-    initcol(decdata->dquant);
-    setinput(&in, datap);
+    idctqtab(jpeg->quant[jpeg->dscans[0].tq], jpeg->dquant[0]);
+    idctqtab(jpeg->quant[jpeg->dscans[1].tq], jpeg->dquant[1]);
+    idctqtab(jpeg->quant[jpeg->dscans[2].tq], jpeg->dquant[2]);
+    initcol(jpeg->dquant);
+    setinput(&jpeg->in, jpeg->datap);
 
 #if 0
     /* landing zone */
@@ -382,44 +404,44 @@ int jpeg_decode(unsigned char *buf, unsigned char *pic,
     img[len + 2] = M_EOF;
 #endif
 
-    dec_initscans();
+    dec_initscans(jpeg);
 
-    dscans[0].next = 6 - 4;
-    dscans[1].next = 6 - 4 - 1;
-    dscans[2].next = 6 - 4 - 1 - 1;        /* 411 encoding */
+    jpeg->dscans[0].next = 6 - 4;
+    jpeg->dscans[1].next = 6 - 4 - 1;
+    jpeg->dscans[2].next = 6 - 4 - 1 - 1;        /* 411 encoding */
     for (my = 0; my < mcusy; my++) {
         for (mx = 0; mx < mcusx; mx++) {
-            if (info.dri && !--info.nm)
-                if (dec_checkmarker())
+            if (jpeg->info.dri && !--jpeg->info.nm)
+                if (dec_checkmarker(jpeg))
                     return ERR_WRONG_MARKER;
 
-            decode_mcus(&in, decdata->dcts, 6, dscans, max);
-            idct(decdata->dcts, decdata->out, decdata->dquant[0],
+            decode_mcus(&jpeg->in, jpeg->dcts, 6, jpeg->dscans, max);
+            idct(jpeg->dcts, jpeg->out, jpeg->dquant[0],
                  IFIX(128.5), max[0]);
-            idct(decdata->dcts + 64, decdata->out + 64, decdata->dquant[0],
+            idct(jpeg->dcts + 64, jpeg->out + 64, jpeg->dquant[0],
                  IFIX(128.5), max[1]);
-            idct(decdata->dcts + 128, decdata->out + 128,
-                 decdata->dquant[0], IFIX(128.5), max[2]);
-            idct(decdata->dcts + 192, decdata->out + 192,
-                 decdata->dquant[0], IFIX(128.5), max[3]);
-            idct(decdata->dcts + 256, decdata->out + 256,
-                 decdata->dquant[1], IFIX(0.5), max[4]);
-            idct(decdata->dcts + 320, decdata->out + 320,
-                 decdata->dquant[2], IFIX(0.5), max[5]);
+            idct(jpeg->dcts + 128, jpeg->out + 128,
+                 jpeg->dquant[0], IFIX(128.5), max[2]);
+            idct(jpeg->dcts + 192, jpeg->out + 192,
+                 jpeg->dquant[0], IFIX(128.5), max[3]);
+            idct(jpeg->dcts + 256, jpeg->out + 256,
+                 jpeg->dquant[1], IFIX(0.5), max[4]);
+            idct(jpeg->dcts + 320, jpeg->out + 320,
+                 jpeg->dquant[2], IFIX(0.5), max[5]);
 
             switch (depth) {
             case 32:
-                col221111_32(decdata->out,
+                col221111_32(jpeg->out,
                              pic + (my * 16 * mcusx + mx) * 16 * 4,
                              mcusx * 16 * 4);
                 break;
             case 24:
-                col221111(decdata->out,
+                col221111(jpeg->out,
                           pic + (my * 16 * mcusx + mx) * 16 * 3,
                           mcusx * 16 * 3);
                 break;
             case 16:
-                col221111_16(decdata->out,
+                col221111_16(jpeg->out,
                              pic + (my * 16 * mcusx + mx) * (16 * 2),
                              mcusx * (16 * 2));
                 break;
@@ -430,7 +452,7 @@ int jpeg_decode(unsigned char *buf, unsigned char *pic,
         }
     }
 
-    m = dec_readmarker(&in);
+    m = dec_readmarker(&jpeg->in);
     if (m != M_EOI)
         return ERR_NO_EOI;
 
@@ -442,8 +464,7 @@ int jpeg_decode(unsigned char *buf, unsigned char *pic,
 /****************************************************************/
 
 static int fillbits __P((struct in *, int, unsigned int));
-static int dec_rec2
-__P((struct in *, struct dec_hufftbl *, int *, int, int));
+static int dec_rec2 __P((struct in *, struct dec_hufftbl *, int *, int, int));
 
 static void setinput(struct in *in, unsigned char *p)
 {
@@ -696,7 +717,7 @@ static unsigned char zig2[64] = {
      6, 13, 17, 24, 32, 38, 47, 49
 };
 
-void idct(int *in, int *out, PREC * quant, PREC off, int max)
+static void idct(int *in, int *out, PREC * quant, PREC off, int max)
 {
     PREC t0, t1, t2, t3, t4, t5, t6, t7, t;
     PREC tmp[64], *tmpp;

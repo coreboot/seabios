@@ -127,7 +127,7 @@ void enable_vga_console(void)
     picture = malloc_tmphigh(imagesize);
     vesa_info = malloc_tmplow(sizeof(*vesa_info));
     mode_info = malloc_tmplow(sizeof(*mode_info));
-    decdata = malloc_tmphigh(sizeof(*decdata));
+    decdata = jpeg_alloc();
     if (!jpeg || !picture || !vesa_info || !mode_info || !decdata) {
         warn_noalloc();
         goto gotext;
