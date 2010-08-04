@@ -1,6 +1,6 @@
 // Support for generating ACPI tables (on emulators)
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -329,63 +329,120 @@ build_madt(void)
     return madt;
 }
 
+// Encode a hex value
+static inline char getHex(u32 val) {
+    val &= 0x0f;
+    return (val <= 9) ? ('0' + val) : ('A' + val - 10);
+}
+
+// Encode a length in an SSDT.
+static u8 *
+encodeLen(u8 *ssdt_ptr, int length, int bytes)
+{
+    switch (bytes) {
+    default:
+    case 4: ssdt_ptr[3] = ((length >> 20) & 0xff);
+    case 3: ssdt_ptr[2] = ((length >> 12) & 0xff);
+    case 2: ssdt_ptr[1] = ((length >> 4) & 0xff);
+            ssdt_ptr[0] = (((bytes-1) & 0x3) << 6) | (length & 0x0f);
+            break;
+    case 1: ssdt_ptr[0] = length & 0x3f;
+    }
+    return ssdt_ptr + bytes;
+}
+
+// AML Processor() object.  See src/ssdt-proc.dsl for info.
+static unsigned char ssdt_proc[] = {
+    0x5b,0x83,0x42,0x05,0x43,0x50,0x41,0x41,
+    0xaa,0x10,0xb0,0x00,0x00,0x06,0x08,0x49,
+    0x44,0x5f,0x5f,0x0a,0xaa,0x08,0x5f,0x48,
+    0x49,0x44,0x0d,0x41,0x43,0x50,0x49,0x30,
+    0x30,0x30,0x37,0x00,0x14,0x0f,0x5f,0x4d,
+    0x41,0x54,0x00,0xa4,0x43,0x50,0x4d,0x41,
+    0x49,0x44,0x5f,0x5f,0x14,0x0f,0x5f,0x53,
+    0x54,0x41,0x00,0xa4,0x43,0x50,0x53,0x54,
+    0x49,0x44,0x5f,0x5f,0x14,0x0f,0x5f,0x45,
+    0x4a,0x30,0x01,0x43,0x50,0x45,0x4a,0x49,
+    0x44,0x5f,0x5f,0x68
+};
+#define SD_OFFSET_CPUHEX 6
+#define SD_OFFSET_CPUID1 8
+#define SD_OFFSET_CPUID2 20
+
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 static void*
 build_ssdt(void)
 {
     int acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
-    // calculate the length of processor block and scope block
-    // excluding PkgLength
-    int cpu_length = 13 * acpi_cpus + 4;
-
-    int length = sizeof(struct acpi_table_header) + 3 + cpu_length;
-    u8 *ssdt = malloc_high(length);
+    // length = ScopeOp + procs + NTYF method + CPON package
+    int length = ((1+3+4)
+                  + (acpi_cpus * sizeof(ssdt_proc))
+                  + (1+2+5+(12*acpi_cpus))
+                  + (6+2+1+(1*acpi_cpus)));
+    u8 *ssdt = malloc_high(sizeof(struct acpi_table_header) + length);
     if (! ssdt) {
         warn_noalloc();
         return NULL;
     }
+    u8 *ssdt_ptr = ssdt + sizeof(struct acpi_table_header);
 
-    u8 *ssdt_ptr = ssdt;
-    ssdt_ptr[9] = 0; // checksum;
-    ssdt_ptr += sizeof(struct acpi_table_header);
-
-    // build processor scope header
+    // build Scope(_SB_) header
     *(ssdt_ptr++) = 0x10; // ScopeOp
-    if (cpu_length <= 0x3e) {
-        /* Handle 1-4 CPUs with one byte encoding */
-        *(ssdt_ptr++) = cpu_length + 1;
-    } else {
-        /* Handle 5-314 CPUs with two byte encoding */
-        *(ssdt_ptr++) = 0x40 | ((cpu_length + 2) & 0xf);
-        *(ssdt_ptr++) = (cpu_length + 2) >> 4;
-    }
-    *(ssdt_ptr++) = '_'; // Name
-    *(ssdt_ptr++) = 'P';
-    *(ssdt_ptr++) = 'R';
+    ssdt_ptr = encodeLen(ssdt_ptr, length-1, 3);
+    *(ssdt_ptr++) = '_';
+    *(ssdt_ptr++) = 'S';
+    *(ssdt_ptr++) = 'B';
     *(ssdt_ptr++) = '_';
 
-    // build object for each processor
+    // build Processor object for each processor
     int i;
     for (i=0; i<acpi_cpus; i++) {
-        *(ssdt_ptr++) = 0x5B; // ProcessorOp
-        *(ssdt_ptr++) = 0x83;
-        *(ssdt_ptr++) = 0x0B; // Length
-        *(ssdt_ptr++) = 'C';  // Name (CPUxx)
-        *(ssdt_ptr++) = 'P';
-        if ((i & 0xf0) != 0)
-            *(ssdt_ptr++) = (i >> 4) < 0xa ? (i >> 4) + '0' : (i >> 4) + 'A' - 0xa;
-        else
-            *(ssdt_ptr++) = 'U';
-        *(ssdt_ptr++) = (i & 0xf) < 0xa ? (i & 0xf) + '0' : (i & 0xf) + 'A' - 0xa;
-        *(ssdt_ptr++) = i;
-        *(ssdt_ptr++) = 0x10; // Processor block address
-        *(ssdt_ptr++) = 0xb0;
-        *(ssdt_ptr++) = 0;
-        *(ssdt_ptr++) = 0;
-        *(ssdt_ptr++) = 6;    // Processor block length
+        memcpy(ssdt_ptr, ssdt_proc, sizeof(ssdt_proc));
+        ssdt_ptr[SD_OFFSET_CPUHEX] = getHex(i >> 4);
+        ssdt_ptr[SD_OFFSET_CPUHEX+1] = getHex(i);
+        ssdt_ptr[SD_OFFSET_CPUID1] = i;
+        ssdt_ptr[SD_OFFSET_CPUID2] = i;
+        ssdt_ptr += sizeof(ssdt_proc);
     }
 
+    // build "Method(NTFY, 2) {If (LEqual(Arg0, 0x00)) {Notify(CP00, Arg1)} ...}"
+    *(ssdt_ptr++) = 0x14; // MethodOp
+    ssdt_ptr = encodeLen(ssdt_ptr, 2+5+(12*acpi_cpus), 2);
+    *(ssdt_ptr++) = 'N';
+    *(ssdt_ptr++) = 'T';
+    *(ssdt_ptr++) = 'F';
+    *(ssdt_ptr++) = 'Y';
+    *(ssdt_ptr++) = 0x02;
+    for (i=0; i<acpi_cpus; i++) {
+        *(ssdt_ptr++) = 0xA0; // IfOp
+        ssdt_ptr = encodeLen(ssdt_ptr, 11, 1);
+        *(ssdt_ptr++) = 0x93; // LEqualOp
+        *(ssdt_ptr++) = 0x68; // Arg0Op
+        *(ssdt_ptr++) = 0x0A; // BytePrefix
+        *(ssdt_ptr++) = i;
+        *(ssdt_ptr++) = 0x86; // NotifyOp
+        *(ssdt_ptr++) = 'C';
+        *(ssdt_ptr++) = 'P';
+        *(ssdt_ptr++) = getHex(i >> 4);
+        *(ssdt_ptr++) = getHex(i);
+        *(ssdt_ptr++) = 0x69; // Arg1Op
+    }
+
+    // build "Name(CPON, Package() { One, One, ..., Zero, Zero, ... })"
+    *(ssdt_ptr++) = 0x08; // NameOp
+    *(ssdt_ptr++) = 'C';
+    *(ssdt_ptr++) = 'P';
+    *(ssdt_ptr++) = 'O';
+    *(ssdt_ptr++) = 'N';
+    *(ssdt_ptr++) = 0x12; // PackageOp
+    ssdt_ptr = encodeLen(ssdt_ptr, 2+1+(1*acpi_cpus), 2);
+    *(ssdt_ptr++) = acpi_cpus;
+    for (i=0; i<acpi_cpus; i++)
+        *(ssdt_ptr++) = (i < CountCPUs) ? 0x01 : 0x00;
+
     build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
+
+    //hexdump(ssdt, ssdt_ptr - ssdt);
 
     return ssdt;
 }
