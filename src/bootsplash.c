@@ -151,6 +151,7 @@ enable_vga_console(void)
 
     if (!CONFIG_BOOTSPLASH)
         goto gotext;
+    dprintf(3, "Checking for bootsplash\n");
     u32 file = romfile_find("bootsplash.jpg");
     if (!file)
         goto gotext;
@@ -187,7 +188,9 @@ enable_vga_console(void)
             vendor, product);
 
     // Parse jpeg and get image size.
+    dprintf(5, "Copying bootsplash.jpg\n");
     romfile_copy(file, filedata, filesize);
+    dprintf(5, "Decoding bootsplash.jpg\n");
     int ret = jpeg_decode(jpeg, filedata);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
@@ -214,6 +217,7 @@ enable_vga_console(void)
         warn_noalloc();
         goto gotext;
     }
+    dprintf(5, "Decompressing bootsplash.jpg\n");
     ret = jpeg_show(jpeg, picture, width, height, depth);
     if (ret) {
         dprintf(1, "jpeg_show failed with return code %d...\n", ret);
@@ -221,6 +225,7 @@ enable_vga_console(void)
     }
 
     /* Switch to graphics mode */
+    dprintf(5, "Switching to graphics mode\n");
     memset(&br, 0, sizeof(br));
     br.ax = 0x4f02;
     br.bx = (1 << 14) | videomode;
@@ -231,7 +236,9 @@ enable_vga_console(void)
     }
 
     /* Show the picture */
+    dprintf(5, "Showing bootsplash.jpg\n");
     iomemcpy(framebuffer, picture, imagesize);
+    dprintf(5, "Bootsplash copy complete\n");
     SET_EBDA(bootsplash_active, 1);
 
 cleanup:
