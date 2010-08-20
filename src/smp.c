@@ -72,7 +72,7 @@ smp_probe(void)
     ASSERT32FLAT();
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
-    if (! (cpuid_features & CPUID_APIC)) {
+    if (eax < 1 || !(cpuid_features & CPUID_APIC)) {
         // No apic - only the main cpu is present.
         dprintf(1, "No apic - only the main cpu is present.\n");
         CountCPUs= 1;
