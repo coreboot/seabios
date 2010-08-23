@@ -26,13 +26,13 @@ struct virtiodrive_s {
 };
 
 static int
-virtio_blk_read(struct disk_op_s *op)
+virtio_blk_op(struct disk_op_s *op, int write)
 {
     struct virtiodrive_s *vdrive_g =
         container_of(op->drive_g, struct virtiodrive_s, drive);
     struct vring_virtqueue *vq = GET_GLOBAL(vdrive_g->vq);
     struct virtio_blk_outhdr hdr = {
-        .type = VIRTIO_BLK_T_IN,
+        .type = write ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN,
         .ioprio = 0,
         .sector = op->lba,
     };
@@ -53,7 +53,10 @@ virtio_blk_read(struct disk_op_s *op)
     };
 
     /* Add to virtqueue and kick host */
-    vring_add_buf(vq, sg, 1, 2, 0, 0);
+    if (write)
+        vring_add_buf(vq, sg, 2, 1, 0, 0);
+    else
+        vring_add_buf(vq, sg, 1, 2, 0, 0);
     vring_kick(GET_GLOBAL(vdrive_g->ioaddr), vq, 1);
 
     /* Wait for reply */
@@ -78,10 +81,10 @@ process_virtio_op(struct disk_op_s *op)
         return 0;
     switch (op->command) {
     case CMD_READ:
-        return virtio_blk_read(op);
-    case CMD_FORMAT:
+        return virtio_blk_op(op, 0);
     case CMD_WRITE:
-        return DISK_RET_EWRITEPROTECT;
+        return virtio_blk_op(op, 1);
+    case CMD_FORMAT:
     case CMD_RESET:
     case CMD_ISREADY:
     case CMD_VERIFY:
