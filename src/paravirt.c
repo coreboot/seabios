@@ -24,8 +24,7 @@ qemu_cfg_select(u16 f)
 static void
 qemu_cfg_read(u8 *buf, int len)
 {
-    while (len--)
-        *(buf++) = inb(PORT_QEMU_CFG_DATA);
+    insb(PORT_QEMU_CFG_DATA, buf, len);
 }
 
 static void
