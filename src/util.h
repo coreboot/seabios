@@ -383,6 +383,7 @@ extern u32 RomEnd;
 
 // bootsplash.c
 void enable_vga_console(void);
+void enable_bootsplash(void);
 void disable_bootsplash(void);
 
 // resume.c

@@ -222,7 +222,6 @@ struct extended_bios_data_area_s {
     u8 other2[0xC4];
 
     // 0x121 - Begin custom storage.
-    u8 bootsplash_active;
     u8 ps2ctr;
     struct usbkeyinfo usbkey_last;
 

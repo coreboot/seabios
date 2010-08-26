@@ -92,8 +92,8 @@ call16_int10(struct bregs *br)
  * VGA text / graphics console
  ****************************************************************/
 
-static void
-enable_vga_text_console(void)
+void
+enable_vga_console(void)
 {
     dprintf(1, "Turning on vga text mode console\n");
     struct bregs br;
@@ -141,29 +141,27 @@ find_videomode(struct vesa_info *vesa_info, struct vesa_mode_info *mode_info
     }
 }
 
-void
-enable_vga_console(void)
-{
-    struct vesa_info *vesa_info = NULL;
-    struct vesa_mode_info *mode_info = NULL;
-    struct jpeg_decdata *jpeg = NULL;
-    u8 *filedata = NULL, *picture = NULL;
+static int BootsplashActive;
 
+void
+enable_bootsplash(void)
+{
     if (!CONFIG_BOOTSPLASH)
-        goto gotext;
+        return;
     dprintf(3, "Checking for bootsplash\n");
     u32 file = romfile_find("bootsplash.jpg");
     if (!file)
-        goto gotext;
+        return;
     int filesize = romfile_size(file);
 
-    filedata = malloc_tmphigh(filesize);
-    vesa_info = malloc_tmplow(sizeof(*vesa_info));
-    mode_info = malloc_tmplow(sizeof(*mode_info));
-    jpeg = jpeg_alloc();
+    u8 *picture = NULL;
+    u8 *filedata = malloc_tmphigh(filesize);
+    struct vesa_info *vesa_info = malloc_tmplow(sizeof(*vesa_info));
+    struct vesa_mode_info *mode_info = malloc_tmplow(sizeof(*mode_info));
+    struct jpeg_decdata *jpeg = jpeg_alloc();
     if (!filedata || !jpeg || !vesa_info || !mode_info) {
         warn_noalloc();
-        goto gotext;
+        goto done;
     }
 
     /* Check whether we have a VESA 2.0 compliant BIOS */
@@ -177,7 +175,7 @@ enable_vga_console(void)
     call16_int10(&br);
     if (vesa_info->vesa_signature != VESA_SIGNATURE) {
         dprintf(1,"No VBE2 found.\n");
-        goto gotext;
+        goto done;
     }
 
     /* Print some debugging information about our card. */
@@ -194,7 +192,7 @@ enable_vga_console(void)
     int ret = jpeg_decode(jpeg, filedata);
     if (ret) {
         dprintf(1, "jpeg_decode failed with return code %d...\n", ret);
-        goto gotext;
+        goto done;
     }
     int width, height;
     jpeg_get_size(jpeg, &width, &height);
@@ -202,7 +200,7 @@ enable_vga_console(void)
     // Try to find a graphics mode with the corresponding dimensions.
     int videomode = find_videomode(vesa_info, mode_info, width, height);
     if (videomode < 0)
-        goto gotext;
+        goto done;
     void *framebuffer = mode_info->phys_base_ptr;
     int depth = mode_info->bits_per_pixel;
     dprintf(3, "mode: %04x\n", videomode);
@@ -215,13 +213,13 @@ enable_vga_console(void)
     picture = malloc_tmphigh(imagesize);
     if (!picture) {
         warn_noalloc();
-        goto gotext;
+        goto done;
     }
     dprintf(5, "Decompressing bootsplash.jpg\n");
     ret = jpeg_show(jpeg, picture, width, height, depth);
     if (ret) {
         dprintf(1, "jpeg_show failed with return code %d...\n", ret);
-        goto gotext;
+        goto done;
     }
 
     /* Switch to graphics mode */
@@ -232,32 +230,29 @@ enable_vga_console(void)
     call16_int10(&br);
     if (br.ax != 0x4f) {
         dprintf(1, "set_mode failed.\n");
-        goto gotext;
+        goto done;
     }
 
     /* Show the picture */
     dprintf(5, "Showing bootsplash.jpg\n");
     iomemcpy(framebuffer, picture, imagesize);
     dprintf(5, "Bootsplash copy complete\n");
-    SET_EBDA(bootsplash_active, 1);
+    BootsplashActive = 1;
 
-cleanup:
+done:
     free(filedata);
     free(picture);
     free(vesa_info);
     free(mode_info);
     free(jpeg);
     return;
-gotext:
-    enable_vga_text_console();
-    goto cleanup;
 }
 
 void
 disable_bootsplash(void)
 {
-    if (!CONFIG_BOOTSPLASH || !GET_EBDA(bootsplash_active))
+    if (!CONFIG_BOOTSPLASH || !BootsplashActive)
         return;
-    SET_EBDA(bootsplash_active, 0);
-    enable_vga_text_console();
+    BootsplashActive = 0;
+    enable_vga_console();
 }

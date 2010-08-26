@@ -227,7 +227,9 @@ interactive_bootmenu(void)
 
     printf("Press F12 for boot menu.\n\n");
 
+    enable_bootsplash();
     int scan_code = get_keystroke(CONFIG_BOOTMENU_WAIT);
+    disable_bootsplash();
     if (scan_code != 0x86)
         /* not F12 */
         return;
@@ -343,9 +345,6 @@ boot_prep(void)
 static void
 call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
 {
-    /* Go back to text, the OS might expect it... (Can't do this any later) */
-    disable_bootsplash();
-
     dprintf(1, "Booting from %04x:%04x\n", bootseg, bootip);
     struct bregs br;
     memset(&br, 0, sizeof(br));
@@ -430,7 +429,6 @@ boot_cbfs(struct ipl_entry_s *ie)
             return;
         if (count--)
             continue;
-        disable_bootsplash();
         cbfs_run_payload(file);
     }
 }

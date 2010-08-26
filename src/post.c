@@ -265,10 +265,6 @@ _start(void)
     // Write protect bios memory.
     make_bios_readonly();
 
-    // Disable bootsplash if something has hooked int19.
-    if (GET_IVT(0x19).segoff != FUNC16(entry_19_official).segoff)
-        disable_bootsplash();
-
     // Invoke int 19 to start boot process.
     dprintf(3, "Jump to int19\n");
     struct bregs br;
