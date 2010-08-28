@@ -23,10 +23,10 @@ def parseMem(filehdl):
             continue
         try:
             vaddr = unhex(parts[0])
+            parts = parts[1].split()
+            mem.extend([unhex(v) for v in parts])
         except ValueError:
             continue
-        parts = parts[1].split()
-        mem.extend([unhex(v) for v in parts])
     return mem
 
 def printUsage():
