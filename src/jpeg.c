@@ -422,14 +422,14 @@ int jpeg_show(struct jpeg_decdata *jpeg, unsigned char *pic
                  IFIX(128.5), max[0]);
             idct(jpeg->dcts + 64, jpeg->out + 64, jpeg->dquant[0],
                  IFIX(128.5), max[1]);
-            idct(jpeg->dcts + 128, jpeg->out + 128,
-                 jpeg->dquant[0], IFIX(128.5), max[2]);
-            idct(jpeg->dcts + 192, jpeg->out + 192,
-                 jpeg->dquant[0], IFIX(128.5), max[3]);
-            idct(jpeg->dcts + 256, jpeg->out + 256,
-                 jpeg->dquant[1], IFIX(0.5), max[4]);
-            idct(jpeg->dcts + 320, jpeg->out + 320,
-                 jpeg->dquant[2], IFIX(0.5), max[5]);
+            idct(jpeg->dcts + 128, jpeg->out + 128, jpeg->dquant[0],
+                 IFIX(128.5), max[2]);
+            idct(jpeg->dcts + 192, jpeg->out + 192, jpeg->dquant[0],
+                 IFIX(128.5), max[3]);
+            idct(jpeg->dcts + 256, jpeg->out + 256, jpeg->dquant[1],
+                 IFIX(0.5), max[4]);
+            idct(jpeg->dcts + 320, jpeg->out + 320, jpeg->dquant[2],
+                 IFIX(0.5), max[5]);
 
             switch (depth) {
             case 32:
