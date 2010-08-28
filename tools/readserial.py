@@ -11,7 +11,7 @@
 import sys
 import time
 import select
-import serial
+import optparse
 
 # Reset time counter after this much idle time.
 RESTARTINTERVAL = 60
@@ -41,6 +41,8 @@ def readserial(infile, logfile, baudrate):
             if len(res[0]) == 1:
                 continue
         d = infile.read(4096)
+        if not d:
+            break
         datatime = time.time()
 
         datatime -= len(d) * byteadjust
@@ -86,21 +88,38 @@ def readserial(infile, logfile, baudrate):
         logfile.write(out)
         logfile.flush()
 
-def printUsage():
-    print "Usage:\n   %s [<serialdevice> [<baud>]]" % (sys.argv[0],)
-    sys.exit(1)
-
 def main():
+    usage = "%prog [options] [<serialdevice> [<baud>]]"
+    opts = optparse.OptionParser(usage)
+    opts.add_option("-f", "--file",
+                    action="store_false", dest="serial", default=True,
+                    help="read from file instead of serialdevice")
+    opts.add_option("-n", "--no-adjust",
+                    action="store_false", dest="adjustbaud", default=True,
+                    help="don't adjust times by serial rate")
+    options, args = opts.parse_args()
     serialport = 0
     baud = 115200
-    if len(sys.argv) > 3:
-        printUsage()
-    if len(sys.argv) > 1:
-        serialport = sys.argv[1]
-    if len(sys.argv) > 2:
-        baud = int(sys.argv[2])
+    if len(args) > 2:
+        opts.error("Too many arguments")
+    if len(args) > 0:
+        serialport = args[0]
+    if len(args) > 1:
+        baud = int(args[1])
+    global ADJUSTBAUD
+    ADJUSTBAUD=options.adjustbaud
 
-    ser = serial.Serial(serialport, baud, timeout=0)
+    if options.serial:
+        # Read from serial port
+        import serial
+        ser = serial.Serial(serialport, baud, timeout=0)
+    else:
+        # Read from a file
+        ser = open(serialport, 'rb')
+        import fcntl
+        import os
+        fcntl.fcntl(ser, fcntl.F_SETFL
+                    , fcntl.fcntl(ser, fcntl.F_GETFL) | os.O_NONBLOCK)
 
     logname = time.strftime("seriallog-%Y%m%d_%H%M%S.log")
     f = open(logname, 'wb')
