@@ -39,11 +39,9 @@ static u32 pci_bar(u16 bdf, int region_num)
 
 static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 {
-    u32 ofs, old_addr;
+    u32 ofs;
 
     ofs = pci_bar(bdf, region_num);
-
-    old_addr = pci_config_readl(bdf, ofs);
 
     pci_config_writel(bdf, ofs, addr);
     dprintf(1, "region %d: 0x%08x\n", region_num, addr);
