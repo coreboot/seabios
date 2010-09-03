@@ -15,9 +15,11 @@ int process_usb_op(struct disk_op_s *op);
  * MSC flags
  ****************************************************************/
 
-#define US_SC_SCSI      0x06
+#define US_SC_ATAPI_8020   0x02
+#define US_SC_ATAPI_8070   0x05
+#define US_SC_SCSI         0x06
 
-#define US_PR_BULK      0x50
+#define US_PR_BULK         0x50
 
 #define USB_MSC_TYPE_DISK  0x00
 #define USB_MSC_TYPE_CDROM 0x05

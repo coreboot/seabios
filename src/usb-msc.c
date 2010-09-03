@@ -182,7 +182,9 @@ usb_msc_init(struct usb_pipe *pipe
         return -1;
 
     // Verify right kind of device
-    if (iface->bInterfaceSubClass != US_SC_SCSI
+    if ((iface->bInterfaceSubClass != US_SC_SCSI &&
+	 iface->bInterfaceSubClass != US_SC_ATAPI_8070 &&
+	 iface->bInterfaceSubClass != US_SC_ATAPI_8020)
         || iface->bInterfaceProtocol != US_PR_BULK) {
         dprintf(1, "Unsupported MSC USB device (subclass=%02x proto=%02x)\n"
                 , iface->bInterfaceSubClass, iface->bInterfaceProtocol);
