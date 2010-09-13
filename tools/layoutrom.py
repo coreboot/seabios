@@ -59,10 +59,9 @@ def getSectionsStart(sections, endaddr, minalign=1):
 
 # Return the subset of sections with a given name prefix
 def getSectionsPrefix(sections, prefix):
-    lp = len(prefix)
     out = []
     for size, align, name in sections:
-        if name[:lp] == prefix:
+        if name.startswith(prefix):
             out.append((size, align, name))
     return out
 
@@ -79,7 +78,7 @@ def fitSections(sections, fillsections):
     fixedsections = []
     for sectioninfo in sections:
         size, align, name = sectioninfo
-        if name[:11] == '.fixedaddr.':
+        if name.startswith('.fixedaddr.'):
             addr = int(name[11:], 16)
             fixedsections.append((addr, sectioninfo))
             if align != 1:
@@ -295,7 +294,7 @@ PHDRS
 # Find and keep the section associated with a symbol (if available).
 def keepsymbol(symbol, infos, pos, callerpos=None):
     addr, section = infos[pos][1].get(symbol, (None, None))
-    if section is None or '*' in section or section[:9] == '.discard.':
+    if section is None or '*' in section or section.startswith('.discard.'):
         return -1
     if callerpos is not None and symbol not in infos[callerpos][4]:
         # This symbol reference is a cross section reference (an xref).
@@ -340,7 +339,7 @@ def gc(info16, info32seg, info32flat):
              (info32flat[0], info32flat[1], info32flat[2], [], {}))
     # Start by keeping sections that are globally visible.
     for size, align, section in info16[0]:
-        if section[:11] == '.fixedaddr.' or '.export.' in section:
+        if section.startswith('.fixedaddr.') or '.export.' in section:
             keepsection(section, infos)
     keepsymbol('post32', infos, 0, 2)
     # Return sections found.
@@ -372,7 +371,7 @@ def parseObjDump(file):
         if line == 'SYMBOL TABLE:':
             state = 'symbol'
             continue
-        if line[:24] == 'RELOCATION RECORDS FOR [':
+        if line.startswith('RELOCATION RECORDS FOR ['):
             state = 'reloc'
             relocsection = line[24:-2]
             continue
