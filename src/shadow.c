@@ -1,6 +1,6 @@
 // Support for enabling/disabling BIOS ram shadowing.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -11,16 +11,8 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "dev-i440fx.h"
 
-// Test if 'addr' is in the range from 'start'..'start+size'
-#define IN_RANGE(addr, start, size) ({   \
-            u32 __addr = (addr);         \
-            u32 __start = (start);       \
-            u32 __size = (size);         \
-            (__addr - __start < __size); \
-        })
-
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
-#define BIOS_SRC_ADDR 0xffff0000
+#define BIOS_SRC_OFFSET 0xfff00000
 
 // Enable shadowing and copy bios.
 static void
@@ -30,9 +22,9 @@ __make_bios_writable_intel(u16 bdf, u32 pam0)
     int clear = 0;
     int i;
     for (i=0; i<6; i++) {
-      u32 pam = pam0 + 1 + i;
-      int reg = pci_config_readb(bdf, pam);
-        if ((reg & 0x11) != 0x11) {
+        u32 pam = pam0 + 1 + i;
+        int reg = pci_config_readb(bdf, pam);
+        if (CONFIG_OPTIONROMS_DEPLOYED && (reg & 0x11) != 0x11) {
             // Need to copy optionroms to work around qemu implementation
             void *mem = (void*)(BUILD_ROM_START + i * 32*1024);
             memcpy((void*)BUILD_BIOS_TMP_ADDR, mem, 32*1024);
@@ -54,7 +46,9 @@ __make_bios_writable_intel(u16 bdf, u32 pam0)
         return;
 
     // Copy bios.
-    memcpy((void*)BUILD_BIOS_ADDR, (void*)BIOS_SRC_ADDR, BUILD_BIOS_SIZE);
+    extern u8 code32flat_start[], code32flat_end[];
+    memcpy(code32flat_start, code32flat_start + BIOS_SRC_OFFSET
+           , code32flat_end - code32flat_start);
 }
 
 void
@@ -66,8 +60,7 @@ make_bios_writable_intel(u16 bdf, u32 pam0)
         // if ram isn't backing the bios segment when shadowing is
         // disabled, the code itself wont be in memory.  So, run the
         // code from the high-memory flash location.
-        u32 pos = (u32)__make_bios_writable_intel - BUILD_BIOS_ADDR +
-            BIOS_SRC_ADDR;
+        u32 pos = (u32)__make_bios_writable_intel + BIOS_SRC_OFFSET;
         void (*func)(u16 bdf, u32 pam0) = (void*)pos;
         func(bdf, pam0);
         return;
@@ -114,7 +107,7 @@ make_bios_writable(void)
 
     dprintf(3, "enabling shadow ram\n");
 
-    // at this point, staticlly alloacted variable can't written.
+    // at this point, statically allocated variables can't be written.
     // so stack should be used.
 
     // Locate chip controlling ram shadowing.
