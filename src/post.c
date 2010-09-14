@@ -244,6 +244,26 @@ post(void)
     memmap_finalize();
 }
 
+// Attempt to invoke a hard-reboot.
+static void
+tryReboot(void)
+{
+    dprintf(1, "Attempting a hard reboot\n");
+
+    // Try keyboard controller reboot.
+    i8042_reboot();
+
+    // Try PCI 0xcf9 reboot
+    pci_reboot();
+
+    // Try triple fault
+    asm volatile("int3");
+
+    panic("Could not reboot");
+}
+
+static int HaveRunPost;
+
 // 32-bit entry point.
 void VISIBLE32FLAT
 _start(void)
@@ -253,8 +273,15 @@ _start(void)
     debug_serial_setup();
     dprintf(1, "Start bios (version %s)\n", VERSION);
 
+    if (CONFIG_COREBOOT && HaveRunPost)
+        // This is a soft reboot - invoke a hard reboot.
+        tryReboot();
+
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();
+
+    if (CONFIG_COREBOOT)
+        HaveRunPost = 1;
 
     // Perform main setup code.
     post();

@@ -51,7 +51,7 @@ i8042_wait_write(void)
     return -1;
 }
 
-int
+static int
 i8042_flush(void)
 {
     dprintf(7, "i8042_flush\n");
@@ -102,7 +102,7 @@ __i8042_command(int command, u8 *param)
     return 0;
 }
 
-int
+static int
 i8042_command(int command, u8 *param)
 {
     dprintf(7, "i8042_command cmd=%x\n", command);
@@ -126,6 +126,18 @@ static int
 i8042_aux_write(u8 c)
 {
     return i8042_command(I8042_CMD_AUX_SEND, &c);
+}
+
+void
+i8042_reboot(void)
+{
+    int i;
+    for (i=0; i<10; i++) {
+        i8042_wait_write();
+        udelay(50);
+        outb(0xfe, PORT_PS2_STATUS); /* pulse reset low */
+        udelay(50);
+    }
 }
 
 

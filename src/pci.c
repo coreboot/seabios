@@ -215,3 +215,13 @@ int pci_find_init_device(const struct pci_device_id *ids, void *arg)
     }
     return -1;
 }
+
+void
+pci_reboot(void)
+{
+    u8 v = inb(PORT_PCI_REBOOT) & ~6;
+    outb(v|2, PORT_PCI_REBOOT); /* Request hard reset */
+    udelay(50);
+    outb(v|6, PORT_PCI_REBOOT); /* Actually do the reset */
+    udelay(50);
+}

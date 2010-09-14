@@ -94,6 +94,7 @@ struct pci_device_id {
 
 int pci_init_device(const struct pci_device_id *table, u16 bdf, void *arg);
 int pci_find_init_device(const struct pci_device_id *ids, void *arg);
+void pci_reboot(void);
 
 // pirtable.c
 void create_pirtable(void);
