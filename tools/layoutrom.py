@@ -241,7 +241,7 @@ def getSectionsFile(sections, fileid, defaddr=0):
     return sections, pos
 
 # Layout the 32bit segmented code.  This places the code as high as possible.
-def writeLinkerScripts(sections, entrysym, out16, out32seg, out32flat):
+def writeLinkerScripts(sections, entrysym, genreloc, out16, out32seg, out32flat):
     # Write 16bit linker script
     sections16, code16_start = getSectionsFile(sections, '16')
     output = open(out16, 'wb')
@@ -274,15 +274,26 @@ def writeLinkerScripts(sections, entrysym, out16, out32seg, out32flat):
     # Write 32flat linker script
     sections32flat, code32flat_start = getSectionsFile(
         sections, '32flat', code32seg_start)
+    relocstr = ""
+    relocminalign = 0
+    if genreloc:
+        # Generate relocations
+        relocstr, size, relocminalign = genRelocs(sections)
+        code32flat_start -= size
     output = open(out32flat, 'wb')
     output.write(COMMONHEADER
                  + outXRefs(sections32flat) + """
     %s = 0x%x ;
+    _reloc_min_align = 0x%x ;
     code32flat_start = 0x%x ;
     .text code32flat_start : {
 """ % (entrysym.name,
        entrysym.section.finalloc + entrysym.offset + BUILD_BIOS_ADDR,
-       code32flat_start)
+       relocminalign, code32flat_start)
+                 + relocstr
+                 + """
+        code32init_start = ABSOLUTE(.) ;
+"""
                  + outRelSections(getSectionsPrefix(sections32flat, '32init', '')
                                   , 'code32flat_start')
                  + """
@@ -312,6 +323,51 @@ PHDRS
 ######################################################################
 # Detection of init code
 ######################################################################
+
+# Determine init section relocations
+def genRelocs(sections):
+    absrelocs = []
+    relrelocs = []
+    initrelocs = []
+    minalign = 16
+    for section in sections:
+        if section.category == '32init' and section.align > minalign:
+            minalign = section.align
+        for reloc in section.relocs:
+            symbol = reloc.symbol
+            if symbol.section is None:
+                continue
+            relocpos = section.finalloc + reloc.offset
+            if (reloc.type == 'R_386_32' and section.category == '32init'
+                and symbol.section.category == '32init'):
+                # Absolute relocation
+                absrelocs.append(relocpos)
+            elif (reloc.type == 'R_386_PC32' and section.category == '32init'
+                  and symbol.section.category != '32init'):
+                # Relative relocation
+                relrelocs.append(relocpos)
+            elif (section.category != '32init'
+                  and symbol.section.category == '32init'):
+                # Relocation to the init section
+                if section.fileid in ('16', '32seg'):
+                    relocpos += BUILD_BIOS_ADDR
+                initrelocs.append(relocpos)
+    absrelocs.sort()
+    relrelocs.sort()
+    initrelocs.sort()
+    out = ("        _reloc_abs_start = ABSOLUTE(.) ;\n"
+           + "".join(["LONG(0x%x - code32init_start)\n" % (pos,)
+                      for pos in absrelocs])
+           + "        _reloc_abs_end = ABSOLUTE(.) ;\n"
+           + "        _reloc_rel_start = ABSOLUTE(.) ;\n"
+           + "".join(["LONG(0x%x - code32init_start)\n" % (pos,)
+                      for pos in relrelocs])
+           + "        _reloc_rel_end = ABSOLUTE(.) ;\n"
+           + "        _reloc_init_start = ABSOLUTE(.) ;\n"
+           + "".join(["LONG(0x%x - code32flat_start)\n" % (pos,)
+                      for pos in initrelocs])
+           + "        _reloc_init_end = ABSOLUTE(.) ;\n")
+    return out, len(absrelocs + relrelocs + initrelocs) * 4, minalign
 
 def markRuntime(section, sections):
     if (section is None or not section.keep or section.category is not None
@@ -490,7 +546,8 @@ def main():
 
     # Write out linker script files.
     entrysym = info16[1]['post32']
-    writeLinkerScripts(sections, entrysym, out16, out32seg, out32flat)
+    genreloc = '_reloc_abs_start' in info32flat[1]
+    writeLinkerScripts(sections, entrysym, genreloc, out16, out32seg, out32flat)
 
 if __name__ == '__main__':
     main()
