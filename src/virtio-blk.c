@@ -109,6 +109,7 @@ init_virtio_blk(u16 bdf)
         goto fail;
     }
     memset(vdrive_g, 0, sizeof(*vdrive_g));
+    memset(vq, 0, sizeof(*vq));
     vdrive_g->drive.type = DTYPE_VIRTIO;
     vdrive_g->drive.cntl_id = bdf;
     vdrive_g->vq = vq;
