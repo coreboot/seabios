@@ -435,8 +435,17 @@ static inline void *memalign_low(u32 align, u32 size) {
 static inline void *memalign_high(u32 align, u32 size) {
     return pmm_malloc(&ZoneHigh, PMM_DEFAULT_HANDLE, size, align);
 }
+static inline void *memalign_tmplow(u32 align, u32 size) {
+    return pmm_malloc(&ZoneTmpLow, PMM_DEFAULT_HANDLE, size, align);
+}
 static inline void *memalign_tmphigh(u32 align, u32 size) {
     return pmm_malloc(&ZoneTmpHigh, PMM_DEFAULT_HANDLE, size, align);
+}
+static inline void *memalign_tmp(u32 align, u32 size) {
+    void *ret = memalign_tmphigh(align, size);
+    if (ret)
+        return ret;
+    return memalign_tmplow(align, size);
 }
 static inline void free(void *data) {
     pmm_free(data);
