@@ -14,10 +14,7 @@ def main():
 
     # Read in symbols
     objinfofile = open(objinfo, 'rb')
-    symbols = layoutrom.parseObjDump(objinfofile)[1]
-    syms = {}
-    for name, (addr, section) in symbols.items():
-        syms[name] = addr
+    symbols = layoutrom.parseObjDump(objinfofile, 'in')[1]
 
     # Read in raw file
     f = open(rawfile, 'rb')
@@ -29,8 +26,8 @@ def main():
         finalsize = 128*1024
 
     # Sanity checks
-    start = syms['code32flat_start']
-    end = syms['code32flat_end']
+    start = symbols['code32flat_start'].offset
+    end = symbols['code32flat_end'].offset
     expend = layoutrom.BUILD_BIOS_ADDR + layoutrom.BUILD_BIOS_SIZE
     if end != expend:
         print "Error!  Code does not end at 0x%x (got 0x%x)" % (
