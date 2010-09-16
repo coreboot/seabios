@@ -105,6 +105,15 @@ handle_155306(struct bregs *regs)
     set_success(regs);
 }
 
+void
+apm_shutdown(void)
+{
+    irq_disable();
+    out_str("Shutdown");
+    for (;;)
+        hlt();
+}
+
 // APM Set Power State
 static void
 handle_155307(struct bregs *regs)
@@ -121,10 +130,7 @@ handle_155307(struct bregs *regs)
         out_str("Suspend");
         break;
     case 3:
-        irq_disable();
-        out_str("Shutdown");
-        for (;;)
-            hlt();
+        apm_shutdown();
         break;
     }
     set_success(regs);

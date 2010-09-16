@@ -136,3 +136,16 @@ make_bios_readonly(void)
         dprintf(1, "Unable to lock ram - bridge not found\n");
     }
 }
+
+void
+qemu_prep_reset(void)
+{
+    if (CONFIG_COREBOOT)
+        return;
+    // QEMU doesn't map 0xc0000-0xfffff back to the original rom on a
+    // reset, so do that manually before invoking a hard reset.
+    make_bios_writable();
+    extern u8 code32flat_start[], code32flat_end[];
+    memcpy(code32flat_start, code32flat_start + BIOS_SRC_OFFSET
+           , code32flat_end - code32flat_start);
+}

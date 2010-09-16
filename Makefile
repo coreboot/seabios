@@ -1,6 +1,6 @@
 # SeaBIOS build system
 #
-# Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+# Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -15,8 +15,8 @@ SRCBOTH=misc.c pmm.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
         kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
         usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
-        virtio-ring.c virtio-pci.c virtio-blk.c
-SRC16=$(SRCBOTH) system.c disk.c apm.c font.c
+        virtio-ring.c virtio-pci.c virtio-blk.c apm.c
+SRC16=$(SRCBOTH) system.c disk.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
       lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c dev-i440fx.c

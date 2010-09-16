@@ -1,6 +1,6 @@
 // Basic x86 asm functions and function defs.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __UTIL_H
@@ -327,6 +327,7 @@ void useRTC(void);
 void releaseRTC(void);
 
 // apm.c
+void apm_shutdown(void);
 void handle_1553(struct bregs *regs);
 
 // pcibios.c
@@ -338,6 +339,7 @@ void make_bios_writable(void);
 void make_bios_readonly(void);
 void make_bios_writable_intel(u16 bdf, u32 pam0);
 void make_bios_readonly_intel(u16 bdf, u32 pam0);
+void qemu_prep_reset(void);
 
 // smm.c
 void smm_save_and_copy(void);
