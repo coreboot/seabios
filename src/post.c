@@ -178,7 +178,7 @@ init_hw(void)
 }
 
 // Main setup code.
-static void
+void VISIBLE32INIT
 post(void)
 {
     // Detect and init ram.

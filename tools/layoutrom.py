@@ -140,9 +140,9 @@ def fitSections(sections, fillsections):
     return firstfixed
 
 # Return the subset of sections with a given name prefix
-def getSectionsPrefix(sections, fileid, prefix):
+def getSectionsPrefix(sections, category, prefix):
     return [section for section in sections
-            if section.fileid == fileid and section.name.startswith(prefix)]
+            if section.category == category and section.name.startswith(prefix)]
 
 def doLayout(sections):
     # Determine 16bit positions
@@ -176,13 +176,25 @@ def doLayout(sections):
         textsections + rodatasections + datasections + bsssections
         , code32seg_start + BUILD_BIOS_ADDR, 16)
 
+    # Determine 32flat init positions
+    textsections = getSectionsPrefix(sections, '32init', '.text.')
+    rodatasections = getSectionsPrefix(sections, '32init', '.rodata')
+    datasections = getSectionsPrefix(sections, '32init', '.data.')
+    bsssections = getSectionsPrefix(sections, '32init', '.bss.')
+
+    code32init_start = setSectionsStart(
+        textsections + rodatasections + datasections + bsssections
+        , code32flat_start, 16)
+
     # Print statistics
     size16 = BUILD_BIOS_SIZE - code16_start
     size32seg = code16_start - code32seg_start
     size32flat = code32seg_start + BUILD_BIOS_ADDR - code32flat_start
+    size32init = code32flat_start - code32init_start
     print "16bit size:           %d" % size16
     print "32bit segmented size: %d" % size32seg
     print "32bit flat size:      %d" % size32flat
+    print "32bit flat init size: %d" % size32init
 
 
 ######################################################################
@@ -271,6 +283,11 @@ def writeLinkerScripts(sections, entrysym, out16, out32seg, out32flat):
 """ % (entrysym.name,
        entrysym.section.finalloc + entrysym.offset + BUILD_BIOS_ADDR,
        code32flat_start)
+                 + outRelSections(getSectionsPrefix(sections32flat, '32init', '')
+                                  , 'code32flat_start')
+                 + """
+        code32init_end = ABSOLUTE(.) ;
+"""
                  + outRelSections(getSectionsPrefix(sections32flat, '32flat', '')
                                   , 'code32flat_start')
                  + """
@@ -290,6 +307,33 @@ PHDRS
 }
 """ % (entrysym.name,))
     output.close()
+
+
+######################################################################
+# Detection of init code
+######################################################################
+
+def markRuntime(section, sections):
+    if (section is None or not section.keep or section.category is not None
+        or '.init.' in section.name or section.fileid != '32flat'):
+        return
+    section.category = '32flat'
+    # Recursively mark all sections this section points to
+    for reloc in section.relocs:
+        markRuntime(reloc.symbol.section, sections)
+
+def findInit(sections):
+    # Recursively find and mark all "runtime" sections.
+    for section in sections:
+        if '.runtime.' in section.name or '.export.' in section.name:
+            markRuntime(section, sections)
+    for section in sections:
+        if section.category is not None:
+            continue
+        if section.fileid == '32flat':
+            section.category = '32init'
+        else:
+            section.category = section.fileid
 
 
 ######################################################################
@@ -347,7 +391,7 @@ def gc(info16, info32seg, info32flat):
 
 class Section:
     name = size = alignment = fileid = relocs = None
-    finalloc = keep = None
+    finalloc = category = keep = None
 class Reloc:
     offset = type = symbol = None
 class Symbol:
@@ -436,6 +480,9 @@ def main():
 
     # Figure out which sections to keep.
     sections = gc(info16, info32seg, info32flat)
+
+    # Separate 32bit flat into runtime and init parts
+    findInit(sections)
 
     # Determine the final memory locations of each kept section.
     # locsX = [(addr, sectioninfo), ...]

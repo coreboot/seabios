@@ -1,6 +1,6 @@
 // Code for manipulating stack locations.
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2010  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -383,7 +383,7 @@ wait_preempt(void)
 extern void yield_preempt(void);
 #if MODESEGMENT == 0
 // Try to execute 32bit threads.
-void VISIBLE32FLAT
+void VISIBLE32INIT
 yield_preempt(void)
 {
     PreemptCount++;

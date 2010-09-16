@@ -1,6 +1,6 @@
 // Basic type definitions for X86 cpus.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 #ifndef __TYPES_H
@@ -45,6 +45,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit flat code chunk.
 # define VISIBLE32FLAT __section(".discard.func32flat." UNIQSEC) noinline __weak
+// Notes a 32bit flat function that will only be called during init.
+# define VISIBLE32INIT VISIBLE32FLAT
 // Notes a function as externally visible in the 32bit segmented code chunk.
 # define VISIBLE32SEG __section(".discard.func32seg." UNIQSEC) noinline __weak
 // Designate a variable as (only) visible to 16bit code.
@@ -70,6 +72,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 #elif MODESEGMENT == 1
 # define VISIBLE16 __section(".discard.func16." UNIQSEC) noinline __weak
 # define VISIBLE32FLAT __section(".discard.func32flat." UNIQSEC) noinline __weak
+# define VISIBLE32INIT VISIBLE32FLAT
 # define VISIBLE32SEG __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
 # define VAR16VISIBLE VAR16 __VISIBLE __weak
@@ -84,14 +87,15 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define ASSERT32FLAT() __force_link_error__only_in_32bit_flat()
 #else
 # define VISIBLE16 __section(".discard.func16." UNIQSEC) noinline __weak
-# define VISIBLE32FLAT __VISIBLE
+# define VISIBLE32FLAT __section(".text.runtime." UNIQSEC) __VISIBLE
+# define VISIBLE32INIT __section(".text.init." UNIQSEC) __VISIBLE
 # define VISIBLE32SEG __section(".discard.func32seg." UNIQSEC) noinline __weak
 # define VAR16 __section(".discard.var16." UNIQSEC)
 # define VAR16VISIBLE VAR16 __VISIBLE __weak
 # define VAR16EXPORT VAR16VISIBLE
 # define VAR16FIXED(addr) VAR16VISIBLE
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
-# define VAR32FLATVISIBLE __VISIBLE
+# define VAR32FLATVISIBLE __section(".data.runtime." UNIQSEC) __VISIBLE
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)
 # define ASSERT16() __force_link_error__only_in_16bit()
