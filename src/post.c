@@ -25,6 +25,11 @@
 #include "ps2port.h" // ps2port_setup
 #include "virtio-blk.h" // virtio_blk_setup
 
+
+/****************************************************************
+ * BIOS init
+ ****************************************************************/
+
 static void
 init_ivt(void)
 {
@@ -77,13 +82,16 @@ init_bda(void)
 
     int esize = EBDA_SIZE_START;
     SET_BDA(mem_size_kb, BUILD_LOWRAM_END/1024 - esize);
-    u16 eseg = EBDA_SEGMENT_START;
-    SET_BDA(ebda_seg, eseg);
+    u16 ebda_seg = EBDA_SEGMENT_START;
+    SET_BDA(ebda_seg, ebda_seg);
 
     // Init ebda
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = esize;
+
+    add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA2(ebda_seg, size) * 1024
+             , E820_RESERVED);
 }
 
 static void
@@ -120,9 +128,6 @@ ram_probe(void)
     add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
 
     // Mark known areas as reserved.
-    u16 ebda_seg = get_ebda_seg();
-    add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA2(ebda_seg, size) * 1024
-             , E820_RESERVED);
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
     u32 count = qemu_cfg_e820_entries();
@@ -177,20 +182,30 @@ init_hw(void)
     virtio_blk_setup();
 }
 
-// Main setup code.
-void VISIBLE32INIT
-post(void)
+// Begin the boot process by invoking an int0x19 in 16bit mode.
+static void
+startBoot(void)
 {
-    // Detect and init ram.
+    // Clear low-memory allocations (required by PMM spec).
+    memset((void*)BUILD_STACK_ADDR, 0, BUILD_EBDA_MINIMUM - BUILD_STACK_ADDR);
+
+    dprintf(3, "Jump to int19\n");
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    call16_int(0x19, &br);
+}
+
+// Main setup code.
+static void
+maininit(void)
+{
+    // Setup ivt/bda/ebda
     init_ivt();
     init_bda();
-    memmap_setup();
-    qemu_cfg_port_probe();
-    ram_probe();
-    malloc_setup();
-    thread_setup();
 
     // Init base pc hardware.
+    thread_setup();
     pic_setup();
     timer_setup();
     mathcp_setup();
@@ -242,9 +257,41 @@ post(void)
     pmm_finalize();
     malloc_finalize();
     memmap_finalize();
+
+    // Setup bios checksum.
+    BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
+
+    // Write protect bios memory.
+    make_bios_readonly();
+
+    // Invoke int 19 to start boot process.
+    startBoot();
 }
 
 static int HaveRunPost;
+
+// Start of Power On Self Test (POST) - the BIOS initilization phase.
+void VISIBLE32INIT
+post(void)
+{
+    // Allow writes to modify bios area (0xf0000)
+    make_bios_writable();
+
+    HaveRunPost = 1;
+
+    // Detect ram and setup internal malloc.
+    memmap_setup();
+    qemu_cfg_port_probe();
+    ram_probe();
+    malloc_setup();
+
+    maininit();
+}
+
+
+/****************************************************************
+ * POST entry point
+ ****************************************************************/
 
 // Attempt to invoke a hard-reboot.
 static void
@@ -284,24 +331,6 @@ _start(void)
         // This is a soft reboot - invoke a hard reboot.
         tryReboot();
 
-    // Allow writes to modify bios area (0xf0000)
-    make_bios_writable();
-
-    HaveRunPost = 1;
-
     // Perform main setup code.
     post();
-
-    // Setup bios checksum.
-    BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
-
-    // Write protect bios memory.
-    make_bios_readonly();
-
-    // Invoke int 19 to start boot process.
-    dprintf(3, "Jump to int19\n");
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
-    call16_int(0x19, &br);
 }

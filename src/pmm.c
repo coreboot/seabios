@@ -252,9 +252,6 @@ malloc_finalize(void)
         add_e820((u32)info->dataend, giveback, E820_RAM);
         dprintf(1, "Returned %d bytes of ZoneHigh\n", giveback);
     }
-
-    // Clear low-memory allocations.
-    memset((void*)BUILD_STACK_ADDR, 0, BUILD_EBDA_MINIMUM - BUILD_STACK_ADDR);
 }
 
 
