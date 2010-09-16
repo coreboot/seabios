@@ -197,11 +197,6 @@ malloc_setup(void)
     ZoneTmpLow.info = ZoneTmpHigh.info = NULL;
 
     // Clear memory in 0xf0000 area.
-    extern u8 code32flat_start[];
-    if ((u32)code32flat_start > BUILD_BIOS_ADDR)
-        // Clear unused parts of f-segment
-        memset((void*)BUILD_BIOS_ADDR, 0
-               , (u32)code32flat_start - BUILD_BIOS_ADDR);
     memset(BiosTableSpace, 0, CONFIG_MAX_BIOSTABLE);
 
     // Populate temp high ram

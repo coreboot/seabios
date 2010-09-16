@@ -168,14 +168,15 @@ get_pci_rom(struct rom_header *rom)
     return pci;
 }
 
+// Return start of code in 0xc0000-0xf0000 space.
+static inline u32 _max_rom(void) {
+    extern u8 code32flat_start[], code32init_end[];
+    return CONFIG_RELOCATE_INIT ? (u32)code32flat_start : (u32)code32init_end;
+}
 // Return the memory position up to which roms may be located.
-static inline u32
-max_rom(void)
-{
-    extern u8 code32flat_start[];
-    if ((u32)code32flat_start > BUILD_BIOS_ADDR)
-        return BUILD_BIOS_ADDR;
-    return (u32)code32flat_start;
+static inline u32 max_rom(void) {
+    u32 end = _max_rom();
+    return end > BUILD_BIOS_ADDR ? BUILD_BIOS_ADDR : end;
 }
 
 // Copy a rom to its permanent location below 1MiB
@@ -434,6 +435,9 @@ vga_setup(void)
         // Option roms are already deployed on the system.
         init_optionrom((void*)BUILD_ROM_START, 0, 1);
     } else {
+        // Clear option rom memory
+        memset((void*)RomEnd, 0, _max_rom() - RomEnd);
+
         // Find and deploy PCI VGA rom.
         int bdf = VGAbdf = pci_find_vga();
         if (bdf >= 0)
