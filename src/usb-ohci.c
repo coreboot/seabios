@@ -412,6 +412,21 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
 }
 
 struct usb_pipe *
+ohci_alloc_bulk_pipe(struct usb_pipe *dummy)
+{
+    if (! CONFIG_USB_OHCI)
+        return NULL;
+    dprintf(1, "OHCI Bulk transfers not supported.\n");
+    return NULL;
+}
+
+int
+ohci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
+{
+    return -1;
+}
+
+struct usb_pipe *
 ohci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
 {
     if (! CONFIG_USB_OHCI)

@@ -94,7 +94,7 @@ alloc_bulk_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
     case USB_TYPE_UHCI:
         return uhci_alloc_bulk_pipe(&dummy);
     case USB_TYPE_OHCI:
-        return NULL;
+        return ohci_alloc_bulk_pipe(&dummy);
     case USB_TYPE_EHCI:
         return ehci_alloc_bulk_pipe(&dummy);
     }
@@ -108,7 +108,7 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     case USB_TYPE_UHCI:
         return uhci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_OHCI:
-        return -1;
+        return ohci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_EHCI:
         return ehci_send_bulk(pipe_fl, dir, data, datasize);
     }
