@@ -24,6 +24,8 @@ def main():
     finalsize = 64*1024
     if datasize > 64*1024:
         finalsize = 128*1024
+        if datasize > 128*1024:
+            finalsize = 256*1024
 
     # Sanity checks
     start = symbols['code32flat_start'].offset

@@ -321,18 +321,11 @@ reloc_init(void)
     func();
 }
 
-static int HaveRunPost;
-
 // Start of Power On Self Test (POST) - the BIOS initilization phase.
 // This function sets up for and attempts relocation of the init code.
 void VISIBLE32INIT
 post(void)
 {
-    // Allow writes to modify bios area (0xf0000)
-    make_bios_writable();
-
-    HaveRunPost = 1;
-
     // Detect ram and setup internal malloc.
     memmap_setup();
     qemu_cfg_port_probe();
@@ -346,6 +339,8 @@ post(void)
 /****************************************************************
  * POST entry point
  ****************************************************************/
+
+static int HaveRunPost;
 
 // Attempt to invoke a hard-reboot.
 static void
@@ -384,6 +379,10 @@ _start(void)
     if (HaveRunPost)
         // This is a soft reboot - invoke a hard reboot.
         tryReboot();
+
+    // Allow writes to modify bios area (0xf0000)
+    make_bios_writable();
+    HaveRunPost = 1;
 
     // Perform main setup code.
     post();
