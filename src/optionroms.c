@@ -171,7 +171,7 @@ get_pci_rom(struct rom_header *rom)
 // Return start of code in 0xc0000-0xf0000 space.
 static inline u32 _max_rom(void) {
     extern u8 code32flat_start[], code32init_end[];
-    return CONFIG_RELOCATE_INIT ? (u32)code32flat_start : (u32)code32init_end;
+    return CONFIG_RELOCATE_INIT ? (u32)code32init_end : (u32)code32flat_start;
 }
 // Return the memory position up to which roms may be located.
 static inline u32 max_rom(void) {
