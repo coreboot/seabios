@@ -423,8 +423,6 @@ usb_setup(void)
 
     dprintf(3, "init usb\n");
 
-    usb_hid_setup();
-
     // Look for USB controllers
     int ehcibdf = -1;
     int count = 0;

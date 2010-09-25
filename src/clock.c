@@ -211,7 +211,6 @@ timer_setup(void)
     u32 ticks = (hours * 60 + minutes) * 60 + seconds;
     ticks = ((u64)ticks * PIT_TICK_RATE) / PIT_TICK_INTERVAL;
     SET_BDA(timer_counter, ticks);
-    SET_BDA(timer_rollover, 0);
 
     enable_hwirq(0, FUNC16(entry_08));
     enable_hwirq(8, FUNC16(entry_70));

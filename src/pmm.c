@@ -193,12 +193,6 @@ malloc_setup(void)
     ASSERT32FLAT();
     dprintf(3, "malloc setup\n");
 
-    ZoneLow.info = ZoneHigh.info = ZoneFSeg.info = NULL;
-    ZoneTmpLow.info = ZoneTmpHigh.info = NULL;
-
-    // Clear memory in 0xf0000 area.
-    memset(BiosTableSpace, 0, CONFIG_MAX_BIOSTABLE);
-
     // Populate temp high ram
     u32 highram = 0;
     int i;

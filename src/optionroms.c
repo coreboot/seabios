@@ -72,7 +72,7 @@ struct pnp_data {
 #define PCIROM_CODETYPE_X86 0
 
 // The end of the last deployed rom.
-u32 RomEnd;
+u32 RomEnd = BUILD_ROM_START;
 
 
 /****************************************************************
@@ -423,9 +423,6 @@ optionrom_setup(void)
 void
 vga_setup(void)
 {
-    VGAbdf = -1;
-    RomEnd = BUILD_ROM_START;
-
     if (! CONFIG_OPTIONROMS)
         return;
 

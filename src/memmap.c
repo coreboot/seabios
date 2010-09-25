@@ -119,13 +119,6 @@ add_e820(u64 start, u64 size, u32 type)
     //dump_map();
 }
 
-// Prep for memmap stuff - init bios table locations.
-void
-memmap_setup(void)
-{
-    e820_count = 0;
-}
-
 // Report on final memory locations.
 void
 memmap_finalize(void)

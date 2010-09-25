@@ -15,7 +15,9 @@ struct thread_info {
     void *stackpos;
     struct thread_info **pprev;
 };
-struct thread_info VAR16VISIBLE MainThread;
+struct thread_info VAR32FLATVISIBLE MainThread = {
+    &MainThread, NULL, &MainThread.next
+};
 
 
 /****************************************************************
@@ -189,15 +191,6 @@ stack_hop(u32 eax, u32 edx, void *func)
 
 #define THREADSTACKSIZE 4096
 int VAR16VISIBLE CanPreempt;
-
-void
-thread_setup(void)
-{
-    MainThread.next = &MainThread;
-    MainThread.pprev = &MainThread.next;
-    MainThread.stackpos = NULL;
-    CanPreempt = 0;
-}
 
 // Return the 'struct thread_info' for the currently running thread.
 struct thread_info *
@@ -397,7 +390,7 @@ check_preempt(void)
 {
     if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS
         || !GET_GLOBAL(CanPreempt)
-        || GET_GLOBAL(MainThread.next) == &MainThread)
+        || GET_FLATPTR(MainThread.next) == &MainThread)
         return;
 
     call32(yield_preempt);

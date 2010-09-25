@@ -126,8 +126,6 @@ coreboot_fill_map(void)
 {
     dprintf(3, "Attempting to find coreboot table\n");
 
-    CBMemTable = NULL;
-
     // Find coreboot table.
     struct cb_header *cbh = find_cb_header(0, 0x1000);
     if (!cbh)
@@ -289,10 +287,6 @@ coreboot_copy_biostable(void)
         return;
 
     dprintf(3, "Relocating coreboot bios tables\n");
-
-    // Init variables set in coreboot table memory scan.
-    PirOffset = 0;
-    RsdpAddr = 0;
 
     // Scan CB_MEM_TABLE areas for bios tables.
     int i, count = MEM_RANGE_COUNT(cbm);

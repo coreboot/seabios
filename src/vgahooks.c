@@ -13,7 +13,7 @@
 #include "config.h" // CONFIG_*
 
 // The Bus/Dev/Fn of the primary VGA device.
-int VGAbdf VAR16VISIBLE;
+int VGAbdf VAR16VISIBLE = -1;
 // Coreboot board detected.
 int CBmainboard VAR16VISIBLE;
 
@@ -305,11 +305,10 @@ vgahook_setup(const char *vendor, const char *part)
     if (! CONFIG_VGAHOOKS)
         return;
 
-    CBmainboard = 0;
     for (i=0; i<(sizeof(mainboard_list) / sizeof(mainboard_list[0])); i++) {
         if (!strcmp(vendor, mainboard_list[i].vendor) &&
             !strcmp(part, mainboard_list[i].device)) {
-            printf("Found mainboard %s %s\n", vendor, part); 
+            printf("Found mainboard %s %s\n", vendor, part);
             CBmainboard = mainboard_list[i].type;
             break;
         }

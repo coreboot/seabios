@@ -127,11 +127,3 @@ smp_probe(void)
     dprintf(1, "Found %d cpu(s) max supported %d cpu(s)\n", readl(&CountCPUs),
         MaxCountCPUs);
 }
-
-// Reset variables to zero
-void
-smp_probe_setup(void)
-{
-    CountCPUs = 0;
-    smp_mtrr_count = 0;
-}

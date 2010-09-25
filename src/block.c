@@ -329,14 +329,3 @@ send_disk_op(struct disk_op_s *op)
 
     return stack_hop((u32)op, GET_SEG(SS), __send_disk_op);
 }
-
-
-/****************************************************************
- * Setup
- ****************************************************************/
-
-void
-drive_setup(void)
-{
-    memset(&Drives, 0, sizeof(Drives));
-}

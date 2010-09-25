@@ -205,13 +205,11 @@ maininit(void)
     init_bda();
 
     // Init base pc hardware.
-    thread_setup();
     pic_setup();
     timer_setup();
     mathcp_setup();
 
     // Initialize mtrr
-    smp_probe_setup();
     mtrr_setup();
 
     // Initialize pci
@@ -220,7 +218,6 @@ maininit(void)
 
     // Initialize internal tables
     boot_setup();
-    drive_setup();
 
     // Start hardware initialization (if optionrom threading)
     if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
@@ -327,7 +324,6 @@ void VISIBLE32INIT
 post(void)
 {
     // Detect ram and setup internal malloc.
-    memmap_setup();
     qemu_cfg_port_probe();
     ram_probe();
     malloc_setup();

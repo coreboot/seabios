@@ -6,7 +6,6 @@ struct usb_interface_descriptor;
 struct usb_pipe;
 int usb_hid_init(struct usb_pipe *pipe
                  , struct usb_interface_descriptor *iface, int imax);
-void usb_hid_setup(void);
 inline int usb_kbd_active(void);
 inline int usb_kbd_command(int command, u8 *param);
 inline int usb_mouse_active(void);

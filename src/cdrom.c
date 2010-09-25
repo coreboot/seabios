@@ -109,8 +109,6 @@ cdemu_setup(void)
 {
     if (!CONFIG_CDROM_EMU)
         return;
-    cdemu_drive_gf = NULL;
-    cdemu_buf_fl = NULL;
     if (!Drives.cdcount)
         return;
 

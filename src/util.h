@@ -213,7 +213,6 @@ int get_keystroke(int msec);
 // stacks.c
 inline u32 stack_hop(u32 eax, u32 edx, void *func);
 extern struct thread_info MainThread;
-void thread_setup(void);
 struct thread_info *getCurThread(void);
 void yield(void);
 void wait_irq(void);
@@ -358,7 +357,6 @@ extern u32 CountCPUs;
 extern u32 MaxCountCPUs;
 void wrmsr_smp(u32 index, u64 val);
 void smp_probe(void);
-void smp_probe_setup(void);
 
 // coreboot.c
 struct cbfs_file;

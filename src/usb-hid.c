@@ -130,15 +130,6 @@ usb_hid_init(struct usb_pipe *pipe
     return -1;
 }
 
-void
-usb_hid_setup(void)
-{
-    if (CONFIG_USB_KEYBOARD)
-        keyboard_pipe = NULL;
-    if (CONFIG_USB_MOUSE)
-        mouse_pipe = NULL;
-}
-
 
 /****************************************************************
  * Keyboard events

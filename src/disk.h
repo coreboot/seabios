@@ -234,7 +234,6 @@ void map_hd_drive(struct drive_s *drive_g);
 void map_cd_drive(struct drive_s *drive_g);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
-void drive_setup(void);
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
