@@ -26,6 +26,8 @@
 #define CONFIG_THREADS 1
 // Allow hardware init to run in parallel with optionrom execution
 #define CONFIG_THREAD_OPTIONROMS 0
+// Support relocating the one time initialization code to high memory
+#define CONFIG_RELOCATE_INIT 1
 // Support int13 disk/floppy drive functions
 #define CONFIG_DRIVES 1
 // Support floppy drive access

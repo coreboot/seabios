@@ -183,7 +183,7 @@ init_hw(void)
 }
 
 // Begin the boot process by invoking an int0x19 in 16bit mode.
-static void
+void VISIBLE32FLAT
 startBoot(void)
 {
     // Clear low-memory allocations (required by PMM spec).
@@ -268,9 +268,63 @@ maininit(void)
     startBoot();
 }
 
+
+/****************************************************************
+ * Code relocation
+ ****************************************************************/
+
+// Update given relocs for the code at 'dest' with a given 'delta'
+static void
+updateRelocs(void *dest, u32 *rstart, u32 *rend, u32 delta)
+{
+    u32 *reloc;
+    for (reloc = rstart; reloc < rend; reloc++)
+        *((u32*)(dest + *reloc)) += delta;
+}
+
+// Start of Power On Self Test - the BIOS initilization.  This
+// function sets up for and attempts relocation of the init code.
+static void
+reloc_init(void)
+{
+    if (!CONFIG_RELOCATE_INIT) {
+        maininit();
+        return;
+    }
+    // Symbols populated by the build.
+    extern u8 code32flat_start[];
+    extern u8 _reloc_min_align[];
+    extern u32 _reloc_abs_start[], _reloc_abs_end[];
+    extern u32 _reloc_rel_start[], _reloc_rel_end[];
+    extern u32 _reloc_init_start[], _reloc_init_end[];
+    extern u8 code32init_start[], code32init_end[];
+
+    // Allocate space for init code.
+    u32 initsize = code32init_end - code32init_start;
+    u32 align = (u32)&_reloc_min_align;
+    void *dest = memalign_tmp(align, initsize);
+    if (!dest)
+        panic("No space for init relocation.\n");
+
+    // Copy code and update relocs (init absolute, init relative, and runtime)
+    dprintf(1, "Relocating init from %p to %p (size %d)\n"
+            , code32init_start, dest, initsize);
+    s32 delta = dest - (void*)code32init_start;
+    memcpy(dest, code32init_start, initsize);
+    updateRelocs(dest, _reloc_abs_start, _reloc_abs_end, delta);
+    updateRelocs(dest, _reloc_rel_start, _reloc_rel_end, -delta);
+    updateRelocs(code32flat_start, _reloc_init_start, _reloc_init_end, delta);
+
+    // Call maininit() in relocated code.
+    void (*func)(void) = (void*)maininit + delta;
+    barrier();
+    func();
+}
+
 static int HaveRunPost;
 
 // Start of Power On Self Test (POST) - the BIOS initilization phase.
+// This function sets up for and attempts relocation of the init code.
 void VISIBLE32INIT
 post(void)
 {
@@ -285,7 +339,7 @@ post(void)
     ram_probe();
     malloc_setup();
 
-    maininit();
+    reloc_init();
 }
 
 
