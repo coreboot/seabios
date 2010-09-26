@@ -46,8 +46,11 @@ def main():
         sys.exit(1)
 
     # Print statistics
-    print "Total size: %d  Free space: %d  Percent used: %.1f%% (%dKiB rom)" % (
-        datasize, finalsize - datasize
+    runtimesize = datasize
+    if '_reloc_abs_start' in symbols:
+        runtimesize = end - symbols['code32init_end'].offset
+    print "Total size: %d  Fixed: %d  Free: %d (used %.1f%% of %dKiB rom)" % (
+        datasize, runtimesize, finalsize - datasize
         , (datasize / float(finalsize)) * 100.0
         , finalsize / 1024)
 
