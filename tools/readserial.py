@@ -111,7 +111,15 @@ def main():
 
     if options.serial:
         # Read from serial port
-        import serial
+        try:
+            import serial
+        except ImportError:
+            print """
+Unable to find pyserial package ( http://pyserial.sourceforge.net/ ).
+On Linux machines try: yum install pyserial
+Or: apt-get install python-serial
+"""
+            sys.exit(1)
         ser = serial.Serial(serialport, baud, timeout=0)
     else:
         # Read from a file
