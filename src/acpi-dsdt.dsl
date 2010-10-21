@@ -73,7 +73,7 @@ DefinitionBlock (
 #define prt_slot3(nr) prt_slot(nr, LNKC, LNKD, LNKA, LNKB)
                prt_slot0(0x0000),
                /* Device 1 is power mgmt device, and can only use irq 9 */
-               Package() { 0x0001ffff, 0, 0, 9 },
+               Package() { 0x0001ffff, 0, LNKS, 0 },
                Package() { 0x0001ffff, 1, LNKB, 0 },
                Package() { 0x0001ffff, 2, LNKC, 0 },
                Package() { 0x0001ffff, 3, LNKD, 0 },
@@ -632,6 +632,46 @@ DefinitionBlock (
                 {
                     CreateDWordField (Arg0, 0x05, TMP)
                     Store (TMP, PRQ3)
+                }
+        }
+        Device(LNKS){
+                Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
+                Name(_UID, 5)
+                Name(_PRS, ResourceTemplate(){
+                    Interrupt (, Level, ActiveHigh, Shared)
+                        { 9 }
+                })
+                Method (_STA, 0, NotSerialized)
+                {
+                    Store (0x0B, Local0)
+                    If (And (0x80, PRQ0, Local1))
+                    {
+                         Store (0x09, Local0)
+                    }
+                    Return (Local0)
+                }
+                Method (_DIS, 0, NotSerialized)
+                {
+                    Or (PRQ0, 0x80, PRQ0)
+                }
+                Method (_CRS, 0, NotSerialized)
+                {
+                    Name (PRR0, ResourceTemplate ()
+                    {
+                        Interrupt (, Level, ActiveHigh, Shared)
+                            {9}
+                    })
+                    CreateDWordField (PRR0, 0x05, TMP)
+                    Store (PRQ0, Local0)
+                    If (LLess (Local0, 0x80))
+                    {
+                        Store (Local0, TMP)
+                    }
+                    Else
+                    {
+                        Store (Zero, TMP)
+                    }
+                    Return (PRR0)
                 }
         }
     }
