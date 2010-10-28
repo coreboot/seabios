@@ -17,9 +17,10 @@
 
 static void pci_bios_init_device_in_bus(int bus);
 
-static u32 pci_bios_io_addr;
-static u32 pci_bios_mem_addr;
-static u32 pci_bios_prefmem_addr;
+static struct pci_region pci_bios_io_region;
+static struct pci_region pci_bios_mem_region;
+static struct pci_region pci_bios_prefmem_region;
+
 /* host irqs corresponding to PCI irqs A-D */
 const u8 pci_irqs[4] = {
     10, 10, 11, 11
@@ -54,7 +55,7 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
  */
 static int pci_bios_allocate_region(u16 bdf, int region_num)
 {
-    u32 *paddr;
+    struct pci_region *r;
     u32 ofs = pci_bar(bdf, region_num);
 
     u32 old = pci_config_readl(bdf, ofs);
@@ -74,41 +75,34 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
 
     u32 size = (~(val & mask)) + 1;
     if (val != 0) {
+        const char *type;
+        const char *msg;
         if (val & PCI_BASE_ADDRESS_SPACE_IO) {
-            paddr = &pci_bios_io_addr;
-            if (ALIGN(*paddr, size) + size >= 64 * 1024) {
-                dprintf(1,
-                        "io region of (bdf 0x%x bar %d) can't be mapped.\n",
-                        bdf, region_num);
-                size = 0;
-            }
+            r = &pci_bios_io_region;
+            type = "io";
+            msg = "";
         } else if ((val & PCI_BASE_ADDRESS_MEM_PREFETCH) &&
-                 /* keep behaviour on bus = 0 */
-                 pci_bdf_to_bus(bdf) != 0 &&
-                 /* If pci_bios_prefmem_addr == 0, keep old behaviour */
-                 pci_bios_prefmem_addr != 0) {
-            paddr = &pci_bios_prefmem_addr;
-            if (ALIGN(*paddr, size) + size >= BUILD_PCIPREFMEM_END) {
-                dprintf(1,
-                        "prefmem region of (bdf 0x%x bar %d) can't be mapped. "
-                        "decrease BUILD_PCIMEM_SIZE and recompile. size %x\n",
-                        bdf, region_num, BUILD_PCIPREFMEM_SIZE);
-                size = 0;
-            }
+                   /* keep behaviour on bus = 0 */
+                   pci_bdf_to_bus(bdf) != 0 &&
+                   /* If pci_bios_prefmem_addr == 0, keep old behaviour */
+                   pci_region_addr(&pci_bios_prefmem_region) != 0) {
+            r = &pci_bios_prefmem_region;
+            type = "prefmem";
+            msg = "decrease BUILD_PCIMEM_SIZE and recompile. size %x";
         } else {
-            paddr = &pci_bios_mem_addr;
-            if (ALIGN(*paddr, size) + size >= BUILD_PCIMEM_END) {
-                dprintf(1,
-                        "mem region of (bdf 0x%x bar %d) can't be mapped. "
-                        "increase BUILD_PCIMEM_SIZE and recompile. size %x\n",
-                        bdf, region_num, BUILD_PCIMEM_SIZE);
-                size = 0;
-            }
+            r = &pci_bios_mem_region;
+            type = "mem";
+            msg = "increase BUILD_PCIMEM_SIZE and recompile.";
         }
-        if (size > 0) {
-            *paddr = ALIGN(*paddr, size);
-            pci_set_io_region_addr(bdf, region_num, *paddr);
-            *paddr += size;
+        u32 addr = pci_region_alloc(r, size);
+        if (addr > 0) {
+            pci_set_io_region_addr(bdf, region_num, addr);
+        } else {
+            size = 0;
+            dprintf(1,
+                    "%s region of (bdf 0x%x bar %d) can't be mapped. "
+                    "%s size %x\n",
+                    type, bdf, region_num, msg, pci_region_size(r));
         }
     }
 
@@ -163,33 +157,34 @@ static void pci_bios_init_device_bridge(u16 bdf, void *arg)
     pci_bios_allocate_region(bdf, 1);
     pci_bios_allocate_region(bdf, PCI_ROM_SLOT);
 
-    u32 io_old = pci_bios_io_addr;
-    u32 mem_old = pci_bios_mem_addr;
-    u32 prefmem_old = pci_bios_prefmem_addr;
+    u32 io_old = pci_region_addr(&pci_bios_io_region);
+    u32 mem_old = pci_region_addr(&pci_bios_mem_region);
+    u32 prefmem_old = pci_region_addr(&pci_bios_prefmem_region);
 
     /* IO BASE is assumed to be 16 bit */
-    pci_bios_io_addr = ALIGN(pci_bios_io_addr, PCI_IO_ALIGN);
-    pci_bios_mem_addr = ALIGN(pci_bios_mem_addr, PCI_MEMORY_ALIGN);
-    pci_bios_prefmem_addr =
-        ALIGN(pci_bios_prefmem_addr, PCI_PREF_MEMORY_ALIGN);
+    if (pci_region_align(&pci_bios_io_region, PCI_IO_ALIGN) == 0) {
+        pci_region_disable(&pci_bios_io_region);
+    }
+    if (pci_region_align(&pci_bios_mem_region, PCI_MEMORY_ALIGN) == 0) {
+        pci_region_disable(&pci_bios_mem_region);
+    }
+    if (pci_region_align(&pci_bios_prefmem_region,
+                         PCI_PREF_MEMORY_ALIGN) == 0) {
+        pci_region_disable(&pci_bios_prefmem_region);
+    }
 
-    u32 io_base = pci_bios_io_addr;
-    u32 mem_base = pci_bios_mem_addr;
-    u32 prefmem_base = pci_bios_prefmem_addr;
+    u32 io_base = pci_region_addr(&pci_bios_io_region);
+    u32 mem_base = pci_region_addr(&pci_bios_mem_region);
+    u32 prefmem_base = pci_region_addr(&pci_bios_prefmem_region);
 
     u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
     if (secbus > 0) {
         pci_bios_init_device_in_bus(secbus);
     }
 
-    pci_bios_io_addr = ALIGN(pci_bios_io_addr, PCI_IO_ALIGN);
-    pci_bios_mem_addr = ALIGN(pci_bios_mem_addr, PCI_MEMORY_ALIGN);
-    pci_bios_prefmem_addr =
-        ALIGN(pci_bios_prefmem_addr, PCI_PREF_MEMORY_ALIGN);
-
-    u32 io_end = pci_bios_io_addr;
-    if (io_end == io_base) {
-        pci_bios_io_addr = io_old;
+    u32 io_end = pci_region_align(&pci_bios_io_region, PCI_IO_ALIGN);
+    if (io_end == 0) {
+        pci_region_revert(&pci_bios_io_region, io_old);
         io_base = 0xffff;
         io_end = 1;
     }
@@ -198,18 +193,19 @@ static void pci_bios_init_device_bridge(u16 bdf, void *arg)
     pci_config_writeb(bdf, PCI_IO_LIMIT, (io_end - 1) >> PCI_IO_SHIFT);
     pci_config_writew(bdf, PCI_IO_LIMIT_UPPER16, 0);
 
-    u32 mem_end = pci_bios_mem_addr;
-    if (mem_end == mem_base) {
-        pci_bios_mem_addr = mem_old;
+    u32 mem_end = pci_region_align(&pci_bios_mem_region, PCI_MEMORY_ALIGN);
+    if (mem_end == 0) {
+        pci_region_revert(&pci_bios_mem_region, mem_old);
         mem_base = 0xffffffff;
         mem_end = 1;
     }
     pci_config_writew(bdf, PCI_MEMORY_BASE, mem_base >> PCI_MEMORY_SHIFT);
     pci_config_writew(bdf, PCI_MEMORY_LIMIT, (mem_end -1) >> PCI_MEMORY_SHIFT);
 
-    u32 prefmem_end = pci_bios_prefmem_addr;
-    if (prefmem_end == prefmem_base) {
-        pci_bios_prefmem_addr = prefmem_old;
+    u32 prefmem_end = pci_region_align(&pci_bios_prefmem_region,
+                                       PCI_PREF_MEMORY_ALIGN);
+    if (prefmem_end == 0) {
+        pci_region_revert(&pci_bios_prefmem_region, prefmem_old);
         prefmem_base = 0xffffffff;
         prefmem_end = 1;
     }
@@ -406,9 +402,11 @@ pci_setup(void)
 
     dprintf(3, "pci setup\n");
 
-    pci_bios_io_addr = 0xc000;
-    pci_bios_mem_addr = BUILD_PCIMEM_START;
-    pci_bios_prefmem_addr = BUILD_PCIPREFMEM_START;
+    pci_region_init(&pci_bios_io_region, 0xc000, 64 * 1024);
+    pci_region_init(&pci_bios_mem_region,
+                    BUILD_PCIMEM_START, BUILD_PCIMEM_END - 1);
+    pci_region_init(&pci_bios_prefmem_region,
+                    BUILD_PCIPREFMEM_START, BUILD_PCIPREFMEM_END - 1);
 
     pci_bios_init_bus();
 
