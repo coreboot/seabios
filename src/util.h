@@ -211,6 +211,7 @@ char *strtcpy(char *dest, const char *src, size_t len);
 int get_keystroke(int msec);
 
 // stacks.c
+u32 call32(void *func, u32 eax, u32 errret);
 inline u32 stack_hop(u32 eax, u32 edx, void *func);
 extern struct thread_info MainThread;
 struct thread_info *getCurThread(void);
