@@ -40,7 +40,7 @@ handle_resume(u8 status)
             asm volatile(
                 "movw %w1, %%ss\n"
                 "movl %0, %%esp\n"
-                "pushl $s3_resume\n"
+                "movl $s3_resume, %%edx\n"
                 "jmp transition32\n"
                 : : "i"(BUILD_S3RESUME_STACK_ADDR), "r"(0)
                 );

@@ -66,11 +66,11 @@ call32(void *func)
         "  movl %%ss, %0\n"
 
         // Transition to 32bit mode, call func, return to 16bit
-        "  pushl $(" __stringify(BUILD_BIOS_ADDR) " + 1f)\n"
+        "  movl $(" __stringify(BUILD_BIOS_ADDR) " + 1f), %%edx\n"
         "  jmp transition32\n"
         "  .code32\n"
         "1:calll *%2\n"
-        "  pushl $2f\n"
+        "  movl $2f, %%edx\n"
         "  jmp transition16big\n"
 
         // Restore ds/ss/esp

@@ -156,7 +156,7 @@
         xorw %ax, %ax
         movw %ax, %ss
         movl $ BUILD_STACK_ADDR , %esp
-        pushl $ \cfunc
+        movl $ \cfunc , %edx
         jmp transition32
         .endm
 
