@@ -150,6 +150,15 @@ memset(void *s, int c, size_t n)
     return s;
 }
 
+void memset_fl(void *ptr, u8 val, size_t size)
+{
+    if (MODESEGMENT)
+        memset_far(FLATPTR_TO_SEG(ptr), (void*)(FLATPTR_TO_OFFSET(ptr)),
+                   val, size);
+    else
+        memset(ptr, val, size);
+}
+
 inline void
 memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
 {

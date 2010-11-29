@@ -198,6 +198,7 @@ int strcmp(const char *s1, const char *s2);
 inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
 inline void memset16_far(u16 d_seg, void *d_far, u16 c, size_t len);
 void *memset(void *s, int c, size_t n);
+void memset_fl(void *ptr, u8 val, size_t size);
 inline void memcpy_far(u16 d_seg, void *d_far
                        , u16 s_seg, const void *s_far, size_t len);
 void memcpy_fl(void *d_fl, const void *s_fl, size_t len);
