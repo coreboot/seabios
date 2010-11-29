@@ -701,8 +701,8 @@ send_ata_identity(struct atadrive_s *adrive_g, u16 *buffer, int command)
 }
 
 // Extract the ATA/ATAPI version info.
-static int
-extract_version(u16 *buffer)
+int
+ata_extract_version(u16 *buffer)
 {
     // Extract ATA/ATAPI version.
     u16 ataversion = buffer[80];
@@ -716,17 +716,17 @@ extract_version(u16 *buffer)
 #define MAXMODEL 40
 
 // Extract the ATA/ATAPI model info.
-static char *
-extract_model(char *model, u16 *buffer)
+char *
+ata_extract_model(char *model, u32 size, u16 *buffer)
 {
     // Read model name
     int i;
-    for (i=0; i<MAXMODEL/2; i++)
+    for (i=0; i<size/2; i++)
         *(u16*)&model[i*2] = ntohs(buffer[27+i]);
-    model[MAXMODEL] = 0x00;
+    model[size] = 0x00;
 
     // Trim trailing spaces from model name.
-    for (i=MAXMODEL-1; i>0 && model[i] == 0x20; i--)
+    for (i=size-1; i>0 && model[i] == 0x20; i--)
         model[i] = 0x00;
 
     return model;
@@ -773,7 +773,8 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     char model[MAXMODEL+1];
     snprintf(adrive_g->drive.desc, MAXDESCSIZE, "ata%d-%d: %s ATAPI-%d %s"
              , adrive_g->chan_gf->chanid, adrive_g->slave
-             , extract_model(model, buffer), extract_version(buffer)
+             , ata_extract_model(model, MAXMODEL, buffer)
+             , ata_extract_version(buffer)
              , (iscd ? "DVD/CD" : "Device"));
     dprintf(1, "%s\n", adrive_g->drive.desc);
 
@@ -820,7 +821,8 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
     snprintf(adrive_g->drive.desc, MAXDESCSIZE
              , "ata%d-%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
              , adrive_g->chan_gf->chanid, adrive_g->slave
-             , extract_model(model, buffer), extract_version(buffer)
+             , ata_extract_model(model, MAXMODEL, buffer)
+             , ata_extract_version(buffer)
              , (u32)adjsize, adjprefix);
     dprintf(1, "%s\n", adrive_g->drive.desc);
 
