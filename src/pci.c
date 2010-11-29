@@ -9,6 +9,7 @@
 #include "ioport.h" // outl
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
+#include "farptr.h" // CONFIG_*
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 
@@ -224,4 +225,54 @@ pci_reboot(void)
     udelay(50);
     outb(v|6, PORT_PCI_REBOOT); /* Actually do the reset */
     udelay(50);
+}
+
+// helper functions to access pci mmio bars from real mode
+
+extern u32 pci_readl_32(u32 addr);
+#if MODESEGMENT == 0
+u32 VISIBLE32FLAT
+pci_readl_32(u32 addr)
+{
+    dprintf(3, "32: pci read : %x\n", addr);
+    return readl((void*)addr);
+}
+#endif
+
+u32 pci_readl(u32 addr)
+{
+    if (MODESEGMENT) {
+        dprintf(3, "16: pci read : %x\n", addr);
+        return call32(pci_readl_32, addr, -1);
+    } else {
+        return pci_readl_32(addr);
+    }
+}
+
+struct reg32 {
+    u32 addr;
+    u32 data;
+};
+
+extern void pci_writel_32(struct reg32 *reg32);
+#if MODESEGMENT == 0
+void VISIBLE32FLAT
+pci_writel_32(struct reg32 *reg32)
+{
+    dprintf(3, "32: pci write: %x, %x (%p)\n", reg32->addr, reg32->data, reg32);
+    writel((void*)(reg32->addr), reg32->data);
+}
+#endif
+
+void pci_writel(u32 addr, u32 val)
+{
+    struct reg32 reg32 = { .addr = addr, .data = val };
+    if (MODESEGMENT) {
+        dprintf(3, "16: pci write: %x, %x (%x:%p)\n",
+                reg32.addr, reg32.data, GET_SEG(SS), &reg32);
+        void *flatptr = MAKE_FLATPTR(GET_SEG(SS), &reg32);
+        call32(pci_writel_32, (u32)flatptr, -1);
+    } else {
+        pci_writel_32(&reg32);
+    }
 }

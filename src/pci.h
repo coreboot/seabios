@@ -96,6 +96,10 @@ int pci_init_device(const struct pci_device_id *table, u16 bdf, void *arg);
 int pci_find_init_device(const struct pci_device_id *ids, void *arg);
 void pci_reboot(void);
 
+// helper functions to access pci mmio bars from real mode
+u32 pci_readl(u32 addr);
+void pci_writel(u32 addr, u32 val);
+
 // pirtable.c
 void create_pirtable(void);
 
