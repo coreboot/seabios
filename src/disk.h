@@ -198,6 +198,7 @@ struct drive_s {
 #define DTYPE_CDEMU    0x05
 #define DTYPE_USB      0x06
 #define DTYPE_VIRTIO   0x07
+#define DTYPE_AHCI     0x08
 
 #define MAXDESCSIZE 80
 

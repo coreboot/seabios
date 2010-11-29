@@ -12,6 +12,7 @@
 #include "biosvar.h" // struct bios_data_area_s
 #include "disk.h" // floppy_drive_setup
 #include "ata.h" // ata_setup
+#include "ahci.h" // ahci_setup
 #include "memmap.h" // add_e820
 #include "pic.h" // pic_setup
 #include "pci.h" // create_pirtable
@@ -178,6 +179,7 @@ init_hw(void)
 
     floppy_setup();
     ata_setup();
+    ahci_setup();
     ramdisk_setup();
     virtio_blk_setup();
 }

@@ -10,6 +10,7 @@
 #include "disk.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "ata.h" // atapi_cmd_data
+#include "ahci.h" // atapi_cmd_data
 #include "usb-msc.h" // usb_cmd_data
 
 // Route command to low-level handler.
@@ -22,6 +23,8 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return atapi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_USB:
         return usb_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_AHCI:
+        return ahci_cmd_data(op, cdbcmd, blocksize);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

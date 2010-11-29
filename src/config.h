@@ -56,6 +56,8 @@
 #define CONFIG_ATA_DMA 0
 // Use 32bit PIO accesses on ATA (minor optimization on PCI transfers)
 #define CONFIG_ATA_PIO32 0
+// Support for AHCI disk code
+#define CONFIG_AHCI 0
 // Support for booting from a CD
 #define CONFIG_CDROM_BOOT 1
 // Support for emulating a boot CD as a floppy/harddrive

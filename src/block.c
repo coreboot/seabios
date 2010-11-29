@@ -10,6 +10,7 @@
 #include "cmos.h" // inb_cmos
 #include "util.h" // dprintf
 #include "ata.h" // process_ata_op
+#include "ahci.h" // process_ahci_op
 #include "usb-msc.h" // process_usb_op
 #include "virtio-blk.h" // process_virtio_op
 
@@ -292,6 +293,8 @@ process_op(struct disk_op_s *op)
         return process_usb_op(op);
     case DTYPE_VIRTIO:
 	return process_virtio_op(op);
+    case DTYPE_AHCI:
+	return process_ahci_op(op);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;
