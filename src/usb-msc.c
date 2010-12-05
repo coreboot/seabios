@@ -50,6 +50,9 @@ struct csw_s {
 int
 usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
+    if (!CONFIG_USB_MSC)
+        return 0;
+
     dprintf(16, "usb_cmd_data id=%p write=%d count=%d bs=%d buf=%p\n"
             , op->drive_g, 0, op->count, blocksize, op->buf_fl);
     struct usbdrive_s *udrive_g = container_of(

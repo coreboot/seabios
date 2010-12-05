@@ -155,6 +155,9 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
 
 int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
+    if (! CONFIG_AHCI)
+        return 0;
+
     struct ahci_port_s *port = container_of(
         op->drive_g, struct ahci_port_s, drive);
     struct ahci_cmd_s *cmd = GET_GLOBAL(port->cmd);

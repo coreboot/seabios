@@ -602,6 +602,9 @@ process_ata_op(struct disk_op_s *op)
 int
 atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
+    if (! CONFIG_ATA)
+        return 0;
+
     struct atadrive_s *adrive_g = container_of(
         op->drive_g, struct atadrive_s, drive);
     struct ata_channel_s *chan_gf = GET_GLOBAL(adrive_g->chan_gf);
