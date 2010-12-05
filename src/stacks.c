@@ -373,8 +373,6 @@ wait_preempt(void)
     return 1;
 }
 
-extern void yield_preempt(void);
-#if MODESEGMENT == 0
 // Try to execute 32bit threads.
 void VISIBLE32INIT
 yield_preempt(void)
@@ -382,7 +380,6 @@ yield_preempt(void)
     PreemptCount++;
     switch_next(&MainThread);
 }
-#endif
 
 // 16bit code that checks if threads are pending and executes them if so.
 void
@@ -393,5 +390,6 @@ check_preempt(void)
         || GET_FLATPTR(MainThread.next) == &MainThread)
         return;
 
-    call32(yield_preempt, 0, 0);
+    extern void _cfunc32flat_yield_preempt(void);
+    call32(_cfunc32flat_yield_preempt, 0, 0);
 }

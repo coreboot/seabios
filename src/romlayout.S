@@ -252,7 +252,7 @@ entry_post:
         jnz 1f
 
         // Normal entry point
-        ENTRY_INTO32 _start
+        ENTRY_INTO32 _cfunc32flat__start
 
         // Entry point when a post call looks like a resume.
 1:
@@ -367,7 +367,7 @@ apm32protected_entry:
         pushl %cs               // Move second descriptor after %cs to %gs
         addl $16, (%esp)
         popl %gs
-        ENTRY_ARG_ESP handle_apm32
+        ENTRY_ARG_ESP _cfunc32seg_handle_apm32
         popl %gs
         popfl
         lretl
@@ -379,7 +379,7 @@ pcibios32_entry:
         pushl %gs               // Backup %gs and set %gs=%ds
         pushl %ds
         popl %gs
-        ENTRY_ARG_ESP handle_pcibios32
+        ENTRY_ARG_ESP _cfunc32seg_handle_pcibios32
         popl %gs
         popfl
         lretl
@@ -418,7 +418,7 @@ post32:
         movw %ax, %gs
         movw %ax, %ss
         movl $BUILD_STACK_ADDR, %esp
-        ljmpl $SEG32_MODE32_CS, $_start
+        ljmpl $SEG32_MODE32_CS, $_cfunc32flat__start
 
         .code16gcc
 
@@ -476,11 +476,11 @@ irqentryarg:
         // int 18/19 are special - they reset stack and call into 32bit mode.
         DECLFUNC entry_19
 entry_19:
-        ENTRY_INTO32 handle_19
+        ENTRY_INTO32 _cfunc32flat_handle_19
 
         DECLFUNC entry_18
 entry_18:
-        ENTRY_INTO32 handle_18
+        ENTRY_INTO32 _cfunc32flat_handle_18
 
 
 /****************************************************************

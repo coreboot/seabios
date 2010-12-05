@@ -229,21 +229,19 @@ pci_reboot(void)
 
 // helper functions to access pci mmio bars from real mode
 
-extern u32 pci_readl_32(u32 addr);
-#if MODESEGMENT == 0
 u32 VISIBLE32FLAT
 pci_readl_32(u32 addr)
 {
     dprintf(3, "32: pci read : %x\n", addr);
     return readl((void*)addr);
 }
-#endif
 
 u32 pci_readl(u32 addr)
 {
     if (MODESEGMENT) {
         dprintf(3, "16: pci read : %x\n", addr);
-        return call32(pci_readl_32, addr, -1);
+        extern void _cfunc32flat_pci_readl_32(u32 addr);
+        return call32(_cfunc32flat_pci_readl_32, addr, -1);
     } else {
         return pci_readl_32(addr);
     }
@@ -254,15 +252,12 @@ struct reg32 {
     u32 data;
 };
 
-extern void pci_writel_32(struct reg32 *reg32);
-#if MODESEGMENT == 0
 void VISIBLE32FLAT
 pci_writel_32(struct reg32 *reg32)
 {
     dprintf(3, "32: pci write: %x, %x (%p)\n", reg32->addr, reg32->data, reg32);
     writel((void*)(reg32->addr), reg32->data);
 }
-#endif
 
 void pci_writel(u32 addr, u32 val)
 {
@@ -271,7 +266,8 @@ void pci_writel(u32 addr, u32 val)
         dprintf(3, "16: pci write: %x, %x (%x:%p)\n",
                 reg32.addr, reg32.data, GET_SEG(SS), &reg32);
         void *flatptr = MAKE_FLATPTR(GET_SEG(SS), &reg32);
-        call32(pci_writel_32, (u32)flatptr, -1);
+        extern void _cfunc32flat_pci_writel_32(struct reg32 *reg32);
+        call32(_cfunc32flat_pci_writel_32, (u32)flatptr, -1);
     } else {
         pci_writel_32(&reg32);
     }

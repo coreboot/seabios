@@ -44,11 +44,11 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 // Notes a function as externally visible in the 16bit code chunk.
 # define VISIBLE16 __VISIBLE
 // Notes a function as externally visible in the 32bit flat code chunk.
-# define VISIBLE32FLAT __section(".discard.func32flat." UNIQSEC) noinline __weak
+# define VISIBLE32FLAT __section(".discard.func32flat." UNIQSEC) noinline
 // Notes a 32bit flat function that will only be called during init.
 # define VISIBLE32INIT VISIBLE32FLAT
 // Notes a function as externally visible in the 32bit segmented code chunk.
-# define VISIBLE32SEG __section(".discard.func32seg." UNIQSEC) noinline __weak
+# define VISIBLE32SEG __section(".discard.func32seg." UNIQSEC) noinline
 // Designate a variable as (only) visible to 16bit code.
 # define VAR16 __section(".data16." UNIQSEC)
 // Designate a variable as visible to 16bit, 32bit, and assembler code.
@@ -70,8 +70,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define ASSERT32SEG() __force_link_error__only_in_32bit_segmented()
 # define ASSERT32FLAT() __force_link_error__only_in_32bit_flat()
 #elif MODESEGMENT == 1
-# define VISIBLE16 __section(".discard.func16." UNIQSEC) noinline __weak
-# define VISIBLE32FLAT __section(".discard.func32flat." UNIQSEC) noinline __weak
+# define VISIBLE16 __section(".discard.func16." UNIQSEC) noinline
+# define VISIBLE32FLAT __section(".discard.func32flat." UNIQSEC) noinline
 # define VISIBLE32INIT VISIBLE32FLAT
 # define VISIBLE32SEG __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
@@ -86,10 +86,10 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define ASSERT32SEG() do { } while (0)
 # define ASSERT32FLAT() __force_link_error__only_in_32bit_flat()
 #else
-# define VISIBLE16 __section(".discard.func16." UNIQSEC) noinline __weak
+# define VISIBLE16 __section(".discard.func16." UNIQSEC) noinline
 # define VISIBLE32FLAT __section(".text.runtime." UNIQSEC) __VISIBLE
 # define VISIBLE32INIT __section(".text.init." UNIQSEC) __VISIBLE
-# define VISIBLE32SEG __section(".discard.func32seg." UNIQSEC) noinline __weak
+# define VISIBLE32SEG __section(".discard.func32seg." UNIQSEC) noinline
 # define VAR16 __section(".discard.var16." UNIQSEC)
 # define VAR16VISIBLE VAR16 __VISIBLE __weak
 # define VAR16EXPORT VAR16VISIBLE
