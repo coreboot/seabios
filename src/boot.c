@@ -87,6 +87,25 @@ add_bev(u16 seg, u16 bev, u16 desc)
     ie->description = d;
 }
 
+// Add a IPL entry for BAID cdrom.
+void
+add_baid_cdrom(struct drive_s *drive_g)
+{
+    if (! CONFIG_CDROM_BOOT)
+        return;
+
+    /* put first cdrom into ipl 3 for compatability with qemu */
+    struct ipl_entry_s *ie = &IPL.bev[2];
+    if (IPL.bevcount >= ARRAY_SIZE(IPL.bev) && ie->vector)
+        return;
+
+    if (ie->vector)
+        ie = &IPL.bev[IPL.bevcount++];
+    ie->type = IPL_TYPE_CDROM;
+    ie->vector = (u32)drive_g;
+    ie->description = "DVD/CD";
+}
+
 // Add a bcv entry for an expansion card harddrive or legacy option rom
 void
 add_bcv(u16 seg, u16 ip, u16 desc)
@@ -188,12 +207,11 @@ menu_show_harddisk(struct ipl_entry_s *ie, int menupos)
 static int
 menu_show_cdrom(struct ipl_entry_s *ie, int menupos)
 {
-    int i;
-    for (i = 0; i < Drives.cdcount; i++) {
-        struct drive_s *drive_g = getDrive(EXTTYPE_CD, i);
-        printf("%d. DVD/CD [%s]\n", menupos + i, drive_g->desc);
-    }
-    return Drives.cdcount;
+    struct drive_s *drive_g = (void*)ie->vector;
+    if (!ie->vector)
+        return 0;
+    printf("%d. DVD/CD [%s]\n", menupos, drive_g->desc);
+    return 1;
 }
 
 // Show coreboot-fs menu item.
@@ -399,9 +417,14 @@ boot_cdrom(struct ipl_entry_s *ie)
 {
     if (! CONFIG_CDROM_BOOT)
         return;
-    int status = cdrom_boot(ie->subchoice);
+
+    if (!ie->vector)
+        return;
+
+    struct drive_s *drive_g = (void*)ie->vector;
+    int status = cdrom_boot(drive_g);
     if (status) {
-        printf("Boot failed: Could not read from CDROM (code %04x)\n", status);
+        printf("Boot failed: Could not read from CDROM %s (code %04x)\n", drive_g->desc, status);
         return;
     }
 

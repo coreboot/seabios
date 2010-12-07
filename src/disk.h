@@ -229,6 +229,7 @@ struct drives_s {
 // block.c
 extern struct drives_s Drives;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
+int getDriveId(u8 exttype, struct drive_s *drive_g);
 void setup_translation(struct drive_s *drive_g);
 void map_floppy_drive(struct drive_s *drive_g);
 void map_hd_drive(struct drive_s *drive_g);
@@ -249,7 +250,7 @@ extern struct drive_s *cdemu_drive_gf;
 int process_cdemu_op(struct disk_op_s *op);
 void cdemu_setup(void);
 void cdemu_134b(struct bregs *regs);
-int cdrom_boot(int cdid);
+int cdrom_boot(struct drive_s *drive_g);
 
 // ramdisk.c
 void ramdisk_setup(void);

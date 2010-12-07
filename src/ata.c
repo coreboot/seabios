@@ -782,8 +782,10 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     dprintf(1, "%s\n", adrive_g->drive.desc);
 
     // fill cdidmap
-    if (iscd)
+    if (iscd) {
         map_cd_drive(&adrive_g->drive);
+        add_baid_cdrom(&adrive_g->drive);
+    }
 
     return adrive_g;
 }

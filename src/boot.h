@@ -43,6 +43,8 @@ void add_bev(u16 seg, u16 bev, u16 desc);
 void add_bcv(u16 seg, u16 ip, u16 desc);
 struct drive_s;
 void add_bcv_internal(struct drive_s *drive_g);
+void add_baid_cdrom(struct drive_s *drive_g);
+
 void boot_prep(void);
 
 #endif // __BOOT_H

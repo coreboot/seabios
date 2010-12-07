@@ -27,6 +27,16 @@ getDrive(u8 exttype, u8 extdriveoffset)
     return GLOBALFLAT2GLOBAL(drive_gf);
 }
 
+int getDriveId(u8 exttype, struct drive_s *drive_g)
+{
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(Drives.idmap[0]); i++)
+        if (getDrive(exttype, i) == drive_g)
+            return i;
+
+    return -1;
+}
 
 /****************************************************************
  * Disk geometry translation
