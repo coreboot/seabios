@@ -50,6 +50,7 @@ static void sata_prep_readwrite(struct sata_cmd_fis *fis,
         command = (iswrite ? ATA_CMD_WRITE_DMA
                    : ATA_CMD_READ_DMA);
     }
+    SET_FLATPTR(fis->feature,      1); /* dma */
     SET_FLATPTR(fis->command,      command);
     SET_FLATPTR(fis->sector_count, op->count);
     SET_FLATPTR(fis->lba_low,      lba);
@@ -62,6 +63,7 @@ static void sata_prep_atapi(struct sata_cmd_fis *fis, u16 blocksize)
 {
     memset_fl(fis, 0, sizeof(*fis));
     SET_FLATPTR(fis->command,  ATA_CMD_PACKET);
+    SET_FLATPTR(fis->feature,  1); /* dma */
     SET_FLATPTR(fis->lba_mid,  blocksize);
     SET_FLATPTR(fis->lba_high, blocksize >> 8);
 }
