@@ -345,6 +345,7 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
     }
 
     port->drive.type = DTYPE_AHCI;
+    port->drive.cntl_id = pnr;
     port->drive.removable = (buffer[0] & 0x80) ? 1 : 0;
     port->drive.desc = malloc_tmp(MAXDESCSIZE);
     if (!port->drive.desc) {
