@@ -417,7 +417,7 @@ ahci_detect(void *data)
     int rc;
 
     max = ctrl->caps & 0x1f;
-    for (pnr = 0; pnr < max; pnr++) {
+    for (pnr = 0; pnr <= max; pnr++) {
         if (!(ctrl->ports & (1 << pnr)))
             continue;
         dprintf(2, "AHCI/%d: probing\n", pnr);
