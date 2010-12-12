@@ -447,6 +447,9 @@ ahci_init_controller(int bdf)
     dprintf(1, "AHCI controller at %02x.%x, iobase %x, irq %d\n",
             bdf >> 3, bdf & 7, ctrl->iobase, ctrl->irq);
 
+    pci_config_maskw(bdf, PCI_COMMAND, 0,
+                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+
     val = ahci_ctrl_readl(ctrl, HOST_CTL);
     ahci_ctrl_writel(ctrl, HOST_CTL, val | HOST_CTL_AHCI_EN);
 
