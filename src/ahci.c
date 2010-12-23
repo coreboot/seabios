@@ -395,8 +395,10 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
                  , (iscd ? "DVD/CD" : "Device"));
 
         // fill cdidmap
-        if (iscd)
+        if (iscd) {
             map_cd_drive(&port->drive);
+            add_baid_cdrom(&port->drive);
+	}
     }
     dprintf(1, "%s\n", port->drive.desc);
 
