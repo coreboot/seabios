@@ -67,6 +67,51 @@ boot_setup(void)
         if (!(inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1))
             IPL.checkfloppysig = 1;
     }
+
+    u32 file = romfile_find("bootorder");
+    if (!file)
+        return;
+
+    int filesize = romfile_size(file);
+    dprintf(3, "bootorder file found (len %d)\n", filesize);
+
+    if (filesize == 0)
+        return;
+
+    char *f = malloc_tmphigh(filesize);
+
+    if (!f) {
+        warn_noalloc();
+        return;
+    }
+
+    romfile_copy(file, f, filesize);
+    int i;
+    IPL.fw_bootorder_count = 1;
+    while(f[i]) {
+        if (f[i] == '\n')
+            IPL.fw_bootorder_count++;
+        i++;
+    }
+    IPL.fw_bootorder = malloc_tmphigh(IPL.fw_bootorder_count*sizeof(char*));
+    if (!IPL.fw_bootorder) {
+        warn_noalloc();
+        free(f);
+        return;
+    }
+
+    dprintf(3, "boot order:\n");
+    i = 0;
+    do {
+        IPL.fw_bootorder[i] = f;
+        f = strchr(f, '\n');
+        if (f) {
+            *f = '\0';
+            f++;
+            dprintf(3, "%d: %s\n", i, IPL.fw_bootorder[i]);
+            i++;
+        }
+    } while(f);
 }
 
 // Add a BEV vector for a given pnp compatible option rom.

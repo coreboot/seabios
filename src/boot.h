@@ -20,6 +20,8 @@ struct ipl_s {
     int bevcount, bcvcount;
     u32 bootorder;
     int checkfloppysig;
+    char **fw_bootorder;
+    int fw_bootorder_count;
 };
 
 #define IPL_TYPE_FLOPPY      0x01
