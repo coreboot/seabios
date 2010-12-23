@@ -345,6 +345,14 @@ int qemu_cfg_size_file(u32 select)
     return ntohl(LastFile.size);
 }
 
+
+const char* qemu_cfg_name_file(u32 select)
+{
+    if (select != ntohs(LastFile.select))
+        return NULL;
+    return LastFile.name;
+}
+
 int qemu_cfg_read_file(u32 select, void *dst, u32 maxlen)
 {
     if (!qemu_cfg_present)
