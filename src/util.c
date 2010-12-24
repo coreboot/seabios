@@ -262,6 +262,15 @@ strtcpy(char *dest, const char *src, size_t len)
     return dest;
 }
 
+// locate first occurance of character c in the string s
+char *
+strchr(const char *s, int c)
+{
+    for (; *s; s++)
+        if (*s == c)
+            return (char*)s;
+    return NULL;
+}
 
 /****************************************************************
  * Keyboard calls
