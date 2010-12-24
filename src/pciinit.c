@@ -402,7 +402,7 @@ pci_setup(void)
 
     dprintf(3, "pci setup\n");
 
-    pci_region_init(&pci_bios_io_region, 0xc000, 64 * 1024);
+    pci_region_init(&pci_bios_io_region, 0xc000, 64 * 1024 - 1);
     pci_region_init(&pci_bios_mem_region,
                     BUILD_PCIMEM_START, BUILD_PCIMEM_END - 1);
     pci_region_init(&pci_bios_prefmem_region,
