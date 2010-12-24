@@ -532,7 +532,16 @@ def parseObjDump(file, fileid):
                 reloc.offset = int(off, 16)
                 reloc.type = type
                 reloc.symbolname = symbolname
-                reloc.symbol = symbols[symbolname]
+                reloc.symbol = symbols.get(symbolname)
+                if reloc.symbol is None:
+                    # Some binutils (2.20.1) give section name instead
+                    # of a symbol - create a dummy symbol.
+                    reloc.symbol = symbol = Symbol()
+                    symbol.size = 0
+                    symbol.offset = 0
+                    symbol.name = symbolname
+                    symbol.section = sectionmap.get(symbolname)
+                    symbols[symbolname] = symbol
                 relocsection.relocs.append(reloc)
             except ValueError:
                 pass
