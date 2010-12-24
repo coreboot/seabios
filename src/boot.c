@@ -68,24 +68,10 @@ boot_setup(void)
             IPL.checkfloppysig = 1;
     }
 
-    u32 file = romfile_find("bootorder");
-    if (!file)
+    char *f = romfile_loadfile("bootorder", NULL);
+    if (!f)
         return;
 
-    int filesize = romfile_size(file);
-    dprintf(3, "bootorder file found (len %d)\n", filesize);
-
-    if (filesize == 0)
-        return;
-
-    char *f = malloc_tmphigh(filesize);
-
-    if (!f) {
-        warn_noalloc();
-        return;
-    }
-
-    romfile_copy(file, f, filesize);
     int i;
     IPL.fw_bootorder_count = 1;
     while(f[i]) {

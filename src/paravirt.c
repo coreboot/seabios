@@ -365,3 +365,30 @@ int qemu_cfg_read_file(u32 select, void *dst, u32 maxlen)
     qemu_cfg_read_entry(dst, select, len);
     return len;
 }
+
+// Helper function to find, malloc_tmphigh, and copy a romfile.  This
+// function adds a trailing zero to the malloc'd copy.
+void *
+romfile_loadfile(const char *name, int *psize)
+{
+    u32 file = romfile_find(name);
+    if (!file)
+        return NULL;
+
+    int filesize = romfile_size(file);
+    if (!filesize)
+        return NULL;
+
+    char *data = malloc_tmphigh(filesize+1);
+    if (!data) {
+        warn_noalloc();
+        return NULL;
+    }
+
+    dprintf(5, "Copying romfile '%s' (len %d)\n", name, filesize);
+    romfile_copy(file, data, filesize);
+    if (psize)
+        *psize = filesize;
+    data[filesize] = '\0';
+    return data;
+}

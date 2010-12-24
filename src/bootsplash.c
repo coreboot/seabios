@@ -149,17 +149,16 @@ enable_bootsplash(void)
     if (!CONFIG_BOOTSPLASH)
         return;
     dprintf(3, "Checking for bootsplash\n");
-    u32 file = romfile_find("bootsplash.jpg");
-    if (!file)
+    int filesize;
+    u8 *filedata = romfile_loadfile("bootsplash.jpg", &filesize);
+    if (!filedata)
         return;
-    int filesize = romfile_size(file);
 
     u8 *picture = NULL;
-    u8 *filedata = malloc_tmphigh(filesize);
     struct vesa_info *vesa_info = malloc_tmplow(sizeof(*vesa_info));
     struct vesa_mode_info *mode_info = malloc_tmplow(sizeof(*mode_info));
     struct jpeg_decdata *jpeg = jpeg_alloc();
-    if (!filedata || !jpeg || !vesa_info || !mode_info) {
+    if (!jpeg || !vesa_info || !mode_info) {
         warn_noalloc();
         goto done;
     }
@@ -186,8 +185,6 @@ enable_bootsplash(void)
             vendor, product);
 
     // Parse jpeg and get image size.
-    dprintf(5, "Copying bootsplash.jpg\n");
-    romfile_copy(file, filedata, filesize);
     dprintf(5, "Decoding bootsplash.jpg\n");
     int ret = jpeg_decode(jpeg, filedata);
     if (ret) {
