@@ -18,8 +18,43 @@ struct ipl_s IPL;
 
 
 /****************************************************************
- * IPL and BCV handlers
+ * Boot setup
  ****************************************************************/
+
+static void
+loadBootOrder(void)
+{
+    char *f = romfile_loadfile("bootorder", NULL);
+    if (!f)
+        return;
+
+    int i;
+    IPL.fw_bootorder_count = 1;
+    while (f[i]) {
+        if (f[i] == '\n')
+            IPL.fw_bootorder_count++;
+        i++;
+    }
+    IPL.fw_bootorder = malloc_tmphigh(IPL.fw_bootorder_count*sizeof(char*));
+    if (!IPL.fw_bootorder) {
+        warn_noalloc();
+        free(f);
+        return;
+    }
+
+    dprintf(3, "boot order:\n");
+    i = 0;
+    do {
+        IPL.fw_bootorder[i] = f;
+        f = strchr(f, '\n');
+        if (f) {
+            *f = '\0';
+            f++;
+            dprintf(3, "%d: %s\n", i, IPL.fw_bootorder[i]);
+            i++;
+        }
+    } while(f);
+}
 
 void
 boot_setup(void)
@@ -68,37 +103,13 @@ boot_setup(void)
             IPL.checkfloppysig = 1;
     }
 
-    char *f = romfile_loadfile("bootorder", NULL);
-    if (!f)
-        return;
-
-    int i;
-    IPL.fw_bootorder_count = 1;
-    while(f[i]) {
-        if (f[i] == '\n')
-            IPL.fw_bootorder_count++;
-        i++;
-    }
-    IPL.fw_bootorder = malloc_tmphigh(IPL.fw_bootorder_count*sizeof(char*));
-    if (!IPL.fw_bootorder) {
-        warn_noalloc();
-        free(f);
-        return;
-    }
-
-    dprintf(3, "boot order:\n");
-    i = 0;
-    do {
-        IPL.fw_bootorder[i] = f;
-        f = strchr(f, '\n');
-        if (f) {
-            *f = '\0';
-            f++;
-            dprintf(3, "%d: %s\n", i, IPL.fw_bootorder[i]);
-            i++;
-        }
-    } while(f);
+    loadBootOrder();
 }
+
+
+/****************************************************************
+ * IPL and BCV handlers
+ ****************************************************************/
 
 // Add a BEV vector for a given pnp compatible option rom.
 void
