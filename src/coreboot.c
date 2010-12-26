@@ -320,7 +320,7 @@ ulzma(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
     u8 scratch[15980];
     int need = (LzmaGetNumProbs(&state.Properties) * sizeof(CProb));
     if (need > sizeof(scratch)) {
-        dprintf(1, "LzmaDecode need %d have %d\n", need, sizeof(scratch));
+        dprintf(1, "LzmaDecode need %d have %d\n", need, (unsigned int)sizeof(scratch));
         return -1;
     }
     state.Probs = (CProb *)scratch;
