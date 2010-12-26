@@ -151,14 +151,12 @@ init_virtio_blk(u16 bdf)
     vdrive_g->drive.pchs.cylinders = cfg.cylinders;
     vdrive_g->drive.pchs.heads = cfg.heads;
     vdrive_g->drive.pchs.spt = cfg.sectors;
+    snprintf(desc, MAXDESCSIZE, "Virtio disk PCI:%x:%x",
+             pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
+    vdrive_g->drive.desc = desc;
 
     setup_translation(&vdrive_g->drive);
     add_bcv_internal(&vdrive_g->drive);
-
-    snprintf(desc, MAXDESCSIZE, "Virtio disk PCI:%x:%x",
-             pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
-
-    vdrive_g->drive.desc = desc;
 
     vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);

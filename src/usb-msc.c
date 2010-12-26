@@ -235,6 +235,8 @@ usb_msc_init(struct usb_pipe *pipe
             , strtcpy(rev, data.rev, sizeof(rev))
             , pdt, removable);
     udrive_g->drive.removable = removable;
+    snprintf(desc, MAXDESCSIZE, "USB Drive %s %s %s", vendor, product, rev);
+    udrive_g->drive.desc = desc;
 
     if (pdt == USB_MSC_TYPE_CDROM)
         ret = setup_drive_cdrom(&dop);
@@ -242,9 +244,6 @@ usb_msc_init(struct usb_pipe *pipe
         ret = setup_drive_hd(&dop);
     if (ret)
         goto fail;
-
-    snprintf(desc, MAXDESCSIZE, "USB Drive %s %s %s", vendor, product, rev);
-    udrive_g->drive.desc = desc;
 
     return 0;
 fail:
