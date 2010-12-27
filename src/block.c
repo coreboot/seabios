@@ -30,13 +30,12 @@ getDrive(u8 exttype, u8 extdriveoffset)
 int getDriveId(u8 exttype, struct drive_s *drive_g)
 {
     int i;
-
     for (i = 0; i < ARRAY_SIZE(Drives.idmap[0]); i++)
         if (getDrive(exttype, i) == drive_g)
             return i;
-
     return -1;
 }
+
 
 /****************************************************************
  * Disk geometry translation
@@ -200,27 +199,9 @@ fill_fdpt(struct drive_s *drive_g, int hdid)
                                  struct extended_bios_data_area_s, fdpt[1])));
 }
 
-// Map a drive (that was registered via add_bcv_hd)
-void
-map_hd_drive(struct drive_s *drive_g)
-{
-    // fill hdidmap
-    u8 hdcount = GET_BDA(hdcount);
-    if (hdcount >= ARRAY_SIZE(Drives.idmap[0])) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdcount);
-    Drives.idmap[EXTTYPE_HD][hdcount] = drive_g;
-    SET_BDA(hdcount, hdcount + 1);
-
-    // Fill "fdpt" structure.
-    fill_fdpt(drive_g, hdcount);
-}
-
 // Find spot to add a drive
 static void
-add_ordered_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
+add_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
 {
     if (*count >= ARRAY_SIZE(Drives.idmap[0])) {
         warn_noalloc();
@@ -230,22 +211,34 @@ add_ordered_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
     *count = *count + 1;
 }
 
+// Map a hard drive
+void
+map_hd_drive(struct drive_s *drive_g)
+{
+    ASSERT32FLAT();
+    struct bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
+    int hdid = bda->hdcount;
+    dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdid);
+    add_drive(Drives.idmap[EXTTYPE_HD], &bda->hdcount, drive_g);
+
+    // Fill "fdpt" structure.
+    fill_fdpt(drive_g, hdid);
+}
+
 // Map a cd
 void
 map_cd_drive(struct drive_s *drive_g)
 {
     dprintf(3, "Mapping cd drive %p\n", drive_g);
-    add_ordered_drive(Drives.idmap[EXTTYPE_CD], &Drives.cdcount, drive_g);
+    add_drive(Drives.idmap[EXTTYPE_CD], &Drives.cdcount, drive_g);
 }
 
 // Map a floppy
 void
 map_floppy_drive(struct drive_s *drive_g)
 {
-    // fill idmap
     dprintf(3, "Mapping floppy drive %p\n", drive_g);
-    add_ordered_drive(Drives.idmap[EXTTYPE_FLOPPY], &Drives.floppycount
-                      , drive_g);
+    add_drive(Drives.idmap[EXTTYPE_FLOPPY], &Drives.floppycount, drive_g);
 
     // Update equipment word bits for floppy
     if (Drives.floppycount == 1) {
