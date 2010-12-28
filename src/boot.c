@@ -16,23 +16,9 @@
 
 struct ipl_s IPL;
 
-struct bootentry_s {
-    int type;
-    union {
-        u32 data;
-        struct segoff_s vector;
-        struct drive_s *drive;
-    };
-    int priority;
-    const char *description;
-    struct bootentry_s *next;
-};
-
-static struct bootentry_s *BootList;
-
 
 /****************************************************************
- * Boot setup
+ * Boot priority ordering
  ****************************************************************/
 
 static void
@@ -69,6 +55,36 @@ loadBootOrder(void)
         }
     } while(f);
 }
+
+int bootprio_find_pci_device(int bdf)
+{
+    return -1;
+}
+
+int bootprio_find_ata_device(int bdf, int chanid, int slave)
+{
+    return -1;
+}
+
+int bootprio_find_fdc_device(int bfd, int port, int fdid)
+{
+    return -1;
+}
+
+int bootprio_find_pci_rom(int bdf, int instance)
+{
+    return -1;
+}
+
+int bootprio_find_named_rom(const char *name, int instance)
+{
+    return -1;
+}
+
+
+/****************************************************************
+ * Boot setup
+ ****************************************************************/
 
 #define DEFAULT_PRIO           9999
 
@@ -112,8 +128,22 @@ boot_setup(void)
 
 
 /****************************************************************
- * IPL and BCV handlers
+ * BootList handling
  ****************************************************************/
+
+struct bootentry_s {
+    int type;
+    union {
+        u32 data;
+        struct segoff_s vector;
+        struct drive_s *drive;
+    };
+    int priority;
+    const char *description;
+    struct bootentry_s *next;
+};
+
+static struct bootentry_s *BootList;
 
 static void
 bootentry_add(int type, int prio, u32 data, const char *desc)
@@ -152,49 +182,56 @@ bootentry_add(int type, int prio, u32 data, const char *desc)
     *pprev = be;
 }
 
+// Return the given priority if it's set - defaultprio otherwise.
+static inline int defPrio(int priority, int defaultprio) {
+    return (priority < 0) ? defaultprio : priority;
+}
+
 // Add a BEV vector for a given pnp compatible option rom.
 void
-boot_add_bev(u16 seg, u16 bev, u16 desc)
+boot_add_bev(u16 seg, u16 bev, u16 desc, int prio)
 {
-    bootentry_add(IPL_TYPE_BEV, DefaultBEVPrio, SEGOFF(seg, bev).segoff
+    bootentry_add(IPL_TYPE_BEV, defPrio(prio, DefaultBEVPrio)
+                  , SEGOFF(seg, bev).segoff
                   , desc ? MAKE_FLATPTR(seg, desc) : "Unknown");
     DefaultBEVPrio = DEFAULT_PRIO;
 }
 
 // Add a bcv entry for an expansion card harddrive or legacy option rom
 void
-boot_add_bcv(u16 seg, u16 ip, u16 desc)
+boot_add_bcv(u16 seg, u16 ip, u16 desc, int prio)
 {
-    bootentry_add(IPL_TYPE_BCV, DEFAULT_PRIO, SEGOFF(seg, ip).segoff
+    bootentry_add(IPL_TYPE_BCV, defPrio(prio, DEFAULT_PRIO)
+                  , SEGOFF(seg, ip).segoff
                   , desc ? MAKE_FLATPTR(seg, desc) : "Legacy option rom");
 }
 
 void
-boot_add_floppy(struct drive_s *drive_g)
+boot_add_floppy(struct drive_s *drive_g, int prio)
 {
-    bootentry_add(IPL_TYPE_FLOPPY, DefaultFloppyPrio, (u32)drive_g
-                  , drive_g->desc);
+    bootentry_add(IPL_TYPE_FLOPPY, defPrio(prio, DefaultFloppyPrio)
+                  , (u32)drive_g, drive_g->desc);
 }
 
 void
-boot_add_hd(struct drive_s *drive_g)
+boot_add_hd(struct drive_s *drive_g, int prio)
 {
-    bootentry_add(IPL_TYPE_HARDDISK, DefaultHDPrio, (u32)drive_g
-                  , drive_g->desc);
+    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
+                  , (u32)drive_g, drive_g->desc);
 }
 
 void
-boot_add_cd(struct drive_s *drive_g)
+boot_add_cd(struct drive_s *drive_g, int prio)
 {
-    bootentry_add(IPL_TYPE_CDROM, DefaultCDPrio, (u32)drive_g
-                  , drive_g->desc);
+    bootentry_add(IPL_TYPE_CDROM, defPrio(prio, DefaultCDPrio)
+                  , (u32)drive_g, drive_g->desc);
 }
 
 // Add a CBFS payload entry
 void
-boot_add_cbfs(void *data, const char *desc)
+boot_add_cbfs(void *data, const char *desc, int prio)
 {
-    bootentry_add(IPL_TYPE_CBFS, DEFAULT_PRIO, (u32)data, desc);
+    bootentry_add(IPL_TYPE_CBFS, defPrio(prio, DEFAULT_PRIO), (u32)data, desc);
 }
 
 

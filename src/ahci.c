@@ -382,7 +382,7 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
         // Setup disk geometry translation.
         setup_translation(&port->drive);
         // Register with bcv system.
-        boot_add_hd(&port->drive);
+        boot_add_hd(&port->drive, -1);
     } else {
         // found cdrom (atapi)
         port->drive.blksize = CDROM_SECTOR_SIZE;
@@ -397,7 +397,7 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
 
         // fill cdidmap
         if (iscd)
-            boot_add_cd(&port->drive);
+            boot_add_cd(&port->drive, -1);
     }
     dprintf(1, "%s\n", port->drive.desc);
 

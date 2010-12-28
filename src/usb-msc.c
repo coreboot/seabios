@@ -143,7 +143,7 @@ setup_drive_cdrom(struct disk_op_s *op)
 {
     op->drive_g->blksize = CDROM_SECTOR_SIZE;
     op->drive_g->sectors = (u64)-1;
-    boot_add_cd(op->drive_g);
+    boot_add_cd(op->drive_g, -1);
     return 0;
 }
 
@@ -171,7 +171,7 @@ setup_drive_hd(struct disk_op_s *op)
     setup_translation(op->drive_g);
 
     // Register with bcv system.
-    boot_add_hd(op->drive_g);
+    boot_add_hd(op->drive_g, -1);
 
     return 0;
 }

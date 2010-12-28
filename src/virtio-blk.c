@@ -156,7 +156,7 @@ init_virtio_blk(u16 bdf)
     vdrive_g->drive.desc = desc;
 
     setup_translation(&vdrive_g->drive);
-    boot_add_hd(&vdrive_g->drive);
+    boot_add_hd(&vdrive_g->drive, bootprio_find_pci_device(bdf));
 
     vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);

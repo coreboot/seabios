@@ -220,6 +220,16 @@ setRomSource(u64 *sources, struct rom_header *rom, u64 source)
         sources[((u32)rom - BUILD_ROM_START) / OPTION_ROM_ALIGN] = source;
 }
 
+static int
+getRomPriority(u64 *sources, struct rom_header *rom, int instance)
+{
+    u64 source = sources[((u32)rom - BUILD_ROM_START) / OPTION_ROM_ALIGN];
+    if (!source)
+        return -1;
+    if (source & RS_PCIROM)
+        return bootprio_find_pci_rom(source, instance);
+    return bootprio_find_named_rom(romfile_name(source), instance);
+}
 
 /****************************************************************
  * Roms in CBFS
@@ -412,19 +422,24 @@ optionrom_setup(void)
         struct pnp_data *pnp = get_pnp_rom(rom);
         if (! pnp) {
             // Legacy rom.
-            boot_add_bcv(FLATPTR_TO_SEG(rom), OPTION_ROM_INITVECTOR, 0);
+            boot_add_bcv(FLATPTR_TO_SEG(rom), OPTION_ROM_INITVECTOR, 0
+                         , getRomPriority(sources, rom, 0));
             continue;
         }
         // PnP rom.
-        if (pnp->bev)
+        if (pnp->bev) {
             // Can boot system - add to IPL list.
-            boot_add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname);
-        else
+            boot_add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname
+                         , getRomPriority(sources, rom, 0));
+        } else {
             // Check for BCV (there may be multiple).
+            int instance = 0;
             while (pnp && pnp->bcv) {
-                boot_add_bcv(FLATPTR_TO_SEG(rom), pnp->bcv, pnp->productname);
+                boot_add_bcv(FLATPTR_TO_SEG(rom), pnp->bcv, pnp->productname
+                             , getRomPriority(sources, rom, instance++));
                 pnp = get_pnp_next(rom, pnp);
             }
+        }
     }
 }
 

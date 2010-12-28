@@ -608,7 +608,7 @@ register_cbfs_payload(void)
         if (!desc)
             break;
         snprintf(desc, MAXDESCSIZE, "Payload [%s]", &filename[4]);
-        boot_add_cbfs(file, desc);
+        boot_add_cbfs(file, desc, -1);
     }
 }
 

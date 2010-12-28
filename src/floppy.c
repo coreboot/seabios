@@ -14,6 +14,8 @@
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
+#include "pci.h" // pci_to_bdf
+#include "pci_ids.h" // PCI_CLASS_BRIDGE_ISA
 
 #define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
 #define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02
@@ -117,7 +119,10 @@ addFloppy(int floppyid, int ftype, int driver)
     memcpy(&drive_g->lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
 
-    boot_add_floppy(drive_g);
+    int bdf = pci_find_class(PCI_CLASS_BRIDGE_ISA); /* isa-to-pci bridge */
+    int prio = bootprio_find_fdc_device(bdf, PORT_FD_BASE, floppyid);
+
+    boot_add_floppy(drive_g, prio);
     return drive_g;
 }
 
