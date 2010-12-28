@@ -13,7 +13,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
-#include "boot.h" // add_bcv_internal
+#include "boot.h" // boot_add_hd
 #include "virtio-pci.h"
 #include "virtio-ring.h"
 #include "virtio-blk.h"
@@ -156,7 +156,7 @@ init_virtio_blk(u16 bdf)
     vdrive_g->drive.desc = desc;
 
     setup_translation(&vdrive_g->drive);
-    add_bcv_internal(&vdrive_g->drive);
+    boot_add_hd(&vdrive_g->drive);
 
     vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);

@@ -412,17 +412,17 @@ optionrom_setup(void)
         struct pnp_data *pnp = get_pnp_rom(rom);
         if (! pnp) {
             // Legacy rom.
-            add_bcv(FLATPTR_TO_SEG(rom), OPTION_ROM_INITVECTOR, 0);
+            boot_add_bcv(FLATPTR_TO_SEG(rom), OPTION_ROM_INITVECTOR, 0);
             continue;
         }
         // PnP rom.
         if (pnp->bev)
             // Can boot system - add to IPL list.
-            add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname);
+            boot_add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname);
         else
             // Check for BCV (there may be multiple).
             while (pnp && pnp->bcv) {
-                add_bcv(FLATPTR_TO_SEG(rom), pnp->bcv, pnp->productname);
+                boot_add_bcv(FLATPTR_TO_SEG(rom), pnp->bcv, pnp->productname);
                 pnp = get_pnp_next(rom, pnp);
             }
     }

@@ -14,7 +14,7 @@
 #include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
-#include "boot.h" // add_bcv_hd
+#include "boot.h" // boot_add_hd
 #include "disk.h" // struct ata_s
 #include "ata.h" // ATA_CB_STAT
 #include "blockcmd.h" // CDB_CMD_READ_10
@@ -774,7 +774,8 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     adrive_g->drive.sectors = (u64)-1;
     u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
     char model[MAXMODEL+1];
-    snprintf(adrive_g->drive.desc, MAXDESCSIZE, "ata%d-%d: %s ATAPI-%d %s"
+    snprintf(adrive_g->drive.desc, MAXDESCSIZE
+             , "DVD/CD [ata%d-%d: %s ATAPI-%d %s]"
              , adrive_g->chan_gf->chanid, adrive_g->slave
              , ata_extract_model(model, MAXMODEL, buffer)
              , ata_extract_version(buffer)
@@ -782,10 +783,8 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     dprintf(1, "%s\n", adrive_g->drive.desc);
 
     // fill cdidmap
-    if (iscd) {
-        map_cd_drive(&adrive_g->drive);
-        add_baid_cdrom(&adrive_g->drive);
-    }
+    if (iscd)
+        boot_add_cd(&adrive_g->drive);
 
     return adrive_g;
 }
@@ -835,7 +834,7 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
     setup_translation(&adrive_g->drive);
 
     // Register with bcv system.
-    add_bcv_internal(&adrive_g->drive);
+    boot_add_hd(&adrive_g->drive);
 
     return adrive_g;
 }

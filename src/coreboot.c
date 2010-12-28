@@ -12,6 +12,7 @@
 #include "biosvar.h" // GET_EBDA
 #include "lzmadecode.h" // LzmaDecode
 #include "smbios.h" // smbios_init
+#include "boot.h" // boot_add_cbfs
 
 
 /****************************************************************
@@ -593,9 +594,28 @@ cbfs_run_payload(struct cbfs_file *file)
     }
 }
 
+// Register payloads in "img/" directory with boot system.
+static void
+register_cbfs_payload(void)
+{
+    struct cbfs_file *file = NULL;
+    for (;;) {
+        file = cbfs_findprefix("img/", file);
+        if (!file)
+            break;
+        const char *filename = cbfs_filename(file);
+        char *desc = malloc_tmp(MAXDESCSIZE);
+        if (!desc)
+            break;
+        snprintf(desc, MAXDESCSIZE, "Payload [%s]", &filename[4]);
+        boot_add_cbfs(file, desc);
+    }
+}
+
 void
 coreboot_setup(void)
 {
     coreboot_fill_map();
     cbfs_setup();
+    register_cbfs_payload();
 }

@@ -13,6 +13,7 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
+#include "boot.h" // boot_add_floppy
 
 #define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
 #define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02
@@ -111,12 +112,12 @@ addFloppy(int floppyid, int ftype, int driver)
     drive_g->floppy_type = ftype;
     drive_g->sectors = (u64)-1;
     drive_g->desc = desc;
-    snprintf(desc, MAXDESCSIZE, "drive %c", 'A' + floppyid);
+    snprintf(desc, MAXDESCSIZE, "Floppy [drive %c]", 'A' + floppyid);
 
     memcpy(&drive_g->lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
 
-    map_floppy_drive(drive_g);
+    boot_add_floppy(drive_g);
     return drive_g;
 }
 

@@ -9,16 +9,12 @@
 
 struct ipl_entry_s {
     u16 type;
-    u16 subchoice;
     u32 vector;
-    const char *description;
 };
 
 struct ipl_s {
     struct ipl_entry_s bev[8];
-    struct ipl_entry_s bcv[8];
-    int bevcount, bcvcount;
-    u32 bootorder;
+    int bevcount;
     int checkfloppysig;
     char **fw_bootorder;
     int fw_bootorder_count;
@@ -29,9 +25,7 @@ struct ipl_s {
 #define IPL_TYPE_CDROM       0x03
 #define IPL_TYPE_CBFS        0x20
 #define IPL_TYPE_BEV         0x80
-
-#define BCV_TYPE_EXTERNAL    0x80
-#define BCV_TYPE_INTERNAL    0x02
+#define IPL_TYPE_BCV         0x81
 
 
 /****************************************************************
@@ -41,11 +35,13 @@ struct ipl_s {
 // boot.c
 extern struct ipl_s IPL;
 void boot_setup(void);
-void add_bev(u16 seg, u16 bev, u16 desc);
-void add_bcv(u16 seg, u16 ip, u16 desc);
+void boot_add_bev(u16 seg, u16 bev, u16 desc);
+void boot_add_bcv(u16 seg, u16 ip, u16 desc);
 struct drive_s;
-void add_bcv_internal(struct drive_s *drive_g);
-void add_baid_cdrom(struct drive_s *drive_g);
+void boot_add_floppy(struct drive_s *drive_g);
+void boot_add_hd(struct drive_s *drive_g);
+void boot_add_cd(struct drive_s *drive_g);
+void boot_add_cbfs(void *data, const char *desc);
 
 void boot_prep(void);
 

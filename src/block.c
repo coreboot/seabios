@@ -226,26 +226,8 @@ add_ordered_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
         warn_noalloc();
         return;
     }
-    struct drive_s **pos = &idmap[*count];
+    idmap[*count] = drive_g;
     *count = *count + 1;
-    if (CONFIG_THREADS) {
-        // Add to idmap with assured drive order.
-        struct drive_s **end = pos;
-        for (;;) {
-            struct drive_s **prev = pos - 1;
-            if (prev < idmap)
-                break;
-            struct drive_s *prevdrive = *prev;
-            if (prevdrive->type < drive_g->type
-                || (prevdrive->type == drive_g->type
-                    && prevdrive->cntl_id < drive_g->cntl_id))
-                break;
-            pos--;
-        }
-        if (pos != end)
-            memmove(pos+1, pos, (void*)end-(void*)pos);
-    }
-    *pos = drive_g;
 }
 
 // Map a cd

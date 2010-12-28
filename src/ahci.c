@@ -382,23 +382,22 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
         // Setup disk geometry translation.
         setup_translation(&port->drive);
         // Register with bcv system.
-        add_bcv_internal(&port->drive);
+        boot_add_hd(&port->drive);
     } else {
         // found cdrom (atapi)
         port->drive.blksize = CDROM_SECTOR_SIZE;
         port->drive.sectors = (u64)-1;
         u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
-        snprintf(port->drive.desc, MAXDESCSIZE, "AHCI/%d: %s ATAPI-%d %s"
+        snprintf(port->drive.desc, MAXDESCSIZE
+                 , "DVD/CD [AHCI/%d: %s ATAPI-%d %s]"
                  , port->pnr
                  , ata_extract_model(model, MAXMODEL, buffer)
                  , ata_extract_version(buffer)
                  , (iscd ? "DVD/CD" : "Device"));
 
         // fill cdidmap
-        if (iscd) {
-            map_cd_drive(&port->drive);
-            add_baid_cdrom(&port->drive);
-	}
+        if (iscd)
+            boot_add_cd(&port->drive);
     }
     dprintf(1, "%s\n", port->drive.desc);
 

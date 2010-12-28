@@ -11,7 +11,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // cdb_read
 #include "disk.h" // DTYPE_USB
-#include "boot.h" // add_bcv_internal
+#include "boot.h" // boot_add_hd
 
 struct usbdrive_s {
     struct drive_s drive;
@@ -143,7 +143,7 @@ setup_drive_cdrom(struct disk_op_s *op)
 {
     op->drive_g->blksize = CDROM_SECTOR_SIZE;
     op->drive_g->sectors = (u64)-1;
-    map_cd_drive(op->drive_g);
+    boot_add_cd(op->drive_g);
     return 0;
 }
 
@@ -171,7 +171,7 @@ setup_drive_hd(struct disk_op_s *op)
     setup_translation(op->drive_g);
 
     // Register with bcv system.
-    add_bcv_internal(op->drive_g);
+    boot_add_hd(op->drive_g);
 
     return 0;
 }
