@@ -167,9 +167,6 @@ setup_drive_hd(struct disk_op_s *op)
     op->drive_g->sectors = sectors;
     dprintf(1, "USB MSC blksize=%d sectors=%d\n", blksize, sectors);
 
-    // Setup disk geometry translation.
-    setup_translation(op->drive_g);
-
     // Register with bcv system.
     boot_add_hd(op->drive_g, -1);
 

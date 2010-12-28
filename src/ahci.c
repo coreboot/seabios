@@ -379,8 +379,6 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
                  , ata_extract_version(buffer)
                  , (u32)adjsize, adjprefix);
 
-        // Setup disk geometry translation.
-        setup_translation(&port->drive);
         // Register with bcv system.
         boot_add_hd(&port->drive, -1);
     } else {

@@ -834,9 +834,6 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
              , (u32)adjsize, adjprefix);
     dprintf(1, "%s\n", adrive_g->drive.desc);
 
-    // Setup disk geometry translation.
-    setup_translation(&adrive_g->drive);
-
     int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_bdf,
                                         adrive_g->chan_gf->chanid,
                                         adrive_g->slave);

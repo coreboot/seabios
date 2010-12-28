@@ -72,7 +72,7 @@ get_translation(struct drive_s *drive_g)
     return TRANSLATION_LBA;
 }
 
-void
+static void
 setup_translation(struct drive_s *drive_g)
 {
     u8 translation = get_translation(drive_g);
@@ -220,6 +220,9 @@ map_hd_drive(struct drive_s *drive_g)
     int hdid = bda->hdcount;
     dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdid);
     add_drive(Drives.idmap[EXTTYPE_HD], &bda->hdcount, drive_g);
+
+    // Setup disk geometry translation.
+    setup_translation(drive_g);
 
     // Fill "fdpt" structure.
     fill_fdpt(drive_g, hdid);

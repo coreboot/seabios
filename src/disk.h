@@ -230,7 +230,6 @@ struct drives_s {
 extern struct drives_s Drives;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
 int getDriveId(u8 exttype, struct drive_s *drive_g);
-void setup_translation(struct drive_s *drive_g);
 void map_floppy_drive(struct drive_s *drive_g);
 void map_hd_drive(struct drive_s *drive_g);
 void map_cd_drive(struct drive_s *drive_g);
