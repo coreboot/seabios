@@ -86,6 +86,8 @@ int bootprio_find_named_rom(const char *name, int instance)
  * Boot setup
  ****************************************************************/
 
+static int CheckFloppySig = 1;
+
 #define DEFAULT_PRIO           9999
 
 static int DefaultFloppyPrio = 101;
@@ -100,12 +102,11 @@ boot_setup(void)
         return;
 
     SET_EBDA(boot_sequence, 0xffff);
-    IPL.checkfloppysig = 1;
 
     if (!CONFIG_COREBOOT) {
         // On emulators, get boot order from nvram.
         if (inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1)
-            IPL.checkfloppysig = 0;
+            CheckFloppySig = 0;
         u32 bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
                          | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
         DefaultFloppyPrio = DefaultCDPrio = DefaultHDPrio
@@ -473,7 +474,7 @@ do_boot(u16 seq_nr)
     switch (ie->type) {
     case IPL_TYPE_FLOPPY:
         printf("Booting from Floppy...\n");
-        boot_disk(0x00, IPL.checkfloppysig);
+        boot_disk(0x00, CheckFloppySig);
         break;
     case IPL_TYPE_HARDDISK:
         printf("Booting from Hard Disk...\n");

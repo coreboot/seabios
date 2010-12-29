@@ -15,7 +15,6 @@ struct ipl_entry_s {
 struct ipl_s {
     struct ipl_entry_s bev[8];
     int bevcount;
-    int checkfloppysig;
     char **fw_bootorder;
     int fw_bootorder_count;
 };
