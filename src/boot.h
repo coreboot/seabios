@@ -2,16 +2,6 @@
 #ifndef __BOOT_H
 #define __BOOT_H
 
-struct ipl_s {
-    char **fw_bootorder;
-    int fw_bootorder_count;
-};
-
-
-/****************************************************************
- * Function defs
- ****************************************************************/
-
 // boot.c
 extern struct ipl_s IPL;
 void boot_setup(void);

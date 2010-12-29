@@ -14,12 +14,13 @@
 #include "cmos.h" // inb_cmos
 #include "paravirt.h"
 
-struct ipl_s IPL;
-
 
 /****************************************************************
  * Boot priority ordering
  ****************************************************************/
+
+static char **Bootorder;
+static int BootorderCount;
 
 static void
 loadBootOrder(void)
@@ -29,14 +30,14 @@ loadBootOrder(void)
         return;
 
     int i;
-    IPL.fw_bootorder_count = 1;
+    BootorderCount = 1;
     while (f[i]) {
         if (f[i] == '\n')
-            IPL.fw_bootorder_count++;
+            BootorderCount++;
         i++;
     }
-    IPL.fw_bootorder = malloc_tmphigh(IPL.fw_bootorder_count*sizeof(char*));
-    if (!IPL.fw_bootorder) {
+    Bootorder = malloc_tmphigh(BootorderCount*sizeof(char*));
+    if (!Bootorder) {
         warn_noalloc();
         free(f);
         return;
@@ -45,12 +46,12 @@ loadBootOrder(void)
     dprintf(3, "boot order:\n");
     i = 0;
     do {
-        IPL.fw_bootorder[i] = f;
+        Bootorder[i] = f;
         f = strchr(f, '\n');
         if (f) {
             *f = '\0';
             f++;
-            dprintf(3, "%d: %s\n", i, IPL.fw_bootorder[i]);
+            dprintf(3, "%d: %s\n", i, Bootorder[i]);
             i++;
         }
     } while(f);
