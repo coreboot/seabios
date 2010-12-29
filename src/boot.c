@@ -431,7 +431,7 @@ boot_cdrom(struct ipl_entry_s *ie)
     struct drive_s *drive_g = (void*)ie->vector;
     int status = cdrom_boot(drive_g);
     if (status) {
-        printf("Boot failed: Could not read from CDROM %s (code %04x)\n", drive_g->desc, status);
+        printf("Boot failed: Could not read from CDROM (code %04x)\n", status);
         return;
     }
 
