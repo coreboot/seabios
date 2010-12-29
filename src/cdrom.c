@@ -109,7 +109,7 @@ cdemu_setup(void)
 {
     if (!CONFIG_CDROM_EMU)
         return;
-    if (!Drives.cdcount)
+    if (!CDCount)
         return;
 
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));

@@ -14,14 +14,16 @@
 #include "usb-msc.h" // process_usb_op
 #include "virtio-blk.h" // process_virtio_op
 
-struct drives_s Drives VAR16VISIBLE;
+u8 FloppyCount VAR16VISIBLE;
+u8 CDCount;
+struct drive_s *IDMap[3][CONFIG_MAX_EXTDRIVE] VAR16VISIBLE;
 
 struct drive_s *
 getDrive(u8 exttype, u8 extdriveoffset)
 {
-    if (extdriveoffset >= ARRAY_SIZE(Drives.idmap[0]))
+    if (extdriveoffset >= ARRAY_SIZE(IDMap[0]))
         return NULL;
-    struct drive_s *drive_gf = GET_GLOBAL(Drives.idmap[exttype][extdriveoffset]);
+    struct drive_s *drive_gf = GET_GLOBAL(IDMap[exttype][extdriveoffset]);
     if (!drive_gf)
         return NULL;
     return GLOBALFLAT2GLOBAL(drive_gf);
@@ -30,7 +32,7 @@ getDrive(u8 exttype, u8 extdriveoffset)
 int getDriveId(u8 exttype, struct drive_s *drive_g)
 {
     int i;
-    for (i = 0; i < ARRAY_SIZE(Drives.idmap[0]); i++)
+    for (i = 0; i < ARRAY_SIZE(IDMap[0]); i++)
         if (getDrive(exttype, i) == drive_g)
             return i;
     return -1;
@@ -203,7 +205,7 @@ fill_fdpt(struct drive_s *drive_g, int hdid)
 static void
 add_drive(struct drive_s **idmap, u8 *count, struct drive_s *drive_g)
 {
-    if (*count >= ARRAY_SIZE(Drives.idmap[0])) {
+    if (*count >= ARRAY_SIZE(IDMap[0])) {
         warn_noalloc();
         return;
     }
@@ -219,7 +221,7 @@ map_hd_drive(struct drive_s *drive_g)
     struct bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
     int hdid = bda->hdcount;
     dprintf(3, "Mapping hd drive %p to %d\n", drive_g, hdid);
-    add_drive(Drives.idmap[EXTTYPE_HD], &bda->hdcount, drive_g);
+    add_drive(IDMap[EXTTYPE_HD], &bda->hdcount, drive_g);
 
     // Setup disk geometry translation.
     setup_translation(drive_g);
@@ -233,7 +235,7 @@ void
 map_cd_drive(struct drive_s *drive_g)
 {
     dprintf(3, "Mapping cd drive %p\n", drive_g);
-    add_drive(Drives.idmap[EXTTYPE_CD], &Drives.cdcount, drive_g);
+    add_drive(IDMap[EXTTYPE_CD], &CDCount, drive_g);
 }
 
 // Map a floppy
@@ -241,14 +243,14 @@ void
 map_floppy_drive(struct drive_s *drive_g)
 {
     dprintf(3, "Mapping floppy drive %p\n", drive_g);
-    add_drive(Drives.idmap[EXTTYPE_FLOPPY], &Drives.floppycount, drive_g);
+    add_drive(IDMap[EXTTYPE_FLOPPY], &FloppyCount, drive_g);
 
     // Update equipment word bits for floppy
-    if (Drives.floppycount == 1) {
+    if (FloppyCount == 1) {
         // 1 drive, ready for boot
         SETBITS_BDA(equipment_list_flags, 0x01);
         SET_BDA(floppy_harddisk_info, 0x07);
-    } else if (Drives.floppycount >= 2) {
+    } else if (FloppyCount >= 2) {
         // 2 drives, ready for boot
         SETBITS_BDA(equipment_list_flags, 0x41);
         SET_BDA(floppy_harddisk_info, 0x77);

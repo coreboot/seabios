@@ -235,7 +235,7 @@ disk_1308(struct bregs *regs, struct drive_s *drive_g)
     u8 count;
     if (regs->dl < EXTSTART_HD) {
         // Floppy
-        count = GET_GLOBAL(Drives.floppycount);
+        count = GET_GLOBAL(FloppyCount);
 
         if (CONFIG_CDROM_EMU
             && drive_g == GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf)))

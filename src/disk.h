@@ -207,13 +207,6 @@ struct drive_s {
 #define TRANSLATION_LARGE 2
 #define TRANSLATION_RECHS 3
 
-struct drives_s {
-    // map between bios floppy/hd/cd id and drive_s struct
-    u8 floppycount;
-    u8 cdcount;
-    struct drive_s *idmap[3][CONFIG_MAX_EXTDRIVE];
-};
-
 #define EXTTYPE_FLOPPY 0
 #define EXTTYPE_HD 1
 #define EXTTYPE_CD 2
@@ -227,7 +220,7 @@ struct drives_s {
  ****************************************************************/
 
 // block.c
-extern struct drives_s Drives;
+extern u8 FloppyCount, CDCount;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
 int getDriveId(u8 exttype, struct drive_s *drive_g);
 void map_floppy_drive(struct drive_s *drive_g);
