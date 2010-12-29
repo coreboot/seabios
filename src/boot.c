@@ -275,27 +275,27 @@ interactive_bootmenu(void)
         pos = pos->next;
     }
 
+    // Get key press
     for (;;) {
         scan_code = get_keystroke(1000);
-        if (scan_code == 0x01)
-            // ESC
+        if (scan_code >= 1 && scan_code <= maxmenu+1)
             break;
-        if (scan_code < 1 || scan_code > maxmenu+1)
-            continue;
-        int choice = scan_code - 1;
-
-        // Find entry and make top priority.
-        struct bootentry_s **pprev = &BootList;
-        while (--choice)
-            pprev = &(*pprev)->next;
-        pos = *pprev;
-        *pprev = pos->next;
-        pos->next = BootList;
-        BootList = pos;
-        pos->priority = 0;
-        break;
     }
     printf("\n");
+    if (scan_code == 0x01)
+        // ESC
+        return;
+
+    // Find entry and make top priority.
+    int choice = scan_code - 1;
+    struct bootentry_s **pprev = &BootList;
+    while (--choice)
+        pprev = &(*pprev)->next;
+    pos = *pprev;
+    *pprev = pos->next;
+    pos->next = BootList;
+    BootList = pos;
+    pos->priority = 0;
 }
 
 static int HaveHDBoot, HaveFDBoot;
