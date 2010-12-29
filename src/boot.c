@@ -10,9 +10,9 @@
 #include "config.h" // CONFIG_*
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
-#include "boot.h" // struct ipl_s
+#include "boot.h" // func defs
 #include "cmos.h" // inb_cmos
-#include "paravirt.h"
+#include "paravirt.h" // romfile_loadfile
 
 
 /****************************************************************
@@ -306,6 +306,7 @@ interactive_bootmenu(void)
     pos->priority = 0;
 }
 
+// BEV (Boot Execution Vector) list
 struct bev_s {
     int type;
     u32 vector;
@@ -381,13 +382,13 @@ boot_prep(void)
 
 // Jump to a bootup entry point.
 static void
-call_boot_entry(u16 bootseg, u16 bootip, u8 bootdrv)
+call_boot_entry(struct segoff_s bootsegip, u8 bootdrv)
 {
-    dprintf(1, "Booting from %04x:%04x\n", bootseg, bootip);
+    dprintf(1, "Booting from %04x:%04x\n", bootsegip.seg, bootsegip.offset);
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
-    br.code = SEGOFF(bootseg, bootip);
+    br.code = bootsegip;
     // Set the magic number in ax and the boot drive in dl.
     br.dl = bootdrv;
     br.ax = 0xaa55;
@@ -428,21 +429,17 @@ boot_disk(u8 bootdrv, int checksig)
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;
 
-    call_boot_entry(bootseg, bootip, bootdrv);
+    call_boot_entry(SEGOFF(bootseg, bootip), bootdrv);
 }
 
 // Boot from a CD-ROM
 static void
-boot_cdrom(struct bev_s *ie)
+boot_cdrom(struct drive_s *drive_g)
 {
     if (! CONFIG_CDROM_BOOT)
         return;
-
-    if (!ie->vector)
-        return;
     printf("Booting from DVD/CD...\n");
 
-    struct drive_s *drive_g = (void*)ie->vector;
     int status = cdrom_boot(drive_g);
     if (status) {
         printf("Boot failed: Could not read from CDROM (code %04x)\n", status);
@@ -456,19 +453,30 @@ boot_cdrom(struct bev_s *ie)
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;
 
-    call_boot_entry(bootseg, bootip, bootdrv);
+    call_boot_entry(SEGOFF(bootseg, bootip), bootdrv);
 }
 
 // Boot from a CBFS payload
 static void
-boot_cbfs(struct bev_s *ie)
+boot_cbfs(struct cbfs_file *file)
 {
     if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return;
     printf("Booting from CBFS...\n");
-    cbfs_run_payload((void*)ie->vector);
+    cbfs_run_payload(file);
 }
 
+// Boot from a BEV entry on an optionrom.
+static void
+boot_rom(u32 vector)
+{
+    printf("Booting from ROM...\n");
+    struct segoff_s so;
+    so.segoff = vector;
+    call_boot_entry(so, 0);
+}
+
+// Determine next boot method and attempt a boot using it.
 static void
 do_boot(u16 seq_nr)
 {
@@ -494,14 +502,13 @@ do_boot(u16 seq_nr)
         boot_disk(0x80, 1);
         break;
     case IPL_TYPE_CDROM:
-        boot_cdrom(ie);
+        boot_cdrom((void*)ie->vector);
         break;
     case IPL_TYPE_CBFS:
-        boot_cbfs(ie);
+        boot_cbfs((void*)ie->vector);
         break;
     case IPL_TYPE_BEV:
-        printf("Booting from ROM...\n");
-        call_boot_entry(ie->vector >> 16, ie->vector & 0xffff, 0);
+        boot_rom(ie->vector);
         break;
     }
 
