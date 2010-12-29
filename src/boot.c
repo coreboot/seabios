@@ -143,8 +143,14 @@ struct bootentry_s {
     const char *description;
     struct bootentry_s *next;
 };
-
 static struct bootentry_s *BootList;
+
+#define IPL_TYPE_FLOPPY      0x01
+#define IPL_TYPE_HARDDISK    0x02
+#define IPL_TYPE_CDROM       0x03
+#define IPL_TYPE_CBFS        0x20
+#define IPL_TYPE_BEV         0x80
+#define IPL_TYPE_BCV         0x81
 
 static void
 bootentry_add(int type, int prio, u32 data, const char *desc)
@@ -299,6 +305,12 @@ interactive_bootmenu(void)
     pos->priority = 0;
 }
 
+struct bev_s {
+    int type;
+    u32 vector;
+};
+static struct bev_s BEV[20];
+static int BEVCount;
 static int HaveHDBoot, HaveFDBoot;
 
 static void
@@ -308,9 +320,9 @@ add_bev(int type, u32 vector)
         return;
     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
         return;
-    if (IPL.bevcount >= ARRAY_SIZE(IPL.bev))
+    if (BEVCount >= ARRAY_SIZE(BEV))
         return;
-    struct ipl_entry_s *bev = &IPL.bev[IPL.bevcount++];
+    struct bev_s *bev = &BEV[BEVCount++];
     bev->type = type;
     bev->vector = vector;
 }
@@ -420,7 +432,7 @@ boot_disk(u8 bootdrv, int checksig)
 
 // Boot from a CD-ROM
 static void
-boot_cdrom(struct ipl_entry_s *ie)
+boot_cdrom(struct bev_s *ie)
 {
     if (! CONFIG_CDROM_BOOT)
         return;
@@ -448,7 +460,7 @@ boot_cdrom(struct ipl_entry_s *ie)
 
 // Boot from a CBFS payload
 static void
-boot_cbfs(struct ipl_entry_s *ie)
+boot_cbfs(struct bev_s *ie)
 {
     if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return;
@@ -462,7 +474,7 @@ do_boot(u16 seq_nr)
     if (! CONFIG_BOOT)
         panic("Boot support not compiled in.\n");
 
-    if (seq_nr >= IPL.bevcount) {
+    if (seq_nr >= BEVCount) {
         printf("No bootable device.\n");
         // Loop with irqs enabled - this allows ctrl+alt+delete to work.
         for (;;)
@@ -470,7 +482,7 @@ do_boot(u16 seq_nr)
     }
 
     // Boot the given BEV type.
-    struct ipl_entry_s *ie = &IPL.bev[seq_nr];
+    struct bev_s *ie = &BEV[seq_nr];
     switch (ie->type) {
     case IPL_TYPE_FLOPPY:
         printf("Booting from Floppy...\n");
