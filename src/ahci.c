@@ -347,11 +347,6 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
     port->drive.type = DTYPE_AHCI;
     port->drive.cntl_id = pnr;
     port->drive.removable = (buffer[0] & 0x80) ? 1 : 0;
-    port->drive.desc = malloc_tmp(MAXDESCSIZE);
-    if (!port->drive.desc) {
-        warn_noalloc();
-        return NULL;
-    }
 
     if (!port->atapi) {
         // found disk (ata)
@@ -372,32 +367,33 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
             adjsize >>= 10;
             adjprefix = 'G';
         }
-        snprintf(port->drive.desc, MAXDESCSIZE
-                 , "AHCI/%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
-                 , port->pnr
-                 , ata_extract_model(model, MAXMODEL, buffer)
-                 , ata_extract_version(buffer)
-                 , (u32)adjsize, adjprefix);
+        char *desc = znprintf(MAXDESCSIZE
+                              , "AHCI/%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
+                              , port->pnr
+                              , ata_extract_model(model, MAXMODEL, buffer)
+                              , ata_extract_version(buffer)
+                              , (u32)adjsize, adjprefix);
+        dprintf(1, "%s\n", desc);
 
         // Register with bcv system.
-        boot_add_hd(&port->drive, -1);
+        boot_add_hd(&port->drive, desc, -1);
     } else {
         // found cdrom (atapi)
         port->drive.blksize = CDROM_SECTOR_SIZE;
         port->drive.sectors = (u64)-1;
         u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
-        snprintf(port->drive.desc, MAXDESCSIZE
-                 , "DVD/CD [AHCI/%d: %s ATAPI-%d %s]"
-                 , port->pnr
-                 , ata_extract_model(model, MAXMODEL, buffer)
-                 , ata_extract_version(buffer)
-                 , (iscd ? "DVD/CD" : "Device"));
+        char *desc = znprintf(MAXDESCSIZE
+                              , "DVD/CD [AHCI/%d: %s ATAPI-%d %s]"
+                              , port->pnr
+                              , ata_extract_model(model, MAXMODEL, buffer)
+                              , ata_extract_version(buffer)
+                              , (iscd ? "DVD/CD" : "Device"));
+        dprintf(1, "%s\n", desc);
 
         // fill cdidmap
         if (iscd)
-            boot_add_cd(&port->drive, -1);
+            boot_add_cd(&port->drive, desc, -1);
     }
-    dprintf(1, "%s\n", port->drive.desc);
 
     return port;
 

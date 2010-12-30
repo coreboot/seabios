@@ -148,6 +148,8 @@ putc(struct putcinfo *action, char c)
 static void
 puts(struct putcinfo *action, const char *s)
 {
+    if (!MODESEGMENT && !s)
+        s = "(NULL)";
     for (; *s; s++)
         putc(action, *s);
 }
@@ -405,6 +407,30 @@ snprintf(char *str, size_t size, const char *fmt, ...)
         end = sinfo.end - 1;
     *end = '\0';
     return end - str;
+}
+
+// Build a formatted string - malloc'ing the memory.
+char *
+znprintf(size_t size, const char *fmt, ...)
+{
+    ASSERT32FLAT();
+    if (!size)
+        return NULL;
+    char *str = malloc_tmp(size);
+    if (!str) {
+        warn_noalloc();
+        return NULL;
+    }
+    struct snprintfinfo sinfo = { { putc_str }, str, str + size };
+    va_list args;
+    va_start(args, fmt);
+    bvprintf(&sinfo.info, fmt, args);
+    va_end(args);
+    char *end = sinfo.str;
+    if (end >= sinfo.end)
+        end = sinfo.end - 1;
+    *end = '\0';
+    return str;
 }
 
 

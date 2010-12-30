@@ -604,10 +604,7 @@ register_cbfs_payload(void)
         if (!file)
             break;
         const char *filename = cbfs_filename(file);
-        char *desc = malloc_tmp(MAXDESCSIZE);
-        if (!desc)
-            break;
-        snprintf(desc, MAXDESCSIZE, "Payload [%s]", &filename[4]);
+        char *desc = znprintf(MAXDESCSIZE, "Payload [%s]", &filename[4]);
         boot_add_cbfs(file, desc, -1);
     }
 }

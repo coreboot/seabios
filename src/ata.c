@@ -739,16 +739,12 @@ ata_extract_model(char *model, u32 size, u16 *buffer)
 static struct atadrive_s *
 init_atadrive(struct atadrive_s *dummy, u16 *buffer)
 {
-    char *desc = malloc_tmp(MAXDESCSIZE);
     struct atadrive_s *adrive_g = malloc_fseg(sizeof(*adrive_g));
-    if (!adrive_g || !desc) {
+    if (!adrive_g) {
         warn_noalloc();
-        free(desc);
-        free(adrive_g);
         return NULL;
     }
     memset(adrive_g, 0, sizeof(*adrive_g));
-    adrive_g->drive.desc = desc;
     adrive_g->chan_gf = dummy->chan_gf;
     adrive_g->slave = dummy->slave;
     adrive_g->drive.cntl_id = adrive_g->chan_gf->chanid * 2 + dummy->slave;
@@ -774,20 +770,20 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     adrive_g->drive.sectors = (u64)-1;
     u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
     char model[MAXMODEL+1];
-    snprintf(adrive_g->drive.desc, MAXDESCSIZE
-             , "DVD/CD [ata%d-%d: %s ATAPI-%d %s]"
-             , adrive_g->chan_gf->chanid, adrive_g->slave
-             , ata_extract_model(model, MAXMODEL, buffer)
-             , ata_extract_version(buffer)
-             , (iscd ? "DVD/CD" : "Device"));
-    dprintf(1, "%s\n", adrive_g->drive.desc);
+    char *desc = znprintf(MAXDESCSIZE
+                          , "DVD/CD [ata%d-%d: %s ATAPI-%d %s]"
+                          , adrive_g->chan_gf->chanid, adrive_g->slave
+                          , ata_extract_model(model, MAXMODEL, buffer)
+                          , ata_extract_version(buffer)
+                          , (iscd ? "DVD/CD" : "Device"));
+    dprintf(1, "%s\n", desc);
 
     // fill cdidmap
     if (iscd) {
         int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_bdf,
                                             adrive_g->chan_gf->chanid,
                                             adrive_g->slave);
-        boot_add_cd(&adrive_g->drive, prio);
+        boot_add_cd(&adrive_g->drive, desc, prio);
     }
 
     return adrive_g;
@@ -826,19 +822,19 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
         adjprefix = 'G';
     }
     char model[MAXMODEL+1];
-    snprintf(adrive_g->drive.desc, MAXDESCSIZE
-             , "ata%d-%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
-             , adrive_g->chan_gf->chanid, adrive_g->slave
-             , ata_extract_model(model, MAXMODEL, buffer)
-             , ata_extract_version(buffer)
-             , (u32)adjsize, adjprefix);
-    dprintf(1, "%s\n", adrive_g->drive.desc);
+    char *desc = znprintf(MAXDESCSIZE
+                          , "ata%d-%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
+                          , adrive_g->chan_gf->chanid, adrive_g->slave
+                          , ata_extract_model(model, MAXMODEL, buffer)
+                          , ata_extract_version(buffer)
+                          , (u32)adjsize, adjprefix);
+    dprintf(1, "%s\n", desc);
 
     int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_bdf,
                                         adrive_g->chan_gf->chanid,
                                         adrive_g->slave);
     // Register with bcv system.
-    boot_add_hd(&adrive_g->drive, prio);
+    boot_add_hd(&adrive_g->drive, desc, prio);
 
     return adrive_g;
 }

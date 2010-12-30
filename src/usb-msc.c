@@ -139,16 +139,16 @@ process_usb_op(struct disk_op_s *op)
  ****************************************************************/
 
 static int
-setup_drive_cdrom(struct disk_op_s *op)
+setup_drive_cdrom(struct disk_op_s *op, char *desc)
 {
     op->drive_g->blksize = CDROM_SECTOR_SIZE;
     op->drive_g->sectors = (u64)-1;
-    boot_add_cd(op->drive_g, -1);
+    boot_add_cd(op->drive_g, desc, -1);
     return 0;
 }
 
 static int
-setup_drive_hd(struct disk_op_s *op)
+setup_drive_hd(struct disk_op_s *op, char *desc)
 {
     struct cdbres_read_capacity info;
     int ret = cdb_read_capacity(op, &info);
@@ -159,7 +159,7 @@ setup_drive_hd(struct disk_op_s *op)
     u32 blksize = ntohl(info.blksize), sectors = ntohl(info.sectors);
     if (blksize != DISK_SECTOR_SIZE) {
         if (blksize == CDROM_SECTOR_SIZE)
-            return setup_drive_cdrom(op);
+            return setup_drive_cdrom(op, desc);
         dprintf(1, "Unsupported USB MSC block size %d\n", blksize);
         return -1;
     }
@@ -168,7 +168,7 @@ setup_drive_hd(struct disk_op_s *op)
     dprintf(1, "USB MSC blksize=%d sectors=%d\n", blksize, sectors);
 
     // Register with bcv system.
-    boot_add_hd(op->drive_g, -1);
+    boot_add_hd(op->drive_g, desc, -1);
 
     return 0;
 }
@@ -192,9 +192,8 @@ usb_msc_init(struct usb_pipe *pipe
     }
 
     // Allocate drive structure.
-    char *desc = malloc_tmphigh(MAXDESCSIZE);
     struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
-    if (!udrive_g || !desc) {
+    if (!udrive_g) {
         warn_noalloc();
         goto fail;
     }
@@ -232,20 +231,22 @@ usb_msc_init(struct usb_pipe *pipe
             , strtcpy(rev, data.rev, sizeof(rev))
             , pdt, removable);
     udrive_g->drive.removable = removable;
-    snprintf(desc, MAXDESCSIZE, "USB Drive %s %s %s", vendor, product, rev);
-    udrive_g->drive.desc = desc;
 
-    if (pdt == USB_MSC_TYPE_CDROM)
-        ret = setup_drive_cdrom(&dop);
-    else
-        ret = setup_drive_hd(&dop);
+    if (pdt == USB_MSC_TYPE_CDROM) {
+        char *desc = znprintf(MAXDESCSIZE, "DVD/CD [USB Drive %s %s %s]"
+                              , vendor, product, rev);
+        ret = setup_drive_cdrom(&dop, desc);
+    } else {
+        char *desc = znprintf(MAXDESCSIZE, "USB Drive %s %s %s"
+                              , vendor, product, rev);
+        ret = setup_drive_hd(&dop, desc);
+    }
     if (ret)
         goto fail;
 
     return 0;
 fail:
     dprintf(1, "Unable to configure USB MSC device.\n");
-    free(desc);
     free(udrive_g);
     return -1;
 }

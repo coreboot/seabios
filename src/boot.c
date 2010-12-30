@@ -166,7 +166,7 @@ bootentry_add(int type, int prio, u32 data, const char *desc)
     be->type = type;
     be->priority = prio;
     be->data = data;
-    be->description = desc;
+    be->description = desc ?: "?";
 
     // Add entry in sorted order.
     struct bootentry_s **pprev;
@@ -215,24 +215,24 @@ boot_add_bcv(u16 seg, u16 ip, u16 desc, int prio)
 }
 
 void
-boot_add_floppy(struct drive_s *drive_g, int prio)
+boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_FLOPPY, defPrio(prio, DefaultFloppyPrio)
-                  , (u32)drive_g, drive_g->desc);
+                  , (u32)drive_g, desc);
 }
 
 void
-boot_add_hd(struct drive_s *drive_g, int prio)
+boot_add_hd(struct drive_s *drive_g, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
-                  , (u32)drive_g, drive_g->desc);
+                  , (u32)drive_g, desc);
 }
 
 void
-boot_add_cd(struct drive_s *drive_g, int prio)
+boot_add_cd(struct drive_s *drive_g, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_CDROM, defPrio(prio, DefaultCDPrio)
-                  , (u32)drive_g, drive_g->desc);
+                  , (u32)drive_g, desc);
 }
 
 // Add a CBFS payload entry

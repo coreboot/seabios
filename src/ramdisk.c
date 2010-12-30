@@ -9,6 +9,7 @@
 #include "memmap.h" // add_e820
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
+#include "boot.h" // boot_add_floppy
 
 void
 ramdisk_setup(void)
@@ -40,10 +41,13 @@ ramdisk_setup(void)
     cbfs_copyfile(file, pos, size);
 
     // Setup driver.
-    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
-    struct drive_s *drive_g = addFloppy((u32)pos, ftype, DTYPE_RAMDISK);
+    struct drive_s *drive_g = init_floppy((u32)pos, ftype);
     if (!drive_g)
-        strtcpy(drive_g->desc, cbfs_filename(file), MAXDESCSIZE);
+        return;
+    drive_g->type = DTYPE_RAMDISK;
+    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
+    char *desc = znprintf(MAXDESCSIZE, "Ramdisk [%s]", cbfs_filename(file));
+    boot_add_floppy(drive_g, desc, -1);
 }
 
 static int

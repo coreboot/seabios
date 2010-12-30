@@ -177,7 +177,6 @@ struct drive_s {
     u8 floppy_type;     // Type of floppy (only for floppy drives).
     struct chs_s lchs;  // Logical CHS
     u64 sectors;        // Total sectors count
-    char *desc;         // Drive description (only available during POST)
     u32 cntl_id;        // Unique id for a given driver type.
     u8 removable;       // Is media removable (currently unused)
 
@@ -232,7 +231,7 @@ int send_disk_op(struct disk_op_s *op);
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup(void);
-struct drive_s *addFloppy(int floppyid, int ftype, int driver);
+struct drive_s *init_floppy(int floppyid, int ftype);
 int find_floppy_type(u32 size);
 int process_floppy_op(struct disk_op_s *op);
 void floppy_tick(void);

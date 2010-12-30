@@ -237,6 +237,8 @@ void printf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 int snprintf(char *str, size_t size, const char *fmt, ...)
     __attribute__ ((format (printf, 3, 4)));
+char * znprintf(size_t size, const char *fmt, ...)
+    __attribute__ ((format (printf, 2, 3)));
 void __dprintf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void __debug_enter(struct bregs *regs, const char *fname);

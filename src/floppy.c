@@ -92,38 +92,40 @@ struct floppyinfo_s FloppyInfo[] VAR16VISIBLE = {
 };
 
 struct drive_s *
-addFloppy(int floppyid, int ftype, int driver)
+init_floppy(int floppyid, int ftype)
 {
     if (ftype <= 0 || ftype >= ARRAY_SIZE(FloppyInfo)) {
         dprintf(1, "Bad floppy type %d\n", ftype);
         return NULL;
     }
 
-    char *desc = malloc_tmp(MAXDESCSIZE);
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    if (!drive_g || !desc) {
+    if (!drive_g) {
         warn_noalloc();
-        free(desc);
-        free(drive_g);
         return NULL;
     }
     memset(drive_g, 0, sizeof(*drive_g));
     drive_g->cntl_id = floppyid;
-    drive_g->type = driver;
+    drive_g->type = DTYPE_FLOPPY;
     drive_g->blksize = DISK_SECTOR_SIZE;
     drive_g->floppy_type = ftype;
     drive_g->sectors = (u64)-1;
-    drive_g->desc = desc;
-    snprintf(desc, MAXDESCSIZE, "Floppy [drive %c]", 'A' + floppyid);
 
     memcpy(&drive_g->lchs, &FloppyInfo[ftype].chs
            , sizeof(FloppyInfo[ftype].chs));
+    return drive_g;
+}
 
+static void
+addFloppy(int floppyid, int ftype)
+{
+    struct drive_s *drive_g = init_floppy(floppyid, ftype);
+    if (!drive_g)
+        return;
+    char *desc = znprintf(MAXDESCSIZE, "Floppy [drive %c]", 'A' + floppyid);
     int bdf = pci_find_class(PCI_CLASS_BRIDGE_ISA); /* isa-to-pci bridge */
     int prio = bootprio_find_fdc_device(bdf, PORT_FD_BASE, floppyid);
-
-    boot_add_floppy(drive_g, prio);
-    return drive_g;
+    boot_add_floppy(drive_g, desc, prio);
 }
 
 void
@@ -138,9 +140,9 @@ floppy_setup(void)
     } else {
         u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
         if (type & 0xf0)
-            addFloppy(0, type >> 4, DTYPE_FLOPPY);
+            addFloppy(0, type >> 4);
         if (type & 0x0f)
-            addFloppy(1, type & 0x0f, DTYPE_FLOPPY);
+            addFloppy(1, type & 0x0f);
     }
 
     outb(0x02, PORT_DMA1_MASK_REG);
