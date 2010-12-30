@@ -605,7 +605,7 @@ register_cbfs_payload(void)
             break;
         const char *filename = cbfs_filename(file);
         char *desc = znprintf(MAXDESCSIZE, "Payload [%s]", &filename[4]);
-        boot_add_cbfs(file, desc, -1);
+        boot_add_cbfs(file, desc, bootprio_find_named_rom(filename, 0));
     }
 }
 

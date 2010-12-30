@@ -21,8 +21,9 @@ ramdisk_setup(void)
     struct cbfs_file *file = cbfs_findprefix("floppyimg/", NULL);
     if (!file)
         return;
+    const char *filename = cbfs_filename(file);
     u32 size = cbfs_datasize(file);
-    dprintf(3, "Found floppy file %s of size %d\n", cbfs_filename(file), size);
+    dprintf(3, "Found floppy file %s of size %d\n", filename, size);
     int ftype = find_floppy_type(size);
     if (ftype < 0) {
         dprintf(3, "No floppy type found for ramdisk size\n");
@@ -45,9 +46,9 @@ ramdisk_setup(void)
     if (!drive_g)
         return;
     drive_g->type = DTYPE_RAMDISK;
-    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", cbfs_filename(file), pos);
-    char *desc = znprintf(MAXDESCSIZE, "Ramdisk [%s]", cbfs_filename(file));
-    boot_add_floppy(drive_g, desc, -1);
+    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", filename, pos);
+    char *desc = znprintf(MAXDESCSIZE, "Ramdisk [%s]", &filename[10]);
+    boot_add_floppy(drive_g, desc, bootprio_find_named_rom(filename, 0));
 }
 
 static int
