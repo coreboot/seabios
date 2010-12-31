@@ -143,7 +143,10 @@ setup_drive_cdrom(struct disk_op_s *op, char *desc)
 {
     op->drive_g->blksize = CDROM_SECTOR_SIZE;
     op->drive_g->sectors = (u64)-1;
-    boot_add_cd(op->drive_g, desc, -1);
+    struct usb_pipe *pipe = container_of(
+        op->drive_g, struct usbdrive_s, drive)->bulkout;
+    int prio = bootprio_find_usb(pipe->cntl->bdf, pipe->path);
+    boot_add_cd(op->drive_g, desc, prio);
     return 0;
 }
 
@@ -168,7 +171,10 @@ setup_drive_hd(struct disk_op_s *op, char *desc)
     dprintf(1, "USB MSC blksize=%d sectors=%d\n", blksize, sectors);
 
     // Register with bcv system.
-    boot_add_hd(op->drive_g, desc, -1);
+    struct usb_pipe *pipe = container_of(
+        op->drive_g, struct usbdrive_s, drive)->bulkout;
+    int prio = bootprio_find_usb(pipe->cntl->bdf, pipe->path);
+    boot_add_hd(op->drive_g, desc, prio);
 
     return 0;
 }
