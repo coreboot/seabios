@@ -186,6 +186,7 @@ uhci_init(u16 bdf, int busid)
     struct usb_uhci_s *cntl = malloc_tmphigh(sizeof(*cntl));
     memset(cntl, 0, sizeof(*cntl));
     cntl->usb.busid = busid;
+    cntl->usb.bdf = bdf;
     cntl->usb.type = USB_TYPE_UHCI;
     cntl->iobase = (pci_config_readl(bdf, PCI_BASE_ADDRESS_4)
                     & PCI_BASE_ADDRESS_IO_MASK);

@@ -259,6 +259,7 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
         dummy.cntl = cntl;
         dummy.type = cntl->type;
         dummy.maxpacket = 8;
+        dummy.path = (u64)-1;
         cntl->defaultpipe = defpipe = alloc_default_control_pipe(&dummy);
         if (!defpipe)
             return NULL;
@@ -294,6 +295,9 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     defpipe->devaddr = cntl->maxaddr;
     struct usb_pipe *pipe = alloc_default_control_pipe(defpipe);
     defpipe->devaddr = 0;
+    if (hub->pipe)
+        pipe->path = hub->pipe->path;
+    pipe->path = (pipe->path << 8) | port;
     return pipe;
 }
 
