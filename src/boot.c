@@ -13,6 +13,7 @@
 #include "boot.h" // func defs
 #include "cmos.h" // inb_cmos
 #include "paravirt.h" // romfile_loadfile
+#include "pci.h" //pci_bdf_to_*
 
 
 /****************************************************************
@@ -29,7 +30,7 @@ loadBootOrder(void)
     if (!f)
         return;
 
-    int i;
+    int i = 0;
     BootorderCount = 1;
     while (f[i]) {
         if (f[i] == '\n')
@@ -48,38 +49,117 @@ loadBootOrder(void)
     do {
         Bootorder[i] = f;
         f = strchr(f, '\n');
-        if (f) {
-            *f = '\0';
-            f++;
-            dprintf(3, "%d: %s\n", i, Bootorder[i]);
-            i++;
+        if (f)
+            *(f++) = '\0';
+        dprintf(3, "%d: %s\n", i+1, Bootorder[i]);
+        i++;
+    } while (f);
+}
+
+// See if 'str' starts with 'glob' - if glob contains an '*' character
+// it will match any number of characters in str that aren't a '/' or
+// the next glob character.
+static char *
+glob_prefix(const char *glob, const char *str)
+{
+    for (;;) {
+        if (!*glob && (!*str || *str == '/'))
+            return (char*)str;
+        if (*glob == '*') {
+            if (!*str || *str == '/' || *str == glob[1])
+                glob++;
+            else
+                str++;
+            continue;
         }
-    } while(f);
+        if (*glob != *str)
+            return NULL;
+        glob++;
+        str++;
+    }
+}
+
+// Search the bootorder list for the given glob pattern.
+static int
+find_prio(const char *glob)
+{
+    dprintf(1, "Searching bootorder for: %s\n", glob);
+    int i;
+    for (i = 0; i < BootorderCount; i++)
+        if (glob_prefix(glob, Bootorder[i]))
+            return i+1;
+    return -1;
+}
+
+#define FW_PCI_DOMAIN "/pci@i0cf8"
+
+static char *
+build_pci_path(char *buf, int max, const char *devname, int bdf)
+{
+    // Build the string path of a bdf - for example: /pci@i0cf8/isa@1,2
+    char *p = buf;
+    int bus = pci_bdf_to_bus(bdf);
+    if (bus)
+        // XXX - this isn't the correct path syntax
+        p += snprintf(p, max, "/bus%x", bus);
+
+    int dev = pci_bdf_to_dev(bdf), fn = pci_bdf_to_fn(bdf);
+    p += snprintf(p, buf+max-p, "%s/%s@%x", FW_PCI_DOMAIN, devname, dev);
+    if (fn)
+        p += snprintf(p, buf+max-p, ",%x", fn);
+    return p;
 }
 
 int bootprio_find_pci_device(int bdf)
 {
-    return -1;
+    // Find pci device - for example: /pci@i0cf8/ethernet@5
+    char desc[256];
+    build_pci_path(desc, sizeof(desc), "*", bdf);
+    return find_prio(desc);
 }
 
 int bootprio_find_ata_device(int bdf, int chanid, int slave)
 {
-    return -1;
+    if (bdf == -1)
+        // support only pci machine for now
+        return -1;
+    // Find ata drive - for example: /pci@i0cf8/ide@1,1/drive@1/disk@0
+    char desc[256], *p;
+    p = build_pci_path(desc, sizeof(desc), "*", bdf);
+    snprintf(p, desc+sizeof(desc)-p, "/drive@%x/disk@%x", chanid, slave);
+    return find_prio(desc);
 }
 
-int bootprio_find_fdc_device(int bfd, int port, int fdid)
+int bootprio_find_fdc_device(int bdf, int port, int fdid)
 {
-    return -1;
+    if (bdf == -1)
+        // support only pci machine for now
+        return -1;
+    // Find floppy - for example: /pci@i0cf8/isa@1/fdc@03f1/floppy@0
+    char desc[256], *p;
+    p = build_pci_path(desc, sizeof(desc), "isa", bdf);
+    snprintf(p, desc+sizeof(desc)-p, "/fdc@%04x/floppy@%x", port, fdid);
+    return find_prio(desc);
 }
 
 int bootprio_find_pci_rom(int bdf, int instance)
 {
-    return -1;
+    // Find pci rom - for example: /pci@i0cf8/scsi@3:rom2
+    char desc[256], *p;
+    p = build_pci_path(desc, sizeof(desc), "*", bdf);
+    if (instance)
+        snprintf(p, desc+sizeof(desc)-p, ":rom%d", instance);
+    return find_prio(desc);
 }
 
 int bootprio_find_named_rom(const char *name, int instance)
 {
-    return -1;
+    // Find named rom - for example: /rom@genroms/linuxboot.bin
+    char desc[256], *p;
+    p = desc + snprintf(desc, sizeof(desc), "/rom@%s", name);
+    if (instance)
+        snprintf(p, desc+sizeof(desc)-p, ":rom%d", instance);
+    return find_prio(desc);
 }
 
 
@@ -167,6 +247,8 @@ bootentry_add(int type, int prio, u32 data, const char *desc)
     be->priority = prio;
     be->data = data;
     be->description = desc ?: "?";
+    dprintf(3, "Registering bootable: %s (type:%d prio:%d data:%x)\n"
+            , be->description, type, prio, data);
 
     // Add entry in sorted order.
     struct bootentry_s **pprev;
