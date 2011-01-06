@@ -122,6 +122,12 @@ DefinitionBlock (
                 B0EJ, 32,
             }
 
+            OperationRegion(RMVC, SystemIO, 0xae0c, 0x04)
+            Field(RMVC, DWordAcc, NoLock, WriteAsZeros)
+            {
+                PCRM, 32,
+            }
+
 #define hotplug_slot(name, nr) \
             Device (S##name) {                    \
                Name (_ADR, nr##0000)              \
@@ -245,11 +251,14 @@ DefinitionBlock (
                  {
                          Return (0x00)
                  }
+                 Method(_RMV) { Return (0x00) }
         }
 
 	/* PIIX3 ISA bridge */
         Device (ISA) {
             Name (_ADR, 0x00010000)
+            Method(_RMV) { Return (0x00) }
+
 
             /* PIIX PCI to ISA irq remapping */
             OperationRegion (P40C, PCI_Config, 0x60, 0x04)
@@ -442,6 +451,49 @@ DefinitionBlock (
 		DRSJ, 32
 	    }
 	}
+
+#define gen_pci_device(name, nr)                                \
+        Device(SL##name) {                                      \
+            Name (_ADR, nr##0000)                               \
+            Method (_RMV) {                                     \
+                If (And(\_SB.PCI0.PCRM, ShiftLeft(1, nr))) {    \
+                    Return (0x1)                                \
+                }                                               \
+                Return (0x0)                                    \
+            }                                                   \
+            Name (_SUN, name)                                   \
+        }
+
+        /* VGA (slot 1) and ISA bus (slot 2) defined above */
+	gen_pci_device(3, 0x0003)
+	gen_pci_device(4, 0x0004)
+	gen_pci_device(5, 0x0005)
+	gen_pci_device(6, 0x0006)
+	gen_pci_device(7, 0x0007)
+	gen_pci_device(8, 0x0008)
+	gen_pci_device(9, 0x0009)
+	gen_pci_device(10, 0x000a)
+	gen_pci_device(11, 0x000b)
+	gen_pci_device(12, 0x000c)
+	gen_pci_device(13, 0x000d)
+	gen_pci_device(14, 0x000e)
+	gen_pci_device(15, 0x000f)
+	gen_pci_device(16, 0x0010)
+	gen_pci_device(17, 0x0011)
+	gen_pci_device(18, 0x0012)
+	gen_pci_device(19, 0x0013)
+	gen_pci_device(20, 0x0014)
+	gen_pci_device(21, 0x0015)
+	gen_pci_device(22, 0x0016)
+	gen_pci_device(23, 0x0017)
+	gen_pci_device(24, 0x0018)
+	gen_pci_device(25, 0x0019)
+	gen_pci_device(26, 0x001a)
+	gen_pci_device(27, 0x001b)
+	gen_pci_device(28, 0x001c)
+	gen_pci_device(29, 0x001d)
+	gen_pci_device(30, 0x001e)
+	gen_pci_device(31, 0x001f)
     }
 
     /* PCI IRQs */
