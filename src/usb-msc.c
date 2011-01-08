@@ -228,14 +228,16 @@ usb_msc_init(struct usb_pipe *pipe
         goto fail;
     char vendor[sizeof(data.vendor)+1], product[sizeof(data.product)+1];
     char rev[sizeof(data.rev)+1];
+    strtcpy(vendor, data.vendor, sizeof(vendor));
+    nullTrailingSpace(vendor);
+    strtcpy(product, data.product, sizeof(product));
+    nullTrailingSpace(product);
+    strtcpy(rev, data.rev, sizeof(rev));
+    nullTrailingSpace(rev);
     int pdt = data.pdt & 0x1f;
     int removable = !!(data.removable & 0x80);
-    dprintf(1, "USB MSC vendor='%s' product='%s' rev='%s'"
-            " type=%d removable=%d\n"
-            , strtcpy(vendor, data.vendor, sizeof(vendor))
-            , strtcpy(product, data.product, sizeof(product))
-            , strtcpy(rev, data.rev, sizeof(rev))
-            , pdt, removable);
+    dprintf(1, "USB MSC vendor='%s' product='%s' rev='%s' type=%d removable=%d\n"
+            , vendor, product, rev, pdt, removable);
     udrive_g->drive.removable = removable;
 
     if (pdt == USB_MSC_TYPE_CDROM) {

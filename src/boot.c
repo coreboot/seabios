@@ -51,6 +51,7 @@ loadBootOrder(void)
         f = strchr(f, '\n');
         if (f)
             *(f++) = '\0';
+        nullTrailingSpace(Bootorder[i]);
         dprintf(3, "%d: %s\n", i+1, Bootorder[i]);
         i++;
     } while (f);

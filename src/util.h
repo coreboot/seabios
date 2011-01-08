@@ -210,6 +210,7 @@ void iomemcpy(void *d, const void *s, u32 len);
 void *memmove(void *d, const void *s, size_t len);
 char *strtcpy(char *dest, const char *src, size_t len);
 char *strchr(const char *s, int c);
+void nullTrailingSpace(char *buf);
 int get_keystroke(int msec);
 
 // stacks.c

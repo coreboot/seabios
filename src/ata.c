@@ -727,11 +727,7 @@ ata_extract_model(char *model, u32 size, u16 *buffer)
     for (i=0; i<size/2; i++)
         *(u16*)&model[i*2] = ntohs(buffer[27+i]);
     model[size] = 0x00;
-
-    // Trim trailing spaces from model name.
-    for (i=size-1; i>0 && model[i] == 0x20; i--)
-        model[i] = 0x00;
-
+    nullTrailingSpace(model);
     return model;
 }
 
