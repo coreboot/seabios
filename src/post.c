@@ -180,6 +180,7 @@ init_hw(void)
     floppy_setup();
     ata_setup();
     ahci_setup();
+    cbfs_payload_setup();
     ramdisk_setup();
     virtio_blk_setup();
 }

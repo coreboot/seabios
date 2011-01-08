@@ -595,8 +595,8 @@ cbfs_run_payload(struct cbfs_file *file)
 }
 
 // Register payloads in "img/" directory with boot system.
-static void
-register_cbfs_payload(void)
+void
+cbfs_payload_setup(void)
 {
     struct cbfs_file *file = NULL;
     for (;;) {
@@ -614,5 +614,4 @@ coreboot_setup(void)
 {
     coreboot_fill_map();
     cbfs_setup();
-    register_cbfs_payload();
 }

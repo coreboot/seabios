@@ -402,6 +402,7 @@ const char *cbfs_filename(struct cbfs_file *file);
 int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen);
 void cbfs_run_payload(struct cbfs_file *file);
 void coreboot_copy_biostable(void);
+void cbfs_payload_setup(void);
 void coreboot_setup(void);
 
 // vgahooks.c
