@@ -47,6 +47,11 @@ int pci_find_vga(void);
 int pci_find_device(u16 vendid, u16 devid);
 int pci_find_class(u16 classid);
 
+#define PP_ROOT      (1<<17)
+#define PP_PCIBRIDGE (1<<18)
+extern int *PCIpaths;
+void pci_path_setup(void);
+
 int pci_next(int bdf, int *pmax);
 #define foreachpci(BDF, MAX)                    \
     for (MAX=0x0100, BDF=pci_next(0, &MAX)      \

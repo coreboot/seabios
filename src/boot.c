@@ -99,13 +99,20 @@ build_pci_path(char *buf, int max, const char *devname, int bdf)
 {
     // Build the string path of a bdf - for example: /pci@i0cf8/isa@1,2
     char *p = buf;
-    int bus = pci_bdf_to_bus(bdf);
-    if (bus)
-        // XXX - this isn't the correct path syntax
-        p += snprintf(p, max, "/bus%x", bus);
+    int parent = pci_bdf_to_bus(bdf);
+    if (PCIpaths)
+        parent = PCIpaths[parent];
+    int parentdev = parent & 0xffff;
+    if (parent & PP_PCIBRIDGE) {
+        p = build_pci_path(p, max, "pci-bridge", parentdev);
+    } else {
+        if (parentdev)
+            p += snprintf(p, max, "/pci-root@%x", parentdev);
+        p += snprintf(p, buf+max-p, "%s", FW_PCI_DOMAIN);
+    }
 
     int dev = pci_bdf_to_dev(bdf), fn = pci_bdf_to_fn(bdf);
-    p += snprintf(p, buf+max-p, "%s/%s@%x", FW_PCI_DOMAIN, devname, dev);
+    p += snprintf(p, buf+max-p, "/%s@%x", devname, dev);
     if (fn)
         p += snprintf(p, buf+max-p, ",%x", fn);
     return p;
