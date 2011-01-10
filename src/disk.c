@@ -503,6 +503,7 @@ static void
 disk_1348(struct bregs *regs, struct drive_s *drive_g)
 {
     u16 size = GET_INT13DPT(regs, size);
+    u16 t13 = size == 74;
 
     // Buffer is too small
     if (size < 26) {
@@ -553,8 +554,9 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     // EDD 2.x
 
     int bdf;
-    u16 iobase1;
-    u64 device_path;
+    u16 iobase1 = 0;
+    u64 device_path = 0;
+    u8 channel = 0;
     SET_INT13DPT(regs, size, 30);
     if (type == DTYPE_ATA || type == DTYPE_ATAPI) {
         u16 ebda_seg = get_ebda_seg();
@@ -573,6 +575,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
         bdf = GET_GLOBALFLAT(chan_gf->pci_bdf);
         device_path = slave;
+        channel = GET_GLOBALFLAT(chan_gf->chanid);
 
         u16 options = 0;
         if (type == DTYPE_ATA) {
@@ -613,8 +616,6 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         SET_INT13DPT(regs, dpte_segment, 0);
         SET_INT13DPT(regs, dpte_offset, 0);
         bdf = GET_GLOBAL(drive_g->cntl_id);
-        device_path = 0;
-        iobase1 = 0;
     }
 
     if (size < 66) {
@@ -624,7 +625,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
 
     // EDD 3.x
     SET_INT13DPT(regs, key, 0xbedd);
-    SET_INT13DPT(regs, dpi_length, 36);
+    SET_INT13DPT(regs, dpi_length, t13 ? 44 : 36);
     SET_INT13DPT(regs, reserved1, 0);
     SET_INT13DPT(regs, reserved2, 0);
 
@@ -632,17 +633,20 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         SET_INT13DPT(regs, host_bus[0], 'P');
         SET_INT13DPT(regs, host_bus[1], 'C');
         SET_INT13DPT(regs, host_bus[2], 'I');
-        SET_INT13DPT(regs, host_bus[3], 0);
+        SET_INT13DPT(regs, host_bus[3], ' ');
 
         u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
                     | (pci_bdf_to_fn(bdf) << 16));
+        if (t13)
+            path |= channel << 24;
+
         SET_INT13DPT(regs, iface_path, path);
     } else {
         // ISA
         SET_INT13DPT(regs, host_bus[0], 'I');
         SET_INT13DPT(regs, host_bus[1], 'S');
         SET_INT13DPT(regs, host_bus[2], 'A');
-        SET_INT13DPT(regs, host_bus[3], 0);
+        SET_INT13DPT(regs, host_bus[3], ' ');
 
         SET_INT13DPT(regs, iface_path, iobase1);
     }
@@ -651,22 +655,30 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         SET_INT13DPT(regs, iface_type[0], 'A');
         SET_INT13DPT(regs, iface_type[1], 'T');
         SET_INT13DPT(regs, iface_type[2], 'A');
-        SET_INT13DPT(regs, iface_type[3], 0);
+        SET_INT13DPT(regs, iface_type[3], ' ');
     } else {
         SET_INT13DPT(regs, iface_type[0], 'S');
         SET_INT13DPT(regs, iface_type[1], 'C');
         SET_INT13DPT(regs, iface_type[2], 'S');
         SET_INT13DPT(regs, iface_type[3], 'I');
     }
-    SET_INT13DPT(regs, iface_type[4], 0);
-    SET_INT13DPT(regs, iface_type[5], 0);
-    SET_INT13DPT(regs, iface_type[6], 0);
-    SET_INT13DPT(regs, iface_type[7], 0);
+    SET_INT13DPT(regs, iface_type[4], ' ');
+    SET_INT13DPT(regs, iface_type[5], ' ');
+    SET_INT13DPT(regs, iface_type[6], ' ');
+    SET_INT13DPT(regs, iface_type[7], ' ');
 
-    SET_INT13DPT(regs, device_path, device_path);
+    if (t13) {
+        SET_INT13DPT(regs, t13.device_path[0], device_path);
+        SET_INT13DPT(regs, t13.device_path[1], 0);
 
-    SET_INT13DPT(regs, checksum
-                 , -checksum_far(regs->ds, (void*)(regs->si+30), 35));
+        SET_INT13DPT(regs, t13.checksum
+                     , -checksum_far(regs->ds, (void*)(regs->si+30), 43));
+    } else {
+        SET_INT13DPT(regs, phoenix.device_path, device_path);
+
+        SET_INT13DPT(regs, phoenix.checksum
+                     , -checksum_far(regs->ds, (void*)(regs->si+30), 35));
+    }
 
     disk_ret(regs, DISK_RET_SUCCESS);
 }

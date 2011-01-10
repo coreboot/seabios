@@ -63,9 +63,18 @@ struct int13dpt_s {
     u8  host_bus[4];
     u8  iface_type[8];
     u64 iface_path;
-    u64 device_path;
-    u8  reserved3;
-    u8  checksum;
+    union {
+        struct {
+            u64 device_path;
+            u8  reserved3;
+            u8  checksum;
+        } phoenix;
+        struct {
+            u64 device_path[2];
+            u8  reserved3;
+            u8  checksum;
+        } t13;
+    };
 } PACKED;
 
 #define GET_INT13DPT(regs,var)                                          \
