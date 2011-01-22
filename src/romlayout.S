@@ -427,32 +427,6 @@ post32:
  * Interrupt entry points
  ****************************************************************/
 
-        // Define an entry point for an interrupt (no args passed).
-        .macro IRQ_ENTRY num
-        .global entry_\num
-        entry_\num :
-        pushl $ handle_\num
-        jmp irqentry
-        .endm
-
-        // Define an entry point for an interrupt (can read/modify args).
-        .macro IRQ_ENTRY_ARG num
-        .global entry_\num
-        entry_\num :
-        pushl $ handle_\num
-        jmp irqentryarg
-        .endm
-
-        // Macros that put each handler into its own section
-        .macro DECL_IRQ_ENTRY num
-        DECLFUNC entry_\num
-        IRQ_ENTRY \num
-        .endm
-        .macro DECL_IRQ_ENTRY_ARG num
-        DECLFUNC entry_\num
-        IRQ_ENTRY_ARG \num
-        .endm
-
         // Main entry point for interrupts without args
         DECLFUNC irqentry
 irqentry:
@@ -465,6 +439,33 @@ irqentryarg:
         ENTRY_ARG_ST
         iretw
 
+        // Define an entry point for an interrupt (no args passed).
+        .macro IRQ_ENTRY num
+        .global entry_\num
+        entry_\num :
+        pushl $ handle_\num
+        jmp irqentry
+        .endm
+
+        .macro DECL_IRQ_ENTRY num
+        DECLFUNC entry_\num
+        IRQ_ENTRY \num
+        .endm
+
+        // Define an entry point for an interrupt (can read/modify args).
+        .macro IRQ_ENTRY_ARG num
+        .global entry_\num
+        entry_\num :
+        pushl $ handle_\num
+        jmp irqentryarg
+        .endm
+
+        .macro DECL_IRQ_ENTRY_ARG num
+        DECLFUNC entry_\num
+        IRQ_ENTRY_ARG \num
+        .endm
+
+        // Various entry points (that don't require a fixed location).
         DECL_IRQ_ENTRY_ARG 13
         DECL_IRQ_ENTRY 76
         DECL_IRQ_ENTRY 70
