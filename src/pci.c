@@ -194,7 +194,7 @@ pci_path_setup(void)
     PCIpaths = malloc_tmp(sizeof(*PCIpaths) * 256);
     if (!PCIpaths)
         return;
-    memset(PCIpaths, 0, sizeof(PCIpaths));
+    memset(PCIpaths, 0, sizeof(*PCIpaths) * 256);
 
     int roots = 0;
     int bdf, max;
@@ -209,7 +209,8 @@ pci_path_setup(void)
         if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
             v = pci_config_readl(bdf, PCI_PRIMARY_BUS);
             int childbus = (v >> 8) & 0xff;
-            PCIpaths[childbus] = bdf | PP_PCIBRIDGE;
+            if (childbus > bus)
+                PCIpaths[childbus] = bdf | PP_PCIBRIDGE;
         }
     }
 }
