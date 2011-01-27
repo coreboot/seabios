@@ -3,7 +3,6 @@
 #define __BOOT_H
 
 // boot.c
-extern struct ipl_s IPL;
 void boot_setup(void);
 void boot_add_bev(u16 seg, u16 bev, u16 desc, int prio);
 void boot_add_bcv(u16 seg, u16 ip, u16 desc, int prio);

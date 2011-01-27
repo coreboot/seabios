@@ -41,6 +41,7 @@ loadBootOrder(void)
     if (!Bootorder) {
         warn_noalloc();
         free(f);
+        BootorderCount = 0;
         return;
     }
 
