@@ -115,16 +115,18 @@ $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $@"
 	$(Q)$(CPP) -P -D__ASSEMBLY__ $< -o $@
 
+$(OUT)asm-offsets.s: $(OUT)autoconf.h
+
 $(OUT)asm-offsets.h: $(OUT)asm-offsets.s
 	@echo "  Generating offset file $@"
 	$(Q)./tools/gen-offsets.sh $< $@
 
 
-$(OUT)ccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
+$(OUT)ccode.16.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16) -S, $(addprefix src/, $(SRC16)),$@)
 
-$(OUT)code32seg.o: ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
+$(OUT)code32seg.o: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
 
-$(OUT)ccode32flat.o: ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
+$(OUT)ccode32flat.o: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
 
 $(OUT)code16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
@@ -199,6 +201,12 @@ export HOSTCC             := $(CC)
 export CONFIG_SHELL       := sh
 export KCONFIG_AUTOHEADER := autoconf.h
 export KCONFIG_CONFIG     := $(CURDIR)/.config
+
+$(OUT)autoconf.h : $(KCONFIG_CONFIG)
+	$(Q)$(MAKE) silentoldconfig
+
+$(KCONFIG_CONFIG):
+	$(Q)$(MAKE) defconfig
 
 %onfig:
 	$(Q)mkdir -p $(OUT)/tools/kconfig/lxdialog

@@ -1,2 +1,4 @@
 out
 *.pyc
+.config
+.config.old

@@ -1,0 +1,15 @@
+# Kconfig SeaBIOS configuration
+
+mainmenu "SeaBIOS Configuration"
+    config COREBOOT
+      bool "Configure as a coreboot payload."
+      default n
+    config DEBUG_LEVEL
+      int "Control how verbose debug output is."
+      default 1
+    config DEBUG_SERIAL
+      bool "Send debugging information to serial port"
+      default n
+    config VGAHOOKS
+      bool "Support bios callbacks specific to via vgabios."
+      default n

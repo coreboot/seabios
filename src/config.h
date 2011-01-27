@@ -1,6 +1,8 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
+#include "../out/autoconf.h"
+
 // Configuration definitions.
 
 //#define CONFIG_APPNAME  "QEMU"
@@ -12,13 +14,6 @@
 #define CONFIG_APPNAME6 "BOCHS "
 #define CONFIG_APPNAME4 "BXPC"
 
-// Configure as a coreboot payload.
-#define CONFIG_COREBOOT 0
-
-// Control how verbose debug output is.
-#define CONFIG_DEBUG_LEVEL 1
-// Send debugging information to serial port
-#define CONFIG_DEBUG_SERIAL 0
 // Screen writes are also sent to debug ports.
 #define CONFIG_SCREEN_AND_DEBUG 1
 
@@ -119,8 +114,6 @@
 #define CONFIG_UUID_BACKDOOR 1
 // Support generation of ACPI tables (for emulators)
 #define CONFIG_ACPI 1
-// Support bios callbacks specific to via vgabios.
-#define CONFIG_VGAHOOKS 0
 // Support S3 resume handler.
 #define CONFIG_S3_RESUME 1
 // Run the vga rom during S3 resume.
