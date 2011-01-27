@@ -830,8 +830,15 @@ int conf_write_autoconf(void)
 
 	for_all_symbols(i, sym) {
 		sym_calc_value(sym);
-		if (!(sym->flags & SYMBOL_WRITE) || !sym->name)
+		if (!sym->name)
 			continue;
+		if (!(sym->flags & SYMBOL_WRITE)) {
+			if (sym->type == S_BOOLEAN || sym->type == S_HEX
+			    || sym->type == S_INT)
+				fprintf(out_h, "#define %s%s 0\n",
+					CONFIG_, sym->name);
+			continue;
+		}
 
 		/* write symbol to config file */
 		conf_write_symbol(sym, out, false);
@@ -842,6 +849,8 @@ int conf_write_autoconf(void)
 		case S_TRISTATE:
 			switch (sym_get_tristate_value(sym)) {
 			case no:
+				fprintf(out_h, "#define %s%s 0\n",
+				    CONFIG_, sym->name);
 				break;
 			case mod:
 				fprintf(tristate, "%s%s=M\n",
