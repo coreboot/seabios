@@ -54,13 +54,14 @@ ifdef V
 Q=
 else
 Q=@
+MAKEFLAGS += --no-print-directory
 endif
 
 OBJCOPY=objcopy
 OBJDUMP=objdump
 STRIP=strip
 
-.PHONY : all FORCE
+.PHONY : all clean distclean FORCE
 
 vpath %.c src vgasrc
 vpath %.S src vgasrc
@@ -193,9 +194,23 @@ src/%.hex: src/%.dsl
 
 $(OUT)ccode32flat.o: src/acpi-dsdt.hex
 
+####### Kconfig rules
+export HOSTCC             := $(CC)
+export CONFIG_SHELL       := sh
+export KCONFIG_AUTOHEADER := autoconf.h
+export KCONFIG_CONFIG     := $(CURDIR)/.config
+
+%onfig:
+	$(Q)mkdir -p $(OUT)/tools/kconfig/lxdialog
+	$(Q)mkdir -p $(OUT)/include/config
+	$(Q)$(MAKE) -C $(OUT) -f $(CURDIR)/tools/kconfig/Makefile srctree=$(CURDIR) src=tools/kconfig obj=tools/kconfig Q=$(Q) Kconfig=$(CURDIR)/src/Kconfig $@
+
 ####### Generic rules
 clean:
 	$(Q)rm -rf $(OUT)
+
+distclean: clean
+	$(Q)rm -f .config .config.old
 
 $(OUT):
 	$(Q)mkdir $@

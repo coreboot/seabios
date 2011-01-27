@@ -30,8 +30,9 @@ oldconfig: $(obj)/conf
 	$< --$@ $(Kconfig)
 
 silentoldconfig: $(obj)/conf
+	@echo "  Build Kconfig config file"
 	$(Q)mkdir -p include/generated
-	$< --$@ $(Kconfig)
+	$(Q)$< --$@ $(Kconfig)
 
 # if no path is given, then use src directory to find file
 ifdef LSMOD
@@ -80,7 +81,7 @@ update-po-config: $(obj)/kxgettext $(obj)/gconf.glade.h
 	$(Q)xgettext --default-domain=linux              \
 	    --add-comments --keyword=_ --keyword=N_      \
 	    --from-code=UTF-8                            \
-	    --files-from=scripts/kconfig/POTFILES.in     \
+	    --files-from=tools/kconfig/POTFILES.in     \
 	    --output $(obj)/config.pot
 	$(Q)sed -i s/CHARSET/UTF-8/ $(obj)/config.pot
 	$(Q)ln -fs Kconfig.i386 arch/um/Kconfig.arch
@@ -109,15 +110,8 @@ savedefconfig: $(obj)/conf
 	$< --$@=defconfig $(Kconfig)
 
 defconfig: $(obj)/conf
-ifeq ($(KBUILD_DEFCONFIG),)
-	$< --defconfig $(Kconfig)
-else
-	@echo "*** Default configuration is based on '$(KBUILD_DEFCONFIG)'"
-	$(Q)$< --defconfig=arch/$(SRCARCH)/configs/$(KBUILD_DEFCONFIG) $(Kconfig)
-endif
-
-%_defconfig: $(obj)/conf
-	$(Q)$< --defconfig=arch/$(SRCARCH)/configs/$@ $(Kconfig)
+	@echo "  Build default config"
+	$(Q)$< --defconfig=/dev/null $(Kconfig)
 
 # Help text used by make help
 help:
@@ -352,3 +346,16 @@ lex.%.c: %.l
 	cp $@ $@_shipped
 
 endif
+
+VPATH := $(srctree)
+
+$(obj)/%:: $(src)/%_shipped
+	$(Q)cat $< > $@
+
+host-cobjs      := $(sort $(foreach m,$(hostprogs-y),$($(m)-objs)))
+host-cobjs      := $(addprefix $(obj)/,$(host-cobjs))
+hostprogs-y     := $(addprefix $(obj)/,$(hostprogs-y))
+$(host-cobjs) : $(obj)/%.o : $(src)/%.c
+	$(Q)$(HOSTCC) -I$(obj) -I$(srctree)/$(src) $(HOSTCFLAGS) $(HOSTCFLAGS_$(@F)) $(HOST_EXTRACFLAGS) -c -o $@ $<
+$(hostprogs-y) : $(obj)/% : $(host-cobjs)
+	$(Q)$(HOSTCC) $(HOSTLDFLAGS) -o $@ $(addprefix $(obj)/,$($(@F)-objs)) $(HOST_LOADLIBES) $(HOSTLOADLIBES_$(@F))
