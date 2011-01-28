@@ -132,7 +132,7 @@ $(OUT)code16.o: romlayout.S $(OUT)ccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16INC) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds $(OUT)code32flat.o: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)code16.o tools/layoutrom.py
+$(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)code16.o tools/layoutrom.py
 	@echo "  Building ld scripts (version \"$(VERSION)\")"
 	$(Q)echo 'const char VERSION[] = "$(VERSION)";' > $(OUT)version.c
 	$(Q)$(CC) $(CFLAGS32FLAT) -c $(OUT)version.c -o $(OUT)version.o
@@ -142,6 +142,9 @@ $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds $(OUT)c
 	$(Q)$(OBJDUMP) -thr $(OUT)code16.o > $(OUT)code16.o.objdump
 	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32seg.o.objdump $(OUT)code32flat.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds
 
+# These are actually built by tools/layoutrom.py above, but by pulling them
+# into an extra rule we prevent make -j from spawning layoutrom.py 4 times.
+$(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds $(OUT)code32flat.o: $(OUT)romlayout16.lds
 
 $(OUT)rom16.o: $(OUT)code16.o $(OUT)romlayout16.lds
 	@echo "  Linking $@"
