@@ -11,13 +11,13 @@
  ****************************************************************/
 
         .code16gcc
-.include "out/ccode.16.s"
+#include "ccode.16.s"
 
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_A20
 #include "bregs.h" // CR0_*
 #include "cmos.h" // CMOS_RESET_CODE
-#include "../out/asm-offsets.h" // BREGS_*
+#include "asm-offsets.h" // BREGS_*
 #include "entryfuncs.S" // ENTRY_*
 
 

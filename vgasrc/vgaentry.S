@@ -10,7 +10,7 @@
  ****************************************************************/
 
         .code16gcc
-.include "out/vgaccode.16.s"
+#include "vgaccode.16.s"
 
 #include "entryfuncs.S" // ENTRY_*
 

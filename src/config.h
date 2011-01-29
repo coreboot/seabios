@@ -1,7 +1,7 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#include "../out/autoconf.h"
+#include "autoconf.h"
 
 // Configuration definitions.
 

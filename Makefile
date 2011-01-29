@@ -27,7 +27,8 @@ cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
               /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
 
 # Default compiler flags
-COMMONCFLAGS = -Os -MD -Wall -Wno-strict-aliasing -Wold-style-definition \
+COMMONCFLAGS = -I$(OUT) -Os -MD \
+               -Wall -Wno-strict-aliasing -Wold-style-definition \
                $(call cc-option,$(CC),-Wtype-limits,) \
                -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
                -mrtd -minline-all-stringops \
