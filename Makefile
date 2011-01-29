@@ -172,7 +172,7 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 SRCVGA=src/output.c src/util.c vgasrc/vga.c vgasrc/vgafb.c vgasrc/vgaio.c \
        vgasrc/vgatables.c vgasrc/vgafonts.c vgasrc/clext.c
 
-$(OUT)vgaccode.16.s: ; $(call whole-compile, $(CFLAGS16) -S -Isrc, $(SRCVGA),$@)
+$(OUT)vgaccode.16.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16) -S -Isrc, $(SRCVGA),$@)
 
 $(OUT)vgalayout16.o: vgaentry.S $(OUT)vgaccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
