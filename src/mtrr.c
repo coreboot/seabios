@@ -32,7 +32,7 @@
 
 void mtrr_setup(void)
 {
-    if (CONFIG_COREBOOT)
+    if (!CONFIG_MTRR_INIT || CONFIG_COREBOOT)
         return;
 
     u32 eax, ebx, ecx, edx, cpuid_features;

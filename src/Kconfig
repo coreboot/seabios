@@ -194,6 +194,12 @@ menu "Hardware support"
         default y
         help
             Support System Management Mode (on emulators).
+    config MTRR_INIT
+        depends on !COREBOOT
+        bool "Initialize MTRRs"
+        default y
+        help
+            Initialize the Memory Type Range Registers (on emulators).
 endmenu
 
 menu "BIOS interfaces"
