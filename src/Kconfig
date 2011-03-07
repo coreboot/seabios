@@ -250,6 +250,17 @@ menu "BIOS interfaces"
             Select this if option ROMs are already copied to
             0xc0000-0xf0000.  This must only be selected when using
             Bochs or QEMU versions older than 0.12.
+    config OPTIONROMS_CHECKSUM
+        depends on OPTIONROMS
+        bool "Require correct checksum on option ROMs"
+        default y
+        help
+            Option ROMs are required to have correct checksums.
+            However, some option ROMs in the wild don't correctly
+            follow the specifications and have bad checksums.
+            Say N here to allow SeaBIOS to execute them anyways.
+
+            If unsure, say Y.
     config PMM
         depends on OPTIONROMS
         bool "PMM interface"

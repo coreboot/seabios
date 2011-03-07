@@ -131,7 +131,8 @@ is_valid_rom(struct rom_header *rom)
     if (sum != 0) {
         dprintf(1, "Found option rom with bad checksum: loc=%p len=%d sum=%x\n"
                 , rom, len, sum);
-        return 0;
+        if (CONFIG_OPTIONROMS_CHECKSUM)
+            return 0;
     }
     return 1;
 }
