@@ -22,6 +22,11 @@ menu "General Features"
         help
             Allow hardware init to run in parallel with optionrom execution.
 
+            This can reduce boot time, but can cause some timing
+            variations during option ROM code execution.  It is not
+            known if all option ROMs will behave properly with this
+            option.
+
     config RELOCATE_INIT
         bool "Copy init code to high memory"
         default y
