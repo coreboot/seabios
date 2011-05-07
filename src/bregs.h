@@ -37,9 +37,9 @@
 struct bregs {
     u16 ds;
     u16 es;
-    UREG(edi, di, di_hi, di_lo);
-    UREG(esi, si, si_hi, si_lo);
-    UREG(ebp, bp, bp_hi, bp_lo);
+    UREG(edi, di, di8u, di8l);
+    UREG(esi, si, si8u, si8l);
+    UREG(ebp, bp, bp8u, bp8l);
     UREG(ebx, bx, bh, bl);
     UREG(edx, dx, dh, dl);
     UREG(ecx, cx, ch, cl);
