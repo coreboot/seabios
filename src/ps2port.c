@@ -327,6 +327,17 @@ ps2_kbd_command(int command, u8 *param)
 int
 ps2_mouse_command(int command, u8 *param)
 {
+    // Update ps2ctr for mouse enable/disable.
+    if (command == PSMOUSE_CMD_ENABLE || command == PSMOUSE_CMD_DISABLE) {
+        u16 ebda_seg = get_ebda_seg();
+        u8 ps2ctr = GET_EBDA2(ebda_seg, ps2ctr);
+        if (command == PSMOUSE_CMD_ENABLE)
+            ps2ctr = (ps2ctr | I8042_CTR_AUXINT) & ~I8042_CTR_AUXDIS;
+        else
+            ps2ctr = (ps2ctr | I8042_CTR_AUXDIS) & ~I8042_CTR_AUXINT;
+        SET_EBDA2(ebda_seg, ps2ctr, ps2ctr);
+    }
+
     return ps2_command(1, command, param);
 }
 
