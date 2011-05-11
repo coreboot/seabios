@@ -26,6 +26,9 @@ static int BootorderCount;
 static void
 loadBootOrder(void)
 {
+    if (!CONFIG_BOOTORDER)
+        return;
+
     char *f = romfile_loadfile("bootorder", NULL);
     if (!f)
         return;
@@ -121,6 +124,8 @@ build_pci_path(char *buf, int max, const char *devname, int bdf)
 
 int bootprio_find_pci_device(int bdf)
 {
+    if (!CONFIG_BOOTORDER)
+        return -1;
     // Find pci device - for example: /pci@i0cf8/ethernet@5
     char desc[256];
     build_pci_path(desc, sizeof(desc), "*", bdf);
@@ -129,6 +134,8 @@ int bootprio_find_pci_device(int bdf)
 
 int bootprio_find_ata_device(int bdf, int chanid, int slave)
 {
+    if (!CONFIG_BOOTORDER)
+        return -1;
     if (bdf == -1)
         // support only pci machine for now
         return -1;
@@ -141,6 +148,8 @@ int bootprio_find_ata_device(int bdf, int chanid, int slave)
 
 int bootprio_find_fdc_device(int bdf, int port, int fdid)
 {
+    if (!CONFIG_BOOTORDER)
+        return -1;
     if (bdf == -1)
         // support only pci machine for now
         return -1;
@@ -153,6 +162,8 @@ int bootprio_find_fdc_device(int bdf, int port, int fdid)
 
 int bootprio_find_pci_rom(int bdf, int instance)
 {
+    if (!CONFIG_BOOTORDER)
+        return -1;
     // Find pci rom - for example: /pci@i0cf8/scsi@3:rom2
     char desc[256], *p;
     p = build_pci_path(desc, sizeof(desc), "*", bdf);
@@ -163,6 +174,8 @@ int bootprio_find_pci_rom(int bdf, int instance)
 
 int bootprio_find_named_rom(const char *name, int instance)
 {
+    if (!CONFIG_BOOTORDER)
+        return -1;
     // Find named rom - for example: /rom@genroms/linuxboot.bin
     char desc[256], *p;
     p = desc + snprintf(desc, sizeof(desc), "/rom@%s", name);
@@ -173,6 +186,8 @@ int bootprio_find_named_rom(const char *name, int instance)
 
 int bootprio_find_usb(int bdf, u64 path)
 {
+    if (!CONFIG_BOOTORDER)
+        return -1;
     // Find usb - for example: /pci@i0cf8/usb@1,2/hub@1/network@0/ethernet@0
     int i;
     char desc[256], *p;

@@ -51,6 +51,13 @@ menu "General Features"
         default y
         help
             Support showing a graphical boot splash screen.
+    config BOOTORDER
+        depends on BOOT
+        bool "Boot ordering"
+        default y
+        help
+            Support controlling of the boot order via the fw_cfg/CBFS
+            "bootorder" file.
 
     config COREBOOT_FLASH
         depends on COREBOOT
