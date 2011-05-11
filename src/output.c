@@ -21,7 +21,6 @@ struct putcinfo {
  * Debug output
  ****************************************************************/
 
-#define DEBUG_PORT PORT_SERIAL1
 #define DEBUG_TIMEOUT 100000
 
 void
@@ -31,12 +30,12 @@ debug_serial_setup(void)
         return;
     // setup for serial logging: 8N1
     u8 oldparam, newparam = 0x03;
-    oldparam = inb(DEBUG_PORT+SEROFF_LCR);
-    outb(newparam, DEBUG_PORT+SEROFF_LCR);
+    oldparam = inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LCR);
+    outb(newparam, CONFIG_DEBUG_SERIAL_PORT+SEROFF_LCR);
     // Disable irqs
     u8 oldier, newier = 0;
-    oldier = inb(DEBUG_PORT+SEROFF_IER);
-    outb(newier, DEBUG_PORT+SEROFF_IER);
+    oldier = inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_IER);
+    outb(newier, CONFIG_DEBUG_SERIAL_PORT+SEROFF_IER);
 
     if (oldparam != newparam || oldier != newier)
         dprintf(1, "Changing serial settings was %x/%x now %x/%x\n"
@@ -50,11 +49,11 @@ debug_serial(char c)
     if (!CONFIG_DEBUG_SERIAL)
         return;
     int timeout = DEBUG_TIMEOUT;
-    while ((inb(DEBUG_PORT+SEROFF_LSR) & 0x60) != 0x60)
+    while ((inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LSR) & 0x60) != 0x60)
         if (!timeout--)
             // Ran out of time.
             return;
-    outb(c, DEBUG_PORT+SEROFF_DATA);
+    outb(c, CONFIG_DEBUG_SERIAL_PORT+SEROFF_DATA);
 }
 
 // Make sure all serial port writes have been completely sent.
@@ -64,7 +63,7 @@ debug_serial_flush(void)
     if (!CONFIG_DEBUG_SERIAL)
         return;
     int timeout = DEBUG_TIMEOUT;
-    while ((inb(DEBUG_PORT+SEROFF_LSR) & 0x40) != 0x40)
+    while ((inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LSR) & 0x40) != 0x40)
         if (!timeout--)
             // Ran out of time.
             return;
