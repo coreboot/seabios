@@ -70,9 +70,9 @@ vpath %.S src vgasrc
 ################ Build rules
 
 # Verify the gcc configuration and test if -fwhole-program works.
-TESTGCC:=$(shell CC="$(CC)" tools/test-gcc.sh)
+TESTGCC:=$(shell CC="$(CC)" LD="$(LD)" tools/test-gcc.sh)
 ifeq "$(TESTGCC)" "-1"
-$(error "Please upgrade GCC")
+$(error "Please upgrade GCC and/or binutils")
 endif
 
 ifndef COMPSTRAT
