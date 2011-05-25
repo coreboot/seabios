@@ -239,6 +239,10 @@ DefinitionBlock (
     Scope(\_SB.PCI0) {
         Device (VGA) {
                  Name (_ADR, 0x00020000)
+                 OperationRegion(PCIC, PCI_Config, Zero, 0x4)
+                 Field(PCIC, DWordAcc, NoLock, Preserve) {
+                         VEND, 32
+                 }
                  Method (_S1D, 0, NotSerialized)
                  {
                          Return (0x00)
@@ -249,7 +253,11 @@ DefinitionBlock (
                  }
                  Method (_S3D, 0, NotSerialized)
                  {
-                         Return (0x00)
+                         If (LEqual(VEND, 0x1001b36)) {
+                                 Return (0x03)           // QXL
+                         } Else {
+                                 Return (0x00)
+                         }
                  }
                  Method(_RMV) { Return (0x00) }
         }
