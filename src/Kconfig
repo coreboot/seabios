@@ -126,7 +126,7 @@ menu "Hardware support"
         help
             Support PS2 ports (keyboard and mouse).
     config PS2_KEYBOARD_SPINUP
-        depends on PS2PORT
+        depends on PS2PORT && COREBOOT
         int "Extra time (in ms) to allow a keyboard to initialize"
         default 0
         help
