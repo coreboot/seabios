@@ -438,9 +438,18 @@ keyboard_init(void *data)
 
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
-    ret = ps2_kbd_command(ATKBD_CMD_RESET_BAT, param);
-    if (ret)
-        return;
+    u64 end = calc_future_tsc(CONFIG_PS2_KEYBOARD_SPINUP);
+    for (;;) {
+        ret = ps2_kbd_command(ATKBD_CMD_RESET_BAT, param);
+        if (!ret)
+            break;
+        if (check_tsc(end)) {
+            if (CONFIG_PS2_KEYBOARD_SPINUP)
+                warn_timeout();
+            return;
+        }
+        yield();
+    }
     if (param[0] != 0xaa) {
         dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
         return;
