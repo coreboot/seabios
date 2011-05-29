@@ -501,7 +501,7 @@ ohci_poll_intr(struct usb_pipe *p, void *data)
 
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
     struct ohci_td *tds = GET_FLATPTR(pipe->tds);
-    struct ohci_td *head = (void*)GET_FLATPTR(pipe->ed.hwHeadP);
+    struct ohci_td *head = (void*)(GET_FLATPTR(pipe->ed.hwHeadP) & ~(ED_C|ED_H));
     struct ohci_td *tail = (void*)GET_FLATPTR(pipe->ed.hwTailP);
     int count = GET_FLATPTR(pipe->count);
     int pos = (tail - tds + 1) % count;
