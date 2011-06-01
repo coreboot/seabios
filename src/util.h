@@ -405,6 +405,11 @@ void coreboot_copy_biostable(void);
 void cbfs_payload_setup(void);
 void coreboot_setup(void);
 
+// biostable.c
+void copy_pir(void *pos);
+void copy_mptable(void *pos);
+void copy_acpi_rsdp(void *pos);
+
 // vgahooks.c
 extern int VGAbdf;
 void handle_155f(struct bregs *regs);

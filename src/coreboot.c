@@ -6,9 +6,6 @@
 
 #include "memmap.h" // add_e820
 #include "util.h" // dprintf
-#include "pci.h" // struct pir_header
-#include "acpi.h" // struct rsdp_descriptor
-#include "mptable.h" // MPTABLE_SIGNATURE
 #include "biosvar.h" // GET_EBDA
 #include "lzmadecode.h" // LzmaDecode
 #include "smbios.h" // smbios_init
@@ -193,78 +190,6 @@ fail:
 /****************************************************************
  * BIOS table copying
  ****************************************************************/
-
-static void
-copy_pir(void *pos)
-{
-    struct pir_header *p = pos;
-    if (p->signature != PIR_SIGNATURE)
-        return;
-    if (PirOffset)
-        return;
-    if (p->size < sizeof(*p))
-        return;
-    if (checksum(pos, p->size) != 0)
-        return;
-    void *newpos = malloc_fseg(p->size);
-    if (!newpos) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, p->size);
-    PirOffset = (u32)newpos - BUILD_BIOS_ADDR;
-}
-
-static void
-copy_mptable(void *pos)
-{
-    struct mptable_floating_s *p = pos;
-    if (p->signature != MPTABLE_SIGNATURE)
-        return;
-    if (!p->physaddr)
-        return;
-    if (checksum(pos, sizeof(*p)) != 0)
-        return;
-    u32 length = p->length * 16;
-    u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
-    struct mptable_floating_s *newpos = malloc_fseg(length + mpclength);
-    if (!newpos) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(1, "Copying MPTABLE from %p/%x to %p\n", pos, p->physaddr, newpos);
-    memcpy(newpos, pos, length);
-    newpos->physaddr = (u32)newpos + length;
-    newpos->checksum -= checksum(newpos, sizeof(*newpos));
-    memcpy((void*)newpos + length, (void*)p->physaddr, mpclength);
-}
-
-static void
-copy_acpi_rsdp(void *pos)
-{
-    if (RsdpAddr)
-        return;
-    struct rsdp_descriptor *p = pos;
-    if (p->signature != RSDP_SIGNATURE)
-        return;
-    u32 length = 20;
-    if (checksum(pos, length) != 0)
-        return;
-    if (p->revision > 1) {
-        length = p->length;
-        if (checksum(pos, length) != 0)
-            return;
-    }
-    void *newpos = malloc_fseg(length);
-    if (!newpos) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, length);
-    RsdpAddr = newpos;
-}
 
 // Attempt to find (and relocate) any standard bios tables found in a
 // given address range.
