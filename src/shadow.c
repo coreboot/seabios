@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "dev-i440fx.h"
+#include "xen.h" // usingXen
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
 #define BIOS_SRC_OFFSET 0xfff00000
@@ -102,7 +103,7 @@ static const struct pci_device_id dram_controller_make_writable_tbl[] = {
 void
 make_bios_writable(void)
 {
-    if (CONFIG_COREBOOT)
+    if (CONFIG_COREBOOT || usingXen())
         return;
 
     dprintf(3, "enabling shadow ram\n");
@@ -127,7 +128,7 @@ static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
 void
 make_bios_readonly(void)
 {
-    if (CONFIG_COREBOOT)
+    if (CONFIG_COREBOOT || usingXen())
         return;
 
     dprintf(3, "locking shadow ram\n");

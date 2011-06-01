@@ -11,6 +11,7 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_COMMAND
 #include "dev-i440fx.h"
+#include "xen.h" // usingXen
 
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
@@ -396,8 +397,8 @@ pci_bios_init_bus(void)
 void
 pci_setup(void)
 {
-    if (CONFIG_COREBOOT)
-        // Already done by coreboot.
+    if (CONFIG_COREBOOT || usingXen())
+        // Already done by coreboot or Xen.
         return;
 
     dprintf(3, "pci setup\n");

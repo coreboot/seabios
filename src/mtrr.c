@@ -6,6 +6,7 @@
 
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_EBDA
+#include "xen.h" // usingXen
 
 #define MSR_MTRRcap                    0x000000fe
 #define MSR_MTRRfix64K_00000           0x00000250
@@ -32,7 +33,7 @@
 
 void mtrr_setup(void)
 {
-    if (!CONFIG_MTRR_INIT || CONFIG_COREBOOT)
+    if (!CONFIG_MTRR_INIT || CONFIG_COREBOOT || usingXen())
         return;
 
     u32 eax, ebx, ecx, edx, cpuid_features;

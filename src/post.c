@@ -23,6 +23,7 @@
 #include "usb.h" // usb_setup
 #include "smbios.h" // smbios_init
 #include "paravirt.h" // qemu_cfg_port_probe
+#include "xen.h" // xen_probe_hvm_info
 #include "ps2port.h" // ps2port_setup
 #include "virtio-blk.h" // virtio_blk_setup
 
@@ -101,6 +102,8 @@ ram_probe(void)
     dprintf(3, "Find memory size\n");
     if (CONFIG_COREBOOT) {
         coreboot_setup();
+    } else if (usingXen()) {
+	xen_setup();
     } else {
         // On emulators, get memory size from nvram.
         u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
@@ -157,6 +160,10 @@ init_bios_tables(void)
     if (CONFIG_COREBOOT) {
         coreboot_copy_biostable();
         return;
+    }
+    if (usingXen()) {
+	xen_copy_biostables();
+	return;
     }
 
     create_pirtable();
@@ -379,6 +386,9 @@ _start(void)
     if (HaveRunPost)
         // This is a soft reboot - invoke a hard reboot.
         tryReboot();
+
+    // Check if we are running under Xen.
+    xen_probe();
 
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();

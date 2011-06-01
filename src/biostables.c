@@ -9,6 +9,7 @@
 #include "pci.h" // struct pir_header
 #include "acpi.h" // struct rsdp_descriptor
 #include "mptable.h" // MPTABLE_SIGNATURE
+#include "smbios.h" // struct smbios_entry_point
 
 void
 copy_pir(void *pos)
@@ -80,4 +81,25 @@ copy_acpi_rsdp(void *pos)
     dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
     memcpy(newpos, pos, length);
     RsdpAddr = newpos;
+}
+
+void
+copy_smbios(void *pos)
+{
+    struct smbios_entry_point *p = pos;
+    if (memcmp(p->anchor_string, "_SM_", 4))
+        return;
+    if (checksum(pos, 0x10) != 0)
+        return;
+    if (memcmp(p->intermediate_anchor_string, "_DMI_", 5))
+        return;
+    if (checksum(pos+0x10, p->length-0x10) != 0)
+        return;
+    struct smbios_entry_point *newpos = malloc_fseg(sizeof(p->length));
+    if (!newpos) {
+        warn_noalloc();
+        return;
+    }
+    dprintf(1, "Copying SMBIOS entry point from %p to %p\n", pos, newpos);
+    memcpy(newpos, pos, p->length);
 }

@@ -409,6 +409,7 @@ void coreboot_setup(void);
 void copy_pir(void *pos);
 void copy_mptable(void *pos);
 void copy_acpi_rsdp(void *pos);
+void copy_smbios(void *pos);
 
 // vgahooks.c
 extern int VGAbdf;

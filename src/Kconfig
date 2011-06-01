@@ -10,6 +10,12 @@ menu "General Features"
         help
             Configure as a coreboot payload.
 
+    config XEN
+        bool "Build for Xen HVM"
+        default n
+        help
+            Configure to be used by xen hvmloader, for a HVM guest.
+
     config THREADS
         bool "Parallelize hardware init"
         default y
