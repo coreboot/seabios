@@ -95,7 +95,7 @@ copy_smbios(void *pos)
         return;
     if (checksum(pos+0x10, p->length-0x10) != 0)
         return;
-    struct smbios_entry_point *newpos = malloc_fseg(sizeof(p->length));
+    struct smbios_entry_point *newpos = malloc_fseg(p->length);
     if (!newpos) {
         warn_noalloc();
         return;
