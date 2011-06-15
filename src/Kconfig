@@ -11,6 +11,7 @@ menu "General Features"
             Configure as a coreboot payload.
 
     config XEN
+        depends on !COREBOOT
         bool "Build for Xen HVM"
         default n
         help
