@@ -57,7 +57,7 @@ pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on)
     pci_config_writew(bdf, addr, val);
 }
 
-// Helper function for foreachpci() macro - return next device
+// Helper function for foreachbdf() macro - return next device
 int
 pci_next(int bdf, int *pmax)
 {
@@ -164,7 +164,7 @@ pci_find_device(u16 vendid, u16 devid)
 {
     u32 id = (devid << 16) | vendid;
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
         if (v == id)
             return bdf;
@@ -177,7 +177,7 @@ int
 pci_find_class(u16 classid)
 {
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
         if (v == classid)
             return bdf;
@@ -198,7 +198,7 @@ pci_path_setup(void)
 
     int roots = 0;
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         int bus = pci_bdf_to_bus(bdf);
         if (! PCIpaths[bus])
             PCIpaths[bus] = (roots++) | PP_ROOT;
@@ -239,7 +239,7 @@ int pci_find_init_device(const struct pci_device_id *ids, void *arg)
 {
     int bdf, max;
 
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         if (pci_init_device(ids, bdf, arg) == 0) {
             return bdf;
         }

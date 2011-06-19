@@ -9,7 +9,7 @@
 #include "farptr.h" // FLATPTR_TO_SEG
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
-#include "pci.h" // foreachpci
+#include "pci.h" // foreachbdf
 #include "pci_regs.h" // PCI_ROM_ADDRESS
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
@@ -398,7 +398,7 @@ optionrom_setup(void)
     } else {
         // Find and deploy PCI roms.
         int bdf, max;
-        foreachpci(bdf, max) {
+        foreachbdf(bdf, max) {
             u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
             if (v == 0x0000 || v == 0xffff || v == PCI_CLASS_DISPLAY_VGA
                 || (CONFIG_ATA && v == PCI_CLASS_STORAGE_IDE))

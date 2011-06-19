@@ -11,7 +11,7 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // enable_hwirq
 #include "biosvar.h" // GET_EBDA
-#include "pci.h" // foreachpci
+#include "pci.h" // foreachbdf
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "boot.h" // boot_add_hd
@@ -1035,7 +1035,7 @@ ata_init(void)
     // Scan PCI bus for ATA adapters
     int pcicount=0;
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         pcicount++;
         pci_init_device(pci_ata_tbl, bdf, NULL);
     }

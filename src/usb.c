@@ -5,7 +5,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "pci.h" // foreachpci
+#include "pci.h" // foreachbdf
 #include "config.h" // CONFIG_*
 #include "pci_regs.h" // PCI_CLASS_REVISION
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
@@ -431,7 +431,7 @@ usb_setup(void)
     int ehcibdf = -1;
     int count = 0;
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         u32 code = pci_config_readl(bdf, PCI_CLASS_REVISION) >> 8;
 
         if (code >> 8 != PCI_CLASS_SERIAL_USB)

@@ -27,7 +27,7 @@ handle_1ab101(struct bregs *regs)
 {
     // Find max bus.
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
     }
 
     regs->al = 0x01; // Flags - "Config Mechanism #1" supported.
@@ -45,7 +45,7 @@ handle_1ab102(struct bregs *regs)
     u32 id = (regs->cx << 16) | regs->dx;
     int count = regs->si;
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
         if (v != id)
             continue;
@@ -65,7 +65,7 @@ handle_1ab103(struct bregs *regs)
     int count = regs->si;
     u32 classprog = regs->ecx;
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         u32 v = pci_config_readl(bdf, PCI_CLASS_REVISION);
         if ((v>>8) != classprog)
             continue;

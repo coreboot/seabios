@@ -53,12 +53,12 @@ extern int *PCIpaths;
 void pci_path_setup(void);
 
 int pci_next(int bdf, int *pmax);
-#define foreachpci(BDF, MAX)                    \
+#define foreachbdf(BDF, MAX)                    \
     for (MAX=0x0100, BDF=pci_next(0, &MAX)      \
          ; BDF >= 0                             \
          ; BDF=pci_next(BDF+1, &MAX))
 
-#define foreachpci_in_bus(BDF, MAX, BUS)                                \
+#define foreachbdf_in_bus(BDF, MAX, BUS)                                \
     for (MAX = pci_bus_devfn_to_bdf(BUS, 0) + 0x0100,                   \
          BDF = pci_next(pci_bus_devfn_to_bdf(BUS, 0), &MAX)             \
          ; BDF >= 0 && BDF < pci_bus_devfn_to_bdf(BUS, 0) + 0x0100      \

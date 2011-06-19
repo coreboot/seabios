@@ -8,7 +8,7 @@
 #include "ioport.h" // inb
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_EBDA
-#include "pci.h" // foreachpci
+#include "pci.h" // foreachbdf
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "boot.h" // add_bcv_hd
@@ -463,7 +463,7 @@ ahci_init(void)
 {
     // Scan PCI bus for ATA adapters
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         if (pci_config_readw(bdf, PCI_CLASS_DEVICE) != PCI_CLASS_STORAGE_SATA)
             continue;
         if (pci_config_readb(bdf, PCI_CLASS_PROG) != 1 /* AHCI rev 1 */)

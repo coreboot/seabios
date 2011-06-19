@@ -360,7 +360,7 @@ static void pci_bios_init_device(u16 bdf)
 static void pci_bios_init_device_in_bus(int bus)
 {
     int bdf, max;
-    foreachpci_in_bus(bdf, max, bus) {
+    foreachbdf_in_bus(bdf, max, bus) {
         pci_bios_init_device(bdf);
     }
 }
@@ -374,7 +374,7 @@ pci_bios_init_bus_rec(int bus, u8 *pci_bus)
     dprintf(1, "PCI: %s bus = 0x%x\n", __func__, bus);
 
     /* prevent accidental access to unintended devices */
-    foreachpci_in_bus(bdf, max, bus) {
+    foreachbdf_in_bus(bdf, max, bus) {
         class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
         if (class == PCI_CLASS_BRIDGE_PCI) {
             pci_config_writeb(bdf, PCI_SECONDARY_BUS, 255);
@@ -382,7 +382,7 @@ pci_bios_init_bus_rec(int bus, u8 *pci_bus)
         }
     }
 
-    foreachpci_in_bus(bdf, max, bus) {
+    foreachbdf_in_bus(bdf, max, bus) {
         class = pci_config_readw(bdf, PCI_CLASS_DEVICE);
         if (class != PCI_CLASS_BRIDGE_PCI) {
             continue;
@@ -451,7 +451,7 @@ pci_setup(void)
     pci_bios_init_bus();
 
     int bdf, max;
-    foreachpci(bdf, max) {
+    foreachbdf(bdf, max) {
         pci_init_device(pci_isa_bridge_tbl, bdf, NULL);
     }
     pci_bios_init_device_in_bus(0 /* host bus */);
