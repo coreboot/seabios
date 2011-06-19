@@ -342,13 +342,7 @@ void bios32_setup(void);
 // shadow.c
 void make_bios_writable(void);
 void make_bios_readonly(void);
-void make_bios_writable_intel(u16 bdf, u32 pam0);
-void make_bios_readonly_intel(u16 bdf, u32 pam0);
 void qemu_prep_reset(void);
-
-// smm.c
-void smm_save_and_copy(void);
-void smm_relocate_and_restore(void);
 
 // pci_region.c
 // region allocator. pci region allocates the requested region
@@ -381,7 +375,6 @@ u32 pci_region_size(const struct pci_region *r);
 
 // pciinit.c
 extern const u8 pci_irqs[4];
-void pci_bios_allocate_regions(u16 bdf, void *arg);
 void pci_setup(void);
 
 // smm.c

@@ -9,11 +9,12 @@
 #include "pci.h" // pci_config_writeb
 #include "config.h" // CONFIG_*
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
-#include "dev-i440fx.h"
 #include "xen.h" // usingXen
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
 #define BIOS_SRC_OFFSET 0xfff00000
+
+#define I440FX_PAM0     0x59
 
 // Enable shadowing and copy bios.
 static void
@@ -52,7 +53,7 @@ __make_bios_writable_intel(u16 bdf, u32 pam0)
            , code32flat_end - code32flat_start);
 }
 
-void
+static void
 make_bios_writable_intel(u16 bdf, u32 pam0)
 {
     int reg = pci_config_readb(bdf, pam0);
@@ -70,7 +71,7 @@ make_bios_writable_intel(u16 bdf, u32 pam0)
     __make_bios_writable_intel(bdf, pam0);
 }
 
-void
+static void
 make_bios_readonly_intel(u16 bdf, u32 pam0)
 {
     // Flush any pending writes before locking memory.
@@ -93,9 +94,25 @@ make_bios_readonly_intel(u16 bdf, u32 pam0)
     pci_config_writeb(bdf, pam0, 0x10);
 }
 
+static void i440fx_bios_make_writable(u16 bdf, void *arg)
+{
+    make_bios_writable_intel(bdf, I440FX_PAM0);
+}
+
+static void i440fx_bios_make_readonly(u16 bdf, void *arg)
+{
+    make_bios_readonly_intel(bdf, I440FX_PAM0);
+}
+
 static const struct pci_device_id dram_controller_make_writable_tbl[] = {
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
                i440fx_bios_make_writable),
+    PCI_DEVICE_END
+};
+
+static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
+               i440fx_bios_make_readonly),
     PCI_DEVICE_END
 };
 
@@ -117,12 +134,6 @@ make_bios_writable(void)
         dprintf(1, "Unable to unlock ram - bridge not found\n");
     }
 }
-
-static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
-    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
-               i440fx_bios_make_readonly),
-    PCI_DEVICE_END
-};
 
 // Make the BIOS code segment area (0xf0000) read-only.
 void

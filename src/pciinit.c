@@ -10,7 +10,6 @@
 #include "biosvar.h" // GET_EBDA
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_COMMAND
-#include "dev-i440fx.h"
 #include "xen.h" // usingXen
 
 #define PCI_ROM_SLOT 6
@@ -115,7 +114,7 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
     return is_64bit;
 }
 
-void pci_bios_allocate_regions(u16 bdf, void *arg)
+static void pci_bios_allocate_regions(u16 bdf, void *arg)
 {
     int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
@@ -133,6 +132,26 @@ static int pci_slot_get_pirq(u16 bdf, int irq_num)
 {
     int slot_addend = pci_bdf_to_dev(bdf) - 1;
     return (irq_num + slot_addend) & 3;
+}
+
+/* PIIX3/PIIX4 PCI to ISA bridge */
+static void piix_isa_bridge_init(u16 bdf, void *arg)
+{
+    int i, irq;
+    u8 elcr[2];
+
+    elcr[0] = 0x00;
+    elcr[1] = 0x00;
+    for (i = 0; i < 4; i++) {
+        irq = pci_irqs[i];
+        /* set to trigger level */
+        elcr[irq >> 3] |= (1 << (irq & 7));
+        /* activate irq remapping in PIIX */
+        pci_config_writeb(bdf, 0x60 + i, irq);
+    }
+    outb(elcr[0], 0x4d0);
+    outb(elcr[1], 0x4d1);
+    dprintf(1, "PIIX3/PIIX4 init: elcr=%02x %02x\n", elcr[0], elcr[1]);
 }
 
 static const struct pci_device_id pci_isa_bridge_tbl[] = {
@@ -245,6 +264,14 @@ static void storage_ide_init(u16 bdf, void *arg)
     pci_set_io_region_addr(bdf, 3, PORT_ATA2_CTRL_BASE);
 }
 
+/* PIIX3/PIIX4 IDE */
+static void piix_ide_init(u16 bdf, void *arg)
+{
+    pci_config_writew(bdf, 0x40, 0x8000); // enable IDE0
+    pci_config_writew(bdf, 0x42, 0x8000); // enable IDE1
+    pci_bios_allocate_regions(bdf, NULL);
+}
+
 static void pic_ibm_init(u16 bdf, void *arg)
 {
     /* PIC, IBM, MPIC & MPIC2 */
@@ -285,6 +312,18 @@ static const struct pci_device_id pci_class_tbl[] = {
 
     PCI_DEVICE_END,
 };
+
+/* PIIX4 Power Management device (for ACPI) */
+static void piix4_pm_init(u16 bdf, void *arg)
+{
+    // acpi sci is hardwired to 9
+    pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
+
+    pci_config_writel(bdf, 0x40, PORT_ACPI_PM_BASE | 1);
+    pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
+    pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
+    pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
+}
 
 static const struct pci_device_id pci_device_tbl[] = {
     /* PIIX4 Power Management device (for ACPI) */

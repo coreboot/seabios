@@ -12,7 +12,6 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "paravirt.h"
-#include "dev-i440fx.h" // piix4_fadt_init
 
 /****************************************************/
 /* ACPI tables init */
@@ -211,6 +210,20 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
     h->oem_revision = cpu_to_le32(1);
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum -= checksum(h, len);
+}
+
+#define PIIX4_ACPI_ENABLE       0xf1
+#define PIIX4_ACPI_DISABLE      0xf0
+#define PIIX4_GPE0_BLK          0xafe0
+#define PIIX4_GPE0_BLK_LEN      4
+
+static void piix4_fadt_init(u16 bdf, void *arg)
+{
+    struct fadt_descriptor_rev1 *fadt = arg;
+    fadt->acpi_enable = PIIX4_ACPI_ENABLE;
+    fadt->acpi_disable = PIIX4_ACPI_DISABLE;
+    fadt->gpe0_blk = cpu_to_le32(PIIX4_GPE0_BLK);
+    fadt->gpe0_blk_len = PIIX4_GPE0_BLK_LEN;
 }
 
 static const struct pci_device_id fadt_init_tbl[] = {
