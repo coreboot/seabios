@@ -47,6 +47,26 @@ int pci_find_vga(void);
 int pci_find_device(u16 vendid, u16 devid);
 int pci_find_class(u16 classid);
 
+struct pci_device {
+    u16 bdf;
+    u8 rootbus;
+    struct pci_device *next;
+    struct pci_device *parent;
+
+    // Configuration space device information
+    u16 vendor, device;
+    u16 class;
+    u8 prog_if, revision;
+    u8 header_type;
+    u8 secondary_bus;
+};
+extern struct pci_device *PCIDevices;
+extern int MaxPCIBus;
+void pci_probe(void);
+
+#define foreachpci(PCI)                         \
+    for (PCI=PCIDevices; PCI; PCI=PCI->next)
+
 #define PP_ROOT      (1<<17)
 #define PP_PCIBRIDGE (1<<18)
 extern int *PCIpaths;

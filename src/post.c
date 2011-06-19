@@ -224,6 +224,7 @@ maininit(void)
 
     // Initialize pci
     pci_setup();
+    pci_probe();
     pci_path_setup();
     smm_init();
 

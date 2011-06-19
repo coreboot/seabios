@@ -103,6 +103,66 @@ pci_next(int bdf, int *pmax)
     return bdf;
 }
 
+struct pci_device *PCIDevices;
+int MaxPCIBus;
+
+void
+pci_probe(void)
+{
+    int rootbuses = 0;
+    struct pci_device *busdevs[256];
+    memset(busdevs, 0, sizeof(busdevs));
+
+    struct pci_device **pprev = &PCIDevices;
+    u8 lastbus = 0;
+    int bdf, max;
+    foreachbdf(bdf, max) {
+        // Create new pci_device struct and add to list.
+        struct pci_device *dev = malloc_tmp(sizeof(*dev));
+        if (!dev) {
+            warn_noalloc();
+            return;
+        }
+        memset(dev, 0, sizeof(*dev));
+        *pprev = dev;
+        pprev = &dev->next;
+
+        // Find parent device.
+        u8 bus = pci_bdf_to_bus(bdf), rootbus;
+        struct pci_device *parent = busdevs[bus];
+        if (!parent) {
+            if (bus != lastbus)
+                rootbuses++;
+            lastbus = bus;
+            rootbus = rootbuses;
+        } else {
+            rootbus = parent->rootbus;
+        }
+        if (bus > MaxPCIBus)
+            MaxPCIBus = bus;
+
+        // Populate pci_device info.
+        dev->bdf = bdf;
+        dev->parent = parent;
+        dev->rootbus = rootbus;
+        u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
+        dev->vendor = vendev & 0xffff;
+        dev->device = vendev >> 16;
+        u32 classrev = pci_config_readl(bdf, PCI_CLASS_REVISION);
+        dev->class = classrev >> 16;
+        dev->prog_if = classrev >> 8;
+        dev->revision = classrev & 0xff;
+        dev->header_type = pci_config_readb(bdf, PCI_HEADER_TYPE);
+        u8 v = dev->header_type & 0x7f;
+        if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
+            u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
+            dev->secondary_bus = secbus;
+            if (secbus > bus && !busdevs[secbus])
+                busdevs[secbus] = dev;
+        }
+    }
+}
+
 // Find a vga device with legacy address decoding enabled.
 int
 pci_find_vga(void)
