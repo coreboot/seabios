@@ -941,14 +941,15 @@ ata_detect(void *data)
 
 // Initialize an ata controller and detect its drives.
 static void
-init_controller(int chanid, int bdf, int irq, u32 port1, u32 port2, u32 master)
+init_controller(int bdf, int irq, u32 port1, u32 port2, u32 master)
 {
+    static int chanid = 0;
     struct ata_channel_s *chan_gf = malloc_fseg(sizeof(*chan_gf));
     if (!chan_gf) {
         warn_noalloc();
         return;
     }
-    chan_gf->chanid = chanid;
+    chan_gf->chanid = chanid++;
     chan_gf->irq = irq;
     chan_gf->pci_bdf = bdf;
     chan_gf->iobase1 = port1;
@@ -962,66 +963,73 @@ init_controller(int chanid, int bdf, int irq, u32 port1, u32 port2, u32 master)
 #define IRQ_ATA1 14
 #define IRQ_ATA2 15
 
+// Handle controllers on an ATA PCI device.
+static void
+init_pciata(u16 bdf, void *arg)
+{
+    u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
+    u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
+    int master = 0;
+    if (CONFIG_ATA_DMA && prog_if & 0x80) {
+        // Check for bus-mastering.
+        u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_4);
+        if (bar & PCI_BASE_ADDRESS_SPACE_IO) {
+            master = bar & PCI_BASE_ADDRESS_IO_MASK;
+            pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+        }
+    }
+
+    u32 port1, port2, irq;
+    if (prog_if & 1) {
+        port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_0)
+                 & PCI_BASE_ADDRESS_IO_MASK);
+        port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_1)
+                 & PCI_BASE_ADDRESS_IO_MASK);
+        irq = pciirq;
+    } else {
+        port1 = PORT_ATA1_CMD_BASE;
+        port2 = PORT_ATA1_CTRL_BASE;
+        irq = IRQ_ATA1;
+    }
+    init_controller(bdf, irq, port1, port2, master);
+
+    if (prog_if & 4) {
+        port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_2)
+                 & PCI_BASE_ADDRESS_IO_MASK);
+        port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_3)
+                 & PCI_BASE_ADDRESS_IO_MASK);
+        irq = pciirq;
+    } else {
+        port1 = PORT_ATA2_CMD_BASE;
+        port2 = PORT_ATA2_CTRL_BASE;
+        irq = IRQ_ATA2;
+    }
+    init_controller(bdf, irq, port1, port2, master ? master + 8 : 0);
+}
+
+static const struct pci_device_id pci_ata_tbl[] = {
+    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE, init_pciata),
+    PCI_DEVICE_END,
+};
+
 // Locate and init ata controllers.
 static void
 ata_init(void)
 {
     // Scan PCI bus for ATA adapters
-    int count=0, pcicount=0;
+    int pcicount=0;
     int bdf, max;
     foreachpci(bdf, max) {
         pcicount++;
-        if (pci_config_readw(bdf, PCI_CLASS_DEVICE) != PCI_CLASS_STORAGE_IDE)
-            continue;
-
-        u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
-        u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
-        int master = 0;
-        if (CONFIG_ATA_DMA && prog_if & 0x80) {
-            // Check for bus-mastering.
-            u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_4);
-            if (bar & PCI_BASE_ADDRESS_SPACE_IO) {
-                master = bar & PCI_BASE_ADDRESS_IO_MASK;
-                pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
-            }
-        }
-
-        u32 port1, port2, irq;
-        if (prog_if & 1) {
-            port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_0)
-                     & PCI_BASE_ADDRESS_IO_MASK);
-            port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_1)
-                     & PCI_BASE_ADDRESS_IO_MASK);
-            irq = pciirq;
-        } else {
-            port1 = PORT_ATA1_CMD_BASE;
-            port2 = PORT_ATA1_CTRL_BASE;
-            irq = IRQ_ATA1;
-        }
-        init_controller(count, bdf, irq, port1, port2, master);
-        count++;
-
-        if (prog_if & 4) {
-            port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_2)
-                     & PCI_BASE_ADDRESS_IO_MASK);
-            port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_3)
-                     & PCI_BASE_ADDRESS_IO_MASK);
-            irq = pciirq;
-        } else {
-            port1 = PORT_ATA2_CMD_BASE;
-            port2 = PORT_ATA2_CTRL_BASE;
-            irq = IRQ_ATA2;
-        }
-        init_controller(count, bdf, irq, port1, port2, master ? master + 8 : 0);
-        count++;
+        pci_init_device(pci_ata_tbl, bdf, NULL);
     }
 
     if (!CONFIG_COREBOOT && !pcicount) {
         // No PCI devices found - probably a QEMU "-M isapc" machine.
         // Try using ISA ports for ATA controllers.
-        init_controller(0, -1, IRQ_ATA1
+        init_controller(-1, IRQ_ATA1
                         , PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE, 0);
-        init_controller(1, -1, IRQ_ATA2
+        init_controller(-1, IRQ_ATA2
                         , PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE, 0);
     }
 }
