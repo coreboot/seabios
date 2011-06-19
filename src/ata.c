@@ -965,10 +965,9 @@ init_controller(int bdf, int irq, u32 port1, u32 port2, u32 master)
 
 // Handle controllers on an ATA PCI device.
 static void
-init_pciata(u16 bdf, void *arg)
+init_pciata(u16 bdf, u8 prog_if)
 {
     u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
-    u8 prog_if = pci_config_readb(bdf, PCI_CLASS_PROG);
     int master = 0;
     if (CONFIG_ATA_DMA && prog_if & 0x80) {
         // Check for bus-mastering.
@@ -1007,8 +1006,25 @@ init_pciata(u16 bdf, void *arg)
     init_controller(bdf, irq, port1, port2, master ? master + 8 : 0);
 }
 
+static void
+found_genericata(u16 bdf, void *arg)
+{
+    init_pciata(bdf, pci_config_readb(bdf, PCI_CLASS_PROG));
+}
+
+static void
+found_compatibleahci(u16 bdf, void *arg)
+{
+    if (CONFIG_AHCI)
+        // Already handled directly via native ahci interface.
+        return;
+    init_pciata(bdf, 0x8f);
+}
+
 static const struct pci_device_id pci_ata_tbl[] = {
-    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE, init_pciata),
+    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE
+                     , found_genericata),
+    PCI_DEVICE(PCI_VENDOR_ID_ATI, 0x4391, found_compatibleahci),
     PCI_DEVICE_END,
 };
 
