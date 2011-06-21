@@ -68,9 +68,10 @@ mptable_init(void)
 
     // PCI buses
     struct mpt_bus *buses = (void*)cpu, *bus = buses;
-    int bdf, max, lastbus = -1;
-    foreachbdf(bdf, max) {
-        int curbus = pci_bdf_to_bus(bdf);
+    int lastbus = -1;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        int curbus = pci_bdf_to_bus(pci->bdf);
         if (curbus == lastbus)
             continue;
         lastbus = curbus;
@@ -106,7 +107,8 @@ mptable_init(void)
     int dev = -1;
     unsigned short mask = 0, pinmask = 0;
 
-    foreachbdf(bdf, max) {
+    foreachpci(pci) {
+        u16 bdf = pci->bdf;
         int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
         int irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
         if (pin == 0)
