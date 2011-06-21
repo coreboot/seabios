@@ -8,7 +8,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "pci.h" // foreachbdf
+#include "pci.h" // foreachpci
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
@@ -173,12 +173,11 @@ virtio_blk_setup(void)
 
     dprintf(3, "init virtio-blk\n");
 
-    int bdf, max;
-    u32 id = PCI_VENDOR_ID_REDHAT_QUMRANET | (PCI_DEVICE_ID_VIRTIO_BLK << 16);
-    foreachbdf(bdf, max) {
-        u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
-        if (v != id)
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET
+            || pci->device != PCI_DEVICE_ID_VIRTIO_BLK)
             continue;
-        init_virtio_blk(bdf);
+        init_virtio_blk(pci->bdf);
     }
 }
