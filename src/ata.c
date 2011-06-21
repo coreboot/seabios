@@ -11,7 +11,7 @@
 #include "cmos.h" // inb_cmos
 #include "pic.h" // enable_hwirq
 #include "biosvar.h" // GET_EBDA
-#include "pci.h" // foreachbdf
+#include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "boot.h" // boot_add_hd
@@ -1032,21 +1032,20 @@ static const struct pci_device_id pci_ata_tbl[] = {
 static void
 ata_init(void)
 {
-    // Scan PCI bus for ATA adapters
-    int pcicount=0;
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        pcicount++;
-        pci_init_device(pci_ata_tbl, bdf, NULL);
-    }
-
-    if (!CONFIG_COREBOOT && !pcicount) {
+    if (!CONFIG_COREBOOT && !PCIDevices) {
         // No PCI devices found - probably a QEMU "-M isapc" machine.
         // Try using ISA ports for ATA controllers.
         init_controller(-1, IRQ_ATA1
                         , PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE, 0);
         init_controller(-1, IRQ_ATA2
                         , PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE, 0);
+        return;
+    }
+
+    // Scan PCI bus for ATA adapters
+    struct pci_device *pci;
+    foreachpci(pci) {
+        pci_init_device(pci_ata_tbl, pci->bdf, NULL);
     }
 }
 
