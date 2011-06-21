@@ -25,16 +25,6 @@ static inline u16 pci_bus_devfn_to_bdf(int bus, u16 devfn) {
     return (bus << 8) | devfn;
 }
 
-static inline u32 pci_vd(u16 vendor, u16 device) {
-    return (device << 16) | vendor;
-}
-static inline u16 pci_vd_to_ven(u32 vd) {
-    return vd & 0xffff;
-}
-static inline u16 pci_vd_to_dev(u32 vd) {
-    return vd >> 16;
-}
-
 void pci_config_writel(u16 bdf, u32 addr, u32 val);
 void pci_config_writew(u16 bdf, u32 addr, u16 val);
 void pci_config_writeb(u16 bdf, u32 addr, u8 val);
@@ -43,7 +33,6 @@ u16 pci_config_readw(u16 bdf, u32 addr);
 u8 pci_config_readb(u16 bdf, u32 addr);
 void pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on);
 
-int pci_find_vga(void);
 int pci_find_device(u16 vendid, u16 devid);
 int pci_find_class(u16 classid);
 
