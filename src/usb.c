@@ -5,7 +5,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "pci.h" // foreachbdf
+#include "pci.h" // foreachpci
 #include "config.h" // CONFIG_*
 #include "pci_regs.h" // PCI_CLASS_REVISION
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
@@ -428,46 +428,41 @@ usb_setup(void)
     dprintf(3, "init usb\n");
 
     // Look for USB controllers
-    int ehcibdf = -1;
     int count = 0;
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        u32 code = pci_config_readl(bdf, PCI_CLASS_REVISION) >> 8;
-
-        if (code >> 8 != PCI_CLASS_SERIAL_USB)
+    struct pci_device *ehcipci = PCIDevices;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci->class != PCI_CLASS_SERIAL_USB)
             continue;
 
-        if (bdf > ehcibdf) {
+        if (pci->bdf >= ehcipci->bdf) {
             // Check to see if this device has an ehci controller
-            ehcibdf = bdf;
-            u32 ehcicode = code;
             int found = 0;
+            ehcipci = pci;
             for (;;) {
-                if (ehcicode == PCI_CLASS_SERIAL_USB_EHCI) {
+                if (pci_classprog(ehcipci) == PCI_CLASS_SERIAL_USB_EHCI) {
                     // Found an ehci controller.
-                    int ret = ehci_init(ehcibdf, count++, bdf);
+                    int ret = ehci_init(ehcipci->bdf, count++, pci->bdf);
                     if (ret)
                         // Error
                         break;
                     count += found;
-                    bdf = ehcibdf;
-                    code = 0;
+                    pci = ehcipci;
                     break;
                 }
-                if (ehcicode >> 8 == PCI_CLASS_SERIAL_USB)
+                if (ehcipci->class == PCI_CLASS_SERIAL_USB)
                     found++;
-                ehcibdf = pci_next(ehcibdf+1, &max);
-                if (ehcibdf < 0
-                    || pci_bdf_to_busdev(ehcibdf) != pci_bdf_to_busdev(bdf))
+                ehcipci = ehcipci->next;
+                if (!ehcipci || (pci_bdf_to_busdev(ehcipci->bdf)
+                                 != pci_bdf_to_busdev(pci->bdf)))
                     // No ehci controller found.
                     break;
-                ehcicode = pci_config_readl(ehcibdf, PCI_CLASS_REVISION) >> 8;
             }
         }
 
-        if (code == PCI_CLASS_SERIAL_USB_UHCI)
-            uhci_init(bdf, count++);
-        else if (code == PCI_CLASS_SERIAL_USB_OHCI)
-            ohci_init(bdf, count++);
+        if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
+            uhci_init(pci->bdf, count++);
+        else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
+            ohci_init(pci->bdf, count++);
     }
 }
