@@ -240,14 +240,6 @@ getRomPriority(u64 *sources, struct rom_header *rom, int instance)
 static struct rom_header *
 lookup_hardcode(u32 vendev)
 {
-    if (OPTIONROM_VENDEV_1
-        && ((OPTIONROM_VENDEV_1 >> 16)
-            | ((OPTIONROM_VENDEV_1 & 0xffff)) << 16) == vendev)
-        return copy_rom((void*)OPTIONROM_MEM_1);
-    if (OPTIONROM_VENDEV_2
-        && ((OPTIONROM_VENDEV_2 >> 16)
-            | ((OPTIONROM_VENDEV_2 & 0xffff)) << 16) == vendev)
-        return copy_rom((void*)OPTIONROM_MEM_2);
     char fname[17];
     snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
              , pci_vd_to_ven(vendev), pci_vd_to_dev(vendev));

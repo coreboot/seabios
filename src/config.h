@@ -14,13 +14,6 @@
 #define CONFIG_APPNAME6 "BOCHS "
 #define CONFIG_APPNAME4 "BXPC"
 
-// When option roms are not pre-deployed, SeaBIOS can copy an optionrom
-// from flash for up to 2 devices.
-#define OPTIONROM_VENDEV_1 0x00000000
-#define OPTIONROM_MEM_1 0x00000000
-#define OPTIONROM_VENDEV_2 0x00000000
-#define OPTIONROM_MEM_2 0x00000000
-
 // Maximum number of map entries in the e820 map
 #define CONFIG_MAX_E820 32
 // Space to reserve in f-segment for dynamic allocations
