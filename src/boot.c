@@ -98,24 +98,33 @@ find_prio(const char *glob)
 
 #define FW_PCI_DOMAIN "/pci@i0cf8"
 
-static char *
-build_pci_path(char *buf, int max, const char *devname, int bdf)
+static struct pci_device *
+find_pci(u16 bdf)
 {
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci->bdf == bdf)
+            return pci;
+    }
+    return NULL;
+}
+
+static char *
+build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
+{
+    if (!pci)
+        return buf;
     // Build the string path of a bdf - for example: /pci@i0cf8/isa@1,2
     char *p = buf;
-    int parent = pci_bdf_to_bus(bdf);
-    if (PCIpaths)
-        parent = PCIpaths[parent];
-    int parentdev = parent & 0xffff;
-    if (parent & PP_PCIBRIDGE) {
-        p = build_pci_path(p, max, "pci-bridge", parentdev);
+    if (pci->parent) {
+        p = build_pci_path(p, max, "pci-bridge", pci->parent);
     } else {
-        if (parentdev)
-            p += snprintf(p, max, "/pci-root@%x", parentdev);
+        if (pci->rootbus)
+            p += snprintf(p, max, "/pci-root@%x", pci->rootbus);
         p += snprintf(p, buf+max-p, "%s", FW_PCI_DOMAIN);
     }
 
-    int dev = pci_bdf_to_dev(bdf), fn = pci_bdf_to_fn(bdf);
+    int dev = pci_bdf_to_dev(pci->bdf), fn = pci_bdf_to_fn(pci->bdf);
     p += snprintf(p, buf+max-p, "/%s@%x", devname, dev);
     if (fn)
         p += snprintf(p, buf+max-p, ",%x", fn);
@@ -128,7 +137,7 @@ int bootprio_find_pci_device(int bdf)
         return -1;
     // Find pci device - for example: /pci@i0cf8/ethernet@5
     char desc[256];
-    build_pci_path(desc, sizeof(desc), "*", bdf);
+    build_pci_path(desc, sizeof(desc), "*", find_pci(bdf));
     return find_prio(desc);
 }
 
@@ -141,7 +150,7 @@ int bootprio_find_ata_device(int bdf, int chanid, int slave)
         return -1;
     // Find ata drive - for example: /pci@i0cf8/ide@1,1/drive@1/disk@0
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "*", bdf);
+    p = build_pci_path(desc, sizeof(desc), "*", find_pci(bdf));
     snprintf(p, desc+sizeof(desc)-p, "/drive@%x/disk@%x", chanid, slave);
     return find_prio(desc);
 }
@@ -155,7 +164,7 @@ int bootprio_find_fdc_device(int bdf, int port, int fdid)
         return -1;
     // Find floppy - for example: /pci@i0cf8/isa@1/fdc@03f1/floppy@0
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "isa", bdf);
+    p = build_pci_path(desc, sizeof(desc), "isa", find_pci(bdf));
     snprintf(p, desc+sizeof(desc)-p, "/fdc@%04x/floppy@%x", port, fdid);
     return find_prio(desc);
 }
@@ -166,7 +175,7 @@ int bootprio_find_pci_rom(int bdf, int instance)
         return -1;
     // Find pci rom - for example: /pci@i0cf8/scsi@3:rom2
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "*", bdf);
+    p = build_pci_path(desc, sizeof(desc), "*", find_pci(bdf));
     if (instance)
         snprintf(p, desc+sizeof(desc)-p, ":rom%d", instance);
     return find_prio(desc);
@@ -191,7 +200,7 @@ int bootprio_find_usb(int bdf, u64 path)
     // Find usb - for example: /pci@i0cf8/usb@1,2/hub@1/network@0/ethernet@0
     int i;
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "usb", bdf);
+    p = build_pci_path(desc, sizeof(desc), "usb", find_pci(bdf));
     for (i=56; i>0; i-=8) {
         int port = (path >> i) & 0xff;
         if (port != 0xff)

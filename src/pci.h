@@ -59,11 +59,6 @@ static inline u32 pci_classprog(struct pci_device *pci) {
 #define foreachpci(PCI)                         \
     for (PCI=PCIDevices; PCI; PCI=PCI->next)
 
-#define PP_ROOT      (1<<17)
-#define PP_PCIBRIDGE (1<<18)
-extern int *PCIpaths;
-void pci_path_setup(void);
-
 int pci_next(int bdf, int *pmax);
 #define foreachbdf(BDF, MAX)                    \
     for (MAX=0x0100, BDF=pci_next(0, &MAX)      \

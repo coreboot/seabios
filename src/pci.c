@@ -190,36 +190,6 @@ pci_find_class(u16 classid)
     return -1;
 }
 
-int *PCIpaths;
-
-// Build the PCI path designations.
-void
-pci_path_setup(void)
-{
-    PCIpaths = malloc_tmp(sizeof(*PCIpaths) * 256);
-    if (!PCIpaths)
-        return;
-    memset(PCIpaths, 0, sizeof(*PCIpaths) * 256);
-
-    int roots = 0;
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        int bus = pci_bdf_to_bus(bdf);
-        if (! PCIpaths[bus])
-            PCIpaths[bus] = (roots++) | PP_ROOT;
-
-        // Check if found device is a bridge.
-        u32 v = pci_config_readb(bdf, PCI_HEADER_TYPE);
-        v &= 0x7f;
-        if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
-            v = pci_config_readl(bdf, PCI_PRIMARY_BUS);
-            int childbus = (v >> 8) & 0xff;
-            if (childbus > bus)
-                PCIpaths[childbus] = bdf | PP_PCIBRIDGE;
-        }
-    }
-}
-
 int pci_init_device(const struct pci_device_id *ids, u16 bdf, void *arg)
 {
     u16 vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
