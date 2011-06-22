@@ -110,7 +110,7 @@ smm_relocate_and_restore(void)
 #define PIIX_APMC_EN    (1 << 25)
 
 // This code is hardcoded for PIIX4 Power Management device.
-static void piix4_apmc_smm_init(u16 bdf, void *arg)
+static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
 {
     int i440_bdf = pci_find_device(PCI_VENDOR_ID_INTEL
                                    , PCI_DEVICE_ID_INTEL_82441);
@@ -118,7 +118,7 @@ static void piix4_apmc_smm_init(u16 bdf, void *arg)
         return;
 
     /* check if SMM init is already done */
-    u32 value = pci_config_readl(bdf, PIIX_DEVACTB);
+    u32 value = pci_config_readl(pci->bdf, PIIX_DEVACTB);
     if (value & PIIX_APMC_EN)
         return;
 
@@ -128,7 +128,7 @@ static void piix4_apmc_smm_init(u16 bdf, void *arg)
     smm_save_and_copy();
 
     /* enable SMI generation when writing to the APMC register */
-    pci_config_writel(bdf, PIIX_DEVACTB, value | PIIX_APMC_EN);
+    pci_config_writel(pci->bdf, PIIX_DEVACTB, value | PIIX_APMC_EN);
 
     smm_relocate_and_restore();
 

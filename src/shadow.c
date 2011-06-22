@@ -95,9 +95,9 @@ make_bios_readonly_intel(u16 bdf, u32 pam0)
     pci_config_writeb(bdf, pam0, 0x10);
 }
 
-static void i440fx_bios_make_readonly(u16 bdf, void *arg)
+static void i440fx_bios_make_readonly(struct pci_device *pci, void *arg)
 {
-    make_bios_readonly_intel(bdf, I440FX_PAM0);
+    make_bios_readonly_intel(pci->bdf, I440FX_PAM0);
 }
 
 static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
@@ -138,10 +138,10 @@ make_bios_readonly(void)
         return;
 
     dprintf(3, "locking shadow ram\n");
-    int bdf = pci_find_init_device(dram_controller_make_readonly_tbl, NULL);
-    if (bdf < 0) {
+    struct pci_device *pci = pci_find_init_device(
+        dram_controller_make_readonly_tbl, NULL);
+    if (!pci)
         dprintf(1, "Unable to lock ram - bridge not found\n");
-    }
 }
 
 void

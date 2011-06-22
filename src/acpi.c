@@ -217,7 +217,7 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 #define PIIX4_GPE0_BLK          0xafe0
 #define PIIX4_GPE0_BLK_LEN      4
 
-static void piix4_fadt_init(u16 bdf, void *arg)
+static void piix4_fadt_init(struct pci_device *pci, void *arg)
 {
     struct fadt_descriptor_rev1 *fadt = arg;
     fadt->acpi_enable = PIIX4_ACPI_ENABLE;
@@ -234,8 +234,8 @@ static const struct pci_device_id fadt_init_tbl[] = {
     PCI_DEVICE_END
 };
 
-static void*
-build_fadt(int bdf)
+static void *
+build_fadt(struct pci_device *pci)
 {
     struct fadt_descriptor_rev1 *fadt = malloc_high(sizeof(*fadt));
     struct facs_descriptor_rev1 *facs = memalign_high(64, sizeof(*facs));
@@ -260,7 +260,7 @@ build_fadt(int bdf)
     fadt->dsdt = cpu_to_le32((u32)dsdt);
     fadt->model = 1;
     fadt->reserved1 = 0;
-    int pm_sci_int = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
+    int pm_sci_int = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
     fadt->sci_int = cpu_to_le16(pm_sci_int);
     fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
     fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
@@ -271,7 +271,7 @@ build_fadt(int bdf)
     fadt->pm_tmr_len = 4;
     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
-    pci_init_device(fadt_init_tbl, bdf, fadt);
+    pci_init_device(fadt_init_tbl, pci, fadt);
     /* WBINVD + PROC_C1 + SLP_BUTTON + FIX_RTC + RTC_S4 */
     fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 6) | (1 << 7));
 
@@ -611,8 +611,8 @@ acpi_bios_init(void)
     dprintf(3, "init ACPI tables\n");
 
     // This code is hardcoded for PIIX4 Power Management device.
-    int bdf = pci_find_init_device(acpi_find_tbl, NULL);
-    if (bdf < 0)
+    struct pci_device *pci = pci_find_init_device(acpi_find_tbl, NULL);
+    if (!pci)
         // Device not found
         return;
 
@@ -633,7 +633,7 @@ acpi_bios_init(void)
     } while(0)
 
     // Add tables
-    ACPI_INIT_TABLE(build_fadt(bdf));
+    ACPI_INIT_TABLE(build_fadt(pci));
     ACPI_INIT_TABLE(build_ssdt());
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());

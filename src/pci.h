@@ -78,7 +78,7 @@ struct pci_device_id {
     u32 devid;
     u32 class;
     u32 class_mask;
-    void (*func)(u16 bdf, void *arg);
+    void (*func)(struct pci_device *pci, void *arg);
 };
 
 #define PCI_DEVICE(vendor_id, device_id, init_func)     \
@@ -104,8 +104,10 @@ struct pci_device_id {
         .vendid = 0,                            \
     }
 
-int pci_init_device(const struct pci_device_id *table, u16 bdf, void *arg);
-int pci_find_init_device(const struct pci_device_id *ids, void *arg);
+int pci_init_device(const struct pci_device_id *ids
+                    , struct pci_device *pci, void *arg);
+struct pci_device *pci_find_init_device(const struct pci_device_id *ids
+                                        , void *arg);
 void pci_reboot(void);
 
 // helper functions to access pci mmio bars from real mode

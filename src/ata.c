@@ -965,8 +965,9 @@ init_controller(int bdf, int irq, u32 port1, u32 port2, u32 master)
 
 // Handle controllers on an ATA PCI device.
 static void
-init_pciata(u16 bdf, u8 prog_if)
+init_pciata(struct pci_device *pci, u8 prog_if)
 {
+    u16 bdf = pci->bdf;
     u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
     int master = 0;
     if (CONFIG_ATA_DMA && prog_if & 0x80) {
@@ -1007,18 +1008,18 @@ init_pciata(u16 bdf, u8 prog_if)
 }
 
 static void
-found_genericata(u16 bdf, void *arg)
+found_genericata(struct pci_device *pci, void *arg)
 {
-    init_pciata(bdf, pci_config_readb(bdf, PCI_CLASS_PROG));
+    init_pciata(pci, pci->prog_if);
 }
 
 static void
-found_compatibleahci(u16 bdf, void *arg)
+found_compatibleahci(struct pci_device *pci, void *arg)
 {
     if (CONFIG_AHCI)
         // Already handled directly via native ahci interface.
         return;
-    init_pciata(bdf, 0x8f);
+    init_pciata(pci, 0x8f);
 }
 
 static const struct pci_device_id pci_ata_tbl[] = {
@@ -1045,7 +1046,7 @@ ata_init(void)
     // Scan PCI bus for ATA adapters
     struct pci_device *pci;
     foreachpci(pci) {
-        pci_init_device(pci_ata_tbl, pci->bdf, NULL);
+        pci_init_device(pci_ata_tbl, pci, NULL);
     }
 }
 

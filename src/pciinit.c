@@ -114,11 +114,11 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
     return is_64bit;
 }
 
-static void pci_bios_allocate_regions(u16 bdf, void *arg)
+static void pci_bios_allocate_regions(struct pci_device *pci, void *arg)
 {
     int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
-        int is_64bit = pci_bios_allocate_region(bdf, i);
+        int is_64bit = pci_bios_allocate_region(pci->bdf, i);
         if (is_64bit){
             i++;
         }
@@ -135,7 +135,7 @@ static int pci_slot_get_pirq(u16 bdf, int irq_num)
 }
 
 /* PIIX3/PIIX4 PCI to ISA bridge */
-static void piix_isa_bridge_init(u16 bdf, void *arg)
+static void piix_isa_bridge_init(struct pci_device *pci, void *arg)
 {
     int i, irq;
     u8 elcr[2];
@@ -147,7 +147,7 @@ static void piix_isa_bridge_init(u16 bdf, void *arg)
         /* set to trigger level */
         elcr[irq >> 3] |= (1 << (irq & 7));
         /* activate irq remapping in PIIX */
-        pci_config_writeb(bdf, 0x60 + i, irq);
+        pci_config_writeb(pci->bdf, 0x60 + i, irq);
     }
     outb(elcr[0], 0x4d0);
     outb(elcr[1], 0x4d1);
@@ -171,8 +171,9 @@ static const struct pci_device_id pci_isa_bridge_tbl[] = {
 #define PCI_PREF_MEMORY_ALIGN   (1UL << 20)
 #define PCI_PREF_MEMORY_SHIFT   16
 
-static void pci_bios_init_device_bridge(u16 bdf, void *arg)
+static void pci_bios_init_device_bridge(struct pci_device *pci, void *arg)
 {
+    u16 bdf = pci->bdf;
     pci_bios_allocate_region(bdf, 0);
     pci_bios_allocate_region(bdf, 1);
     pci_bios_allocate_region(bdf, PCI_ROM_SLOT);
@@ -255,8 +256,9 @@ static void pci_bios_init_device_bridge(u16 bdf, void *arg)
     pci_config_maskw(bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_SERR);
 }
 
-static void storage_ide_init(u16 bdf, void *arg)
+static void storage_ide_init(struct pci_device *pci, void *arg)
 {
+    u16 bdf = pci->bdf;
     /* IDE: we map it as in ISA mode */
     pci_set_io_region_addr(bdf, 0, PORT_ATA1_CMD_BASE);
     pci_set_io_region_addr(bdf, 1, PORT_ATA1_CTRL_BASE);
@@ -265,23 +267,24 @@ static void storage_ide_init(u16 bdf, void *arg)
 }
 
 /* PIIX3/PIIX4 IDE */
-static void piix_ide_init(u16 bdf, void *arg)
+static void piix_ide_init(struct pci_device *pci, void *arg)
 {
+    u16 bdf = pci->bdf;
     pci_config_writew(bdf, 0x40, 0x8000); // enable IDE0
     pci_config_writew(bdf, 0x42, 0x8000); // enable IDE1
-    pci_bios_allocate_regions(bdf, NULL);
+    pci_bios_allocate_regions(pci, NULL);
 }
 
-static void pic_ibm_init(u16 bdf, void *arg)
+static void pic_ibm_init(struct pci_device *pci, void *arg)
 {
     /* PIC, IBM, MPIC & MPIC2 */
-    pci_set_io_region_addr(bdf, 0, 0x80800000 + 0x00040000);
+    pci_set_io_region_addr(pci->bdf, 0, 0x80800000 + 0x00040000);
 }
 
-static void apple_macio_init(u16 bdf, void *arg)
+static void apple_macio_init(struct pci_device *pci, void *arg)
 {
     /* macio bridge */
-    pci_set_io_region_addr(bdf, 0, 0x80800000);
+    pci_set_io_region_addr(pci->bdf, 0, 0x80800000);
 }
 
 static const struct pci_device_id pci_class_tbl[] = {
@@ -314,8 +317,9 @@ static const struct pci_device_id pci_class_tbl[] = {
 };
 
 /* PIIX4 Power Management device (for ACPI) */
-static void piix4_pm_init(u16 bdf, void *arg)
+static void piix4_pm_init(struct pci_device *pci, void *arg)
 {
+    u16 bdf = pci->bdf;
     // acpi sci is hardwired to 9
     pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
 
@@ -333,15 +337,15 @@ static const struct pci_device_id pci_device_tbl[] = {
     PCI_DEVICE_END,
 };
 
-static void pci_bios_init_device(u16 bdf)
+static void pci_bios_init_device(struct pci_device *pci)
 {
-    int pin, pic_irq, vendor_id, device_id;
+    u16 bdf = pci->bdf;
+    int pin, pic_irq;
 
-    vendor_id = pci_config_readw(bdf, PCI_VENDOR_ID);
-    device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
     dprintf(1, "PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_devfn(bdf), vendor_id, device_id);
-    pci_init_device(pci_class_tbl, bdf, NULL);
+            , pci_bdf_to_bus(bdf), pci_bdf_to_devfn(bdf)
+            , pci->vendor, pci->device);
+    pci_init_device(pci_class_tbl, pci, NULL);
 
     /* enable memory mappings */
     pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
@@ -354,14 +358,19 @@ static void pci_bios_init_device(u16 bdf)
         pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pic_irq);
     }
 
-    pci_init_device(pci_device_tbl, bdf, NULL);
+    pci_init_device(pci_device_tbl, pci, NULL);
 }
 
 static void pci_bios_init_device_in_bus(int bus)
 {
-    int bdf, max;
-    foreachbdf_in_bus(bdf, max, bus) {
-        pci_bios_init_device(bdf);
+    struct pci_device *pci;
+    foreachpci(pci) {
+        u8 pci_bus = pci_bdf_to_bus(pci->bdf);
+        if (pci_bus < bus)
+            continue;
+        if (pci_bus > bus)
+            break;
+        pci_bios_init_device(pci);
     }
 }
 
@@ -454,9 +463,9 @@ pci_setup(void)
 
     pci_probe();
 
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        pci_init_device(pci_isa_bridge_tbl, bdf, NULL);
+    struct pci_device *pci;
+    foreachpci(pci) {
+        pci_init_device(pci_isa_bridge_tbl, pci, NULL);
     }
     pci_bios_init_device_in_bus(0 /* host bus */);
 }
