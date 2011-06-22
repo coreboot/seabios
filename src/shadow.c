@@ -9,6 +9,7 @@
 #include "pci.h" // pci_config_writeb
 #include "config.h" // CONFIG_*
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "pci_regs.h" // PCI_VENDOR_ID
 #include "xen.h" // usingXen
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
@@ -94,21 +95,10 @@ make_bios_readonly_intel(u16 bdf, u32 pam0)
     pci_config_writeb(bdf, pam0, 0x10);
 }
 
-static void i440fx_bios_make_writable(u16 bdf, void *arg)
-{
-    make_bios_writable_intel(bdf, I440FX_PAM0);
-}
-
 static void i440fx_bios_make_readonly(u16 bdf, void *arg)
 {
     make_bios_readonly_intel(bdf, I440FX_PAM0);
 }
-
-static const struct pci_device_id dram_controller_make_writable_tbl[] = {
-    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
-               i440fx_bios_make_writable),
-    PCI_DEVICE_END
-};
 
 static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
@@ -125,14 +115,19 @@ make_bios_writable(void)
 
     dprintf(3, "enabling shadow ram\n");
 
-    // at this point, statically allocated variables can't be written.
-    // so stack should be used.
-
-    // Locate chip controlling ram shadowing.
-    int bdf = pci_find_init_device(dram_controller_make_writable_tbl, NULL);
-    if (bdf < 0) {
-        dprintf(1, "Unable to unlock ram - bridge not found\n");
+    // At this point, statically allocated variables can't be written,
+    // so do this search manually.
+    int bdf, max;
+    foreachbdf_in_bus(bdf, max, 0) {
+        u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
+        u16 vendor = vendev & 0xffff, device = vendev >> 16;
+        if (vendor == PCI_VENDOR_ID_INTEL
+            && device == PCI_DEVICE_ID_INTEL_82441) {
+            make_bios_writable_intel(bdf, I440FX_PAM0);
+            return;
+        }
     }
+    dprintf(1, "Unable to unlock ram - bridge not found\n");
 }
 
 // Make the BIOS code segment area (0xf0000) read-only.
