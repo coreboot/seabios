@@ -967,6 +967,7 @@ init_controller(int bdf, int irq, u32 port1, u32 port2, u32 master)
 static void
 init_pciata(struct pci_device *pci, u8 prog_if)
 {
+    pci->have_driver = 1;
     u16 bdf = pci->bdf;
     u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
     int master = 0;

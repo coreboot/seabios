@@ -48,6 +48,9 @@ struct pci_device {
     u8 prog_if, revision;
     u8 header_type;
     u8 secondary_bus;
+
+    // Local information on device.
+    int have_driver;
 };
 extern struct pci_device *PCIDevices;
 extern int MaxPCIBus;
