@@ -436,9 +436,11 @@ pci_bios_init_bus(void)
 void
 pci_setup(void)
 {
-    if (CONFIG_COREBOOT || usingXen())
-        // Already done by coreboot or Xen.
+    if (CONFIG_COREBOOT || usingXen()) {
+        // PCI setup already done by coreboot or Xen - just do probe.
+        pci_probe();
         return;
+    }
 
     dprintf(3, "pci setup\n");
 
@@ -449,6 +451,8 @@ pci_setup(void)
                     BUILD_PCIPREFMEM_START, BUILD_PCIPREFMEM_END - 1);
 
     pci_bios_init_bus();
+
+    pci_probe();
 
     int bdf, max;
     foreachbdf(bdf, max) {

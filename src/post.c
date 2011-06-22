@@ -224,7 +224,6 @@ maininit(void)
 
     // Initialize pci
     pci_setup();
-    pci_probe();
     smm_init();
 
     // Initialize internal tables
