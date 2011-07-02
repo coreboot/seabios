@@ -59,48 +59,30 @@ pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on)
 
 // Helper function for foreachbdf() macro - return next device
 int
-pci_next(int bdf, int *pmax)
+pci_next(int bdf, int bus)
 {
-    if (pci_bdf_to_fn(bdf) == 1
-        && (pci_config_readb(bdf-1, PCI_HEADER_TYPE) & 0x80) == 0)
+    if (pci_bdf_to_fn(bdf) == 0
+        && (pci_config_readb(bdf, PCI_HEADER_TYPE) & 0x80) == 0)
         // Last found device wasn't a multi-function device - skip to
         // the next device.
-        bdf += 7;
+        bdf += 8;
+    else
+        bdf += 1;
 
-    int max = *pmax;
     for (;;) {
-        if (bdf >= max) {
-            if (CONFIG_PCI_ROOT1 && bdf <= (CONFIG_PCI_ROOT1 << 8))
-                bdf = CONFIG_PCI_ROOT1 << 8;
-            else if (CONFIG_PCI_ROOT2 && bdf <= (CONFIG_PCI_ROOT2 << 8))
-                bdf = CONFIG_PCI_ROOT2 << 8;
-            else
-            	return -1;
-            *pmax = max = bdf + 0x0100;
-        }
+        if (pci_bdf_to_bus(bdf) != bus)
+            return -1;
 
         u16 v = pci_config_readw(bdf, PCI_VENDOR_ID);
         if (v != 0x0000 && v != 0xffff)
             // Device is present.
-            break;
+            return bdf;
 
         if (pci_bdf_to_fn(bdf) == 0)
             bdf += 8;
         else
             bdf += 1;
     }
-
-    // Check if found device is a bridge.
-    u32 v = pci_config_readb(bdf, PCI_HEADER_TYPE);
-    v &= 0x7f;
-    if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
-        v = pci_config_readl(bdf, PCI_PRIMARY_BUS);
-        int newmax = (v & 0xff00) + 0x0100;
-        if (newmax > max)
-            *pmax = newmax;
-    }
-
-    return bdf;
 }
 
 struct pci_device *PCIDevices;
@@ -122,8 +104,8 @@ pci_probe(void)
     int bus = -1, lastbus = 0, rootbuses = 0, count=0;
     while (bus < MaxPCIBus) {
         bus++;
-        int bdf, max;
-        foreachbdf_in_bus(bdf, max, bus) {
+        int bdf;
+        foreachbdf(bdf, bus) {
             // Create new pci_device struct and add to list.
             struct pci_device *dev = malloc_tmp(sizeof(*dev));
             if (!dev) {

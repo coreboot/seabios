@@ -42,8 +42,8 @@ handle_1ab102(struct bregs *regs)
     int bus = -1;
     while (bus < GET_GLOBAL(MaxPCIBus)) {
         bus++;
-        int bdf, max;
-        foreachbdf_in_bus(bdf, max, bus) {
+        int bdf;
+        foreachbdf(bdf, bus) {
             u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
             if (v != id)
                 continue;
@@ -66,8 +66,8 @@ handle_1ab103(struct bregs *regs)
     int bus = -1;
     while (bus < GET_GLOBAL(MaxPCIBus)) {
         bus++;
-        int bdf, max;
-        foreachbdf_in_bus(bdf, max, bus) {
+        int bdf;
+        foreachbdf(bdf, bus) {
             u32 v = pci_config_readl(bdf, PCI_CLASS_REVISION);
             if ((v>>8) != classprog)
                 continue;

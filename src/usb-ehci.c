@@ -280,7 +280,6 @@ ehci_init(u16 bdf, int busid, int compbdf)
 
     // Find companion controllers.
     int count = 0;
-    int max = pci_to_bdf(pci_bdf_to_bus(bdf) + 1, 0, 0);
     for (;;) {
         if (compbdf < 0 || compbdf >= bdf)
             break;
@@ -294,7 +293,7 @@ ehci_init(u16 bdf, int busid, int compbdf)
             cntl->companion[count].type = USB_TYPE_OHCI;
             count++;
         }
-        compbdf = pci_next(compbdf+1, &max);
+        compbdf = pci_next(compbdf+1, pci_bdf_to_bus(compbdf));
     }
 
     run_thread(configure_ehci, cntl);

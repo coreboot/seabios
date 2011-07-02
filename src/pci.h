@@ -62,18 +62,11 @@ static inline u32 pci_classprog(struct pci_device *pci) {
 #define foreachpci(PCI)                         \
     for (PCI=PCIDevices; PCI; PCI=PCI->next)
 
-int pci_next(int bdf, int *pmax);
-#define foreachbdf(BDF, MAX)                    \
-    for (MAX=0x0100, BDF=pci_next(0, &MAX)      \
-         ; BDF >= 0                             \
-         ; BDF=pci_next(BDF+1, &MAX))
-
-#define foreachbdf_in_bus(BDF, MAX, BUS)                                \
-    for (MAX = pci_bus_devfn_to_bdf(BUS, 0) + 0x0100,                   \
-         BDF = pci_next(pci_bus_devfn_to_bdf(BUS, 0), &MAX)             \
-         ; BDF >= 0 && BDF < pci_bus_devfn_to_bdf(BUS, 0) + 0x0100      \
-         ; MAX = pci_bus_devfn_to_bdf(BUS, 0) + 0x0100,                 \
-           BDF = pci_next(BDF + 1, &MAX))
+int pci_next(int bdf, int bus);
+#define foreachbdf(BDF, BUS)                                    \
+    for (BDF=pci_next(pci_bus_devfn_to_bdf((BUS), 0)-1, (BUS))  \
+         ; BDF >= 0                                             \
+         ; BDF=pci_next(BDF, (BUS)))
 
 #define PCI_ANY_ID      (~0)
 struct pci_device_id {

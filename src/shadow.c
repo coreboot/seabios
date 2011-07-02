@@ -117,8 +117,8 @@ make_bios_writable(void)
 
     // At this point, statically allocated variables can't be written,
     // so do this search manually.
-    int bdf, max;
-    foreachbdf_in_bus(bdf, max, 0) {
+    int bdf;
+    foreachbdf(bdf, 0) {
         u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
         u16 vendor = vendev & 0xffff, device = vendev >> 16;
         if (vendor == PCI_VENDOR_ID_INTEL
