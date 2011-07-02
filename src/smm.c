@@ -112,9 +112,9 @@ smm_relocate_and_restore(void)
 // This code is hardcoded for PIIX4 Power Management device.
 static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
 {
-    int i440_bdf = pci_find_device(PCI_VENDOR_ID_INTEL
-                                   , PCI_DEVICE_ID_INTEL_82441);
-    if (i440_bdf < 0)
+    struct pci_device *i440_pci = pci_find_device(PCI_VENDOR_ID_INTEL
+                                                  , PCI_DEVICE_ID_INTEL_82441);
+    if (!i440_pci)
         return;
 
     /* check if SMM init is already done */
@@ -123,7 +123,7 @@ static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
         return;
 
     /* enable the SMM memory window */
-    pci_config_writeb(i440_bdf, I440FX_SMRAM, 0x02 | 0x48);
+    pci_config_writeb(i440_pci->bdf, I440FX_SMRAM, 0x02 | 0x48);
 
     smm_save_and_copy();
 
@@ -133,7 +133,7 @@ static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
     smm_relocate_and_restore();
 
     /* close the SMM memory window and enable normal SMM */
-    pci_config_writeb(i440_bdf, I440FX_SMRAM, 0x02 | 0x08);
+    pci_config_writeb(i440_pci->bdf, I440FX_SMRAM, 0x02 | 0x08);
 }
 
 static const struct pci_device_id smm_init_tbl[] = {

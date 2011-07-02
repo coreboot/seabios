@@ -83,10 +83,10 @@ via_155f(struct bregs *regs)
 }
 
 static int
-getFBSize(u16 bdf)
+getFBSize(struct pci_device *pci)
 {
     /* FB config */
-    u8 reg = pci_config_readb(bdf, 0xa1);
+    u8 reg = pci_config_readb(pci->bdf, 0xa1);
 
     /* GFX disabled ? */
     if (!(reg & 0x80))
@@ -97,20 +97,21 @@ getFBSize(u16 bdf)
 }
 
 static int
-getViaRamSpeed(u16 bdf)
+getViaRamSpeed(struct pci_device *pci)
 {
-    return (pci_config_readb(bdf, 0x90) & 0x07) + 3;
+    return (pci_config_readb(pci->bdf, 0x90) & 0x07) + 3;
 }
 
 static int
 getAMDRamSpeed(void)
 {
-    int bdf = pci_find_device(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_K8_NB_MEMCTL);
-    if (bdf < 0)
+    struct pci_device *pci = pci_find_device(PCI_VENDOR_ID_AMD
+                                             , PCI_DEVICE_ID_AMD_K8_NB_MEMCTL);
+    if (!pci)
         return -1;
 
     /* mem clk 0 = DDR2 400 */
-    return (pci_config_readb(bdf, 0x94) & 0x7) + 6;
+    return (pci_config_readb(pci->bdf, 0x94) & 0x7) + 6;
 }
 
 /* int 0x15 - 5f18
@@ -142,16 +143,17 @@ via_setup(struct pci_device *pci)
 {
     VGAHookHandlerType = VH_VIA;
 
-    int bdf = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_K8M890CE_3);
-    if (bdf >= 0) {
-        ViaFBsize = getFBSize(bdf);
+    struct pci_device *d = pci_find_device(PCI_VENDOR_ID_VIA
+                                           , PCI_DEVICE_ID_VIA_K8M890CE_3);
+    if (d) {
+        ViaFBsize = getFBSize(d);
         ViaRamSpeed = getAMDRamSpeed();
         return;
     }
-    bdf = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_VX855_MEMCTRL);
-    if (bdf >= 0) {
-        ViaFBsize = getFBSize(bdf);
-        ViaRamSpeed = getViaRamSpeed(bdf);
+    d = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_VX855_MEMCTRL);
+    if (d) {
+        ViaFBsize = getFBSize(d);
+        ViaRamSpeed = getViaRamSpeed(d);
         return;
     }
 

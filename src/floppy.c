@@ -123,8 +123,8 @@ addFloppy(int floppyid, int ftype)
     if (!drive_g)
         return;
     char *desc = znprintf(MAXDESCSIZE, "Floppy [drive %c]", 'A' + floppyid);
-    int bdf = pci_find_class(PCI_CLASS_BRIDGE_ISA); /* isa-to-pci bridge */
-    int prio = bootprio_find_fdc_device(bdf, PORT_FD_BASE, floppyid);
+    struct pci_device *pci = pci_find_class(PCI_CLASS_BRIDGE_ISA); /* isa-to-pci bridge */
+    int prio = bootprio_find_fdc_device(pci->bdf, PORT_FD_BASE, floppyid);
     boot_add_floppy(drive_g, desc, prio);
 }
 

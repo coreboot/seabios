@@ -33,8 +33,8 @@ u16 pci_config_readw(u16 bdf, u32 addr);
 u8 pci_config_readb(u16 bdf, u32 addr);
 void pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on);
 
-int pci_find_device(u16 vendid, u16 devid);
-int pci_find_class(u16 classid);
+struct pci_device *pci_find_device(u16 vendid, u16 devid);
+struct pci_device *pci_find_class(u16 classid);
 
 struct pci_device {
     u16 bdf;

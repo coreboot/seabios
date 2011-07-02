@@ -164,30 +164,27 @@ pci_probe(void)
 }
 
 // Search for a device with the specified vendor and device ids.
-int
+struct pci_device *
 pci_find_device(u16 vendid, u16 devid)
 {
-    u32 id = (devid << 16) | vendid;
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        u32 v = pci_config_readl(bdf, PCI_VENDOR_ID);
-        if (v == id)
-            return bdf;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci->vendor == vendid && pci->device == devid)
+            return pci;
     }
-    return -1;
+    return NULL;
 }
 
 // Search for a device with the specified class id.
-int
+struct pci_device *
 pci_find_class(u16 classid)
 {
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        u16 v = pci_config_readw(bdf, PCI_CLASS_DEVICE);
-        if (v == classid)
-            return bdf;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci->class == classid)
+            return pci;
     }
-    return -1;
+    return NULL;
 }
 
 int pci_init_device(const struct pci_device_id *ids

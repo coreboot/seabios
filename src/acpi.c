@@ -7,7 +7,7 @@
 
 #include "acpi.h" // struct rsdp_descriptor
 #include "util.h" // memcpy
-#include "pci.h" // pci_find_device
+#include "pci.h" // pci_find_init_device
 #include "biosvar.h" // GET_EBDA
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
