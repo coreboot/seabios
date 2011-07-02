@@ -104,63 +104,77 @@ pci_next(int bdf, int *pmax)
 }
 
 struct pci_device *PCIDevices;
-int MaxPCIBus;
+int MaxPCIBus VAR16VISIBLE;
 
+// Find all PCI devices and populate PCIDevices linked list.
 void
 pci_probe(void)
 {
-    int rootbuses = 0;
+    dprintf(3, "PCI probe\n");
+    if (CONFIG_PCI_ROOT1 && CONFIG_PCI_ROOT1 > MaxPCIBus)
+        MaxPCIBus = CONFIG_PCI_ROOT1;
+    if (CONFIG_PCI_ROOT2 && CONFIG_PCI_ROOT2 > MaxPCIBus)
+        MaxPCIBus = CONFIG_PCI_ROOT2;
+
     struct pci_device *busdevs[256];
     memset(busdevs, 0, sizeof(busdevs));
-
     struct pci_device **pprev = &PCIDevices;
-    u8 lastbus = 0;
-    int bdf, max;
-    foreachbdf(bdf, max) {
-        // Create new pci_device struct and add to list.
-        struct pci_device *dev = malloc_tmp(sizeof(*dev));
-        if (!dev) {
-            warn_noalloc();
-            return;
-        }
-        memset(dev, 0, sizeof(*dev));
-        *pprev = dev;
-        pprev = &dev->next;
+    int bus = -1, lastbus = 0, rootbuses = 0, count=0;
+    while (bus < MaxPCIBus) {
+        bus++;
+        int bdf, max;
+        foreachbdf_in_bus(bdf, max, bus) {
+            // Create new pci_device struct and add to list.
+            struct pci_device *dev = malloc_tmp(sizeof(*dev));
+            if (!dev) {
+                warn_noalloc();
+                return;
+            }
+            memset(dev, 0, sizeof(*dev));
+            *pprev = dev;
+            pprev = &dev->next;
+            count++;
 
-        // Find parent device.
-        u8 bus = pci_bdf_to_bus(bdf), rootbus;
-        struct pci_device *parent = busdevs[bus];
-        if (!parent) {
-            if (bus != lastbus)
-                rootbuses++;
-            lastbus = bus;
-            rootbus = rootbuses;
-        } else {
-            rootbus = parent->rootbus;
-        }
-        if (bus > MaxPCIBus)
-            MaxPCIBus = bus;
+            // Find parent device.
+            int rootbus;
+            struct pci_device *parent = busdevs[bus];
+            if (!parent) {
+                if (bus != lastbus)
+                    rootbuses++;
+                lastbus = bus;
+                rootbus = rootbuses;
+            } else {
+                rootbus = parent->rootbus;
+            }
 
-        // Populate pci_device info.
-        dev->bdf = bdf;
-        dev->parent = parent;
-        dev->rootbus = rootbus;
-        u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
-        dev->vendor = vendev & 0xffff;
-        dev->device = vendev >> 16;
-        u32 classrev = pci_config_readl(bdf, PCI_CLASS_REVISION);
-        dev->class = classrev >> 16;
-        dev->prog_if = classrev >> 8;
-        dev->revision = classrev & 0xff;
-        dev->header_type = pci_config_readb(bdf, PCI_HEADER_TYPE);
-        u8 v = dev->header_type & 0x7f;
-        if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
-            u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
-            dev->secondary_bus = secbus;
-            if (secbus > bus && !busdevs[secbus])
-                busdevs[secbus] = dev;
+            // Populate pci_device info.
+            dev->bdf = bdf;
+            dev->parent = parent;
+            dev->rootbus = rootbus;
+            u32 vendev = pci_config_readl(bdf, PCI_VENDOR_ID);
+            dev->vendor = vendev & 0xffff;
+            dev->device = vendev >> 16;
+            u32 classrev = pci_config_readl(bdf, PCI_CLASS_REVISION);
+            dev->class = classrev >> 16;
+            dev->prog_if = classrev >> 8;
+            dev->revision = classrev & 0xff;
+            dev->header_type = pci_config_readb(bdf, PCI_HEADER_TYPE);
+            u8 v = dev->header_type & 0x7f;
+            if (v == PCI_HEADER_TYPE_BRIDGE || v == PCI_HEADER_TYPE_CARDBUS) {
+                u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
+                dev->secondary_bus = secbus;
+                if (secbus > bus && !busdevs[secbus])
+                    busdevs[secbus] = dev;
+                if (secbus > MaxPCIBus)
+                    MaxPCIBus = secbus;
+            }
+            dprintf(4, "PCI device %02x:%02x.%x (vd=%04x:%04x c=%04x)\n"
+                    , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
+                    , pci_bdf_to_fn(bdf)
+                    , dev->vendor, dev->device, dev->class);
         }
     }
+    dprintf(1, "Found %d PCI devices (max PCI bus is %02x)\n", count, MaxPCIBus);
 }
 
 // Search for a device with the specified vendor and device ids.
