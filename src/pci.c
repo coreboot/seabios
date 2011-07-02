@@ -93,16 +93,12 @@ void
 pci_probe(void)
 {
     dprintf(3, "PCI probe\n");
-    if (CONFIG_PCI_ROOT1 && CONFIG_PCI_ROOT1 > MaxPCIBus)
-        MaxPCIBus = CONFIG_PCI_ROOT1;
-    if (CONFIG_PCI_ROOT2 && CONFIG_PCI_ROOT2 > MaxPCIBus)
-        MaxPCIBus = CONFIG_PCI_ROOT2;
-
     struct pci_device *busdevs[256];
     memset(busdevs, 0, sizeof(busdevs));
     struct pci_device **pprev = &PCIDevices;
     int bus = -1, lastbus = 0, rootbuses = 0, count=0;
-    while (bus < MaxPCIBus) {
+    while (bus < 0xff && (bus < MaxPCIBus
+                          || rootbuses < CONFIG_EXTRA_PCI_ROOTS)) {
         bus++;
         int bdf;
         foreachbdf(bdf, bus) {
@@ -125,6 +121,8 @@ pci_probe(void)
                     rootbuses++;
                 lastbus = bus;
                 rootbus = rootbuses;
+                if (bus > MaxPCIBus)
+                    MaxPCIBus = bus;
             } else {
                 rootbus = parent->rootbus;
             }

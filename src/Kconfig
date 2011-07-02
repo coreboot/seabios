@@ -201,19 +201,15 @@ menu "Hardware support"
             Support parallel ports. This also enables int 17 parallel port calls.
 
     config EXTRA_PCI_ROOTS
-        bool "Extra root buses"
-        default n
+        int "Number of extra root buses"
+        default 0
         help
-            If the target machine has multiple independent root buses,
-            the extra buses may be specified here.
-    config PCI_ROOT1
-        depends on EXTRA_PCI_ROOTS
-        hex "Extra primary PCI root bus number"
-        default 0x00
-    config PCI_ROOT2
-        depends on EXTRA_PCI_ROOTS
-        hex "Extra secondary PCI root bus number"
-        default 0x00
+            If the target machine has multiple independent root buses
+            set this to a positive value.  The SeaBIOS PCI probe will
+            then search for the given number of extra root buses.
+
+            Most machines do not have multiple root buses and this
+            setting should be zero.
 
     config USE_SMM
         depends on !COREBOOT
