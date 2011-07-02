@@ -117,6 +117,7 @@ find_cb_subtable(struct cb_header *cbh, u32 tag)
 }
 
 static struct cb_memory *CBMemTable;
+const char *CBvendor, *CBpart;
 
 // Populate max ram and e820 map info by scanning for a coreboot table.
 static void
@@ -168,11 +169,9 @@ coreboot_fill_map(void)
 
     struct cb_mainboard *cbmb = find_cb_subtable(cbh, CB_TAG_MAINBOARD);
     if (cbmb) {
-        const char *vendor = &cbmb->strings[cbmb->vendor_idx];
-        const char *part = &cbmb->strings[cbmb->part_idx];
-        dprintf(1, "Found mainboard %s %s\n", vendor, part);
-
-        vgahook_setup(vendor, part);
+        CBvendor = &cbmb->strings[cbmb->vendor_idx];
+        CBpart = &cbmb->strings[cbmb->part_idx];
+        dprintf(1, "Found mainboard %s %s\n", CBvendor, CBpart);
     }
 
     return;

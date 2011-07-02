@@ -232,6 +232,7 @@ getRomPriority(u64 *sources, struct rom_header *rom, int instance)
     return bootprio_find_named_rom(romfile_name(source), instance);
 }
 
+
 /****************************************************************
  * Roms in CBFS
  ****************************************************************/
@@ -479,7 +480,7 @@ vga_setup(void)
         foreachpci(pci) {
             if (!is_pci_vga(pci))
                 continue;
-            VGAbdf = pci->bdf;
+            vgahook_setup(pci);
             init_pcirom(pci, 1, NULL);
             break;
         }

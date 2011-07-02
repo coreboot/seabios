@@ -387,6 +387,7 @@ void wrmsr_smp(u32 index, u64 val);
 void smp_probe(void);
 
 // coreboot.c
+extern const char *CBvendor, *CBpart;
 struct cbfs_file;
 struct cbfs_file *cbfs_finddatafile(const char *fname);
 struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);
@@ -405,9 +406,9 @@ void copy_acpi_rsdp(void *pos);
 void copy_smbios(void *pos);
 
 // vgahooks.c
-extern int VGAbdf;
 void handle_155f(struct bregs *regs);
-void vgahook_setup(const char *vendor, const char *part);
+struct pci_device;
+void vgahook_setup(struct pci_device *pci);
 
 // optionroms.c
 void call_bcv(u16 seg, u16 ip);

@@ -12,27 +12,10 @@
 #include "util.h" // handle_155f
 #include "config.h" // CONFIG_*
 
-// The Bus/Dev/Fn of the primary VGA device.
-int VGAbdf VAR16VISIBLE = -1;
-// Coreboot board detected.
-int CBmainboard VAR16VISIBLE;
+#define VH_VIA 1
+#define VH_INTEL 2
 
-#define MAINBOARD_DEFAULT	0
-#define KONTRON_986LCD_M	1
-#define GETAC_P470		2
-#define RODA_RK886EX		3
-
-struct mainboards {
-	char *vendor;
-	char *device;
-	int type;
-};
-
-struct mainboards mainboard_list[] = {
-	{ "KONTRON",	"986LCD-M",	KONTRON_986LCD_M },
-	{ "GETAC",	"P470",		GETAC_P470 },
-	{ "RODA",	"RK886EX",	RODA_RK886EX },
-};
+int VGAHookHandlerType VAR16VISIBLE;
 
 static void
 handle_155fXX(struct bregs *regs)
@@ -44,6 +27,8 @@ handle_155fXX(struct bregs *regs)
 /****************************************************************
  * Via hooks
  ****************************************************************/
+
+int ViaFBsize VAR16VISIBLE, ViaRamSpeed VAR16VISIBLE;
 
 static void
 via_155f01(struct bregs *regs)
@@ -65,6 +50,38 @@ via_155f02(struct bregs *regs)
     dprintf(1, "Warning: VGA TV/CRT output type is hardcoded\n");
 }
 
+static void
+via_155f18(struct bregs *regs)
+{
+    int fbsize = GET_GLOBAL(ViaFBsize), ramspeed = GET_GLOBAL(ViaRamSpeed);
+    if (fbsize < 0 || ramspeed < 0) {
+        set_code_invalid(regs, RET_EUNSUPPORTED);
+        return;
+    }
+    regs->eax = 0x5f;
+    regs->ebx = 0x500 | (ramspeed << 4) | fbsize;
+    regs->ecx = 0x060;
+    set_success(regs);
+}
+
+static void
+via_155f19(struct bregs *regs)
+{
+    set_invalid_silent(regs);
+}
+
+static void
+via_155f(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x01: via_155f01(regs); break;
+    case 0x02: via_155f02(regs); break;
+    case 0x18: via_155f18(regs); break;
+    case 0x19: via_155f19(regs); break;
+    default:   handle_155fXX(regs); break;
+    }
+}
+
 static int
 getFBSize(u16 bdf)
 {
@@ -75,8 +92,8 @@ getFBSize(u16 bdf)
     if (!(reg & 0x80))
         return -1;
 
-    static u8 mem_power[] VAR16 = {0, 3, 4, 5, 6, 7, 8, 9};
-    return GET_GLOBAL(mem_power[(reg >> 4) & 0x7]);
+    static u8 mem_power[] = {0, 3, 4, 5, 6, 7, 8, 9};
+    return mem_power[(reg >> 4) & 0x7];
 }
 
 static int
@@ -121,60 +138,62 @@ getAMDRamSpeed(void)
 #define PCI_DEVICE_ID_VIA_VX855_MEMCTRL 0x3409
 
 static void
-via_155f18(struct bregs *regs)
+via_setup(struct pci_device *pci)
 {
-    int ramspeed, fbsize;
+    VGAHookHandlerType = VH_VIA;
 
     int bdf = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_K8M890CE_3);
     if (bdf >= 0) {
-        fbsize = getFBSize(bdf);
-        ramspeed = getAMDRamSpeed();
-        goto done;
+        ViaFBsize = getFBSize(bdf);
+        ViaRamSpeed = getAMDRamSpeed();
+        return;
     }
     bdf = pci_find_device(PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_VX855_MEMCTRL);
     if (bdf >= 0) {
-        fbsize = getFBSize(bdf);
-        ramspeed = getViaRamSpeed(bdf);
-        goto done;
+        ViaFBsize = getFBSize(bdf);
+        ViaRamSpeed = getViaRamSpeed(bdf);
+        return;
     }
 
     dprintf(1, "Warning: VGA memory size and speed is hardcoded\n");
-    fbsize = 5; // 32M frame buffer
-    ramspeed = 4; // MCLK = DDR266
-
-done:
-    if (fbsize < 0 || ramspeed < 0) {
-        set_code_invalid(regs, RET_EUNSUPPORTED);
-        return;
-    }
-    regs->eax = 0x5f;
-    regs->ebx = 0x500 | (ramspeed << 4) | fbsize;
-    regs->ecx = 0x060;
-    set_success(regs);
+    ViaFBsize = 5; // 32M frame buffer
+    ViaRamSpeed = 4; // MCLK = DDR266
 }
 
-static void
-via_155f19(struct bregs *regs)
-{
-    set_invalid_silent(regs);
-}
-
-static void
-via_155f(struct bregs *regs)
-{
-    switch (regs->al) {
-    case 0x01: via_155f01(regs); break;
-    case 0x02: via_155f02(regs); break;
-    case 0x18: via_155f18(regs); break;
-    case 0x19: via_155f19(regs); break;
-    default:   handle_155fXX(regs); break;
-    }
-}
 
 /****************************************************************
  * Intel VGA hooks
  ****************************************************************/
-#define BOOT_DISPLAY_DEFAULT	(0)
+
+u8 IntelDisplayType VAR16VISIBLE, IntelDisplayId VAR16VISIBLE;
+
+static void
+intel_155f35(struct bregs *regs)
+{
+    regs->ax = 0x005f;
+    regs->cl = GET_GLOBAL(IntelDisplayType);
+    set_success(regs);
+}
+
+static void
+intel_155f40(struct bregs *regs)
+{
+    regs->ax = 0x005f;
+    regs->cl = GET_GLOBAL(IntelDisplayId);
+    set_success(regs);
+}
+
+static void
+intel_155f(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x35: intel_155f35(regs); break;
+    case 0x40: intel_155f40(regs); break;
+    default:   handle_155fXX(regs); break;
+    }
+}
+
+#define BOOT_DISPLAY_DEFAULT    (0)
 #define BOOT_DISPLAY_CRT        (1 << 0)
 #define BOOT_DISPLAY_TV         (1 << 1)
 #define BOOT_DISPLAY_EFP        (1 << 2)
@@ -183,77 +202,30 @@ via_155f(struct bregs *regs)
 #define BOOT_DISPLAY_TV2        (1 << 5)
 #define BOOT_DISPLAY_EFP2       (1 << 6)
 #define BOOT_DISPLAY_LCD2       (1 << 7)
- 
+
 static void
-roda_155f35(struct bregs *regs)
+roda_setup(struct pci_device *pci)
 {
-    regs->ax = 0x005f;
-    // regs->cl = BOOT_DISPLAY_DEFAULT;
-    regs->cl = BOOT_DISPLAY_LCD;
-    set_success(regs);
+    VGAHookHandlerType = VH_INTEL;
+    // IntelDisplayType = BOOT_DISPLAY_DEFAULT;
+    IntelDisplayType = BOOT_DISPLAY_LCD;
+    // IntelDisplayId = inb(0x60f) & 0x0f; // Correct according to Crete
+    IntelDisplayId = 3; // Correct according to empirical studies
 }
 
 static void
-roda_155f40(struct bregs *regs)
+kontron_setup(struct pci_device *pci)
 {
-    u8 display_id;
-    //display_id = inb(0x60f) & 0x0f; // Correct according to Crete
-    display_id = 3; // Correct according to empirical studies
-
-    regs->ax = 0x005f;
-    regs->cl = display_id;
-    set_success(regs);
+    VGAHookHandlerType = VH_INTEL;
+    IntelDisplayType = BOOT_DISPLAY_CRT;
+    IntelDisplayId = 3;
 }
 
 static void
-roda_155f(struct bregs *regs)
+getac_setup(struct pci_device *pci)
 {
-    dprintf(1, "Executing RODA specific interrupt %02x.\n", regs->al);
-    switch (regs->al) {
-    case 0x35: roda_155f35(regs); break;
-    case 0x40: roda_155f40(regs); break;
-    default:   handle_155fXX(regs); break;
-    }
 }
 
-static void
-kontron_155f35(struct bregs *regs)
-{
-    regs->ax = 0x005f;
-    regs->cl = BOOT_DISPLAY_CRT;
-    set_success(regs);
-}
-
-static void
-kontron_155f40(struct bregs *regs)
-{
-    u8 display_id;
-    display_id = 3;
-
-    regs->ax = 0x005f;
-    regs->cl = display_id;
-    set_success(regs);
-}
-
-static void
-kontron_155f(struct bregs *regs)
-{
-    dprintf(1, "Executing Kontron specific interrupt %02x.\n", regs->al);
-    switch (regs->al) {
-    case 0x35: kontron_155f35(regs); break;
-    case 0x40: kontron_155f40(regs); break;
-    default:   handle_155fXX(regs); break;
-    }
-}
-
-static void
-getac_155f(struct bregs *regs)
-{
-    dprintf(1, "Executing Getac specific interrupt %02x.\n", regs->al);
-    switch (regs->al) {
-    default:   handle_155fXX(regs); break;
-    }
-}
 
 /****************************************************************
  * Entry and setup
@@ -263,54 +235,32 @@ getac_155f(struct bregs *regs)
 void
 handle_155f(struct bregs *regs)
 {
-    int bdf, cbmb;
-
-    if (! CONFIG_VGAHOOKS)
-        goto fail;
-
-    cbmb = GET_GLOBAL(CBmainboard);
-
-    switch (cbmb) {
-    case KONTRON_986LCD_M:
-        kontron_155f(regs);
-	return;
-    case RODA_RK886EX:
-        roda_155f(regs);
-	return;
-    case GETAC_P470:
-        getac_155f(regs);
-	return;
-    case MAINBOARD_DEFAULT:
-        bdf = GET_GLOBAL(VGAbdf);
-        if (bdf < 0)
-            goto fail;
-
-        u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
-        if (vendor == PCI_VENDOR_ID_VIA) {
-            via_155f(regs);
-            return;
-        }
+    if (!CONFIG_VGAHOOKS) {
+        handle_155fXX(regs);
+        return;
     }
 
-fail:
-    handle_155fXX(regs);
+    int htype = GET_GLOBAL(VGAHookHandlerType);
+    switch (htype) {
+    case VH_VIA:   via_155f(regs); break;
+    case VH_INTEL: intel_155f(regs); break;
+    default:       handle_155fXX(regs); break;
+    }
 }
 
 // Setup
 void
-vgahook_setup(const char *vendor, const char *part)
+vgahook_setup(struct pci_device *pci)
 {
-    int i;
-
-    if (! CONFIG_VGAHOOKS)
+    if (!CONFIG_VGAHOOKS || !CBvendor || !CBpart)
         return;
 
-    for (i=0; i<(sizeof(mainboard_list) / sizeof(mainboard_list[0])); i++) {
-        if (!strcmp(vendor, mainboard_list[i].vendor) &&
-            !strcmp(part, mainboard_list[i].device)) {
-            printf("Found mainboard %s %s\n", vendor, part);
-            CBmainboard = mainboard_list[i].type;
-            break;
-        }
-    }
+    if (strcmp(CBvendor, "KONTRON") == 0 && strcmp(CBpart, "986LCD-M") == 0)
+        kontron_setup(pci);
+    else if (strcmp(CBvendor, "GETAC") == 0 && strcmp(CBpart, "P470") == 0)
+        getac_setup(pci);
+    else if (strcmp(CBvendor, "RODA") == 0 && strcmp(CBpart, "RK886EX") == 0)
+        roda_setup(pci);
+    else if (pci->vendor == PCI_VENDOR_ID_VIA)
+        via_setup(pci);
 }
