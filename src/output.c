@@ -115,7 +115,7 @@ screenc(char c)
 static void
 putc_screen(struct putcinfo *action, char c)
 {
-    if (CONFIG_SCREEN_AND_DEBUG)
+    if (ScreenAndDebug)
         putc_debug(&debuginfo, c);
     if (c == '\n')
         screenc('\r');
@@ -363,7 +363,7 @@ printf(const char *fmt, ...)
     va_start(args, fmt);
     bvprintf(&screeninfo, fmt, args);
     va_end(args);
-    if (CONFIG_SCREEN_AND_DEBUG)
+    if (ScreenAndDebug)
         debug_serial_flush();
 }
 

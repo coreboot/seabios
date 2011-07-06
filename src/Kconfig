@@ -346,12 +346,4 @@ menu "Debugging"
         default 0x3f8
         help
             Base port for serial - generally 0x3f8, 0x2f8, 0x3e8, or 0x2e8.
-
-    config SCREEN_AND_DEBUG
-        depends on DEBUG_LEVEL != 0
-        bool "Show screen writes on debug ports"
-        default y
-        help
-            Send characters that SeaBIOS writes to the screen to the
-            debug ports.
 endmenu

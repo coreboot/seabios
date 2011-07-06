@@ -416,6 +416,7 @@ void optionrom_setup(void);
 void vga_setup(void);
 void s3_resume_vga_init(void);
 extern u32 RomEnd;
+extern int ScreenAndDebug;
 
 // bootsplash.c
 void enable_vga_console(void);

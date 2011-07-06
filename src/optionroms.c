@@ -462,6 +462,7 @@ optionrom_setup(void)
  ****************************************************************/
 
 static int S3ResumeVgaInit;
+int ScreenAndDebug;
 
 // Call into vga code to turn on console.
 void
@@ -472,8 +473,10 @@ vga_setup(void)
 
     dprintf(1, "Scan for VGA option rom\n");
 
+    // Load some config settings that impact VGA.
     EnforceChecksum = romfile_loadint("etc/optionroms-checksum", 1);
     S3ResumeVgaInit = romfile_loadint("etc/s3-resume-vga-init", 0);
+    ScreenAndDebug = romfile_loadint("etc/screen-and-debug", 1);
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
         // Option roms are already deployed on the system.
