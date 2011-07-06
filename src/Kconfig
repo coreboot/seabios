@@ -126,14 +126,6 @@ menu "Hardware support"
         default y
         help
             Support PS2 ports (keyboard and mouse).
-    config PS2_KEYBOARD_SPINUP
-        depends on PS2PORT && COREBOOT
-        int "Extra time (in ms) to allow a keyboard to initialize"
-        default 0
-        help
-            Some PS2 keyboards don't respond to commands immediately
-            after powering on.  Specify a positive value here to allow
-            additional time for the keyboard to become responsive.
 
     config USB
         bool "USB"

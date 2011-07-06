@@ -7,6 +7,7 @@
 
 #include "ioport.h" // inb
 #include "util.h" // dprintf
+#include "paravirt.h" // romfile_loadint
 #include "biosvar.h" // GET_EBDA
 #include "ps2port.h" // ps2_kbd_command
 #include "pic.h" // eoi_pic1
@@ -438,13 +439,14 @@ keyboard_init(void *data)
 
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
-    u64 end = calc_future_tsc(CONFIG_PS2_KEYBOARD_SPINUP);
+    int spinupdelay = romfile_loadint("etc/ps2-keyboard-spinup", 0);
+    u64 end = calc_future_tsc(spinupdelay);
     for (;;) {
         ret = ps2_kbd_command(ATKBD_CMD_RESET_BAT, param);
         if (!ret)
             break;
         if (check_tsc(end)) {
-            if (CONFIG_PS2_KEYBOARD_SPINUP)
+            if (spinupdelay)
                 warn_timeout();
             return;
         }
