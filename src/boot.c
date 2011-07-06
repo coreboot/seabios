@@ -377,6 +377,8 @@ boot_add_cbfs(void *data, const char *desc, int prio)
  * Boot menu and BCV execution
  ****************************************************************/
 
+#define DEFAULT_BOOTMENU_WAIT 2500
+
 // Show IPL option menu.
 static void
 interactive_bootmenu(void)
@@ -389,8 +391,9 @@ interactive_bootmenu(void)
 
     printf("Press F12 for boot menu.\n\n");
 
+    u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
     enable_bootsplash();
-    int scan_code = get_keystroke(CONFIG_BOOTMENU_WAIT);
+    int scan_code = get_keystroke(menutime);
     disable_bootsplash();
     if (scan_code != 0x86)
         /* not F12 */

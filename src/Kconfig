@@ -46,12 +46,6 @@ menu "General Features"
         default y
         help
             Support an interactive boot menu at end of post.
-    config BOOTMENU_WAIT
-        depends on BOOTMENU
-        int "Bootmenu delay"
-        default 2500
-        help
-            Amount of time (in ms) to wait at menu before selecting normal boot.
     config BOOTSPLASH
         depends on BOOTMENU
         bool "Graphical boot splash screen"
