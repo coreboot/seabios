@@ -1,6 +1,7 @@
 #ifndef __PV_H
 #define __PV_H
 
+#include "config.h" // CONFIG_COREBOOT
 #include "util.h"
 
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It

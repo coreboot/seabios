@@ -8,8 +8,8 @@
 #include "pci.h" // pci_config_writel
 #include "ioport.h" // outl
 #include "util.h" // dprintf
-#include "config.h" // CONFIG_*
-#include "farptr.h" // CONFIG_*
+#include "paravirt.h" // romfile_loadint
+#include "farptr.h" // MAKE_FLATPTR
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 
@@ -96,9 +96,9 @@ pci_probe(void)
     struct pci_device *busdevs[256];
     memset(busdevs, 0, sizeof(busdevs));
     struct pci_device **pprev = &PCIDevices;
+    int extraroots = romfile_loadint("etc/extra-pci-roots", 0);
     int bus = -1, lastbus = 0, rootbuses = 0, count=0;
-    while (bus < 0xff && (bus < MaxPCIBus
-                          || rootbuses < CONFIG_EXTRA_PCI_ROOTS)) {
+    while (bus < 0xff && (bus < MaxPCIBus || rootbuses < extraroots)) {
         bus++;
         int bdf;
         foreachbdf(bdf, bus) {
