@@ -281,12 +281,6 @@ menu "BIOS interfaces"
         default y
         help
             Support S3 resume handler.
-    config S3_RESUME_VGA_INIT
-        depends on S3_RESUME
-        bool "Run VGA rom on S3 resume"
-        default n
-        help
-            Run the vga rom during S3 resume.
 
     config VGAHOOKS
         depends on COREBOOT
