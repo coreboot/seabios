@@ -101,6 +101,7 @@ static inline const char* romfile_name(u32 fileid) {
     return qemu_cfg_name_file(fileid);
 }
 void *romfile_loadfile(const char *name, int *psize);
+u64 romfile_loadint(const char *name, u64 defval);
 
 u32 qemu_cfg_e820_entries(void);
 void* qemu_cfg_e820_load_next(void *addr);

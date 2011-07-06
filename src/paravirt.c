@@ -409,3 +409,22 @@ romfile_loadfile(const char *name, int *psize)
     data[filesize] = '\0';
     return data;
 }
+
+// Attempt to load an integer from the given file - return 'defval'
+// if unsuccesful.
+u64
+romfile_loadint(const char *name, u64 defval)
+{
+    u32 file = romfile_find(name);
+    if (!file)
+        return defval;
+
+    int filesize = romfile_size(file);
+    if (!filesize || filesize > sizeof(u64) || (filesize & (filesize-1)))
+        // Doesn't look like a valid integer.
+        return defval;
+
+    u64 val = 0;
+    romfile_copy(file, &val, sizeof(val));
+    return val;
+}
