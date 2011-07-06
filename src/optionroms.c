@@ -116,6 +116,8 @@ call_bcv(u16 seg, u16 ip)
     __callrom(MAKE_FLATPTR(seg, 0), ip, 0);
 }
 
+static int EnforceChecksum;
+
 // Verify that an option rom looks valid
 static int
 is_valid_rom(struct rom_header *rom)
@@ -131,7 +133,7 @@ is_valid_rom(struct rom_header *rom)
     if (sum != 0) {
         dprintf(1, "Found option rom with bad checksum: loc=%p len=%d sum=%x\n"
                 , rom, len, sum);
-        if (CONFIG_OPTIONROMS_CHECKSUM)
+        if (EnforceChecksum)
             return 0;
     }
     return 1;
@@ -467,6 +469,8 @@ vga_setup(void)
         return;
 
     dprintf(1, "Scan for VGA option rom\n");
+
+    EnforceChecksum = romfile_loadint("etc/optionroms-checksum", 1);
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
         // Option roms are already deployed on the system.
