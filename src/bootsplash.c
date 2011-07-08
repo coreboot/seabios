@@ -256,7 +256,8 @@ enable_bootsplash(void)
 
     if (type == 0) {
         dprintf(5, "Decompressing bootsplash.jpg\n");
-        ret = jpeg_show(jpeg, picture, width, height, depth);
+        ret = jpeg_show(jpeg, picture, width, height, depth,
+                            mode_info->bytes_per_scanline);
         if (ret) {
             dprintf(1, "jpeg_show failed with return code %d...\n", ret);
             goto done;
