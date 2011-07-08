@@ -15,12 +15,12 @@ SRCBOTH=misc.c pmm.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
         kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
         usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
-        virtio-ring.c virtio-pci.c virtio-blk.c apm.c ahci.c
+        virtio-ring.c virtio-pci.c virtio-blk.c apm.c ahci.c bmp.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
       acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
       lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c \
-      pci_region.c biostables.c xen.c
+      pci_region.c biostables.c xen.c bmp.c
 SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
 
 cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
