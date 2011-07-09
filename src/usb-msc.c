@@ -12,7 +12,6 @@
 #include "blockcmd.h" // cdb_read
 #include "disk.h" // DTYPE_USB
 #include "boot.h" // boot_add_hd
-#include "pci.h" // struct pci_device
 
 struct usbdrive_s {
     struct drive_s drive;
@@ -146,7 +145,7 @@ setup_drive_cdrom(struct disk_op_s *op, char *desc)
     op->drive_g->sectors = (u64)-1;
     struct usb_pipe *pipe = container_of(
         op->drive_g, struct usbdrive_s, drive)->bulkout;
-    int prio = bootprio_find_usb(pipe->cntl->pci->bdf, pipe->path);
+    int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
     boot_add_cd(op->drive_g, desc, prio);
     return 0;
 }
@@ -174,7 +173,7 @@ setup_drive_hd(struct disk_op_s *op, char *desc)
     // Register with bcv system.
     struct usb_pipe *pipe = container_of(
         op->drive_g, struct usbdrive_s, drive)->bulkout;
-    int prio = bootprio_find_usb(pipe->cntl->pci->bdf, pipe->path);
+    int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
     boot_add_hd(op->drive_g, desc, prio);
 
     return 0;

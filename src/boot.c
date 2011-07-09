@@ -193,14 +193,14 @@ int bootprio_find_named_rom(const char *name, int instance)
     return find_prio(desc);
 }
 
-int bootprio_find_usb(int bdf, u64 path)
+int bootprio_find_usb(struct pci_device *pci, u64 path)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
     // Find usb - for example: /pci@i0cf8/usb@1,2/hub@1/network@0/ethernet@0
     int i;
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "usb", find_pci(bdf));
+    p = build_pci_path(desc, sizeof(desc), "usb", pci);
     for (i=56; i>0; i-=8) {
         int port = (path >> i) & 0xff;
         if (port != 0xff)
