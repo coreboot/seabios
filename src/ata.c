@@ -776,7 +776,7 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
 
     // fill cdidmap
     if (iscd) {
-        int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_bdf,
+        int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_tmp,
                                             adrive_g->chan_gf->chanid,
                                             adrive_g->slave);
         boot_add_cd(&adrive_g->drive, desc, prio);
@@ -826,7 +826,7 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
                           , (u32)adjsize, adjprefix);
     dprintf(1, "%s\n", desc);
 
-    int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_bdf,
+    int prio = bootprio_find_ata_device(adrive_g->chan_gf->pci_tmp,
                                         adrive_g->chan_gf->chanid,
                                         adrive_g->slave);
     // Register with bcv system.
@@ -941,7 +941,8 @@ ata_detect(void *data)
 
 // Initialize an ata controller and detect its drives.
 static void
-init_controller(int bdf, int irq, u32 port1, u32 port2, u32 master)
+init_controller(struct pci_device *pci, int irq
+                , u32 port1, u32 port2, u32 master)
 {
     static int chanid = 0;
     struct ata_channel_s *chan_gf = malloc_fseg(sizeof(*chan_gf));
@@ -951,12 +952,13 @@ init_controller(int bdf, int irq, u32 port1, u32 port2, u32 master)
     }
     chan_gf->chanid = chanid++;
     chan_gf->irq = irq;
-    chan_gf->pci_bdf = bdf;
+    chan_gf->pci_bdf = pci ? pci->bdf : -1;
+    chan_gf->pci_tmp = pci;
     chan_gf->iobase1 = port1;
     chan_gf->iobase2 = port2;
     chan_gf->iomaster = master;
     dprintf(1, "ATA controller %d at %x/%x/%x (irq %d dev %x)\n"
-            , chanid, port1, port2, master, irq, bdf);
+            , chanid, port1, port2, master, irq, chan_gf->pci_bdf);
     run_thread(ata_detect, chan_gf);
 }
 
@@ -992,7 +994,7 @@ init_pciata(struct pci_device *pci, u8 prog_if)
         port2 = PORT_ATA1_CTRL_BASE;
         irq = IRQ_ATA1;
     }
-    init_controller(bdf, irq, port1, port2, master);
+    init_controller(pci, irq, port1, port2, master);
 
     if (prog_if & 4) {
         port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_2)
@@ -1005,7 +1007,7 @@ init_pciata(struct pci_device *pci, u8 prog_if)
         port2 = PORT_ATA2_CTRL_BASE;
         irq = IRQ_ATA2;
     }
-    init_controller(bdf, irq, port1, port2, master ? master + 8 : 0);
+    init_controller(pci, irq, port1, port2, master ? master + 8 : 0);
 }
 
 static void
@@ -1037,9 +1039,9 @@ ata_init(void)
     if (!CONFIG_COREBOOT && !PCIDevices) {
         // No PCI devices found - probably a QEMU "-M isapc" machine.
         // Try using ISA ports for ATA controllers.
-        init_controller(-1, IRQ_ATA1
+        init_controller(NULL, IRQ_ATA1
                         , PORT_ATA1_CMD_BASE, PORT_ATA1_CTRL_BASE, 0);
-        init_controller(-1, IRQ_ATA2
+        init_controller(NULL, IRQ_ATA2
                         , PORT_ATA2_CMD_BASE, PORT_ATA2_CTRL_BASE, 0);
         return;
     }

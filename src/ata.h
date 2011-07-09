@@ -12,6 +12,7 @@ struct ata_channel_s {
     u8  irq;
     u8  chanid;
     int pci_bdf;
+    struct pci_device *pci_tmp;
 };
 
 struct atadrive_s {

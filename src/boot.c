@@ -141,16 +141,16 @@ int bootprio_find_pci_device(struct pci_device *pci)
     return find_prio(desc);
 }
 
-int bootprio_find_ata_device(int bdf, int chanid, int slave)
+int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
-    if (bdf == -1)
+    if (!pci)
         // support only pci machine for now
         return -1;
     // Find ata drive - for example: /pci@i0cf8/ide@1,1/drive@1/disk@0
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "*", find_pci(bdf));
+    p = build_pci_path(desc, sizeof(desc), "*", pci);
     snprintf(p, desc+sizeof(desc)-p, "/drive@%x/disk@%x", chanid, slave);
     return find_prio(desc);
 }
