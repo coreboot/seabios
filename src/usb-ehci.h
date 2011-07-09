@@ -2,7 +2,7 @@
 #define __USB_EHCI_H
 
 // usb-ehci.c
-int ehci_init(u16 bdf, int busid, int compbdf);
+int ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci);
 struct usb_pipe;
 void ehci_free_pipe(struct usb_pipe *p);
 struct usb_pipe *ehci_alloc_control_pipe(struct usb_pipe *dummy);

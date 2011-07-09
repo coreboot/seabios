@@ -204,16 +204,17 @@ free:
 }
 
 void
-ohci_init(u16 bdf, int busid)
+ohci_init(struct pci_device *pci, int busid)
 {
     if (! CONFIG_USB_OHCI)
         return;
     struct usb_ohci_s *cntl = malloc_tmphigh(sizeof(*cntl));
     memset(cntl, 0, sizeof(*cntl));
     cntl->usb.busid = busid;
-    cntl->usb.bdf = bdf;
+    cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_OHCI;
 
+    u16 bdf = pci->bdf;
     u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
     cntl->regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
 

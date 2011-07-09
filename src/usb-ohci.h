@@ -2,7 +2,7 @@
 #define __USB_OHCI_H
 
 // usb-ohci.c
-void ohci_init(u16 bdf, int busid);
+void ohci_init(struct pci_device *pci, int busid);
 struct usb_pipe;
 void ohci_free_pipe(struct usb_pipe *p);
 struct usb_pipe *ohci_alloc_control_pipe(struct usb_pipe *dummy);

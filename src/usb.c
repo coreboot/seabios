@@ -442,7 +442,7 @@ usb_setup(void)
             for (;;) {
                 if (pci_classprog(ehcipci) == PCI_CLASS_SERIAL_USB_EHCI) {
                     // Found an ehci controller.
-                    int ret = ehci_init(ehcipci->bdf, count++, pci->bdf);
+                    int ret = ehci_init(ehcipci, count++, pci);
                     if (ret)
                         // Error
                         break;
@@ -461,8 +461,8 @@ usb_setup(void)
         }
 
         if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
-            uhci_init(pci->bdf, count++);
+            uhci_init(pci, count++);
         else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
-            ohci_init(pci->bdf, count++);
+            ohci_init(pci, count++);
     }
 }
