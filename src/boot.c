@@ -98,22 +98,9 @@ find_prio(const char *glob)
 
 #define FW_PCI_DOMAIN "/pci@i0cf8"
 
-static struct pci_device *
-find_pci(u16 bdf)
-{
-    struct pci_device *pci;
-    foreachpci(pci) {
-        if (pci->bdf == bdf)
-            return pci;
-    }
-    return NULL;
-}
-
 static char *
 build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
 {
-    if (!pci)
-        return buf;
     // Build the string path of a bdf - for example: /pci@i0cf8/isa@1,2
     char *p = buf;
     if (pci->parent) {
