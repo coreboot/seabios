@@ -169,13 +169,13 @@ int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid)
     return find_prio(desc);
 }
 
-int bootprio_find_pci_rom(int bdf, int instance)
+int bootprio_find_pci_rom(struct pci_device *pci, int instance)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
     // Find pci rom - for example: /pci@i0cf8/scsi@3:rom2
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "*", find_pci(bdf));
+    p = build_pci_path(desc, sizeof(desc), "*", pci);
     if (instance)
         snprintf(p, desc+sizeof(desc)-p, ":rom%d", instance);
     return find_prio(desc);

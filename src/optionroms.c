@@ -230,7 +230,7 @@ getRomPriority(u64 *sources, struct rom_header *rom, int instance)
     if (!source)
         return -1;
     if (source & RS_PCIROM)
-        return bootprio_find_pci_rom(source, instance);
+        return bootprio_find_pci_rom((void*)(u32)source, instance);
     return bootprio_find_named_rom(romfile_name(source), instance);
 }
 
@@ -379,7 +379,7 @@ init_pcirom(struct pci_device *pci, int isvga, u64 *sources)
     if (! rom)
         // No ROM present.
         return -1;
-    setRomSource(sources, rom, RS_PCIROM | bdf);
+    setRomSource(sources, rom, RS_PCIROM | (u32)pci);
     return init_optionrom(rom, bdf, isvga);
 }
 
