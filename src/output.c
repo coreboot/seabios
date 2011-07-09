@@ -49,7 +49,7 @@ debug_serial(char c)
     if (!CONFIG_DEBUG_SERIAL)
         return;
     int timeout = DEBUG_TIMEOUT;
-    while ((inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LSR) & 0x60) != 0x60)
+    while ((inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LSR) & 0x20) != 0x20)
         if (!timeout--)
             // Ran out of time.
             return;
@@ -63,7 +63,7 @@ debug_serial_flush(void)
     if (!CONFIG_DEBUG_SERIAL)
         return;
     int timeout = DEBUG_TIMEOUT;
-    while ((inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LSR) & 0x40) != 0x40)
+    while ((inb(CONFIG_DEBUG_SERIAL_PORT+SEROFF_LSR) & 0x60) != 0x60)
         if (!timeout--)
             // Ran out of time.
             return;
