@@ -97,8 +97,9 @@ process_virtio_op(struct disk_op_s *op)
 }
 
 static void
-init_virtio_blk(u16 bdf)
+init_virtio_blk(struct pci_device *pci)
 {
+    u16 bdf = pci->bdf;
     dprintf(1, "found virtio-blk at %x:%x\n", pci_bdf_to_bus(bdf),
             pci_bdf_to_dev(bdf));
     struct virtiodrive_s *vdrive_g = malloc_fseg(sizeof(*vdrive_g));
@@ -153,7 +154,7 @@ init_virtio_blk(u16 bdf)
     char *desc = znprintf(MAXDESCSIZE, "Virtio disk PCI:%x:%x",
                           pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
 
-    boot_add_hd(&vdrive_g->drive, desc, bootprio_find_pci_device(bdf));
+    boot_add_hd(&vdrive_g->drive, desc, bootprio_find_pci_device(pci));
 
     vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
@@ -178,6 +179,6 @@ virtio_blk_setup(void)
         if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET
             || pci->device != PCI_DEVICE_ID_VIRTIO_BLK)
             continue;
-        init_virtio_blk(pci->bdf);
+        init_virtio_blk(pci);
     }
 }

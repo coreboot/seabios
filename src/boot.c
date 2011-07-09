@@ -131,13 +131,13 @@ build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
     return p;
 }
 
-int bootprio_find_pci_device(int bdf)
+int bootprio_find_pci_device(struct pci_device *pci)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
     // Find pci device - for example: /pci@i0cf8/ethernet@5
     char desc[256];
-    build_pci_path(desc, sizeof(desc), "*", find_pci(bdf));
+    build_pci_path(desc, sizeof(desc), "*", pci);
     return find_prio(desc);
 }
 
