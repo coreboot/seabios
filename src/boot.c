@@ -155,16 +155,16 @@ int bootprio_find_ata_device(int bdf, int chanid, int slave)
     return find_prio(desc);
 }
 
-int bootprio_find_fdc_device(int bdf, int port, int fdid)
+int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
-    if (bdf == -1)
+    if (!pci)
         // support only pci machine for now
         return -1;
     // Find floppy - for example: /pci@i0cf8/isa@1/fdc@03f1/floppy@0
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "isa", find_pci(bdf));
+    p = build_pci_path(desc, sizeof(desc), "isa", pci);
     snprintf(p, desc+sizeof(desc)-p, "/fdc@%04x/floppy@%x", port, fdid);
     return find_prio(desc);
 }
