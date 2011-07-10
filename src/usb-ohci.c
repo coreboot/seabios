@@ -209,6 +209,10 @@ ohci_init(struct pci_device *pci, int busid)
     if (! CONFIG_USB_OHCI)
         return;
     struct usb_ohci_s *cntl = malloc_tmphigh(sizeof(*cntl));
+    if (!cntl) {
+        warn_noalloc();
+        return;
+    }
     memset(cntl, 0, sizeof(*cntl));
     cntl->usb.busid = busid;
     cntl->usb.pci = pci;

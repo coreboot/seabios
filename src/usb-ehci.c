@@ -263,6 +263,10 @@ ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
     }
 
     struct usb_ehci_s *cntl = malloc_tmphigh(sizeof(*cntl));
+    if (!cntl) {
+        warn_noalloc();
+        return -1;
+    }
     memset(cntl, 0, sizeof(*cntl));
     cntl->usb.busid = busid;
     cntl->usb.pci = pci;
