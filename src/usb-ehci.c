@@ -50,6 +50,10 @@ ehci_note_port(struct usb_ehci_s *cntl)
         struct pci_device *pci = cntl->companion[i];
         if (!pci)
             break;
+
+        // ohci/uhci_init call pci_config_XXX - don't run from irq handler.
+        wait_preempt();
+
         if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
             uhci_init(pci, cntl->usb.busid + i);
         else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
