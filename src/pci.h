@@ -3,6 +3,9 @@
 
 #include "types.h" // u32
 
+#define PCI_ROM_SLOT 6
+#define PCI_NUM_REGIONS 7
+
 static inline u8 pci_bdf_to_bus(u16 bdf) {
     return bdf >> 8;
 }
@@ -48,6 +51,11 @@ struct pci_device {
     u8 prog_if, revision;
     u8 header_type;
     u8 secondary_bus;
+    struct {
+        u32 addr;
+        u32 size;
+        int is64;
+    } bars[PCI_NUM_REGIONS];
 
     // Local information on device.
     int have_driver;

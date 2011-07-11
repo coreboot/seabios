@@ -12,14 +12,82 @@
 #include "pci_regs.h" // PCI_COMMAND
 #include "xen.h" // usingXen
 
-#define PCI_ROM_SLOT 6
-#define PCI_NUM_REGIONS 7
+#define PCI_IO_INDEX_SHIFT 2
+#define PCI_MEM_INDEX_SHIFT 12
 
-static void pci_bios_init_device_in_bus(int bus);
+#define PCI_BRIDGE_IO_MIN      0x1000
+#define PCI_BRIDGE_MEM_MIN   0x100000
 
 static struct pci_region pci_bios_io_region;
 static struct pci_region pci_bios_mem_region;
 static struct pci_region pci_bios_prefmem_region;
+
+enum pci_region_type {
+    PCI_REGION_TYPE_IO,
+    PCI_REGION_TYPE_MEM,
+    PCI_REGION_TYPE_PREFMEM,
+    PCI_REGION_TYPE_COUNT,
+};
+
+static const char *region_type_name[] = {
+    [ PCI_REGION_TYPE_IO ]      = "io",
+    [ PCI_REGION_TYPE_MEM ]     = "mem",
+    [ PCI_REGION_TYPE_PREFMEM ] = "prefmem",
+};
+
+static struct pci_bus {
+    struct {
+        /* pci region stats */
+        u32 count[32 - PCI_MEM_INDEX_SHIFT];
+        u32 sum, max;
+        /* seconday bus region sizes */
+        u32 size;
+        /* pci region assignments */
+        u32 bases[32 - PCI_MEM_INDEX_SHIFT];
+        u32 base;
+    } r[PCI_REGION_TYPE_COUNT];
+} *busses;
+static int busses_count;
+
+static void pci_bios_init_device_in_bus(int bus);
+static void pci_bios_check_device_in_bus(int bus);
+static void pci_bios_init_bus_bases(struct pci_bus *bus);
+static void pci_bios_map_device_in_bus(int bus);
+
+static int pci_size_to_index(u32 size, enum pci_region_type type)
+{
+    int index = __fls(size);
+    int shift = (type == PCI_REGION_TYPE_IO) ?
+        PCI_IO_INDEX_SHIFT : PCI_MEM_INDEX_SHIFT;
+
+    if (index < shift)
+        index = shift;
+    index -= shift;
+    return index;
+}
+
+static u32 pci_index_to_size(int index, enum pci_region_type type)
+{
+    int shift = (type == PCI_REGION_TYPE_IO) ?
+        PCI_IO_INDEX_SHIFT : PCI_MEM_INDEX_SHIFT;
+
+    return 0x1 << (index + shift);
+}
+
+static enum pci_region_type pci_addr_to_type(u32 addr)
+{
+    if (addr & PCI_BASE_ADDRESS_SPACE_IO)
+        return PCI_REGION_TYPE_IO;
+    if (addr & PCI_BASE_ADDRESS_MEM_PREFETCH)
+        return PCI_REGION_TYPE_PREFMEM;
+    return PCI_REGION_TYPE_MEM;
+}
+
+static u32 pci_size_roundup(u32 size)
+{
+    int index = __fls(size-1)+1;
+    return 0x1 << index;
+}
 
 /* host irqs corresponding to PCI irqs A-D */
 const u8 pci_irqs[4] = {
@@ -440,6 +508,223 @@ pci_bios_init_bus(void)
 {
     u8 pci_bus = 0;
     pci_bios_init_bus_rec(0 /* host bus */, &pci_bus);
+    busses_count = pci_bus + 1;
+}
+
+static void pci_bios_bus_get_bar(struct pci_bus *bus, int bdf, int bar,
+                                 u32 *val, u32 *size)
+{
+    u32 ofs = pci_bar(bdf, bar);
+    u32 old = pci_config_readl(bdf, ofs);
+    u32 mask;
+
+    if (bar == PCI_ROM_SLOT) {
+        mask = PCI_ROM_ADDRESS_MASK;
+        pci_config_writel(bdf, ofs, mask);
+    } else {
+        if (old & PCI_BASE_ADDRESS_SPACE_IO)
+            mask = PCI_BASE_ADDRESS_IO_MASK;
+        else
+            mask = PCI_BASE_ADDRESS_MEM_MASK;
+        pci_config_writel(bdf, ofs, ~0);
+    }
+    *val = pci_config_readl(bdf, ofs);
+    pci_config_writel(bdf, ofs, old);
+    *size = (~(*val & mask)) + 1;
+}
+
+static void pci_bios_bus_reserve(struct pci_bus *bus, int type, u32 size)
+{
+    u32 index;
+
+    index = pci_size_to_index(size, type);
+    size = pci_index_to_size(index, type);
+    bus->r[type].count[index]++;
+    bus->r[type].sum += size;
+    if (bus->r[type].max < size)
+        bus->r[type].max = size;
+}
+
+static u32 pci_bios_bus_get_addr(struct pci_bus *bus, int type, u32 size)
+{
+    u32 index, addr;
+
+    index = pci_size_to_index(size, type);
+    addr = bus->r[type].bases[index];
+    bus->r[type].bases[index] += pci_index_to_size(index, type);
+    return addr;
+}
+
+static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
+{
+    u16 bdf = dev->bdf;
+    u32 limit;
+    int i,type;
+
+    if (dev->class == PCI_CLASS_BRIDGE_PCI) {
+        if (dev->secondary_bus >= busses_count) {
+            /* should never trigger */
+            dprintf(1, "PCI: bus count too small (%d), skipping bus #%d\n",
+                    busses_count, dev->secondary_bus);
+            return;
+        }
+        struct pci_bus *s = busses + dev->secondary_bus;
+        pci_bios_check_device_in_bus(dev->secondary_bus);
+        for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
+            limit = (type == PCI_REGION_TYPE_IO) ?
+                PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
+            s->r[type].size = s->r[type].sum;
+            if (s->r[type].size < limit)
+                s->r[type].size = limit;
+            s->r[type].size = pci_size_roundup(s->r[type].size);
+            pci_bios_bus_reserve(bus, type, s->r[type].size);
+        }
+        dprintf(1, "PCI: secondary bus %d sizes: io %x, mem %x, prefmem %x\n",
+                dev->secondary_bus,
+                s->r[PCI_REGION_TYPE_IO].size,
+                s->r[PCI_REGION_TYPE_MEM].size,
+                s->r[PCI_REGION_TYPE_PREFMEM].size);
+        return;
+    }
+
+    for (i = 0; i < PCI_NUM_REGIONS; i++) {
+        u32 val, size;
+        pci_bios_bus_get_bar(bus, bdf, i, &val, &size);
+        if (val == 0) {
+            continue;
+        }
+        pci_bios_bus_reserve(bus, pci_addr_to_type(val), size);
+        dev->bars[i].addr = val;
+        dev->bars[i].size = size;
+        dev->bars[i].is64 = (!(val & PCI_BASE_ADDRESS_SPACE_IO) &&
+            (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64);
+
+        if (dev->bars[i].is64) {
+            i++;
+        }
+    }
+}
+
+static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
+{
+    int type, i;
+
+    if (dev->class == PCI_CLASS_BRIDGE_PCI) {
+        if (dev->secondary_bus >= busses_count) {
+            return;
+        }
+        struct pci_bus *s = busses + dev->secondary_bus;
+
+        for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
+            s->r[type].base = pci_bios_bus_get_addr(bus, type, s->r[type].size);
+        }
+        dprintf(1, "PCI: init bases bus %d (secondary)\n", dev->secondary_bus);
+        pci_bios_init_bus_bases(s);
+        /* TODO: commit assignments */
+
+        pci_bios_map_device_in_bus(dev->secondary_bus);
+        return;
+    }
+
+    for (i = 0; i < PCI_NUM_REGIONS; i++) {
+        u32 addr;
+        if (dev->bars[i].addr == 0) {
+            continue;
+        }
+
+        addr = pci_bios_bus_get_addr(bus, pci_addr_to_type(dev->bars[i].addr),
+                                     dev->bars[i].size);
+        dprintf(1, "  bar %d, addr %x, size %x [%s]\n",
+                i, addr, dev->bars[i].size,
+                dev->bars[i].addr & PCI_BASE_ADDRESS_SPACE_IO ? "io" : "mem");
+        /* TODO: commit assignments */
+
+        if (dev->bars[i].is64) {
+            i++;
+        }
+    }
+}
+
+static void pci_bios_check_device_in_bus(int bus)
+{
+    struct pci_device *pci;
+
+    dprintf(1, "PCI: check devices bus %d\n", bus);
+    foreachpci(pci) {
+        if (pci_bdf_to_bus(pci->bdf) != bus)
+            continue;
+        pci_bios_check_device(&busses[bus], pci);
+    }
+}
+
+static void pci_bios_map_device_in_bus(int bus)
+{
+    struct pci_device *pci;
+
+    foreachpci(pci) {
+        if (pci_bdf_to_bus(pci->bdf) != bus)
+            continue;
+        dprintf(1, "PCI: map device bus %d, bfd 0x%x\n", bus, pci->bdf);
+        pci_bios_map_device(&busses[bus], pci);
+    }
+}
+
+static void pci_bios_init_bus_bases(struct pci_bus *bus)
+{
+    u32 base, newbase, size;
+    int type, i;
+
+    for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
+        dprintf(1, "  type %s max %x sum %x base %x\n", region_type_name[type],
+                bus->r[type].max, bus->r[type].sum, bus->r[type].base);
+        base = bus->r[type].base;
+        for (i = ARRAY_SIZE(bus->r[type].count)-1; i >= 0; i--) {
+            size = pci_index_to_size(i, type);
+            if (!bus->r[type].count[i])
+                continue;
+            newbase = base + size * bus->r[type].count[i];
+            dprintf(1, "    size %8x: %d bar(s), %8x -> %8x\n",
+                    size, bus->r[type].count[i], base, newbase - 1);
+            bus->r[type].bases[i] = base;
+            base = newbase;
+        }
+    }
+}
+
+#define ROOT_BASE(top, sum, align) ALIGN_DOWN((top)-(sum),(align))
+
+static int pci_bios_init_root_regions(u32 start, u32 end)
+{
+    struct pci_bus *bus = &busses[0];
+
+    bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
+
+    if (bus->r[PCI_REGION_TYPE_MEM].sum < bus->r[PCI_REGION_TYPE_PREFMEM].sum) {
+        bus->r[PCI_REGION_TYPE_MEM].base =
+            ROOT_BASE(end,
+                      bus->r[PCI_REGION_TYPE_MEM].sum,
+                      bus->r[PCI_REGION_TYPE_MEM].max);
+        bus->r[PCI_REGION_TYPE_PREFMEM].base =
+            ROOT_BASE(bus->r[PCI_REGION_TYPE_MEM].base,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
+        if (bus->r[PCI_REGION_TYPE_PREFMEM].base >= start) {
+            return 0;
+        }
+    } else {
+        bus->r[PCI_REGION_TYPE_PREFMEM].base =
+            ROOT_BASE(end,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
+        bus->r[PCI_REGION_TYPE_MEM].base =
+            ROOT_BASE(bus->r[PCI_REGION_TYPE_PREFMEM].base,
+                      bus->r[PCI_REGION_TYPE_MEM].sum,
+                      bus->r[PCI_REGION_TYPE_MEM].max);
+        if (bus->r[PCI_REGION_TYPE_MEM].base >= start) {
+            return 0;
+        }
+    }
+    return -1;
 }
 
 void
@@ -453,19 +738,42 @@ pci_setup(void)
 
     dprintf(3, "pci setup\n");
 
+    u32 start = BUILD_PCIMEM_START;
+    u32 end   = BUILD_IOAPIC_ADDR;
+
     pci_region_init(&pci_bios_io_region, 0xc000, 64 * 1024 - 1);
     pci_region_init(&pci_bios_mem_region,
                     BUILD_PCIMEM_START, BUILD_PCIMEM_END - 1);
     pci_region_init(&pci_bios_prefmem_region,
                     BUILD_PCIPREFMEM_START, BUILD_PCIPREFMEM_END - 1);
 
+    dprintf(1, "=== PCI bus & bridge init ===\n");
     pci_bios_init_bus();
 
+    dprintf(1, "=== PCI device probing ===\n");
     pci_probe();
 
+    dprintf(1, "=== PCI new allocation pass #1 ===\n");
+    busses = malloc_tmp(sizeof(*busses) * busses_count);
+    memset(busses, 0, sizeof(*busses) * busses_count);
+    pci_bios_check_device_in_bus(0 /* host bus */);
+    if (pci_bios_init_root_regions(start, end) != 0) {
+        dprintf(1, "PCI: out of address space\n");
+        /* Hmm, what do now? */
+    }
+
+    dprintf(1, "=== PCI new allocation pass #2 ===\n");
+    dprintf(1, "PCI: init bases bus 0 (primary)\n");
+    pci_bios_init_bus_bases(&busses[0]);
+    pci_bios_map_device_in_bus(0 /* host bus */);
+
+    dprintf(1, "=== PCI old allocation pass ===\n");
     struct pci_device *pci;
     foreachpci(pci) {
         pci_init_device(pci_isa_bridge_tbl, pci, NULL);
     }
     pci_bios_init_device_in_bus(0 /* host bus */);
+
+    free(busses);
+    busses_count = 0;
 }
