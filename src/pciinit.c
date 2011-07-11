@@ -18,10 +18,6 @@
 #define PCI_BRIDGE_IO_MIN      0x1000
 #define PCI_BRIDGE_MEM_MIN   0x100000
 
-static struct pci_region pci_bios_io_region;
-static struct pci_region pci_bios_mem_region;
-static struct pci_region pci_bios_prefmem_region;
-
 enum pci_region_type {
     PCI_REGION_TYPE_IO,
     PCI_REGION_TYPE_MEM,
@@ -113,88 +109,6 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
     ofs = pci_bar(bdf, region_num);
 
     pci_config_writel(bdf, ofs, addr);
-    dprintf(1, "region %d: 0x%08x\n", region_num, addr);
-}
-
-/*
- * return value
- *      0:     32bit BAR
- *      non 0: 64bit BAR
- */
-static int pci_bios_allocate_region(u16 bdf, int region_num)
-{
-    return 0;
-
-    struct pci_region *r;
-    u32 ofs = pci_bar(bdf, region_num);
-
-    u32 old = pci_config_readl(bdf, ofs);
-    u32 mask;
-    if (region_num == PCI_ROM_SLOT) {
-        mask = PCI_ROM_ADDRESS_MASK;
-        pci_config_writel(bdf, ofs, mask);
-    } else {
-        if (old & PCI_BASE_ADDRESS_SPACE_IO)
-            mask = PCI_BASE_ADDRESS_IO_MASK;
-        else
-            mask = PCI_BASE_ADDRESS_MEM_MASK;
-        pci_config_writel(bdf, ofs, ~0);
-    }
-    u32 val = pci_config_readl(bdf, ofs);
-    pci_config_writel(bdf, ofs, old);
-
-    u32 size = (~(val & mask)) + 1;
-    if (val != 0) {
-        const char *type;
-        const char *msg;
-        if (val & PCI_BASE_ADDRESS_SPACE_IO) {
-            r = &pci_bios_io_region;
-            type = "io";
-            msg = "";
-        } else if ((val & PCI_BASE_ADDRESS_MEM_PREFETCH) &&
-                   /* keep behaviour on bus = 0 */
-                   pci_bdf_to_bus(bdf) != 0 &&
-                   /* If pci_bios_prefmem_addr == 0, keep old behaviour */
-                   pci_region_addr(&pci_bios_prefmem_region) != 0) {
-            r = &pci_bios_prefmem_region;
-            type = "prefmem";
-            msg = "decrease BUILD_PCIMEM_SIZE and recompile. size %x";
-        } else {
-            r = &pci_bios_mem_region;
-            type = "mem";
-            msg = "increase BUILD_PCIMEM_SIZE and recompile.";
-        }
-        u32 addr = pci_region_alloc(r, size);
-        if (addr > 0) {
-            pci_set_io_region_addr(bdf, region_num, addr);
-        } else {
-            size = 0;
-            dprintf(1,
-                    "%s region of (bdf 0x%x bar %d) can't be mapped. "
-                    "%s size %x\n",
-                    type, bdf, region_num, msg, pci_region_size(r));
-        }
-    }
-
-    int is_64bit = !(val & PCI_BASE_ADDRESS_SPACE_IO) &&
-        (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK) == PCI_BASE_ADDRESS_MEM_TYPE_64;
-    if (is_64bit && size > 0) {
-        pci_config_writel(bdf, ofs + 4, 0);
-    }
-    return is_64bit;
-}
-
-static void pci_bios_allocate_regions(struct pci_device *pci, void *arg)
-{
-    return;
-
-    int i;
-    for (i = 0; i < PCI_NUM_REGIONS; i++) {
-        int is_64bit = pci_bios_allocate_region(pci->bdf, i);
-        if (is_64bit){
-            i++;
-        }
-    }
 }
 
 /* return the global irq number corresponding to a given device irq
@@ -243,93 +157,6 @@ static const struct pci_device_id pci_isa_bridge_tbl[] = {
 #define PCI_PREF_MEMORY_ALIGN   (1UL << 20)
 #define PCI_PREF_MEMORY_SHIFT   16
 
-#if 0
-static void pci_bios_init_device_bridge(struct pci_device *pci, void *arg)
-{
-    u16 bdf = pci->bdf;
-    pci_bios_allocate_region(bdf, 0);
-    pci_bios_allocate_region(bdf, 1);
-    pci_bios_allocate_region(bdf, PCI_ROM_SLOT);
-
-    u32 io_old = pci_region_addr(&pci_bios_io_region);
-    u32 mem_old = pci_region_addr(&pci_bios_mem_region);
-    u32 prefmem_old = pci_region_addr(&pci_bios_prefmem_region);
-
-    /* IO BASE is assumed to be 16 bit */
-    if (pci_region_align(&pci_bios_io_region, PCI_IO_ALIGN) == 0) {
-        pci_region_disable(&pci_bios_io_region);
-    }
-    if (pci_region_align(&pci_bios_mem_region, PCI_MEMORY_ALIGN) == 0) {
-        pci_region_disable(&pci_bios_mem_region);
-    }
-    if (pci_region_align(&pci_bios_prefmem_region,
-                         PCI_PREF_MEMORY_ALIGN) == 0) {
-        pci_region_disable(&pci_bios_prefmem_region);
-    }
-
-    u32 io_base = pci_region_addr(&pci_bios_io_region);
-    u32 mem_base = pci_region_addr(&pci_bios_mem_region);
-    u32 prefmem_base = pci_region_addr(&pci_bios_prefmem_region);
-
-    u8 secbus = pci_config_readb(bdf, PCI_SECONDARY_BUS);
-    if (secbus > 0) {
-        pci_bios_init_device_in_bus(secbus);
-    }
-
-    u32 io_end = pci_region_align(&pci_bios_io_region, PCI_IO_ALIGN);
-    if (io_end == 0) {
-        pci_region_revert(&pci_bios_io_region, io_old);
-        io_base = 0xffff;
-        io_end = 1;
-    }
-    pci_config_writeb(bdf, PCI_IO_BASE, io_base >> PCI_IO_SHIFT);
-    pci_config_writew(bdf, PCI_IO_BASE_UPPER16, 0);
-    pci_config_writeb(bdf, PCI_IO_LIMIT, (io_end - 1) >> PCI_IO_SHIFT);
-    pci_config_writew(bdf, PCI_IO_LIMIT_UPPER16, 0);
-
-    u32 mem_end = pci_region_align(&pci_bios_mem_region, PCI_MEMORY_ALIGN);
-    if (mem_end == 0) {
-        pci_region_revert(&pci_bios_mem_region, mem_old);
-        mem_base = 0xffffffff;
-        mem_end = 1;
-    }
-    pci_config_writew(bdf, PCI_MEMORY_BASE, mem_base >> PCI_MEMORY_SHIFT);
-    pci_config_writew(bdf, PCI_MEMORY_LIMIT, (mem_end -1) >> PCI_MEMORY_SHIFT);
-
-    u32 prefmem_end = pci_region_align(&pci_bios_prefmem_region,
-                                       PCI_PREF_MEMORY_ALIGN);
-    if (prefmem_end == 0) {
-        pci_region_revert(&pci_bios_prefmem_region, prefmem_old);
-        prefmem_base = 0xffffffff;
-        prefmem_end = 1;
-    }
-    pci_config_writew(bdf, PCI_PREF_MEMORY_BASE,
-                      prefmem_base >> PCI_PREF_MEMORY_SHIFT);
-    pci_config_writew(bdf, PCI_PREF_MEMORY_LIMIT,
-                      (prefmem_end - 1) >> PCI_PREF_MEMORY_SHIFT);
-    pci_config_writel(bdf, PCI_PREF_BASE_UPPER32, 0);
-    pci_config_writel(bdf, PCI_PREF_LIMIT_UPPER32, 0);
-
-    dprintf(1, "PCI: br io   = [0x%x, 0x%x)\n", io_base, io_end);
-    dprintf(1, "PCI: br mem  = [0x%x, 0x%x)\n", mem_base, mem_end);
-    dprintf(1, "PCI: br pref = [0x%x, 0x%x)\n", prefmem_base, prefmem_end);
-
-    u16 cmd = pci_config_readw(bdf, PCI_COMMAND);
-    cmd &= ~PCI_COMMAND_IO;
-    if (io_end > io_base) {
-        cmd |= PCI_COMMAND_IO;
-    }
-    cmd &= ~PCI_COMMAND_MEMORY;
-    if (mem_end > mem_base || prefmem_end > prefmem_base) {
-        cmd |= PCI_COMMAND_MEMORY;
-    }
-    cmd |= PCI_COMMAND_MASTER;
-    pci_config_writew(bdf, PCI_COMMAND, cmd);
-
-    pci_config_maskw(bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_SERR);
-}
-#endif
-
 static void storage_ide_init(struct pci_device *pci, void *arg)
 {
     u16 bdf = pci->bdf;
@@ -346,7 +173,6 @@ static void piix_ide_init(struct pci_device *pci, void *arg)
     u16 bdf = pci->bdf;
     pci_config_writew(bdf, 0x40, 0x8000); // enable IDE0
     pci_config_writew(bdf, 0x42, 0x8000); // enable IDE1
-    pci_bios_allocate_regions(pci, NULL);
 }
 
 static void pic_ibm_init(struct pci_device *pci, void *arg)
@@ -379,15 +205,6 @@ static const struct pci_device_id pci_class_tbl[] = {
     /* 0xff00 */
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0017, 0xff00, apple_macio_init),
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0022, 0xff00, apple_macio_init),
-
-#if 0
-    /* PCI bridge */
-    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_BRIDGE_PCI,
-                     pci_bios_init_device_bridge),
-#endif
-
-    /* default */
-    PCI_DEVICE(PCI_ANY_ID, PCI_ANY_ID, pci_bios_allocate_regions),
 
     PCI_DEVICE_END,
 };
@@ -769,12 +586,6 @@ pci_setup(void)
     u32 start = BUILD_PCIMEM_START;
     u32 end   = BUILD_IOAPIC_ADDR;
 
-    pci_region_init(&pci_bios_io_region, 0xc000, 64 * 1024 - 1);
-    pci_region_init(&pci_bios_mem_region,
-                    BUILD_PCIMEM_START, BUILD_PCIMEM_END - 1);
-    pci_region_init(&pci_bios_prefmem_region,
-                    BUILD_PCIPREFMEM_START, BUILD_PCIPREFMEM_END - 1);
-
     dprintf(1, "=== PCI bus & bridge init ===\n");
     pci_bios_init_bus();
 
@@ -793,14 +604,6 @@ pci_setup(void)
     dprintf(1, "PCI: init bases bus 0 (primary)\n");
     pci_bios_init_bus_bases(&busses[0]);
     pci_bios_map_device_in_bus(0 /* host bus */);
-
-#if 0
-    dprintf(1, "=== PCI old allocation pass ===\n");
-    struct pci_device *pci;
-    foreachpci(pci) {
-        pci_init_device(pci_isa_bridge_tbl, pci, NULL);
-    }
-#endif
 
     pci_bios_init_device_in_bus(0 /* host bus */);
 

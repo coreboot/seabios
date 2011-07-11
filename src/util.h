@@ -353,35 +353,6 @@ void make_bios_writable(void);
 void make_bios_readonly(void);
 void qemu_prep_reset(void);
 
-// pci_region.c
-// region allocator. pci region allocates the requested region
-// sequentially with overflow check.
-struct pci_region {
-    // The region is [first, last].
-    u32 first;
-    u32 last;
-
-    // The next allocation starts from here.
-    // i.e. [start, cur_first) is allocated.
-    // Right after initialization cur_first == first.
-    u32 cur_first;
-};
-// initialize the pci_region of [first, last]
-// last must not be 0xffffffff
-void pci_region_init(struct pci_region *r, u32 first, u32 last);
-// allocate the region of size
-u32 pci_region_alloc(struct pci_region *r, u32 size);
-// make the next allocation aligned to align
-u32 pci_region_align(struct pci_region *r, u32 align);
-// revert the allocation to addr.
-void pci_region_revert(struct pci_region *r, u32 addr);
-// make the allocation fail.
-u32 pci_region_disable(struct pci_region *r);
-// returns the current allocation point.
-u32 pci_region_addr(const struct pci_region *r);
-// returns the region size.
-u32 pci_region_size(const struct pci_region *r);
-
 // pciinit.c
 extern const u8 pci_irqs[4];
 void pci_setup(void);
