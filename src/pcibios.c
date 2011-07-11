@@ -13,8 +13,8 @@
 #include "pci_regs.h" // PCI_VENDOR_ID
 
 // romlayout.S
-extern void bios32_entry(void);
-extern void pcibios32_entry(void);
+extern void entry_bios32(void);
+extern void entry_pcibios32(void);
 
 #define RET_FUNC_NOT_SUPPORTED 0x81
 #define RET_BAD_VENDOR_ID      0x83
@@ -29,7 +29,7 @@ handle_1ab101(struct bregs *regs)
     regs->bx = 0x0210; // PCI version 2.10
     regs->cl = GET_GLOBAL(MaxPCIBus);
     regs->edx = 0x20494350; // "PCI "
-    regs->edi = (u32)pcibios32_entry + BUILD_BIOS_ADDR;
+    regs->edi = (u32)entry_pcibios32 + BUILD_BIOS_ADDR;
     set_code_success(regs);
 }
 
@@ -232,6 +232,6 @@ bios32_setup(void)
 {
     dprintf(3, "init bios32\n");
 
-    BIOS32HEADER.entry = (u32)bios32_entry;
+    BIOS32HEADER.entry = (u32)entry_bios32;
     BIOS32HEADER.checksum -= checksum(&BIOS32HEADER, sizeof(BIOS32HEADER));
 }

@@ -311,8 +311,8 @@ entry_pnp_real:
         lretw
 
 // APM entry points
-        DECLFUNC apm16protected_entry
-apm16protected_entry:
+        DECLFUNC entry_apm16
+entry_apm16:
         pushfw          // save flags
         pushl %eax      // dummy
         ENTRY_ARG handle_apm16
@@ -321,8 +321,8 @@ apm16protected_entry:
         lretw
 
         .code32
-        DECLFUNC apm32protected_entry
-apm32protected_entry:
+        DECLFUNC entry_apm32
+entry_apm32:
         pushfl
         pushl %gs
         pushl %cs               // Move second descriptor after %cs to %gs
@@ -334,8 +334,8 @@ apm32protected_entry:
         lretl
 
 // PCI-BIOS 32bit entry point
-        DECLFUNC pcibios32_entry
-pcibios32_entry:
+        DECLFUNC entry_pcibios32
+entry_pcibios32:
         pushfl
         pushl %gs               // Backup %gs and set %gs=%ds
         pushl %ds
@@ -346,8 +346,8 @@ pcibios32_entry:
         lretl
 
 // BIOS32 support
-        EXPORTFUNC bios32_entry
-bios32_entry:
+        EXPORTFUNC entry_bios32
+entry_bios32:
         pushfl
 #if CONFIG_PCIBIOS
         // Check for PCI-BIOS request
@@ -355,7 +355,7 @@ bios32_entry:
         jne 1f
         movl $BUILD_BIOS_ADDR, %ebx
         movl $BUILD_BIOS_SIZE, %ecx
-        movl $pcibios32_entry, %edx
+        movl $entry_pcibios32, %edx
         xorb %al, %al
         jmp 2f
 #endif
@@ -366,8 +366,8 @@ bios32_entry:
         lretl
 
 // 32bit elf entry point
-        EXPORTFUNC post32
-post32:
+        EXPORTFUNC entry_elf
+entry_elf:
         cli
         cld
         lidtl (BUILD_BIOS_ADDR + pmode_IDT_info)

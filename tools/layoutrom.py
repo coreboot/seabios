@@ -571,7 +571,7 @@ def main():
     doLayout(sections)
 
     # Write out linker script files.
-    entrysym = info16[1]['post32']
+    entrysym = info16[1]['entry_elf']
     genreloc = '_reloc_abs_start' in info32flat[1]
     writeLinkerScripts(sections, entrysym, genreloc, out16, out32seg, out32flat)
 
