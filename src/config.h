@@ -40,7 +40,7 @@
 #define BUILD_BIOS_TMP_ADDR       0x30000
 #define BUILD_MAX_HIGHMEM         0xe0000000
 
-#define BUILD_PCIMEM_START        0xf0000000
+#define BUILD_PCIMEM_START        0xe0000000
 #define BUILD_PCIMEM_SIZE         (BUILD_PCIMEM_END - BUILD_PCIMEM_START)
 #define BUILD_PCIMEM_END          0xfec00000    /* IOAPIC is mapped at */
 
