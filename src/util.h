@@ -61,6 +61,15 @@ static inline void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
         : "0" (index));
 }
 
+static inline u32 getcr0(void) {
+    u32 cr0;
+    asm("movl %%cr0, %0" : "=r"(cr0));
+    return cr0;
+}
+static inline void setcr0(u32 cr0) {
+    asm("movl %0, %%cr0" : : "r"(cr0));
+}
+
 static inline u64 rdmsr(u32 index)
 {
     u64 ret;
@@ -424,6 +433,7 @@ void enable_bootsplash(void);
 void disable_bootsplash(void);
 
 // resume.c
+extern int HaveRunPost;
 void init_dma(void);
 
 // pnpbios.c

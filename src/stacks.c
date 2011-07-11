@@ -24,11 +24,6 @@ struct thread_info VAR32FLATVISIBLE MainThread = {
  * Low level helpers
  ****************************************************************/
 
-static inline u32 getcr0(void) {
-    u32 cr0;
-    asm("movl %%cr0, %0" : "=r"(cr0));
-    return cr0;
-}
 static inline void sgdt(struct descloc_s *desc) {
     asm("sgdtl %0" : "=m"(*desc));
 }

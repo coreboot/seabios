@@ -277,7 +277,7 @@ maininit(void)
 
 
 /****************************************************************
- * Code relocation
+ * POST entry and code relocation
  ****************************************************************/
 
 // Update given relocs for the code at 'dest' with a given 'delta'
@@ -289,8 +289,7 @@ updateRelocs(void *dest, u32 *rstart, u32 *rend, u32 delta)
         *((u32*)(dest + *reloc)) += delta;
 }
 
-// Start of Power On Self Test - the BIOS initilization.  This
-// function sets up for and attempts relocation of the init code.
+// Relocate init code and then call maininit() at new address.
 static void
 reloc_init(void)
 {
@@ -329,62 +328,22 @@ reloc_init(void)
 }
 
 // Start of Power On Self Test (POST) - the BIOS initilization phase.
-// This function sets up for and attempts relocation of the init code.
+// This function does the setup needed for code relocation, and then
+// invokes the relocation and main setup code.
 void VISIBLE32INIT
-post(void)
+handle_post(void)
 {
-    // Detect ram and setup internal malloc.
-    qemu_cfg_port_probe();
-    ram_probe();
-    malloc_setup();
-
-    reloc_init();
-}
-
-
-/****************************************************************
- * POST entry point
- ****************************************************************/
-
-static int HaveRunPost;
-
-// Attempt to invoke a hard-reboot.
-static void
-tryReboot(void)
-{
-    dprintf(1, "Attempting a hard reboot\n");
-
-    // Setup for reset on qemu.
-    if (! CONFIG_COREBOOT) {
-        qemu_prep_reset();
-        if (HaveRunPost)
-            apm_shutdown();
-    }
-
-    // Try keyboard controller reboot.
-    i8042_reboot();
-
-    // Try PCI 0xcf9 reboot
-    pci_reboot();
-
-    // Try triple fault
-    asm volatile("int3");
-
-    panic("Could not reboot");
-}
-
-// 32-bit entry point.
-void VISIBLE32FLAT
-_start(void)
-{
-    init_dma();
-
     debug_serial_setup();
     dprintf(1, "Start bios (version %s)\n", VERSION);
 
-    if (HaveRunPost)
-        // This is a soft reboot - invoke a hard reboot.
-        tryReboot();
+    // Enable CPU caching
+    setcr0(getcr0() & ~(CR0_CD|CR0_NW));
+
+    // Clear CMOS reboot flag.
+    outb_cmos(0, CMOS_RESET_CODE);
+
+    // Make sure legacy DMA isn't running.
+    init_dma();
 
     // Check if we are running under Xen.
     xen_probe();
@@ -393,6 +352,11 @@ _start(void)
     make_bios_writable();
     HaveRunPost = 1;
 
-    // Perform main setup code.
-    post();
+    // Detect ram and setup internal malloc.
+    qemu_cfg_port_probe();
+    ram_probe();
+    malloc_setup();
+
+    // Relocate initialization code and call maininit().
+    reloc_init();
 }

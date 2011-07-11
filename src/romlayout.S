@@ -230,63 +230,24 @@ __call16big_from32:
 
 
 /****************************************************************
- * POST entry point
+ * Misc. entry points.
  ****************************************************************/
 
-        DECLFUNC entry_post
-entry_post:
-        // Enable cache
-        movl %cr0, %eax
-        andl $~(CR0_CD|CR0_NW), %eax
-        movl %eax, %cr0
-
+// Resume (and reboot) entry point - called from entry_post
+        DECLFUNC entry_resume
+entry_resume:
         // Disable interrupts
         cli
         cld
-
-        // Check for restart indicator.
-        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
-        outb %al, $PORT_CMOS_INDEX
-        inb $PORT_CMOS_DATA, %al
-        cmpb $0x0, %al
-        jnz 1f
-
-        // Normal entry point
-        ENTRY_INTO32 _cfunc32flat__start
-
-        // Entry point when a post call looks like a resume.
-1:
-        // Save old shutdown status.
-        movl %eax, %ebx
-
-        // Clear shutdown status register.
-        movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
-        outb %al, $PORT_CMOS_INDEX
-        xorl %eax, %eax
-        outb %al, $PORT_CMOS_DATA
-
         // Use a stack in EBDA
         movw $SEG_BDA, %ax
         movw %ax, %ds
         movw BDA_ebda_seg, %ax
-
-        cmpw $EBDA_SEGMENT_START, %ax
-        jle 2f
-        // EBDA segment doesn't look valid - use startup value.
-        movw $EBDA_SEGMENT_START, %ax
-
-2:      movw %ax, %ds
+        movw %ax, %ds
         movw %ax, %ss
         movl $EBDA_OFFSET_TOP_STACK, %esp
-
         // Call handler.
-        movl %ebx, %eax
         jmp handle_resume
-
-
-/****************************************************************
- * Misc. entry points.
- ****************************************************************/
 
 // PMM entry point
         DECLFUNC entry_pmm
@@ -418,7 +379,7 @@ post32:
         movw %ax, %gs
         movw %ax, %ss
         movl $BUILD_STACK_ADDR, %esp
-        ljmpl $SEG32_MODE32_CS, $_cfunc32flat__start
+        ljmpl $SEG32_MODE32_CS, $_cfunc32flat_handle_post
 
         .code16gcc
 
@@ -494,8 +455,10 @@ entry_18:
         .endm
 
         ORG 0xe05b
-entry_post_official:
-        jmp entry_post
+entry_post:
+        cmpl $0, %cs:HaveRunPost                // Check for resume/reboot
+        jnz entry_resume
+        ENTRY_INTO32 _cfunc32flat_handle_post   // Normal entry point
 
         ORG 0xe2c3
         IRQ_ENTRY 02
@@ -578,7 +541,7 @@ entry_iret_official:
         ORG 0xfff0 // Power-up Entry Point
         .global reset_vector
 reset_vector:
-        ljmpw $SEG_BIOS, $entry_post_official
+        ljmpw $SEG_BIOS, $entry_post
 
         // 0xfff5 - BiosDate in misc.c
 
