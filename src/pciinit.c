@@ -123,6 +123,8 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
  */
 static int pci_bios_allocate_region(u16 bdf, int region_num)
 {
+    return 0;
+
     struct pci_region *r;
     u32 ofs = pci_bar(bdf, region_num);
 
@@ -184,6 +186,8 @@ static int pci_bios_allocate_region(u16 bdf, int region_num)
 
 static void pci_bios_allocate_regions(struct pci_device *pci, void *arg)
 {
+    return;
+
     int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
         int is_64bit = pci_bios_allocate_region(pci->bdf, i);
@@ -239,6 +243,7 @@ static const struct pci_device_id pci_isa_bridge_tbl[] = {
 #define PCI_PREF_MEMORY_ALIGN   (1UL << 20)
 #define PCI_PREF_MEMORY_SHIFT   16
 
+#if 0
 static void pci_bios_init_device_bridge(struct pci_device *pci, void *arg)
 {
     u16 bdf = pci->bdf;
@@ -323,6 +328,7 @@ static void pci_bios_init_device_bridge(struct pci_device *pci, void *arg)
 
     pci_config_maskw(bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_SERR);
 }
+#endif
 
 static void storage_ide_init(struct pci_device *pci, void *arg)
 {
@@ -374,9 +380,11 @@ static const struct pci_device_id pci_class_tbl[] = {
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0017, 0xff00, apple_macio_init),
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0022, 0xff00, apple_macio_init),
 
+#if 0
     /* PCI bridge */
     PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_BRIDGE_PCI,
                      pci_bios_init_device_bridge),
+#endif
 
     /* default */
     PCI_DEVICE(PCI_ANY_ID, PCI_ANY_ID, pci_bios_allocate_regions),
@@ -607,6 +615,7 @@ static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
 
 static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
 {
+    u16 bdf = dev->bdf;
     int type, i;
 
     if (dev->class == PCI_CLASS_BRIDGE_PCI) {
@@ -614,13 +623,32 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
             return;
         }
         struct pci_bus *s = busses + dev->secondary_bus;
+        u32 base, limit;
 
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             s->r[type].base = pci_bios_bus_get_addr(bus, type, s->r[type].size);
         }
         dprintf(1, "PCI: init bases bus %d (secondary)\n", dev->secondary_bus);
         pci_bios_init_bus_bases(s);
-        /* TODO: commit assignments */
+
+        base = s->r[PCI_REGION_TYPE_IO].base;
+        limit = base + s->r[PCI_REGION_TYPE_IO].size - 1;
+        pci_config_writeb(bdf, PCI_IO_BASE, base >> PCI_IO_SHIFT);
+        pci_config_writew(bdf, PCI_IO_BASE_UPPER16, 0);
+        pci_config_writeb(bdf, PCI_IO_LIMIT, limit >> PCI_IO_SHIFT);
+        pci_config_writew(bdf, PCI_IO_LIMIT_UPPER16, 0);
+
+        base = s->r[PCI_REGION_TYPE_MEM].base;
+        limit = base + s->r[PCI_REGION_TYPE_MEM].size - 1;
+        pci_config_writew(bdf, PCI_MEMORY_BASE, base >> PCI_MEMORY_SHIFT);
+        pci_config_writew(bdf, PCI_MEMORY_LIMIT, limit >> PCI_MEMORY_SHIFT);
+
+        base = s->r[PCI_REGION_TYPE_PREFMEM].base;
+        limit = base + s->r[PCI_REGION_TYPE_PREFMEM].size - 1;
+        pci_config_writew(bdf, PCI_PREF_MEMORY_BASE, base >> PCI_PREF_MEMORY_SHIFT);
+        pci_config_writew(bdf, PCI_PREF_MEMORY_LIMIT, limit >> PCI_PREF_MEMORY_SHIFT);
+        pci_config_writel(bdf, PCI_PREF_BASE_UPPER32, 0);
+        pci_config_writel(bdf, PCI_PREF_LIMIT_UPPER32, 0);
 
         pci_bios_map_device_in_bus(dev->secondary_bus);
         return;
@@ -637,7 +665,7 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
         dprintf(1, "  bar %d, addr %x, size %x [%s]\n",
                 i, addr, dev->bars[i].size,
                 dev->bars[i].addr & PCI_BASE_ADDRESS_SPACE_IO ? "io" : "mem");
-        /* TODO: commit assignments */
+        pci_set_io_region_addr(bdf, i, addr);
 
         if (dev->bars[i].is64) {
             i++;
@@ -758,8 +786,7 @@ pci_setup(void)
     memset(busses, 0, sizeof(*busses) * busses_count);
     pci_bios_check_device_in_bus(0 /* host bus */);
     if (pci_bios_init_root_regions(start, end) != 0) {
-        dprintf(1, "PCI: out of address space\n");
-        /* Hmm, what do now? */
+        panic("PCI: out of address space\n");
     }
 
     dprintf(1, "=== PCI new allocation pass #2 ===\n");
@@ -767,11 +794,14 @@ pci_setup(void)
     pci_bios_init_bus_bases(&busses[0]);
     pci_bios_map_device_in_bus(0 /* host bus */);
 
+#if 0
     dprintf(1, "=== PCI old allocation pass ===\n");
     struct pci_device *pci;
     foreachpci(pci) {
         pci_init_device(pci_isa_bridge_tbl, pci, NULL);
     }
+#endif
+
     pci_bios_init_device_in_bus(0 /* host bus */);
 
     free(busses);
