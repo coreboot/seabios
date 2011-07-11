@@ -584,7 +584,7 @@ pci_setup(void)
     dprintf(3, "pci setup\n");
 
     u32 start = BUILD_PCIMEM_START;
-    u32 end   = BUILD_IOAPIC_ADDR;
+    u32 end   = BUILD_PCIMEM_END;
 
     dprintf(1, "=== PCI bus & bridge init ===\n");
     pci_bios_init_bus();
