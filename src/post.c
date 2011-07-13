@@ -229,6 +229,9 @@ maininit(void)
     pci_setup();
     smm_init();
 
+    // Setup Xen hypercalls
+    xen_init_hypercalls();
+
     // Initialize internal tables
     boot_setup();
 
