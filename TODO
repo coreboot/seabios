@@ -1,5 +1,3 @@
-If POST is rerun, try to do a machine reboot.
-
 Review changes committed to coreboot, virtualbox, qemu, kvm, and bochs
 cvs tip.
   * bochs cvs (20100104):
@@ -12,9 +10,6 @@ cvs tip.
     -- lots of mouse changes, logo, scsi/etherboot hooks,
        floppy data rate?, int19 calls post
 
-Possibly move code from entry_post in romlayout.S to C code in
-handle_resume and always call 16bit C code on post.
-
 The __call16 code does a long jump to the interrupt trampolines - this
 is unnecessary.
 
@@ -22,8 +17,5 @@ Support PCIv3 roms?  Add support for PCI "configuration code"
 extensions?
 
 Possibly add option to eliminate tsc based delays on emulators.
-
-Add a kconfig style configuration program instead of requiring users
-to modify config.h.
 
 Possibly support sending debug information over EHCI debug port.
