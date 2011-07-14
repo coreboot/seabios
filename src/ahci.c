@@ -105,7 +105,7 @@ static void ahci_port_writel(struct ahci_ctrl_s *ctrl, u32 pnr, u32 reg, u32 val
 static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
                         void *buffer, u32 bsize)
 {
-    u32 val, status, success, flags;
+    u32 val, status, success, flags, intbits;
     struct ahci_ctrl_s *ctrl = GET_GLOBAL(port->ctrl);
     struct ahci_cmd_s  *cmd  = GET_GLOBAL(port->cmd);
     struct ahci_fis_s  *fis  = GET_GLOBAL(port->fis);
@@ -118,12 +118,6 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     SET_FLATPTR(cmd->prdt[0].baseu, 0);
     SET_FLATPTR(cmd->prdt[0].flags, bsize-1);
 
-    val = ahci_port_readl(ctrl, pnr, PORT_CMD);
-    ahci_port_writel(ctrl, pnr, PORT_CMD, val | PORT_CMD_START);
-
-    if (ahci_port_readl(ctrl, pnr, PORT_CMD_ISSUE))
-        return -1;
-
     flags = ((1 << 16) | /* one prd entry */
              (iswrite ? (1 << 6) : 0) |
              (isatapi ? (1 << 5) : 0) |
@@ -134,15 +128,31 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     SET_FLATPTR(list[0].baseu,  0);
 
     dprintf(2, "AHCI/%d: send cmd ...\n", pnr);
-    SET_FLATPTR(fis->rfis[2], 0);
+    intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
+    if (intbits)
+        ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, intbits);
     ahci_port_writel(ctrl, pnr, PORT_SCR_ACT, 1);
     ahci_port_writel(ctrl, pnr, PORT_CMD_ISSUE, 1);
-    while (ahci_port_readl(ctrl, pnr, PORT_CMD_ISSUE)) {
-        yield();
-    }
-    while ((status = GET_FLATPTR(fis->rfis[2])) == 0) {
-        yield();
-    }
+
+    do {
+        for (;;) {
+            intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
+            if (intbits) {
+                ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, intbits);
+                if (intbits & 0x02) {
+                    status = GET_FLATPTR(fis->psfis[2]);
+                    break;
+                }
+                if (intbits & 0x01) {
+                    status = GET_FLATPTR(fis->rfis[2]);
+                    break;
+                }
+            }
+            yield();
+        }
+        dprintf(2, "AHCI/%d: ... intbits 0x%x, status 0x%x ...\n",
+                pnr, intbits, status);
+    } while (status & ATA_CB_STAT_BSY);
 
     success = (0x00 == (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DF |
                                   ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR)) &&
@@ -329,7 +339,10 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
     ahci_port_writel(ctrl, pnr, PORT_LST_ADDR, (u32)port->list);
     ahci_port_writel(ctrl, pnr, PORT_FIS_ADDR, (u32)port->fis);
     val = ahci_port_readl(ctrl, pnr, PORT_CMD);
-    ahci_port_writel(ctrl, pnr, PORT_CMD, val | PORT_CMD_FIS_RX);
+    val |= PORT_CMD_FIS_RX;
+    ahci_port_writel(ctrl, pnr, PORT_CMD, val);
+    val |= PORT_CMD_START;
+    ahci_port_writel(ctrl, pnr, PORT_CMD, val);
 
     sata_prep_simple(&port->cmd->fis, ATA_CMD_IDENTIFY_PACKET_DEVICE);
     rc = ahci_command(port, 0, 0, buffer, sizeof(buffer));
