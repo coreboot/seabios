@@ -17,7 +17,9 @@
 #include "ahci.h" // CDB_CMD_READ_10
 #include "blockcmd.h" // CDB_CMD_READ_10
 
-#define AHCI_MAX_RETRIES 5
+#define AHCI_REQUEST_TIMEOUT 32000 // 32 seconds max for IDE ops
+#define AHCI_RESET_TIMEOUT     500 // 500 miliseconds
+#define AHCI_LINK_TIMEOUT       10 // 10 miliseconds
 
 /****************************************************************
  * these bits must run in both 16bit and 32bit modes
@@ -112,6 +114,7 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     struct ahci_fis_s  *fis  = GET_GLOBAL(port->fis);
     struct ahci_list_s *list = GET_GLOBAL(port->list);
     u32 pnr                  = GET_GLOBAL(port->pnr);
+    u64 end;
 
     SET_FLATPTR(cmd->fis.reg,       0x27);
     SET_FLATPTR(cmd->fis.pmp_type,  (1 << 7)); /* cmd fis */
@@ -135,6 +138,7 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     ahci_port_writel(ctrl, pnr, PORT_SCR_ACT, 1);
     ahci_port_writel(ctrl, pnr, PORT_CMD_ISSUE, 1);
 
+    end = calc_future_tsc(AHCI_REQUEST_TIMEOUT);
     do {
         for (;;) {
             intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
@@ -150,6 +154,10 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
                     error  = GET_FLATPTR(fis->rfis[3]);
                     break;
                 }
+            }
+            if (check_tsc(end)) {
+                warn_timeout();
+                return -1;
             }
             yield();
         }
@@ -347,62 +355,36 @@ int process_ahci_op(struct disk_op_s *op)
 static void
 ahci_port_reset(struct ahci_ctrl_s *ctrl, u32 pnr)
 {
-    u32 val, count = 0;
+    u32 val;
+    u64 end;
 
     /* disable FIS + CMD */
-    val = ahci_port_readl(ctrl, pnr, PORT_CMD);
-    while (val & (PORT_CMD_FIS_RX | PORT_CMD_START |
-                  PORT_CMD_FIS_ON | PORT_CMD_LIST_ON) &&
-           count < AHCI_MAX_RETRIES) {
+    end = calc_future_tsc(AHCI_RESET_TIMEOUT);
+    for (;;) {
+        val = ahci_port_readl(ctrl, pnr, PORT_CMD);
+        if (!(val & (PORT_CMD_FIS_RX | PORT_CMD_START |
+                     PORT_CMD_FIS_ON | PORT_CMD_LIST_ON)))
+            break;
         val &= ~(PORT_CMD_FIS_RX | PORT_CMD_START);
         ahci_port_writel(ctrl, pnr, PORT_CMD, val);
-        ndelay(500);
-        val = ahci_port_readl(ctrl, pnr, PORT_CMD);
-        count++;
+        if (check_tsc(end)) {
+            warn_timeout();
+            break;
+        }
+        yield();
     }
 
-    /* clear status */
-    val = ahci_port_readl(ctrl, pnr, PORT_SCR_ERR);
-    if (val)
-        ahci_port_writel(ctrl, pnr, PORT_SCR_ERR, val);
-
     /* disable + clear IRQs */
-    ahci_port_writel(ctrl, pnr, PORT_IRQ_MASK, val);
+    ahci_port_writel(ctrl, pnr, PORT_IRQ_MASK, 0);
     val = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
     if (val)
         ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, val);
 }
 
-static int
-ahci_port_probe(struct ahci_ctrl_s *ctrl, u32 pnr)
-{
-    u32 val, count = 0;
-
-    val = ahci_port_readl(ctrl, pnr, PORT_TFDATA);
-    while (val & ATA_CB_STAT_BSY) {
-        ndelay(500);
-        val = ahci_port_readl(ctrl, pnr, PORT_TFDATA);
-        count++;
-        if (count >= AHCI_MAX_RETRIES)
-            return -1;
-    }
-
-    val = ahci_port_readl(ctrl, pnr, PORT_SCR_STAT);
-    if ((val & 0x07) != 0x03)
-        return -1;
-    return 0;
-}
-
-#define MAXMODEL 40
-
 static struct ahci_port_s*
-ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
+ahci_port_alloc(struct ahci_ctrl_s *ctrl, u32 pnr)
 {
     struct ahci_port_s *port = malloc_fseg(sizeof(*port));
-    char model[MAXMODEL+1];
-    u16 buffer[256];
-    u32 val;
-    int rc;
 
     if (!port) {
         warn_noalloc();
@@ -410,9 +392,9 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
     }
     port->pnr = pnr;
     port->ctrl = ctrl;
-    port->list = memalign_low(1024, 1024);
-    port->fis = memalign_low(256, 256);
-    port->cmd = memalign_low(256, 256);
+    port->list = memalign_tmp(1024, 1024);
+    port->fis = memalign_tmp(256, 256);
+    port->cmd = memalign_tmp(256, 256);
     if (port->list == NULL || port->fis == NULL || port->cmd == NULL) {
         warn_noalloc();
         return NULL;
@@ -423,11 +405,97 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
 
     ahci_port_writel(ctrl, pnr, PORT_LST_ADDR, (u32)port->list);
     ahci_port_writel(ctrl, pnr, PORT_FIS_ADDR, (u32)port->fis);
-    val = ahci_port_readl(ctrl, pnr, PORT_CMD);
-    val |= PORT_CMD_FIS_RX;
-    ahci_port_writel(ctrl, pnr, PORT_CMD, val);
-    val |= PORT_CMD_START;
-    ahci_port_writel(ctrl, pnr, PORT_CMD, val);
+    return port;
+}
+
+static void ahci_port_realloc(struct ahci_port_s *port)
+{
+    u32 cmd;
+
+    ahci_port_reset(port->ctrl, port->pnr);
+
+    free(port->list);
+    free(port->fis);
+    free(port->cmd);
+    port->list = memalign_low(1024, 1024);
+    port->fis = memalign_low(256, 256);
+    port->cmd = memalign_low(256, 256);
+
+    ahci_port_writel(port->ctrl, port->pnr, PORT_LST_ADDR, (u32)port->list);
+    ahci_port_writel(port->ctrl, port->pnr, PORT_FIS_ADDR, (u32)port->fis);
+
+    cmd = ahci_port_readl(port->ctrl, port->pnr, PORT_CMD);
+    cmd |= (PORT_CMD_FIS_RX|PORT_CMD_START);
+    ahci_port_writel(port->ctrl, port->pnr, PORT_CMD, cmd);
+}
+
+static void ahci_port_release(struct ahci_port_s *port)
+{
+    ahci_port_reset(port->ctrl, port->pnr);
+    free(port->list);
+    free(port->fis);
+    free(port->cmd);
+    free(port);
+}
+
+#define MAXMODEL 40
+
+/* See ahci spec chapter 10.1 "Software Initialization of HBA" */
+static int ahci_port_init(struct ahci_port_s *port)
+{
+    struct ahci_ctrl_s *ctrl = port->ctrl;
+    u32 pnr = port->pnr;
+    char model[MAXMODEL+1];
+    u16 buffer[256];
+    u32 cmd, stat, err, tf;
+    u64 end;
+    int rc;
+
+    /* enable FIS recv */
+    cmd = ahci_port_readl(ctrl, pnr, PORT_CMD);
+    cmd |= PORT_CMD_FIS_RX;
+    ahci_port_writel(ctrl, pnr, PORT_CMD, cmd);
+
+    /* spin up */
+    cmd |= PORT_CMD_SPIN_UP;
+    ahci_port_writel(ctrl, pnr, PORT_CMD, cmd);
+    end = calc_future_tsc(AHCI_LINK_TIMEOUT);
+    for (;;) {
+        stat = ahci_port_readl(ctrl, pnr, PORT_SCR_STAT);
+        if ((stat & 0x07) == 0x03) {
+            dprintf(1, "AHCI/%d: link up\n", port->pnr);
+            break;
+        }
+        if (check_tsc(end)) {
+            dprintf(1, "AHCI/%d: link down\n", port->pnr);
+            return -1;
+        }
+        yield();
+    }
+
+    /* clear error status */
+    err = ahci_port_readl(ctrl, pnr, PORT_SCR_ERR);
+    if (err)
+        ahci_port_writel(ctrl, pnr, PORT_SCR_ERR, err);
+
+    /* wait for device becoming ready */
+    end = calc_future_tsc(AHCI_REQUEST_TIMEOUT);
+    for (;;) {
+        tf = ahci_port_readl(ctrl, pnr, PORT_TFDATA);
+        if (!(tf & (ATA_CB_STAT_BSY |
+                    ATA_CB_STAT_DRQ)))
+            break;
+        if (check_tsc(end)) {
+            warn_timeout();
+            dprintf(1, "AHCI/%d: device not ready (tf 0x%x)\n", port->pnr, tf);
+            return -1;
+        }
+        yield();
+    }
+
+    /* start device */
+    cmd |= PORT_CMD_START;
+    ahci_port_writel(ctrl, pnr, PORT_CMD, cmd);
 
     sata_prep_simple(&port->cmd->fis, ATA_CMD_IDENTIFY_PACKET_DEVICE);
     rc = ahci_command(port, 0, 0, buffer, sizeof(buffer));
@@ -438,7 +506,7 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
         sata_prep_simple(&port->cmd->fis, ATA_CMD_IDENTIFY_DEVICE);
         rc = ahci_command(port, 0, 0, buffer, sizeof(buffer));
         if (rc < 0)
-            goto err;
+            return -1;
     }
 
     port->drive.type = DTYPE_AHCI;
@@ -491,13 +559,7 @@ ahci_port_init(struct ahci_ctrl_s *ctrl, u32 pnr)
         if (iscd)
             boot_add_cd(&port->drive, desc, -1);
     }
-
-    return port;
-
-err:
-    dprintf(1, "AHCI/%d: init failure, reset\n", port->pnr);
-    ahci_port_reset(ctrl, pnr);
-    return NULL;
+    return 0;
 }
 
 // Detect any drives attached to a given controller.
@@ -515,11 +577,14 @@ ahci_detect(void *data)
             continue;
         dprintf(2, "AHCI/%d: probing\n", pnr);
         ahci_port_reset(ctrl, pnr);
-        rc = ahci_port_probe(ctrl, pnr);
-        dprintf(1, "AHCI/%d: link %s\n", pnr, rc == 0 ? "up" : "down");
-        if (rc != 0)
+        port = ahci_port_alloc(ctrl, pnr);
+        if (port == NULL)
             continue;
-        port = ahci_port_init(ctrl, pnr);
+        rc = ahci_port_init(port);
+        if (rc < 0)
+            ahci_port_release(port);
+        else
+            ahci_port_realloc(port);
     }
 }
 
