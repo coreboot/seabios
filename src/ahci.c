@@ -541,7 +541,8 @@ static int ahci_port_init(struct ahci_port_s *port)
         dprintf(1, "%s\n", desc);
 
         // Register with bcv system.
-        boot_add_hd(&port->drive, desc, -1);
+        int prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+        boot_add_hd(&port->drive, desc, prio);
     } else {
         // found cdrom (atapi)
         port->drive.blksize = CDROM_SECTOR_SIZE;
@@ -556,8 +557,10 @@ static int ahci_port_init(struct ahci_port_s *port)
         dprintf(1, "%s\n", desc);
 
         // fill cdidmap
-        if (iscd)
-            boot_add_cd(&port->drive, desc, -1);
+        if (iscd) {
+            int prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+            boot_add_cd(&port->drive, desc, prio);
+        }
     }
     return 0;
 }
@@ -590,9 +593,10 @@ ahci_detect(void *data)
 
 // Initialize an ata controller and detect its drives.
 static void
-ahci_init_controller(int bdf)
+ahci_init_controller(struct pci_device *pci)
 {
     struct ahci_ctrl_s *ctrl = malloc_fseg(sizeof(*ctrl));
+    u16 bdf = pci->bdf;
     u32 val;
 
     if (!ctrl) {
@@ -606,6 +610,7 @@ ahci_init_controller(int bdf)
         return;
     }
 
+    ctrl->pci_tmp = pci;
     ctrl->pci_bdf = bdf;
     ctrl->iobase = pci_config_readl(bdf, PCI_BASE_ADDRESS_5);
     ctrl->irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
@@ -637,7 +642,7 @@ ahci_init(void)
             continue;
         if (pci->prog_if != 1 /* AHCI rev 1 */)
             continue;
-        ahci_init_controller(pci->bdf);
+        ahci_init_controller(pci);
     }
 }
 
