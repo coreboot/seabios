@@ -158,7 +158,7 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     } while (status & ATA_CB_STAT_BSY);
 
     success = (0x00 == (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DF |
-                                  ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR)) &&
+                                  ATA_CB_STAT_ERR)) &&
                ATA_CB_STAT_RDY == (status & (ATA_CB_STAT_RDY)));
     if (success) {
         dprintf(2, "AHCI/%d: ... finished, status 0x%x, OK\n", pnr,
@@ -379,8 +379,7 @@ ahci_port_probe(struct ahci_ctrl_s *ctrl, u32 pnr)
     u32 val, count = 0;
 
     val = ahci_port_readl(ctrl, pnr, PORT_TFDATA);
-    while (val & ((1 << 7) /* BSY */ |
-                  (1 << 3) /* DRQ */)) {
+    while (val & ATA_CB_STAT_BSY) {
         ndelay(500);
         val = ahci_port_readl(ctrl, pnr, PORT_TFDATA);
         count++;
