@@ -125,12 +125,11 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
         return -1;
 
     flags = ((1 << 16) | /* one prd entry */
-             (1 << 10) | /* clear busy on ok */
              (iswrite ? (1 << 6) : 0) |
              (isatapi ? (1 << 5) : 0) |
-             (4 << 0)); /* fis length (dwords) */
-    SET_FLATPTR(list[0].flags, flags);
-    SET_FLATPTR(list[0].bytes,  bsize);
+             (5 << 0)); /* fis length (dwords) */
+    SET_FLATPTR(list[0].flags,  flags);
+    SET_FLATPTR(list[0].bytes,  0);
     SET_FLATPTR(list[0].base,   ((u32)(cmd)));
     SET_FLATPTR(list[0].baseu,  0);
 
