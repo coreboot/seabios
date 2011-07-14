@@ -22,6 +22,7 @@
 /****************************************************************
  * these bits must run in both 16bit and 32bit modes
  ****************************************************************/
+u8 *ahci_buf_fl VAR16VISIBLE;
 
 // prepare sata command fis
 static void sata_prep_simple(struct sata_cmd_fis *fis, u8 command)
@@ -230,9 +231,9 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     return DISK_RET_SUCCESS;
 }
 
-// read/write count blocks from a harddrive.
+// read/write count blocks from a harddrive, op->buf_fl must be word aligned
 static int
-ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
+ahci_disk_readwrite_aligned(struct disk_op_s *op, int iswrite)
 {
     struct ahci_port_s *port = container_of(
         op->drive_g, struct ahci_port_s, drive);
@@ -246,6 +247,47 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
             iswrite ? "write" : "read", (u32)op->lba, op->count, op->buf_fl, rc);
     if (rc < 0)
         return DISK_RET_EBADTRACK;
+    return DISK_RET_SUCCESS;
+}
+
+// read/write count blocks from a harddrive.
+static int
+ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
+{
+    // if caller's buffer is word aligned, use it directly
+    if (((u32) op->buf_fl & 1) == 0)
+        return ahci_disk_readwrite_aligned(op, iswrite);
+
+    // Use a word aligned buffer for AHCI I/O
+    int rc;
+    struct disk_op_s localop = *op;
+    u8 *alignedbuf_fl = GET_GLOBAL(ahci_buf_fl);
+    u8 *position = op->buf_fl;
+
+    localop.buf_fl = alignedbuf_fl;
+    localop.count = 1;
+
+    if (iswrite) {
+        u16 block;
+        for (block = 0; block < op->count; block++) {
+            memcpy_fl (alignedbuf_fl, position, DISK_SECTOR_SIZE);
+            rc = ahci_disk_readwrite_aligned (&localop, 1);
+            if (rc)
+                return rc;
+            position += DISK_SECTOR_SIZE;
+            localop.lba++;
+        }
+    } else { // read
+        u16 block;
+        for (block = 0; block < op->count; block++) {
+            rc = ahci_disk_readwrite_aligned (&localop, 0);
+            if (rc)
+                return rc;
+            memcpy_fl (position, alignedbuf_fl, DISK_SECTOR_SIZE);
+            position += DISK_SECTOR_SIZE;
+            localop.lba++;
+        }
+    }
     return DISK_RET_SUCCESS;
 }
 
@@ -493,6 +535,13 @@ ahci_init_controller(int bdf)
         warn_noalloc();
         return;
     }
+
+    ahci_buf_fl = malloc_low(DISK_SECTOR_SIZE);
+    if (!ahci_buf_fl) {
+        warn_noalloc();
+        return;
+    }
+
     ctrl->pci_bdf = bdf;
     ctrl->iobase = pci_config_readl(bdf, PCI_BASE_ADDRESS_5);
     ctrl->irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
