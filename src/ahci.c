@@ -105,7 +105,7 @@ static void ahci_port_writel(struct ahci_ctrl_s *ctrl, u32 pnr, u32 reg, u32 val
 static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
                         void *buffer, u32 bsize)
 {
-    u32 val, status, success, flags, intbits;
+    u32 val, status, success, flags, intbits, error;
     struct ahci_ctrl_s *ctrl = GET_GLOBAL(port->ctrl);
     struct ahci_cmd_s  *cmd  = GET_GLOBAL(port->cmd);
     struct ahci_fis_s  *fis  = GET_GLOBAL(port->fis);
@@ -141,10 +141,12 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
                 ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, intbits);
                 if (intbits & 0x02) {
                     status = GET_FLATPTR(fis->psfis[2]);
+                    error  = GET_FLATPTR(fis->psfis[3]);
                     break;
                 }
                 if (intbits & 0x01) {
                     status = GET_FLATPTR(fis->rfis[2]);
+                    error  = GET_FLATPTR(fis->rfis[3]);
                     break;
                 }
             }
@@ -157,8 +159,50 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     success = (0x00 == (status & (ATA_CB_STAT_BSY | ATA_CB_STAT_DF |
                                   ATA_CB_STAT_DRQ | ATA_CB_STAT_ERR)) &&
                ATA_CB_STAT_RDY == (status & (ATA_CB_STAT_RDY)));
-    dprintf(2, "AHCI/%d: ... finished, status 0x%x, %s\n", pnr,
-            status, success ? "OK" : "ERROR");
+    if (success) {
+        dprintf(2, "AHCI/%d: ... finished, status 0x%x, OK\n", pnr,
+                status);
+    } else {
+        dprintf(2, "AHCI/%d: ... finished, status 0x%x, ERROR 0x%x\n", pnr,
+                status, error);
+
+        // non-queued error recovery (AHCI 1.3 section 6.2.2.1)
+        // Clears PxCMD.ST to 0 to reset the PxCI register
+        val = ahci_port_readl(ctrl, pnr, PORT_CMD);
+        ahci_port_writel(ctrl, pnr, PORT_CMD, val & ~PORT_CMD_START);
+
+        // waits for PxCMD.CR to clear to 0
+        while (1) {
+            val = ahci_port_readl(ctrl, pnr, PORT_CMD);
+            if ((val & PORT_CMD_LIST_ON) == 0)
+                break;
+            yield();
+        }
+
+        // Clears any error bits in PxSERR to enable capturing new errors
+        val = ahci_port_readl(ctrl, pnr, PORT_SCR_ERR);
+        ahci_port_writel(ctrl, pnr, PORT_SCR_ERR, val);
+
+        // Clears status bits in PxIS as appropriate
+        val = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
+        ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, val);
+
+        // If PxTFD.STS.BSY or PxTFD.STS.DRQ is set to 1, issue
+        // a COMRESET to the device to put it in an idle state
+        val = ahci_port_readl(ctrl, pnr, PORT_TFDATA);
+        if (val & (ATA_CB_STAT_BSY | ATA_CB_STAT_DRQ)) {
+            dprintf(2, "AHCI/%d: issue comreset\n", pnr);
+            val = ahci_port_readl(ctrl, pnr, PORT_SCR_CTL);
+            // set Device Detection Initialization (DET) to 1 for 1 ms for comreset
+            ahci_port_writel(ctrl, pnr, PORT_SCR_CTL, val | 1);
+            mdelay (1);
+            ahci_port_writel(ctrl, pnr, PORT_SCR_CTL, val);
+        }
+
+        // Sets PxCMD.ST to 1 to enable issuing new commands
+        val = ahci_port_readl(ctrl, pnr, PORT_CMD);
+        ahci_port_writel(ctrl, pnr, PORT_CMD, val | PORT_CMD_START);
+    }
     return success ? 0 : -1;
 }
 
