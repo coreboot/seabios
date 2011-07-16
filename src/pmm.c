@@ -10,22 +10,6 @@
 #include "farptr.h" // GET_FARVAR
 #include "biosvar.h" // GET_BDA
 
-
-#if MODESEGMENT
-// The 16bit pmm entry points runs in "big real" mode, and can
-// therefore read/write to the 32bit malloc variables.
-#define GET_PMMVAR(var) ({                      \
-            SET_SEG(ES, 0);                     \
-            __GET_VAR("addr32 ", ES, (var)); })
-#define SET_PMMVAR(var, val) do {               \
-        SET_SEG(ES, 0);                         \
-        __SET_VAR("addr32 ", ES, (var), (val)); \
-    } while (0)
-#else
-#define GET_PMMVAR(var) (var)
-#define SET_PMMVAR(var, val) do { (var) = (val); } while (0)
-#endif
-
 // Information on a reserved area.
 struct allocinfo_s {
     struct allocinfo_s *next, **pprev;
@@ -44,13 +28,9 @@ struct zone_s {
     struct allocinfo_s *info;
 };
 
-struct zone_s ZoneLow;
-struct zone_s ZoneHigh;
-struct zone_s ZoneFSeg;
-struct zone_s ZoneTmpLow;
-struct zone_s ZoneTmpHigh;
+struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
 
-struct zone_s *Zones[] = {
+static struct zone_s *Zones[] = {
     &ZoneTmpLow, &ZoneLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
 };
 
@@ -64,24 +44,24 @@ static void *
 allocSpace(struct zone_s *zone, u32 size, u32 align, struct allocinfo_s *fill)
 {
     struct allocinfo_s *info;
-    for (info = GET_PMMVAR(zone->info); info; info = GET_PMMVAR(info->next)) {
-        void *dataend = GET_PMMVAR(info->dataend);
-        void *allocend = GET_PMMVAR(info->allocend);
+    for (info = zone->info; info; info = info->next) {
+        void *dataend = info->dataend;
+        void *allocend = info->allocend;
         void *newallocend = (void*)ALIGN_DOWN((u32)allocend - size, align);
         if (newallocend >= dataend && newallocend <= allocend) {
             // Found space - now reserve it.
-            struct allocinfo_s **pprev = GET_PMMVAR(info->pprev);
+            struct allocinfo_s **pprev = info->pprev;
             if (!fill)
                 fill = newallocend;
-            SET_PMMVAR(fill->next, info);
-            SET_PMMVAR(fill->pprev, pprev);
-            SET_PMMVAR(fill->data, newallocend);
-            SET_PMMVAR(fill->dataend, newallocend + size);
-            SET_PMMVAR(fill->allocend, allocend);
+            fill->next = info;
+            fill->pprev = pprev;
+            fill->data = newallocend;
+            fill->dataend = newallocend + size;
+            fill->allocend = allocend;
 
-            SET_PMMVAR(info->allocend, newallocend);
-            SET_PMMVAR(info->pprev, &fill->next);
-            SET_PMMVAR(*pprev, fill);
+            info->allocend = newallocend;
+            info->pprev = &fill->next;
+            *pprev = fill;
             return newallocend;
         }
     }
@@ -92,13 +72,13 @@ allocSpace(struct zone_s *zone, u32 size, u32 align, struct allocinfo_s *fill)
 static void
 freeSpace(struct allocinfo_s *info)
 {
-    struct allocinfo_s *next = GET_PMMVAR(info->next);
-    struct allocinfo_s **pprev = GET_PMMVAR(info->pprev);
-    SET_PMMVAR(*pprev, next);
+    struct allocinfo_s *next = info->next;
+    struct allocinfo_s **pprev = info->pprev;
+    *pprev = next;
     if (next) {
-        if (GET_PMMVAR(next->allocend) == GET_PMMVAR(info->data))
-            SET_PMMVAR(next->allocend, GET_PMMVAR(info->allocend));
-        SET_PMMVAR(next->pprev, pprev);
+        if (next->allocend == info->data)
+            next->allocend = info->allocend;
+        next->pprev = pprev;
     }
 }
 
@@ -109,8 +89,8 @@ addSpace(struct zone_s *zone, void *start, void *end)
     // Find position to add space
     struct allocinfo_s **pprev = &zone->info, *info;
     for (;;) {
-        info = GET_PMMVAR(*pprev);
-        if (!info || GET_PMMVAR(info->data) < start)
+        info = *pprev;
+        if (!info || info->data < start)
             break;
         pprev = &info->next;
     }
@@ -121,10 +101,9 @@ addSpace(struct zone_s *zone, void *start, void *end)
     tempdetail.datainfo.pprev = pprev;
     tempdetail.datainfo.data = tempdetail.datainfo.dataend = start;
     tempdetail.datainfo.allocend = end;
-    struct allocdetail_s *tempdetailp = MAKE_FLATPTR(GET_SEG(SS), &tempdetail);
-    SET_PMMVAR(*pprev, &tempdetailp->datainfo);
+    *pprev = &tempdetail.datainfo;
     if (info)
-        SET_PMMVAR(info->pprev, &tempdetailp->datainfo.next);
+        info->pprev = &tempdetail.datainfo.next;
 
     // Allocate final allocation info.
     struct allocdetail_s *detail = allocSpace(
@@ -133,23 +112,21 @@ addSpace(struct zone_s *zone, void *start, void *end)
         detail = allocSpace(&ZoneTmpLow, sizeof(*detail)
                             , MALLOC_MIN_ALIGN, NULL);
         if (!detail) {
-            SET_PMMVAR(*tempdetail.datainfo.pprev, tempdetail.datainfo.next);
+            *tempdetail.datainfo.pprev = tempdetail.datainfo.next;
             if (tempdetail.datainfo.next)
-                SET_PMMVAR(tempdetail.datainfo.next->pprev
-                           , tempdetail.datainfo.pprev);
+                tempdetail.datainfo.next->pprev = tempdetail.datainfo.pprev;
             warn_noalloc();
             return;
         }
     }
 
     // Replace temp alloc space with final alloc space
-    memcpy_fl(&detail->datainfo, &tempdetailp->datainfo
-              , sizeof(detail->datainfo));
-    SET_PMMVAR(detail->handle, PMM_DEFAULT_HANDLE);
+    memcpy(&detail->datainfo, &tempdetail.datainfo, sizeof(detail->datainfo));
+    detail->handle = PMM_DEFAULT_HANDLE;
 
-    SET_PMMVAR(*tempdetail.datainfo.pprev, &detail->datainfo);
+    *tempdetail.datainfo.pprev = &detail->datainfo;
     if (tempdetail.datainfo.next)
-        SET_PMMVAR(tempdetail.datainfo.next->pprev, &detail->datainfo.next);
+        tempdetail.datainfo.next->pprev = &detail->datainfo.next;
 }
 
 // Search all zones for an allocation obtained from allocSpace()
@@ -158,10 +135,10 @@ findAlloc(void *data)
 {
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {
-        struct zone_s *zone = GET_PMMVAR(Zones[i]);
+        struct zone_s *zone = Zones[i];
         struct allocinfo_s *info;
-        for (info = GET_PMMVAR(zone->info); info; info = GET_PMMVAR(info->next))
-            if (GET_PMMVAR(info->data) == data)
+        for (info = zone->info; info; info = info->next)
+            if (info->data == data)
                 return info;
     }
     return NULL;
@@ -171,11 +148,11 @@ findAlloc(void *data)
 static struct allocinfo_s *
 findLast(struct zone_s *zone)
 {
-    struct allocinfo_s *info = GET_PMMVAR(zone->info);
+    struct allocinfo_s *info = zone->info;
     if (!info)
         return NULL;
     for (;;) {
-        struct allocinfo_s *next = GET_PMMVAR(info->next);
+        struct allocinfo_s *next = info->next;
         if (!next)
             return info;
         info = next;
@@ -244,6 +221,7 @@ malloc_fixupreloc(void)
 void
 malloc_finalize(void)
 {
+    ASSERT32FLAT();
     dprintf(3, "malloc finalize\n");
 
     // Reserve more low-mem if needed.
@@ -273,9 +251,8 @@ relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
         // EBDA isn't at end of ram - give up.
         return -1;
 
-    // Do copy (this assumes memcpy copies forward - otherwise memmove
-    // is needed)
-    memcpy_fl((void*)newebda, (void*)oldebda, ebda_size * 1024);
+    // Do copy
+    memmove((void*)newebda, (void*)oldebda, ebda_size * 1024);
 
     // Update indexes
     dprintf(1, "ebda moved from %x to %x\n", oldebda, newebda);
@@ -291,9 +268,9 @@ zonelow_expand(u32 size, u32 align)
     struct allocinfo_s *info = findLast(&ZoneLow);
     if (!info)
         return;
-    u32 oldpos = (u32)GET_PMMVAR(info->allocend);
+    u32 oldpos = (u32)info->allocend;
     u32 newpos = ALIGN_DOWN(oldpos - size, align);
-    u32 bottom = (u32)GET_PMMVAR(info->dataend);
+    u32 bottom = (u32)info->dataend;
     if (newpos >= bottom && newpos <= oldpos)
         // Space already present.
         return;
@@ -317,8 +294,8 @@ zonelow_expand(u32 size, u32 align)
 
     // Update zone
     if (ebda_end == bottom) {
-        SET_PMMVAR(info->data, (void*)newbottom);
-        SET_PMMVAR(info->dataend, (void*)newbottom);
+        info->data = (void*)newbottom;
+        info->dataend = (void*)newbottom;
     } else
         addSpace(&ZoneLow, (void*)newbottom, (void*)ebda_end);
 }
@@ -352,6 +329,7 @@ allocExpandSpace(struct zone_s *zone, u32 size, u32 align
 void * __malloc
 pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 {
+    ASSERT32FLAT();
     if (!size)
         return NULL;
 
@@ -376,7 +354,7 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
             " ret=%p (detail=%p)\n"
             , zone, handle, size, align
             , data, detail);
-    SET_PMMVAR(detail->handle, handle);
+    detail->handle = handle;
 
     return data;
 }
@@ -385,8 +363,9 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 int
 pmm_free(void *data)
 {
+    ASSERT32FLAT();
     struct allocinfo_s *info = findAlloc(data);
-    if (!info || data == (void*)info || data == GET_PMMVAR(info->dataend))
+    if (!info || data == (void*)info || data == info->dataend)
         return -1;
     struct allocdetail_s *detail = container_of(
         info, struct allocdetail_s, datainfo);
@@ -404,8 +383,8 @@ pmm_getspace(struct zone_s *zone)
     // XXX - results not reliable when CONFIG_THREAD_OPTIONROMS
     u32 maxspace = 0;
     struct allocinfo_s *info;
-    for (info = GET_PMMVAR(zone->info); info; info = GET_PMMVAR(info->next)) {
-        u32 space = GET_PMMVAR(info->allocend) - GET_PMMVAR(info->dataend);
+    for (info = zone->info; info; info = info->next) {
+        u32 space = info->allocend - info->dataend;
         if (space > maxspace)
             maxspace = space;
     }
@@ -425,16 +404,15 @@ pmm_find(u32 handle)
 {
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {
-        struct zone_s *zone = GET_PMMVAR(Zones[i]);
+        struct zone_s *zone = Zones[i];
         struct allocinfo_s *info;
-        for (info = GET_PMMVAR(zone->info); info
-                 ; info = GET_PMMVAR(info->next)) {
-            if (GET_PMMVAR(info->data) != (void*)info)
+        for (info = zone->info; info; info = info->next) {
+            if (info->data != (void*)info)
                 continue;
             struct allocdetail_s *detail = container_of(
                 info, struct allocdetail_s, detailinfo);
-            if (GET_PMMVAR(detail->handle) == handle)
-                return GET_PMMVAR(detail->datainfo.data);
+            if (detail->handle == handle)
+                return detail->datainfo.data;
         }
     }
     return NULL;
@@ -561,6 +539,7 @@ handle_pmmXX(u16 *args)
 u32 VISIBLE32INIT
 handle_pmm(u16 *args)
 {
+    ASSERT32FLAT();
     if (! CONFIG_PMM)
         return PMM_FUNCTION_NOT_SUPPORTED;
 
