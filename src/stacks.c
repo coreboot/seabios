@@ -32,7 +32,7 @@ static inline void lgdt(struct descloc_s *desc) {
 }
 
 // Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
-u32
+u32 VISIBLE16
 call32(void *func, u32 eax, u32 errret)
 {
     ASSERT16();

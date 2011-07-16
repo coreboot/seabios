@@ -210,6 +210,9 @@ startBoot(void)
 static void
 maininit(void)
 {
+    // Running at new code address - do code relocation fixups
+    malloc_fixupreloc();
+
     // Setup ivt/bda/ebda
     init_ivt();
     init_bda();

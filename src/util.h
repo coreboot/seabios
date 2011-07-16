@@ -226,6 +226,7 @@ int get_keystroke(int msec);
 u32 call32(void *func, u32 eax, u32 errret);
 inline u32 stack_hop(u32 eax, u32 edx, void *func);
 extern struct thread_info MainThread;
+extern int CanPreempt;
 struct thread_info *getCurThread(void);
 void yield(void);
 void wait_irq(void);
@@ -415,6 +416,7 @@ void pnp_setup(void);
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
 void malloc_setup(void);
+void malloc_fixupreloc(void);
 void malloc_finalize(void);
 void *pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align);
 int pmm_free(void *data);

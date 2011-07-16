@@ -44,13 +44,13 @@ struct zone_s {
     struct allocinfo_s *info;
 };
 
-struct zone_s ZoneLow VAR32FLATVISIBLE;
-struct zone_s ZoneHigh VAR32FLATVISIBLE;
-struct zone_s ZoneFSeg VAR32FLATVISIBLE;
-struct zone_s ZoneTmpLow VAR32FLATVISIBLE;
-struct zone_s ZoneTmpHigh VAR32FLATVISIBLE;
+struct zone_s ZoneLow;
+struct zone_s ZoneHigh;
+struct zone_s ZoneFSeg;
+struct zone_s ZoneTmpLow;
+struct zone_s ZoneTmpHigh;
 
-struct zone_s *Zones[] VAR32FLATVISIBLE = {
+struct zone_s *Zones[] = {
     &ZoneTmpLow, &ZoneLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
 };
 
@@ -222,6 +222,22 @@ malloc_setup(void)
         addSpace(&ZoneHigh, (void*)highram
                  , (void*)highram + CONFIG_MAX_HIGHTABLE);
         add_e820(highram, CONFIG_MAX_HIGHTABLE, E820_RESERVED);
+    }
+}
+
+// Update pointers after code relocation.
+void
+malloc_fixupreloc(void)
+{
+    ASSERT32FLAT();
+    if (!CONFIG_RELOCATE_INIT)
+        return;
+    dprintf(3, "malloc fixup reloc\n");
+
+    int i;
+    for (i=0; i<ARRAY_SIZE(Zones); i++) {
+        struct zone_s *zone = Zones[i];
+        zone->info->pprev = &zone->info;
     }
 }
 
@@ -542,7 +558,7 @@ handle_pmmXX(u16 *args)
     return PMM_FUNCTION_NOT_SUPPORTED;
 }
 
-u32 VISIBLE16
+u32 VISIBLE32INIT
 handle_pmm(u16 *args)
 {
     if (! CONFIG_PMM)
@@ -551,12 +567,25 @@ handle_pmm(u16 *args)
     u16 arg1 = args[0];
     dprintf(DEBUG_HDL_pmm, "pmm call arg1=%x\n", arg1);
 
-    switch (arg1) {
-    case 0x00: return handle_pmm00(args);
-    case 0x01: return handle_pmm01(args);
-    case 0x02: return handle_pmm02(args);
-    default:   return handle_pmmXX(args);
+    int oldpreempt;
+    if (CONFIG_THREAD_OPTIONROMS) {
+        // Not a preemption event - don't wait in wait_preempt()
+        oldpreempt = CanPreempt;
+        CanPreempt = 0;
     }
+
+    u32 ret;
+    switch (arg1) {
+    case 0x00: ret = handle_pmm00(args); break;
+    case 0x01: ret = handle_pmm01(args); break;
+    case 0x02: ret = handle_pmm02(args); break;
+    default:   ret = handle_pmmXX(args); break;
+    }
+
+    if (CONFIG_THREAD_OPTIONROMS)
+        CanPreempt = oldpreempt;
+
+    return ret;
 }
 
 // romlayout.S

@@ -264,8 +264,10 @@ entry_pmm:
         pushw %ds
         movw %ss, %cx           // Move %ss to %ds
         movw %cx, %ds
-        leal 28(%esp), %eax     // %eax points to start of args
-        calll handle_pmm
+        movl $_cfunc32flat_handle_pmm, %eax // Setup: call32(handle_pmm, args, -1)
+        leal 28(%esp), %edx     // %edx points to start of args
+        movl $-1, %ecx
+        calll call32
         movw %ax, 12(%esp)      // Modify %ax:%dx to return %eax
         shrl $16, %eax
         movw %ax, 4(%esp)
