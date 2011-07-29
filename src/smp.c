@@ -24,8 +24,10 @@ void
 wrmsr_smp(u32 index, u64 val)
 {
     wrmsr(index, val);
-    if (smp_mtrr_count >= ARRAY_SIZE(smp_mtrr))
+    if (smp_mtrr_count >= ARRAY_SIZE(smp_mtrr)) {
+        warn_noalloc();
         return;
+    }
     smp_mtrr[smp_mtrr_count].ecx = index;
     smp_mtrr[smp_mtrr_count].eax = val;
     smp_mtrr[smp_mtrr_count].edx = val >> 32;
