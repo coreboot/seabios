@@ -17,7 +17,7 @@
 
 #define APIC_ENABLED 0x0100
 
-struct { u32 ecx, eax, edx; } smp_mtrr[16] VAR16VISIBLE;
+struct { u32 ecx, eax, edx; } smp_mtrr[32] VAR16VISIBLE;
 u32 smp_mtrr_count VAR16VISIBLE;
 
 void
