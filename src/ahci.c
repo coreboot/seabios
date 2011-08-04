@@ -547,19 +547,20 @@ static int ahci_port_init(struct ahci_port_s *port)
         port->drive.blksize = CDROM_SECTOR_SIZE;
         port->drive.sectors = (u64)-1;
         u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
+        if (!iscd) {
+            dprintf(1, "AHCI/%d: atapi device is'nt a cdrom\n", port->pnr);
+            return -1;
+        }
         char *desc = znprintf(MAXDESCSIZE
-                              , "DVD/CD [AHCI/%d: %s ATAPI-%d %s]"
+                              , "DVD/CD [AHCI/%d: %s ATAPI-%d DVD/CD]"
                               , port->pnr
                               , ata_extract_model(model, MAXMODEL, buffer)
-                              , ata_extract_version(buffer)
-                              , (iscd ? "DVD/CD" : "Device"));
+                              , ata_extract_version(buffer));
         dprintf(1, "%s\n", desc);
 
         // fill cdidmap
-        if (iscd) {
-            int prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
-            boot_add_cd(&port->drive, desc, prio);
-        }
+        int prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+        boot_add_cd(&port->drive, desc, prio);
     }
     return 0;
 }
