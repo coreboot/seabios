@@ -229,6 +229,7 @@ struct drive_s {
 
 // block.c
 extern u8 FloppyCount, CDCount;
+extern u8 *bounce_buf_fl;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
 int getDriveId(u8 exttype, struct drive_s *drive_g);
 void map_floppy_drive(struct drive_s *drive_g);
@@ -236,6 +237,7 @@ void map_hd_drive(struct drive_s *drive_g);
 void map_cd_drive(struct drive_s *drive_g);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
+int bounce_buf_init(void);
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;

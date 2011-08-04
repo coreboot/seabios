@@ -17,6 +17,7 @@
 u8 FloppyCount VAR16VISIBLE;
 u8 CDCount;
 struct drive_s *IDMap[3][CONFIG_MAX_EXTDRIVE] VAR16VISIBLE;
+u8 *bounce_buf_fl VAR16VISIBLE;
 
 struct drive_s *
 getDrive(u8 exttype, u8 extdriveoffset)
@@ -38,6 +39,19 @@ int getDriveId(u8 exttype, struct drive_s *drive_g)
     return -1;
 }
 
+int bounce_buf_init(void)
+{
+    if (bounce_buf_fl)
+        return 0;
+
+    u8 *buf = malloc_low(CDROM_SECTOR_SIZE);
+    if (!buf) {
+        warn_noalloc();
+        return -1;
+    }
+    bounce_buf_fl = buf;
+    return 0;
+}
 
 /****************************************************************
  * Disk geometry translation

@@ -18,7 +18,6 @@
  ****************************************************************/
 
 struct drive_s *cdemu_drive_gf VAR16VISIBLE;
-u8 *cdemu_buf_fl VAR16VISIBLE;
 
 static int
 cdemu_read(struct disk_op_s *op)
@@ -33,7 +32,7 @@ cdemu_read(struct disk_op_s *op)
 
     int count = op->count;
     op->count = 0;
-    u8 *cdbuf_fl = GET_GLOBAL(cdemu_buf_fl);
+    u8 *cdbuf_fl = GET_GLOBAL(bounce_buf_fl);
 
     if (op->lba & 3) {
         // Partial read of first block.
@@ -111,17 +110,16 @@ cdemu_setup(void)
         return;
     if (!CDCount)
         return;
+    if (bounce_buf_init() < 0)
+        return;
 
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    u8 *buf = malloc_low(CDROM_SECTOR_SIZE);
-    if (!drive_g || !buf) {
+    if (!drive_g) {
         warn_noalloc();
         free(drive_g);
-        free(buf);
         return;
     }
     cdemu_drive_gf = drive_g;
-    cdemu_buf_fl = buf;
     memset(drive_g, 0, sizeof(*drive_g));
     drive_g->type = DTYPE_CDEMU;
     drive_g->blksize = DISK_SECTOR_SIZE;

@@ -24,7 +24,6 @@
 /****************************************************************
  * these bits must run in both 16bit and 32bit modes
  ****************************************************************/
-u8 *ahci_buf_fl VAR16VISIBLE;
 
 // prepare sata command fis
 static void sata_prep_simple(struct sata_cmd_fis *fis, u8 command)
@@ -269,7 +268,7 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
     // Use a word aligned buffer for AHCI I/O
     int rc;
     struct disk_op_s localop = *op;
-    u8 *alignedbuf_fl = GET_GLOBAL(ahci_buf_fl);
+    u8 *alignedbuf_fl = GET_GLOBAL(bounce_buf_fl);
     u8 *position = op->buf_fl;
 
     localop.buf_fl = alignedbuf_fl;
@@ -604,9 +603,9 @@ ahci_init_controller(struct pci_device *pci)
         return;
     }
 
-    ahci_buf_fl = malloc_low(DISK_SECTOR_SIZE);
-    if (!ahci_buf_fl) {
+    if (bounce_buf_init() < 0) {
         warn_noalloc();
+        free(ctrl);
         return;
     }
 
