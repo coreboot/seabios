@@ -104,7 +104,7 @@ menu "Hardware support"
     config AHCI
         depends on DRIVES
         bool "AHCI controllers"
-        default n
+        default y
         help
             Support for AHCI disk code.
     config VIRTIO_BLK
