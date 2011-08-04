@@ -531,17 +531,13 @@ static int ahci_port_init(struct ahci_port_s *port)
             adjsize >>= 10;
             adjprefix = 'G';
         }
-        char *desc = znprintf(MAXDESCSIZE
+        port->desc = znprintf(MAXDESCSIZE
                               , "AHCI/%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
                               , port->pnr
                               , ata_extract_model(model, MAXMODEL, buffer)
                               , ata_extract_version(buffer)
                               , (u32)adjsize, adjprefix);
-        dprintf(1, "%s\n", desc);
-
-        // Register with bcv system.
-        int prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
-        boot_add_hd(&port->drive, desc, prio);
+        port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
     } else {
         // found cdrom (atapi)
         port->drive.blksize = CDROM_SECTOR_SIZE;
@@ -551,16 +547,12 @@ static int ahci_port_init(struct ahci_port_s *port)
             dprintf(1, "AHCI/%d: atapi device is'nt a cdrom\n", port->pnr);
             return -1;
         }
-        char *desc = znprintf(MAXDESCSIZE
+        port->desc = znprintf(MAXDESCSIZE
                               , "DVD/CD [AHCI/%d: %s ATAPI-%d DVD/CD]"
                               , port->pnr
                               , ata_extract_model(model, MAXMODEL, buffer)
                               , ata_extract_version(buffer));
-        dprintf(1, "%s\n", desc);
-
-        // fill cdidmap
-        int prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
-        boot_add_cd(&port->drive, desc, prio);
+        port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
     }
     return 0;
 }
@@ -577,8 +569,17 @@ ahci_port_detect(void *data)
     rc = ahci_port_init(port);
     if (rc < 0)
         ahci_port_release(port);
-    else
+    else {
         ahci_port_realloc(port);
+        dprintf(1, "AHCI/%d: registering: \"%s\"\n", port->pnr, port->desc);
+        if (!port->atapi) {
+            // Register with bcv system.
+            boot_add_hd(&port->drive, port->desc, port->prio);
+        } else {
+            // fill cdidmap
+            boot_add_cd(&port->drive, port->desc, port->prio);
+        }
+    }
 }
 
 // Initialize an ata controller and detect its drives.

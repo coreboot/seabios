@@ -75,6 +75,8 @@ struct ahci_port_s {
     struct ahci_cmd_s  *cmd;
     u32                pnr;
     u32                atapi;
+    char               *desc;
+    int                prio;
 };
 
 void ahci_setup(void);
