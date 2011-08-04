@@ -383,7 +383,7 @@ ahci_port_reset(struct ahci_ctrl_s *ctrl, u32 pnr)
 static struct ahci_port_s*
 ahci_port_alloc(struct ahci_ctrl_s *ctrl, u32 pnr)
 {
-    struct ahci_port_s *port = malloc_fseg(sizeof(*port));
+    struct ahci_port_s *port = malloc_tmp(sizeof(*port));
 
     if (!port) {
         warn_noalloc();
@@ -407,9 +407,15 @@ ahci_port_alloc(struct ahci_ctrl_s *ctrl, u32 pnr)
     return port;
 }
 
-static void ahci_port_realloc(struct ahci_port_s *port)
+static struct ahci_port_s* ahci_port_realloc(struct ahci_port_s *port)
 {
+    struct ahci_port_s *tmp;
     u32 cmd;
+
+    tmp = malloc_fseg(sizeof(*port));
+    *tmp = *port;
+    free(port);
+    port = tmp;
 
     ahci_port_reset(port->ctrl, port->pnr);
 
@@ -426,6 +432,8 @@ static void ahci_port_realloc(struct ahci_port_s *port)
     cmd = ahci_port_readl(port->ctrl, port->pnr, PORT_CMD);
     cmd |= (PORT_CMD_FIS_RX|PORT_CMD_START);
     ahci_port_writel(port->ctrl, port->pnr, PORT_CMD, cmd);
+
+    return port;
 }
 
 static void ahci_port_release(struct ahci_port_s *port)
@@ -570,7 +578,7 @@ ahci_port_detect(void *data)
     if (rc < 0)
         ahci_port_release(port);
     else {
-        ahci_port_realloc(port);
+        port = ahci_port_realloc(port);
         dprintf(1, "AHCI/%d: registering: \"%s\"\n", port->pnr, port->desc);
         if (!port->atapi) {
             // Register with bcv system.
