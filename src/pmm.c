@@ -216,6 +216,13 @@ malloc_fixupreloc(void)
         struct zone_s *zone = Zones[i];
         zone->info->pprev = &zone->info;
     }
+
+    // Add space free'd during relocation in f-segment to ZoneFSeg
+    extern u8 code32init_end[];
+    if ((u32)code32init_end > BUILD_BIOS_ADDR) {
+        memset((void*)BUILD_BIOS_ADDR, 0, (u32)code32init_end - BUILD_BIOS_ADDR);
+        addSpace(&ZoneFSeg, (void*)BUILD_BIOS_ADDR, code32init_end);
+    }
 }
 
 void

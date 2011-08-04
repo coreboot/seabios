@@ -483,7 +483,7 @@ vga_setup(void)
         init_optionrom((void*)BUILD_ROM_START, 0, 1);
     } else {
         // Clear option rom memory
-        memset((void*)RomEnd, 0, _max_rom() - RomEnd);
+        memset((void*)RomEnd, 0, max_rom() - RomEnd);
 
         // Find and deploy PCI VGA rom.
         struct pci_device *pci;
