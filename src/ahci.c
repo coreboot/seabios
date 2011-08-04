@@ -566,28 +566,18 @@ static int ahci_port_init(struct ahci_port_s *port)
 
 // Detect any drives attached to a given controller.
 static void
-ahci_detect(void *data)
+ahci_port_detect(void *data)
 {
-    struct ahci_ctrl_s *ctrl = data;
-    struct ahci_port_s *port;
-    u32 pnr, max;
+    struct ahci_port_s *port = data;
     int rc;
 
-    max = ctrl->caps & 0x1f;
-    for (pnr = 0; pnr <= max; pnr++) {
-        if (!(ctrl->ports & (1 << pnr)))
-            continue;
-        dprintf(2, "AHCI/%d: probing\n", pnr);
-        ahci_port_reset(ctrl, pnr);
-        port = ahci_port_alloc(ctrl, pnr);
-        if (port == NULL)
-            continue;
-        rc = ahci_port_init(port);
-        if (rc < 0)
-            ahci_port_release(port);
-        else
-            ahci_port_realloc(port);
-    }
+    dprintf(2, "AHCI/%d: probing\n", port->pnr);
+    ahci_port_reset(port->ctrl, port->pnr);
+    rc = ahci_port_init(port);
+    if (rc < 0)
+        ahci_port_release(port);
+    else
+        ahci_port_realloc(port);
 }
 
 // Initialize an ata controller and detect its drives.
@@ -595,8 +585,9 @@ static void
 ahci_init_controller(struct pci_device *pci)
 {
     struct ahci_ctrl_s *ctrl = malloc_fseg(sizeof(*ctrl));
+    struct ahci_port_s *port;
     u16 bdf = pci->bdf;
-    u32 val;
+    u32 val, pnr, max;
 
     if (!ctrl) {
         warn_noalloc();
@@ -627,7 +618,15 @@ ahci_init_controller(struct pci_device *pci)
     dprintf(2, "AHCI: cap 0x%x, ports_impl 0x%x\n",
             ctrl->caps, ctrl->ports);
 
-    run_thread(ahci_detect, ctrl);
+    max = ctrl->caps & 0x1f;
+    for (pnr = 0; pnr <= max; pnr++) {
+        if (!(ctrl->ports & (1 << pnr)))
+            continue;
+        port = ahci_port_alloc(ctrl, pnr);
+        if (port == NULL)
+            continue;
+        run_thread(ahci_port_detect, port);
+    }
 }
 
 // Locate and init ahci controllers.
