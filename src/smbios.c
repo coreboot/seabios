@@ -17,7 +17,13 @@ smbios_entry_point_init(u16 max_structure_size,
                         u16 number_of_structures)
 {
     struct smbios_entry_point *ep = malloc_fseg(sizeof(*ep));
-    void *finaltable = malloc_high(structure_table_length);
+    void *finaltable;
+    if (structure_table_length <= BUILD_MAX_SMBIOS_FSEG)
+        // Table is small enough for f-seg - allocate there.  This
+        // works around a bug in JunOS (at least for small SMBIOS tables).
+        finaltable = malloc_fseg(structure_table_length);
+    else
+        finaltable = malloc_high(structure_table_length);
     if (!ep || !finaltable) {
         warn_noalloc();
         free(ep);
@@ -44,7 +50,8 @@ smbios_entry_point_init(u16 max_structure_size,
 
     ep->intermediate_checksum -= checksum((void*)ep + 0x10, ep->length - 0x10);
 
-    dprintf(1, "SMBIOS ptr=%p table=%p\n", ep, finaltable);
+    dprintf(1, "SMBIOS ptr=%p table=%p size=%d\n"
+            , ep, finaltable, structure_table_length);
 }
 
 #define load_str_field_with_default(type, field, def)                   \

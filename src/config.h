@@ -51,6 +51,8 @@
 #define BUILD_SMM_ADDR            0xa8000
 #define BUILD_SMM_SIZE            0x8000
 
+#define BUILD_MAX_SMBIOS_FSEG     600
+
 // Important real-mode segments
 #define SEG_IVT      0x0000
 #define SEG_BDA      0x0040
