@@ -607,6 +607,11 @@ pci_setup(void)
 
     pci_bios_init_device_in_bus(0 /* host bus */);
 
+    struct pci_device *pci;
+    foreachpci(pci) {
+        pci_init_device(pci_isa_bridge_tbl, pci, NULL);
+    }
+
     free(busses);
     busses_count = 0;
 }
