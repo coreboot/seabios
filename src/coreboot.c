@@ -201,6 +201,7 @@ scan_tables(u32 start, u32 size)
         copy_pir(p);
         copy_mptable(p);
         copy_acpi_rsdp(p);
+        copy_smbios(p);
     }
 }
 
@@ -221,9 +222,9 @@ coreboot_copy_biostable(void)
             scan_tables(m->start, m->size);
     }
 
-    // XXX - just create dummy smbios table for now - should detect if
-    // smbios/dmi table is found from coreboot and use that instead.
-    smbios_init();
+    // XXX - create a dummy smbios table for now.
+    if (!SMBiosAddr)
+        smbios_init();
 }
 
 

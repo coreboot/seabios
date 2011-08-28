@@ -86,6 +86,8 @@ copy_acpi_rsdp(void *pos)
 void
 copy_smbios(void *pos)
 {
+    if (SMBiosAddr)
+        return;
     struct smbios_entry_point *p = pos;
     if (memcmp(p->anchor_string, "_SM_", 4))
         return;
@@ -102,4 +104,5 @@ copy_smbios(void *pos)
     }
     dprintf(1, "Copying SMBIOS entry point from %p to %p\n", pos, newpos);
     memcpy(newpos, pos, p->length);
+    SMBiosAddr = newpos;
 }

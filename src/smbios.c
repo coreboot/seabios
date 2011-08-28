@@ -10,6 +10,8 @@
 #include "paravirt.h" // qemu_cfg_smbios_load_field
 #include "smbios.h" // struct smbios_entry_point
 
+struct smbios_entry_point *SMBiosAddr;
+
 static void
 smbios_entry_point_init(u16 max_structure_size,
                         u16 structure_table_length,
@@ -50,6 +52,7 @@ smbios_entry_point_init(u16 max_structure_size,
 
     ep->intermediate_checksum -= checksum((void*)ep + 0x10, ep->length - 0x10);
 
+    SMBiosAddr = ep;
     dprintf(1, "SMBIOS ptr=%p table=%p size=%d\n"
             , ep, finaltable, structure_table_length);
 }
