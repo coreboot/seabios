@@ -158,6 +158,9 @@ struct acpi_20_hpet {
 } PACKED;
 #define ACPI_HPET_ADDRESS 0xFED00000UL
 
+#define HPET_ID         0x000
+#define HPET_PERIOD     0x004
+
 /*
  * SRAT (NUMA topology description) table
  */
@@ -464,7 +467,16 @@ build_ssdt(void)
 static void*
 build_hpet(void)
 {
-    struct acpi_20_hpet *hpet = malloc_high(sizeof(*hpet));
+    struct acpi_20_hpet *hpet;
+    const void *hpet_base = (void *)ACPI_HPET_ADDRESS;
+    u32 hpet_vendor = readl(hpet_base + HPET_ID) >> 16;
+    u32 hpet_period = readl(hpet_base + HPET_PERIOD);
+
+    if (hpet_vendor == 0 || hpet_vendor == 0xffff ||
+        hpet_period == 0 || hpet_period > 0x05F5E100)
+        return NULL;
+
+    hpet = malloc_high(sizeof(*hpet));
     if (!hpet) {
         warn_noalloc();
         return NULL;
