@@ -208,9 +208,9 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
     h->revision = rev;
     memcpy(h->oem_id, CONFIG_APPNAME6, 6);
     memcpy(h->oem_table_id, CONFIG_APPNAME4, 4);
-    memcpy(h->asl_compiler_id, CONFIG_APPNAME4, 4);
     memcpy(h->oem_table_id + 4, (void*)&sig, 4);
     h->oem_revision = cpu_to_le32(1);
+    memcpy(h->asl_compiler_id, CONFIG_APPNAME4, 4);
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum -= checksum(h, len);
 }
@@ -463,7 +463,7 @@ build_ssdt(void)
     return ssdt;
 }
 
-#define HPET_SIGNATURE 0x54455048 //HPET
+#define HPET_SIGNATURE 0x54455048 // HPET
 static void*
 build_hpet(void)
 {
@@ -473,7 +473,7 @@ build_hpet(void)
     u32 hpet_period = readl(hpet_base + HPET_PERIOD);
 
     if (hpet_vendor == 0 || hpet_vendor == 0xffff ||
-        hpet_period == 0 || hpet_period > 0x05F5E100)
+        hpet_period == 0 || hpet_period > 100000000)
         return NULL;
 
     hpet = malloc_high(sizeof(*hpet));
@@ -499,7 +499,7 @@ acpi_build_srat_memory(struct srat_memory_affinity *numamem,
 {
     numamem->type = SRAT_MEMORY;
     numamem->length = sizeof(*numamem);
-    memset (numamem->proximity, 0 ,4);
+    memset(numamem->proximity, 0 ,4);
     numamem->proximity[0] = node;
     numamem->flags = cpu_to_le32(!!enabled);
     numamem->base_addr_low = base & 0xFFFFFFFF;
@@ -508,7 +508,7 @@ acpi_build_srat_memory(struct srat_memory_affinity *numamem,
     numamem->length_high = len >> 32;
 }
 
-#define SRAT_SIGNATURE 0x54415253 //HPET
+#define SRAT_SIGNATURE 0x54415253 // SRAT
 static void *
 build_srat(void)
 {
@@ -628,13 +628,7 @@ acpi_bios_init(void)
         // Device not found
         return;
 
-    // Create initial rsdt table
-    struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
-    if (!rsdp) {
-        warn_noalloc();
-        return;
-    }
-
+    // Build ACPI tables
     u32 tables[MAX_ACPI_TABLES], tbl_idx = 0;
 
 #define ACPI_INIT_TABLE(X)                                   \
@@ -644,7 +638,6 @@ acpi_bios_init(void)
             tbl_idx++;                                       \
     } while(0)
 
-    // Add tables
     ACPI_INIT_TABLE(build_fadt(pci));
     ACPI_INIT_TABLE(build_ssdt());
     ACPI_INIT_TABLE(build_madt());
@@ -653,7 +646,7 @@ acpi_bios_init(void)
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 
-    for(i = 0; i < external_tables; i++) {
+    for (i = 0; i < external_tables; i++) {
         u16 len = qemu_cfg_next_acpi_table_len();
         void *addr = malloc_high(len);
         if (!addr) {
@@ -667,20 +660,24 @@ acpi_bios_init(void)
         }
     }
 
+    // Build final rsdt table
     struct rsdt_descriptor_rev1 *rsdt;
     size_t rsdt_len = sizeof(*rsdt) + sizeof(u32) * tbl_idx;
     rsdt = malloc_high(rsdt_len);
-
     if (!rsdt) {
         warn_noalloc();
         return;
     }
     memset(rsdt, 0, rsdt_len);
     memcpy(rsdt->table_offset_entry, tables, sizeof(u32) * tbl_idx);
-
     build_header((void*)rsdt, RSDT_SIGNATURE, rsdt_len, 1);
 
     // Build rsdp pointer table
+    struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
+    if (!rsdp) {
+        warn_noalloc();
+        return;
+    }
     memset(rsdp, 0, sizeof(*rsdp));
     rsdp->signature = RSDP_SIGNATURE;
     memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
