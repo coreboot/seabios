@@ -333,10 +333,25 @@ reloc_init(void)
     func();
 }
 
-// Start of Power On Self Test (POST) - the BIOS initilization phase.
-// This function does the setup needed for code relocation, and then
-// invokes the relocation and main setup code.
+// Setup for code relocation and then call reloc_init
 void VISIBLE32INIT
+dopost(void)
+{
+    HaveRunPost = 1;
+
+    // Detect ram and setup internal malloc.
+    qemu_cfg_port_probe();
+    ram_probe();
+    malloc_setup();
+
+    // Relocate initialization code and call maininit().
+    reloc_init();
+}
+
+// Entry point for Power On Self Test (POST) - the BIOS initilization
+// phase.  This function makes the memory at 0xc0000-0xfffff
+// read/writable and then calls dopost().
+void VISIBLE32FLAT
 handle_post(void)
 {
     debug_serial_setup();
@@ -356,13 +371,7 @@ handle_post(void)
 
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();
-    HaveRunPost = 1;
 
-    // Detect ram and setup internal malloc.
-    qemu_cfg_port_probe();
-    ram_probe();
-    malloc_setup();
-
-    // Relocate initialization code and call maininit().
-    reloc_init();
+    // Now that memory is read/writable - start post process.
+    dopost();
 }
