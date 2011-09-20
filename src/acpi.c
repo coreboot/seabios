@@ -156,7 +156,6 @@ struct acpi_20_hpet {
     u16           min_tick;
     u8            page_protect;
 } PACKED;
-#define ACPI_HPET_ADDRESS 0xFED00000UL
 
 #define HPET_ID         0x000
 #define HPET_PERIOD     0x004
@@ -468,7 +467,7 @@ static void*
 build_hpet(void)
 {
     struct acpi_20_hpet *hpet;
-    const void *hpet_base = (void *)ACPI_HPET_ADDRESS;
+    const void *hpet_base = (void *)BUILD_HPET_ADDRESS;
     u32 hpet_vendor = readl(hpet_base + HPET_ID) >> 16;
     u32 hpet_period = readl(hpet_base + HPET_PERIOD);
 
@@ -487,7 +486,7 @@ build_hpet(void)
      * emulated hpet
      */
     hpet->timer_block_id = cpu_to_le32(0x8086a201);
-    hpet->addr.address = cpu_to_le32(ACPI_HPET_ADDRESS);
+    hpet->addr.address = cpu_to_le32(BUILD_HPET_ADDRESS);
     build_header((void*)hpet, HPET_SIGNATURE, sizeof(*hpet), 1);
 
     return hpet;
