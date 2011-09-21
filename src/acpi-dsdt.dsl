@@ -25,6 +25,12 @@ DefinitionBlock (
     0x1                 // OEM Revision
     )
 {
+
+
+/****************************************************************
+ * Debugging
+ ****************************************************************/
+
     Scope (\)
     {
         /* Debug Output */
@@ -50,7 +56,11 @@ DefinitionBlock (
         }
     }
 
-    /* PCI Bus definition */
+
+/****************************************************************
+ * PCI Bus definition
+ ****************************************************************/
+
     Scope(\_SB) {
         Device(PCI0) {
             Name (_HID, EisaId ("PNP0A03"))
@@ -215,7 +225,14 @@ DefinitionBlock (
                     ,, , AddressRangeMemory, TypeStatic)
             })
         }
+    }
 
+
+/****************************************************************
+ * HPET
+ ****************************************************************/
+
+    Scope(\_SB) {
         Device(HPET) {
             Name(_HID,  EISAID("PNP0103"))
             Name(_UID, 0)
@@ -235,6 +252,11 @@ DefinitionBlock (
             })
         }
     }
+
+
+/****************************************************************
+ * VGA
+ ****************************************************************/
 
     Scope(\_SB.PCI0) {
         Device (VGA) {
@@ -261,16 +283,29 @@ DefinitionBlock (
                  }
                  Method(_RMV) { Return (0x00) }
         }
+    }
 
-	/* PIIX3 ISA bridge */
+
+/****************************************************************
+ * PIIX3 ISA bridge
+ ****************************************************************/
+
+    Scope(\_SB.PCI0) {
         Device (ISA) {
             Name (_ADR, 0x00010000)
             Method(_RMV) { Return (0x00) }
 
-
             /* PIIX PCI to ISA irq remapping */
             OperationRegion (P40C, PCI_Config, 0x60, 0x04)
+        }
+    }
 
+
+/****************************************************************
+ * SuperIO devices (kbd, mouse, etc.)
+ ****************************************************************/
+
+    Scope(\_SB.PCI0.ISA) {
             /* Real-time clock */
             Device (RTC)
             {
@@ -439,9 +474,14 @@ DefinitionBlock (
 		    Return (BUF0)
 		}
 	    }
-        }
+    }
 
-	/* PIIX4 PM */
+
+/****************************************************************
+ * PIIX4 PM
+ ****************************************************************/
+
+    Scope(\_SB.PCI0) {
         Device (PX13) {
 	    Name (_ADR, 0x00010003)
 
@@ -459,6 +499,14 @@ DefinitionBlock (
 		DRSJ, 32
 	    }
 	}
+    }
+
+
+/****************************************************************
+ * PCI hotplug
+ ****************************************************************/
+
+    Scope(\_SB.PCI0) {
 
 #define gen_pci_device(name, nr)                                \
         Device(SL##name) {                                      \
@@ -504,7 +552,11 @@ DefinitionBlock (
 	gen_pci_device(31, 0x001f)
     }
 
-    /* PCI IRQs */
+
+/****************************************************************
+ * PCI IRQs
+ ****************************************************************/
+
     Scope(\_SB) {
          Field (\_SB.PCI0.ISA.P40C, ByteAcc, NoLock, Preserve)
          {
@@ -736,6 +788,11 @@ DefinitionBlock (
         }
     }
 
+
+/****************************************************************
+ * Suspend
+ ****************************************************************/
+
     /*
      * S3 (suspend-to-ram), S4 (suspend-to-disk) and S5 (power-off) type codes:
      * must match piix4 emulation.
@@ -762,7 +819,11 @@ DefinitionBlock (
         Zero   /* reserved */
     })
 
-    /* CPU hotplug */
+
+/****************************************************************
+ * CPU hotplug
+ ****************************************************************/
+
     Scope(\_SB) {
         /* Objects filled in by run-time generated SSDT */
         External(NTFY, MethodObj)
@@ -833,6 +894,11 @@ DefinitionBlock (
             Return(One)
         }
     }
+
+
+/****************************************************************
+ * General purpose events
+ ****************************************************************/
 
     Scope (\_GPE)
     {
