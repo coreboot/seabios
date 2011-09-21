@@ -62,7 +62,8 @@ struct pci_device {
 };
 extern struct pci_device *PCIDevices;
 extern int MaxPCIBus;
-void pci_probe(void);
+int pci_probe_host(void);
+void pci_probe_devices(void);
 static inline u32 pci_classprog(struct pci_device *pci) {
     return (pci->class << 8) | pci->prog_if;
 }

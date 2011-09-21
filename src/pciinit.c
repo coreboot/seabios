@@ -577,7 +577,7 @@ pci_setup(void)
 {
     if (CONFIG_COREBOOT || usingXen()) {
         // PCI setup already done by coreboot or Xen - just do probe.
-        pci_probe();
+        pci_probe_devices();
         return;
     }
 
@@ -587,10 +587,13 @@ pci_setup(void)
     u32 end   = BUILD_PCIMEM_END;
 
     dprintf(1, "=== PCI bus & bridge init ===\n");
+    if (pci_probe_host() != 0) {
+        return;
+    }
     pci_bios_init_bus();
 
     dprintf(1, "=== PCI device probing ===\n");
-    pci_probe();
+    pci_probe_devices();
 
     dprintf(1, "=== PCI new allocation pass #1 ===\n");
     busses = malloc_tmp(sizeof(*busses) * busses_count);

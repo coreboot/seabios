@@ -88,9 +88,21 @@ pci_next(int bdf, int bus)
 struct pci_device *PCIDevices;
 int MaxPCIBus VAR16VISIBLE;
 
+// Check if PCI is available at all
+int
+pci_probe_host(void)
+{
+    outl(0x80000000, PORT_PCI_CMD);
+    if (inl(PORT_PCI_CMD) != 0x80000000) {
+        dprintf(1, "Detected non-PCI system\n");
+        return -1;
+    }
+    return 0;
+}
+
 // Find all PCI devices and populate PCIDevices linked list.
 void
-pci_probe(void)
+pci_probe_devices(void)
 {
     dprintf(3, "PCI probe\n");
     struct pci_device *busdevs[256];
