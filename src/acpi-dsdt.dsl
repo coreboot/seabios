@@ -465,16 +465,19 @@ DefinitionBlock (
  ****************************************************************/
 
     Scope(\_SB.PCI0) {
+        /* Methods called by bulk generated PCI devices below */
+        Method (PRMV, 1, NotSerialized) {
+            // _RMV method - check if device can be removed
+            If (And(\_SB.PCI0.PCRM, ShiftLeft(1, Arg0))) {
+                Return (0x1)
+            }
+            Return (0x0)
+        }
 
 #define gen_pci_device(slot)                                    \
         Device(SL##slot) {                                      \
             Name (_ADR, 0x##slot##0000)                         \
-            Method (_RMV) {                                     \
-                If (And(\_SB.PCI0.PCRM, ShiftLeft(1, 0x##slot))) {    \
-                    Return (0x1)                                \
-                }                                               \
-                Return (0x0)                                    \
-            }                                                   \
+            Method (_RMV) { Return (PRMV(0x##slot)) }           \
             Name (_SUN, 0x##slot)                               \
         }
 
@@ -509,14 +512,19 @@ DefinitionBlock (
         gen_pci_device(1e)
         gen_pci_device(1f)
 
-#define hotplug_slot(slot)                    \
-        Device (S##slot) {                    \
-           Name (_ADR, 0x##slot##0000)        \
-           Method (_EJ0,1) {                  \
-                Store(ShiftLeft(1, 0x##slot), B0EJ) \
-                Return (0x0)                  \
-           }                                  \
-           Name (_SUN, 0x##slot)              \
+        /* Methods called by bulk generated hotplug devices below */
+        Method (PCEJ, 1, NotSerialized) {
+            // _EJ0 method - eject callback
+            Store(ShiftLeft(1, Arg0), B0EJ)
+            Return (0x0)
+        }
+
+        /* Bulk generated PCI hotplug devices */
+#define hotplug_slot(slot)                              \
+        Device (S##slot) {                              \
+           Name (_ADR, 0x##slot##0000)                  \
+           Method (_EJ0, 1) { Return(PCEJ(0x##slot)) }  \
+           Name (_SUN, 0x##slot)                        \
         }
 
         hotplug_slot(01)
@@ -551,16 +559,26 @@ DefinitionBlock (
         hotplug_slot(1e)
         hotplug_slot(1f)
 
-#define gen_pci_hotplug(slot)                                     \
-            If (And(\_SB.PCI0.PCIU, ShiftLeft(1, 0x##slot))) {    \
-                Notify(\_SB.PCI0.S##slot, 1)                      \
-            }                                                     \
-            If (And(\_SB.PCI0.PCID, ShiftLeft(1, 0x##slot))) {    \
-                Notify(\_SB.PCI0.S##slot, 3)                      \
-            }
-
         /* PCI hotplug notify method */
         Method(PCNF, 0) {
+            // Local0 = iterator
+            Store (Zero, Local0)
+            While (LLess(Local0, 31)) {
+                Increment(Local0)
+                If (And(PCIU, ShiftLeft(1, Local0))) {
+                    PCNT(Local0, 1)
+                }
+                If (And(PCID, ShiftLeft(1, Local0))) {
+                    PCNT(Local0, 3)
+                }
+            }
+            Return(One)
+        }
+
+#define gen_pci_hotplug(slot)   \
+            If (LEqual(Arg0, 0x##slot)) { Notify(S##slot, Arg1) }
+
+        Method(PCNT, 2) {
             gen_pci_hotplug(01)
             gen_pci_hotplug(02)
             gen_pci_hotplug(03)
@@ -592,8 +610,6 @@ DefinitionBlock (
             gen_pci_hotplug(1d)
             gen_pci_hotplug(1e)
             gen_pci_hotplug(1f)
-
-            Return (0x01)
         }
     }
 
