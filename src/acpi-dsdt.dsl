@@ -138,48 +138,6 @@ DefinitionBlock (
                 PCRM, 32,
             }
 
-#define hotplug_slot(name, nr) \
-            Device (S##name) {                    \
-               Name (_ADR, nr##0000)              \
-               Method (_EJ0,1) {                  \
-                    Store(ShiftLeft(1, nr), B0EJ) \
-                    Return (0x0)                  \
-               }                                  \
-               Name (_SUN, name)                  \
-            }
-
-	    hotplug_slot(1, 0x0001)
-	    hotplug_slot(2, 0x0002)
-	    hotplug_slot(3, 0x0003)
-	    hotplug_slot(4, 0x0004)
-	    hotplug_slot(5, 0x0005)
-	    hotplug_slot(6, 0x0006)
-	    hotplug_slot(7, 0x0007)
-	    hotplug_slot(8, 0x0008)
-	    hotplug_slot(9, 0x0009)
-	    hotplug_slot(10, 0x000a)
-	    hotplug_slot(11, 0x000b)
-	    hotplug_slot(12, 0x000c)
-	    hotplug_slot(13, 0x000d)
-	    hotplug_slot(14, 0x000e)
-	    hotplug_slot(15, 0x000f)
-	    hotplug_slot(16, 0x0010)
-	    hotplug_slot(17, 0x0011)
-	    hotplug_slot(18, 0x0012)
-	    hotplug_slot(19, 0x0013)
-	    hotplug_slot(20, 0x0014)
-	    hotplug_slot(21, 0x0015)
-	    hotplug_slot(22, 0x0016)
-	    hotplug_slot(23, 0x0017)
-	    hotplug_slot(24, 0x0018)
-	    hotplug_slot(25, 0x0019)
-	    hotplug_slot(26, 0x001a)
-	    hotplug_slot(27, 0x001b)
-	    hotplug_slot(28, 0x001c)
-	    hotplug_slot(29, 0x001d)
-	    hotplug_slot(30, 0x001e)
-	    hotplug_slot(31, 0x001f)
-
             Name (_CRS, ResourceTemplate ()
             {
                 WordBusNumber (ResourceProducer, MinFixed, MaxFixed, PosDecode,
@@ -550,6 +508,93 @@ DefinitionBlock (
 	gen_pci_device(29, 0x001d)
 	gen_pci_device(30, 0x001e)
 	gen_pci_device(31, 0x001f)
+
+#define hotplug_slot(name, nr)                \
+        Device (S##name) {                    \
+           Name (_ADR, nr##0000)              \
+           Method (_EJ0,1) {                  \
+                Store(ShiftLeft(1, nr), B0EJ) \
+                Return (0x0)                  \
+           }                                  \
+           Name (_SUN, name)                  \
+        }
+
+        hotplug_slot(1, 0x0001)
+        hotplug_slot(2, 0x0002)
+        hotplug_slot(3, 0x0003)
+        hotplug_slot(4, 0x0004)
+        hotplug_slot(5, 0x0005)
+        hotplug_slot(6, 0x0006)
+        hotplug_slot(7, 0x0007)
+        hotplug_slot(8, 0x0008)
+        hotplug_slot(9, 0x0009)
+        hotplug_slot(10, 0x000a)
+        hotplug_slot(11, 0x000b)
+        hotplug_slot(12, 0x000c)
+        hotplug_slot(13, 0x000d)
+        hotplug_slot(14, 0x000e)
+        hotplug_slot(15, 0x000f)
+        hotplug_slot(16, 0x0010)
+        hotplug_slot(17, 0x0011)
+        hotplug_slot(18, 0x0012)
+        hotplug_slot(19, 0x0013)
+        hotplug_slot(20, 0x0014)
+        hotplug_slot(21, 0x0015)
+        hotplug_slot(22, 0x0016)
+        hotplug_slot(23, 0x0017)
+        hotplug_slot(24, 0x0018)
+        hotplug_slot(25, 0x0019)
+        hotplug_slot(26, 0x001a)
+        hotplug_slot(27, 0x001b)
+        hotplug_slot(28, 0x001c)
+        hotplug_slot(29, 0x001d)
+        hotplug_slot(30, 0x001e)
+        hotplug_slot(31, 0x001f)
+
+#define gen_pci_hotplug(nr)                                       \
+            If (And(\_SB.PCI0.PCIU, ShiftLeft(1, nr))) {          \
+                Notify(\_SB.PCI0.S##nr, 1)                        \
+            }                                                     \
+            If (And(\_SB.PCI0.PCID, ShiftLeft(1, nr))) {          \
+                Notify(\_SB.PCI0.S##nr, 3)                        \
+            }
+
+        /* PCI hotplug notify method */
+        Method(PCNF, 0) {
+            gen_pci_hotplug(1)
+            gen_pci_hotplug(2)
+            gen_pci_hotplug(3)
+            gen_pci_hotplug(4)
+            gen_pci_hotplug(5)
+            gen_pci_hotplug(6)
+            gen_pci_hotplug(7)
+            gen_pci_hotplug(8)
+            gen_pci_hotplug(9)
+            gen_pci_hotplug(10)
+            gen_pci_hotplug(11)
+            gen_pci_hotplug(12)
+            gen_pci_hotplug(13)
+            gen_pci_hotplug(14)
+            gen_pci_hotplug(15)
+            gen_pci_hotplug(16)
+            gen_pci_hotplug(17)
+            gen_pci_hotplug(18)
+            gen_pci_hotplug(19)
+            gen_pci_hotplug(20)
+            gen_pci_hotplug(21)
+            gen_pci_hotplug(22)
+            gen_pci_hotplug(23)
+            gen_pci_hotplug(24)
+            gen_pci_hotplug(25)
+            gen_pci_hotplug(26)
+            gen_pci_hotplug(27)
+            gen_pci_hotplug(28)
+            gen_pci_hotplug(29)
+            gen_pci_hotplug(30)
+            gen_pci_hotplug(31)
+
+            Return (0x01)
+        }
     }
 
 
@@ -907,50 +952,9 @@ DefinitionBlock (
         Method(_L00) {
             Return(0x01)
         }
-
-#define gen_pci_hotplug(nr)                                       \
-            If (And(\_SB.PCI0.PCIU, ShiftLeft(1, nr))) {          \
-                Notify(\_SB.PCI0.S##nr, 1)                        \
-            }                                                     \
-            If (And(\_SB.PCI0.PCID, ShiftLeft(1, nr))) {          \
-                Notify(\_SB.PCI0.S##nr, 3)                        \
-            }
-
         Method(_L01) {
-            gen_pci_hotplug(1)
-            gen_pci_hotplug(2)
-            gen_pci_hotplug(3)
-            gen_pci_hotplug(4)
-            gen_pci_hotplug(5)
-            gen_pci_hotplug(6)
-            gen_pci_hotplug(7)
-            gen_pci_hotplug(8)
-            gen_pci_hotplug(9)
-            gen_pci_hotplug(10)
-            gen_pci_hotplug(11)
-            gen_pci_hotplug(12)
-            gen_pci_hotplug(13)
-            gen_pci_hotplug(14)
-            gen_pci_hotplug(15)
-            gen_pci_hotplug(16)
-            gen_pci_hotplug(17)
-            gen_pci_hotplug(18)
-            gen_pci_hotplug(19)
-            gen_pci_hotplug(20)
-            gen_pci_hotplug(21)
-            gen_pci_hotplug(22)
-            gen_pci_hotplug(23)
-            gen_pci_hotplug(24)
-            gen_pci_hotplug(25)
-            gen_pci_hotplug(26)
-            gen_pci_hotplug(27)
-            gen_pci_hotplug(28)
-            gen_pci_hotplug(29)
-            gen_pci_hotplug(30)
-            gen_pci_hotplug(31)
-
-            Return (0x01)
-
+            // PCI hotplug event
+            Return(\_SB.PCI0.PCNF())
         }
         Method(_L02) {
             // CPU hotplug event
