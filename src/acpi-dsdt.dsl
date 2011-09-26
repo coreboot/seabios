@@ -83,10 +83,7 @@ DefinitionBlock (
 #define prt_slot3(nr) prt_slot(nr, LNKC, LNKD, LNKA, LNKB)
                prt_slot0(0x0000),
                /* Device 1 is power mgmt device, and can only use irq 9 */
-               Package() { 0x0001ffff, 0, LNKS, 0 },
-               Package() { 0x0001ffff, 1, LNKB, 0 },
-               Package() { 0x0001ffff, 2, LNKC, 0 },
-               Package() { 0x0001ffff, 3, LNKD, 0 },
+               prt_slot(0x0001, LNKS, LNKB, LNKC, LNKD),
                prt_slot2(0x0002),
                prt_slot3(0x0003),
                prt_slot0(0x0004),
@@ -619,233 +616,102 @@ DefinitionBlock (
  ****************************************************************/
 
     Scope(\_SB) {
-         Field (\_SB.PCI0.ISA.P40C, ByteAcc, NoLock, Preserve)
-         {
-             PRQ0,   8,
-             PRQ1,   8,
-             PRQ2,   8,
-             PRQ3,   8
-         }
+        Field (PCI0.ISA.P40C, ByteAcc, NoLock, Preserve)
+        {
+            PRQ0,   8,
+            PRQ1,   8,
+            PRQ2,   8,
+            PRQ3,   8
+        }
 
-        Device(LNKA){
-                Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-                Name(_UID, 1)
-                Name(_PRS, ResourceTemplate(){
-                    Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 10, 11 }
-                })
-                Method (_STA, 0, NotSerialized)
-                {
-                    Store (0x0B, Local0)
-                    If (And (0x80, PRQ0, Local1))
-                    {
-                         Store (0x09, Local0)
-                    }
-                    Return (Local0)
-                }
-                Method (_DIS, 0, NotSerialized)
-                {
-                    Or (PRQ0, 0x80, PRQ0)
-                }
-                Method (_CRS, 0, NotSerialized)
-                {
-                    Name (PRR0, ResourceTemplate ()
-                    {
-                        Interrupt (, Level, ActiveHigh, Shared)
-                            {1}
-                    })
-                    CreateDWordField (PRR0, 0x05, TMP)
-                    Store (PRQ0, Local0)
-                    If (LLess (Local0, 0x80))
-                    {
-                        Store (Local0, TMP)
-                    }
-                    Else
-                    {
-                        Store (Zero, TMP)
-                    }
-                    Return (PRR0)
-                }
-                Method (_SRS, 1, NotSerialized)
-                {
-                    CreateDWordField (Arg0, 0x05, TMP)
-                    Store (TMP, PRQ0)
-                }
+        Method (IQST, 1, NotSerialized) {
+            // _STA method - get status
+            If (And (0x80, Arg0)) {
+                Return (0x09)
+            }
+            Return (0x0B)
         }
-        Device(LNKB){
-                Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-                Name(_UID, 2)
-                Name(_PRS, ResourceTemplate(){
-                    Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 10, 11 }
-                })
-                Method (_STA, 0, NotSerialized)
-                {
-                    Store (0x0B, Local0)
-                    If (And (0x80, PRQ1, Local1))
-                    {
-                         Store (0x09, Local0)
-                    }
-                    Return (Local0)
-                }
-                Method (_DIS, 0, NotSerialized)
-                {
-                    Or (PRQ1, 0x80, PRQ1)
-                }
-                Method (_CRS, 0, NotSerialized)
-                {
-                    Name (PRR0, ResourceTemplate ()
-                    {
-                        Interrupt (, Level, ActiveHigh, Shared)
-                            {1}
-                    })
-                    CreateDWordField (PRR0, 0x05, TMP)
-                    Store (PRQ1, Local0)
-                    If (LLess (Local0, 0x80))
-                    {
-                        Store (Local0, TMP)
-                    }
-                    Else
-                    {
-                        Store (Zero, TMP)
-                    }
-                    Return (PRR0)
-                }
-                Method (_SRS, 1, NotSerialized)
-                {
-                    CreateDWordField (Arg0, 0x05, TMP)
-                    Store (TMP, PRQ1)
-                }
+        Method (IQDI, 1, NotSerialized) {
+            // _DIS method - disable interrupt
+            Or(DerefOf(Arg0), 0x80, Arg0)
         }
-        Device(LNKC){
-                Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-                Name(_UID, 3)
-                Name(_PRS, ResourceTemplate(){
-                    Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 10, 11 }
-                })
-                Method (_STA, 0, NotSerialized)
-                {
-                    Store (0x0B, Local0)
-                    If (And (0x80, PRQ2, Local1))
-                    {
-                         Store (0x09, Local0)
-                    }
-                    Return (Local0)
-                }
-                Method (_DIS, 0, NotSerialized)
-                {
-                    Or (PRQ2, 0x80, PRQ2)
-                }
-                Method (_CRS, 0, NotSerialized)
-                {
-                    Name (PRR0, ResourceTemplate ()
-                    {
-                        Interrupt (, Level, ActiveHigh, Shared)
-                            {1}
-                    })
-                    CreateDWordField (PRR0, 0x05, TMP)
-                    Store (PRQ2, Local0)
-                    If (LLess (Local0, 0x80))
-                    {
-                        Store (Local0, TMP)
-                    }
-                    Else
-                    {
-                        Store (Zero, TMP)
-                    }
-                    Return (PRR0)
-                }
-                Method (_SRS, 1, NotSerialized)
-                {
-                    CreateDWordField (Arg0, 0x05, TMP)
-                    Store (TMP, PRQ2)
-                }
+        Method (IQCR, 1, NotSerialized) {
+            // _CRS method - get current settings
+            Name (PRR0, ResourceTemplate ()
+            {
+                Interrupt (, Level, ActiveHigh, Shared)
+                    { 0 }
+            })
+            CreateDWordField (PRR0, 0x05, PRRI)
+            If (LLess (Arg0, 0x80)) {
+                Store (Arg0, PRRI)
+            }
+            Return (PRR0)
         }
-        Device(LNKD){
-                Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-                Name(_UID, 4)
-                Name(_PRS, ResourceTemplate(){
-                    Interrupt (, Level, ActiveHigh, Shared)
-                        { 5, 10, 11 }
-                })
-                Method (_STA, 0, NotSerialized)
-                {
-                    Store (0x0B, Local0)
-                    If (And (0x80, PRQ3, Local1))
-                    {
-                         Store (0x09, Local0)
-                    }
-                    Return (Local0)
-                }
-                Method (_DIS, 0, NotSerialized)
-                {
-                    Or (PRQ3, 0x80, PRQ3)
-                }
-                Method (_CRS, 0, NotSerialized)
-                {
-                    Name (PRR0, ResourceTemplate ()
-                    {
-                        Interrupt (, Level, ActiveHigh, Shared)
-                            {1}
-                    })
-                    CreateDWordField (PRR0, 0x05, TMP)
-                    Store (PRQ3, Local0)
-                    If (LLess (Local0, 0x80))
-                    {
-                        Store (Local0, TMP)
-                    }
-                    Else
-                    {
-                        Store (Zero, TMP)
-                    }
-                    Return (PRR0)
-                }
-                Method (_SRS, 1, NotSerialized)
-                {
-                    CreateDWordField (Arg0, 0x05, TMP)
-                    Store (TMP, PRQ3)
-                }
+        Method (IQSR, 2, NotSerialized) {
+            // _SRS method - set interrupt
+            CreateDWordField (Arg1, 0x05, PRRI)
+            Store (PRRI, Arg0)
         }
-        Device(LNKS){
-                Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-                Name(_UID, 5)
-                Name(_PRS, ResourceTemplate(){
-                    Interrupt (, Level, ActiveHigh, Shared)
-                        { 9 }
-                })
-                Method (_STA, 0, NotSerialized)
-                {
-                    Store (0x0B, Local0)
-                    If (And (0x80, PRQ0, Local1))
-                    {
-                         Store (0x09, Local0)
-                    }
-                    Return (Local0)
-                }
-                Method (_DIS, 0, NotSerialized)
-                {
-                    Or (PRQ0, 0x80, PRQ0)
-                }
-                Method (_CRS, 0, NotSerialized)
-                {
-                    Name (PRR0, ResourceTemplate ()
-                    {
-                        Interrupt (, Level, ActiveHigh, Shared)
-                            {9}
-                    })
-                    CreateDWordField (PRR0, 0x05, TMP)
-                    Store (PRQ0, Local0)
-                    If (LLess (Local0, 0x80))
-                    {
-                        Store (Local0, TMP)
-                    }
-                    Else
-                    {
-                        Store (Zero, TMP)
-                    }
-                    Return (PRR0)
-                }
+
+        Device(LNKA) {
+            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
+            Name(_UID, 1)
+            Name(_PRS, ResourceTemplate(){
+                Interrupt (, Level, ActiveHigh, Shared)
+                    { 5, 10, 11 }
+            })
+            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
+            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ0)) }
+            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
+            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ0), Arg0) }
+        }
+        Device(LNKB) {
+            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
+            Name(_UID, 2)
+            Name(_PRS, ResourceTemplate(){
+                Interrupt (, Level, ActiveHigh, Shared)
+                    { 5, 10, 11 }
+            })
+            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ1)) }
+            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ1)) }
+            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ1)) }
+            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ1), Arg0) }
+        }
+        Device(LNKC) {
+            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
+            Name(_UID, 3)
+            Name(_PRS, ResourceTemplate() {
+                Interrupt (, Level, ActiveHigh, Shared)
+                    { 5, 10, 11 }
+            })
+            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ2)) }
+            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ2)) }
+            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ2)) }
+            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ2), Arg0) }
+        }
+        Device(LNKD) {
+            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
+            Name(_UID, 4)
+            Name(_PRS, ResourceTemplate() {
+                Interrupt (, Level, ActiveHigh, Shared)
+                    { 5, 10, 11 }
+            })
+            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ3)) }
+            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ3)) }
+            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ3)) }
+            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ3), Arg0) }
+        }
+        Device(LNKS) {
+            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
+            Name(_UID, 5)
+            Name(_PRS, ResourceTemplate() {
+                Interrupt (, Level, ActiveHigh, Shared)
+                    { 9 }
+            })
+            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
+            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ0)) }
+            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
         }
     }
 
