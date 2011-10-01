@@ -422,36 +422,24 @@ static void pci_bios_check_devices(struct pci_bus *busses)
 
 #define ROOT_BASE(top, sum, max) ALIGN_DOWN((top)-(sum),(max) ?: 1)
 
+// Setup region bases (given the regions' size and alignment)
 static int pci_bios_init_root_regions(struct pci_bus *bus, u32 start, u32 end)
 {
     bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
 
-    if (bus->r[PCI_REGION_TYPE_MEM].sum < bus->r[PCI_REGION_TYPE_PREFMEM].sum) {
-        bus->r[PCI_REGION_TYPE_MEM].base =
-            ROOT_BASE(end,
-                      bus->r[PCI_REGION_TYPE_MEM].sum,
-                      bus->r[PCI_REGION_TYPE_MEM].max);
-        bus->r[PCI_REGION_TYPE_PREFMEM].base =
-            ROOT_BASE(bus->r[PCI_REGION_TYPE_MEM].base,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
-        if (bus->r[PCI_REGION_TYPE_PREFMEM].base >= start) {
-            return 0;
-        }
-    } else {
-        bus->r[PCI_REGION_TYPE_PREFMEM].base =
-            ROOT_BASE(end,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
-        bus->r[PCI_REGION_TYPE_MEM].base =
-            ROOT_BASE(bus->r[PCI_REGION_TYPE_PREFMEM].base,
-                      bus->r[PCI_REGION_TYPE_MEM].sum,
-                      bus->r[PCI_REGION_TYPE_MEM].max);
-        if (bus->r[PCI_REGION_TYPE_MEM].base >= start) {
-            return 0;
-        }
+    int reg1 = PCI_REGION_TYPE_PREFMEM, reg2 = PCI_REGION_TYPE_MEM;
+    if (bus->r[reg1].sum < bus->r[reg2].sum) {
+        // Swap regions so larger area is more likely to align well.
+        reg1 = PCI_REGION_TYPE_MEM;
+        reg2 = PCI_REGION_TYPE_PREFMEM;
     }
-    return -1;
+    bus->r[reg2].base = ROOT_BASE(end, bus->r[reg2].sum, bus->r[reg2].max);
+    bus->r[reg1].base = ROOT_BASE(bus->r[reg2].base, bus->r[reg1].sum
+                                  , bus->r[reg1].max);
+    if (bus->r[reg1].base < start)
+        // Memory range requested is larger than available.
+        return -1;
+    return 0;
 }
 
 
