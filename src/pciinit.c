@@ -45,11 +45,6 @@ static struct pci_bus {
 } *busses;
 static int busses_count;
 
-static void pci_bios_init_device_in_bus(int bus);
-static void pci_bios_check_device_in_bus(int bus);
-static void pci_bios_init_bus_bases(struct pci_bus *bus);
-static void pci_bios_map_device_in_bus(int bus);
-
 static int pci_size_to_index(u32 size, enum pci_region_type type)
 {
     int index = __fls(size);
@@ -79,17 +74,6 @@ static enum pci_region_type pci_addr_to_type(u32 addr)
     return PCI_REGION_TYPE_MEM;
 }
 
-static u32 pci_size_roundup(u32 size)
-{
-    int index = __fls(size-1)+1;
-    return 0x1 << index;
-}
-
-/* host irqs corresponding to PCI irqs A-D */
-const u8 pci_irqs[4] = {
-    10, 10, 11, 11
-};
-
 static u32 pci_bar(u16 bdf, int region_num)
 {
     if (region_num != PCI_ROM_SLOT) {
@@ -110,6 +94,16 @@ static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
 
     pci_config_writel(bdf, ofs, addr);
 }
+
+
+/****************************************************************
+ * Misc. device init
+ ****************************************************************/
+
+/* host irqs corresponding to PCI irqs A-D */
+const u8 pci_irqs[4] = {
+    10, 10, 11, 11
+};
 
 /* return the global irq number corresponding to a given device irq
    pin. We could also use the bus number to have a more precise
@@ -149,13 +143,6 @@ static const struct pci_device_id pci_isa_bridge_tbl[] = {
 
     PCI_DEVICE_END
 };
-
-#define PCI_IO_ALIGN            4096
-#define PCI_IO_SHIFT            8
-#define PCI_MEMORY_ALIGN        (1UL << 20)
-#define PCI_MEMORY_SHIFT        16
-#define PCI_PREF_MEMORY_ALIGN   (1UL << 20)
-#define PCI_PREF_MEMORY_SHIFT   16
 
 static void storage_ide_init(struct pci_device *pci, void *arg)
 {
@@ -267,6 +254,11 @@ static void pci_bios_init_device_in_bus(int bus)
     }
 }
 
+
+/****************************************************************
+ * Bus initialization
+ ****************************************************************/
+
 static void
 pci_bios_init_bus_rec(int bus, u8 *pci_bus)
 {
@@ -336,6 +328,17 @@ pci_bios_init_bus(void)
     busses_count = pci_bus + 1;
 }
 
+
+/****************************************************************
+ * Bus sizing
+ ****************************************************************/
+
+static u32 pci_size_roundup(u32 size)
+{
+    int index = __fls(size-1)+1;
+    return 0x1 << index;
+}
+
 static void pci_bios_bus_get_bar(struct pci_bus *bus, int bdf, int bar,
                                  u32 *val, u32 *size)
 {
@@ -370,15 +373,7 @@ static void pci_bios_bus_reserve(struct pci_bus *bus, int type, u32 size)
         bus->r[type].max = size;
 }
 
-static u32 pci_bios_bus_get_addr(struct pci_bus *bus, int type, u32 size)
-{
-    u32 index, addr;
-
-    index = pci_size_to_index(size, type);
-    addr = bus->r[type].bases[index];
-    bus->r[type].bases[index] += pci_index_to_size(index, type);
-    return addr;
-}
+static void pci_bios_check_device_in_bus(int bus);
 
 static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
 {
@@ -429,6 +424,97 @@ static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
         }
     }
 }
+
+static void pci_bios_check_device_in_bus(int bus)
+{
+    struct pci_device *pci;
+
+    dprintf(1, "PCI: check devices bus %d\n", bus);
+    foreachpci(pci) {
+        if (pci_bdf_to_bus(pci->bdf) != bus)
+            continue;
+        pci_bios_check_device(&busses[bus], pci);
+    }
+}
+
+#define ROOT_BASE(top, sum, max) ALIGN_DOWN((top)-(sum),(max) ?: 1)
+
+static int pci_bios_init_root_regions(u32 start, u32 end)
+{
+    struct pci_bus *bus = &busses[0];
+
+    bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
+
+    if (bus->r[PCI_REGION_TYPE_MEM].sum < bus->r[PCI_REGION_TYPE_PREFMEM].sum) {
+        bus->r[PCI_REGION_TYPE_MEM].base =
+            ROOT_BASE(end,
+                      bus->r[PCI_REGION_TYPE_MEM].sum,
+                      bus->r[PCI_REGION_TYPE_MEM].max);
+        bus->r[PCI_REGION_TYPE_PREFMEM].base =
+            ROOT_BASE(bus->r[PCI_REGION_TYPE_MEM].base,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
+        if (bus->r[PCI_REGION_TYPE_PREFMEM].base >= start) {
+            return 0;
+        }
+    } else {
+        bus->r[PCI_REGION_TYPE_PREFMEM].base =
+            ROOT_BASE(end,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
+                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
+        bus->r[PCI_REGION_TYPE_MEM].base =
+            ROOT_BASE(bus->r[PCI_REGION_TYPE_PREFMEM].base,
+                      bus->r[PCI_REGION_TYPE_MEM].sum,
+                      bus->r[PCI_REGION_TYPE_MEM].max);
+        if (bus->r[PCI_REGION_TYPE_MEM].base >= start) {
+            return 0;
+        }
+    }
+    return -1;
+}
+
+
+/****************************************************************
+ * BAR assignment
+ ****************************************************************/
+
+static void pci_bios_init_bus_bases(struct pci_bus *bus)
+{
+    u32 base, newbase, size;
+    int type, i;
+
+    for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
+        dprintf(1, "  type %s max %x sum %x base %x\n", region_type_name[type],
+                bus->r[type].max, bus->r[type].sum, bus->r[type].base);
+        base = bus->r[type].base;
+        for (i = ARRAY_SIZE(bus->r[type].count)-1; i >= 0; i--) {
+            size = pci_index_to_size(i, type);
+            if (!bus->r[type].count[i])
+                continue;
+            newbase = base + size * bus->r[type].count[i];
+            dprintf(1, "    size %8x: %d bar(s), %8x -> %8x\n",
+                    size, bus->r[type].count[i], base, newbase - 1);
+            bus->r[type].bases[i] = base;
+            base = newbase;
+        }
+    }
+}
+
+static u32 pci_bios_bus_get_addr(struct pci_bus *bus, int type, u32 size)
+{
+    u32 index, addr;
+
+    index = pci_size_to_index(size, type);
+    addr = bus->r[type].bases[index];
+    bus->r[type].bases[index] += pci_index_to_size(index, type);
+    return addr;
+}
+
+#define PCI_IO_SHIFT            8
+#define PCI_MEMORY_SHIFT        16
+#define PCI_PREF_MEMORY_SHIFT   16
+
+static void pci_bios_map_device_in_bus(int bus);
 
 static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
 {
@@ -490,18 +576,6 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
     }
 }
 
-static void pci_bios_check_device_in_bus(int bus)
-{
-    struct pci_device *pci;
-
-    dprintf(1, "PCI: check devices bus %d\n", bus);
-    foreachpci(pci) {
-        if (pci_bdf_to_bus(pci->bdf) != bus)
-            continue;
-        pci_bios_check_device(&busses[bus], pci);
-    }
-}
-
 static void pci_bios_map_device_in_bus(int bus)
 {
     struct pci_device *pci;
@@ -516,63 +590,10 @@ static void pci_bios_map_device_in_bus(int bus)
     }
 }
 
-static void pci_bios_init_bus_bases(struct pci_bus *bus)
-{
-    u32 base, newbase, size;
-    int type, i;
 
-    for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
-        dprintf(1, "  type %s max %x sum %x base %x\n", region_type_name[type],
-                bus->r[type].max, bus->r[type].sum, bus->r[type].base);
-        base = bus->r[type].base;
-        for (i = ARRAY_SIZE(bus->r[type].count)-1; i >= 0; i--) {
-            size = pci_index_to_size(i, type);
-            if (!bus->r[type].count[i])
-                continue;
-            newbase = base + size * bus->r[type].count[i];
-            dprintf(1, "    size %8x: %d bar(s), %8x -> %8x\n",
-                    size, bus->r[type].count[i], base, newbase - 1);
-            bus->r[type].bases[i] = base;
-            base = newbase;
-        }
-    }
-}
-
-#define ROOT_BASE(top, sum, max) ALIGN_DOWN((top)-(sum),(max) ?: 1)
-
-static int pci_bios_init_root_regions(u32 start, u32 end)
-{
-    struct pci_bus *bus = &busses[0];
-
-    bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
-
-    if (bus->r[PCI_REGION_TYPE_MEM].sum < bus->r[PCI_REGION_TYPE_PREFMEM].sum) {
-        bus->r[PCI_REGION_TYPE_MEM].base =
-            ROOT_BASE(end,
-                      bus->r[PCI_REGION_TYPE_MEM].sum,
-                      bus->r[PCI_REGION_TYPE_MEM].max);
-        bus->r[PCI_REGION_TYPE_PREFMEM].base =
-            ROOT_BASE(bus->r[PCI_REGION_TYPE_MEM].base,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
-        if (bus->r[PCI_REGION_TYPE_PREFMEM].base >= start) {
-            return 0;
-        }
-    } else {
-        bus->r[PCI_REGION_TYPE_PREFMEM].base =
-            ROOT_BASE(end,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].sum,
-                      bus->r[PCI_REGION_TYPE_PREFMEM].max);
-        bus->r[PCI_REGION_TYPE_MEM].base =
-            ROOT_BASE(bus->r[PCI_REGION_TYPE_PREFMEM].base,
-                      bus->r[PCI_REGION_TYPE_MEM].sum,
-                      bus->r[PCI_REGION_TYPE_MEM].max);
-        if (bus->r[PCI_REGION_TYPE_MEM].base >= start) {
-            return 0;
-        }
-    }
-    return -1;
-}
+/****************************************************************
+ * Main setup code
+ ****************************************************************/
 
 void
 pci_setup(void)
