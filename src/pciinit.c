@@ -536,7 +536,7 @@ static void pci_bios_init_bus_bases(struct pci_bus *bus)
     }
 }
 
-#define ROOT_BASE(top, sum, align) ALIGN_DOWN((top)-(sum),(align))
+#define ROOT_BASE(top, sum, max) ALIGN_DOWN((top)-(sum),(max) ?: 1)
 
 static int pci_bios_init_root_regions(u32 start, u32 end)
 {
