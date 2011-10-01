@@ -235,8 +235,8 @@ static void pci_bios_init_device(struct pci_device *pci)
     u16 bdf = pci->bdf;
     int pin, pic_irq;
 
-    dprintf(1, "PCI: bus=%d devfn=0x%02x: vendor_id=0x%04x device_id=0x%04x\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_devfn(bdf)
+    dprintf(1, "PCI: init bdf=%02x:%02x.%x id=%04x:%04x\n"
+            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , pci->vendor, pci->device);
     pci_init_device(pci_class_tbl, pci, NULL);
 
@@ -481,7 +481,7 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
                                      dev->bars[i].size);
         dprintf(1, "  bar %d, addr %x, size %x [%s]\n",
                 i, addr, dev->bars[i].size,
-                dev->bars[i].addr & PCI_BASE_ADDRESS_SPACE_IO ? "io" : "mem");
+                region_type_name[pci_addr_to_type(dev->bars[i].addr)]);
         pci_set_io_region_addr(bdf, i, addr);
 
         if (dev->bars[i].is64) {
@@ -507,9 +507,11 @@ static void pci_bios_map_device_in_bus(int bus)
     struct pci_device *pci;
 
     foreachpci(pci) {
-        if (pci_bdf_to_bus(pci->bdf) != bus)
+        u16 bdf = pci->bdf;
+        if (pci_bdf_to_bus(bdf) != bus)
             continue;
-        dprintf(1, "PCI: map device bus %d, bfd 0x%x\n", bus, pci->bdf);
+        dprintf(1, "PCI: map device bdf=%02x:%02x.%x\n"
+                , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
         pci_bios_map_device(&busses[bus], pci);
     }
 }
