@@ -11,7 +11,7 @@ VERSION=pre-0.6.3-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
 OUT=out/
 
 # Source files
-SRCBOTH=misc.c pmm.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
+SRCBOTH=misc.c stacks.c pmm.c output.c util.c block.c floppy.c ata.c mouse.c \
         kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
         pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
         usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
