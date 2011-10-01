@@ -74,25 +74,21 @@ static enum pci_region_type pci_addr_to_type(u32 addr)
     return PCI_REGION_TYPE_MEM;
 }
 
-static u32 pci_bar(u16 bdf, int region_num)
+static u32 pci_bar(struct pci_device *pci, int region_num)
 {
     if (region_num != PCI_ROM_SLOT) {
         return PCI_BASE_ADDRESS_0 + region_num * 4;
     }
 
 #define PCI_HEADER_TYPE_MULTI_FUNCTION 0x80
-    u8 type = pci_config_readb(bdf, PCI_HEADER_TYPE);
-    type &= ~PCI_HEADER_TYPE_MULTI_FUNCTION;
+    u8 type = pci->header_type & ~PCI_HEADER_TYPE_MULTI_FUNCTION;
     return type == PCI_HEADER_TYPE_BRIDGE ? PCI_ROM_ADDRESS1 : PCI_ROM_ADDRESS;
 }
 
-static void pci_set_io_region_addr(u16 bdf, int region_num, u32 addr)
+static void
+pci_set_io_region_addr(struct pci_device *pci, int region_num, u32 addr)
 {
-    u32 ofs;
-
-    ofs = pci_bar(bdf, region_num);
-
-    pci_config_writel(bdf, ofs, addr);
+    pci_config_writel(pci->bdf, pci_bar(pci, region_num), addr);
 }
 
 
@@ -146,12 +142,11 @@ static const struct pci_device_id pci_isa_bridge_tbl[] = {
 
 static void storage_ide_init(struct pci_device *pci, void *arg)
 {
-    u16 bdf = pci->bdf;
     /* IDE: we map it as in ISA mode */
-    pci_set_io_region_addr(bdf, 0, PORT_ATA1_CMD_BASE);
-    pci_set_io_region_addr(bdf, 1, PORT_ATA1_CTRL_BASE);
-    pci_set_io_region_addr(bdf, 2, PORT_ATA2_CMD_BASE);
-    pci_set_io_region_addr(bdf, 3, PORT_ATA2_CTRL_BASE);
+    pci_set_io_region_addr(pci, 0, PORT_ATA1_CMD_BASE);
+    pci_set_io_region_addr(pci, 1, PORT_ATA1_CTRL_BASE);
+    pci_set_io_region_addr(pci, 2, PORT_ATA2_CMD_BASE);
+    pci_set_io_region_addr(pci, 3, PORT_ATA2_CTRL_BASE);
 }
 
 /* PIIX3/PIIX4 IDE */
@@ -165,13 +160,13 @@ static void piix_ide_init(struct pci_device *pci, void *arg)
 static void pic_ibm_init(struct pci_device *pci, void *arg)
 {
     /* PIC, IBM, MPIC & MPIC2 */
-    pci_set_io_region_addr(pci->bdf, 0, 0x80800000 + 0x00040000);
+    pci_set_io_region_addr(pci, 0, 0x80800000 + 0x00040000);
 }
 
 static void apple_macio_init(struct pci_device *pci, void *arg)
 {
     /* macio bridge */
-    pci_set_io_region_addr(pci->bdf, 0, 0x80800000);
+    pci_set_io_region_addr(pci, 0, 0x80800000);
 }
 
 static const struct pci_device_id pci_class_tbl[] = {
@@ -339,10 +334,11 @@ static u32 pci_size_roundup(u32 size)
     return 0x1 << index;
 }
 
-static void pci_bios_bus_get_bar(struct pci_bus *bus, int bdf, int bar,
-                                 u32 *val, u32 *size)
+static void
+pci_bios_get_bar(struct pci_device *pci, int bar, u32 *val, u32 *size)
 {
-    u32 ofs = pci_bar(bdf, bar);
+    u32 ofs = pci_bar(pci, bar);
+    u16 bdf = pci->bdf;
     u32 old = pci_config_readl(bdf, ofs);
     u32 mask;
 
@@ -377,10 +373,6 @@ static void pci_bios_check_device_in_bus(int bus);
 
 static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
 {
-    u16 bdf = dev->bdf;
-    u32 limit;
-    int i,type;
-
     if (dev->class == PCI_CLASS_BRIDGE_PCI) {
         if (dev->secondary_bus >= busses_count) {
             /* should never trigger */
@@ -390,8 +382,9 @@ static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
         }
         struct pci_bus *s = busses + dev->secondary_bus;
         pci_bios_check_device_in_bus(dev->secondary_bus);
+        int type;
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
-            limit = (type == PCI_REGION_TYPE_IO) ?
+            u32 limit = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
             s->r[type].size = s->r[type].sum;
             if (s->r[type].size < limit)
@@ -407,9 +400,10 @@ static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
         return;
     }
 
+    int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
         u32 val, size;
-        pci_bios_bus_get_bar(bus, bdf, i, &val, &size);
+        pci_bios_get_bar(dev, i, &val, &size);
         if (val == 0) {
             continue;
         }
@@ -518,9 +512,6 @@ static void pci_bios_map_device_in_bus(int bus);
 
 static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
 {
-    u16 bdf = dev->bdf;
-    int type, i;
-
     if (dev->class == PCI_CLASS_BRIDGE_PCI) {
         if (dev->secondary_bus >= busses_count) {
             return;
@@ -528,6 +519,7 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
         struct pci_bus *s = busses + dev->secondary_bus;
         u32 base, limit;
 
+        int type;
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             s->r[type].base = pci_bios_bus_get_addr(bus, type, s->r[type].size);
         }
@@ -536,6 +528,7 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
 
         base = s->r[PCI_REGION_TYPE_IO].base;
         limit = base + s->r[PCI_REGION_TYPE_IO].size - 1;
+        u16 bdf = dev->bdf;
         pci_config_writeb(bdf, PCI_IO_BASE, base >> PCI_IO_SHIFT);
         pci_config_writew(bdf, PCI_IO_BASE_UPPER16, 0);
         pci_config_writeb(bdf, PCI_IO_LIMIT, limit >> PCI_IO_SHIFT);
@@ -557,6 +550,7 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
         return;
     }
 
+    int i;
     for (i = 0; i < PCI_NUM_REGIONS; i++) {
         u32 addr;
         if (dev->bars[i].addr == 0) {
@@ -568,7 +562,7 @@ static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
         dprintf(1, "  bar %d, addr %x, size %x [%s]\n",
                 i, addr, dev->bars[i].size,
                 region_type_name[pci_addr_to_type(dev->bars[i].addr)]);
-        pci_set_io_region_addr(bdf, i, addr);
+        pci_set_io_region_addr(dev, i, addr);
 
         if (dev->bars[i].is64) {
             i++;
