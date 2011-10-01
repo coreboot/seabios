@@ -101,13 +101,11 @@ const u8 pci_irqs[4] = {
     10, 10, 11, 11
 };
 
-/* return the global irq number corresponding to a given device irq
-   pin. We could also use the bus number to have a more precise
-   mapping. */
-static int pci_slot_get_pirq(u16 bdf, int irq_num)
+// Return the global irq number corresponding to a host bus device irq pin.
+static int pci_slot_get_irq(u16 bdf, int pin)
 {
     int slot_addend = pci_bdf_to_dev(bdf) - 1;
-    return (irq_num + slot_addend) & 3;
+    return pci_irqs[(pin - 1 + slot_addend) & 3];
 }
 
 /* PIIX3/PIIX4 PCI to ISA bridge */
@@ -215,23 +213,19 @@ static const struct pci_device_id pci_device_tbl[] = {
 static void pci_bios_init_device(struct pci_device *pci)
 {
     u16 bdf = pci->bdf;
-    int pin, pic_irq;
-
     dprintf(1, "PCI: init bdf=%02x:%02x.%x id=%04x:%04x\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , pci->vendor, pci->device);
+
     pci_init_device(pci_class_tbl, pci, NULL);
 
     /* enable memory mappings */
     pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
 
     /* map the interrupt */
-    pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
-    if (pin != 0) {
-        pin = pci_slot_get_pirq(bdf, pin - 1);
-        pic_irq = pci_irqs[pin];
-        pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pic_irq);
-    }
+    int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
+    if (pin != 0)
+        pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pci_slot_get_irq(bdf, pin));
 
     pci_init_device(pci_device_tbl, pci, NULL);
 }
