@@ -366,23 +366,16 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
     return ssdt_ptr + bytes;
 }
 
-// AML Processor() object.  See src/ssdt-proc.dsl for info.
-static unsigned char ssdt_proc[] = {
-    0x5b,0x83,0x42,0x05,0x43,0x50,0x41,0x41,
-    0xaa,0x10,0xb0,0x00,0x00,0x06,0x08,0x49,
-    0x44,0x5f,0x5f,0x0a,0xaa,0x08,0x5f,0x48,
-    0x49,0x44,0x0d,0x41,0x43,0x50,0x49,0x30,
-    0x30,0x30,0x37,0x00,0x14,0x0f,0x5f,0x4d,
-    0x41,0x54,0x00,0xa4,0x43,0x50,0x4d,0x41,
-    0x49,0x44,0x5f,0x5f,0x14,0x0f,0x5f,0x53,
-    0x54,0x41,0x00,0xa4,0x43,0x50,0x53,0x54,
-    0x49,0x44,0x5f,0x5f,0x14,0x0f,0x5f,0x45,
-    0x4a,0x30,0x01,0x43,0x50,0x45,0x4a,0x49,
-    0x44,0x5f,0x5f,0x68
-};
-#define SD_OFFSET_CPUHEX 6
-#define SD_OFFSET_CPUID1 8
-#define SD_OFFSET_CPUID2 20
+#define AmlCode static ssdp_proc_aml
+#include "ssdt-proc.hex"
+#undef AmlCode
+
+/* 0x5B 0x83 ProcessorOp PkgLength NameString ProcID */
+#define SD_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
+#define SD_OFFSET_CPUID1 (*ssdt_proc_name - *ssdt_proc_start + 4)
+#define SD_OFFSET_CPUID2 (*ssdt_proc_id - *ssdt_proc_start)
+#define SD_SIZEOF (*ssdt_proc_end - *ssdt_proc_start)
+#define SD_PROC (ssdp_proc_aml + *ssdt_proc_start)
 
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 static void*
@@ -391,7 +384,7 @@ build_ssdt(void)
     int acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
     // length = ScopeOp + procs + NTYF method + CPON package
     int length = ((1+3+4)
-                  + (acpi_cpus * sizeof(ssdt_proc))
+                  + (acpi_cpus * SD_SIZEOF)
                   + (1+2+5+(12*acpi_cpus))
                   + (6+2+1+(1*acpi_cpus)));
     u8 *ssdt = malloc_high(sizeof(struct acpi_table_header) + length);
@@ -412,12 +405,12 @@ build_ssdt(void)
     // build Processor object for each processor
     int i;
     for (i=0; i<acpi_cpus; i++) {
-        memcpy(ssdt_ptr, ssdt_proc, sizeof(ssdt_proc));
+        memcpy(ssdt_ptr, SD_PROC, SD_SIZEOF);
         ssdt_ptr[SD_OFFSET_CPUHEX] = getHex(i >> 4);
         ssdt_ptr[SD_OFFSET_CPUHEX+1] = getHex(i);
         ssdt_ptr[SD_OFFSET_CPUID1] = i;
         ssdt_ptr[SD_OFFSET_CPUID2] = i;
-        ssdt_ptr += sizeof(ssdt_proc);
+        ssdt_ptr += SD_SIZEOF;
     }
 
     // build "Method(NTFY, 2) {If (LEqual(Arg0, 0x00)) {Notify(CP00, Arg1)} ...}"
