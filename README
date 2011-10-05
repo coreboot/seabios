@@ -24,24 +24,6 @@ directory for rom images.  For example:
 qemu -L mybiosdir/ -fda myfdimage.img
 
 
-The following payloads have been tested:
-
-Freedos - see http://www.freedos.org/ .  Useful tests include: booting
-from installation cdrom, installing to hard drive and floppy, making
-sure hard drive and floppy boots then work.  It is also useful to take
-the bootable floppy and hard-drive images, write them to an el-torito
-bootable cdrom using the Linux mkisofs utility, and then boot those
-cdrom images.
-
-Linux - useful hard drive image available from
-http://fabrice.bellard.free.fr/qemu/linux-0.2.img.bz2 .  It is also
-useful to test standard distribution bootup and live cdroms.
-
-NetBSD - useful hard drive image available from
-http://nopid.free.fr/small.ffs.bz2 .  It is also useful to test
-standard distribution installation cdroms.
-
-
 Overview of files:
 
 The src/ directory contains the bios source code.  Several of the
@@ -62,20 +44,20 @@ The 16bit code is compiled via gcc to assembler (file out/ccode.16.s).
 The gcc "-fwhole-program" and "-ffunction-sections -fdata-sections"
 options are used to optimize the process so that gcc can efficiently
 compile and discard unneeded code.  (In the code, one can use the
-macros 'VISIBLE16' and 'VISIBLE32' to instruct a symbol to be
+macros 'VISIBLE16' and 'VISIBLE32FLAT' to instruct a symbol to be
 outputted in 16bit and 32bit mode respectively.)
 
 This resulting assembler code is pulled into romlayout.S.  The gas
 option ".code16gcc" is used prior to including the gcc generated
 assembler - this option enables gcc to generate valid 16 bit code.
 
-The post code (post.c) is entered, via the function _start(), in 32bit
-mode.  The 16bit post vector (in romlayout.S) transitions the cpu into
-32 bit mode before calling the post.c code.
+The post code (post.c) is entered, via the function handle_post(), in
+32bit mode.  The 16bit post vector (in romlayout.S) transitions the
+cpu into 32 bit mode before calling the post.c code.
 
 In the last step of compilation, the 32 bit code is merged into the 16
 bit code so that one binary file contains both.  Currently, both 16bit
-and 32bit code will be located in the 64K block at segment 0xf000.
+and 32bit code will be located in the memory at 0xe0000-0xfffff.
 
 
 GCC 16 bit limitations:
@@ -164,9 +146,10 @@ insn).  An entry to an ISR handler without args takes 30 bytes (6 + 20
 Debugging the bios:
 
 The bios will output information messages to a special debug port.
-Under qemu, one can view these messages by enabling the '#define
-DEBUG_BIOS' definition in 'qemu/hw/pc.c'.  Once this is done (and qemu
-is recompiled), one should see status messages on the console.
+Under qemu, one can view these messages by adding '-chardev
+stdio,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios' to
+the qemu command line.  Once this is done, one should see status
+messages on the console.
 
 The gdb-server mechanism of qemu is also useful.  One can use gdb with
 qemu to debug system images.  To use this, add '-s -S' to the qemu
