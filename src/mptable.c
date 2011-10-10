@@ -169,7 +169,7 @@ mptable_init(void)
     intsrc->irqflag = 0; /* PO, EL default */
     intsrc->srcbus = isabusid; /* ISA */
     intsrc->srcbusirq = 0;
-    intsrc->dstapic = 0; /* BSP == APIC #0 */
+    intsrc->dstapic = 0xff; /* to all local APICs */
     intsrc->dstirq = 1; /* LINTIN1 */
     intsrc++;
     entrycount += intsrc - intsrcs;
