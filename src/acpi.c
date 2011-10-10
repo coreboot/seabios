@@ -139,6 +139,14 @@ struct madt_intsrcovr {
     u16 flags;
 } PACKED;
 
+struct madt_local_nmi {
+    ACPI_SUB_HEADER_DEF
+    u8  processor_id;           /* ACPI processor id */
+    u16 flags;                  /* MPS INTI flags */
+    u8  lint;                   /* Local APIC LINT# */
+} PACKED;
+
+
 /*
  * ACPI 2.0 Generic Address Space definition.
  */
@@ -300,7 +308,9 @@ build_madt(void)
     int madt_size = (sizeof(struct multiple_apic_table)
                      + sizeof(struct madt_processor_apic) * MaxCountCPUs
                      + sizeof(struct madt_io_apic)
-                     + sizeof(struct madt_intsrcovr) * 16);
+                     + sizeof(struct madt_intsrcovr) * 16
+                     + sizeof(struct madt_local_nmi));
+
     struct multiple_apic_table *madt = malloc_high(madt_size);
     if (!madt) {
         warn_noalloc();
@@ -352,7 +362,15 @@ build_madt(void)
         intsrcovr++;
     }
 
-    build_header((void*)madt, APIC_SIGNATURE, (void*)intsrcovr - (void*)madt, 1);
+    struct madt_local_nmi *local_nmi = (void*)intsrcovr;
+    local_nmi->type         = APIC_LOCAL_NMI;
+    local_nmi->length       = sizeof(*local_nmi);
+    local_nmi->processor_id = 0xff; /* all processors */
+    local_nmi->flags        = 0;
+    local_nmi->lint         = 1; /* LINT1 */
+    local_nmi++;
+
+    build_header((void*)madt, APIC_SIGNATURE, (void*)local_nmi - (void*)madt, 1);
     return madt;
 }
 
