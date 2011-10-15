@@ -43,7 +43,6 @@ static struct pci_bus {
         u32 base;
     } r[PCI_REGION_TYPE_COUNT];
 } *busses;
-static int busses_count;
 
 static int pci_size_to_index(u32 size, enum pci_region_type type)
 {
@@ -314,7 +313,6 @@ pci_bios_init_bus(void)
 {
     u8 pci_bus = 0;
     pci_bios_init_bus_rec(0 /* host bus */, &pci_bus);
-    busses_count = pci_bus + 1;
 }
 
 
@@ -368,12 +366,6 @@ static void pci_bios_check_device_in_bus(int bus);
 static void pci_bios_check_device(struct pci_bus *bus, struct pci_device *dev)
 {
     if (dev->class == PCI_CLASS_BRIDGE_PCI) {
-        if (dev->secondary_bus >= busses_count) {
-            /* should never trigger */
-            dprintf(1, "PCI: bus count too small (%d), skipping bus #%d\n",
-                    busses_count, dev->secondary_bus);
-            return;
-        }
         struct pci_bus *s = busses + dev->secondary_bus;
         pci_bios_check_device_in_bus(dev->secondary_bus);
         int type;
@@ -507,9 +499,6 @@ static void pci_bios_map_device_in_bus(int bus);
 static void pci_bios_map_device(struct pci_bus *bus, struct pci_device *dev)
 {
     if (dev->class == PCI_CLASS_BRIDGE_PCI) {
-        if (dev->secondary_bus >= busses_count) {
-            return;
-        }
         struct pci_bus *s = busses + dev->secondary_bus;
         u32 base, limit;
 
@@ -607,8 +596,12 @@ pci_setup(void)
     pci_probe_devices();
 
     dprintf(1, "=== PCI new allocation pass #1 ===\n");
-    busses = malloc_tmp(sizeof(*busses) * busses_count);
-    memset(busses, 0, sizeof(*busses) * busses_count);
+    busses = malloc_tmp(sizeof(*busses) * (MaxPCIBus + 1));
+    if (!busses) {
+        warn_noalloc();
+        return;
+    }
+    memset(busses, 0, sizeof(*busses) * (MaxPCIBus + 1));
     pci_bios_check_device_in_bus(0 /* host bus */);
     if (pci_bios_init_root_regions(start, end) != 0) {
         panic("PCI: out of address space\n");
@@ -627,5 +620,4 @@ pci_setup(void)
     }
 
     free(busses);
-    busses_count = 0;
 }
