@@ -230,16 +230,18 @@ static void pci_bios_init_device(struct pci_device *pci)
     pci_init_device(pci_device_tbl, pci, NULL);
 }
 
-static void pci_bios_init_device_in_bus(int bus)
+static void pci_bios_init_devices(void)
 {
     struct pci_device *pci;
     foreachpci(pci) {
-        u8 pci_bus = pci_bdf_to_bus(pci->bdf);
-        if (pci_bus < bus)
-            continue;
-        if (pci_bus > bus)
+        if (pci_bdf_to_bus(pci->bdf) != 0)
+            // Only init devices on host bus.
             break;
         pci_bios_init_device(pci);
+    }
+
+    foreachpci(pci) {
+        pci_init_device(pci_isa_bridge_tbl, pci, NULL);
     }
 }
 
@@ -604,12 +606,7 @@ pci_setup(void)
     dprintf(1, "=== PCI new allocation pass #2 ===\n");
     pci_bios_map_devices(busses);
 
-    pci_bios_init_device_in_bus(0 /* host bus */);
-
-    struct pci_device *pci;
-    foreachpci(pci) {
-        pci_init_device(pci_isa_bridge_tbl, pci, NULL);
-    }
+    pci_bios_init_devices();
 
     free(busses);
 }
