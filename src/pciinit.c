@@ -31,7 +31,7 @@ static const char *region_type_name[] = {
     [ PCI_REGION_TYPE_PREFMEM ] = "prefmem",
 };
 
-static struct pci_bus {
+struct pci_bus {
     struct {
         /* pci region stats */
         u32 count[32 - PCI_MEM_INDEX_SHIFT];
@@ -43,7 +43,7 @@ static struct pci_bus {
         u32 base;
     } r[PCI_REGION_TYPE_COUNT];
     struct pci_device *bus_dev;
-} *busses;
+};
 
 static int pci_size_to_index(u32 size, enum pci_region_type type)
 {
@@ -362,7 +362,7 @@ static void pci_bios_bus_reserve(struct pci_bus *bus, int type, u32 size)
         bus->r[type].max = size;
 }
 
-static void pci_bios_check_devices(void)
+static void pci_bios_check_devices(struct pci_bus *busses)
 {
     dprintf(1, "PCI: check devices\n");
 
@@ -420,10 +420,8 @@ static void pci_bios_check_devices(void)
 
 #define ROOT_BASE(top, sum, max) ALIGN_DOWN((top)-(sum),(max) ?: 1)
 
-static int pci_bios_init_root_regions(u32 start, u32 end)
+static int pci_bios_init_root_regions(struct pci_bus *bus, u32 start, u32 end)
 {
-    struct pci_bus *bus = &busses[0];
-
     bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
 
     if (bus->r[PCI_REGION_TYPE_MEM].sum < bus->r[PCI_REGION_TYPE_PREFMEM].sum) {
@@ -495,8 +493,12 @@ static u32 pci_bios_bus_get_addr(struct pci_bus *bus, int type, u32 size)
 #define PCI_MEMORY_SHIFT        16
 #define PCI_PREF_MEMORY_SHIFT   16
 
-static void pci_bios_map_devices(void)
+static void pci_bios_map_devices(struct pci_bus *busses)
 {
+    // Setup bases for root bus.
+    dprintf(1, "PCI: init bases bus 0 (primary)\n");
+    pci_bios_init_bus_bases(&busses[0]);
+
     // Map regions on each secondary bus.
     int secondary_bus;
     for (secondary_bus=1; secondary_bus<=MaxPCIBus; secondary_bus++) {
@@ -588,21 +590,19 @@ pci_setup(void)
     pci_probe_devices();
 
     dprintf(1, "=== PCI new allocation pass #1 ===\n");
-    busses = malloc_tmp(sizeof(*busses) * (MaxPCIBus + 1));
+    struct pci_bus *busses = malloc_tmp(sizeof(*busses) * (MaxPCIBus + 1));
     if (!busses) {
         warn_noalloc();
         return;
     }
     memset(busses, 0, sizeof(*busses) * (MaxPCIBus + 1));
-    pci_bios_check_devices();
-    if (pci_bios_init_root_regions(start, end) != 0) {
+    pci_bios_check_devices(busses);
+    if (pci_bios_init_root_regions(&busses[0], start, end) != 0) {
         panic("PCI: out of address space\n");
     }
 
     dprintf(1, "=== PCI new allocation pass #2 ===\n");
-    dprintf(1, "PCI: init bases bus 0 (primary)\n");
-    pci_bios_init_bus_bases(&busses[0]);
-    pci_bios_map_devices();
+    pci_bios_map_devices(busses);
 
     pci_bios_init_device_in_bus(0 /* host bus */);
 
