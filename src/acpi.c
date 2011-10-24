@@ -53,6 +53,11 @@ struct facs_descriptor_rev1
 
 
 /*
+ * Differentiated System Description Table (DSDT)
+ */
+#define DSDT_SIGNATURE 0x54445344 // DSDT
+
+/*
  * MADT values and structures
  */
 
@@ -236,14 +241,23 @@ static const struct pci_device_id fadt_init_tbl[] = {
     PCI_DEVICE_END
 };
 
+static void fill_dsdt(struct fadt_descriptor_rev1 *fadt, void *dsdt)
+{
+    if (fadt->dsdt) {
+        free((void *)le32_to_cpu(fadt->dsdt));
+    }
+    fadt->dsdt = cpu_to_le32((u32)dsdt);
+    fadt->checksum -= checksum(fadt, sizeof(*fadt));
+    dprintf(1, "ACPI DSDT=%p\n", dsdt);
+}
+
 static void *
 build_fadt(struct pci_device *pci)
 {
     struct fadt_descriptor_rev1 *fadt = malloc_high(sizeof(*fadt));
     struct facs_descriptor_rev1 *facs = memalign_high(64, sizeof(*facs));
-    void *dsdt = malloc_high(sizeof(AmlCode));
 
-    if (!fadt || !facs || !dsdt) {
+    if (!fadt || !facs) {
         warn_noalloc();
         return NULL;
     }
@@ -253,13 +267,11 @@ build_fadt(struct pci_device *pci)
     facs->signature = FACS_SIGNATURE;
     facs->length = cpu_to_le32(sizeof(*facs));
 
-    /* DSDT */
-    memcpy(dsdt, AmlCode, sizeof(AmlCode));
-
     /* FADT */
     memset(fadt, 0, sizeof(*fadt));
     fadt->firmware_ctrl = cpu_to_le32((u32)facs);
-    fadt->dsdt = cpu_to_le32((u32)dsdt);
+    fadt->dsdt = 0;  /* dsdt will be filled later in acpi_bios_init()
+                        by fill_dsdt() */
     fadt->model = 1;
     fadt->reserved1 = 0;
     int pm_sci_int = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
@@ -630,7 +642,8 @@ acpi_bios_init(void)
             tbl_idx++;                                       \
     } while(0)
 
-    ACPI_INIT_TABLE(build_fadt(pci));
+    struct fadt_descriptor_rev1 *fadt = build_fadt(pci);
+    ACPI_INIT_TABLE(fadt);
     ACPI_INIT_TABLE(build_ssdt());
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());
@@ -645,11 +658,29 @@ acpi_bios_init(void)
             warn_noalloc();
             continue;
         }
-        ACPI_INIT_TABLE(qemu_cfg_next_acpi_table_load(addr, len));
+        struct acpi_table_header *header =
+            qemu_cfg_next_acpi_table_load(addr, len);
+        if (header->signature == DSDT_SIGNATURE) {
+            if (fadt) {
+                fill_dsdt(fadt, addr);
+            }
+        } else {
+            ACPI_INIT_TABLE(header);
+        }
         if (tbl_idx == MAX_ACPI_TABLES) {
             warn_noalloc();
             break;
         }
+    }
+    if (fadt && !fadt->dsdt) {
+        /* default DSDT */
+        void *dsdt = malloc_high(sizeof(AmlCode));
+        if (!dsdt) {
+            warn_noalloc();
+            return;
+        }
+        memcpy(dsdt, AmlCode, sizeof(AmlCode));
+        fill_dsdt(fadt, dsdt);
     }
 
     // Build final rsdt table
