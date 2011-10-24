@@ -129,6 +129,11 @@ static inline u32 cpu_to_le32(u32 x)
     return x;
 }
 
+static inline u32 le32_to_cpu(u32 x)
+{
+    return x;
+}
+
 static inline u32 getesp(void) {
     u32 esp;
     asm("movl %%esp, %0" : "=rm"(esp));
