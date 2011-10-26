@@ -29,6 +29,8 @@
 # ACPI_EXTRACT_PROCESSOR_START - start of Processor() block
 # ACPI_EXTRACT_PROCESSOR_STRING - extract a NameString from Processor()
 # ACPI_EXTRACT_PROCESSOR_END - offset at last byte of Processor() + 1
+#
+# ACPI_EXTRACT_ALL_CODE - create an array storing the generated AML bytecode
 # 
 # ACPI_EXTRACT is not allowed anywhere else in code, except in comments.
 
@@ -240,6 +242,11 @@ for i in range(len(asl)):
     array = mext.group(2)
     offset = asl[i].aml_offset
 
+    if (directive == "ACPI_EXTRACT_ALL_CODE"):
+        if array in output:
+            die("%s directive used more than once" % directive)
+        output[array] = aml
+        continue
     if (directive == "ACPI_EXTRACT_NAME_DWORD_CONST"):
         offset = aml_name_dword_const(offset)
     elif (directive == "ACPI_EXTRACT_NAME_WORD_CONST"):
@@ -261,21 +268,25 @@ for i in range(len(asl)):
 
     if array not in output:
         output[array] = []
-    output[array].append("0x%x" % offset)
+    output[array].append(offset)
 
 debug = "at end of file"
 
-#Use type large enough to fit the table
-if (len(aml) >= 0x10000):
-	offsettype = "int"
-elif (len(aml) >= 0x100):
-	offsettype = "short"
-else:
-	offsettype = "char"
+def get_value_type(maxvalue):
+    #Use type large enough to fit the table
+    if (maxvalue >= 0x10000):
+            return "int"
+    elif (maxvalue >= 0x100):
+            return "short"
+    else:
+            return "char"
 
 # Pretty print output
 for array in output.keys():
-    
-    sys.stdout.write("static unsigned %s %s[] = {\n" % (offsettype, array))
-    sys.stdout.write(",\n".join(output[array]))
+    otype = get_value_type(max(output[array]))
+    odata = []
+    for value in output[array]:
+        odata.append("0x%x" % value)
+    sys.stdout.write("static unsigned %s %s[] = {\n" % (otype, array))
+    sys.stdout.write(",\n".join(odata))
     sys.stdout.write('\n};\n');

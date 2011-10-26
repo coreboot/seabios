@@ -198,7 +198,7 @@ src/%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
 	$(Q)./tools/acpi_extract_preprocess.py $(OUT)$*.dsl.i.orig > $(OUT)$*.dsl.i
 	$(Q)iasl -l -tc -p $(OUT)$* $(OUT)$*.dsl.i
 	$(Q)./tools/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
-	$(Q)cat $(OUT)$*.hex $(OUT)$*.off > $@
+	$(Q)cat $(OUT)$*.off > $@
 
 $(OUT)ccode32flat.o: src/acpi-dsdt.hex src/ssdt-proc.hex
 

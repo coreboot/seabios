@@ -378,9 +378,7 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
     return ssdt_ptr + bytes;
 }
 
-#define AmlCode static ssdp_proc_aml
 #include "ssdt-proc.hex"
-#undef AmlCode
 
 /* 0x5B 0x83 ProcessorOp PkgLength NameString ProcID */
 #define SD_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
