@@ -46,6 +46,17 @@ struct csw_s {
     u8 bCSWStatus;
 } PACKED;
 
+static int
+usb_msc_send(struct usbdrive_s *udrive_g, int dir, void *buf, u32 bytes)
+{
+    struct usb_pipe *pipe;
+    if (dir == USB_DIR_OUT)
+        pipe = GET_GLOBAL(udrive_g->bulkout);
+    else
+        pipe = GET_GLOBAL(udrive_g->bulkin);
+    return usb_send_bulk(pipe, dir, buf, bytes);
+}
+
 // Low-level usb command transmit function.
 int
 usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
@@ -57,8 +68,6 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
             , op->drive_g, 0, op->count, blocksize, op->buf_fl);
     struct usbdrive_s *udrive_g = container_of(
         op->drive_g, struct usbdrive_s, drive);
-    struct usb_pipe *bulkin = GET_GLOBAL(udrive_g->bulkin);
-    struct usb_pipe *bulkout = GET_GLOBAL(udrive_g->bulkout);
 
     // Setup command block wrapper.
     u32 bytes = blocksize * op->count;
@@ -73,21 +82,21 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     memcpy(cbw.CBWCB, cdbcmd, USB_CDB_SIZE);
 
     // Transfer cbw to device.
-    int ret = usb_send_bulk(bulkout, USB_DIR_OUT
+    int ret = usb_msc_send(udrive_g, USB_DIR_OUT
                             , MAKE_FLATPTR(GET_SEG(SS), &cbw), sizeof(cbw));
     if (ret)
         goto fail;
 
     // Transfer data from device.
     if (bytes) {
-        ret = usb_send_bulk(bulkin, USB_DIR_IN, op->buf_fl, bytes);
+        ret = usb_msc_send(udrive_g, USB_DIR_IN, op->buf_fl, bytes);
         if (ret)
             goto fail;
     }
 
     // Transfer csw info.
     struct csw_s csw;
-    ret = usb_send_bulk(bulkin, USB_DIR_IN
+    ret = usb_msc_send(udrive_g, USB_DIR_IN
                         , MAKE_FLATPTR(GET_SEG(SS), &csw), sizeof(csw));
     if (ret)
         goto fail;
