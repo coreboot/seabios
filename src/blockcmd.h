@@ -57,6 +57,9 @@ struct cdbres_request_sense {
     u32 reserved_0e;
 } PACKED;
 
+#define SCSI_TYPE_DISK  0x00
+#define SCSI_TYPE_CDROM 0x05
+
 struct cdbres_inquiry {
     u8 pdt;
     u8 removable;

@@ -238,7 +238,7 @@ usb_msc_init(struct usb_pipe *pipe
             , vendor, product, rev, pdt, removable);
     udrive_g->drive.removable = removable;
 
-    if (pdt == USB_MSC_TYPE_CDROM) {
+    if (pdt == SCSI_TYPE_CDROM) {
         char *desc = znprintf(MAXDESCSIZE, "DVD/CD [USB Drive %s %s %s]"
                               , vendor, product, rev);
         ret = setup_drive_cdrom(&udrive_g->drive, desc);

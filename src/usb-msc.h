@@ -21,7 +21,4 @@ int process_usb_op(struct disk_op_s *op);
 
 #define US_PR_BULK         0x50
 
-#define USB_MSC_TYPE_DISK  0x00
-#define USB_MSC_TYPE_CDROM 0x05
-
 #endif // ush-msc.h
