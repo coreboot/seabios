@@ -73,13 +73,13 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     u32 bytes = blocksize * op->count;
     struct cbw_s cbw;
     memset(&cbw, 0, sizeof(cbw));
+    memcpy(cbw.CBWCB, cdbcmd, USB_CDB_SIZE);
     cbw.dCBWSignature = CBW_SIGNATURE;
     cbw.dCBWTag = 999; // XXX
     cbw.dCBWDataTransferLength = bytes;
-    cbw.bmCBWFlags = USB_DIR_IN; // XXX
+    cbw.bmCBWFlags = (cbw.CBWCB[0] == CDB_CMD_WRITE_10) ? USB_DIR_OUT : USB_DIR_IN;
     cbw.bCBWLUN = 0; // XXX
     cbw.bCBWCBLength = USB_CDB_SIZE;
-    memcpy(cbw.CBWCB, cdbcmd, USB_CDB_SIZE);
 
     // Transfer cbw to device.
     int ret = usb_msc_send(udrive_g, USB_DIR_OUT
@@ -87,9 +87,9 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     if (ret)
         goto fail;
 
-    // Transfer data from device.
+    // Transfer data to/from device.
     if (bytes) {
-        ret = usb_msc_send(udrive_g, USB_DIR_IN, op->buf_fl, bytes);
+        ret = usb_msc_send(udrive_g, cbw.bmCBWFlags, op->buf_fl, bytes);
         if (ret)
             goto fail;
     }
@@ -131,9 +131,9 @@ process_usb_op(struct disk_op_s *op)
     switch (op->command) {
     case CMD_READ:
         return cdb_read(op);
-    case CMD_FORMAT:
     case CMD_WRITE:
-        return DISK_RET_EWRITEPROTECT;
+        return cdb_write(op);
+    case CMD_FORMAT:
     case CMD_RESET:
     case CMD_ISREADY:
     case CMD_VERIFY:

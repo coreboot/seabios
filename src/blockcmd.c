@@ -91,3 +91,15 @@ cdb_read(struct disk_op_s *op)
     cmd.count = htons(op->count);
     return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
 }
+
+// Write sectors.
+int
+cdb_write(struct disk_op_s *op)
+{
+    struct cdb_rwdata_10 cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_WRITE_10;
+    cmd.lba = htonl(op->lba);
+    cmd.count = htons(op->count);
+    return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
+}

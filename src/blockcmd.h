@@ -75,5 +75,6 @@ int cdb_test_unit_ready(struct disk_op_s *op);
 int cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data);
 int cdb_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data);
 int cdb_read(struct disk_op_s *op);
+int cdb_write(struct disk_op_s *op);
 
 #endif // blockcmd.h
