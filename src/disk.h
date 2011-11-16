@@ -198,15 +198,15 @@ struct drive_s {
 #define DISK_SECTOR_SIZE  512
 #define CDROM_SECTOR_SIZE 2048
 
-#define DTYPE_NONE     0x00
-#define DTYPE_FLOPPY   0x01
-#define DTYPE_ATA      0x02
-#define DTYPE_ATAPI    0x03
-#define DTYPE_RAMDISK  0x04
-#define DTYPE_CDEMU    0x05
-#define DTYPE_USB      0x06
-#define DTYPE_VIRTIO   0x07
-#define DTYPE_AHCI     0x08
+#define DTYPE_NONE         0x00
+#define DTYPE_FLOPPY       0x01
+#define DTYPE_ATA          0x02
+#define DTYPE_ATAPI        0x03
+#define DTYPE_RAMDISK      0x04
+#define DTYPE_CDEMU        0x05
+#define DTYPE_USB          0x06
+#define DTYPE_VIRTIO_BLK   0x07
+#define DTYPE_AHCI         0x08
 
 #define MAXDESCSIZE 80
 

@@ -546,7 +546,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     SET_INT13DPT(regs, blksize, blksize);
 
     if (size < 30 ||
-        (type != DTYPE_ATA && type != DTYPE_ATAPI && type != DTYPE_VIRTIO)) {
+        (type != DTYPE_ATA && type != DTYPE_ATAPI && type != DTYPE_VIRTIO_BLK)) {
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }
@@ -651,7 +651,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         SET_INT13DPT(regs, iface_path, iobase1);
     }
 
-    if (type != DTYPE_VIRTIO) {
+    if (type != DTYPE_VIRTIO_BLK) {
         SET_INT13DPT(regs, iface_type[0], 'A');
         SET_INT13DPT(regs, iface_type[1], 'T');
         SET_INT13DPT(regs, iface_type[2], 'A');

@@ -11,7 +11,7 @@
 #include "util.h" // dprintf
 #include "ata.h" // process_ata_op
 #include "ahci.h" // process_ahci_op
-#include "virtio-blk.h" // process_virtio_op
+#include "virtio-blk.h" // process_virtio_blk_op
 #include "blockcmd.h" // cdb_*
 
 u8 FloppyCount VAR16VISIBLE;
@@ -315,8 +315,8 @@ process_op(struct disk_op_s *op)
         return process_ramdisk_op(op);
     case DTYPE_CDEMU:
         return process_cdemu_op(op);
-    case DTYPE_VIRTIO:
-	return process_virtio_op(op);
+    case DTYPE_VIRTIO_BLK:
+        return process_virtio_blk_op(op);
     case DTYPE_AHCI:
 	return process_ahci_op(op);
     case DTYPE_USB:

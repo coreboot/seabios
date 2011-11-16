@@ -75,7 +75,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
 }
 
 int
-process_virtio_op(struct disk_op_s *op)
+process_virtio_blk_op(struct disk_op_s *op)
 {
     if (! CONFIG_VIRTIO_BLK || CONFIG_COREBOOT)
         return 0;
@@ -110,7 +110,7 @@ init_virtio_blk(struct pci_device *pci)
     }
     memset(vdrive_g, 0, sizeof(*vdrive_g));
     memset(vq, 0, sizeof(*vq));
-    vdrive_g->drive.type = DTYPE_VIRTIO;
+    vdrive_g->drive.type = DTYPE_VIRTIO_BLK;
     vdrive_g->drive.cntl_id = bdf;
     vdrive_g->vq = vq;
 

@@ -109,10 +109,10 @@ menu "Hardware support"
             Support for AHCI disk code.
     config VIRTIO_BLK
         depends on DRIVES && !COREBOOT
-        bool "VirtIO controllers"
+        bool "virtio-blk controllers"
         default y
         help
-            Support boot from virtio storage.
+            Support boot from virtio-blk storage.
     config FLOPPY
         depends on DRIVES
         bool "Floppy controller"
