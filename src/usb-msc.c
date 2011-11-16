@@ -243,11 +243,16 @@ usb_msc_init(struct usb_pipe *pipe
                               , vendor, product, rev);
         ret = setup_drive_cdrom(&udrive_g->drive, desc);
     } else {
+        ret = scsi_is_ready(&dop);
+        if (ret) {
+            dprintf(1, "scsi_is_ready returned %d\n", ret);
+            return ret;
+        }
+
         struct cdbres_read_capacity capdata;
         ret = cdb_read_capacity(&dop, &capdata);
         if (ret)
             return ret;
-        // XXX - retry for some timeout?
 
         // READ CAPACITY returns the address of the last block
         udrive_g->drive.blksize = ntohl(capdata.blksize);

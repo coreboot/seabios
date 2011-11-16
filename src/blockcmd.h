@@ -80,4 +80,6 @@ int cdb_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data);
 int cdb_read(struct disk_op_s *op);
 int cdb_write(struct disk_op_s *op);
 
+int scsi_is_ready(struct disk_op_s *op);
+
 #endif // blockcmd.h

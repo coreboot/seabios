@@ -184,50 +184,6 @@ cdemu_134b(struct bregs *regs)
  * CD booting
  ****************************************************************/
 
-static int
-atapi_is_ready(struct disk_op_s *op)
-{
-    dprintf(6, "atapi_is_ready (drive=%p)\n", op->drive_g);
-
-    /* Retry TEST UNIT READY for 5 seconds unless MEDIUM NOT PRESENT is
-     * reported by the device.  If the device reports "IN PROGRESS",
-     * 30 seconds is added. */
-    int in_progress = 0;
-    u64 end = calc_future_tsc(5000);
-    for (;;) {
-        if (check_tsc(end)) {
-            dprintf(1, "test unit ready failed\n");
-            return -1;
-        }
-
-        int ret = cdb_test_unit_ready(op);
-        if (!ret)
-            // Success
-            break;
-
-        struct cdbres_request_sense sense;
-        ret = cdb_get_sense(op, &sense);
-        if (ret)
-            // Error - retry.
-            continue;
-
-        // Sense succeeded.
-        if (sense.asc == 0x3a) { /* MEDIUM NOT PRESENT */
-            dprintf(1, "Device reports MEDIUM NOT PRESENT\n");
-            return -1;
-        }
-
-        if (sense.asc == 0x04 && sense.ascq == 0x01 && !in_progress) {
-            /* IN PROGRESS OF BECOMING READY */
-            printf("Waiting for device to detect medium... ");
-            /* Allow 30 seconds more */
-            end = calc_future_tsc(30000);
-            in_progress = 1;
-        }
-    }
-    return 0;
-}
-
 int
 cdrom_boot(struct drive_s *drive_g)
 {
@@ -238,9 +194,9 @@ cdrom_boot(struct drive_s *drive_g)
     if (!dop.drive_g || cdid < 0)
         return 1;
 
-    int ret = atapi_is_ready(&dop);
+    int ret = scsi_is_ready(&dop);
     if (ret)
-        dprintf(1, "atapi_is_ready returned %d\n", ret);
+        dprintf(1, "scsi_is_ready returned %d\n", ret);
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[2048];
