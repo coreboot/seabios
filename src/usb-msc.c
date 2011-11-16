@@ -151,29 +151,29 @@ process_usb_op(struct disk_op_s *op)
  ****************************************************************/
 
 static int
-setup_drive_cdrom(struct disk_op_s *op, char *desc)
+setup_drive_cdrom(struct drive_s *drive, char *desc)
 {
-    op->drive_g->sectors = (u64)-1;
+    drive->sectors = (u64)-1;
     struct usb_pipe *pipe = container_of(
-        op->drive_g, struct usbdrive_s, drive)->bulkout;
+        drive, struct usbdrive_s, drive)->bulkout;
     int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
-    boot_add_cd(op->drive_g, desc, prio);
+    boot_add_cd(drive, desc, prio);
     return 0;
 }
 
 static int
-setup_drive_hd(struct disk_op_s *op, char *desc)
+setup_drive_hd(struct drive_s *drive, char *desc)
 {
-    if (op->drive_g->blksize != DISK_SECTOR_SIZE) {
-        dprintf(1, "Unsupported USB MSC block size %d\n", op->drive_g->blksize);
+    if (drive->blksize != DISK_SECTOR_SIZE) {
+        dprintf(1, "Unsupported USB MSC block size %d\n", drive->blksize);
         return -1;
     }
 
     // Register with bcv system.
     struct usb_pipe *pipe = container_of(
-        op->drive_g, struct usbdrive_s, drive)->bulkout;
+        drive, struct usbdrive_s, drive)->bulkout;
     int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
-    boot_add_hd(op->drive_g, desc, prio);
+    boot_add_hd(drive, desc, prio);
     return 0;
 }
 
@@ -241,7 +241,7 @@ usb_msc_init(struct usb_pipe *pipe
     if (pdt == USB_MSC_TYPE_CDROM) {
         char *desc = znprintf(MAXDESCSIZE, "DVD/CD [USB Drive %s %s %s]"
                               , vendor, product, rev);
-        ret = setup_drive_cdrom(&dop, desc);
+        ret = setup_drive_cdrom(&udrive_g->drive, desc);
     } else {
         struct cdbres_read_capacity capdata;
         ret = cdb_read_capacity(&dop, &capdata);
@@ -257,7 +257,7 @@ usb_msc_init(struct usb_pipe *pipe
 
         char *desc = znprintf(MAXDESCSIZE, "USB Drive %s %s %s"
                               , vendor, product, rev);
-        ret = setup_drive_hd(&dop, desc);
+        ret = setup_drive_hd(&udrive_g->drive, desc);
     }
     if (ret)
         goto fail;
