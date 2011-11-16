@@ -79,9 +79,11 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         goto fail;
 
     // Transfer data from device.
-    ret = usb_send_bulk(bulkin, USB_DIR_IN, op->buf_fl, bytes);
-    if (ret)
-        goto fail;
+    if (bytes) {
+        ret = usb_send_bulk(bulkin, USB_DIR_IN, op->buf_fl, bytes);
+        if (ret)
+            goto fail;
+    }
 
     // Transfer csw info.
     struct csw_s csw;
@@ -95,7 +97,8 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     if (csw.bCSWStatus == 2)
         goto fail;
 
-    op->count -= csw.dCSWDataResidue / blocksize;
+    if (blocksize)
+        op->count -= csw.dCSWDataResidue / blocksize;
     return DISK_RET_EBADTRACK;
 
 fail:
