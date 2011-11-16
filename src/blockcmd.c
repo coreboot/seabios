@@ -131,6 +131,23 @@ scsi_init_drive(struct drive_s *drive, const char *s, int *pdt, char **desc)
     dprintf(1, "%s blksize=%d sectors=%d\n"
             , s, drive->blksize, (unsigned)drive->sectors);
 
+    struct cdbres_mode_sense_geom geomdata;
+    ret = cdb_mode_sense_geom(&dop, &geomdata);
+    if (ret == 0) {
+        u32 cylinders;
+        cylinders = geomdata.cyl[0] << 16;
+        cylinders |= geomdata.cyl[1] << 8;
+        cylinders |= geomdata.cyl[2];
+        if (cylinders && geomdata.heads &&
+            drive->sectors <= 0xFFFFFFFFULL &&
+            ((u32)drive->sectors % (geomdata.heads * cylinders) == 0)) {
+            drive->pchs.cylinders = cylinders;
+            drive->pchs.heads = geomdata.heads;
+            drive->pchs.spt = (u32)drive->sectors
+     / (geomdata.heads * cylinders);
+        }
+    }
+
     *desc = znprintf(MAXDESCSIZE, "%s Drive %s %s %s"
                       , s, vendor, product, rev);
     return 0;
@@ -180,6 +197,21 @@ cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)
     struct cdb_read_capacity cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_READ_CAPACITY;
+    op->count = 1;
+    op->buf_fl = data;
+    return cdb_cmd_data(op, &cmd, sizeof(*data));
+}
+
+// Mode sense, geometry page.
+int
+cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
+{
+    struct cdb_mode_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_MODE_SENSE;
+    cmd.flags = 8; /* DBD */
+    cmd.page = MODE_PAGE_HD_GEOMETRY;
+    cmd.count = htons(sizeof(*data));
     op->count = 1;
     op->buf_fl = data;
     return cdb_cmd_data(op, &cmd, sizeof(*data));
