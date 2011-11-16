@@ -11,8 +11,8 @@
 #include "util.h" // dprintf
 #include "ata.h" // process_ata_op
 #include "ahci.h" // process_ahci_op
-#include "usb-msc.h" // process_usb_op
 #include "virtio-blk.h" // process_virtio_op
+#include "blockcmd.h" // cdb_*
 
 u8 FloppyCount VAR16VISIBLE;
 u8 CDCount;
@@ -276,6 +276,28 @@ map_floppy_drive(struct drive_s *drive_g)
  * 16bit calling interface
  ****************************************************************/
 
+int
+process_scsi_op(struct disk_op_s *op)
+{
+    if (!CONFIG_USB_MSC)
+        return 0;
+    switch (op->command) {
+    case CMD_READ:
+        return cdb_read(op);
+    case CMD_WRITE:
+        return cdb_write(op);
+    case CMD_FORMAT:
+    case CMD_RESET:
+    case CMD_ISREADY:
+    case CMD_VERIFY:
+    case CMD_SEEK:
+        return DISK_RET_SUCCESS;
+    default:
+        op->count = 0;
+        return DISK_RET_EPARAM;
+    }
+}
+
 // Execute a disk_op request.
 int
 process_op(struct disk_op_s *op)
@@ -293,12 +315,12 @@ process_op(struct disk_op_s *op)
         return process_ramdisk_op(op);
     case DTYPE_CDEMU:
         return process_cdemu_op(op);
-    case DTYPE_USB:
-        return process_usb_op(op);
     case DTYPE_VIRTIO:
 	return process_virtio_op(op);
     case DTYPE_AHCI:
 	return process_ahci_op(op);
+    case DTYPE_USB:
+        return process_scsi_op(op);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

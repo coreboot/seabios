@@ -119,34 +119,6 @@ fail:
 
 
 /****************************************************************
- * Drive ops
- ****************************************************************/
-
-// 16bit command demuxer for ATAPI cdroms.
-int
-process_usb_op(struct disk_op_s *op)
-{
-    if (!CONFIG_USB_MSC)
-        return 0;
-    switch (op->command) {
-    case CMD_READ:
-        return cdb_read(op);
-    case CMD_WRITE:
-        return cdb_write(op);
-    case CMD_FORMAT:
-    case CMD_RESET:
-    case CMD_ISREADY:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
-    default:
-        op->count = 0;
-        return DISK_RET_EPARAM;
-    }
-}
-
-
-/****************************************************************
  * Setup
  ****************************************************************/
 
