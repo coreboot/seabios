@@ -153,7 +153,6 @@ process_usb_op(struct disk_op_s *op)
 static int
 setup_drive_cdrom(struct disk_op_s *op, char *desc)
 {
-    op->drive_g->blksize = CDROM_SECTOR_SIZE;
     op->drive_g->sectors = (u64)-1;
     struct usb_pipe *pipe = container_of(
         op->drive_g, struct usbdrive_s, drive)->bulkout;
@@ -165,29 +164,16 @@ setup_drive_cdrom(struct disk_op_s *op, char *desc)
 static int
 setup_drive_hd(struct disk_op_s *op, char *desc)
 {
-    struct cdbres_read_capacity info;
-    int ret = cdb_read_capacity(op, &info);
-    if (ret)
-        return ret;
-    // XXX - retry for some timeout?
-
-    u32 blksize = ntohl(info.blksize), sectors = ntohl(info.sectors);
-    if (blksize != DISK_SECTOR_SIZE) {
-        if (blksize == CDROM_SECTOR_SIZE)
-            return setup_drive_cdrom(op, desc);
-        dprintf(1, "Unsupported USB MSC block size %d\n", blksize);
+    if (op->drive_g->blksize != DISK_SECTOR_SIZE) {
+        dprintf(1, "Unsupported USB MSC block size %d\n", op->drive_g->blksize);
         return -1;
     }
-    op->drive_g->blksize = blksize;
-    op->drive_g->sectors = sectors;
-    dprintf(1, "USB MSC blksize=%d sectors=%d\n", blksize, sectors);
 
     // Register with bcv system.
     struct usb_pipe *pipe = container_of(
         op->drive_g, struct usbdrive_s, drive)->bulkout;
     int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
     boot_add_hd(op->drive_g, desc, prio);
-
     return 0;
 }
 
@@ -257,6 +243,18 @@ usb_msc_init(struct usb_pipe *pipe
                               , vendor, product, rev);
         ret = setup_drive_cdrom(&dop, desc);
     } else {
+        struct cdbres_read_capacity capdata;
+        ret = cdb_read_capacity(&dop, &capdata);
+        if (ret)
+            return ret;
+        // XXX - retry for some timeout?
+
+        // READ CAPACITY returns the address of the last block
+        udrive_g->drive.blksize = ntohl(capdata.blksize);
+        udrive_g->drive.sectors = ntohl(capdata.sectors) + 1;
+        dprintf(1, "USB MSC blksize=%d sectors=%d\n",
+                udrive_g->drive.blksize, (int)udrive_g->drive.sectors);
+
         char *desc = znprintf(MAXDESCSIZE, "USB Drive %s %s %s"
                               , vendor, product, rev);
         ret = setup_drive_hd(&dop, desc);
