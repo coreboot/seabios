@@ -67,3 +67,14 @@ int vp_find_vq(unsigned int ioaddr, int queue_index,
 
    return num;
 }
+
+u16 vp_init_simple(u16 bdf)
+{
+    u16 ioaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) &
+        PCI_BASE_ADDRESS_IO_MASK;
+
+    vp_reset(ioaddr);
+    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
+                  VIRTIO_CONFIG_S_DRIVER );
+    return ioaddr;
+}

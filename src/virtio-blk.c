@@ -114,15 +114,8 @@ init_virtio_blk(struct pci_device *pci)
     vdrive_g->drive.cntl_id = bdf;
     vdrive_g->vq = vq;
 
-    u16 ioaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) &
-        PCI_BASE_ADDRESS_IO_MASK;
-
+    u16 ioaddr = vp_init_simple(bdf);
     vdrive_g->ioaddr = ioaddr;
-
-    vp_reset(ioaddr);
-    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
-                  VIRTIO_CONFIG_S_DRIVER );
-
     if (vp_find_vq(ioaddr, 0, vdrive_g->vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
