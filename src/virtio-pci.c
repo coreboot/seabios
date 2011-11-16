@@ -21,12 +21,18 @@
 #include "util.h" // dprintf
 
 int vp_find_vq(unsigned int ioaddr, int queue_index,
-               struct vring_virtqueue *vq)
+               struct vring_virtqueue **p_vq)
 {
-   struct vring * vr = &vq->vring;
    u16 num;
 
    ASSERT32FLAT();
+   struct vring_virtqueue *vq = *p_vq = memalign_low(PAGE_SIZE, sizeof(*vq));
+   if (!vq) {
+       warn_noalloc();
+       goto fail;
+   }
+   memset(vq, 0, sizeof(*vq));
+
    /* select the queue */
 
    outw(queue_index, ioaddr + VIRTIO_PCI_QUEUE_SEL);
@@ -36,25 +42,26 @@ int vp_find_vq(unsigned int ioaddr, int queue_index,
    num = inw(ioaddr + VIRTIO_PCI_QUEUE_NUM);
    if (!num) {
        dprintf(1, "ERROR: queue size is 0\n");
-       return -1;
+       goto fail;
    }
 
    if (num > MAX_QUEUE_NUM) {
        dprintf(1, "ERROR: queue size %d > %d\n", num, MAX_QUEUE_NUM);
-       return -1;
+       goto fail;
    }
 
    /* check if the queue is already active */
 
    if (inl(ioaddr + VIRTIO_PCI_QUEUE_PFN)) {
        dprintf(1, "ERROR: queue already active\n");
-       return -1;
+       goto fail;
    }
 
    vq->queue_index = queue_index;
 
    /* initialize the queue */
 
+   struct vring * vr = &vq->vring;
    vring_init(vr, num, (unsigned char*)&vq->queue);
 
    /* activate the queue
@@ -66,6 +73,11 @@ int vp_find_vq(unsigned int ioaddr, int queue_index,
         ioaddr + VIRTIO_PCI_QUEUE_PFN);
 
    return num;
+
+fail:
+   free(vq);
+   *p_vq = NULL;
+   return -1;
 }
 
 u16 vp_init_simple(u16 bdf)

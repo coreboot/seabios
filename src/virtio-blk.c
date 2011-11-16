@@ -103,20 +103,17 @@ init_virtio_blk(struct pci_device *pci)
     dprintf(1, "found virtio-blk at %x:%x\n", pci_bdf_to_bus(bdf),
             pci_bdf_to_dev(bdf));
     struct virtiodrive_s *vdrive_g = malloc_fseg(sizeof(*vdrive_g));
-    struct vring_virtqueue *vq = memalign_low(PAGE_SIZE, sizeof(*vq));
-    if (!vdrive_g || !vq) {
+    if (!vdrive_g) {
         warn_noalloc();
-        goto fail;
+        return;
     }
     memset(vdrive_g, 0, sizeof(*vdrive_g));
-    memset(vq, 0, sizeof(*vq));
     vdrive_g->drive.type = DTYPE_VIRTIO_BLK;
     vdrive_g->drive.cntl_id = bdf;
-    vdrive_g->vq = vq;
 
     u16 ioaddr = vp_init_simple(bdf);
     vdrive_g->ioaddr = ioaddr;
-    if (vp_find_vq(ioaddr, 0, vdrive_g->vq) < 0 ) {
+    if (vp_find_vq(ioaddr, 0, &vdrive_g->vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
         goto fail;
@@ -154,8 +151,8 @@ init_virtio_blk(struct pci_device *pci)
     return;
 
 fail:
+    free(vdrive_g->vq);
     free(vdrive_g);
-    free(vq);
 }
 
 void
