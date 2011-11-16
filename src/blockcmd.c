@@ -56,6 +56,18 @@ cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data)
     return cdb_cmd_data(op, &cmd, sizeof(*data));
 }
 
+// Test unit ready
+int
+cdb_test_unit_ready(struct disk_op_s *op)
+{
+    struct cdb_request_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_TEST_UNIT_READY;
+    op->count = 0;
+    op->buf_fl = NULL;
+    return cdb_cmd_data(op, &cmd, 0);
+}
+
 // Request capacity
 int
 cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)

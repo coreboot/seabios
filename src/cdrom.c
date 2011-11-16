@@ -189,19 +189,18 @@ atapi_is_ready(struct disk_op_s *op)
 {
     dprintf(6, "atapi_is_ready (drive=%p)\n", op->drive_g);
 
-    /* Retry READ CAPACITY for 5 seconds unless MEDIUM NOT PRESENT is
+    /* Retry TEST UNIT READY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
      * 30 seconds is added. */
-    struct cdbres_read_capacity info;
     int in_progress = 0;
     u64 end = calc_future_tsc(5000);
     for (;;) {
         if (check_tsc(end)) {
-            dprintf(1, "read capacity failed\n");
+            dprintf(1, "test unit ready failed\n");
             return -1;
         }
 
-        int ret = cdb_read_capacity(op, &info);
+        int ret = cdb_test_unit_ready(op);
         if (!ret)
             // Success
             break;
@@ -226,15 +225,6 @@ atapi_is_ready(struct disk_op_s *op)
             in_progress = 1;
         }
     }
-
-    u32 blksize = ntohl(info.blksize), sectors = ntohl(info.sectors);
-    if (blksize != GET_GLOBAL(op->drive_g->blksize)) {
-        printf("Unsupported sector size %u\n", blksize);
-        return -1;
-    }
-
-    dprintf(6, "sectors=%u\n", sectors);
-    printf("%dMB medium detected\n", sectors>>(20-11));
     return 0;
 }
 
