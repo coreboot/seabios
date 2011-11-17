@@ -483,16 +483,8 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
         data += transfer;
         datasize -= transfer;
     }
-    int i;
-    for (i=0; i<STACKTDS; i++) {
-        struct uhci_td *td = &tds[tdpos++ % STACKTDS];
-        int ret = wait_td(td);
-        if (ret)
-            goto fail;
-    }
-
     SET_FLATPTR(pipe->toggle, !!toggle);
-    return 0;
+    return wait_pipe(pipe, 5000);
 fail:
     dprintf(1, "uhci_send_bulk failed\n");
     SET_FLATPTR(pipe->qh.element, UHCI_PTR_TERM);
