@@ -75,6 +75,67 @@ scsi_is_ready(struct disk_op_s *op)
     return 0;
 }
 
+// Validate drive and find block size and sector count.
+int
+scsi_init_drive(struct drive_s *drive, const char *s, int *pdt, char **desc)
+{
+    if (!CONFIG_USB_MSC)
+        return 0;
+
+    struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
+    dop.drive_g = drive;
+    struct cdbres_inquiry data;
+    int ret = cdb_get_inquiry(&dop, &data);
+    if (ret)
+        return ret;
+    char vendor[sizeof(data.vendor)+1], product[sizeof(data.product)+1];
+    char rev[sizeof(data.rev)+1];
+    strtcpy(vendor, data.vendor, sizeof(vendor));
+    nullTrailingSpace(vendor);
+    strtcpy(product, data.product, sizeof(product));
+    nullTrailingSpace(product);
+    strtcpy(rev, data.rev, sizeof(rev));
+    nullTrailingSpace(rev);
+    *pdt = data.pdt & 0x1f;
+    int removable = !!(data.removable & 0x80);
+    dprintf(1, "%s vendor='%s' product='%s' rev='%s' type=%d removable=%d\n"
+            , s, vendor, product, rev, *pdt, removable);
+    drive->removable = removable;
+
+    if (*pdt == SCSI_TYPE_CDROM) {
+        drive->blksize = CDROM_SECTOR_SIZE;
+        drive->sectors = (u64)-1;
+
+        *desc = znprintf(MAXDESCSIZE, "DVD/CD [%s Drive %s %s %s]"
+                              , s, vendor, product, rev);
+        return 0;
+    }
+
+    ret = scsi_is_ready(&dop);
+    if (ret) {
+        dprintf(1, "scsi_is_ready returned %d\n", ret);
+        return ret;
+    }
+
+    struct cdbres_read_capacity capdata;
+    ret = cdb_read_capacity(&dop, &capdata);
+    if (ret)
+        return ret;
+
+    // READ CAPACITY returns the address of the last block.
+    // We do not bother with READ CAPACITY(16) because BIOS does not support
+    // 64-bit LBA anyway.
+    drive->blksize = ntohl(capdata.blksize);
+    drive->sectors = (u64)ntohl(capdata.sectors) + 1;
+    dprintf(1, "%s blksize=%d sectors=%d\n"
+            , s, drive->blksize, (unsigned)drive->sectors);
+
+    *desc = znprintf(MAXDESCSIZE, "%s Drive %s %s %s"
+                      , s, vendor, product, rev);
+    return 0;
+}
+
 int
 cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
 {

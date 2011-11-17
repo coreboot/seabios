@@ -216,54 +216,17 @@ usb_msc_init(struct usb_pipe *pipe
     if (!udrive_g->bulkin || !udrive_g->bulkout)
         goto fail;
 
-    // Validate drive and find block size and sector count.
-    struct disk_op_s dop;
-    memset(&dop, 0, sizeof(dop));
-    dop.drive_g = &udrive_g->drive;
-    struct cdbres_inquiry data;
-    int ret = cdb_get_inquiry(&dop, &data);
+    int ret, pdt;
+    char *desc = NULL;
+    ret = scsi_init_drive(&udrive_g->drive, "USB MSC", &pdt, &desc);
     if (ret)
         goto fail;
-    char vendor[sizeof(data.vendor)+1], product[sizeof(data.product)+1];
-    char rev[sizeof(data.rev)+1];
-    strtcpy(vendor, data.vendor, sizeof(vendor));
-    nullTrailingSpace(vendor);
-    strtcpy(product, data.product, sizeof(product));
-    nullTrailingSpace(product);
-    strtcpy(rev, data.rev, sizeof(rev));
-    nullTrailingSpace(rev);
-    int pdt = data.pdt & 0x1f;
-    int removable = !!(data.removable & 0x80);
-    dprintf(1, "USB MSC vendor='%s' product='%s' rev='%s' type=%d removable=%d\n"
-            , vendor, product, rev, pdt, removable);
-    udrive_g->drive.removable = removable;
 
-    if (pdt == SCSI_TYPE_CDROM) {
-        char *desc = znprintf(MAXDESCSIZE, "DVD/CD [USB Drive %s %s %s]"
-                              , vendor, product, rev);
+    if (pdt == SCSI_TYPE_CDROM)
         ret = setup_drive_cdrom(&udrive_g->drive, desc);
-    } else {
-        ret = scsi_is_ready(&dop);
-        if (ret) {
-            dprintf(1, "scsi_is_ready returned %d\n", ret);
-            return ret;
-        }
-
-        struct cdbres_read_capacity capdata;
-        ret = cdb_read_capacity(&dop, &capdata);
-        if (ret)
-            return ret;
-
-        // READ CAPACITY returns the address of the last block
-        udrive_g->drive.blksize = ntohl(capdata.blksize);
-        udrive_g->drive.sectors = ntohl(capdata.sectors) + 1;
-        dprintf(1, "USB MSC blksize=%d sectors=%d\n",
-                udrive_g->drive.blksize, (int)udrive_g->drive.sectors);
-
-        char *desc = znprintf(MAXDESCSIZE, "USB Drive %s %s %s"
-                              , vendor, product, rev);
+    else
         ret = setup_drive_hd(&udrive_g->drive, desc);
-    }
+
     if (ret)
         goto fail;
 
