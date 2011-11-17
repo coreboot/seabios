@@ -212,26 +212,13 @@ uhci_init(struct pci_device *pci, int busid)
  * End point communication
  ****************************************************************/
 
-static int
-wait_qh(struct usb_uhci_s *cntl, struct uhci_qh *qh)
-{
-    // XXX - 500ms just a guess
-    u64 end = calc_future_tsc(500);
-    for (;;) {
-        if (qh->element & UHCI_PTR_TERM)
-            return 0;
-        if (check_tsc(end)) {
-            warn_timeout();
-            struct uhci_td *td = (void*)(qh->element & ~UHCI_PTR_BITS);
-            dprintf(1, "Timeout on wait_qh %p (td=%p s=%x c=%x/%x)\n"
-                    , qh, td, td->status
-                    , inw(cntl->iobase + USBCMD)
-                    , inw(cntl->iobase + USBSTS));
-            return -1;
-        }
-        yield();
-    }
-}
+struct uhci_pipe {
+    struct uhci_qh qh;
+    struct uhci_td *next_td;
+    struct usb_pipe pipe;
+    u16 iobase;
+    u8 toggle;
+};
 
 // Wait for next USB frame to start - for ensuring safe memory release.
 static void
@@ -251,13 +238,28 @@ uhci_waittick(u16 iobase)
     }
 }
 
-struct uhci_pipe {
-    struct uhci_qh qh;
-    struct uhci_td *next_td;
-    struct usb_pipe pipe;
-    u16 iobase;
-    u8 toggle;
-};
+static int
+wait_pipe(struct uhci_pipe *pipe, int timeout)
+{
+    u64 end = calc_future_tsc(timeout);
+    for (;;) {
+        u32 el_link = GET_FLATPTR(pipe->qh.element);
+        if (el_link & UHCI_PTR_TERM)
+            return 0;
+        if (check_tsc(end)) {
+            warn_timeout();
+            struct uhci_td *td = (void*)(el_link & ~UHCI_PTR_BITS);
+            dprintf(1, "Timeout on wait_pipe %p (td=%p s=%x c=%x/%x)\n"
+                    , pipe, (void*)el_link, GET_FLATPTR(td->status)
+                    , inw(pipe->iobase + USBCMD)
+                    , inw(pipe->iobase + USBSTS));
+            SET_FLATPTR(pipe->qh.element, UHCI_PTR_TERM);
+            uhci_waittick(pipe->iobase);
+            return -1;
+        }
+        yield();
+    }
+}
 
 void
 uhci_free_pipe(struct usb_pipe *p)
@@ -331,8 +333,6 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         return -1;
     dprintf(5, "uhci_control %p\n", p);
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
-    struct usb_uhci_s *cntl = container_of(
-        pipe->pipe.cntl, struct usb_uhci_s, usb);
 
     int maxpacket = pipe->pipe.maxpacket;
     int lowspeed = pipe->pipe.speed;
@@ -376,11 +376,7 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     // Transfer data
     barrier();
     pipe->qh.element = (u32)&tds[0];
-    int ret = wait_qh(cntl, &pipe->qh);
-    if (ret) {
-        pipe->qh.element = UHCI_PTR_TERM;
-        uhci_waittick(pipe->iobase);
-    }
+    int ret = wait_pipe(pipe, 500);
     free(tds);
     return ret;
 }
