@@ -191,9 +191,9 @@ int bootprio_find_usb(struct pci_device *pci, u64 path)
     for (i=56; i>0; i-=8) {
         int port = (path >> i) & 0xff;
         if (port != 0xff)
-            p += snprintf(p, desc+sizeof(desc)-p, "/hub@%x", port);
+            p += snprintf(p, desc+sizeof(desc)-p, "/hub@%x", port+1);
     }
-    snprintf(p, desc+sizeof(desc)-p, "/*@%x", (u32)(path & 0xff));
+    snprintf(p, desc+sizeof(desc)-p, "/*@%x", (u32)(path & 0xff)+1);
     return find_prio(desc);
 }
 
