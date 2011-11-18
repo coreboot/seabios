@@ -248,13 +248,14 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
             return 0;
         if (check_tsc(end)) {
             warn_timeout();
+            u16 iobase = GET_FLATPTR(pipe->iobase);
             struct uhci_td *td = (void*)(el_link & ~UHCI_PTR_BITS);
             dprintf(1, "Timeout on wait_pipe %p (td=%p s=%x c=%x/%x)\n"
                     , pipe, (void*)el_link, GET_FLATPTR(td->status)
-                    , inw(pipe->iobase + USBCMD)
-                    , inw(pipe->iobase + USBSTS));
+                    , inw(iobase + USBCMD)
+                    , inw(iobase + USBSTS));
             SET_FLATPTR(pipe->qh.element, UHCI_PTR_TERM);
-            uhci_waittick(pipe->iobase);
+            uhci_waittick(iobase);
             return -1;
         }
         yield();
