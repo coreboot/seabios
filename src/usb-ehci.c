@@ -303,22 +303,12 @@ ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
  * End point communication
  ****************************************************************/
 
-static int
-ehci_wait_qh(struct usb_ehci_s *cntl, struct ehci_qh *qh)
-{
-    // XXX - 500ms just a guess
-    u64 end = calc_future_tsc(500);
-    for (;;) {
-        if (qh->qtd_next & EHCI_PTR_TERM)
-            // XXX - confirm
-            return 0;
-        if (check_tsc(end)) {
-            warn_timeout();
-            return -1;
-        }
-        yield();
-    }
-}
+struct ehci_pipe {
+    struct ehci_qh qh;
+    struct ehci_qtd *next_td, *tds;
+    void *data;
+    struct usb_pipe pipe;
+};
 
 // Wait for next USB async frame to start - for ensuring safe memory release.
 static void
@@ -362,12 +352,46 @@ ehci_waittick(struct usb_ehci_s *cntl)
     writel(&cntl->regs->usbsts, STS_IAA);
 }
 
-struct ehci_pipe {
-    struct ehci_qh qh;
-    struct ehci_qtd *next_td, *tds;
-    void *data;
-    struct usb_pipe pipe;
-};
+static void
+ehci_reset_pipe(struct ehci_pipe *pipe)
+{
+    SET_FLATPTR(pipe->qh.qtd_next, EHCI_PTR_TERM);
+    SET_FLATPTR(pipe->qh.alt_next, EHCI_PTR_TERM);
+    barrier();
+    SET_FLATPTR(pipe->qh.token, GET_FLATPTR(pipe->qh.token) & QTD_TOGGLE);
+}
+
+static int
+ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
+{
+    u64 end = calc_future_tsc(timeout);
+    u32 status;
+    for (;;) {
+        status = td->token;
+        if (!(status & QTD_STS_ACTIVE))
+            break;
+        if (check_tsc(end)) {
+            u32 cur = GET_FLATPTR(pipe->qh.current);
+            u32 tok = GET_FLATPTR(pipe->qh.token);
+            u32 next = GET_FLATPTR(pipe->qh.qtd_next);
+            warn_timeout();
+            dprintf(1, "ehci pipe=%p cur=%08x tok=%08x next=%x td=%p status=%x\n"
+                    , pipe, cur, tok, next, td, status);
+            ehci_reset_pipe(pipe);
+            struct usb_ehci_s *cntl = container_of(
+                GET_FLATPTR(pipe->pipe.cntl), struct usb_ehci_s, usb);
+            ehci_waittick(cntl);
+            return -1;
+        }
+        yield();
+    }
+    if (status & QTD_STS_HALT) {
+        dprintf(1, "ehci_wait_td error - status=%x\n", status);
+        ehci_reset_pipe(pipe);
+        return -2;
+    }
+    return 0;
+}
 
 void
 ehci_free_pipe(struct usb_pipe *p)
@@ -416,7 +440,6 @@ ehci_alloc_control_pipe(struct usb_pipe *dummy)
     memset(pipe, 0, sizeof(*pipe));
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
-    pipe->qh.token = QTD_STS_HALT;
 
     // Add queue head to controller list.
     struct ehci_qh *async_qh = cntl->async_qh;
@@ -455,15 +478,14 @@ ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     ASSERT32FLAT();
     if (! CONFIG_USB_EHCI)
         return -1;
-    dprintf(5, "ehci_control %p\n", p);
+    dprintf(5, "ehci_control %p (dir=%d cmd=%d data=%d)\n"
+            , p, dir, cmdsize, datasize);
     if (datasize > 4*4096 || cmdsize > 4*4096) {
         // XXX - should support larger sizes.
         warn_noalloc();
         return -1;
     }
     struct ehci_pipe *pipe = container_of(p, struct ehci_pipe, pipe);
-    struct usb_ehci_s *cntl = container_of(
-        pipe->pipe.cntl, struct usb_ehci_s, usb);
 
     u16 maxpacket = pipe->pipe.maxpacket;
     int speed = pipe->pipe.speed;
@@ -513,14 +535,12 @@ ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     // Transfer data
     barrier();
     pipe->qh.qtd_next = (u32)tds;
-    barrier();
-    pipe->qh.token = 0;
-    int ret = ehci_wait_qh(cntl, &pipe->qh);
-    pipe->qh.token = QTD_STS_HALT;
-    if (ret) {
-        pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
-        // XXX - halt qh?
-        ehci_waittick(cntl);
+    int i, ret=0;
+    for (i=0; i<3; i++) {
+        struct ehci_qtd *td = &tds[i];
+        ret = ehci_wait_td(pipe, td, 500);
+        if (ret)
+            break;
     }
     free(tds);
     return ret;
@@ -545,7 +565,6 @@ ehci_alloc_bulk_pipe(struct usb_pipe *dummy)
     memset(pipe, 0, sizeof(*pipe));
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
-    pipe->qh.token = QTD_STS_HALT;
 
     // Add queue head to controller list.
     struct ehci_qh *async_qh = cntl->async_qh;
@@ -553,28 +572,6 @@ ehci_alloc_bulk_pipe(struct usb_pipe *dummy)
     barrier();
     async_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
     return &pipe->pipe;
-}
-
-static int
-ehci_wait_td(struct ehci_qtd *td)
-{
-    u64 end = calc_future_tsc(5000); // XXX - lookup real time.
-    u32 status;
-    for (;;) {
-        status = td->token;
-        if (!(status & QTD_STS_ACTIVE))
-            break;
-        if (check_tsc(end)) {
-            warn_timeout();
-            return -1;
-        }
-        yield();
-    }
-    if (status & QTD_STS_HALT) {
-        dprintf(1, "ehci_wait_td error - status=%x\n", status);
-        return -2;
-    }
-    return 0;
 }
 
 #define STACKQTDS 4
@@ -607,15 +604,13 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
                    | (GET_FLATPTR(pipe->pipe.tt_devaddr) << QH_HUBADDR_SHIFT)));
     barrier();
     SET_FLATPTR(pipe->qh.qtd_next, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
-    barrier();
-    SET_FLATPTR(pipe->qh.token, GET_FLATPTR(pipe->qh.token) & QTD_TOGGLE);
 
     int tdpos = 0;
     while (datasize) {
         struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];
-        int ret = ehci_wait_td(td);
+        int ret = ehci_wait_td(pipe, td, 5000);
         if (ret)
-            goto fail;
+            return -1;
 
         struct ehci_qtd *nexttd_fl = MAKE_FLATPTR(GET_SEG(SS)
                                                  , &tds[tdpos % STACKQTDS]);
@@ -633,21 +628,12 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     int i;
     for (i=0; i<STACKQTDS; i++) {
         struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];
-        int ret = ehci_wait_td(td);
+        int ret = ehci_wait_td(pipe, td, 5000);
         if (ret)
-            goto fail;
+            return -1;
     }
 
     return 0;
-fail:
-    dprintf(1, "ehci_send_bulk failed\n");
-    SET_FLATPTR(pipe->qh.qtd_next, EHCI_PTR_TERM);
-    SET_FLATPTR(pipe->qh.alt_next, EHCI_PTR_TERM);
-    // XXX - halt qh?
-    struct usb_ehci_s *cntl = container_of(
-        GET_FLATPTR(pipe->pipe.cntl), struct usb_ehci_s, usb);
-    ehci_waittick(cntl);
-    return -1;
 }
 
 struct usb_pipe *
