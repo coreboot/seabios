@@ -484,12 +484,42 @@ build_ssdt(void)
     return ssdt;
 }
 
-static void*
-copy_table(void *table, int size)
+#include "ssdt-pcihp.hex"
+
+#define PCI_RMV_BASE 0xae0c
+
+extern void link_time_assertion(void);
+
+static void* build_pcihp(void)
 {
-    u8 *copy = malloc_high(size);
-    memcpy(copy, table, size);
-    return copy;
+    u32 rmvc_pcrm;
+    int i;
+
+    u8 *ssdt = malloc_high(sizeof ssdp_pcihp_aml);
+    memcpy(ssdt, ssdp_pcihp_aml, sizeof ssdp_pcihp_aml);
+
+    /* Runtime patching of EJ0: to disable hotplug for a slot,
+     * replace the method name: _EJ0 by EJ0_. */
+    if (ARRAY_SIZE(aml_ej0_name) != ARRAY_SIZE(aml_adr_dword)) {
+        link_time_assertion();
+    }
+
+    rmvc_pcrm = inl(PCI_RMV_BASE);
+    for (i = 0; i < ARRAY_SIZE(aml_ej0_name); ++i) {
+        /* Slot is in byte 2 in _ADR */
+        u8 slot = ssdp_pcihp_aml[aml_adr_dword[i] + 2] & 0x1F;
+	/* Sanity check */
+        if (memcmp(ssdp_pcihp_aml + aml_ej0_name[i], "_EJ0", 4)) {
+            warn_internalerror();
+            free(ssdt);
+            return NULL;
+        }
+        if (!(rmvc_pcrm & (0x1 << slot))) {
+            memcpy(ssdt + aml_ej0_name[i], "EJ0_", 4);
+        }
+    }
+
+    return ssdt;
 }
 
 #define HPET_SIGNATURE 0x54455048 // HPET
@@ -642,8 +672,6 @@ static const struct pci_device_id acpi_find_tbl[] = {
 
 struct rsdp_descriptor *RsdpAddr;
 
-#include "ssdt-pcihp.hex"
-
 #define MAX_ACPI_TABLES 20
 void
 acpi_bios_init(void)
@@ -675,7 +703,7 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());
     ACPI_INIT_TABLE(build_srat());
-    ACPI_INIT_TABLE(copy_table(ssdp_pcihp_aml, sizeof ssdp_pcihp_aml));
+    ACPI_INIT_TABLE(build_pcihp());
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 

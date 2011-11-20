@@ -53,9 +53,15 @@ DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
         gen_pci_device(1f)
 
         /* Bulk generated PCI hotplug devices */
+        // Method _EJ0 can be patched by BIOS to EJ0_
+        // at runtime, if the slot is detected to not support hotplug.
+        // Extract the offset of the address dword and the
+        // _EJ0 name to allow this patching.
 #define hotplug_slot(slot)                              \
         Device (S##slot) {                              \
+           ACPI_EXTRACT_NAME_DWORD_CONST aml_adr_dword  \
            Name (_ADR, 0x##slot##0000)                  \
+           ACPI_EXTRACT_METHOD_STRING aml_ej0_name      \
            Method (_EJ0, 1) { Return(PCEJ(0x##slot)) }  \
            Name (_SUN, 0x##slot)                        \
         }
