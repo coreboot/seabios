@@ -406,6 +406,7 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #define SD_PROC (ssdp_proc_aml + *ssdt_proc_start)
 
 #define SSDT_SIGNATURE 0x54445353 // SSDT
+
 static void*
 build_ssdt(void)
 {
@@ -481,6 +482,14 @@ build_ssdt(void)
     //hexdump(ssdt, ssdt_ptr - ssdt);
 
     return ssdt;
+}
+
+static void*
+copy_table(void *table, int size)
+{
+    u8 *copy = malloc_high(size);
+    memcpy(copy, table, size);
+    return copy;
 }
 
 #define HPET_SIGNATURE 0x54455048 // HPET
@@ -633,6 +642,8 @@ static const struct pci_device_id acpi_find_tbl[] = {
 
 struct rsdp_descriptor *RsdpAddr;
 
+#include "ssdt-pcihp.hex"
+
 #define MAX_ACPI_TABLES 20
 void
 acpi_bios_init(void)
@@ -664,6 +675,7 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());
     ACPI_INIT_TABLE(build_srat());
+    ACPI_INIT_TABLE(copy_table(ssdp_pcihp_aml, sizeof ssdp_pcihp_aml));
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 
