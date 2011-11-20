@@ -9,49 +9,9 @@ DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
 
     /* Objects supplied by DSDT */
     External (\_SB.PCI0, DeviceObj)
-    External (\_SB.PCI0.PRMV, MethodObj)
     External (\_SB.PCI0.PCEJ, MethodObj)
 
     Scope(\_SB.PCI0) {
-
-#define gen_pci_device(slot)                                    \
-        Device(SL##slot) {                                      \
-            Name (_ADR, 0x##slot##0000)                         \
-            Method (_RMV) { Return (PRMV(0x##slot)) }           \
-            Name (_SUN, 0x##slot)                               \
-        }
-
-        /* VGA (slot 1) and ISA bus (slot 2) defined in DSDT */
-        gen_pci_device(03)
-        gen_pci_device(04)
-        gen_pci_device(05)
-        gen_pci_device(06)
-        gen_pci_device(07)
-        gen_pci_device(08)
-        gen_pci_device(09)
-        gen_pci_device(0a)
-        gen_pci_device(0b)
-        gen_pci_device(0c)
-        gen_pci_device(0d)
-        gen_pci_device(0e)
-        gen_pci_device(0f)
-        gen_pci_device(10)
-        gen_pci_device(11)
-        gen_pci_device(12)
-        gen_pci_device(13)
-        gen_pci_device(14)
-        gen_pci_device(15)
-        gen_pci_device(16)
-        gen_pci_device(17)
-        gen_pci_device(18)
-        gen_pci_device(19)
-        gen_pci_device(1a)
-        gen_pci_device(1b)
-        gen_pci_device(1c)
-        gen_pci_device(1d)
-        gen_pci_device(1e)
-        gen_pci_device(1f)
-
         /* Bulk generated PCI hotplug devices */
         // Method _EJ0 can be patched by BIOS to EJ0_
         // at runtime, if the slot is detected to not support hotplug.

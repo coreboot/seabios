@@ -132,12 +132,6 @@ DefinitionBlock (
                 B0EJ, 32,
             }
 
-            OperationRegion(RMVC, SystemIO, 0xae0c, 0x04)
-            Field(RMVC, DWordAcc, NoLock, WriteAsZeros)
-            {
-                PCRM, 32,
-            }
-
             Name (_CRS, ResourceTemplate ()
             {
                 WordBusNumber (ResourceProducer, MinFixed, MaxFixed, PosDecode,
@@ -239,7 +233,6 @@ DefinitionBlock (
                                  Return (0x00)
                          }
                  }
-                 Method(_RMV) { Return (0x00) }
         }
     }
 
@@ -251,7 +244,6 @@ DefinitionBlock (
     Scope(\_SB.PCI0) {
         Device (ISA) {
             Name (_ADR, 0x00010000)
-            Method(_RMV) { Return (0x00) }
 
             /* PIIX PCI to ISA irq remapping */
             OperationRegion (P40C, PCI_Config, 0x60, 0x04)
@@ -466,13 +458,6 @@ DefinitionBlock (
 
     Scope(\_SB.PCI0) {
         /* Methods called by bulk generated PCI devices below */
-        Method (PRMV, 1, NotSerialized) {
-            // _RMV method - check if device can be removed
-            If (And(\_SB.PCI0.PCRM, ShiftLeft(1, Arg0))) {
-                Return (0x1)
-            }
-            Return (0x0)
-        }
 
         /* Methods called by hotplug devices */
         Method (PCEJ, 1, NotSerialized) {
