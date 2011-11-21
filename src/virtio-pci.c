@@ -19,6 +19,8 @@
 #include "virtio-pci.h"
 #include "config.h" // CONFIG_DEBUG_LEVEL
 #include "util.h" // dprintf
+#include "pci.h" // pci_config_readl
+#include "pci_regs.h" // PCI_BASE_ADDRESS_0
 
 int vp_find_vq(unsigned int ioaddr, int queue_index,
                struct vring_virtqueue **p_vq)
