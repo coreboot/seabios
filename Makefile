@@ -5,7 +5,7 @@
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
 # Program version
-VERSION=1.6.3-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
+VERSION=1.6.3.1-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
 
 # Output directory
 OUT=out/
