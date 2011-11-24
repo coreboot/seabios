@@ -219,6 +219,9 @@ $(KCONFIG_CONFIG):
 	$(Q)mkdir -p $(OUT)/include/config
 	$(Q)$(MAKE) -C $(OUT) -f $(CURDIR)/tools/kconfig/Makefile srctree=$(CURDIR) src=tools/kconfig obj=tools/kconfig Q=$(Q) Kconfig=$(CURDIR)/src/Kconfig $@
 
+help:
+	$(Q)$(MAKE) -f $(CURDIR)/tools/kconfig/Makefile help
+
 ####### Generic rules
 clean:
 	$(Q)rm -rf $(OUT)
