@@ -508,10 +508,6 @@ DefinitionBlock (
             }
             Return (0x0B)
         }
-        Method (IQDI, 1, NotSerialized) {
-            // _DIS method - disable interrupt
-            Or(DerefOf(Arg0), 0x80, Arg0)
-        }
         Method (IQCR, 1, NotSerialized) {
             // _CRS method - get current settings
             Name (PRR0, ResourceTemplate ()
@@ -525,11 +521,13 @@ DefinitionBlock (
             }
             Return (PRR0)
         }
-        Method (IQSR, 2, NotSerialized) {
-            // _SRS method - set interrupt
-            CreateDWordField (Arg1, 0x05, PRRI)
-            Store (PRRI, Arg0)
-        }
+        // _DIS method - disable interrupt
+#define DISIRQ(PRQVAR)                          \
+            Or(PRQVAR, 0x80, PRQVAR)            \
+        // _SRS method - set interrupt
+#define SETIRQ(PRQVAR, IRQINFO)                         \
+            CreateDWordField (IRQINFO, 0x05, PRRI)      \
+            Store (PRRI, PRQVAR)
 
         Device(LNKA) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
@@ -539,9 +537,9 @@ DefinitionBlock (
                     { 5, 10, 11 }
             })
             Method (_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
-            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ0)) }
+            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ0) }
             Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
-            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ0), Arg0) }
+            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ0, Arg0) }
         }
         Device(LNKB) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
@@ -551,9 +549,9 @@ DefinitionBlock (
                     { 5, 10, 11 }
             })
             Method (_STA, 0, NotSerialized) { Return (IQST(PRQ1)) }
-            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ1)) }
+            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ1) }
             Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ1)) }
-            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ1), Arg0) }
+            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ1, Arg0) }
         }
         Device(LNKC) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
@@ -563,9 +561,9 @@ DefinitionBlock (
                     { 5, 10, 11 }
             })
             Method (_STA, 0, NotSerialized) { Return (IQST(PRQ2)) }
-            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ2)) }
+            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ2) }
             Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ2)) }
-            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ2), Arg0) }
+            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ2, Arg0) }
         }
         Device(LNKD) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
@@ -575,9 +573,9 @@ DefinitionBlock (
                     { 5, 10, 11 }
             })
             Method (_STA, 0, NotSerialized) { Return (IQST(PRQ3)) }
-            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ3)) }
+            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ3) }
             Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ3)) }
-            Method (_SRS, 1, NotSerialized) { IQSR(RefOf(PRQ3), Arg0) }
+            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ3, Arg0) }
         }
         Device(LNKS) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
@@ -587,7 +585,7 @@ DefinitionBlock (
                     { 9 }
             })
             Method (_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
-            Method (_DIS, 0, NotSerialized) { IQDI(RefOf(PRQ0)) }
+            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ0) }
             Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
         }
     }
