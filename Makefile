@@ -12,40 +12,40 @@ OUT=out/
 
 # Source files
 SRCBOTH=misc.c stacks.c pmm.c output.c util.c block.c floppy.c ata.c mouse.c \
-        kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
-        pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
-        usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
-        virtio-ring.c virtio-pci.c virtio-blk.c apm.c ahci.c
+    kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
+    pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
+    usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
+    virtio-ring.c virtio-pci.c virtio-blk.c apm.c ahci.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
-      acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
-      lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c \
-      biostables.c xen.c bmp.c
+    acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
+    lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c \
+    biostables.c xen.c bmp.c
 SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
 
-cc-option = $(shell if test -z "`$(1) $(2) -S -o /dev/null -xc \
-              /dev/null 2>&1`"; then echo "$(2)"; else echo "$(3)"; fi ;)
+cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
+    ; then echo "$(2)"; else echo "$(3)"; fi ;)
 
 # Default compiler flags
 COMMONCFLAGS = -I$(OUT) -Os -MD \
-               -Wall -Wno-strict-aliasing -Wold-style-definition \
-               $(call cc-option,$(CC),-Wtype-limits,) \
-               -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
-               -mrtd -minline-all-stringops \
-               -freg-struct-return -ffreestanding -fomit-frame-pointer \
-               -fno-delete-null-pointer-checks \
-               -ffunction-sections -fdata-sections -fno-common
+    -Wall -Wno-strict-aliasing -Wold-style-definition \
+    $(call cc-option,$(CC),-Wtype-limits,) \
+    -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
+    -mrtd -minline-all-stringops \
+    -freg-struct-return -ffreestanding -fomit-frame-pointer \
+    -fno-delete-null-pointer-checks \
+    -ffunction-sections -fdata-sections -fno-common
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
 CFLAGS32FLAT = $(COMMONCFLAGS) -g -DMODE16=0 -DMODESEGMENT=0
 CFLAGSSEG = $(COMMONCFLAGS) -DMODESEGMENT=1 -fno-defer-pop \
-            $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
-            $(call cc-option,$(CC),-fno-tree-switch-conversion,)
+    $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
+    $(call cc-option,$(CC),-fno-tree-switch-conversion,)
 CFLAGS32SEG = $(CFLAGSSEG) -DMODE16=0 -g
 CFLAGS16INC = $(CFLAGSSEG) -DMODE16=1 \
-              $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
+    $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
 CFLAGS16 = $(CFLAGS16INC) -g
 
 all: $(OUT) $(OUT)bios.bin
