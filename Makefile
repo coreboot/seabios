@@ -32,21 +32,20 @@ COMMONCFLAGS = -I$(OUT) -Os -MD \
     $(call cc-option,$(CC),-Wtype-limits,) \
     -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
     -mrtd -minline-all-stringops \
-    -freg-struct-return -ffreestanding -fomit-frame-pointer \
-    -fno-delete-null-pointer-checks \
+    -freg-struct-return -ffreestanding -fno-delete-null-pointer-checks \
     -ffunction-sections -fdata-sections -fno-common
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 
-CFLAGS32FLAT = $(COMMONCFLAGS) -g -DMODE16=0 -DMODESEGMENT=0
+CFLAGS32FLAT = $(COMMONCFLAGS) -DMODE16=0 -DMODESEGMENT=0 -g -fomit-frame-pointer
 CFLAGSSEG = $(COMMONCFLAGS) -DMODESEGMENT=1 -fno-defer-pop \
     $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
     $(call cc-option,$(CC),-fno-tree-switch-conversion,)
-CFLAGS32SEG = $(CFLAGSSEG) -DMODE16=0 -g
+CFLAGS32SEG = $(CFLAGSSEG) -DMODE16=0 -g -fomit-frame-pointer
 CFLAGS16INC = $(CFLAGSSEG) -DMODE16=1 \
     $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
-CFLAGS16 = $(CFLAGS16INC) -g
+CFLAGS16 = $(CFLAGS16INC) -g -fomit-frame-pointer
 
 all: $(OUT) $(OUT)bios.bin
 
@@ -173,7 +172,9 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 SRCVGA=src/output.c src/util.c vgasrc/vga.c vgasrc/vgafb.c vgasrc/vgaio.c \
        vgasrc/vgatables.c vgasrc/vgafonts.c vgasrc/clext.c
 
-$(OUT)vgaccode.16.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16) -S -Isrc, $(SRCVGA),$@)
+CFLAGS16VGA = $(CFLAGS16INC) -g -Isrc
+
+$(OUT)vgaccode.16.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16VGA) -S, $(SRCVGA),$@)
 
 $(OUT)vgalayout16.o: vgaentry.S $(OUT)vgaccode.16.s $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
