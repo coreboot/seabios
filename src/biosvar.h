@@ -112,7 +112,8 @@ struct bios_data_area_s {
     struct segoff_s video_savetable;
     u8 other_ac[4];
     // 40:B0
-    u8 other_b0[10];
+    u8 other_b0[9];
+    u8 vbe_flag;
     u16 vbe_mode;
 } PACKED;
 
