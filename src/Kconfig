@@ -324,6 +324,45 @@ menu "BIOS Tables"
             Support generation of ACPI tables.
 endmenu
 
+menu "VGA ROM"
+    config VGA_CIRRUS
+        bool "QEMU Cirrus CLGD 54xx VGA BIOS"
+        default n
+        help
+            Build support for Cirrus VGA emulation.
+    
+    config VGA_BOCHS
+        bool "Bochs DISPI interface VGA BIOS"
+        default n
+        help
+            Build support for Bochs DISPI interface
+    
+    config VGA_PCI
+        bool "PCI ROM Headers"
+        default y
+        help
+            Build PCI ROM headers so the vga rom can be extracted from
+            a PCI device.
+
+    config VGA_VID
+        depends on VGA_PCI
+        hex "PCI Vendor ID"
+        default 0x1013 if VGA_CIRRUS
+        default 0x1234 if VGA_BOCHS
+        default 0x0000
+        help
+            Vendor ID for the PCI ROM
+    
+    config VGA_DID
+        depends on VGA_PCI
+        hex "PCI Device ID"
+        default 0x00b8 if VGA_CIRRUS
+        default 0x1111 if VGA_BOCHS
+        default 0x0000
+        help
+            Device ID for the PCI ROM
+endmenu
+
 menu "Debugging"
     config DEBUG_LEVEL
         int "Debug level"

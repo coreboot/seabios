@@ -19,10 +19,6 @@
 #include "config.h" // CONFIG_*
 
 // XXX
-#define CONFIG_VGA_BOCHS 0
-#define CONFIG_VGA_CIRRUS 0
-
-// XXX
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
 
