@@ -17,8 +17,8 @@
 #include "vgatables.h" // find_vga_entry
 
 // XXX
-#define CONFIG_VBE 0
-#define CONFIG_CIRRUS 0
+#define CONFIG_VGA_BOCHS 0
+#define CONFIG_VGA_CIRRUS 0
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -359,11 +359,11 @@ handle_1000(struct bregs *regs)
     else
         regs->al = 0x30;
 
-    if (CONFIG_CIRRUS)
+    if (CONFIG_VGA_CIRRUS)
         cirrus_set_video_mode(mode);
 
-    if (CONFIG_VBE)
-        if (vbe_has_vbe_display())
+    if (CONFIG_VGA_BOCHS)
+        if (bochs_has_vbe_display())
             dispi_set_enable(VBE_DISPI_DISABLED);
 
     // find the entry in the video modes
@@ -1263,7 +1263,7 @@ handle_104fXX(struct bregs *regs)
 static void
 handle_104f(struct bregs *regs)
 {
-    if (! CONFIG_VBE || !vbe_has_vbe_display()) {
+    if (! CONFIG_VGA_BOCHS || !bochs_has_vbe_display()) {
         handle_104fXX(regs);
         return;
     }
@@ -1364,13 +1364,13 @@ vga_post(struct bregs *regs)
 
     init_bios_area();
 
-    if (CONFIG_VBE)
-        vbe_init();
+    if (CONFIG_VGA_BOCHS)
+        bochs_init();
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
 
-    if (CONFIG_CIRRUS)
+    if (CONFIG_VGA_CIRRUS)
         cirrus_init();
 
     // XXX - clear screen and display info

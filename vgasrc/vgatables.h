@@ -211,7 +211,7 @@ void cirrus_init(void);
 // vbe.c -- not implemented yet.
 #define VBE_DISPI_DISABLED              0x00
 void dispi_set_enable(int enable);
-void vbe_init(void);
-int vbe_has_vbe_display(void);
+void bochs_init(void);
+int bochs_has_vbe_display(void);
 
 #endif // vgatables.h
