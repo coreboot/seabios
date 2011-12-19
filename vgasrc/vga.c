@@ -15,6 +15,8 @@
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset
 #include "vgatables.h" // find_vga_entry
+#include "optionroms.h" // struct pci_data
+#include "config.h" // CONFIG_*
 
 // XXX
 #define CONFIG_VGA_BOCHS 0
@@ -26,6 +28,21 @@
 
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 
+/****************************************************************
+ * PCI Data
+ ****************************************************************/
+#if CONFIG_VGA_PCI == 1
+struct pci_data rom_pci_data VAR16VISIBLE = {
+    .signature = PCI_ROM_SIGNATURE,
+    .vendor = CONFIG_VGA_VID,
+    .device = CONFIG_VGA_DID,
+    .dlen = 0x18,
+    .class_hi = 0x300,
+    .irevision = 1,
+    .type = PCIROM_CODETYPE_X86,
+    .indicator = 0x80,
+};
+#endif
 
 /****************************************************************
  * Helper functions

@@ -12,6 +12,7 @@
         .code16gcc
 #include "vgaccode.16.s"
 
+#include "config.h" // CONFIG_*
 #include "entryfuncs.S" // ENTRY_*
 
 
@@ -30,7 +31,15 @@ _rom_header_entry:
 _rom_header_checksum:
         .byte 0
 _rom_header_other:
-        .space 21
+        .space 17
+_rom_header_pcidata:
+#if CONFIG_VGA_PCI == 1
+        .word rom_pci_data
+#else
+        .word 0
+#endif
+_rom_header_pnpdata:
+        .word 0
 
 
 /****************************************************************
