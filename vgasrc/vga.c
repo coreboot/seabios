@@ -17,6 +17,7 @@
 #include "vgatables.h" // find_vga_entry
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
+#include "vbe.h" // vbe_*
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -358,27 +359,9 @@ restore_bda_state(u16 seg, struct saveBDAstate *info)
  ****************************************************************/
 
 // set video mode
-static void
-handle_1000(struct bregs *regs)
+void
+vga_set_mode(u8 mode, u8 noclearmem)
 {
-    u8 noclearmem = regs->al & 0x80;
-    u8 mode = regs->al & 0x7f;
-
-    // Set regs->al
-    if (mode > 7)
-        regs->al = 0x20;
-    else if (mode == 6)
-        regs->al = 0x3f;
-    else
-        regs->al = 0x30;
-
-    if (CONFIG_VGA_CIRRUS)
-        cirrus_set_video_mode(mode);
-
-    if (CONFIG_VGA_BOCHS)
-        if (bochs_has_vbe_display())
-            dispi_set_enable(VBE_DISPI_DISABLED);
-
     // find the entry in the video modes
     struct vgamode_s *vmode_g = find_vga_entry(mode);
     dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
@@ -475,6 +458,29 @@ handle_1000(struct bregs *regs)
         SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont16));
         break;
     }
+}
+
+static void
+handle_1000(struct bregs *regs)
+{
+    u8 noclearmem = regs->al & 0x80;
+    u8 mode = regs->al & 0x7f;
+
+    // Set regs->al
+    if (mode > 7)
+        regs->al = 0x20;
+    else if (mode == 6)
+        regs->al = 0x3f;
+    else
+        regs->al = 0x30;
+
+    if (CONFIG_VGA_CIRRUS)
+        cirrus_set_video_mode(mode);
+
+    if (vbe_enabled())
+        vbe_hires_enable(0);
+
+    vga_set_mode(mode, noclearmem);
 }
 
 static void
@@ -1198,72 +1204,261 @@ handle_101c(struct bregs *regs)
     }
 }
 
-
 static void
 handle_104f00(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_return_controller_information(&AX,ES,DI);
-    // XXX - OR cirrus_vesa_00h
+    u16 seg = regs->es;
+    struct vbe_info *info = (void*)(regs->di+0);
+
+    if (GET_FARVAR(seg, info->signature) == VBE2_SIGNATURE) {
+        dprintf(4, "Get VBE Controller: VBE2 Signature found\n");
+    } else if (GET_FARVAR(seg, info->signature) == VESA_SIGNATURE) {
+        dprintf(4, "Get VBE Controller: VESA Signature found\n");
+    } else {
+        dprintf(4, "Get VBE Controller: Invalid Signature\n");
+    }
+
+    memset_far(seg, info, 0, sizeof(*info));
+
+    SET_FARVAR(seg, info->signature, VESA_SIGNATURE);
+
+    SET_FARVAR(seg, info->version, 0x0200);
+
+    SET_FARVAR(seg, info->oem_string,
+            SEGOFF(get_global_seg(), (u32)VBE_OEM_STRING));
+    SET_FARVAR(seg, info->capabilities[0], 0x1); /* 8BIT DAC */
+
+    /* We generate our mode list in the reserved field of the info block */
+    SET_FARVAR(seg, info->video_mode, SEGOFF(seg, regs->di + 34));
+
+    /* Total memory (in 64 blocks) */
+    SET_FARVAR(seg, info->total_memory, vbe_total_mem());
+
+    SET_FARVAR(seg, info->oem_vendor_string,
+            SEGOFF(get_global_seg(), (u32)VBE_VENDOR_STRING));
+    SET_FARVAR(seg, info->oem_product_string,
+            SEGOFF(get_global_seg(), (u32)VBE_PRODUCT_STRING));
+    SET_FARVAR(seg, info->oem_revision_string,
+            SEGOFF(get_global_seg(), (u32)VBE_REVISION_STRING));
+
+    /* Fill list of modes */
+    vbe_list_modes(seg, regs->di + 32);
+
+    regs->al = regs->ah; /* 0x4F, Function supported */
+    regs->ah = 0x0; /* 0x0, Function call successful */
 }
 
 static void
 handle_104f01(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_return_mode_information(&AX,CX,ES,DI);
-    // XXX - OR cirrus_vesa_01h
+    u16 seg = regs->es;
+    struct vbe_mode_info *info = (void*)(regs->di+0);
+    u16 mode = regs->cx;
+    struct vbe_modeinfo modeinfo;
+    int rc;
+
+    dprintf(1, "VBE mode info request: %x\n", mode);
+
+    rc = vbe_mode_info(mode, &modeinfo);
+    if (rc) {
+        dprintf(1, "VBE mode %x not found\n", mode);
+        regs->ax = 0x100;
+        return;
+    }
+
+    u16 mode_attr = VBE_MODE_ATTRIBUTE_SUPPORTED |
+                    VBE_MODE_ATTRIBUTE_EXTENDED_INFORMATION_AVAILABLE |
+                    VBE_MODE_ATTRIBUTE_COLOR_MODE |
+                    VBE_MODE_ATTRIBUTE_GRAPHICS_MODE;
+    if (modeinfo.depth == 4)
+        mode_attr |= VBE_MODE_ATTRIBUTE_TTY_BIOS_SUPPORT;
+    else
+        mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
+    SET_FARVAR(seg, info->mode_attributes, mode_attr);
+    SET_FARVAR(seg, info->winA_attributes,
+               VBE_WINDOW_ATTRIBUTE_RELOCATABLE |
+               VBE_WINDOW_ATTRIBUTE_READABLE |
+               VBE_WINDOW_ATTRIBUTE_WRITEABLE);
+    SET_FARVAR(seg, info->winB_attributes, 0);
+    SET_FARVAR(seg, info->win_granularity, 64); /* Bank size 64K */
+    SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
+    SET_FARVAR(seg, info->winA_seg, 0xA000);
+    SET_FARVAR(seg, info->winB_seg, 0x0);
+    SET_FARVAR(seg, info->win_func_ptr, 0x0);
+    SET_FARVAR(seg, info->bytes_per_scanline, modeinfo.linesize);
+    SET_FARVAR(seg, info->xres, modeinfo.width);
+    SET_FARVAR(seg, info->yres, modeinfo.height);
+    SET_FARVAR(seg, info->xcharsize, 8);
+    SET_FARVAR(seg, info->ycharsize, 16);
+    if (modeinfo.depth == 4)
+        SET_FARVAR(seg, info->planes, 4);
+    else
+        SET_FARVAR(seg, info->planes, 1);
+    SET_FARVAR(seg, info->bits_per_pixel, modeinfo.depth);
+    SET_FARVAR(seg, info->banks,
+            (modeinfo.linesize * modeinfo.height + 65535) / 65536);
+    if (modeinfo.depth == 4)
+        SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_PLANAR);
+    else if (modeinfo.depth == 8)
+        SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_PACKED_PIXEL);
+    else
+        SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_DIRECT_COLOR);
+    SET_FARVAR(seg, info->bank_size, 0);
+    u32 pages = modeinfo.vram_size / (modeinfo.height * modeinfo.linesize);
+    if (modeinfo.depth == 4)
+        SET_FARVAR(seg, info->pages, (pages / 4) - 1);
+    else
+        SET_FARVAR(seg, info->pages, pages - 1);
+    SET_FARVAR(seg, info->reserved0, 1);
+
+    u8 r_size, r_pos, g_size, g_pos, b_size, b_pos, a_size, a_pos;
+
+    switch (modeinfo.depth) {
+    case 15: r_size = 5; r_pos = 10; g_size = 5; g_pos = 5;
+             b_size = 5; b_pos = 0; a_size = 1; a_pos = 15; break;
+    case 16: r_size = 5; r_pos = 11; g_size = 6; g_pos = 5;
+             b_size = 5; b_pos = 0; a_size = 0; a_pos = 0; break;
+    case 24: r_size = 8; r_pos = 16; g_size = 8; g_pos = 8;
+             b_size = 8; b_pos = 0; a_size = 0; a_pos = 0; break;
+    case 32: r_size = 8; r_pos = 16; g_size = 8; g_pos = 8;
+             b_size = 8; b_pos = 0; a_size = 8; a_pos = 24; break;
+    default: r_size = 0; r_pos = 0; g_size = 0; g_pos = 0;
+             b_size = 0; b_pos = 0; a_size = 0; a_pos = 0; break;
+    }
+
+    SET_FARVAR(seg, info->red_size, r_size);
+    SET_FARVAR(seg, info->red_pos, r_pos);
+    SET_FARVAR(seg, info->green_size, g_size);
+    SET_FARVAR(seg, info->green_pos, g_pos);
+    SET_FARVAR(seg, info->blue_size, b_size);
+    SET_FARVAR(seg, info->blue_pos, b_pos);
+    SET_FARVAR(seg, info->alpha_size, a_size);
+    SET_FARVAR(seg, info->alpha_pos, a_pos);
+
+    if (modeinfo.depth == 32)
+        SET_FARVAR(seg, info->directcolor_info,
+                   VBE_DIRECTCOLOR_RESERVED_BITS_AVAILABLE);
+    else
+        SET_FARVAR(seg, info->directcolor_info, 0);
+
+    if (modeinfo.depth > 4)
+        SET_FARVAR(seg, info->phys_base, modeinfo.phys_base);
+    else
+        SET_FARVAR(seg, info->phys_base, 0);
+
+    SET_FARVAR(seg, info->reserved1, 0);
+    SET_FARVAR(seg, info->reserved2, 0);
+    SET_FARVAR(seg, info->linear_bytes_per_scanline, modeinfo.linesize);
+    SET_FARVAR(seg, info->bank_pages, 0);
+    SET_FARVAR(seg, info->linear_pages, 0);
+    SET_FARVAR(seg, info->linear_red_size, r_size);
+    SET_FARVAR(seg, info->linear_red_pos, r_pos);
+    SET_FARVAR(seg, info->linear_green_size, g_size);
+    SET_FARVAR(seg, info->linear_green_pos, g_pos);
+    SET_FARVAR(seg, info->linear_blue_size, b_size);
+    SET_FARVAR(seg, info->linear_blue_pos, b_pos);
+    SET_FARVAR(seg, info->linear_alpha_size, a_size);
+    SET_FARVAR(seg, info->linear_alpha_pos, a_pos);
+    SET_FARVAR(seg, info->pixclock_max, 0);
+
+    regs->al = regs->ah; /* 0x4F, Function supported */
+    regs->ah = 0x0; /* 0x0, Function call successful */
 }
 
 static void
 handle_104f02(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_set_mode(&AX,BX,ES,DI);
-    // XXX - OR cirrus_vesa_02h
+    //u16 seg = regs->es;
+    //struct vbe_crtc_info *crtc_info = (void*)(regs->di+0);
+    u16 mode = regs->bx;
+    struct vbe_modeinfo modeinfo;
+    int rc;
+
+    dprintf(1, "VBE mode set: %x\n", mode);
+
+    if (mode < 0x100) { /* VGA */
+        dprintf(1, "set VGA mode %x\n", mode);
+
+        vbe_hires_enable(0);
+        vga_set_mode(mode, 0);
+    } else { /* VBE */
+        rc = vbe_mode_info(mode & 0x1ff, &modeinfo);
+        if (rc) {
+            dprintf(1, "VBE mode %x not found\n", mode & 0x1ff);
+            regs->ax = 0x100;
+            return;
+        }
+        vbe_hires_enable(1);
+        vbe_set_mode(mode & 0x1ff, &modeinfo);
+
+        if (mode & 0x4000) {
+            /* Linear frame buffer */
+            /* XXX: ??? */
+        }
+        if (!(mode & 0x8000)) {
+            vbe_clear_scr();
+        }
+    }
+
+    regs->al = regs->ah; /* 0x4F, Function supported */
+    regs->ah = 0x0; /* 0x0, Function call successful */
 }
 
 static void
 handle_104f03(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_return_current_mode
-    // XXX - OR cirrus_vesa_03h
+    if (!vbe_hires_enabled()) {
+        regs->bx = GET_BDA(video_mode);
+    } else {
+        regs->bx = vbe_curr_mode();
+    }
+
+    dprintf(1, "VBE current mode=%x\n", regs->bx);
+
+    regs->al = regs->ah; /* 0x4F, Function supported */
+    regs->ah = 0x0; /* 0x0, Function call successful */
 }
 
 static void
 handle_104f04(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_save_restore_state(&AX, CX, DX, ES, &BX);
+    debug_enter(regs, DEBUG_VGA_10);
+    regs->ax = 0x0100;
 }
 
 static void
 handle_104f05(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_display_window_control
-    // XXX - OR cirrus_vesa_05h
+    debug_enter(regs, DEBUG_VGA_10);
+    regs->ax = 0x0100;
 }
 
 static void
 handle_104f06(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_set_get_logical_scan_line_length
-    // XXX - OR cirrus_vesa_06h
+    debug_enter(regs, DEBUG_VGA_10);
+    regs->ax = 0x0100;
 }
 
 static void
 handle_104f07(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_set_get_display_start
-    // XXX - OR cirrus_vesa_07h
+    debug_enter(regs, DEBUG_VGA_10);
+    regs->ax = 0x0100;
 }
 
 static void
 handle_104f08(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_set_get_dac_palette_format
+    debug_enter(regs, DEBUG_VGA_10);
+    regs->ax = 0x0100;
 }
 
 static void
 handle_104f0a(struct bregs *regs)
 {
-    // XXX - vbe_biosfn_return_protected_mode_interface
+    debug_enter(regs, DEBUG_VGA_10);
+    regs->ax = 0x0100;
 }
 
 static void
@@ -1276,7 +1471,7 @@ handle_104fXX(struct bregs *regs)
 static void
 handle_104f(struct bregs *regs)
 {
-    if (! CONFIG_VGA_BOCHS || !bochs_has_vbe_display()) {
+    if (!vbe_enabled()) {
         handle_104fXX(regs);
         return;
     }
@@ -1377,8 +1572,7 @@ vga_post(struct bregs *regs)
 
     init_bios_area();
 
-    if (CONFIG_VGA_BOCHS)
-        bochs_init();
+    vbe_init(regs->ah, regs->al);
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));

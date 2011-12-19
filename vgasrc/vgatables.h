@@ -156,6 +156,7 @@ struct carattr {
 struct cursorpos {
     u8 x, y, page;
 };
+void vga_set_mode(u8 mode, u8 noclearmem);
 
 // vgafb.c
 void clear_screen(struct vgamode_s *vmode_g);
@@ -208,10 +209,30 @@ void vgahw_init(void);
 void cirrus_set_video_mode(u8 mode);
 void cirrus_init(void);
 
-// vbe.c -- not implemented yet.
-#define VBE_DISPI_DISABLED              0x00
-void dispi_set_enable(int enable);
-void bochs_init(void);
-int bochs_has_vbe_display(void);
+// vbe.c
+#define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
+#define VBE_VENDOR_STRING "SeaBIOS Developers"
+#define VBE_PRODUCT_STRING "SeaBIOS VBE Adapter"
+#define VBE_REVISION_STRING "Rev. 1"
+
+struct vbe_modeinfo
+{
+    u16 width;
+    u16 height;
+    u8 depth;
+    u16 linesize;
+    u32 phys_base;
+    u32 vram_size;
+};
+int vbe_init(u8 bus, u8 devfn);
+int vbe_enabled(void);
+u16 vbe_total_mem(void);
+int vbe_list_modes(u16 seg, u16 ptr);
+int vbe_mode_info(u16 mode, struct vbe_modeinfo *info);
+void vbe_hires_enable(int enable);
+void vbe_set_mode(u16 mode, struct vbe_modeinfo *info);
+void vbe_clear_scr(void);
+int vbe_hires_enabled(void);
+u16 vbe_curr_mode(void);
 
 #endif // vgatables.h
