@@ -70,6 +70,16 @@
 #define SCREEN_IO_START(x,y,p) (((((x)*(y)) | 0x00ff) + 1) * (p))
 #define SCREEN_MEM_START(x,y,p) SCREEN_IO_START(((x)*2),(y),(p))
 
+// Standard Video Save Pointer Table
+struct VideoSavePointer_s {
+    struct segoff_s videoparam;
+    struct segoff_s paramdynamicsave;
+    struct segoff_s textcharset;
+    struct segoff_s graphcharset;
+    struct segoff_s secsavepointer;
+    u8 reserved[8];
+} PACKED;
+
 /* standard BIOS Video Parameter Table */
 struct VideoParam_s {
     u8 twidth;
@@ -138,7 +148,7 @@ struct saveDACcolors {
 
 // vgatables.c
 struct vgamode_s *find_vga_entry(u8 mode);
-extern u16 video_save_pointer_table[];
+extern struct VideoSavePointer_s video_save_pointer_table;
 extern struct VideoParam_s video_param_table[];
 extern u8 static_functionality[];
 

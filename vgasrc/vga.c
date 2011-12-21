@@ -420,7 +420,7 @@ vga_set_mode(u8 mode, u8 noclearmem)
     // FIXME We nearly have the good tables. to be reworked
     SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
     SET_BDA(video_savetable
-            , SEGOFF(get_global_seg(), (u32)video_save_pointer_table));
+            , SEGOFF(get_global_seg(), (u32)&video_save_pointer_table));
 
     // FIXME
     SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
@@ -1586,8 +1586,8 @@ vga_post(struct bregs *regs)
     // XXX - clear screen and display info
 
     // XXX: fill it
-    SET_VGA(video_save_pointer_table[0], (u32)video_param_table);
-    SET_VGA(video_save_pointer_table[1], get_global_seg());
+    SET_VGA(video_save_pointer_table.videoparam
+            , SEGOFF(get_global_seg(), (u32)video_param_table));
 
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;

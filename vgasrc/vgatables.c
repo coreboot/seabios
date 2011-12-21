@@ -13,6 +13,8 @@
  * Video parameter table
  ****************************************************************/
 
+struct VideoSavePointer_s video_save_pointer_table VAR16;
+
 struct VideoParam_s video_param_table[] VAR16 = {
     // index=0x00 no mode defined
     {},
@@ -413,8 +415,6 @@ find_vga_entry(u8 mode)
     }
     return NULL;
 }
-
-u16 video_save_pointer_table[14] VAR16;
 
 
 /****************************************************************
