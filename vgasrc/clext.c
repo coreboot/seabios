@@ -9,6 +9,11 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
 
+
+/****************************************************************
+ * tables
+ ****************************************************************/
+
 struct cirrus_mode_s {
     /* + 0 */
     u16 mode;
@@ -289,6 +294,11 @@ static struct cirrus_mode_s cirrus_modes[] VAR16 = {
      0xff,0,0,0,0,0,0,0,0},
 };
 
+
+/****************************************************************
+ * helper functions
+ ****************************************************************/
+
 static struct cirrus_mode_s *
 cirrus_get_modeentry(u8 mode)
 {
@@ -348,19 +358,61 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
     vgahw_set_single_palette_reg(0x10, v);
 }
 
-void
-cirrus_set_video_mode(u8 mode)
+static u8
+cirrus_get_memsize(void)
+{
+    // get DRAM band width
+    outb(0x0f, VGAREG_SEQU_ADDRESS);
+    u8 v = inb(VGAREG_SEQU_DATA);
+    u8 x = (v >> 3) & 0x03;
+    if (x == 0x03) {
+        if (v & 0x80)
+            // 4MB
+            return 0x40;
+        // 2MB
+        return 0x20;
+    }
+    return 0x04 << x;
+}
+
+static void
+cirrus_enable_16k_granularity(void)
+{
+    outb(0x0b, VGAREG_GRDC_ADDRESS);
+    u8 v = inb(VGAREG_GRDC_DATA);
+    outb(v | 0x20, VGAREG_GRDC_DATA);
+}
+
+static void
+cirrus_clear_vram(u16 param)
+{
+    cirrus_enable_16k_granularity();
+    u8 count = cirrus_get_memsize() * 4;
+    u8 i;
+    for (i=0; i<count; i++) {
+        outw((i<<8) | 0x09, VGAREG_GRDC_ADDRESS);
+        memset16_far(SEG_GRAPH, 0, param, 16 * 1024);
+    }
+    outw(0x0009, VGAREG_GRDC_ADDRESS);
+}
+
+int
+cirrus_set_video_mode(u8 mode, u8 noclearmem)
 {
     dprintf(1, "cirrus mode %d\n", mode);
     SET_BDA(vbe_mode, 0);
-    struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode & 0x7f);
+    struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode);
     if (table_g) {
-        //XXX - cirrus_set_video_mode_extended(table);
-        return;
+        cirrus_switch_mode(table_g);
+        if (!noclearmem)
+            cirrus_clear_vram(0xffff);
+        SET_BDA(video_mode, mode);
+        return 1;
     }
     table_g = cirrus_get_modeentry(0xfe);
     cirrus_switch_mode(table_g);
     dprintf(1, "cirrus mode switch regular\n");
+    return 0;
 }
 
 static int
@@ -369,6 +421,243 @@ cirrus_check(void)
     outw(0x9206, VGAREG_SEQU_ADDRESS);
     return inb(VGAREG_SEQU_DATA) == 0x12;
 }
+
+
+/****************************************************************
+ * extbios
+ ****************************************************************/
+
+static void
+cirrus_extbios_80h(struct bregs *regs)
+{
+    u16 crtc_addr = cirrus_get_crtc();
+    outb(0x27, crtc_addr);
+    u8 v = inb(crtc_addr + 1);
+    if (v == 0xa0)
+        // 5430
+        regs->ax = 0x0032;
+    else if (v == 0xb8)
+        // 5446
+        regs->ax = 0x0039;
+    else
+        regs->ax = 0x00ff;
+    regs->bx = 0x00;
+    return;
+}
+
+static void
+cirrus_extbios_81h(struct bregs *regs)
+{
+    // XXX
+    regs->ax = 0x0100;
+}
+
+static void
+cirrus_extbios_82h(struct bregs *regs)
+{
+    u16 crtc_addr = cirrus_get_crtc();
+    outb(0x27, crtc_addr);
+    regs->al = inb(crtc_addr + 1) & 0x03;
+    regs->ah = 0xAF;
+}
+
+static void
+cirrus_extbios_85h(struct bregs *regs)
+{
+    regs->al = cirrus_get_memsize();
+}
+
+static void
+cirrus_extbios_9Ah(struct bregs *regs)
+{
+    regs->ax = 0x4060;
+    regs->cx = 0x1132;
+}
+
+extern void a0h_callback(void);
+ASM16(
+    // fatal: not implemented yet
+    "a0h_callback:"
+    "cli\n"
+    "hlt\n"
+    "retf");
+
+static void
+cirrus_extbios_A0h(struct bregs *regs)
+{
+    struct cirrus_mode_s *table_g = cirrus_get_modeentry(regs->al & 0x7f);
+    regs->ah = (table_g ? 1 : 0);
+    regs->si = 0xffff;
+    regs->di = regs->ds = regs->es = regs->bx = (u32)a0h_callback;
+}
+
+static void
+cirrus_extbios_A1h(struct bregs *regs)
+{
+    regs->bx = 0x0e00; // IBM 8512/8513, color
+}
+
+static void
+cirrus_extbios_A2h(struct bregs *regs)
+{
+    regs->al = 0x07; // HSync 31.5 - 64.0 kHz
+}
+
+static void
+cirrus_extbios_AEh(struct bregs *regs)
+{
+    regs->al = 0x01; // High Refresh 75Hz
+}
+
+void
+cirrus_extbios(struct bregs *regs)
+{
+    // XXX - regs->bl < 0x80 or > 0xaf call regular handlers.
+    switch (regs->bl) {
+    case 0x80: cirrus_extbios_80h(regs); break;
+    case 0x81: cirrus_extbios_81h(regs); break;
+    case 0x82: cirrus_extbios_82h(regs); break;
+    case 0x85: cirrus_extbios_85h(regs); break;
+    case 0x9a: cirrus_extbios_9Ah(regs); break;
+    case 0xa0: cirrus_extbios_A0h(regs); break;
+    case 0xa1: cirrus_extbios_A1h(regs); break;
+    case 0xa2: cirrus_extbios_A2h(regs); break;
+    case 0xae: cirrus_extbios_AEh(regs); break;
+    default: break;
+    }
+}
+
+
+/****************************************************************
+ * vesa calls
+ ****************************************************************/
+
+#if 0
+static u16
+cirrus_vesamode_to_mode(u16 vesamode)
+{
+    // XXX - convert assembler
+    return 0;
+}
+
+static u8
+cirrus_get_bpp_bytes(void)
+{
+    // XXX - convert assembler
+    return 0;
+}
+
+static void
+cirrus_set_line_offset(u16 new_line_offset)
+{
+    // XXX - convert assembler
+}
+
+static u16
+cirrus_get_line_offset(void)
+{
+    // XXX - convert assembler
+    return 0;
+}
+
+static u16
+cirrus_get_line_offset_entry(void *table)
+{
+    // XXX - convert assembler
+    return 0;
+}
+
+static void
+cirrus_set_start_addr(void *addr)
+{
+    // XXX - convert assembler
+}
+
+static void *
+cirrus_get_start_addr(void)
+{
+    // XXX - convert assembler
+    return NULL;
+}
+#endif
+
+static void
+cirrus_vesa_00h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_01h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_02h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_03h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+// XXX - add cirrus_vesa_05h_farentry to vgaentry.S
+
+static void
+cirrus_vesa_05h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_06h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_07h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_10h(struct bregs *regs)
+{
+    // XXX - convert assembler
+}
+
+static void
+cirrus_vesa_not_handled(struct bregs *regs)
+{
+    debug_stub(regs);
+    regs->ax = 0x014f;
+}
+
+void
+cirrus_vesa(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x00: cirrus_vesa_00h(regs); break;
+    case 0x01: cirrus_vesa_01h(regs); break;
+    case 0x02: cirrus_vesa_02h(regs); break;
+    case 0x03: cirrus_vesa_03h(regs); break;
+    case 0x05: cirrus_vesa_05h(regs); break;
+    case 0x06: cirrus_vesa_06h(regs); break;
+    case 0x07: cirrus_vesa_07h(regs); break;
+    case 0x10: cirrus_vesa_10h(regs); break;
+    default:   cirrus_vesa_not_handled(regs); break;
+    }
+}
+
+
+/****************************************************************
+ * init
+ ****************************************************************/
 
 void
 cirrus_init(void)

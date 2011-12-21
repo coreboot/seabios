@@ -206,7 +206,7 @@ void vgahw_enable_video_addressing(u8 disable);
 void vgahw_init(void);
 
 // clext.c
-void cirrus_set_video_mode(u8 mode);
+int cirrus_set_video_mode(u8 mode, u8 noclearmem);
 void cirrus_init(void);
 
 // vbe.c

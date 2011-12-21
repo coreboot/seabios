@@ -474,8 +474,11 @@ handle_1000(struct bregs *regs)
     else
         regs->al = 0x30;
 
-    if (CONFIG_VGA_CIRRUS)
-        cirrus_set_video_mode(mode);
+    if (CONFIG_VGA_CIRRUS) {
+        int ret = cirrus_set_video_mode(mode, noclearmem);
+        if (ret)
+            return;
+    }
 
     if (vbe_enabled())
         vbe_hires_enable(0);
