@@ -170,7 +170,8 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 
 # VGA src files
 SRCVGA=src/output.c src/util.c vgasrc/vga.c vgasrc/vgafb.c vgasrc/vgaio.c \
-       vgasrc/vgatables.c vgasrc/vgafonts.c vgasrc/clext.c vgasrc/vbe.c
+    vgasrc/vgatables.c vgasrc/vgafonts.c \
+    vgasrc/clext.c vgasrc/vbe.c vgasrc/geodelx.c
 
 CFLAGS16VGA = $(CFLAGS16INC) -g -Isrc
 

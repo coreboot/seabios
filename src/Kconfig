@@ -330,13 +330,19 @@ menu "VGA ROM"
         default n
         help
             Build support for Cirrus VGA emulation.
-    
+
     config VGA_BOCHS
         bool "Bochs DISPI interface VGA BIOS"
         default n
         help
             Build support for Bochs DISPI interface
-    
+
+    config VGA_GEODELX
+        bool "GeodeLX interface VGA BIOS"
+        default n
+        help
+            Build support for Geode vga
+
     config VGA_PCI
         bool "PCI ROM Headers"
         default y
@@ -349,15 +355,17 @@ menu "VGA ROM"
         hex "PCI Vendor ID"
         default 0x1013 if VGA_CIRRUS
         default 0x1234 if VGA_BOCHS
+        default 0x1022 if VGA_GEODELX
         default 0x0000
         help
             Vendor ID for the PCI ROM
-    
+
     config VGA_DID
         depends on VGA_PCI
         hex "PCI Device ID"
         default 0x00b8 if VGA_CIRRUS
         default 0x1111 if VGA_BOCHS
+        default 0x2081 if VGA_GEODELX
         default 0x0000
         help
             Device ID for the PCI ROM

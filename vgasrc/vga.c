@@ -18,6 +18,7 @@
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
 #include "vbe.h" // vbe_*
+#include "geodelx.h" // geodelx_init
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -1568,6 +1569,9 @@ vga_post(struct bregs *regs)
     debug_enter(regs, DEBUG_VGA_POST);
 
     vgahw_init();
+
+    if (CONFIG_VGA_GEODELX)
+        geodelx_init();
 
     init_bios_area();
 
