@@ -23,7 +23,6 @@
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
 
-#define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 
 /****************************************************************
  * PCI Data
@@ -1582,9 +1581,7 @@ vga_post(struct bregs *regs)
 
     // XXX - clear screen and display info
 
-    // XXX: fill it
-    SET_VGA(video_save_pointer_table.videoparam
-            , SEGOFF(get_global_seg(), (u32)video_param_table));
+    build_video_param();
 
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;

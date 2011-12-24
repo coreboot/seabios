@@ -70,29 +70,6 @@
 #define SCREEN_IO_START(x,y,p) (((((x)*(y)) | 0x00ff) + 1) * (p))
 #define SCREEN_MEM_START(x,y,p) SCREEN_IO_START(((x)*2),(y),(p))
 
-// Standard Video Save Pointer Table
-struct VideoSavePointer_s {
-    struct segoff_s videoparam;
-    struct segoff_s paramdynamicsave;
-    struct segoff_s textcharset;
-    struct segoff_s graphcharset;
-    struct segoff_s secsavepointer;
-    u8 reserved[8];
-} PACKED;
-
-/* standard BIOS Video Parameter Table */
-struct VideoParam_s {
-    u8 twidth;
-    u8 theightm1;
-    u8 cheight;
-    u16 slength;
-    u8 sequ_regs[4];
-    u8 miscreg;
-    u8 crtc_regs[25];
-    u8 actl_regs[20];
-    u8 grdc_regs[9];
-} PACKED;
-
 struct vgamode_s {
     u8 svgamode;
     u8 memmodel;    /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */
@@ -157,8 +134,8 @@ struct saveDACcolors {
 
 // vgatables.c
 struct vgamode_s *find_vga_entry(u8 mode);
+void build_video_param(void);
 extern struct VideoSavePointer_s video_save_pointer_table;
-extern struct VideoParam_s video_param_table[];
 extern u8 static_functionality[];
 
 // vgafonts.c
@@ -169,6 +146,7 @@ extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
 // vga.c
+#define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 struct carattr {
     u8 car, attr, use_attr;
 };
