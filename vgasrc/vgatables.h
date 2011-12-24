@@ -95,13 +95,23 @@ struct VideoParam_s {
 
 struct vgamode_s {
     u8 svgamode;
-    struct VideoParam_s *vparam;
     u8 memmodel;    /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */
+    u8 twidth;
+    u8 theight;
+    u8 cheight;
     u8 pixbits;
     u16 sstart;
+    u16 slength;
+    struct VideoParam_s *vparam;
+
     u8 pelmask;
     u8 *dac;
     u16 dacsize;
+    u8 *sequ_regs;
+    u8 miscreg;
+    u8 *crtc_regs;
+    u8 *actl_regs;
+    u8 *grdc_regs;
 };
 
 struct saveVideoHardware {
