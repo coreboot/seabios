@@ -1092,8 +1092,7 @@ handle_101a(struct bregs *regs)
 
 
 struct funcInfo {
-    u16 static_functionality_off;
-    u16 static_functionality_seg;
+    struct segoff_s static_functionality;
     u8 bda_0x49[30];
     u8 bda_0x84[3];
     u8 dcc_index;
@@ -1119,8 +1118,8 @@ handle_101b(struct bregs *regs)
     struct funcInfo *info = (void*)(regs->di+0);
     memset_far(seg, info, 0, sizeof(*info));
     // Address of static functionality table
-    SET_FARVAR(seg, info->static_functionality_off, (u32)static_functionality);
-    SET_FARVAR(seg, info->static_functionality_seg, get_global_seg());
+    SET_FARVAR(seg, info->static_functionality
+               , SEGOFF(get_global_seg(), (u32)static_functionality));
 
     // Hard coded copy from BIOS area. Should it be cleaner ?
     memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49
