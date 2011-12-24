@@ -40,6 +40,10 @@ _rom_header_pcidata:
 #endif
 _rom_header_pnpdata:
         .word 0
+_rom_header_other2:
+        .word 0
+_rom_header_signature:
+        .asciz "IBM"
 
 
 /****************************************************************
