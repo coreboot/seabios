@@ -40,8 +40,7 @@ static void
 scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
            , struct cursorpos ul, struct cursorpos lr)
 {
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
+    u8 cheight = GET_GLOBAL(vmode_g->cheight);
     int stride = GET_BDA(video_cols);
     void *src_far, *dest_far;
     if (nblines >= 0) {
@@ -72,8 +71,7 @@ static void
 scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
+    u8 cheight = GET_GLOBAL(vmode_g->cheight);
     u8 bpp = GET_GLOBAL(vmode_g->pixbits);
     int stride = GET_BDA(video_cols) * bpp;
     void *src_far, *dest_far;
@@ -190,8 +188,7 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
     if (cp.x >= nbcols)
         return;
 
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    u8 cheight = GET_GLOBAL(vparam_g->cheight);
+    u8 cheight = GET_GLOBAL(vmode_g->cheight);
     u8 *fdata_g;
     switch (cheight) {
     case 14:

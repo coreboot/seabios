@@ -102,7 +102,6 @@ struct vgamode_s {
     u8 pixbits;
     u16 sstart;
     u16 slength;
-    struct VideoParam_s *vparam;
 
     u8 pelmask;
     u8 *dac;
@@ -221,7 +220,7 @@ void vgahw_set_scan_lines(u8 lines);
 u16 vgahw_get_vde(void);
 void vgahw_save_state(u16 seg, struct saveVideoHardware *info);
 void vgahw_restore_state(u16 seg, struct saveVideoHardware *info);
-void vgahw_set_mode(struct VideoParam_s *vparam_g);
+void vgahw_set_mode(struct vgamode_s *vmode_g);
 void vgahw_enable_video_addressing(u8 disable);
 void vgahw_init(void);
 

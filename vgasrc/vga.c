@@ -175,8 +175,7 @@ set_active_page(u8 page)
         // Start address
         address = SCREEN_IO_START(nbcols, nbrows, page);
     } else {
-        struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-        address = page * GET_GLOBAL(vparam_g->slength);
+        address = page * GET_GLOBAL(vmode_g->slength);
     }
 
     vgahw_set_active_page(address);
@@ -394,8 +393,7 @@ vga_set_mode(u8 mode, u8 noclearmem)
             perform_gray_scale_summing(0x00, 0x100);
     }
 
-    struct VideoParam_s *vparam_g = GET_GLOBAL(vmode_g->vparam);
-    vgahw_set_mode(vparam_g);
+    vgahw_set_mode(vmode_g);
 
     if (noclearmem == 0x00)
         clear_screen(vmode_g);
@@ -406,12 +404,12 @@ vga_set_mode(u8 mode, u8 noclearmem)
         crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
 
     // Set the BIOS mem
-    u16 cheight = GET_GLOBAL(vparam_g->cheight);
+    u16 cheight = GET_GLOBAL(vmode_g->cheight);
     SET_BDA(video_mode, mode);
-    SET_BDA(video_cols, GET_GLOBAL(vparam_g->twidth));
-    SET_BDA(video_pagesize, GET_GLOBAL(vparam_g->slength));
+    SET_BDA(video_cols, GET_GLOBAL(vmode_g->twidth));
+    SET_BDA(video_pagesize, GET_GLOBAL(vmode_g->slength));
     SET_BDA(crtc_address, crtc_addr);
-    SET_BDA(video_rows, GET_GLOBAL(vparam_g->theightm1));
+    SET_BDA(video_rows, GET_GLOBAL(vmode_g->theight)-1);
     SET_BDA(char_height, cheight);
     SET_BDA(video_ctl, (0x60 | noclearmem));
     SET_BDA(video_switches, 0xF9);

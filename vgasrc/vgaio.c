@@ -481,16 +481,17 @@ vgahw_restore_state(u16 seg, struct saveVideoHardware *info)
 }
 
 void
-vgahw_set_mode(struct VideoParam_s *vparam_g)
+vgahw_set_mode(struct vgamode_s *vmode_g)
 {
     // Reset Attribute Ctl flip-flop
     inb(VGAREG_ACTL_RESET);
 
     // Set Attribute Ctl
+    u8 *regs = GET_GLOBAL(vmode_g->actl_regs);
     u16 i;
     for (i = 0; i <= 0x13; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
-        outb(GET_GLOBAL(vparam_g->actl_regs[i]), VGAREG_ACTL_WRITE_DATA);
+        outb(GET_GLOBAL(regs[i]), VGAREG_ACTL_WRITE_DATA);
     }
     outb(0x14, VGAREG_ACTL_ADDRESS);
     outb(0x00, VGAREG_ACTL_WRITE_DATA);
@@ -498,19 +499,21 @@ vgahw_set_mode(struct VideoParam_s *vparam_g)
     // Set Sequencer Ctl
     outb(0, VGAREG_SEQU_ADDRESS);
     outb(0x03, VGAREG_SEQU_DATA);
+    regs = GET_GLOBAL(vmode_g->sequ_regs);
     for (i = 1; i <= 4; i++) {
         outb(i, VGAREG_SEQU_ADDRESS);
-        outb(GET_GLOBAL(vparam_g->sequ_regs[i - 1]), VGAREG_SEQU_DATA);
+        outb(GET_GLOBAL(regs[i - 1]), VGAREG_SEQU_DATA);
     }
 
     // Set Grafx Ctl
+    regs = GET_GLOBAL(vmode_g->grdc_regs);
     for (i = 0; i <= 8; i++) {
         outb(i, VGAREG_GRDC_ADDRESS);
-        outb(GET_GLOBAL(vparam_g->grdc_regs[i]), VGAREG_GRDC_DATA);
+        outb(GET_GLOBAL(regs[i]), VGAREG_GRDC_DATA);
     }
 
     // Set CRTC address VGA or MDA
-    u8 miscreg = GET_GLOBAL(vparam_g->miscreg);
+    u8 miscreg = GET_GLOBAL(vmode_g->miscreg);
     u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
     if (!(miscreg & 1))
         crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
@@ -518,9 +521,10 @@ vgahw_set_mode(struct VideoParam_s *vparam_g)
     // Disable CRTC write protection
     outw(0x0011, crtc_addr);
     // Set CRTC regs
+    regs = GET_GLOBAL(vmode_g->crtc_regs);
     for (i = 0; i <= 0x18; i++) {
         outb(i, crtc_addr);
-        outb(GET_GLOBAL(vparam_g->crtc_regs[i]), crtc_addr + 1);
+        outb(GET_GLOBAL(regs[i]), crtc_addr + 1);
     }
 
     // Set the misc register
