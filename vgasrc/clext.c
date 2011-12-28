@@ -8,6 +8,7 @@
 #include "vgatables.h" // cirrus_init
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
+#include "bregs.h" // struct bregs
 
 
 /****************************************************************
