@@ -545,8 +545,10 @@ static void pci_bios_map_devices(struct pci_bus *busses)
                     i, addr, pci->bars[i].size, region_type_name[type]);
             pci_set_io_region_addr(pci, i, addr);
 
-            if (pci->bars[i].is64)
+            if (pci->bars[i].is64) {
                 i++;
+                pci_set_io_region_addr(pci, i, 0);
+            }
         }
     }
 }
