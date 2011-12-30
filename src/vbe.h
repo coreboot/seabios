@@ -11,7 +11,7 @@ struct vbe_info {
     u32 signature;
     u16 version;
     struct segoff_s oem_string;
-    u8 capabilities[4];
+    u32 capabilities;
     struct segoff_s video_mode;
     u16 total_memory;
     u16 oem_revision;
@@ -30,7 +30,7 @@ struct vbe_mode_info {
     u16 win_size;
     u16 winA_seg;
     u16 winB_seg;
-    u32 win_func_ptr;
+    struct segoff_s win_func_ptr;
     u16 bytes_per_scanline;
     /* VBE 1.2 */
     u16 xres;
@@ -71,7 +71,7 @@ struct vbe_mode_info {
     u8 linear_alpha_size;
     u8 linear_alpha_pos;
     u32 pixclock_max;
-    u8 reserved[189];
+    u8 reserved[190];
 } PACKED;
 
 struct vbe_crtc_info {

@@ -1226,7 +1226,7 @@ handle_104f00(struct bregs *regs)
 
     SET_FARVAR(seg, info->oem_string,
             SEGOFF(get_global_seg(), (u32)VBE_OEM_STRING));
-    SET_FARVAR(seg, info->capabilities[0], 0x1); /* 8BIT DAC */
+    SET_FARVAR(seg, info->capabilities, 0x1); /* 8BIT DAC */
 
     /* We generate our mode list in the reserved field of the info block */
     SET_FARVAR(seg, info->video_mode, SEGOFF(seg, regs->di + 34));
@@ -1284,7 +1284,7 @@ handle_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
     SET_FARVAR(seg, info->winA_seg, 0xA000);
     SET_FARVAR(seg, info->winB_seg, 0x0);
-    SET_FARVAR(seg, info->win_func_ptr, 0x0);
+    SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0);
     SET_FARVAR(seg, info->bytes_per_scanline, modeinfo.linesize);
     SET_FARVAR(seg, info->xres, modeinfo.width);
     SET_FARVAR(seg, info->yres, modeinfo.height);
