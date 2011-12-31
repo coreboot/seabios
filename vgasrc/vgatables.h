@@ -221,15 +221,5 @@ struct vbe_modeinfo
     u32 phys_base;
     u32 vram_size;
 };
-int vbe_init(u8 bus, u8 devfn);
-int vbe_enabled(void);
-u16 vbe_total_mem(void);
-int vbe_list_modes(u16 seg, u16 ptr);
-int vbe_mode_info(u16 mode, struct vbe_modeinfo *info);
-void vbe_hires_enable(int enable);
-void vbe_set_mode(u16 mode, struct vbe_modeinfo *info);
-void vbe_clear_scr(void);
-int vbe_hires_enabled(void);
-u16 vbe_curr_mode(void);
 
 #endif // vgatables.h

@@ -17,8 +17,9 @@
 #include "vgatables.h" // find_vga_entry
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
-#include "vbe.h" // vbe_*
+#include "vbe.h" // struct vbe_info
 #include "geodelx.h" // geodelx_init
+#include "bochsvga.h" // bochsvga_init
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -478,8 +479,8 @@ handle_1000(struct bregs *regs)
             return;
     }
 
-    if (vbe_enabled())
-        vbe_hires_enable(0);
+    if (bochsvga_enabled())
+        bochsvga_hires_enable(0);
 
     vga_set_mode(mode, noclearmem);
 }
@@ -1232,7 +1233,7 @@ handle_104f00(struct bregs *regs)
     SET_FARVAR(seg, info->video_mode, SEGOFF(seg, regs->di + 34));
 
     /* Total memory (in 64 blocks) */
-    SET_FARVAR(seg, info->total_memory, vbe_total_mem());
+    SET_FARVAR(seg, info->total_memory, bochsvga_total_mem());
 
     SET_FARVAR(seg, info->oem_vendor_string,
             SEGOFF(get_global_seg(), (u32)VBE_VENDOR_STRING));
@@ -1242,7 +1243,7 @@ handle_104f00(struct bregs *regs)
             SEGOFF(get_global_seg(), (u32)VBE_REVISION_STRING));
 
     /* Fill list of modes */
-    vbe_list_modes(seg, regs->di + 32);
+    bochsvga_list_modes(seg, regs->di + 32);
 
     regs->al = regs->ah; /* 0x4F, Function supported */
     regs->ah = 0x0; /* 0x0, Function call successful */
@@ -1259,7 +1260,7 @@ handle_104f01(struct bregs *regs)
 
     dprintf(1, "VBE mode info request: %x\n", mode);
 
-    rc = vbe_mode_info(mode, &modeinfo);
+    rc = bochsvga_mode_info(mode, &modeinfo);
     if (rc) {
         dprintf(1, "VBE mode %x not found\n", mode);
         regs->ax = 0x100;
@@ -1379,24 +1380,24 @@ handle_104f02(struct bregs *regs)
     if (mode < 0x100) { /* VGA */
         dprintf(1, "set VGA mode %x\n", mode);
 
-        vbe_hires_enable(0);
+        bochsvga_hires_enable(0);
         vga_set_mode(mode, 0);
     } else { /* VBE */
-        rc = vbe_mode_info(mode & 0x1ff, &modeinfo);
+        rc = bochsvga_mode_info(mode & 0x1ff, &modeinfo);
         if (rc) {
             dprintf(1, "VBE mode %x not found\n", mode & 0x1ff);
             regs->ax = 0x100;
             return;
         }
-        vbe_hires_enable(1);
-        vbe_set_mode(mode & 0x1ff, &modeinfo);
+        bochsvga_hires_enable(1);
+        bochsvga_set_mode(mode & 0x1ff, &modeinfo);
 
         if (mode & 0x4000) {
             /* Linear frame buffer */
             /* XXX: ??? */
         }
         if (!(mode & 0x8000)) {
-            vbe_clear_scr();
+            bochsvga_clear_scr();
         }
     }
 
@@ -1407,10 +1408,10 @@ handle_104f02(struct bregs *regs)
 static void
 handle_104f03(struct bregs *regs)
 {
-    if (!vbe_hires_enabled()) {
+    if (!bochsvga_hires_enabled()) {
         regs->bx = GET_BDA(video_mode);
     } else {
-        regs->bx = vbe_curr_mode();
+        regs->bx = bochsvga_curr_mode();
     }
 
     dprintf(1, "VBE current mode=%x\n", regs->bx);
@@ -1471,7 +1472,7 @@ handle_104fXX(struct bregs *regs)
 static void
 handle_104f(struct bregs *regs)
 {
-    if (!vbe_enabled()) {
+    if (!bochsvga_enabled()) {
         handle_104fXX(regs);
         return;
     }
@@ -1575,7 +1576,7 @@ vga_post(struct bregs *regs)
 
     init_bios_area();
 
-    vbe_init(regs->ah, regs->al);
+    bochsvga_init(regs->ah, regs->al);
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));

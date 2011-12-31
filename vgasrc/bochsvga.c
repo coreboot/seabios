@@ -5,13 +5,13 @@
 #include "config.h" // CONFIG_
 #include "biosvar.h" // SET_BDA
 
-struct mode
+static struct mode
 {
     u16 mode;
     u16 width;
     u16 height;
     u8 depth;
-} vbe_modes[] VAR16 = {
+} bochsvga_modes[] VAR16 = {
     /* standard modes */
     { 0x100, 640,  400,  8  },
     { 0x101, 640,  480,  8  },
@@ -135,7 +135,7 @@ static u16 dispi_get_max_bpp(void)
 
 /* Called only during POST */
 int
-vbe_init(u8 bus, u8 devfn)
+bochsvga_init(u8 bus, u8 devfn)
 {
     u32 lfb_addr;
 
@@ -165,13 +165,13 @@ vbe_init(u8 bus, u8 devfn)
 }
 
 int
-vbe_enabled(void)
+bochsvga_enabled(void)
 {
     return GET_BDA(vbe_flag);
 }
 
 u16
-vbe_total_mem(void)
+bochsvga_total_mem(void)
 {
     return dispi_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K);
 }
@@ -180,7 +180,7 @@ static struct mode *find_mode_entry(u16 mode)
 {
     struct mode *m;
 
-    for (m = vbe_modes; GET_GLOBAL(m->mode); m++) {
+    for (m = bochsvga_modes; GET_GLOBAL(m->mode); m++) {
         if (GET_GLOBAL(m->mode) == mode)
             return m;
     }
@@ -192,7 +192,7 @@ static int mode_valid(struct mode *m)
 {
     u16 max_xres = dispi_get_max_xres();
     u16 max_bpp = dispi_get_max_bpp();
-    u32 max_mem = vbe_total_mem() * 64 * 1024;
+    u32 max_mem = bochsvga_total_mem() * 64 * 1024;
 
     u32 mem = GET_GLOBAL(m->width) * GET_GLOBAL(m->height) *
               BYTES_PER_PIXEL(m);
@@ -206,13 +206,13 @@ static int mode_valid(struct mode *m)
 }
 
 int
-vbe_list_modes(u16 seg, u16 ptr)
+bochsvga_list_modes(u16 seg, u16 ptr)
 {
     int count = 0;
     u16 *dest = (u16 *)(u32)ptr;
     struct mode *m;
 
-    for (m = vbe_modes; GET_GLOBAL(m->mode); m++) {
+    for (m = bochsvga_modes; GET_GLOBAL(m->mode); m++) {
         if (!mode_valid(m))
             continue;
 
@@ -228,7 +228,7 @@ vbe_list_modes(u16 seg, u16 ptr)
 }
 
 int
-vbe_mode_info(u16 mode, struct vbe_modeinfo *info)
+bochsvga_mode_info(u16 mode, struct vbe_modeinfo *info)
 {
     struct mode *m;
 
@@ -242,13 +242,13 @@ vbe_mode_info(u16 mode, struct vbe_modeinfo *info)
 
     info->linesize = info->width * ((info->depth + 7) / 8);
     info->phys_base = GET_GLOBAL(pci_lfb_addr);
-    info->vram_size = vbe_total_mem() * 64 * 1024;
+    info->vram_size = bochsvga_total_mem() * 64 * 1024;
 
     return 0;
 }
 
 void
-vbe_hires_enable(int enable)
+bochsvga_hires_enable(int enable)
 {
     u16 flags = enable ?
         VBE_DISPI_ENABLED |
@@ -259,7 +259,7 @@ vbe_hires_enable(int enable)
 }
 
 void
-vbe_set_mode(u16 mode, struct vbe_modeinfo *info)
+bochsvga_set_mode(u16 mode, struct vbe_modeinfo *info)
 {
     if (info->depth == 4)
         vga_set_mode(0x6a, 0);
@@ -317,7 +317,7 @@ vbe_set_mode(u16 mode, struct vbe_modeinfo *info)
 }
 
 void
-vbe_clear_scr(void)
+bochsvga_clear_scr(void)
 {
     u16 en;
 
@@ -327,14 +327,13 @@ vbe_clear_scr(void)
 }
 
 int
-vbe_hires_enabled(void)
+bochsvga_hires_enabled(void)
 {
     return dispi_read(VBE_DISPI_INDEX_ENABLE) & VBE_DISPI_ENABLED;
 }
 
 u16
-vbe_curr_mode(void)
+bochsvga_curr_mode(void)
 {
     return GET_BDA(vbe_mode);
 }
-
