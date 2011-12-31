@@ -792,20 +792,20 @@ handle_1010(struct bregs *regs)
 static void
 handle_101100(struct bregs *regs)
 {
-    vgafb_load_font(regs->es, (void*)(regs->bp+0), regs->cx
-                    , regs->dx, regs->bl, regs->bh);
+    stdvga_load_font(regs->es, (void*)(regs->bp+0), regs->cx
+                     , regs->dx, regs->bl, regs->bh);
 }
 
 static void
 handle_101101(struct bregs *regs)
 {
-    vgafb_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
+    stdvga_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
 }
 
 static void
 handle_101102(struct bregs *regs)
 {
-    vgafb_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
+    stdvga_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
 }
 
 static void
@@ -817,35 +817,35 @@ handle_101103(struct bregs *regs)
 static void
 handle_101104(struct bregs *regs)
 {
-    vgafb_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
+    stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
 }
 
 static void
 handle_101110(struct bregs *regs)
 {
-    vgafb_load_font(regs->es, (void*)(regs->bp+0), regs->cx
-                    , regs->dx, regs->bl, regs->bh);
+    stdvga_load_font(regs->es, (void*)(regs->bp+0), regs->cx
+                     , regs->dx, regs->bl, regs->bh);
     set_scan_lines(regs->bh);
 }
 
 static void
 handle_101111(struct bregs *regs)
 {
-    vgafb_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
+    stdvga_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
     set_scan_lines(14);
 }
 
 static void
 handle_101112(struct bregs *regs)
 {
-    vgafb_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
+    stdvga_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
     set_scan_lines(8);
 }
 
 static void
 handle_101114(struct bregs *regs)
 {
-    vgafb_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
+    stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
     set_scan_lines(16);
 }
 

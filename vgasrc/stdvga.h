@@ -127,8 +127,8 @@ void stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_sequ_write(u8 index, u8 value);
 void stdvga_grdc_write(u8 index, u8 value);
 void stdvga_set_text_block_specifier(u8 spec);
-void get_font_access(void);
-void release_font_access(void);
+void stdvga_load_font(u16 seg, void *src_far, u16 count
+                      , u16 start, u8 destflags, u8 fontsize);
 void stdvga_set_cursor_shape(u8 start, u8 end);
 void stdvga_set_active_page(u16 address);
 void stdvga_set_cursor_pos(u16 address);

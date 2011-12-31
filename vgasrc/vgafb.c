@@ -489,22 +489,3 @@ vgafb_read_pixel(u16 x, u16 y)
     }
     return attr;
 }
-
-
-/****************************************************************
- * Font loading
- ****************************************************************/
-
-void
-vgafb_load_font(u16 seg, void *src_far, u16 count
-                , u16 start, u8 destflags, u8 fontsize)
-{
-    get_font_access();
-    u16 blockaddr = ((destflags & 0x03) << 14) + ((destflags & 0x04) << 11);
-    void *dest_far = (void*)(blockaddr + start*32);
-    u16 i;
-    for (i = 0; i < count; i++)
-        memcpy_far(SEG_GRAPH, dest_far + i*32
-                   , seg, src_far + i*fontsize, fontsize);
-    release_font_access();
-}

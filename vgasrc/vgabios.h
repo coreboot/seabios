@@ -58,8 +58,6 @@ void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);
 void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
-void vgafb_load_font(u16 seg, void *src_far, u16 count
-                     , u16 start, u8 destflags, u8 fontsize);
 
 // clext.c
 int cirrus_set_video_mode(u8 mode, u8 noclearmem);

@@ -10,6 +10,7 @@
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
 #include "vgabios.h" // VGAREG_*
+#include "util.h" // memcpy_far
 
 // TODO
 //  * replace direct in/out calls with wrapper functions
@@ -288,7 +289,12 @@ stdvga_set_text_block_specifier(u8 spec)
     outw((spec << 8) | 0x03, VGAREG_SEQU_ADDRESS);
 }
 
-void
+
+/****************************************************************
+ * Font loading
+ ****************************************************************/
+
+static void
 get_font_access(void)
 {
     outw(0x0100, VGAREG_SEQU_ADDRESS);
@@ -300,7 +306,7 @@ get_font_access(void)
     outw(0x0406, VGAREG_GRDC_ADDRESS);
 }
 
-void
+static void
 release_font_access(void)
 {
     outw(0x0100, VGAREG_SEQU_ADDRESS);
@@ -311,6 +317,20 @@ release_font_access(void)
     outw((v << 8) | 0x06, VGAREG_GRDC_ADDRESS);
     outw(0x0004, VGAREG_GRDC_ADDRESS);
     outw(0x1005, VGAREG_GRDC_ADDRESS);
+}
+
+void
+stdvga_load_font(u16 seg, void *src_far, u16 count
+                 , u16 start, u8 destflags, u8 fontsize)
+{
+    get_font_access();
+    u16 blockaddr = ((destflags & 0x03) << 14) + ((destflags & 0x04) << 11);
+    void *dest_far = (void*)(blockaddr + start*32);
+    u16 i;
+    for (i = 0; i < count; i++)
+        memcpy_far(SEG_GRAPH, dest_far + i*32
+                   , seg, src_far + i*fontsize, fontsize);
+    release_font_access();
 }
 
 
