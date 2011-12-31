@@ -105,8 +105,6 @@ struct saveDACcolors {
     u8 color_select;
 };
 
-void stdvga_screen_disable(void);
-void stdvga_screen_enable(void);
 void stdvga_set_border_color(u8 color);
 void stdvga_set_overscan_border_color(u8 color);
 u8 stdvga_get_overscan_border_color(void);
@@ -124,6 +122,7 @@ void stdvga_set_pel_mask(u8 val);
 u8 stdvga_get_pel_mask(void);
 void stdvga_save_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info);
+void stdvga_perform_gray_scale_summing(u16 start, u16 count);
 void stdvga_sequ_write(u8 index, u8 value);
 void stdvga_grdc_write(u8 index, u8 value);
 void stdvga_set_text_block_specifier(u8 spec);
@@ -137,7 +136,7 @@ void stdvga_set_scan_lines(u8 lines);
 u16 stdvga_get_vde(void);
 void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
-void stdvga_set_mode(struct vgamode_s *vmode_g);
+void stdvga_set_mode(int mode, int flags);
 void stdvga_enable_video_addressing(u8 disable);
 void stdvga_init(void);
 

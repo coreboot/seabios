@@ -10,6 +10,7 @@
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
+#include "vgabios.h" // find_vga_entry
 
 // TODO
 //  * replace direct in/out calls with wrapper functions
@@ -19,14 +20,14 @@
  * Attribute control
  ****************************************************************/
 
-void
+static void
 stdvga_screen_disable(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x00, VGAREG_ACTL_ADDRESS);
 }
 
-void
+static void
 stdvga_screen_enable(void)
 {
     inb(VGAREG_ACTL_RESET);
@@ -263,6 +264,25 @@ stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
     outb(GET_FARVAR(seg, info->pelmask), VGAREG_PEL_MASK);
     stdvga_set_dac_regs(seg, info->dac, 0, 256);
     outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
+}
+
+void
+stdvga_perform_gray_scale_summing(u16 start, u16 count)
+{
+    stdvga_screen_disable();
+    int i;
+    for (i = start; i < start+count; i++) {
+        u8 rgb[3];
+        stdvga_get_dac_regs(GET_SEG(SS), rgb, i, 1);
+
+        // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
+        u16 intensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
+        if (intensity > 0x3f)
+            intensity = 0x3f;
+
+        stdvga_set_dac_regs(GET_SEG(SS), rgb, i, 1);
+    }
+    stdvga_screen_enable();
 }
 
 
@@ -502,9 +522,53 @@ stdvga_restore_state(u16 seg, struct saveVideoHardware *info)
     outb(GET_FARVAR(seg, info->feature), crtc_addr - 0x4 + 0xa);
 }
 
-void
-stdvga_set_mode(struct vgamode_s *vmode_g)
+static void
+clear_screen(struct vgamode_s *vmode_g)
 {
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case CTEXT:
+    case MTEXT:
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
+        break;
+    case CGA:
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
+        break;
+    default:
+        // XXX - old code gets/sets/restores sequ register 2 to 0xf -
+        // but it should always be 0xf anyway.
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
+    }
+}
+
+void
+stdvga_set_mode(int mode, int flags)
+{
+    // find the entry in the video modes
+    struct vgamode_s *vmode_g = find_vga_entry(mode);
+    dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
+    if (!vmode_g)
+        return;
+
+    // if palette loading (bit 3 of modeset ctl = 0)
+    if (!(flags & MF_NOPALETTE)) {    // Set the PEL mask
+        stdvga_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
+
+        // From which palette
+        u8 *palette_g = GET_GLOBAL(vmode_g->dac);
+        u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
+
+        // Always 256*3 values
+        stdvga_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
+        u16 i;
+        for (i = palsize; i < 0x0100; i++) {
+            static u8 rgb[3] VAR16;
+            stdvga_set_dac_regs(get_global_seg(), rgb, i, 1);
+        }
+
+        if (flags & MF_GRAYSUM)
+            stdvga_perform_gray_scale_summing(0x00, 0x100);
+    }
+
     // Reset Attribute Ctl flip-flop
     inb(VGAREG_ACTL_RESET);
 
@@ -555,6 +619,18 @@ stdvga_set_mode(struct vgamode_s *vmode_g)
     // Enable video
     outb(0x20, VGAREG_ACTL_ADDRESS);
     inb(VGAREG_ACTL_RESET);
+
+    // Clear screen
+    if (!(flags & MF_NOCLEARMEM))
+        clear_screen(vmode_g);
+
+    // Write the fonts in memory
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    if (memmodel & TEXT)
+        stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
+
+    // Setup BDA variables
+    modeswitch_set_bda(mode, flags, vmode_g);
 }
 
 

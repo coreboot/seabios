@@ -12,6 +12,7 @@
 #include "util.h" // dprintf
 #include "biosvar.h" // get_global_set
 #include "bochsvga.h" // bochsvga_set_mode
+#include "stdvga.h" // stdvga_set_mode
 
 static void
 vbe_104f00(struct bregs *regs)
@@ -189,7 +190,7 @@ vbe_104f02(struct bregs *regs)
         dprintf(1, "set VGA mode %x\n", mode);
 
         bochsvga_hires_enable(0);
-        vga_set_mode(mode, 0);
+        stdvga_set_mode(mode, 0);
     } else { /* VBE */
         rc = bochsvga_mode_info(mode & 0x1ff, &modeinfo);
         if (rc) {

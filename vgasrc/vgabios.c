@@ -17,7 +17,7 @@
 #include "vgabios.h" // find_vga_entry
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
-#include "stdvga.h" // stdvga_screen_disable
+#include "stdvga.h" // stdvga_set_mode
 #include "geodelx.h" // geodelx_init
 #include "bochsvga.h" // bochsvga_init
 
@@ -45,25 +45,6 @@ struct pci_data rom_pci_data VAR16VISIBLE = {
 /****************************************************************
  * Helper functions
  ****************************************************************/
-
-static void
-perform_gray_scale_summing(u16 start, u16 count)
-{
-    stdvga_screen_disable();
-    int i;
-    for (i = start; i < start+count; i++) {
-        u8 rgb[3];
-        stdvga_get_dac_regs(GET_SEG(SS), rgb, i, 1);
-
-        // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
-        u16 intensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
-        if (intensity > 0x3f)
-            intensity = 0x3f;
-
-        stdvga_set_dac_regs(GET_SEG(SS), rgb, i, 1);
-    }
-    stdvga_screen_enable();
-}
 
 static void
 set_cursor_shape(u8 start, u8 end)
@@ -341,57 +322,10 @@ restore_bda_state(u16 seg, struct saveBDAstate *info)
     SET_IVT(0x43, GET_FARVAR(seg, info->font1));
 }
 
-
-/****************************************************************
- * VGA int 10 handler
- ****************************************************************/
-
-// set video mode
+// Setup BDA after a mode switch.
 void
-vga_set_mode(u8 mode, u8 noclearmem)
+modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
 {
-    // find the entry in the video modes
-    struct vgamode_s *vmode_g = find_vga_entry(mode);
-    dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
-    if (!vmode_g)
-        return;
-
-    // Read the bios mode set control
-    u8 modeset_ctl = GET_BDA(modeset_ctl);
-
-    // Then we know the number of lines
-// FIXME
-
-    // if palette loading (bit 3 of modeset ctl = 0)
-    if ((modeset_ctl & 0x08) == 0) {    // Set the PEL mask
-        stdvga_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
-
-        // From which palette
-        u8 *palette_g = GET_GLOBAL(vmode_g->dac);
-        u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
-
-        // Always 256*3 values
-        stdvga_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
-        u16 i;
-        for (i = palsize; i < 0x0100; i++) {
-            static u8 rgb[3] VAR16;
-            stdvga_set_dac_regs(get_global_seg(), rgb, i, 1);
-        }
-
-        if ((modeset_ctl & 0x02) == 0x02)
-            perform_gray_scale_summing(0x00, 0x100);
-    }
-
-    stdvga_set_mode(vmode_g);
-
-    if (noclearmem == 0x00)
-        clear_screen(vmode_g);
-
-    // Write the fonts in memory
-    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
-    if (memmodel & TEXT)
-        stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
-
     // Set the BIOS mem
     u16 cheight = GET_GLOBAL(vmode_g->cheight);
     SET_BDA(video_mode, mode);
@@ -400,10 +334,10 @@ vga_set_mode(u8 mode, u8 noclearmem)
     SET_BDA(crtc_address, stdvga_get_crtc());
     SET_BDA(video_rows, GET_GLOBAL(vmode_g->theight)-1);
     SET_BDA(char_height, cheight);
-    SET_BDA(video_ctl, (0x60 | noclearmem));
+    SET_BDA(video_ctl, 0x60 | (flags & MF_NOCLEARMEM ? 0x80 : 0x00));
     SET_BDA(video_switches, 0xF9);
     SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
-    SET_BDA(cursor_type, memmodel & TEXT ? 0x0607 : 0x0000);
+    SET_BDA(cursor_type, GET_GLOBAL(vmode_g->memmodel) & TEXT ? 0x0607 : 0x0000);
     int i;
     for (i=0; i<8; i++)
         SET_BDA(cursor_pos[i], 0x0000);
@@ -435,6 +369,11 @@ vga_set_mode(u8 mode, u8 noclearmem)
     }
 }
 
+
+/****************************************************************
+ * VGA int 10 handler
+ ****************************************************************/
+
 static void
 handle_1000(struct bregs *regs)
 {
@@ -458,7 +397,11 @@ handle_1000(struct bregs *regs)
     if (bochsvga_enabled())
         bochsvga_hires_enable(0);
 
-    vga_set_mode(mode, noclearmem);
+    int flags = GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM);
+    if (noclearmem)
+        flags |= MF_NOCLEARMEM;
+
+    stdvga_set_mode(mode, flags);
 }
 
 static void
@@ -731,7 +674,7 @@ handle_10101a(struct bregs *regs)
 static void
 handle_10101b(struct bregs *regs)
 {
-    perform_gray_scale_summing(regs->bx, regs->cx);
+    stdvga_perform_gray_scale_summing(regs->bx, regs->cx);
 }
 
 static void

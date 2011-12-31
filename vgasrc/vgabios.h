@@ -26,6 +26,13 @@ struct saveBDAstate {
     struct segoff_s font1;
 };
 
+// Mode flags
+#define MF_GRAYSUM    0x0002
+#define MF_NOPALETTE  0x0008
+#define MF_CUSTOMCRTC 0x0800
+#define MF_LINEARFB   0x4000
+#define MF_NOCLEARMEM 0x8000
+
 // vgatables.c
 struct vgamode_s;
 struct vgamode_s *find_vga_entry(u8 mode);
@@ -48,10 +55,9 @@ struct carattr {
 struct cursorpos {
     u8 x, y, page;
 };
-void vga_set_mode(u8 mode, u8 noclearmem);
+void modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g);
 
 // vgafb.c
-void clear_screen(struct vgamode_s *vmode_g);
 void vgafb_scroll(int nblines, int attr
                   , struct cursorpos ul, struct cursorpos lr);
 void vgafb_write_char(struct cursorpos cp, struct carattr ca);

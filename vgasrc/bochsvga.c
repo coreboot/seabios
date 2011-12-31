@@ -263,7 +263,7 @@ void
 bochsvga_set_mode(u16 mode, struct vbe_modeinfo *info)
 {
     if (info->depth == 4)
-        vga_set_mode(0x6a, 0);
+        stdvga_set_mode(0x6a, 0);
     if (info->depth == 8)
         // XXX load_dac_palette(3);
         ;

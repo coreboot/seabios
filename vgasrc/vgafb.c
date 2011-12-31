@@ -158,24 +158,6 @@ vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
     }
 }
 
-void
-clear_screen(struct vgamode_s *vmode_g)
-{
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case CTEXT:
-    case MTEXT:
-        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
-        break;
-    case CGA:
-        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
-        break;
-    default:
-        // XXX - old code gets/sets/restores sequ register 2 to 0xf -
-        // but it should always be 0xf anyway.
-        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
-    }
-}
-
 
 /****************************************************************
  * Read/write characters to screen
