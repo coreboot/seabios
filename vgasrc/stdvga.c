@@ -313,7 +313,7 @@ release_font_access(void)
     outw(0x0302, VGAREG_SEQU_ADDRESS);
     outw(0x0304, VGAREG_SEQU_ADDRESS);
     outw(0x0300, VGAREG_SEQU_ADDRESS);
-    u16 v = (inw(VGAREG_READ_MISC_OUTPUT) & 0x01) ? 0x0e : 0x0a;
+    u16 v = (inb(VGAREG_READ_MISC_OUTPUT) & 0x01) ? 0x0e : 0x0a;
     outw((v << 8) | 0x06, VGAREG_GRDC_ADDRESS);
     outw(0x0004, VGAREG_GRDC_ADDRESS);
     outw(0x1005, VGAREG_GRDC_ADDRESS);
