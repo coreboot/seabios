@@ -46,18 +46,6 @@ struct pci_data rom_pci_data VAR16VISIBLE = {
  * Helper functions
  ****************************************************************/
 
-static inline void
-call16_vgaint(u32 eax, u32 ebx)
-{
-    asm volatile(
-        "int $0x10\n"
-        "cli\n"
-        "cld"
-        :
-        : "a"(eax), "b"(ebx)
-        : "cc", "memory");
-}
-
 static void
 perform_gray_scale_summing(u16 start, u16 count)
 {
@@ -440,8 +428,8 @@ vga_set_mode(u8 mode, u8 noclearmem)
 
     // Write the fonts in memory
     if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
-        call16_vgaint(0x1104, 0);
-        call16_vgaint(0x1103, 0);
+        stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
+        stdvga_set_text_block_specifier(0);
     }
     // Set the ints 0x1F and 0x43
     SET_IVT(0x1f, SEGOFF(get_global_seg(), (u32)&vgafont8[128 * 8]));
