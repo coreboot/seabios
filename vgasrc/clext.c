@@ -5,7 +5,8 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "vgabios.h" // cirrus_init
+#include "clext.h" // clext_init
+#include "vgabios.h" // VBE_VENDOR_STRING
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
 #include "bregs.h" // struct bregs
@@ -392,7 +393,7 @@ cirrus_clear_vram(u16 param)
 }
 
 int
-cirrus_set_video_mode(u8 mode, u8 noclearmem)
+clext_set_video_mode(u8 mode, u8 noclearmem)
 {
     dprintf(1, "cirrus mode %d\n", mode);
     SET_BDA(vbe_mode, 0);
@@ -932,7 +933,7 @@ cirrus_vesa(struct bregs *regs)
  ****************************************************************/
 
 void
-cirrus_init(void)
+clext_init(void)
 {
     dprintf(1, "cirrus init\n");
     if (! cirrus_check())

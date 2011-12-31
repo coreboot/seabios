@@ -20,6 +20,7 @@
 #include "stdvga.h" // stdvga_set_mode
 #include "geodelx.h" // geodelx_init
 #include "bochsvga.h" // bochsvga_init
+#include "clext.h" // clext_init
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -389,7 +390,7 @@ handle_1000(struct bregs *regs)
         regs->al = 0x30;
 
     if (CONFIG_VGA_CIRRUS) {
-        int ret = cirrus_set_video_mode(mode, noclearmem);
+        int ret = clext_set_video_mode(mode, noclearmem);
         if (ret)
             return;
     }
@@ -1213,7 +1214,7 @@ vga_post(struct bregs *regs)
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
 
     if (CONFIG_VGA_CIRRUS)
-        cirrus_init();
+        clext_init();
 
     // XXX - clear screen and display info
 

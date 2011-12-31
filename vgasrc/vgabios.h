@@ -65,10 +65,6 @@ struct carattr vgafb_read_char(struct cursorpos cp);
 void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
 
-// clext.c
-int cirrus_set_video_mode(u8 mode, u8 noclearmem);
-void cirrus_init(void);
-
 // vbe.c
 #define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
 #define VBE_VENDOR_STRING "SeaBIOS Developers"
