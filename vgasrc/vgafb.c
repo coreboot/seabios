@@ -8,7 +8,7 @@
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset_far
 #include "vgabios.h" // find_vga_entry
-#include "stdvga.h" // vgahw_grdc_write
+#include "stdvga.h" // stdvga_grdc_write
 
 
 /****************************************************************
@@ -57,15 +57,15 @@ scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
     int cols = lr.x - ul.x + 1;
     int rows = lr.y - ul.y + 1;
     if (nblines < rows) {
-        vgahw_grdc_write(0x05, 0x01);
+        stdvga_grdc_write(0x05, 0x01);
         dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols, stride
                                  , (rows - nblines) * cheight);
     }
     if (attr < 0)
         attr = 0;
-    vgahw_grdc_write(0x05, 0x02);
+    stdvga_grdc_write(0x05, 0x02);
     memset_stride(SEG_GRAPH, dest_far, attr, cols, stride, nblines * cheight);
-    vgahw_grdc_write(0x05, 0x00);
+    stdvga_grdc_write(0x05, 0x00);
 }
 
 static void
@@ -203,19 +203,19 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
     }
     u16 addr = cp.x + cp.y * cheight * nbcols;
     u16 src = ca.car * cheight;
-    vgahw_sequ_write(0x02, 0x0f);
-    vgahw_grdc_write(0x05, 0x02);
+    stdvga_sequ_write(0x02, 0x0f);
+    stdvga_grdc_write(0x05, 0x02);
     if (ca.attr & 0x80)
-        vgahw_grdc_write(0x03, 0x18);
+        stdvga_grdc_write(0x03, 0x18);
     else
-        vgahw_grdc_write(0x03, 0x00);
+        stdvga_grdc_write(0x03, 0x00);
     u8 i;
     for (i = 0; i < cheight; i++) {
         u8 *dest_far = (void*)(addr + i * nbcols);
         u8 j;
         for (j = 0; j < 8; j++) {
             u8 mask = 0x80 >> j;
-            vgahw_grdc_write(0x08, mask);
+            stdvga_grdc_write(0x08, mask);
             GET_FARVAR(SEG_GRAPH, *dest_far);
             if (GET_GLOBAL(fdata_g[src + i]) & mask)
                 SET_FARVAR(SEG_GRAPH, *dest_far, ca.attr & 0x0f);
@@ -223,9 +223,9 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
                 SET_FARVAR(SEG_GRAPH, *dest_far, 0x00);
         }
     }
-    vgahw_grdc_write(0x08, 0xff);
-    vgahw_grdc_write(0x05, 0x00);
-    vgahw_grdc_write(0x03, 0x00);
+    stdvga_grdc_write(0x08, 0xff);
+    stdvga_grdc_write(0x05, 0x00);
+    stdvga_grdc_write(0x03, 0x00);
 }
 
 static void
@@ -408,15 +408,15 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
     case PLANAR1:
         addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
         mask = 0x80 >> (x & 0x07);
-        vgahw_grdc_write(0x08, mask);
-        vgahw_grdc_write(0x05, 0x02);
+        stdvga_grdc_write(0x08, mask);
+        stdvga_grdc_write(0x05, 0x02);
         data = GET_FARVAR(SEG_GRAPH, *addr_far);
         if (color & 0x80)
-            vgahw_grdc_write(0x03, 0x18);
+            stdvga_grdc_write(0x03, 0x18);
         SET_FARVAR(SEG_GRAPH, *addr_far, color);
-        vgahw_grdc_write(0x08, 0xff);
-        vgahw_grdc_write(0x05, 0x00);
-        vgahw_grdc_write(0x03, 0x00);
+        stdvga_grdc_write(0x08, 0xff);
+        stdvga_grdc_write(0x05, 0x00);
+        stdvga_grdc_write(0x03, 0x00);
         break;
     case CGA:
         if (GET_GLOBAL(vmode_g->pixbits) == 2)
@@ -466,7 +466,7 @@ vgafb_read_pixel(u16 x, u16 y)
         mask = 0x80 >> (x & 0x07);
         attr = 0x00;
         for (i = 0; i < 4; i++) {
-            vgahw_grdc_write(0x04, i);
+            stdvga_grdc_write(0x04, i);
             data = GET_FARVAR(SEG_GRAPH, *addr_far) & mask;
             if (data > 0)
                 attr |= (0x01 << i);

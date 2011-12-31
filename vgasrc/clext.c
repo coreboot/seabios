@@ -353,12 +353,12 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
     outb(0xff, VGAREG_PEL_MASK);
 
     u8 vesacolortype = GET_GLOBAL(table->vesacolortype);
-    u8 v = vgahw_get_single_palette_reg(0x10) & 0xfe;
+    u8 v = stdvga_get_single_palette_reg(0x10) & 0xfe;
     if (vesacolortype == 3)
         v |= 0x41;
     else if (vesacolortype)
         v |= 0x01;
-    vgahw_set_single_palette_reg(0x10, v);
+    stdvga_set_single_palette_reg(0x10, v);
 }
 
 static u8

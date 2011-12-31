@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "stdvga.h" // vgahw_init
+#include "stdvga.h" // stdvga_init
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
@@ -20,21 +20,21 @@
  ****************************************************************/
 
 void
-vgahw_screen_disable(void)
+stdvga_screen_disable(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x00, VGAREG_ACTL_ADDRESS);
 }
 
 void
-vgahw_screen_enable(void)
+stdvga_screen_enable(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x20, VGAREG_ACTL_ADDRESS);
 }
 
 void
-vgahw_set_border_color(u8 color)
+stdvga_set_border_color(u8 color)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x00, VGAREG_ACTL_ADDRESS);
@@ -57,7 +57,7 @@ vgahw_set_border_color(u8 color)
 }
 
 void
-vgahw_set_overscan_border_color(u8 color)
+stdvga_set_overscan_border_color(u8 color)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
@@ -66,7 +66,7 @@ vgahw_set_overscan_border_color(u8 color)
 }
 
 u8
-vgahw_get_overscan_border_color(void)
+stdvga_get_overscan_border_color(void)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x11, VGAREG_ACTL_ADDRESS);
@@ -77,7 +77,7 @@ vgahw_get_overscan_border_color(void)
 }
 
 void
-vgahw_set_palette(u8 palid)
+stdvga_set_palette(u8 palid)
 {
     inb(VGAREG_ACTL_RESET);
     palid &= 0x01;
@@ -94,7 +94,7 @@ vgahw_set_palette(u8 palid)
 }
 
 void
-vgahw_set_single_palette_reg(u8 reg, u8 val)
+stdvga_set_single_palette_reg(u8 reg, u8 val)
 {
     inb(VGAREG_ACTL_RESET);
     outb(reg, VGAREG_ACTL_ADDRESS);
@@ -103,7 +103,7 @@ vgahw_set_single_palette_reg(u8 reg, u8 val)
 }
 
 u8
-vgahw_get_single_palette_reg(u8 reg)
+stdvga_get_single_palette_reg(u8 reg)
 {
     inb(VGAREG_ACTL_RESET);
     outb(reg, VGAREG_ACTL_ADDRESS);
@@ -114,7 +114,7 @@ vgahw_get_single_palette_reg(u8 reg)
 }
 
 void
-vgahw_set_all_palette_reg(u16 seg, u8 *data_far)
+stdvga_set_all_palette_reg(u16 seg, u8 *data_far)
 {
     inb(VGAREG_ACTL_RESET);
     int i;
@@ -130,7 +130,7 @@ vgahw_set_all_palette_reg(u16 seg, u8 *data_far)
 }
 
 void
-vgahw_get_all_palette_reg(u16 seg, u8 *data_far)
+stdvga_get_all_palette_reg(u16 seg, u8 *data_far)
 {
     int i;
     for (i = 0; i < 0x10; i++) {
@@ -147,7 +147,7 @@ vgahw_get_all_palette_reg(u16 seg, u8 *data_far)
 }
 
 void
-vgahw_toggle_intensity(u8 flag)
+stdvga_toggle_intensity(u8 flag)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
@@ -157,7 +157,7 @@ vgahw_toggle_intensity(u8 flag)
 }
 
 void
-vgahw_select_video_dac_color_page(u8 flag, u8 data)
+stdvga_select_video_dac_color_page(u8 flag, u8 data)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
@@ -180,7 +180,7 @@ vgahw_select_video_dac_color_page(u8 flag, u8 data)
 }
 
 void
-vgahw_read_video_dac_state(u8 *pmode, u8 *curpage)
+stdvga_read_video_dac_state(u8 *pmode, u8 *curpage)
 {
     inb(VGAREG_ACTL_RESET);
     outb(0x10, VGAREG_ACTL_ADDRESS);
@@ -205,7 +205,7 @@ vgahw_read_video_dac_state(u8 *pmode, u8 *curpage)
  ****************************************************************/
 
 void
-vgahw_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
+stdvga_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
 {
     outb(start, VGAREG_DAC_WRITE_ADDRESS);
     while (count) {
@@ -220,7 +220,7 @@ vgahw_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
 }
 
 void
-vgahw_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
+stdvga_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
 {
     outb(start, VGAREG_DAC_READ_ADDRESS);
     while (count) {
@@ -235,33 +235,33 @@ vgahw_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
 }
 
 void
-vgahw_set_pel_mask(u8 val)
+stdvga_set_pel_mask(u8 val)
 {
     outb(val, VGAREG_PEL_MASK);
 }
 
 u8
-vgahw_get_pel_mask(void)
+stdvga_get_pel_mask(void)
 {
     return inb(VGAREG_PEL_MASK);
 }
 
 void
-vgahw_save_dac_state(u16 seg, struct saveDACcolors *info)
+stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
 {
     /* XXX: check this */
     SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
     SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
     SET_FARVAR(seg, info->pelmask, inb(VGAREG_PEL_MASK));
-    vgahw_get_dac_regs(seg, info->dac, 0, 256);
+    stdvga_get_dac_regs(seg, info->dac, 0, 256);
     SET_FARVAR(seg, info->color_select, 0);
 }
 
 void
-vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info)
+stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
 {
     outb(GET_FARVAR(seg, info->pelmask), VGAREG_PEL_MASK);
-    vgahw_set_dac_regs(seg, info->dac, 0, 256);
+    stdvga_set_dac_regs(seg, info->dac, 0, 256);
     outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
 }
 
@@ -271,19 +271,19 @@ vgahw_restore_dac_state(u16 seg, struct saveDACcolors *info)
  ****************************************************************/
 
 void
-vgahw_sequ_write(u8 index, u8 value)
+stdvga_sequ_write(u8 index, u8 value)
 {
     outw((value<<8) | index, VGAREG_SEQU_ADDRESS);
 }
 
 void
-vgahw_grdc_write(u8 index, u8 value)
+stdvga_grdc_write(u8 index, u8 value)
 {
     outw((value<<8) | index, VGAREG_GRDC_ADDRESS);
 }
 
 void
-vgahw_set_text_block_specifier(u8 spec)
+stdvga_set_text_block_specifier(u8 spec)
 {
     outw((spec << 8) | 0x03, VGAREG_SEQU_ADDRESS);
 }
@@ -325,7 +325,7 @@ get_crtc(void)
 }
 
 void
-vgahw_set_cursor_shape(u8 start, u8 end)
+stdvga_set_cursor_shape(u8 start, u8 end)
 {
     u16 crtc_addr = get_crtc();
     outb(0x0a, crtc_addr);
@@ -335,7 +335,7 @@ vgahw_set_cursor_shape(u8 start, u8 end)
 }
 
 void
-vgahw_set_active_page(u16 address)
+stdvga_set_active_page(u16 address)
 {
     u16 crtc_addr = get_crtc();
     outb(0x0c, crtc_addr);
@@ -345,7 +345,7 @@ vgahw_set_active_page(u16 address)
 }
 
 void
-vgahw_set_cursor_pos(u16 address)
+stdvga_set_cursor_pos(u16 address)
 {
     u16 crtc_addr = get_crtc();
     outb(0x0e, crtc_addr);
@@ -355,7 +355,7 @@ vgahw_set_cursor_pos(u16 address)
 }
 
 void
-vgahw_set_scan_lines(u8 lines)
+stdvga_set_scan_lines(u8 lines)
 {
     u16 crtc_addr = get_crtc();
     outb(0x09, crtc_addr);
@@ -366,7 +366,7 @@ vgahw_set_scan_lines(u8 lines)
 
 // Get vertical display end
 u16
-vgahw_get_vde(void)
+stdvga_get_vde(void)
 {
     u16 crtc_addr = get_crtc();
     outb(0x12, crtc_addr);
@@ -383,7 +383,7 @@ vgahw_get_vde(void)
  ****************************************************************/
 
 void
-vgahw_save_state(u16 seg, struct saveVideoHardware *info)
+stdvga_save_state(u16 seg, struct saveVideoHardware *info)
 {
     u16 crtc_addr = get_crtc();
     SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
@@ -427,7 +427,7 @@ vgahw_save_state(u16 seg, struct saveVideoHardware *info)
 }
 
 void
-vgahw_restore_state(u16 seg, struct saveVideoHardware *info)
+stdvga_restore_state(u16 seg, struct saveVideoHardware *info)
 {
     // Reset Attribute Ctl flip-flop
     inb(VGAREG_ACTL_RESET);
@@ -482,7 +482,7 @@ vgahw_restore_state(u16 seg, struct saveVideoHardware *info)
 }
 
 void
-vgahw_set_mode(struct vgamode_s *vmode_g)
+stdvga_set_mode(struct vgamode_s *vmode_g)
 {
     // Reset Attribute Ctl flip-flop
     inb(VGAREG_ACTL_RESET);
@@ -542,7 +542,7 @@ vgahw_set_mode(struct vgamode_s *vmode_g)
  ****************************************************************/
 
 void
-vgahw_enable_video_addressing(u8 disable)
+stdvga_enable_video_addressing(u8 disable)
 {
     u8 v = (disable & 1) ? 0x00 : 0x02;
     u8 v2 = inb(VGAREG_READ_MISC_OUTPUT) & ~0x02;
@@ -550,7 +550,7 @@ vgahw_enable_video_addressing(u8 disable)
 }
 
 void
-vgahw_init(void)
+stdvga_init(void)
 {
     // switch to color mode and enable CPU access 480 lines
     outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);

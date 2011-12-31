@@ -17,7 +17,7 @@
 #include "vgabios.h" // find_vga_entry
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
-#include "stdvga.h" // vgahw_screen_disable
+#include "stdvga.h" // stdvga_screen_disable
 #include "geodelx.h" // geodelx_init
 #include "bochsvga.h" // bochsvga_init
 
@@ -61,20 +61,20 @@ call16_vgaint(u32 eax, u32 ebx)
 static void
 perform_gray_scale_summing(u16 start, u16 count)
 {
-    vgahw_screen_disable();
+    stdvga_screen_disable();
     int i;
     for (i = start; i < start+count; i++) {
         u8 rgb[3];
-        vgahw_get_dac_regs(GET_SEG(SS), rgb, i, 1);
+        stdvga_get_dac_regs(GET_SEG(SS), rgb, i, 1);
 
         // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
         u16 intensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
         if (intensity > 0x3f)
             intensity = 0x3f;
 
-        vgahw_set_dac_regs(GET_SEG(SS), rgb, i, 1);
+        stdvga_set_dac_regs(GET_SEG(SS), rgb, i, 1);
     }
-    vgahw_screen_enable();
+    stdvga_screen_enable();
 }
 
 static void
@@ -95,7 +95,7 @@ set_cursor_shape(u8 start, u8 end)
             start = ((end + 1) * cheight / 8) - 2;
         end = ((end + 1) * cheight / 8) - 1;
     }
-    vgahw_set_cursor_shape(start, end);
+    stdvga_set_cursor_shape(start, end);
 }
 
 static u16
@@ -130,7 +130,7 @@ set_cursor_pos(struct cursorpos cp)
     u16 address = (SCREEN_IO_START(nbcols, nbrows, cp.page)
                    + cp.x + cp.y * nbcols);
 
-    vgahw_set_cursor_pos(address);
+    stdvga_set_cursor_pos(address);
 }
 
 static struct cursorpos
@@ -179,7 +179,7 @@ set_active_page(u8 page)
         address = page * GET_GLOBAL(vmode_g->slength);
     }
 
-    vgahw_set_active_page(address);
+    stdvga_set_active_page(address);
 
     // And change the BIOS page
     SET_BDA(video_page, page);
@@ -193,13 +193,13 @@ set_active_page(u8 page)
 static void
 set_scan_lines(u8 lines)
 {
-    vgahw_set_scan_lines(lines);
+    stdvga_set_scan_lines(lines);
     if (lines == 8)
         set_cursor_shape(0x06, 0x07);
     else
         set_cursor_shape(lines - 4, lines - 3);
     SET_BDA(char_height, lines);
-    u16 vde = vgahw_get_vde();
+    u16 vde = stdvga_get_vde();
     u8 rows = vde / lines;
     SET_BDA(video_rows, rows - 1);
     u16 cols = GET_BDA(video_cols);
@@ -376,25 +376,25 @@ vga_set_mode(u8 mode, u8 noclearmem)
 
     // if palette loading (bit 3 of modeset ctl = 0)
     if ((modeset_ctl & 0x08) == 0) {    // Set the PEL mask
-        vgahw_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
+        stdvga_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
 
         // From which palette
         u8 *palette_g = GET_GLOBAL(vmode_g->dac);
         u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
 
         // Always 256*3 values
-        vgahw_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
+        stdvga_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
         u16 i;
         for (i = palsize; i < 0x0100; i++) {
             static u8 rgb[3] VAR16;
-            vgahw_set_dac_regs(get_global_seg(), rgb, i, 1);
+            stdvga_set_dac_regs(get_global_seg(), rgb, i, 1);
         }
 
         if ((modeset_ctl & 0x02) == 0x02)
             perform_gray_scale_summing(0x00, 0x100);
     }
 
-    vgahw_set_mode(vmode_g);
+    stdvga_set_mode(vmode_g);
 
     if (noclearmem == 0x00)
         clear_screen(vmode_g);
@@ -593,13 +593,13 @@ handle_100a(struct bregs *regs)
 static void
 handle_100b00(struct bregs *regs)
 {
-    vgahw_set_border_color(regs->bl);
+    stdvga_set_border_color(regs->bl);
 }
 
 static void
 handle_100b01(struct bregs *regs)
 {
-    vgahw_set_palette(regs->bl);
+    stdvga_set_palette(regs->bl);
 }
 
 static void
@@ -658,25 +658,25 @@ handle_101000(struct bregs *regs)
 {
     if (regs->bl > 0x14)
         return;
-    vgahw_set_single_palette_reg(regs->bl, regs->bh);
+    stdvga_set_single_palette_reg(regs->bl, regs->bh);
 }
 
 static void
 handle_101001(struct bregs *regs)
 {
-    vgahw_set_overscan_border_color(regs->bh);
+    stdvga_set_overscan_border_color(regs->bh);
 }
 
 static void
 handle_101002(struct bregs *regs)
 {
-    vgahw_set_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
+    stdvga_set_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
 }
 
 static void
 handle_101003(struct bregs *regs)
 {
-    vgahw_toggle_intensity(regs->bl);
+    stdvga_toggle_intensity(regs->bl);
 }
 
 static void
@@ -684,45 +684,45 @@ handle_101007(struct bregs *regs)
 {
     if (regs->bl > 0x14)
         return;
-    regs->bh = vgahw_get_single_palette_reg(regs->bl);
+    regs->bh = stdvga_get_single_palette_reg(regs->bl);
 }
 
 static void
 handle_101008(struct bregs *regs)
 {
-    regs->bh = vgahw_get_overscan_border_color();
+    regs->bh = stdvga_get_overscan_border_color();
 }
 
 static void
 handle_101009(struct bregs *regs)
 {
-    vgahw_get_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
+    stdvga_get_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
 }
 
 static void noinline
 handle_101010(struct bregs *regs)
 {
     u8 rgb[3] = {regs->dh, regs->ch, regs->cl};
-    vgahw_set_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
+    stdvga_set_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
 }
 
 static void
 handle_101012(struct bregs *regs)
 {
-    vgahw_set_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+    stdvga_set_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
 handle_101013(struct bregs *regs)
 {
-    vgahw_select_video_dac_color_page(regs->bl, regs->bh);
+    stdvga_select_video_dac_color_page(regs->bl, regs->bh);
 }
 
 static void noinline
 handle_101015(struct bregs *regs)
 {
     u8 rgb[3];
-    vgahw_get_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
+    stdvga_get_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
     regs->dh = rgb[0];
     regs->ch = rgb[1];
     regs->cl = rgb[2];
@@ -731,25 +731,25 @@ handle_101015(struct bregs *regs)
 static void
 handle_101017(struct bregs *regs)
 {
-    vgahw_get_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+    stdvga_get_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
 handle_101018(struct bregs *regs)
 {
-    vgahw_set_pel_mask(regs->bl);
+    stdvga_set_pel_mask(regs->bl);
 }
 
 static void
 handle_101019(struct bregs *regs)
 {
-    regs->bl = vgahw_get_pel_mask();
+    regs->bl = stdvga_get_pel_mask();
 }
 
 static void
 handle_10101a(struct bregs *regs)
 {
-    vgahw_read_video_dac_state(&regs->bl, &regs->bh);
+    stdvga_read_video_dac_state(&regs->bl, &regs->bh);
 }
 
 static void
@@ -811,7 +811,7 @@ handle_101102(struct bregs *regs)
 static void
 handle_101103(struct bregs *regs)
 {
-    vgahw_set_text_block_specifier(regs->bl);
+    stdvga_set_text_block_specifier(regs->bl);
 }
 
 static void
@@ -978,7 +978,7 @@ handle_101231(struct bregs *regs)
 static void
 handle_101232(struct bregs *regs)
 {
-    vgahw_enable_video_addressing(regs->al);
+    stdvga_enable_video_addressing(regs->al);
     regs->al = 0x12;
 }
 
@@ -1157,7 +1157,7 @@ handle_101c01(struct bregs *regs)
     u16 seg = regs->es;
     void *data = (void*)(regs->bx+0);
     if (flags & 1) {
-        vgahw_save_state(seg, data);
+        stdvga_save_state(seg, data);
         data += sizeof(struct saveVideoHardware);
     }
     if (flags & 2) {
@@ -1165,7 +1165,7 @@ handle_101c01(struct bregs *regs)
         data += sizeof(struct saveBDAstate);
     }
     if (flags & 4)
-        vgahw_save_dac_state(seg, data);
+        stdvga_save_dac_state(seg, data);
     regs->al = 0x1c;
 }
 
@@ -1176,7 +1176,7 @@ handle_101c02(struct bregs *regs)
     u16 seg = regs->es;
     void *data = (void*)(regs->bx+0);
     if (flags & 1) {
-        vgahw_restore_state(seg, data);
+        stdvga_restore_state(seg, data);
         data += sizeof(struct saveVideoHardware);
     }
     if (flags & 2) {
@@ -1184,7 +1184,7 @@ handle_101c02(struct bregs *regs)
         data += sizeof(struct saveBDAstate);
     }
     if (flags & 4)
-        vgahw_restore_dac_state(seg, data);
+        stdvga_restore_dac_state(seg, data);
     regs->al = 0x1c;
 }
 
@@ -1281,7 +1281,7 @@ vga_post(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_VGA_POST);
 
-    vgahw_init();
+    stdvga_init();
 
     if (CONFIG_VGA_GEODELX)
         geodelx_init();
