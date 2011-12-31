@@ -14,7 +14,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset
-#include "vgatables.h" // find_vga_entry
+#include "vgabios.h" // find_vga_entry
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
 #include "vbe.h" // struct vbe_info

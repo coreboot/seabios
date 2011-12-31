@@ -10,7 +10,7 @@
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
-#include "vgatables.h" // VGAREG_*
+#include "vgabios.h" // VGAREG_*
 #include "util.h" // memset
 #include "config.h"
 #include "types.h"

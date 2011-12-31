@@ -7,7 +7,7 @@
 
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset_far
-#include "vgatables.h" // find_vga_entry
+#include "vgabios.h" // find_vga_entry
 
 
 /****************************************************************

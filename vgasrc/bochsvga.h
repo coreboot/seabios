@@ -1,5 +1,5 @@
-#ifndef __DISPI_H
-#define __DISPI_H
+#ifndef __BOCHSVGA_H
+#define __BOCHSVGA_H
 
 #include "types.h" // u8
 #include "ioport.h" // outb
@@ -64,4 +64,4 @@ void bochsvga_clear_scr(void);
 int bochsvga_hires_enabled(void);
 u16 bochsvga_curr_mode(void);
 
-#endif
+#endif // bochsvga.h

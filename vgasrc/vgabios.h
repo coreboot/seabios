@@ -1,5 +1,5 @@
-#ifndef __VGATABLES_H
-#define __VGATABLES_H
+#ifndef __VGABIOS_H
+#define __VGABIOS_H
 
 #include "types.h" // u8
 #include "farptr.h" // struct segoff_s
@@ -145,7 +145,7 @@ extern u8 vgafont16[];
 extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
-// vga.c
+// vgabios.c
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 struct carattr {
     u8 car, attr, use_attr;
@@ -222,4 +222,4 @@ struct vbe_modeinfo
     u32 vram_size;
 };
 
-#endif // vgatables.h
+#endif // vgabios.h

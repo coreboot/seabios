@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "vgatables.h" // struct VideoParamTableEntry_s
+#include "vgabios.h" // struct VideoParamTableEntry_s
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
 

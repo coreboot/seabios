@@ -1,8 +1,8 @@
-#include "vgatables.h"
+#include "vgabios.h" // struct vbe_modeinfo
 #include "vbe.h"
 #include "bochsvga.h"
 #include "util.h"
-#include "config.h" // CONFIG_
+#include "config.h" // CONFIG_*
 #include "biosvar.h" // SET_BDA
 
 static struct mode

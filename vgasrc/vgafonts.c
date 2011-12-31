@@ -1,4 +1,4 @@
-#include "vgatables.h" // vgafont8
+#include "vgabios.h" // vgafont8
 
 /*
  * These fonts come from ftp://ftp.simtel.net/pub/simtelnet/msdos/screen/fntcol16.zip
