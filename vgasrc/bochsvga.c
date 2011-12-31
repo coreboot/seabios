@@ -1,6 +1,6 @@
 #include "vgatables.h"
 #include "vbe.h"
-#include "dispi.h"
+#include "bochsvga.h"
 #include "util.h"
 #include "config.h" // CONFIG_
 #include "biosvar.h" // SET_BDA
