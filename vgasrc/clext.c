@@ -327,14 +327,6 @@ cirrus_switch_mode_setregs(u16 *data, u16 port)
     }
 }
 
-static u16
-cirrus_get_crtc(void)
-{
-    if (inb(VGAREG_READ_MISC_OUTPUT) & 1)
-        return VGAREG_VGA_CRTC_ADDRESS;
-    return VGAREG_MDA_CRTC_ADDRESS;
-}
-
 static void
 cirrus_switch_mode(struct cirrus_mode_s *table)
 {
@@ -342,7 +334,7 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
     outw(0x1206, VGAREG_SEQU_ADDRESS);
     cirrus_switch_mode_setregs(GET_GLOBAL(table->seq), VGAREG_SEQU_ADDRESS);
     cirrus_switch_mode_setregs(GET_GLOBAL(table->graph), VGAREG_GRDC_ADDRESS);
-    cirrus_switch_mode_setregs(GET_GLOBAL(table->crtc), cirrus_get_crtc());
+    cirrus_switch_mode_setregs(GET_GLOBAL(table->crtc), stdvga_get_crtc());
 
     outb(0x00, VGAREG_PEL_MASK);
     inb(VGAREG_PEL_MASK);
@@ -433,7 +425,7 @@ cirrus_check(void)
 static void
 cirrus_extbios_80h(struct bregs *regs)
 {
-    u16 crtc_addr = cirrus_get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x27, crtc_addr);
     u8 v = inb(crtc_addr + 1);
     if (v == 0xa0)
@@ -458,7 +450,7 @@ cirrus_extbios_81h(struct bregs *regs)
 static void
 cirrus_extbios_82h(struct bregs *regs)
 {
-    u16 crtc_addr = cirrus_get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x27, crtc_addr);
     regs->al = inb(crtc_addr + 1) & 0x03;
     regs->ah = 0xAF;
@@ -596,7 +588,7 @@ cirrus_get_bpp_bytes(void)
 static void
 cirrus_set_line_offset(u16 new_line_offset)
 {
-    u16 crtc_addr = cirrus_get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x13, crtc_addr);
     outb(new_line_offset / 8, crtc_addr + 1);
 
@@ -608,7 +600,7 @@ cirrus_set_line_offset(u16 new_line_offset)
 static u16
 cirrus_get_line_offset(void)
 {
-    u16 crtc_addr = cirrus_get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x13, crtc_addr);
     u8 reg13 = inb(crtc_addr + 1);
     outb(0x1b, crtc_addr);
@@ -648,7 +640,7 @@ cirrus_get_line_offset_entry(struct cirrus_mode_s *table_g)
 static void
 cirrus_set_start_addr(u32 addr)
 {
-    u16 crtc_addr = cirrus_get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x0d, crtc_addr);
     outb(addr, crtc_addr + 1);
 
@@ -668,7 +660,7 @@ cirrus_set_start_addr(u32 addr)
 static u32
 cirrus_get_start_addr(void)
 {
-    u16 crtc_addr = cirrus_get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x0c, crtc_addr);
     u8 b2 = inb(crtc_addr + 1);
 

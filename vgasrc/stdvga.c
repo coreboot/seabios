@@ -8,8 +8,7 @@
 #include "stdvga.h" // stdvga_init
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
-#include "biosvar.h" // GET_BDA
-#include "vgabios.h" // VGAREG_*
+#include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
 
 // TODO
@@ -338,16 +337,18 @@ stdvga_load_font(u16 seg, void *src_far, u16 count
  * CRTC registers
  ****************************************************************/
 
-static u16
-get_crtc(void)
+u16
+stdvga_get_crtc(void)
 {
-    return GET_BDA(crtc_address);
+    if (inb(VGAREG_READ_MISC_OUTPUT) & 1)
+        return VGAREG_VGA_CRTC_ADDRESS;
+    return VGAREG_MDA_CRTC_ADDRESS;
 }
 
 void
 stdvga_set_cursor_shape(u8 start, u8 end)
 {
-    u16 crtc_addr = get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x0a, crtc_addr);
     outb(start, crtc_addr + 1);
     outb(0x0b, crtc_addr);
@@ -357,7 +358,7 @@ stdvga_set_cursor_shape(u8 start, u8 end)
 void
 stdvga_set_active_page(u16 address)
 {
-    u16 crtc_addr = get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x0c, crtc_addr);
     outb((address & 0xff00) >> 8, crtc_addr + 1);
     outb(0x0d, crtc_addr);
@@ -367,7 +368,7 @@ stdvga_set_active_page(u16 address)
 void
 stdvga_set_cursor_pos(u16 address)
 {
-    u16 crtc_addr = get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x0e, crtc_addr);
     outb((address & 0xff00) >> 8, crtc_addr + 1);
     outb(0x0f, crtc_addr);
@@ -377,7 +378,7 @@ stdvga_set_cursor_pos(u16 address)
 void
 stdvga_set_scan_lines(u8 lines)
 {
-    u16 crtc_addr = get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x09, crtc_addr);
     u8 crtc_r9 = inb(crtc_addr + 1);
     crtc_r9 = (crtc_r9 & 0xe0) | (lines - 1);
@@ -388,7 +389,7 @@ stdvga_set_scan_lines(u8 lines)
 u16
 stdvga_get_vde(void)
 {
-    u16 crtc_addr = get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     outb(0x12, crtc_addr);
     u16 vde = inb(crtc_addr + 1);
     outb(0x07, crtc_addr);
@@ -405,7 +406,7 @@ stdvga_get_vde(void)
 void
 stdvga_save_state(u16 seg, struct saveVideoHardware *info)
 {
-    u16 crtc_addr = get_crtc();
+    u16 crtc_addr = stdvga_get_crtc();
     SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
     SET_FARVAR(seg, info->crtc_index, inb(crtc_addr));
     SET_FARVAR(seg, info->grdc_index, inb(VGAREG_GRDC_ADDRESS));
