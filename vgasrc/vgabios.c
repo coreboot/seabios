@@ -387,22 +387,28 @@ vga_set_mode(u8 mode, u8 noclearmem)
     if (noclearmem == 0x00)
         clear_screen(vmode_g);
 
-    // Set CRTC address VGA or MDA
-    u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
-    if (GET_GLOBAL(vmode_g->memmodel) == MTEXT)
-        crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
+    // Write the fonts in memory
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    if (memmodel & TEXT)
+        stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
 
     // Set the BIOS mem
     u16 cheight = GET_GLOBAL(vmode_g->cheight);
     SET_BDA(video_mode, mode);
     SET_BDA(video_cols, GET_GLOBAL(vmode_g->twidth));
     SET_BDA(video_pagesize, GET_GLOBAL(vmode_g->slength));
-    SET_BDA(crtc_address, crtc_addr);
+    SET_BDA(crtc_address, stdvga_get_crtc());
     SET_BDA(video_rows, GET_GLOBAL(vmode_g->theight)-1);
     SET_BDA(char_height, cheight);
     SET_BDA(video_ctl, (0x60 | noclearmem));
     SET_BDA(video_switches, 0xF9);
     SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
+    SET_BDA(cursor_type, memmodel & TEXT ? 0x0607 : 0x0000);
+    int i;
+    for (i=0; i<8; i++)
+        SET_BDA(cursor_pos[i], 0x0000);
+    SET_BDA(video_pagestart, 0x0000);
+    SET_BDA(video_page, 0x00);
 
     // FIXME We nearly have the good tables. to be reworked
     SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
@@ -413,24 +419,6 @@ vga_set_mode(u8 mode, u8 noclearmem)
     SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
     SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
 
-    // Set cursor shape
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-        set_cursor_shape(0x06, 0x07);
-    // Set cursor pos for page 0..7
-    int i;
-    for (i = 0; i < 8; i++) {
-        struct cursorpos cp = {0, 0, i};
-        set_cursor_pos(cp);
-    }
-
-    // Set active page 0
-    set_active_page(0x00);
-
-    // Write the fonts in memory
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
-        stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
-        stdvga_set_text_block_specifier(0);
-    }
     // Set the ints 0x1F and 0x43
     SET_IVT(0x1f, SEGOFF(get_global_seg(), (u32)&vgafont8[128 * 8]));
 
