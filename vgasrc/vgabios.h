@@ -222,4 +222,7 @@ struct vbe_modeinfo
     u32 vram_size;
 };
 
+struct bregs;
+void handle_104f(struct bregs *regs);
+
 #endif // vgabios.h
