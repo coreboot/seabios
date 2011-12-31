@@ -5,6 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "stdvga.h" // vgahw_init
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA

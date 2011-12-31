@@ -4,6 +4,7 @@
 #include "util.h"
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // SET_BDA
+#include "stdvga.h" // VGAREG_SEQU_ADDRESS
 
 static struct mode
 {

@@ -17,6 +17,7 @@
 #include "vgabios.h" // find_vga_entry
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
+#include "stdvga.h" // vgahw_screen_disable
 #include "geodelx.h" // geodelx_init
 #include "bochsvga.h" // bochsvga_init
 

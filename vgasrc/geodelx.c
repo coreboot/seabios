@@ -15,6 +15,7 @@
 #include "config.h"
 #include "types.h"
 #include "bregs.h"
+#include "stdvga.h" // VGAREG_VGA_CRTC_ADDRESS
 
 
 /****************************************************************

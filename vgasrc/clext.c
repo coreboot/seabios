@@ -10,6 +10,7 @@
 #include "util.h" // dprintf
 #include "bregs.h" // struct bregs
 #include "vbe.h" // struct vbe_info
+#include "stdvga.h" // VGAREG_SEQU_ADDRESS
 
 
 /****************************************************************

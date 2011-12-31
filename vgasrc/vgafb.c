@@ -8,6 +8,7 @@
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset_far
 #include "vgabios.h" // find_vga_entry
+#include "stdvga.h" // vgahw_grdc_write
 
 
 /****************************************************************

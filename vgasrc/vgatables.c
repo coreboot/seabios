@@ -8,6 +8,7 @@
 #include "vgabios.h" // struct VideoParamTableEntry_s
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
+#include "stdvga.h" // struct vgamode_s
 
 
 /****************************************************************
