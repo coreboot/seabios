@@ -105,6 +105,35 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
 }
 
 static void
+scroll_lin(struct vgamode_s *vmode_g, int nblines, int attr
+           , struct cursorpos ul, struct cursorpos lr)
+{
+    int cheight = 8;
+    int cwidth = 8;
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *src_far, *dest_far;
+    if (nblines >= 0) {
+        dest_far = (void*)(ul.y * cheight * stride + ul.x * cwidth);
+        src_far = dest_far + nblines * cheight * stride;
+    } else {
+        // Scroll down
+        nblines = -nblines;
+        dest_far = (void*)(lr.y * cheight * stride + ul.x * cwidth);
+        src_far = dest_far - nblines * cheight * stride;
+        stride = -stride;
+    }
+    int cols = lr.x - ul.x + 1;
+    int rows = lr.y - ul.y + 1;
+    if (nblines < rows)
+        dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols * cwidth
+                                 , stride, (rows - nblines) * cheight);
+    if (attr < 0)
+        attr = 0;
+    memset_stride(SEG_GRAPH, dest_far, attr, cols * cwidth
+                  , stride, nblines * cheight);
+}
+
+static void
 scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
@@ -158,8 +187,9 @@ vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
     case CGA:
         scroll_cga(vmode_g, nblines, attr, ul, lr);
         break;
-    default:
-        dprintf(1, "Scroll in graphics mode\n");
+    case LINEAR8:
+        scroll_lin(vmode_g, nblines, attr, ul, lr);
+        break;
     }
 }
 
