@@ -83,11 +83,10 @@ static struct mode
 
 u32 pci_lfb_addr VAR16;
 
-static inline u32 pci_config_readl(u8 bus, u8 devfn, u16 addr)
+static inline u32 pci_config_readl(u16 bdf, u16 addr)
 {
     int status;
     u32 val;
-    u16 bdf = (bus << 16) | devfn;
 
     addr &= ~3;
 
@@ -136,12 +135,11 @@ static u16 dispi_get_max_bpp(void)
 
 /* Called only during POST */
 int
-bochsvga_init(u8 bus, u8 devfn)
+bochsvga_init(void)
 {
-    u32 lfb_addr;
-
-    if (!CONFIG_VGA_BOCHS)
-        return -1;
+    int ret = stdvga_init();
+    if (ret)
+        return ret;
 
     /* Sanity checks */
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID0);
@@ -153,8 +151,9 @@ bochsvga_init(u8 bus, u8 devfn)
     SET_BDA(vbe_flag, 0x1);
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID5);
 
+    u32 lfb_addr;
     if (CONFIG_VGA_PCI)
-        lfb_addr = pci_config_readl(bus, devfn, 0x10) & ~0xf;
+        lfb_addr = pci_config_readl(GET_GLOBAL(VgaBDF), 0x10) & ~0xf;
     else
         lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
 

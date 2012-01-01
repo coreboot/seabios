@@ -932,12 +932,16 @@ cirrus_vesa(struct bregs *regs)
  * init
  ****************************************************************/
 
-void
+int
 clext_init(void)
 {
+    int ret = stdvga_init();
+    if (ret)
+        return ret;
+
     dprintf(1, "cirrus init\n");
     if (! cirrus_check())
-        return;
+        return -1;
     dprintf(1, "cirrus init 2\n");
 
     // memory setup
@@ -949,4 +953,6 @@ clext_init(void)
     // reset bitblt
     outw(0x0431, VGAREG_GRDC_ADDRESS);
     outw(0x0031, VGAREG_GRDC_ADDRESS);
+
+    return 0;
 }

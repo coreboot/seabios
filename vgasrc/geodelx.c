@@ -6,15 +6,12 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "geodelx.h"
+#include "geodelx.h" // geodelx_init
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
 #include "vgabios.h" // VGAREG_*
 #include "util.h" // memset
-#include "config.h"
-#include "types.h"
-#include "bregs.h"
 #include "stdvga.h" // VGAREG_VGA_CRTC_ADDRESS
 
 
@@ -342,7 +339,9 @@ static u8 lx_crtc_13[] VAR16 = {
 
 int geodelx_init(void)
 {
-    int ret;
+    int ret = stdvga_init();
+    if (ret)
+        return ret;
 
     dprintf(1,"GEODELX_INIT\n");
 

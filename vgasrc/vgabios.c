@@ -1187,29 +1187,29 @@ init_bios_area(void)
     SET_BDA(video_msr, 0x09);
 }
 
+u16 VgaBDF VAR16;
+
 void VISIBLE16
 vga_post(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_VGA_POST);
 
-    stdvga_init();
+    SET_VGA(VgaBDF, regs->ax);
 
-    if (CONFIG_VGA_GEODELX)
-        geodelx_init();
+    int ret = vgahw_init();
+    if (ret) {
+        dprintf(1, "Failed to initialize VGA hardware.  Exiting.\n");
+        return;
+    }
 
     init_bios_area();
 
-    bochsvga_init(regs->ah, regs->al);
+    build_video_param();
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
 
-    if (CONFIG_VGA_CIRRUS)
-        clext_init();
-
     // XXX - clear screen and display info
-
-    build_video_param();
 
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;

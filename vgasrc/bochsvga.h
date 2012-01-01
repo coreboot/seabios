@@ -52,7 +52,7 @@ static inline void dispi_write(u16 reg, u16 val)
     outw(val, VBE_DISPI_IOPORT_DATA);
 }
 
-int bochsvga_init(u8 bus, u8 devfn);
+int bochsvga_init(void);
 int bochsvga_enabled(void);
 u16 bochsvga_total_mem(void);
 int bochsvga_list_modes(u16 seg, u16 ptr);

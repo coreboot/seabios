@@ -138,6 +138,6 @@ void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
 int stdvga_set_mode(int mode, int flags);
 void stdvga_enable_video_addressing(u8 disable);
-void stdvga_init(void);
+int stdvga_init(void);
 
 #endif // stdvga.h

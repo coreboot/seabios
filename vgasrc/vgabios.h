@@ -48,6 +48,7 @@ extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
 // vgabios.c
+extern u16 VgaBDF;
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 struct carattr {
     u8 car, attr, use_attr;

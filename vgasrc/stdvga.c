@@ -649,7 +649,7 @@ stdvga_enable_video_addressing(u8 disable)
     outb(v | v2, VGAREG_WRITE_MISC_OUTPUT);
 }
 
-void
+int
 stdvga_init(void)
 {
     // switch to color mode and enable CPU access 480 lines
@@ -657,4 +657,6 @@ stdvga_init(void)
     // more than 64k 3C4/04
     outb(0x04, VGAREG_SEQU_ADDRESS);
     outb(0x02, VGAREG_SEQU_DATA);
+
+    return 0;
 }

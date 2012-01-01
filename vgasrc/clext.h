@@ -4,6 +4,6 @@
 #include "types.h" // u8
 
 int clext_set_mode(int mode, int flags);
-void clext_init(void);
+int clext_init(void);
 
 #endif // clext.h
