@@ -10,6 +10,7 @@
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
+#include "vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "vgabios.h" // find_vga_entry
 
 // TODO
@@ -540,14 +541,14 @@ clear_screen(struct vgamode_s *vmode_g)
     }
 }
 
-void
+int
 stdvga_set_mode(int mode, int flags)
 {
     // find the entry in the video modes
     struct vgamode_s *vmode_g = find_vga_entry(mode);
     dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
     if (!vmode_g)
-        return;
+        return VBE_RETURN_STATUS_FAILED;
 
     // if palette loading (bit 3 of modeset ctl = 0)
     if (!(flags & MF_NOPALETTE)) {    // Set the PEL mask
@@ -631,6 +632,8 @@ stdvga_set_mode(int mode, int flags)
 
     // Setup BDA variables
     modeswitch_set_bda(mode, flags, vmode_g);
+
+    return 0;
 }
 
 

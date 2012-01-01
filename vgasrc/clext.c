@@ -393,22 +393,22 @@ cirrus_clear_vram(u16 param)
 }
 
 int
-clext_set_video_mode(u8 mode, u8 noclearmem)
+clext_set_mode(int mode, int flags)
 {
     dprintf(1, "cirrus mode %d\n", mode);
     SET_BDA(vbe_mode, 0);
     struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode);
     if (table_g) {
         cirrus_switch_mode(table_g);
-        if (!noclearmem)
+        if (!(flags & MF_NOCLEARMEM))
             cirrus_clear_vram(0xffff);
         SET_BDA(video_mode, mode);
-        return 1;
+        return 0;
     }
     table_g = cirrus_get_modeentry(0xfe);
     cirrus_switch_mode(table_g);
     dprintf(1, "cirrus mode switch regular\n");
-    return 0;
+    return stdvga_set_mode(mode, flags);
 }
 
 static int

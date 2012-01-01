@@ -59,7 +59,7 @@ int bochsvga_list_modes(u16 seg, u16 ptr);
 struct vbe_modeinfo;
 int bochsvga_mode_info(u16 mode, struct vbe_modeinfo *info);
 void bochsvga_hires_enable(int enable);
-void bochsvga_set_mode(u16 mode, struct vbe_modeinfo *info);
+int bochsvga_set_mode(int mode, int flags);
 void bochsvga_clear_scr(void);
 int bochsvga_hires_enabled(void);
 u16 bochsvga_curr_mode(void);

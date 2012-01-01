@@ -11,8 +11,8 @@
 #include "vbe.h" // struct vbe_info
 #include "util.h" // dprintf
 #include "biosvar.h" // get_global_set
-#include "bochsvga.h" // bochsvga_set_mode
-#include "stdvga.h" // stdvga_set_mode
+#include "bochsvga.h" // bochsvga_hires_enabled
+#include "vgahw.h" // vgahw_set_mode
 
 static void
 vbe_104f00(struct bregs *regs)
@@ -178,40 +178,14 @@ vbe_104f01(struct bregs *regs)
 static void
 vbe_104f02(struct bregs *regs)
 {
-    //u16 seg = regs->es;
-    //struct vbe_crtc_info *crtc_info = (void*)(regs->di+0);
-    u16 mode = regs->bx;
-    struct vbe_modeinfo modeinfo;
-    int rc;
+    dprintf(1, "VBE mode set: %x\n", regs->bx);
 
-    dprintf(1, "VBE mode set: %x\n", mode);
+    int mode = regs->bx & 0x1ff;
+    int flags = regs->bx & (MF_CUSTOMCRTC|MF_LINEARFB|MF_NOCLEARMEM);
+    int ret = vgahw_set_mode(mode, flags);
 
-    if (mode < 0x100) { /* VGA */
-        dprintf(1, "set VGA mode %x\n", mode);
-
-        bochsvga_hires_enable(0);
-        stdvga_set_mode(mode, 0);
-    } else { /* VBE */
-        rc = bochsvga_mode_info(mode & 0x1ff, &modeinfo);
-        if (rc) {
-            dprintf(1, "VBE mode %x not found\n", mode & 0x1ff);
-            regs->ax = 0x100;
-            return;
-        }
-        bochsvga_hires_enable(1);
-        bochsvga_set_mode(mode & 0x1ff, &modeinfo);
-
-        if (mode & 0x4000) {
-            /* Linear frame buffer */
-            /* XXX: ??? */
-        }
-        if (!(mode & 0x8000)) {
-            bochsvga_clear_scr();
-        }
-    }
-
-    regs->al = regs->ah; /* 0x4F, Function supported */
-    regs->ah = 0x0; /* 0x0, Function call successful */
+    regs->ah = ret;
+    regs->al = 0x4f;
 }
 
 static void

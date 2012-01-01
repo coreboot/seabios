@@ -21,6 +21,7 @@
 #include "geodelx.h" // geodelx_init
 #include "bochsvga.h" // bochsvga_init
 #include "clext.h" // clext_init
+#include "vgahw.h" // vgahw_set_mode
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -378,8 +379,7 @@ modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
 static void
 handle_1000(struct bregs *regs)
 {
-    u8 noclearmem = regs->al & 0x80;
-    u8 mode = regs->al & 0x7f;
+    int mode = regs->al & 0x7f;
 
     // Set regs->al
     if (mode > 7)
@@ -389,20 +389,11 @@ handle_1000(struct bregs *regs)
     else
         regs->al = 0x30;
 
-    if (CONFIG_VGA_CIRRUS) {
-        int ret = clext_set_video_mode(mode, noclearmem);
-        if (ret)
-            return;
-    }
-
-    if (bochsvga_enabled())
-        bochsvga_hires_enable(0);
-
     int flags = GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM);
-    if (noclearmem)
+    if (regs->al & 0x80)
         flags |= MF_NOCLEARMEM;
 
-    stdvga_set_mode(mode, flags);
+    vgahw_set_mode(mode, flags);
 }
 
 static void

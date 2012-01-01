@@ -1,7 +1,7 @@
 #include "vgabios.h" // struct vbe_modeinfo
-#include "vbe.h"
-#include "bochsvga.h"
-#include "util.h"
+#include "vbe.h" // VBE_MODE_VESA_DEFINED
+#include "bochsvga.h" // bochsvga_set_mode
+#include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // SET_BDA
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
@@ -259,9 +259,24 @@ bochsvga_hires_enable(int enable)
     dispi_write(VBE_DISPI_INDEX_ENABLE, flags);
 }
 
-void
-bochsvga_set_mode(u16 mode, struct vbe_modeinfo *info)
+int
+bochsvga_set_mode(int mode, int flags)
 {
+    if (!(mode & VBE_MODE_VESA_DEFINED)) {
+        dprintf(1, "set VGA mode %x\n", mode);
+
+        bochsvga_hires_enable(0);
+        return stdvga_set_mode(mode, flags);
+    }
+
+    struct vbe_modeinfo modeinfo, *info = &modeinfo;
+    int ret = bochsvga_mode_info(mode, &modeinfo);
+    if (ret) {
+        dprintf(1, "VBE mode %x not found\n", mode);
+        return VBE_RETURN_STATUS_FAILED;
+    }
+    bochsvga_hires_enable(1);
+
     if (info->depth == 4)
         stdvga_set_mode(0x6a, 0);
     if (info->depth == 8)
@@ -315,6 +330,16 @@ bochsvga_set_mode(u16 mode, struct vbe_modeinfo *info)
     }
 
     SET_BDA(vbe_mode, mode);
+
+    if (flags & MF_LINEARFB) {
+        /* Linear frame buffer */
+        /* XXX: ??? */
+    }
+    if (!(mode & MF_NOCLEARMEM)) {
+        bochsvga_clear_scr();
+    }
+
+    return 0;
 }
 
 void
