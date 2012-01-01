@@ -135,7 +135,7 @@ set_active_page(u8 page)
     struct cursorpos cp = get_cursor_pos(page);
 
     u16 address;
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT) {
+    if (GET_GLOBAL(vmode_g->memmodel) == MM_TEXT) {
         // Get the dimensions
         u16 nbcols = GET_BDA(video_cols);
         u16 nbrows = GET_BDA(video_rows) + 1;
@@ -339,7 +339,8 @@ modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
     SET_BDA(video_ctl, 0x60 | (flags & MF_NOCLEARMEM ? 0x80 : 0x00));
     SET_BDA(video_switches, 0xF9);
     SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
-    SET_BDA(cursor_type, GET_GLOBAL(vmode_g->memmodel) & TEXT ? 0x0607 : 0x0000);
+    SET_BDA(cursor_type
+            , GET_GLOBAL(vmode_g->memmodel) == MM_TEXT ? 0x0607 : 0x0000);
     int i;
     for (i=0; i<8; i++)
         SET_BDA(cursor_pos[i], 0x0000);

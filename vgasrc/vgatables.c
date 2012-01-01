@@ -339,37 +339,37 @@ static u8 crtc_6A[] VAR16 = {
 static struct vgamode_s vga_modes[] VAR16 = {
     //mode model     tx  ty  ch bits sstart    slength
     // pelm  dac            sequ     misc  crtc     actl     grdc
-    {0x00, CTEXT,    40, 25, 16, 4, SEG_CTEXT, 0x0800
-     , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01 },
-    {0x01, CTEXT,    40, 25, 16, 4, SEG_CTEXT, 0x0800
-     , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01 },
-    {0x02, CTEXT,    80, 25, 16, 4, SEG_CTEXT, 0x1000
-     , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01 },
-    {0x03, CTEXT,    80, 25, 16, 4, SEG_CTEXT, 0x1000
-     , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01 },
-    {0x04, CGA,      40, 25,  8, 2, SEG_CTEXT, 0x0800
+    {0x00, MM_TEXT,    40, 25, 16, 4, SEG_CTEXT, 0x0800
+     , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
+    {0x01, MM_TEXT,    40, 25, 16, 4, SEG_CTEXT, 0x0800
+     , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
+    {0x02, MM_TEXT,    80, 25, 16, 4, SEG_CTEXT, 0x1000
+     , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
+    {0x03, MM_TEXT,    80, 25, 16, 4, SEG_CTEXT, 0x1000
+     , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
+    {0x04, MM_CGA,     40, 25,  8, 2, SEG_CTEXT, 0x0800
      , 0xFF, PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
-    {0x05, CGA,      40, 25,  8, 2, SEG_CTEXT, 0x0800
+    {0x05, MM_CGA,     40, 25,  8, 2, SEG_CTEXT, 0x0800
      , 0xFF, PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
-    {0x06, CGA,      80, 25,  8, 1, SEG_CTEXT, 0x1000
+    {0x06, MM_CGA,     80, 25,  8, 1, SEG_CTEXT, 0x1000
      , 0xFF, PAL(palette1), sequ_06, 0x63, crtc_06, actl_06, grdc_06},
-    {0x07, MTEXT,    80, 25, 16, 4, SEG_MTEXT, 0x1000
+    {0x07, MM_TEXT,    80, 25, 16, 4, SEG_MTEXT, 0x1000
      , 0xFF, PAL(palette0), sequ_03, 0x66, crtc_07, actl_07, grdc_07},
-    {0x0D, PLANAR4,  40, 25,  8, 4, SEG_GRAPH, 0x2000
+    {0x0D, MM_PLANAR,  40, 25,  8, 4, SEG_GRAPH, 0x2000
      , 0xFF, PAL(palette1), sequ_0d, 0x63, crtc_0d, actl_0d, grdc_0d},
-    {0x0E, PLANAR4,  80, 25,  8, 4, SEG_GRAPH, 0x4000
+    {0x0E, MM_PLANAR,  80, 25,  8, 4, SEG_GRAPH, 0x4000
      , 0xFF, PAL(palette1), sequ_0e, 0x63, crtc_0e, actl_0d, grdc_0d},
-    {0x0F, PLANAR1,  80, 25, 14, 1, SEG_GRAPH, 0x8000
+    {0x0F, MM_PLANAR,  80, 25, 14, 1, SEG_GRAPH, 0x8000
      , 0xFF, PAL(palette0), sequ_0e, 0xa3, crtc_0f, actl_0f, grdc_0d},
-    {0x10, PLANAR4,  80, 25, 14, 4, SEG_GRAPH, 0x8000
+    {0x10, MM_PLANAR,  80, 25, 14, 4, SEG_GRAPH, 0x8000
      , 0xFF, PAL(palette2), sequ_0e, 0xa3, crtc_0f, actl_10, grdc_0d},
-    {0x11, PLANAR1,  80, 30, 16, 1, SEG_GRAPH, 0x0000
+    {0x11, MM_PLANAR,  80, 30, 16, 1, SEG_GRAPH, 0x0000
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_11, grdc_0d},
-    {0x12, PLANAR4,  80, 30, 16, 4, SEG_GRAPH, 0x0000
+    {0x12, MM_PLANAR,  80, 30, 16, 4, SEG_GRAPH, 0x0000
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_10, grdc_0d},
-    {0x13, LINEAR8,  40, 25,  8, 8, SEG_GRAPH, 0x0000
+    {0x13, MM_PACKED,  40, 25,  8, 8, SEG_GRAPH, 0x0000
      , 0xFF, PAL(palette3), sequ_13, 0x63, crtc_13, actl_13, grdc_13},
-    {0x6A, PLANAR4, 100, 37, 16, 4, SEG_GRAPH, 0x0000
+    {0x6A, MM_PLANAR, 100, 37, 16, 4, SEG_GRAPH, 0x0000
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_6A, actl_10, grdc_0d},
 };
 

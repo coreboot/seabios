@@ -44,24 +44,6 @@
 #define SEG_CTEXT 0xB800
 #define SEG_MTEXT 0xB000
 
-/*
- * Tables of default values for each mode
- */
-#define TEXT       0x80
-
-#define CTEXT      (0x00 | TEXT)
-#define MTEXT      (0x01 | TEXT)
-#define CGA        0x02
-#define PLANAR1    0x03
-#define PLANAR4    0x04
-#define LINEAR8    0x05
-
-// for SVGA
-#define LINEAR15   0x10
-#define LINEAR16   0x11
-#define LINEAR24   0x12
-#define LINEAR32   0x13
-
 struct vgamode_s {
     u8 svgamode;
     u8 memmodel;    /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */

@@ -33,6 +33,16 @@ struct saveBDAstate {
 #define MF_LINEARFB   0x4000
 #define MF_NOCLEARMEM 0x8000
 
+// Memory model types
+#define MM_TEXT            0x00
+#define MM_CGA             0x01
+#define MM_HERCULES        0x02
+#define MM_PLANAR          0x03
+#define MM_PACKED          0x04
+#define MM_NON_CHAIN_4_256 0x05
+#define MM_DIRECT          0x06
+#define MM_YUV             0x07
+
 // vgatables.c
 struct vgamode_s;
 struct vgamode_s *find_vga_entry(u8 mode);

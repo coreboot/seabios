@@ -527,11 +527,10 @@ static void
 clear_screen(struct vgamode_s *vmode_g)
 {
     switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case CTEXT:
-    case MTEXT:
+    case MM_TEXT:
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
         break;
-    case CGA:
+    case MM_CGA:
         memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
         break;
     default:
@@ -627,7 +626,7 @@ stdvga_set_mode(int mode, int flags)
 
     // Write the fonts in memory
     u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
-    if (memmodel & TEXT)
+    if (memmodel == MM_TEXT)
         stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
 
     // Setup BDA variables

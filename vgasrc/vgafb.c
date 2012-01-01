@@ -176,18 +176,17 @@ vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
 
     // FIXME gfx mode not complete
     switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case CTEXT:
-    case MTEXT:
+    case MM_TEXT:
         scroll_text(vmode_g, nblines, attr, ul, lr);
         break;
-    case PLANAR4:
-    case PLANAR1:
+    case MM_PLANAR:
         scroll_pl4(vmode_g, nblines, attr, ul, lr);
         break;
-    case CGA:
+    case MM_CGA:
         scroll_cga(vmode_g, nblines, attr, ul, lr);
         break;
-    case LINEAR8:
+    case MM_DIRECT:
+    case MM_PACKED:
         scroll_lin(vmode_g, nblines, attr, ul, lr);
         break;
     }
@@ -357,18 +356,17 @@ vgafb_write_char(struct cursorpos cp, struct carattr ca)
 
     // FIXME gfx mode not complete
     switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case CTEXT:
-    case MTEXT:
+    case MM_TEXT:
         write_text_char(vmode_g, cp, ca);
         break;
-    case PLANAR4:
-    case PLANAR1:
+    case MM_PLANAR:
         write_gfx_char_pl4(vmode_g, cp, ca);
         break;
-    case CGA:
+    case MM_CGA:
         write_gfx_char_cga(vmode_g, cp, ca);
         break;
-    case LINEAR8:
+    case MM_DIRECT:
+    case MM_PACKED:
         write_gfx_char_lin(vmode_g, cp, ca);
         break;
     }
@@ -382,7 +380,7 @@ vgafb_read_char(struct cursorpos cp)
     if (!vmode_g)
         goto fail;
 
-    if (!(GET_GLOBAL(vmode_g->memmodel) & TEXT)) {
+    if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
         // FIXME gfx mode
         dprintf(1, "Read char in graphics mode\n");
         goto fail;
@@ -416,13 +414,10 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         return;
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-        return;
 
     u8 *addr_far, mask, attr, data;
     switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case PLANAR4:
-    case PLANAR1:
+    case MM_PLANAR:
         addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
         mask = 0x80 >> (x & 0x07);
         stdvga_grdc_write(0x08, mask);
@@ -435,7 +430,7 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
         stdvga_grdc_write(0x05, 0x00);
         stdvga_grdc_write(0x03, 0x00);
         break;
-    case CGA:
+    case MM_CGA:
         if (GET_GLOBAL(vmode_g->pixbits) == 2)
             addr_far = (void*)((x >> 2) + (y >> 1) * 80);
         else
@@ -458,10 +453,13 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
         }
         SET_FARVAR(SEG_CTEXT, *addr_far, data);
         break;
-    case LINEAR8:
+    case MM_DIRECT:
+    case MM_PACKED:
         addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
         SET_FARVAR(SEG_GRAPH, *addr_far, color);
         break;
+    case MM_TEXT:
+        return;
     }
 }
 
@@ -472,13 +470,10 @@ vgafb_read_pixel(u16 x, u16 y)
     struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
     if (!vmode_g)
         return 0;
-    if (GET_GLOBAL(vmode_g->memmodel) & TEXT)
-        return 0;
 
     u8 *addr_far, mask, attr=0, data, i;
     switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case PLANAR4:
-    case PLANAR1:
+    case MM_PLANAR:
         addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
         mask = 0x80 >> (x & 0x07);
         attr = 0x00;
@@ -489,7 +484,7 @@ vgafb_read_pixel(u16 x, u16 y)
                 attr |= (0x01 << i);
         }
         break;
-    case CGA:
+    case MM_CGA:
         addr_far = (void*)((x >> 2) + (y >> 1) * 80);
         if (y & 1)
             addr_far += 0x2000;
@@ -499,10 +494,13 @@ vgafb_read_pixel(u16 x, u16 y)
         else
             attr = (data >> (7 - (x & 0x07))) & 0x01;
         break;
-    case LINEAR8:
+    case MM_DIRECT:
+    case MM_PACKED:
         addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
         attr = GET_FARVAR(SEG_GRAPH, *addr_far);
         break;
+    case MM_TEXT:
+        return 0;
     }
     return attr;
 }
