@@ -41,16 +41,17 @@ static void
 scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
            , struct cursorpos ul, struct cursorpos lr)
 {
-    u8 cheight = GET_GLOBAL(vmode_g->cheight);
-    int stride = GET_BDA(video_cols);
+    int cheight = GET_GLOBAL(vmode_g->cheight);
+    int cwidth = 1;
+    int stride = GET_BDA(video_cols) * cwidth;
     void *src_far, *dest_far;
     if (nblines >= 0) {
-        dest_far = (void*)(ul.y * cheight * stride + ul.x);
+        dest_far = (void*)(ul.y * cheight * stride + ul.x * cwidth);
         src_far = dest_far + nblines * cheight * stride;
     } else {
         // Scroll down
         nblines = -nblines;
-        dest_far = (void*)(lr.y * cheight * stride + ul.x);
+        dest_far = (void*)(lr.y * cheight * stride + ul.x * cwidth);
         src_far = dest_far - nblines * cheight * stride;
         stride = -stride;
     }
@@ -58,13 +59,14 @@ scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
     int rows = lr.y - ul.y + 1;
     if (nblines < rows) {
         stdvga_grdc_write(0x05, 0x01);
-        dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols, stride
-                                 , (rows - nblines) * cheight);
+        dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols * cwidth
+                                 , stride, (rows - nblines) * cheight);
     }
     if (attr < 0)
         attr = 0;
     stdvga_grdc_write(0x05, 0x02);
-    memset_stride(SEG_GRAPH, dest_far, attr, cols, stride, nblines * cheight);
+    memset_stride(SEG_GRAPH, dest_far, attr, cols * cwidth
+                  , stride, nblines * cheight);
     stdvga_grdc_write(0x05, 0x00);
 }
 
@@ -72,33 +74,33 @@ static void
 scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
-    u8 cheight = GET_GLOBAL(vmode_g->cheight) / 2;
-    u8 bpp = GET_GLOBAL(vmode_g->pixbits);
-    int stride = GET_BDA(video_cols) * bpp;
+    int cheight = GET_GLOBAL(vmode_g->cheight) / 2;
+    int cwidth = GET_GLOBAL(vmode_g->pixbits);
+    int stride = GET_BDA(video_cols) * cwidth;
     void *src_far, *dest_far;
     if (nblines >= 0) {
-        dest_far = (void*)(ul.y * cheight * stride + ul.x * bpp);
+        dest_far = (void*)(ul.y * cheight * stride + ul.x * cwidth);
         src_far = dest_far + nblines * cheight * stride;
     } else {
         // Scroll down
         nblines = -nblines;
-        dest_far = (void*)(lr.y * cheight * stride + ul.x * bpp);
+        dest_far = (void*)(lr.y * cheight * stride + ul.x * cwidth);
         src_far = dest_far - nblines * cheight * stride;
         stride = -stride;
     }
-    int cols = (lr.x - ul.x + 1) * bpp;
+    int cols = lr.x - ul.x + 1;
     int rows = lr.y - ul.y + 1;
     if (nblines < rows) {
-        memcpy_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000, cols
+        memcpy_stride(SEG_CTEXT, dest_far+0x2000, src_far+0x2000, cols * cwidth
                       , stride, (rows - nblines) * cheight);
-        dest_far = memcpy_stride(SEG_CTEXT, dest_far, src_far, cols
+        dest_far = memcpy_stride(SEG_CTEXT, dest_far, src_far, cols * cwidth
                                  , stride, (rows - nblines) * cheight);
     }
     if (attr < 0)
         attr = 0;
-    memset_stride(SEG_CTEXT, dest_far + 0x2000, attr, cols
+    memset_stride(SEG_CTEXT, dest_far + 0x2000, attr, cols * cwidth
                   , stride, nblines * cheight);
-    memset_stride(SEG_CTEXT, dest_far, attr, cols
+    memset_stride(SEG_CTEXT, dest_far, attr, cols * cwidth
                   , stride, nblines * cheight);
 }
 
@@ -106,30 +108,33 @@ static void
 scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
+    int cheight = 1;
+    int cwidth = 2;
     u16 nbrows = GET_BDA(video_rows) + 1;
     u16 nbcols = GET_BDA(video_cols);
+    int stride = nbcols * cwidth;
     void *src_far, *dest_far = (void*)SCREEN_MEM_START(nbcols, nbrows, ul.page);
-    int stride = nbcols * 2;
     if (nblines >= 0) {
-        dest_far += ul.y * stride + ul.x * 2;
-        src_far = dest_far + nblines * stride;
+        dest_far += ul.y * cheight * stride + ul.x * cwidth;
+        src_far = dest_far + nblines * cheight * stride;
     } else {
         // Scroll down
         nblines = -nblines;
-        dest_far += lr.y * stride + ul.x * 2;
-        src_far = dest_far - nblines * stride;
+        dest_far += lr.y * cheight * stride + ul.x * cwidth;
+        src_far = dest_far - nblines * cheight * stride;
         stride = -stride;
     }
-    int cols = (lr.x - ul.x + 1) * 2;
+    int cols = lr.x - ul.x + 1;
     int rows = lr.y - ul.y + 1;
     u16 seg = GET_GLOBAL(vmode_g->sstart);
     if (nblines < rows)
-        dest_far = memcpy_stride(seg, dest_far, src_far, cols, stride
-                                 , (rows - nblines));
+        dest_far = memcpy_stride(seg, dest_far, src_far, cols * cwidth
+                                 , stride, (rows - nblines) * cheight);
     if (attr < 0)
         attr = 0x07;
     attr = (attr << 8) | ' ';
-    memset16_stride(seg, dest_far, attr, cols, stride, nblines);
+    memset16_stride(seg, dest_far, attr, cols * cwidth
+                    , stride, nblines * cheight);
 }
 
 void
