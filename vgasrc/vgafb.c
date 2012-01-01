@@ -72,7 +72,7 @@ static void
 scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
-    u8 cheight = GET_GLOBAL(vmode_g->cheight);
+    u8 cheight = GET_GLOBAL(vmode_g->cheight) / 2;
     u8 bpp = GET_GLOBAL(vmode_g->pixbits);
     int stride = GET_BDA(video_cols) * bpp;
     void *src_far, *dest_far;
@@ -90,16 +90,16 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
     int rows = lr.y - ul.y + 1;
     if (nblines < rows) {
         memcpy_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000, cols
-                      , stride, (rows - nblines) * cheight / 2);
+                      , stride, (rows - nblines) * cheight);
         dest_far = memcpy_stride(SEG_CTEXT, dest_far, src_far, cols
-                                 , stride, (rows - nblines) * cheight / 2);
+                                 , stride, (rows - nblines) * cheight);
     }
     if (attr < 0)
         attr = 0;
     memset_stride(SEG_CTEXT, dest_far + 0x2000, attr, cols
-                  , stride, nblines * cheight / 2);
+                  , stride, nblines * cheight);
     memset_stride(SEG_CTEXT, dest_far, attr, cols
-                  , stride, nblines * cheight / 2);
+                  , stride, nblines * cheight);
 }
 
 static void
@@ -198,7 +198,7 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
         for (j = 0; j < 8; j++) {
             u8 mask = 0x80 >> j;
             stdvga_grdc_write(0x08, mask);
-            GET_FARVAR(SEG_GRAPH, *dest_far);
+            GET_FARVAR(SEG_GRAPH, *(volatile u8*)dest_far);
             if (GET_GLOBAL(fdata_g[src + i]) & mask)
                 SET_FARVAR(SEG_GRAPH, *dest_far, ca.attr & 0x0f);
             else
@@ -392,7 +392,7 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
         mask = 0x80 >> (x & 0x07);
         stdvga_grdc_write(0x08, mask);
         stdvga_grdc_write(0x05, 0x02);
-        data = GET_FARVAR(SEG_GRAPH, *addr_far);
+        GET_FARVAR(SEG_GRAPH, *(volatile u8*)addr_far);
         if (color & 0x80)
             stdvga_grdc_write(0x03, 0x18);
         SET_FARVAR(SEG_GRAPH, *addr_far, color);
