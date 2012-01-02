@@ -293,10 +293,11 @@ static struct cirrus_mode_s cirrus_modes[] VAR16 = {
     {0x7b,MM_PACKED,1600,1200,8,0x00,
      cseq_1600x1200x8,cgraph_svgacolor,ccrtc_1600x1200x8,8,
      0,0,0,0,0,0,0,0},
-
-    {0xfe,0xff,0,0,0,0,cseq_vga,cgraph_vga,ccrtc_vga,0,
-     0,0,0,0,0,0,0,0},
 };
+
+static struct cirrus_mode_s mode_switchback VAR16 =
+    {0xfe,0xff,0,0,0,0,cseq_vga,cgraph_vga,ccrtc_vga,0,
+     0,0,0,0,0,0,0,0};
 
 
 /****************************************************************
@@ -405,8 +406,7 @@ clext_set_mode(int mode, int flags)
         SET_BDA(video_mode, mode);
         return 0;
     }
-    table_g = cirrus_get_modeentry(0xfe);
-    cirrus_switch_mode(table_g);
+    cirrus_switch_mode(&mode_switchback);
     dprintf(1, "cirrus mode switch regular\n");
     return stdvga_set_mode(mode, flags);
 }
