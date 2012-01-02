@@ -329,18 +329,26 @@ void
 modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
 {
     // Set the BIOS mem
-    u16 cheight = GET_GLOBAL(vmode_g->cheight);
+    int width = GET_GLOBAL(vmode_g->width);
+    int height = GET_GLOBAL(vmode_g->height);
+    int cheight = GET_GLOBAL(vmode_g->cheight);
     SET_BDA(video_mode, mode);
-    SET_BDA(video_cols, GET_GLOBAL(vmode_g->twidth));
+    if (GET_GLOBAL(vmode_g->memmodel) == MM_TEXT) {
+        SET_BDA(video_cols, width);
+        SET_BDA(video_rows, height-1);
+        SET_BDA(cursor_type, 0x0607);
+    } else {
+        int cwidth = GET_GLOBAL(vmode_g->cwidth);
+        SET_BDA(video_cols, width / cwidth);
+        SET_BDA(video_rows, (height / cheight) - 1);
+        SET_BDA(cursor_type, 0x0000);
+    }
     SET_BDA(video_pagesize, GET_GLOBAL(vmode_g->slength));
     SET_BDA(crtc_address, stdvga_get_crtc());
-    SET_BDA(video_rows, GET_GLOBAL(vmode_g->theight)-1);
     SET_BDA(char_height, cheight);
     SET_BDA(video_ctl, 0x60 | (flags & MF_NOCLEARMEM ? 0x80 : 0x00));
     SET_BDA(video_switches, 0xF9);
     SET_BDA(modeset_ctl, GET_BDA(modeset_ctl) & 0x7f);
-    SET_BDA(cursor_type
-            , GET_GLOBAL(vmode_g->memmodel) == MM_TEXT ? 0x0607 : 0x0000);
     int i;
     for (i=0; i<8; i++)
         SET_BDA(cursor_pos[i], 0x0000);

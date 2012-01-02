@@ -75,7 +75,7 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
     int cheight = GET_GLOBAL(vmode_g->cheight) / 2;
-    int cwidth = GET_GLOBAL(vmode_g->pixbits);
+    int cwidth = GET_GLOBAL(vmode_g->depth);
     int stride = GET_BDA(video_cols) * cwidth;
     void *src_far, *dest_far;
     if (nblines >= 0) {
@@ -253,7 +253,7 @@ write_gfx_char_cga(struct vgamode_s *vmode_g
         return;
 
     u8 *fdata_g = vgafont8;
-    u8 bpp = GET_GLOBAL(vmode_g->pixbits);
+    u8 bpp = GET_GLOBAL(vmode_g->depth);
     u16 addr = (cp.x * bpp) + cp.y * 320;
     u16 src = ca.car * 8;
     u8 i;
@@ -431,14 +431,14 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
         stdvga_grdc_write(0x03, 0x00);
         break;
     case MM_CGA:
-        if (GET_GLOBAL(vmode_g->pixbits) == 2)
+        if (GET_GLOBAL(vmode_g->depth) == 2)
             addr_far = (void*)((x >> 2) + (y >> 1) * 80);
         else
             addr_far = (void*)((x >> 3) + (y >> 1) * 80);
         if (y & 1)
             addr_far += 0x2000;
         data = GET_FARVAR(SEG_CTEXT, *addr_far);
-        if (GET_GLOBAL(vmode_g->pixbits) == 2) {
+        if (GET_GLOBAL(vmode_g->depth) == 2) {
             attr = (color & 0x03) << ((3 - (x & 0x03)) * 2);
             mask = 0x03 << ((3 - (x & 0x03)) * 2);
         } else {
@@ -489,7 +489,7 @@ vgafb_read_pixel(u16 x, u16 y)
         if (y & 1)
             addr_far += 0x2000;
         data = GET_FARVAR(SEG_CTEXT, *addr_far);
-        if (GET_GLOBAL(vmode_g->pixbits) == 2)
+        if (GET_GLOBAL(vmode_g->depth) == 2)
             attr = (data >> ((3 - (x & 0x03)) * 2)) & 0x03;
         else
             attr = (data >> (7 - (x & 0x07))) & 0x01;

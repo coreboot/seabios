@@ -45,12 +45,13 @@
 #define SEG_MTEXT 0xB000
 
 struct vgamode_s {
-    u8 svgamode;
-    u8 memmodel;    /* CTEXT,MTEXT,CGA,PL1,PL2,PL4,P8,P15,P16,P24,P32 */
-    u8 twidth;
-    u8 theight;
+    u16 mode;
+    u8 memmodel;
+    u16 width;
+    u16 height;
+    u8 depth;
+    u8 cwidth;
     u8 cheight;
-    u8 pixbits;
     u16 sstart;
     u16 slength;
 
