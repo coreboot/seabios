@@ -4,9 +4,6 @@
 #include "types.h" // u8
 #include "farptr.h" // struct segoff_s
 
-#define SCREEN_IO_START(x,y,p) (((((x)*(y)) | 0x00ff) + 1) * (p))
-#define SCREEN_MEM_START(x,y,p) SCREEN_IO_START(((x)*2),(y),(p))
-
 struct saveBDAstate {
     u8 video_mode;
     u16 video_cols;
@@ -66,6 +63,7 @@ struct carattr {
 struct cursorpos {
     u8 x, y, page;
 };
+u16 calc_page_size(u8 memmodel, u16 width, u16 height);
 void modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g);
 
 // vgafb.c

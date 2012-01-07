@@ -53,7 +53,6 @@ struct vgamode_s {
     u8 cwidth;
     u8 cheight;
     u16 sstart;
-    u16 slength;
 
     u8 pelmask;
     u8 *dac;

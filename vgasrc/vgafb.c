@@ -139,10 +139,8 @@ scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
 {
     int cheight = 1;
     int cwidth = 2;
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-    int stride = nbcols * cwidth;
-    void *src_far, *dest_far = (void*)SCREEN_MEM_START(nbcols, nbrows, ul.page);
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *src_far, *dest_far = (void*)(GET_BDA(video_pagesize) * ul.page);
     if (nblines >= 0) {
         dest_far += ul.y * cheight * stride + ul.x * cwidth;
         src_far = dest_far + nblines * cheight * stride;
@@ -330,12 +328,9 @@ static void
 write_text_char(struct vgamode_s *vmode_g
                 , struct cursorpos cp, struct carattr ca)
 {
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
     // Compute the address
-    void *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+    u16 nbcols = GET_BDA(video_cols);
+    void *address_far = (void*)(GET_BDA(video_pagesize) * cp.page
                                 + (cp.x + cp.y * nbcols) * 2);
 
     if (ca.use_attr) {
@@ -386,12 +381,9 @@ vgafb_read_char(struct cursorpos cp)
         goto fail;
     }
 
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
     // Compute the address
-    u16 *address_far = (void*)(SCREEN_MEM_START(nbcols, nbrows, cp.page)
+    u16 nbcols = GET_BDA(video_cols);
+    u16 *address_far = (void*)(GET_BDA(video_pagesize) * cp.page
                                + (cp.x + cp.y * nbcols) * 2);
     u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far);
     struct carattr ca = {v, v>>8, 0};

@@ -48,6 +48,19 @@ struct pci_data rom_pci_data VAR16VISIBLE = {
  * Helper functions
  ****************************************************************/
 
+u16
+calc_page_size(u8 memmodel, u16 width, u16 height)
+{
+    switch (memmodel) {
+    case MM_TEXT:
+        return ALIGN(width * height * 2, 2*1024);
+    case MM_CGA:
+        return 16*1024;
+    default:
+        return ALIGN(width * height / 8, 8*1024);
+    }
+}
+
 static void
 set_cursor_shape(u8 start, u8 end)
 {
@@ -93,15 +106,12 @@ set_cursor_pos(struct cursorpos cp)
     if (cp.page != current)
         return;
 
-    // Get the dimensions
+    // Calculate the memory address
     u16 nbcols = GET_BDA(video_cols);
-    u16 nbrows = GET_BDA(video_rows) + 1;
+    u16 address = (GET_BDA(video_pagesize) * cp.page
+                   + (cp.x + cp.y * nbcols) * 2);
 
-    // Calculate the address knowing nbcols nbrows and page num
-    u16 address = (SCREEN_IO_START(nbcols, nbrows, cp.page)
-                   + cp.x + cp.y * nbcols);
-
-    stdvga_set_cursor_pos(address);
+    stdvga_set_cursor_pos(address / 2);
 }
 
 static struct cursorpos
@@ -134,25 +144,13 @@ set_active_page(u8 page)
     // Get pos curs pos for the right page
     struct cursorpos cp = get_cursor_pos(page);
 
-    u16 address;
-    if (GET_GLOBAL(vmode_g->memmodel) == MM_TEXT) {
-        // Get the dimensions
-        u16 nbcols = GET_BDA(video_cols);
-        u16 nbrows = GET_BDA(video_rows) + 1;
-
-        // Calculate the address knowing nbcols nbrows and page num
-        address = SCREEN_MEM_START(nbcols, nbrows, page);
-        SET_BDA(video_pagestart, address);
-
-        // Start address
-        address = SCREEN_IO_START(nbcols, nbrows, page);
-    } else {
-        address = page * GET_GLOBAL(vmode_g->slength);
-    }
-
-    stdvga_set_active_page(address);
+    // Calculate memory address of start of page
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    u16 address = GET_BDA(video_pagesize) * page;
+    stdvga_set_active_page(memmodel == MM_TEXT ? address / 2 : address);
 
     // And change the BIOS page
+    SET_BDA(video_pagestart, address);
     SET_BDA(video_page, page);
 
     dprintf(1, "Set active page %02x address %04x\n", page, address);
@@ -174,7 +172,7 @@ set_scan_lines(u8 lines)
     u8 rows = vde / lines;
     SET_BDA(video_rows, rows - 1);
     u16 cols = GET_BDA(video_cols);
-    SET_BDA(video_pagesize, rows * cols * 2);
+    SET_BDA(video_pagesize, calc_page_size(MM_TEXT, cols, rows));
 }
 
 
@@ -331,9 +329,10 @@ modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
     // Set the BIOS mem
     int width = GET_GLOBAL(vmode_g->width);
     int height = GET_GLOBAL(vmode_g->height);
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
     int cheight = GET_GLOBAL(vmode_g->cheight);
     SET_BDA(video_mode, mode);
-    if (GET_GLOBAL(vmode_g->memmodel) == MM_TEXT) {
+    if (memmodel == MM_TEXT) {
         SET_BDA(video_cols, width);
         SET_BDA(video_rows, height-1);
         SET_BDA(cursor_type, 0x0607);
@@ -343,7 +342,7 @@ modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
         SET_BDA(video_rows, (height / cheight) - 1);
         SET_BDA(cursor_type, 0x0000);
     }
-    SET_BDA(video_pagesize, GET_GLOBAL(vmode_g->slength));
+    SET_BDA(video_pagesize, calc_page_size(memmodel, width, height));
     SET_BDA(crtc_address, stdvga_get_crtc());
     SET_BDA(char_height, cheight);
     SET_BDA(video_ctl, 0x60 | (flags & MF_NOCLEARMEM ? 0x80 : 0x00));
