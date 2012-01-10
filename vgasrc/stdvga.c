@@ -642,6 +642,12 @@ stdvga_set_mode(int mode, int flags)
  ****************************************************************/
 
 void
+stdvga_list_modes(u16 seg, u16 *dest, u16 *last)
+{
+    SET_FARVAR(seg, *dest, 0xffff);
+}
+
+void
 stdvga_enable_video_addressing(u8 disable)
 {
     u8 v = (disable & 1) ? 0x00 : 0x02;

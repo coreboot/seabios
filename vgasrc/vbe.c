@@ -39,7 +39,8 @@ vbe_104f00(struct bregs *regs)
     SET_FARVAR(seg, info->capabilities, 0x1); /* 8BIT DAC */
 
     /* We generate our mode list in the reserved field of the info block */
-    SET_FARVAR(seg, info->video_mode, SEGOFF(seg, regs->di + 34));
+    u16 *destmode = (void*)info->reserved;
+    SET_FARVAR(seg, info->video_mode, SEGOFF(seg, (u32)destmode));
 
     /* Total memory (in 64 blocks) */
     SET_FARVAR(seg, info->total_memory, bochsvga_total_mem());
@@ -52,7 +53,8 @@ vbe_104f00(struct bregs *regs)
             SEGOFF(get_global_seg(), (u32)VBE_REVISION_STRING));
 
     /* Fill list of modes */
-    bochsvga_list_modes(seg, regs->di + 32);
+    u16 *last = (void*)&info->reserved[sizeof(info->reserved)];
+    vgahw_list_modes(seg, destmode, last - 1);
 
     regs->al = regs->ah; /* 0x4F, Function supported */
     regs->ah = 0x0; /* 0x0, Function call successful */

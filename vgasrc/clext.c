@@ -566,6 +566,17 @@ static struct {
     { 0x11a, 0x75 },
 };
 
+void
+clext_list_modes(u16 seg, u16 *dest, u16 *last)
+{
+    int i;
+    for (i=0; i<ARRAY_SIZE(cirrus_vesa_modelist) && dest<last; i++) {
+        SET_FARVAR(seg, *dest, GET_GLOBAL(cirrus_vesa_modelist[i].vesamode));
+        dest++;
+    }
+    stdvga_list_modes(seg, dest, last);
+}
+
 static u16
 cirrus_vesamode_to_mode(u16 vesamode)
 {
@@ -706,12 +717,9 @@ cirrus_vesa_00h(struct bregs *regs)
     SET_FARVAR(seg, info->total_memory, cirrus_get_memsize());
 
     u16 *destmode = (void*)info->reserved;
+    u16 *last = (void*)&info->reserved[sizeof(info->reserved)];
     SET_FARVAR(seg, info->video_mode, SEGOFF(seg, (u32)destmode));
-    int i;
-    for (i=0; i<ARRAY_SIZE(cirrus_vesa_modelist); i++)
-        SET_FARVAR(seg, destmode[i]
-                   , GET_GLOBAL(cirrus_vesa_modelist[i].vesamode));
-    SET_FARVAR(seg, destmode[i], 0xffff);
+    clext_list_modes(seg, destmode, last);
 
     regs->ax = 0x004f;
 }

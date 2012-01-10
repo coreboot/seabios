@@ -25,6 +25,15 @@ static inline int vgahw_set_mode(int mode, int flags) {
     return stdvga_set_mode(mode, flags);
 }
 
+static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
+    if (CONFIG_VGA_CIRRUS)
+        clext_list_modes(seg, dest, last);
+    else if (CONFIG_VGA_BOCHS)
+        bochsvga_list_modes(seg, dest, last);
+    else
+        stdvga_list_modes(seg, dest, last);
+}
+
 static inline int vgahw_init(void) {
     if (CONFIG_VGA_CIRRUS)
         return clext_init();

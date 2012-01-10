@@ -199,26 +199,20 @@ static int mode_valid(struct vgamode_s *vmode_g)
     return 1;
 }
 
-int
-bochsvga_list_modes(u16 seg, u16 ptr)
+void
+bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
 {
-    int count = 0;
-    u16 *dest = (u16 *)(u32)ptr;
-
     struct bochsvga_mode *m = bochsvga_modes;
-    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++) {
+    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)] && dest<last; m++) {
         if (!mode_valid(&m->info))
             continue;
 
         dprintf(1, "VBE found mode %x valid.\n", GET_GLOBAL(m->mode));
-        SET_FARVAR(seg, dest[count], GET_GLOBAL(m->mode));
-
-        count++;
+        SET_FARVAR(seg, *dest, GET_GLOBAL(m->mode));
+        dest++;
     }
 
-    SET_FARVAR(seg, dest[count], 0xffff); /* End of list */
-
-    return count;
+    stdvga_list_modes(seg, dest, last);
 }
 
 int
