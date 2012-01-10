@@ -7,7 +7,7 @@
 
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset_far
-#include "vgabios.h" // find_vga_entry
+#include "vgahw.h" // vgahw_find_mode
 #include "stdvga.h" // stdvga_grdc_write
 
 
@@ -168,7 +168,7 @@ void
 vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
 {
     // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
     if (!vmode_g)
         return;
 
@@ -345,7 +345,7 @@ void
 vgafb_write_char(struct cursorpos cp, struct carattr ca)
 {
     // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
     if (!vmode_g)
         return;
 
@@ -371,7 +371,7 @@ struct carattr
 vgafb_read_char(struct cursorpos cp)
 {
     // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
     if (!vmode_g)
         goto fail;
 
@@ -403,7 +403,7 @@ void
 vgafb_write_pixel(u8 color, u16 x, u16 y)
 {
     // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
     if (!vmode_g)
         return;
 
@@ -459,7 +459,7 @@ u8
 vgafb_read_pixel(u16 x, u16 y)
 {
     // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
     if (!vmode_g)
         return 0;
 

@@ -40,9 +40,17 @@ struct saveBDAstate {
 #define MM_DIRECT          0x06
 #define MM_YUV             0x07
 
+struct vgamode_s {
+    u8 memmodel;
+    u16 width;
+    u16 height;
+    u8 depth;
+    u8 cwidth;
+    u8 cheight;
+    u16 sstart;
+};
+
 // vgatables.c
-struct vgamode_s;
-struct vgamode_s *find_vga_entry(u8 mode);
 void build_video_param(void);
 extern struct VideoSavePointer_s video_save_pointer_table;
 extern u8 static_functionality[];

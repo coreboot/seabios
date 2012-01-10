@@ -11,7 +11,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
 #include "vbe.h" // VBE_RETURN_STATUS_FAILED
-#include "vgabios.h" // find_vga_entry
 
 // TODO
 //  * replace direct in/out calls with wrapper functions
@@ -544,18 +543,20 @@ int
 stdvga_set_mode(int mode, int flags)
 {
     // find the entry in the video modes
-    struct vgamode_s *vmode_g = find_vga_entry(mode);
+    struct vgamode_s *vmode_g = stdvga_find_mode(mode);
     dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
     if (!vmode_g)
         return VBE_RETURN_STATUS_FAILED;
+    struct stdvga_mode_s *stdmode_g = container_of(
+        vmode_g, struct stdvga_mode_s, info);
 
     // if palette loading (bit 3 of modeset ctl = 0)
     if (!(flags & MF_NOPALETTE)) {    // Set the PEL mask
-        stdvga_set_pel_mask(GET_GLOBAL(vmode_g->pelmask));
+        stdvga_set_pel_mask(GET_GLOBAL(stdmode_g->pelmask));
 
         // From which palette
-        u8 *palette_g = GET_GLOBAL(vmode_g->dac);
-        u16 palsize = GET_GLOBAL(vmode_g->dacsize) / 3;
+        u8 *palette_g = GET_GLOBAL(stdmode_g->dac);
+        u16 palsize = GET_GLOBAL(stdmode_g->dacsize) / 3;
 
         // Always 256*3 values
         stdvga_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
@@ -573,7 +574,7 @@ stdvga_set_mode(int mode, int flags)
     inb(VGAREG_ACTL_RESET);
 
     // Set Attribute Ctl
-    u8 *regs = GET_GLOBAL(vmode_g->actl_regs);
+    u8 *regs = GET_GLOBAL(stdmode_g->actl_regs);
     u16 i;
     for (i = 0; i <= 0x13; i++) {
         outb(i, VGAREG_ACTL_ADDRESS);
@@ -585,21 +586,21 @@ stdvga_set_mode(int mode, int flags)
     // Set Sequencer Ctl
     outb(0, VGAREG_SEQU_ADDRESS);
     outb(0x03, VGAREG_SEQU_DATA);
-    regs = GET_GLOBAL(vmode_g->sequ_regs);
+    regs = GET_GLOBAL(stdmode_g->sequ_regs);
     for (i = 1; i <= 4; i++) {
         outb(i, VGAREG_SEQU_ADDRESS);
         outb(GET_GLOBAL(regs[i - 1]), VGAREG_SEQU_DATA);
     }
 
     // Set Grafx Ctl
-    regs = GET_GLOBAL(vmode_g->grdc_regs);
+    regs = GET_GLOBAL(stdmode_g->grdc_regs);
     for (i = 0; i <= 8; i++) {
         outb(i, VGAREG_GRDC_ADDRESS);
         outb(GET_GLOBAL(regs[i]), VGAREG_GRDC_DATA);
     }
 
     // Set CRTC address VGA or MDA
-    u8 miscreg = GET_GLOBAL(vmode_g->miscreg);
+    u8 miscreg = GET_GLOBAL(stdmode_g->miscreg);
     u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
     if (!(miscreg & 1))
         crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
@@ -607,7 +608,7 @@ stdvga_set_mode(int mode, int flags)
     // Disable CRTC write protection
     outw(0x0011, crtc_addr);
     // Set CRTC regs
-    regs = GET_GLOBAL(vmode_g->crtc_regs);
+    regs = GET_GLOBAL(stdmode_g->crtc_regs);
     for (i = 0; i <= 0x18; i++) {
         outb(i, crtc_addr);
         outb(GET_GLOBAL(regs[i]), crtc_addr + 1);

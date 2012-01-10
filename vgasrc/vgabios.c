@@ -14,10 +14,10 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset
-#include "vgabios.h" // find_vga_entry
+#include "vgabios.h" // calc_page_size
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
-#include "stdvga.h" // stdvga_set_mode
+#include "stdvga.h" // stdvga_set_cursor_shape
 #include "geodevga.h" // geodevga_init
 #include "bochsvga.h" // bochsvga_init
 #include "clext.h" // clext_init
@@ -137,7 +137,7 @@ set_active_page(u8 page)
         return;
 
     // Get the mode
-    struct vgamode_s *vmode_g = find_vga_entry(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
     if (!vmode_g)
         return;
 

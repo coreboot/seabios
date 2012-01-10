@@ -2,6 +2,7 @@
 #define __STDVGA_H
 
 #include "types.h" // u8
+#include "vgabios.h" // struct vgamode_s
 
 // VGA registers
 #define VGAREG_ACTL_ADDRESS            0x3c0
@@ -44,15 +45,9 @@
 #define SEG_CTEXT 0xB800
 #define SEG_MTEXT 0xB000
 
-struct vgamode_s {
+struct stdvga_mode_s {
     u16 mode;
-    u8 memmodel;
-    u16 width;
-    u16 height;
-    u8 depth;
-    u8 cwidth;
-    u8 cheight;
-    u16 sstart;
+    struct vgamode_s info;
 
     u8 pelmask;
     u8 *dac;
@@ -87,6 +82,10 @@ struct saveDACcolors {
     u8 color_select;
 };
 
+// vgatables.c
+struct vgamode_s *stdvga_find_mode(int mode);
+
+// stdvga.c
 void stdvga_set_border_color(u8 color);
 void stdvga_set_overscan_border_color(u8 color);
 u8 stdvga_get_overscan_border_color(void);

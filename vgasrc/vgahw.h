@@ -9,6 +9,10 @@
 #include "stdvga.h" // stdvga_set_mode
 #include "geodevga.h" // geodevga_init
 
+static inline struct vgamode_s *vgahw_find_mode(int mode) {
+    return stdvga_find_mode(mode);
+}
+
 static inline int vgahw_set_mode(int mode, int flags) {
     if (CONFIG_VGA_CIRRUS)
         return clext_set_mode(mode, flags);

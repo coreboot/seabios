@@ -367,10 +367,12 @@ int geodevga_init(void)
         u8 *crtc = GET_GLOBAL(new_crtc[i]);
         if (!crtc)
             continue;
-        struct vgamode_s *vmode_g = find_vga_entry(i);
+        struct vgamode_s *vmode_g = stdvga_find_mode(i);
         if (!vmode_g)
             continue;
-        SET_VGA(vmode_g->crtc_regs, crtc);
+        struct stdvga_mode_s *stdmode_g = container_of(
+            vmode_g, struct stdvga_mode_s, info);
+        SET_VGA(stdmode_g->crtc_regs, crtc);
     }
 
     ret |= vp_setup();

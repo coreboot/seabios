@@ -58,7 +58,7 @@ build_video_param(void)
         if (! mode)
             continue;
         struct VideoParam_s *vparam_g = &video_param_table[i];
-        struct vgamode_s *vmode_g = find_vga_entry(mode);
+        struct vgamode_s *vmode_g = stdvga_find_mode(mode);
         if (!vmode_g)
             continue;
         int width = GET_GLOBAL(vmode_g->width);
@@ -75,18 +75,20 @@ build_video_param(void)
         }
         SET_VGA(vparam_g->cheight, cheight);
         SET_VGA(vparam_g->slength, calc_page_size(memmodel, width, height));
+        struct stdvga_mode_s *stdmode_g = container_of(
+            vmode_g, struct stdvga_mode_s, info);
         memcpy_far(get_global_seg(), vparam_g->sequ_regs
-                   , get_global_seg(), GET_GLOBAL(vmode_g->sequ_regs)
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->sequ_regs)
                    , ARRAY_SIZE(vparam_g->sequ_regs));
-        SET_VGA(vparam_g->miscreg, GET_GLOBAL(vmode_g->miscreg));
+        SET_VGA(vparam_g->miscreg, GET_GLOBAL(stdmode_g->miscreg));
         memcpy_far(get_global_seg(), vparam_g->crtc_regs
-                   , get_global_seg(), GET_GLOBAL(vmode_g->crtc_regs)
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->crtc_regs)
                    , ARRAY_SIZE(vparam_g->crtc_regs));
         memcpy_far(get_global_seg(), vparam_g->actl_regs
-                   , get_global_seg(), GET_GLOBAL(vmode_g->actl_regs)
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->actl_regs)
                    , ARRAY_SIZE(vparam_g->actl_regs));
         memcpy_far(get_global_seg(), vparam_g->grdc_regs
-                   , get_global_seg(), GET_GLOBAL(vmode_g->grdc_regs)
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->grdc_regs)
                    , ARRAY_SIZE(vparam_g->grdc_regs));
     }
 
@@ -346,51 +348,51 @@ static u8 crtc_6A[] VAR16 = {
 #define PAL(x) x, sizeof(x)
 #define VPARAM(x) &video_param_table[x]
 
-static struct vgamode_s vga_modes[] VAR16 = {
-    //mode model       tx   ty bpp cw ch  sstart
+static struct stdvga_mode_s vga_modes[] VAR16 = {
+    //mode { model       tx   ty bpp cw ch  sstart    }
     // pelm  dac            sequ     misc  crtc     actl     grdc
-    {0x00, MM_TEXT,    40,  25, 4, 9, 16, SEG_CTEXT
+    {0x00, { MM_TEXT,    40,  25, 4, 9, 16, SEG_CTEXT }
      , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
-    {0x01, MM_TEXT,    40,  25, 4, 9, 16, SEG_CTEXT
+    {0x01, { MM_TEXT,    40,  25, 4, 9, 16, SEG_CTEXT }
      , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
-    {0x02, MM_TEXT,    80,  25, 4, 9, 16, SEG_CTEXT
+    {0x02, { MM_TEXT,    80,  25, 4, 9, 16, SEG_CTEXT }
      , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
-    {0x03, MM_TEXT,    80,  25, 4, 9, 16, SEG_CTEXT
+    {0x03, { MM_TEXT,    80,  25, 4, 9, 16, SEG_CTEXT }
      , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
-    {0x04, MM_CGA,    320, 200, 2, 8,  8, SEG_CTEXT
+    {0x04, { MM_CGA,    320, 200, 2, 8,  8, SEG_CTEXT }
      , 0xFF, PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
-    {0x05, MM_CGA,    320, 200, 2, 8,  8, SEG_CTEXT
+    {0x05, { MM_CGA,    320, 200, 2, 8,  8, SEG_CTEXT }
      , 0xFF, PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
-    {0x06, MM_CGA,    640, 200, 1, 8,  8, SEG_CTEXT
+    {0x06, { MM_CGA,    640, 200, 1, 8,  8, SEG_CTEXT }
      , 0xFF, PAL(palette1), sequ_06, 0x63, crtc_06, actl_06, grdc_06},
-    {0x07, MM_TEXT,    80,  25, 4, 9, 16, SEG_MTEXT
+    {0x07, { MM_TEXT,    80,  25, 4, 9, 16, SEG_MTEXT }
      , 0xFF, PAL(palette0), sequ_03, 0x66, crtc_07, actl_07, grdc_07},
-    {0x0D, MM_PLANAR, 320, 200, 4, 8,  8, SEG_GRAPH
+    {0x0D, { MM_PLANAR, 320, 200, 4, 8,  8, SEG_GRAPH }
      , 0xFF, PAL(palette1), sequ_0d, 0x63, crtc_0d, actl_0d, grdc_0d},
-    {0x0E, MM_PLANAR, 640, 200, 4, 8,  8, SEG_GRAPH
+    {0x0E, { MM_PLANAR, 640, 200, 4, 8,  8, SEG_GRAPH }
      , 0xFF, PAL(palette1), sequ_0e, 0x63, crtc_0e, actl_0d, grdc_0d},
-    {0x0F, MM_PLANAR, 640, 350, 1, 8, 14, SEG_GRAPH
+    {0x0F, { MM_PLANAR, 640, 350, 1, 8, 14, SEG_GRAPH }
      , 0xFF, PAL(palette0), sequ_0e, 0xa3, crtc_0f, actl_0f, grdc_0d},
-    {0x10, MM_PLANAR, 640, 350, 4, 8, 14, SEG_GRAPH
+    {0x10, { MM_PLANAR, 640, 350, 4, 8, 14, SEG_GRAPH }
      , 0xFF, PAL(palette2), sequ_0e, 0xa3, crtc_0f, actl_10, grdc_0d},
-    {0x11, MM_PLANAR, 640, 480, 1, 8, 16, SEG_GRAPH
+    {0x11, { MM_PLANAR, 640, 480, 1, 8, 16, SEG_GRAPH }
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_11, grdc_0d},
-    {0x12, MM_PLANAR, 640, 480, 4, 8, 16, SEG_GRAPH
+    {0x12, { MM_PLANAR, 640, 480, 4, 8, 16, SEG_GRAPH }
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_10, grdc_0d},
-    {0x13, MM_PACKED, 320, 200, 8, 8,  8, SEG_GRAPH
+    {0x13, { MM_PACKED, 320, 200, 8, 8,  8, SEG_GRAPH }
      , 0xFF, PAL(palette3), sequ_13, 0x63, crtc_13, actl_13, grdc_13},
-    {0x6A, MM_PLANAR, 800, 600, 4, 8, 16, SEG_GRAPH
+    {0x6A, { MM_PLANAR, 800, 600, 4, 8, 16, SEG_GRAPH }
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_6A, actl_10, grdc_0d},
 };
 
 struct vgamode_s *
-find_vga_entry(u8 mode)
+stdvga_find_mode(int mode)
 {
     int i;
     for (i = 0; i < ARRAY_SIZE(vga_modes); i++) {
-        struct vgamode_s *vmode_g = &vga_modes[i];
-        if (GET_GLOBAL(vmode_g->mode) == mode)
-            return vmode_g;
+        struct stdvga_mode_s *stdmode_g = &vga_modes[i];
+        if (GET_GLOBAL(stdmode_g->mode) == mode)
+            return &stdmode_g->info;
     }
     return NULL;
 }
