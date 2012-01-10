@@ -6,78 +6,74 @@
 #include "biosvar.h" // SET_BDA
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
 
-static struct mode
+static struct bochsvga_mode
 {
     u16 mode;
-    u8 memmodel;
-    u16 width;
-    u16 height;
-    u8 depth;
+    struct vgamode_s info;
 } bochsvga_modes[] VAR16 = {
     /* standard modes */
-    { 0x100, MM_PACKED, 640,  400,  8  },
-    { 0x101, MM_PACKED, 640,  480,  8  },
-    { 0x102, MM_PLANAR, 800,  600,  4  },
-    { 0x103, MM_PACKED, 800,  600,  8  },
-    { 0x104, MM_PLANAR, 1024, 768,  4  },
-    { 0x105, MM_PACKED, 1024, 768,  8  },
-    { 0x106, MM_PLANAR, 1280, 1024, 4  },
-    { 0x107, MM_PACKED, 1280, 1024, 8  },
-    { 0x10D, MM_DIRECT, 320,  200,  15 },
-    { 0x10E, MM_DIRECT, 320,  200,  16 },
-    { 0x10F, MM_DIRECT, 320,  200,  24 },
-    { 0x110, MM_DIRECT, 640,  480,  15 },
-    { 0x111, MM_DIRECT, 640,  480,  16 },
-    { 0x112, MM_DIRECT, 640,  480,  24 },
-    { 0x113, MM_DIRECT, 800,  600,  15 },
-    { 0x114, MM_DIRECT, 800,  600,  16 },
-    { 0x115, MM_DIRECT, 800,  600,  24 },
-    { 0x116, MM_DIRECT, 1024, 768,  15 },
-    { 0x117, MM_DIRECT, 1024, 768,  16 },
-    { 0x118, MM_DIRECT, 1024, 768,  24 },
-    { 0x119, MM_DIRECT, 1280, 1024, 15 },
-    { 0x11A, MM_DIRECT, 1280, 1024, 16 },
-    { 0x11B, MM_DIRECT, 1280, 1024, 24 },
-    { 0x11C, MM_PACKED, 1600, 1200, 8  },
-    { 0x11D, MM_DIRECT, 1600, 1200, 15 },
-    { 0x11E, MM_DIRECT, 1600, 1200, 16 },
-    { 0x11F, MM_DIRECT, 1600, 1200, 24 },
+    { 0x100, { MM_PACKED, 640,  400,  8  } },
+    { 0x101, { MM_PACKED, 640,  480,  8  } },
+    { 0x102, { MM_PLANAR, 800,  600,  4  } },
+    { 0x103, { MM_PACKED, 800,  600,  8  } },
+    { 0x104, { MM_PLANAR, 1024, 768,  4  } },
+    { 0x105, { MM_PACKED, 1024, 768,  8  } },
+    { 0x106, { MM_PLANAR, 1280, 1024, 4  } },
+    { 0x107, { MM_PACKED, 1280, 1024, 8  } },
+    { 0x10D, { MM_DIRECT, 320,  200,  15 } },
+    { 0x10E, { MM_DIRECT, 320,  200,  16 } },
+    { 0x10F, { MM_DIRECT, 320,  200,  24 } },
+    { 0x110, { MM_DIRECT, 640,  480,  15 } },
+    { 0x111, { MM_DIRECT, 640,  480,  16 } },
+    { 0x112, { MM_DIRECT, 640,  480,  24 } },
+    { 0x113, { MM_DIRECT, 800,  600,  15 } },
+    { 0x114, { MM_DIRECT, 800,  600,  16 } },
+    { 0x115, { MM_DIRECT, 800,  600,  24 } },
+    { 0x116, { MM_DIRECT, 1024, 768,  15 } },
+    { 0x117, { MM_DIRECT, 1024, 768,  16 } },
+    { 0x118, { MM_DIRECT, 1024, 768,  24 } },
+    { 0x119, { MM_DIRECT, 1280, 1024, 15 } },
+    { 0x11A, { MM_DIRECT, 1280, 1024, 16 } },
+    { 0x11B, { MM_DIRECT, 1280, 1024, 24 } },
+    { 0x11C, { MM_PACKED, 1600, 1200, 8  } },
+    { 0x11D, { MM_DIRECT, 1600, 1200, 15 } },
+    { 0x11E, { MM_DIRECT, 1600, 1200, 16 } },
+    { 0x11F, { MM_DIRECT, 1600, 1200, 24 } },
     /* BOCHS modes */
-    { 0x140, MM_DIRECT, 320,  200,  32 },
-    { 0x141, MM_DIRECT, 640,  400,  32 },
-    { 0x142, MM_DIRECT, 640,  480,  32 },
-    { 0x143, MM_DIRECT, 800,  600,  32 },
-    { 0x144, MM_DIRECT, 1024, 768,  32 },
-    { 0x145, MM_DIRECT, 1280, 1024, 32 },
-    { 0x146, MM_PACKED, 320,  200,  8  },
-    { 0x147, MM_DIRECT, 1600, 1200, 32 },
-    { 0x148, MM_PACKED, 1152, 864,  8  },
-    { 0x149, MM_DIRECT, 1152, 864,  15 },
-    { 0x14a, MM_DIRECT, 1152, 864,  16 },
-    { 0x14b, MM_DIRECT, 1152, 864,  24 },
-    { 0x14c, MM_DIRECT, 1152, 864,  32 },
-    { 0x178, MM_DIRECT, 1280, 800,  16 },
-    { 0x179, MM_DIRECT, 1280, 800,  24 },
-    { 0x17a, MM_DIRECT, 1280, 800,  32 },
-    { 0x17b, MM_DIRECT, 1280, 960,  16 },
-    { 0x17c, MM_DIRECT, 1280, 960,  24 },
-    { 0x17d, MM_DIRECT, 1280, 960,  32 },
-    { 0x17e, MM_DIRECT, 1440, 900,  16 },
-    { 0x17f, MM_DIRECT, 1440, 900,  24 },
-    { 0x180, MM_DIRECT, 1440, 900,  32 },
-    { 0x181, MM_DIRECT, 1400, 1050, 16 },
-    { 0x182, MM_DIRECT, 1400, 1050, 24 },
-    { 0x183, MM_DIRECT, 1400, 1050, 32 },
-    { 0x184, MM_DIRECT, 1680, 1050, 16 },
-    { 0x185, MM_DIRECT, 1680, 1050, 24 },
-    { 0x186, MM_DIRECT, 1680, 1050, 32 },
-    { 0x187, MM_DIRECT, 1920, 1200, 16 },
-    { 0x188, MM_DIRECT, 1920, 1200, 24 },
-    { 0x189, MM_DIRECT, 1920, 1200, 32 },
-    { 0x18a, MM_DIRECT, 2560, 1600, 16 },
-    { 0x18b, MM_DIRECT, 2560, 1600, 24 },
-    { 0x18c, MM_DIRECT, 2560, 1600, 32 },
-    { 0, },
+    { 0x140, { MM_DIRECT, 320,  200,  32 } },
+    { 0x141, { MM_DIRECT, 640,  400,  32 } },
+    { 0x142, { MM_DIRECT, 640,  480,  32 } },
+    { 0x143, { MM_DIRECT, 800,  600,  32 } },
+    { 0x144, { MM_DIRECT, 1024, 768,  32 } },
+    { 0x145, { MM_DIRECT, 1280, 1024, 32 } },
+    { 0x146, { MM_PACKED, 320,  200,  8  } },
+    { 0x147, { MM_DIRECT, 1600, 1200, 32 } },
+    { 0x148, { MM_PACKED, 1152, 864,  8  } },
+    { 0x149, { MM_DIRECT, 1152, 864,  15 } },
+    { 0x14a, { MM_DIRECT, 1152, 864,  16 } },
+    { 0x14b, { MM_DIRECT, 1152, 864,  24 } },
+    { 0x14c, { MM_DIRECT, 1152, 864,  32 } },
+    { 0x178, { MM_DIRECT, 1280, 800,  16 } },
+    { 0x179, { MM_DIRECT, 1280, 800,  24 } },
+    { 0x17a, { MM_DIRECT, 1280, 800,  32 } },
+    { 0x17b, { MM_DIRECT, 1280, 960,  16 } },
+    { 0x17c, { MM_DIRECT, 1280, 960,  24 } },
+    { 0x17d, { MM_DIRECT, 1280, 960,  32 } },
+    { 0x17e, { MM_DIRECT, 1440, 900,  16 } },
+    { 0x17f, { MM_DIRECT, 1440, 900,  24 } },
+    { 0x180, { MM_DIRECT, 1440, 900,  32 } },
+    { 0x181, { MM_DIRECT, 1400, 1050, 16 } },
+    { 0x182, { MM_DIRECT, 1400, 1050, 24 } },
+    { 0x183, { MM_DIRECT, 1400, 1050, 32 } },
+    { 0x184, { MM_DIRECT, 1680, 1050, 16 } },
+    { 0x185, { MM_DIRECT, 1680, 1050, 24 } },
+    { 0x186, { MM_DIRECT, 1680, 1050, 32 } },
+    { 0x187, { MM_DIRECT, 1920, 1200, 16 } },
+    { 0x188, { MM_DIRECT, 1920, 1200, 24 } },
+    { 0x189, { MM_DIRECT, 1920, 1200, 32 } },
+    { 0x18a, { MM_DIRECT, 2560, 1600, 16 } },
+    { 0x18b, { MM_DIRECT, 2560, 1600, 24 } },
+    { 0x18c, { MM_DIRECT, 2560, 1600, 32 } },
 };
 
 #define BYTES_PER_PIXEL(m) ((GET_GLOBAL((m)->depth) + 7) / 8)
@@ -177,29 +173,26 @@ bochsvga_total_mem(void)
     return dispi_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K);
 }
 
-static struct mode *find_mode_entry(u16 mode)
+struct vgamode_s *bochsvga_find_mode(int mode)
 {
-    struct mode *m;
-
-    for (m = bochsvga_modes; GET_GLOBAL(m->mode); m++) {
+    struct bochsvga_mode *m = bochsvga_modes;
+    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++)
         if (GET_GLOBAL(m->mode) == mode)
-            return m;
-    }
-
-    return NULL;
+            return &m->info;
+    return stdvga_find_mode(mode);
 }
 
-static int mode_valid(struct mode *m)
+static int mode_valid(struct vgamode_s *vmode_g)
 {
     u16 max_xres = dispi_get_max_xres();
     u16 max_bpp = dispi_get_max_bpp();
     u32 max_mem = bochsvga_total_mem() * 64 * 1024;
 
-    u32 mem = GET_GLOBAL(m->width) * GET_GLOBAL(m->height) *
-              BYTES_PER_PIXEL(m);
+    u32 mem = GET_GLOBAL(vmode_g->width) * GET_GLOBAL(vmode_g->height) *
+              BYTES_PER_PIXEL(vmode_g);
 
-    if (GET_GLOBAL(m->width) > max_xres ||
-        GET_GLOBAL(m->depth) > max_bpp ||
+    if (GET_GLOBAL(vmode_g->width) > max_xres ||
+        GET_GLOBAL(vmode_g->depth) > max_bpp ||
         mem > max_mem)
         return 0;
 
@@ -211,10 +204,10 @@ bochsvga_list_modes(u16 seg, u16 ptr)
 {
     int count = 0;
     u16 *dest = (u16 *)(u32)ptr;
-    struct mode *m;
 
-    for (m = bochsvga_modes; GET_GLOBAL(m->mode); m++) {
-        if (!mode_valid(m))
+    struct bochsvga_mode *m = bochsvga_modes;
+    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++) {
+        if (!mode_valid(&m->info))
             continue;
 
         dprintf(1, "VBE found mode %x valid.\n", GET_GLOBAL(m->mode));
@@ -231,15 +224,13 @@ bochsvga_list_modes(u16 seg, u16 ptr)
 int
 bochsvga_mode_info(u16 mode, struct vbe_modeinfo *info)
 {
-    struct mode *m;
-
-    m = find_mode_entry(mode);
-    if (!m || !mode_valid(m))
+    struct vgamode_s *vmode_g = bochsvga_find_mode(mode);
+    if (!vmode_g || !mode_valid(vmode_g))
         return -1;
 
-    info->width = GET_GLOBAL(m->width);
-    info->height = GET_GLOBAL(m->height);
-    info->depth = GET_GLOBAL(m->depth);
+    info->width = GET_GLOBAL(vmode_g->width);
+    info->height = GET_GLOBAL(vmode_g->height);
+    info->depth = GET_GLOBAL(vmode_g->depth);
 
     info->linesize = info->width * ((info->depth + 7) / 8);
     info->phys_base = GET_GLOBAL(pci_lfb_addr);

@@ -10,6 +10,10 @@
 #include "geodevga.h" // geodevga_init
 
 static inline struct vgamode_s *vgahw_find_mode(int mode) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_find_mode(mode);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_find_mode(mode);
     return stdvga_find_mode(mode);
 }
 

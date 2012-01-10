@@ -19,18 +19,13 @@
  ****************************************************************/
 
 struct cirrus_mode_s {
-    /* + 0 */
     u16 mode;
-    u8 memmodel;
-    u16 width;
-    u16 height;
-    u16 depth;
-    /* + 8 */
+    struct vgamode_s info;
+
     u16 hidden_dac; /* 0x3c6 */
     u16 *seq; /* 0x3c4 */
     u16 *graph; /* 0x3ce */
     u16 *crtc; /* 0x3d4 */
-    /* +16 */
     u8 bitsperpixel;
     u8 vesaredmask;
     u8 vesaredpos;
@@ -38,7 +33,6 @@ struct cirrus_mode_s {
     u8 vesagreenpos;
     u8 vesabluemask;
     u8 vesabluepos;
-    /* +24 */
     u8 vesareservedmask;
     u8 vesareservedpos;
 };
@@ -240,63 +234,63 @@ static u16 ccrtc_1600x1200x8[] VAR16 = {
 };
 
 static struct cirrus_mode_s cirrus_modes[] VAR16 = {
-    {0x5f,MM_PACKED,640,480,8,0x00,
+    {0x5f,{MM_PACKED,640,480,8},0x00,
      cseq_640x480x8,cgraph_svgacolor,ccrtc_640x480x8,8,
      0,0,0,0,0,0,0,0},
-    {0x64,MM_DIRECT,640,480,16,0xe1,
+    {0x64,{MM_DIRECT,640,480,16},0xe1,
      cseq_640x480x16,cgraph_svgacolor,ccrtc_640x480x16,16,
      5,11,6,5,5,0,0,0},
-    {0x66,MM_DIRECT,640,480,15,0xf0,
+    {0x66,{MM_DIRECT,640,480,15},0xf0,
      cseq_640x480x16,cgraph_svgacolor,ccrtc_640x480x16,16,
      5,10,5,5,5,0,1,15},
-    {0x71,MM_DIRECT,640,480,24,0xe5,
+    {0x71,{MM_DIRECT,640,480,24},0xe5,
      cseq_640x480x24,cgraph_svgacolor,ccrtc_640x480x24,24,
      8,16,8,8,8,0,0,0},
 
-    {0x5c,MM_PACKED,800,600,8,0x00,
+    {0x5c,{MM_PACKED,800,600,8},0x00,
      cseq_800x600x8,cgraph_svgacolor,ccrtc_800x600x8,8,
      0,0,0,0,0,0,0,0},
-    {0x65,MM_DIRECT,800,600,16,0xe1,
+    {0x65,{MM_DIRECT,800,600,16},0xe1,
      cseq_800x600x16,cgraph_svgacolor,ccrtc_800x600x16,16,
      5,11,6,5,5,0,0,0},
-    {0x67,MM_DIRECT,800,600,15,0xf0,
+    {0x67,{MM_DIRECT,800,600,15},0xf0,
      cseq_800x600x16,cgraph_svgacolor,ccrtc_800x600x16,16,
      5,10,5,5,5,0,1,15},
 
-    {0x60,MM_PACKED,1024,768,8,0x00,
+    {0x60,{MM_PACKED,1024,768,8},0x00,
      cseq_1024x768x8,cgraph_svgacolor,ccrtc_1024x768x8,8,
      0,0,0,0,0,0,0,0},
-    {0x74,MM_DIRECT,1024,768,16,0xe1,
+    {0x74,{MM_DIRECT,1024,768,16},0xe1,
      cseq_1024x768x16,cgraph_svgacolor,ccrtc_1024x768x16,16,
      5,11,6,5,5,0,0,0},
-    {0x68,MM_DIRECT,1024,768,15,0xf0,
+    {0x68,{MM_DIRECT,1024,768,15},0xf0,
      cseq_1024x768x16,cgraph_svgacolor,ccrtc_1024x768x16,16,
      5,10,5,5,5,0,1,15},
 
-    {0x78,MM_DIRECT,800,600,24,0xe5,
+    {0x78,{MM_DIRECT,800,600,24},0xe5,
      cseq_800x600x24,cgraph_svgacolor,ccrtc_800x600x24,24,
      8,16,8,8,8,0,0,0},
-    {0x79,MM_DIRECT,1024,768,24,0xe5,
+    {0x79,{MM_DIRECT,1024,768,24},0xe5,
      cseq_1024x768x24,cgraph_svgacolor,ccrtc_1024x768x24,24,
      8,16,8,8,8,0,0,0},
 
-    {0x6d,MM_PACKED,1280,1024,8,0x00,
+    {0x6d,{MM_PACKED,1280,1024,8},0x00,
      cseq_1280x1024x8,cgraph_svgacolor,ccrtc_1280x1024x8,8,
      0,0,0,0,0,0,0,0},
-    {0x69,MM_DIRECT,1280,1024,15,0xf0,
+    {0x69,{MM_DIRECT,1280,1024,15},0xf0,
      cseq_1280x1024x16,cgraph_svgacolor,ccrtc_1280x1024x16,16,
      5,10,5,5,5,0,1,15},
-    {0x75,MM_DIRECT,1280,1024,16,0xe1,
+    {0x75,{MM_DIRECT,1280,1024,16},0xe1,
      cseq_1280x1024x16,cgraph_svgacolor,ccrtc_1280x1024x16,16,
      5,11,6,5,5,0,0,0},
 
-    {0x7b,MM_PACKED,1600,1200,8,0x00,
+    {0x7b,{MM_PACKED,1600,1200,8},0x00,
      cseq_1600x1200x8,cgraph_svgacolor,ccrtc_1600x1200x8,8,
      0,0,0,0,0,0,0,0},
 };
 
 static struct cirrus_mode_s mode_switchback VAR16 =
-    {0xfe,0xff,0,0,0,0,cseq_vga,cgraph_vga,ccrtc_vga,0,
+    {0xfe,{0xff,0,0,0},0,cseq_vga,cgraph_vga,ccrtc_vga,0,
      0,0,0,0,0,0,0,0};
 
 
@@ -315,6 +309,15 @@ cirrus_get_modeentry(u8 mode)
         table_g++;
     }
     return NULL;
+}
+
+struct vgamode_s *
+clext_find_mode(int mode)
+{
+    struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode);
+    if (table_g)
+        return &table_g->info;
+    return stdvga_find_mode(mode);
 }
 
 static void
@@ -346,7 +349,7 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
     outb(GET_GLOBAL(table->hidden_dac), VGAREG_PEL_MASK);
     outb(0xff, VGAREG_PEL_MASK);
 
-    u8 memmodel = GET_GLOBAL(table->memmodel);
+    u8 memmodel = GET_GLOBAL(table->info.memmodel);
     u8 v = stdvga_get_single_palette_reg(0x10) & 0xfe;
     if (memmodel == MM_PLANAR)
         v |= 0x41;
@@ -744,15 +747,15 @@ cirrus_vesa_01h(struct bregs *regs)
     SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0); // XXX
     u16 linesize = cirrus_get_line_offset_entry(table_g);
     SET_FARVAR(seg, info->bytes_per_scanline, linesize);
-    SET_FARVAR(seg, info->xres, GET_GLOBAL(table_g->width));
-    u16 height = GET_GLOBAL(table_g->height);
+    SET_FARVAR(seg, info->xres, GET_GLOBAL(table_g->info.width));
+    u16 height = GET_GLOBAL(table_g->info.height);
     SET_FARVAR(seg, info->yres, height);
     SET_FARVAR(seg, info->xcharsize, 8);
     SET_FARVAR(seg, info->ycharsize, 16);
     SET_FARVAR(seg, info->planes, 1);
-    SET_FARVAR(seg, info->bits_per_pixel, GET_GLOBAL(table_g->depth));
+    SET_FARVAR(seg, info->bits_per_pixel, GET_GLOBAL(table_g->info.depth));
     SET_FARVAR(seg, info->banks, 1);
-    SET_FARVAR(seg, info->mem_model, GET_GLOBAL(table_g->memmodel));
+    SET_FARVAR(seg, info->mem_model, GET_GLOBAL(table_g->info.memmodel));
     SET_FARVAR(seg, info->bank_size, 0);
 
     int pages = (cirrus_get_memsize() * 64 * 1024) / (height * linesize);
