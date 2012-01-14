@@ -326,7 +326,7 @@ boot_add_bev(u16 seg, u16 bev, u16 desc, int prio)
 void
 boot_add_bcv(u16 seg, u16 ip, u16 desc, int prio)
 {
-    bootentry_add(IPL_TYPE_BCV, defPrio(prio, DEFAULT_PRIO)
+    bootentry_add(IPL_TYPE_BCV, defPrio(prio, DefaultHDPrio)
                   , SEGOFF(seg, ip).segoff
                   , desc ? MAKE_FLATPTR(seg, desc) : "Legacy option rom");
 }
