@@ -5,6 +5,8 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // SET_BDA
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
+#include "pci.h" // pci_config_readl
+#include "pci_regs.h" // PCI_BASE_ADDRESS_0
 
 static struct bochsvga_mode
 {
@@ -76,27 +78,6 @@ static struct bochsvga_mode
     { 0x18c, { MM_DIRECT, 2560, 1600, 32 } },
 };
 
-static inline u32 pci_config_readl(u16 bdf, u16 addr)
-{
-    int status;
-    u32 val;
-
-    addr &= ~3;
-
-    asm volatile(
-            "int $0x1a\n"
-            "cli\n"
-            "cld"
-            : "=a"(status), "=c"(val)
-            : "a"(0xb10a), "b"(bdf), "D"(addr)
-            : "cc", "memory");
-
-    if ((status >> 16))
-        return (u32)-1;
-
-    return val;
-}
-
 static u16 dispi_get_max_xres(void)
 {
     u16 en;
@@ -145,7 +126,8 @@ bochsvga_init(void)
 
     u32 lfb_addr;
     if (CONFIG_VGA_PCI)
-        lfb_addr = pci_config_readl(GET_GLOBAL(VgaBDF), 0x10) & ~0xf;
+        lfb_addr = (pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0)
+                    & PCI_BASE_ADDRESS_MEM_MASK);
     else
         lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
 

@@ -169,7 +169,7 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 ################ VGA build rules
 
 # VGA src files
-SRCVGA=src/output.c src/util.c vgasrc/vgabios.c vgasrc/vgafb.c \
+SRCVGA=src/output.c src/util.c src/pci.c vgasrc/vgabios.c vgasrc/vgafb.c \
     vgasrc/vgatables.c vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c
 

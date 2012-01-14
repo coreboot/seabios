@@ -12,6 +12,8 @@
 #include "bregs.h" // struct bregs
 #include "vbe.h" // struct vbe_info
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
+#include "pci.h" // pci_config_readl
+#include "pci_regs.h" // PCI_BASE_ADDRESS_0
 
 
 /****************************************************************
@@ -421,7 +423,7 @@ cirrus_clear_vram(u16 param)
 int
 clext_set_mode(int mode, int flags)
 {
-    dprintf(1, "cirrus mode %d\n", mode);
+    dprintf(1, "cirrus mode %x\n", mode);
     SET_BDA(vbe_mode, 0);
     struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode);
     if (table_g) {
@@ -771,6 +773,12 @@ clext_init(void)
         return -1;
     dprintf(1, "cirrus init 2\n");
 
+    SET_VGA(VBE_enabled, 1);
+    u32 lfb_addr = 0;
+    if (CONFIG_VGA_PCI)
+        lfb_addr = (pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0)
+                    & PCI_BASE_ADDRESS_MEM_MASK);
+    SET_VGA(VBE_framebuffer, lfb_addr);
     u16 totalmem = cirrus_get_memsize();
     SET_VGA(VBE_total_memory, totalmem * 64 * 1024);
     SET_VGA(VBE_win_granularity, 16);
