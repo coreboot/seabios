@@ -335,13 +335,13 @@ menu "VGA ROM"
         bool "Bochs DISPI interface VGA BIOS"
         default n
         help
-            Build support for Bochs DISPI interface
+            Build support for Bochs DISPI interface.
 
     config VGA_GEODELX
         bool "GeodeLX interface VGA BIOS"
         default n
         help
-            Build support for Geode LX vga
+            Build support for Geode LX vga.
 
     config VGA_PCI
         bool "PCI ROM Headers"
