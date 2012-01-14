@@ -388,19 +388,18 @@ optionrom_setup(void)
                          , getRomPriority(sources, rom, 0));
             continue;
         }
-        // PnP rom.
-        if (pnp->bev) {
-            // Can boot system - add to IPL list.
-            boot_add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname
-                         , getRomPriority(sources, rom, 0));
-        } else {
-            // Check for BCV (there may be multiple).
-            int instance = 0;
-            while (pnp && pnp->bcv) {
+        // PnP rom - check for BEV and BCV boot capabilities.
+        int instance = 0;
+        while (pnp) {
+            if (pnp->bev)
+                boot_add_bev(FLATPTR_TO_SEG(rom), pnp->bev, pnp->productname
+                             , getRomPriority(sources, rom, instance++));
+            else if (pnp->bcv)
                 boot_add_bcv(FLATPTR_TO_SEG(rom), pnp->bcv, pnp->productname
                              , getRomPriority(sources, rom, instance++));
-                pnp = get_pnp_next(rom, pnp);
-            }
+            else
+                break;
+            pnp = get_pnp_next(rom, pnp);
         }
     }
 }
