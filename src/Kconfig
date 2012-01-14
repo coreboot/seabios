@@ -341,7 +341,7 @@ menu "VGA ROM"
         bool "GeodeLX interface VGA BIOS"
         default n
         help
-            Build support for Geode vga
+            Build support for Geode LX vga
 
     config VGA_PCI
         bool "PCI ROM Headers"

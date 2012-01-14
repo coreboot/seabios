@@ -18,7 +18,7 @@
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
 #include "stdvga.h" // stdvga_set_mode
-#include "geodelx.h" // geodelx_init
+#include "geodevga.h" // geodevga_init
 #include "bochsvga.h" // bochsvga_init
 #include "clext.h" // clext_init
 #include "vgahw.h" // vgahw_set_mode

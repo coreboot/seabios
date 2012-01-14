@@ -7,7 +7,7 @@
 #include "clext.h" // clext_set_mode
 #include "bochsvga.h" // bochsvga_set_mode
 #include "stdvga.h" // stdvga_set_mode
-#include "geodelx.h" // geodelx_init
+#include "geodevga.h" // geodevga_init
 
 static inline int vgahw_set_mode(int mode, int flags) {
     if (CONFIG_VGA_CIRRUS)
@@ -23,7 +23,7 @@ static inline int vgahw_init(void) {
     if (CONFIG_VGA_BOCHS)
         return bochsvga_init();
     if (CONFIG_VGA_GEODELX)
-        return geodelx_init();
+        return geodevga_init();
     return stdvga_init();
 }
 
