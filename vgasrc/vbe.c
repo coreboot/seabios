@@ -11,8 +11,12 @@
 #include "vbe.h" // struct vbe_info
 #include "util.h" // dprintf
 #include "biosvar.h" // get_global_set
-#include "bochsvga.h" // bochsvga_hires_enabled
 #include "vgahw.h" // vgahw_set_mode
+
+int VBE_enabled VAR16;
+u32 VBE_total_memory VAR16 = 256 * 1024;
+u32 VBE_capabilities VAR16;
+u32 VBE_framebuffer VAR16;
 
 static void
 vbe_104f00(struct bregs *regs)
@@ -36,14 +40,15 @@ vbe_104f00(struct bregs *regs)
 
     SET_FARVAR(seg, info->oem_string,
             SEGOFF(get_global_seg(), (u32)VBE_OEM_STRING));
-    SET_FARVAR(seg, info->capabilities, 0x1); /* 8BIT DAC */
+    SET_FARVAR(seg, info->capabilities, GET_GLOBAL(VBE_capabilities));
 
     /* We generate our mode list in the reserved field of the info block */
     u16 *destmode = (void*)info->reserved;
     SET_FARVAR(seg, info->video_mode, SEGOFF(seg, (u32)destmode));
 
     /* Total memory (in 64 blocks) */
-    SET_FARVAR(seg, info->total_memory, bochsvga_total_mem());
+    SET_FARVAR(seg, info->total_memory
+               , GET_GLOBAL(VBE_total_memory) / (64*1024));
 
     SET_FARVAR(seg, info->oem_vendor_string,
             SEGOFF(get_global_seg(), (u32)VBE_VENDOR_STRING));
@@ -56,8 +61,7 @@ vbe_104f00(struct bregs *regs)
     u16 *last = (void*)&info->reserved[sizeof(info->reserved)];
     vgahw_list_modes(seg, destmode, last - 1);
 
-    regs->al = regs->ah; /* 0x4F, Function supported */
-    regs->ah = 0x0; /* 0x0, Function call successful */
+    regs->ax = 0x004f;
 }
 
 static void
@@ -66,15 +70,13 @@ vbe_104f01(struct bregs *regs)
     u16 seg = regs->es;
     struct vbe_mode_info *info = (void*)(regs->di+0);
     u16 mode = regs->cx;
-    struct vbe_modeinfo modeinfo;
-    int rc;
 
     dprintf(1, "VBE mode info request: %x\n", mode);
 
-    rc = bochsvga_mode_info(mode, &modeinfo);
-    if (rc) {
+    struct vgamode_s *vmode_g = vgahw_find_mode(mode);
+    if (! vmode_g) {
         dprintf(1, "VBE mode %x not found\n", mode);
-        regs->ax = 0x100;
+        regs->ax = 0x0100;
         return;
     }
 
@@ -82,7 +84,8 @@ vbe_104f01(struct bregs *regs)
                     VBE_MODE_ATTRIBUTE_EXTENDED_INFORMATION_AVAILABLE |
                     VBE_MODE_ATTRIBUTE_COLOR_MODE |
                     VBE_MODE_ATTRIBUTE_GRAPHICS_MODE;
-    if (modeinfo.depth == 4)
+    int depth = GET_GLOBAL(vmode_g->depth);
+    if (depth == 4)
         mode_attr |= VBE_MODE_ATTRIBUTE_TTY_BIOS_SUPPORT;
     else
         mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
@@ -97,27 +100,29 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->winA_seg, 0xA000);
     SET_FARVAR(seg, info->winB_seg, 0x0);
     SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0);
-    SET_FARVAR(seg, info->bytes_per_scanline, modeinfo.linesize);
-    SET_FARVAR(seg, info->xres, modeinfo.width);
-    SET_FARVAR(seg, info->yres, modeinfo.height);
+    int width = GET_GLOBAL(vmode_g->width);
+    int height = GET_GLOBAL(vmode_g->height);
+    int linesize = width * DIV_ROUND_UP(depth, 8); // XXX - not always true
+    SET_FARVAR(seg, info->bytes_per_scanline, linesize);
+    SET_FARVAR(seg, info->xres, width);
+    SET_FARVAR(seg, info->yres, height);
     SET_FARVAR(seg, info->xcharsize, 8);
     SET_FARVAR(seg, info->ycharsize, 16);
-    if (modeinfo.depth == 4)
+    if (depth == 4)
         SET_FARVAR(seg, info->planes, 4);
     else
         SET_FARVAR(seg, info->planes, 1);
-    SET_FARVAR(seg, info->bits_per_pixel, modeinfo.depth);
-    SET_FARVAR(seg, info->banks,
-            (modeinfo.linesize * modeinfo.height + 65535) / 65536);
-    if (modeinfo.depth == 4)
+    SET_FARVAR(seg, info->bits_per_pixel, depth);
+    SET_FARVAR(seg, info->banks, DIV_ROUND_UP(linesize * height, 64*1024));
+    if (depth == 4)
         SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_PLANAR);
-    else if (modeinfo.depth == 8)
+    else if (depth == 8)
         SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_PACKED_PIXEL);
     else
         SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_DIRECT_COLOR);
     SET_FARVAR(seg, info->bank_size, 0);
-    u32 pages = modeinfo.vram_size / (modeinfo.height * modeinfo.linesize);
-    if (modeinfo.depth == 4)
+    u32 pages = GET_GLOBAL(VBE_total_memory) / (height * linesize);
+    if (depth == 4)
         SET_FARVAR(seg, info->pages, (pages / 4) - 1);
     else
         SET_FARVAR(seg, info->pages, pages - 1);
@@ -125,7 +130,7 @@ vbe_104f01(struct bregs *regs)
 
     u8 r_size, r_pos, g_size, g_pos, b_size, b_pos, a_size, a_pos;
 
-    switch (modeinfo.depth) {
+    switch (depth) {
     case 15: r_size = 5; r_pos = 10; g_size = 5; g_pos = 5;
              b_size = 5; b_pos = 0; a_size = 1; a_pos = 15; break;
     case 16: r_size = 5; r_pos = 11; g_size = 6; g_pos = 5;
@@ -147,20 +152,20 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->alpha_size, a_size);
     SET_FARVAR(seg, info->alpha_pos, a_pos);
 
-    if (modeinfo.depth == 32)
+    if (depth == 32)
         SET_FARVAR(seg, info->directcolor_info,
                    VBE_DIRECTCOLOR_RESERVED_BITS_AVAILABLE);
     else
         SET_FARVAR(seg, info->directcolor_info, 0);
 
-    if (modeinfo.depth > 4)
-        SET_FARVAR(seg, info->phys_base, modeinfo.phys_base);
+    if (depth > 4)
+        SET_FARVAR(seg, info->phys_base, GET_GLOBAL(VBE_framebuffer));
     else
         SET_FARVAR(seg, info->phys_base, 0);
 
     SET_FARVAR(seg, info->reserved1, 0);
     SET_FARVAR(seg, info->reserved2, 0);
-    SET_FARVAR(seg, info->linear_bytes_per_scanline, modeinfo.linesize);
+    SET_FARVAR(seg, info->linear_bytes_per_scanline, linesize);
     SET_FARVAR(seg, info->bank_pages, 0);
     SET_FARVAR(seg, info->linear_pages, 0);
     SET_FARVAR(seg, info->linear_red_size, r_size);
@@ -173,8 +178,7 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->linear_alpha_pos, a_pos);
     SET_FARVAR(seg, info->pixclock_max, 0);
 
-    regs->al = regs->ah; /* 0x4F, Function supported */
-    regs->ah = 0x0; /* 0x0, Function call successful */
+    regs->ax = 0x004f;
 }
 
 static void
@@ -193,16 +197,13 @@ vbe_104f02(struct bregs *regs)
 static void
 vbe_104f03(struct bregs *regs)
 {
-    if (!bochsvga_hires_enabled()) {
+    u16 mode = GET_BDA(vbe_mode);
+    if (!mode)
         regs->bx = GET_BDA(video_mode);
-    } else {
-        regs->bx = bochsvga_curr_mode();
-    }
 
     dprintf(1, "VBE current mode=%x\n", regs->bx);
 
-    regs->al = regs->ah; /* 0x4F, Function supported */
-    regs->ah = 0x0; /* 0x0, Function call successful */
+    regs->ax = 0x004f;
 }
 
 static void
@@ -257,7 +258,7 @@ vbe_104fXX(struct bregs *regs)
 void
 handle_104f(struct bregs *regs)
 {
-    if (!bochsvga_enabled()) {
+    if (!GET_GLOBAL(VBE_enabled)) {
         vbe_104fXX(regs);
         return;
     }

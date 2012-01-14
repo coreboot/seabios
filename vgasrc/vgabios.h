@@ -83,21 +83,14 @@ void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
 
 // vbe.c
+int VBE_enabled;
+u32 VBE_total_memory;
+u32 VBE_capabilities;
+u32 VBE_framebuffer;
 #define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
 #define VBE_VENDOR_STRING "SeaBIOS Developers"
 #define VBE_PRODUCT_STRING "SeaBIOS VBE Adapter"
 #define VBE_REVISION_STRING "Rev. 1"
-
-struct vbe_modeinfo
-{
-    u16 width;
-    u16 height;
-    u8 depth;
-    u16 linesize;
-    u32 phys_base;
-    u32 vram_size;
-};
-
 struct bregs;
 void handle_104f(struct bregs *regs);
 
