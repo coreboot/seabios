@@ -87,6 +87,7 @@ int VBE_enabled;
 u32 VBE_total_memory;
 u32 VBE_capabilities;
 u32 VBE_framebuffer;
+u16 VBE_win_granularity;
 #define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
 #define VBE_VENDOR_STRING "SeaBIOS Developers"
 #define VBE_PRODUCT_STRING "SeaBIOS VBE Adapter"

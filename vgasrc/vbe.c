@@ -17,6 +17,7 @@ int VBE_enabled VAR16;
 u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;
 u32 VBE_framebuffer VAR16;
+u16 VBE_win_granularity VAR16 = 64;
 
 static void
 vbe_104f00(struct bregs *regs)
@@ -80,14 +81,17 @@ vbe_104f01(struct bregs *regs)
         return;
     }
 
+    memset_far(seg, info, 0, sizeof(*info));
     u16 mode_attr = VBE_MODE_ATTRIBUTE_SUPPORTED |
                     VBE_MODE_ATTRIBUTE_EXTENDED_INFORMATION_AVAILABLE |
                     VBE_MODE_ATTRIBUTE_COLOR_MODE |
-                    VBE_MODE_ATTRIBUTE_GRAPHICS_MODE;
+                    VBE_MODE_ATTRIBUTE_GRAPHICS_MODE |
+                    VBE_MODE_ATTRIBUTE_NOT_VGA_COMPATIBLE;
+    u32 framebuffer = GET_GLOBAL(VBE_framebuffer);
     int depth = GET_GLOBAL(vmode_g->depth);
     if (depth == 4)
         mode_attr |= VBE_MODE_ATTRIBUTE_TTY_BIOS_SUPPORT;
-    else
+    else if (framebuffer)
         mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
     SET_FARVAR(seg, info->mode_attributes, mode_attr);
     SET_FARVAR(seg, info->winA_attributes,
@@ -95,9 +99,9 @@ vbe_104f01(struct bregs *regs)
                VBE_WINDOW_ATTRIBUTE_READABLE |
                VBE_WINDOW_ATTRIBUTE_WRITEABLE);
     SET_FARVAR(seg, info->winB_attributes, 0);
-    SET_FARVAR(seg, info->win_granularity, 64); /* Bank size 64K */
+    SET_FARVAR(seg, info->win_granularity, GET_GLOBAL(VBE_win_granularity));
     SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
-    SET_FARVAR(seg, info->winA_seg, 0xA000);
+    SET_FARVAR(seg, info->winA_seg, SEG_GRAPH);
     SET_FARVAR(seg, info->winB_seg, 0x0);
     SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0);
     int width = GET_GLOBAL(vmode_g->width);
@@ -113,13 +117,8 @@ vbe_104f01(struct bregs *regs)
     else
         SET_FARVAR(seg, info->planes, 1);
     SET_FARVAR(seg, info->bits_per_pixel, depth);
-    SET_FARVAR(seg, info->banks, DIV_ROUND_UP(linesize * height, 64*1024));
-    if (depth == 4)
-        SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_PLANAR);
-    else if (depth == 8)
-        SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_PACKED_PIXEL);
-    else
-        SET_FARVAR(seg, info->mem_model, VBE_MEMORYMODEL_DIRECT_COLOR);
+    SET_FARVAR(seg, info->banks, 1);
+    SET_FARVAR(seg, info->mem_model, GET_GLOBAL(vmode_g->memmodel));
     SET_FARVAR(seg, info->bank_size, 0);
     u32 pages = GET_GLOBAL(VBE_total_memory) / (height * linesize);
     if (depth == 4)
