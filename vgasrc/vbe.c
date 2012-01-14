@@ -106,7 +106,7 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0);
     int width = GET_GLOBAL(vmode_g->width);
     int height = GET_GLOBAL(vmode_g->height);
-    int linesize = width * DIV_ROUND_UP(depth, 8); // XXX - not always true
+    int linesize = width * DIV_ROUND_UP(depth, 8);
     SET_FARVAR(seg, info->bytes_per_scanline, linesize);
     SET_FARVAR(seg, info->xres, width);
     SET_FARVAR(seg, info->yres, height);

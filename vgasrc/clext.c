@@ -73,8 +73,8 @@ static u16 ccrtc_640x480x24[] VAR16 = {
     0x2c11,
     0x5f00,0x4f01,0x4f02,0x8003,0x5204,0x1e05,0x0b06,0x3e07,
     0x4009,0x000c,0x000d,
-    0xea10,0xdf12,0x0013,0x4014,0xdf15,0x0b16,0xc317,0xff18,
-    0x001a,0x321b,0x001d,
+    0xea10,0xdf12,0xf013,0x4014,0xdf15,0x0b16,0xc317,0xff18,
+    0x001a,0x221b,0x001d,
     0xffff
 };
 /* 800x600x8 */
@@ -209,7 +209,7 @@ static u16 cseq_1600x1200x8[] VAR16 = {
 static u16 ccrtc_1600x1200x8[] VAR16 = {
     0x2911,0xc300,0x9f01,0x9f02,0x8603,0x8304,0x9405,0x2406,0xf707,
     0x6009,0x000c,0x000d,
-    0x0310,0xff12,0xa013,0x4014,0xff15,0x2416,0xc317,0xff18,
+    0x0310,0xff12,0xc813,0x4014,0xff15,0x2416,0xc317,0xff18,
     0x001a,0x221b,0x001d,
     0xffff
 };
@@ -583,13 +583,14 @@ cirrus_get_bpp_bytes(void)
 static void
 cirrus_set_line_offset(u16 new_line_offset)
 {
+    new_line_offset /= 8;
     u16 crtc_addr = stdvga_get_crtc();
     outb(0x13, crtc_addr);
-    outb(new_line_offset / 8, crtc_addr + 1);
+    outb(new_line_offset, crtc_addr + 1);
 
     outb(0x1b, crtc_addr);
     u8 v = inb(crtc_addr + 1);
-    outb((((new_line_offset / 8) & 0x100) >> 4) | (v & 0xef), crtc_addr + 1);
+    outb(((new_line_offset & 0x100) >> 4) | (v & 0xef), crtc_addr + 1);
 }
 
 static u16
@@ -601,35 +602,7 @@ cirrus_get_line_offset(void)
     outb(0x1b, crtc_addr);
     u8 reg1b = inb(crtc_addr + 1);
 
-    return (((reg1b << 4) & 0x100) + reg13) * 8;
-}
-
-u16
-cirrus_get_line_offset_entry(struct cirrus_mode_s *table_g)
-{
-    u16 *crtc = GET_GLOBAL(table_g->crtc);
-
-    u16 *c = crtc;
-    u16 reg13;
-    for (;;) {
-        reg13 = GET_GLOBAL(*c);
-        if ((reg13 & 0xff) == 0x13)
-            break;
-        c++;
-    }
-    reg13 >>= 8;
-
-    c = crtc;
-    u16 reg1b;
-    for (;;) {
-        reg1b = GET_GLOBAL(*c);
-        if ((reg1b & 0xff) == 0x1b)
-            break;
-        c++;
-    }
-    reg1b >>= 8;
-
-    return (((reg1b << 4) & 0x100) + reg13) * 8;
+    return (((reg1b & 0x10) << 4) + reg13) * 8;
 }
 
 static void
