@@ -452,7 +452,7 @@ cirrus_check(void)
  ****************************************************************/
 
 static void
-cirrus_extbios_80h(struct bregs *regs)
+clext_101280(struct bregs *regs)
 {
     u16 crtc_addr = stdvga_get_crtc();
     outb(0x27, crtc_addr);
@@ -470,14 +470,14 @@ cirrus_extbios_80h(struct bregs *regs)
 }
 
 static void
-cirrus_extbios_81h(struct bregs *regs)
+clext_101281(struct bregs *regs)
 {
     // XXX
     regs->ax = 0x0100;
 }
 
 static void
-cirrus_extbios_82h(struct bregs *regs)
+clext_101282(struct bregs *regs)
 {
     u16 crtc_addr = stdvga_get_crtc();
     outb(0x27, crtc_addr);
@@ -486,13 +486,13 @@ cirrus_extbios_82h(struct bregs *regs)
 }
 
 static void
-cirrus_extbios_85h(struct bregs *regs)
+clext_101285(struct bregs *regs)
 {
     regs->al = cirrus_get_memsize();
 }
 
 static void
-cirrus_extbios_9Ah(struct bregs *regs)
+clext_10129a(struct bregs *regs)
 {
     regs->ax = 0x4060;
     regs->cx = 0x1132;
@@ -507,7 +507,7 @@ ASM16(
     "retf");
 
 static void
-cirrus_extbios_A0h(struct bregs *regs)
+clext_1012a0(struct bregs *regs)
 {
     struct cirrus_mode_s *table_g = cirrus_get_modeentry(regs->al & 0x7f);
     regs->ah = (table_g ? 1 : 0);
@@ -516,38 +516,43 @@ cirrus_extbios_A0h(struct bregs *regs)
 }
 
 static void
-cirrus_extbios_A1h(struct bregs *regs)
+clext_1012a1(struct bregs *regs)
 {
     regs->bx = 0x0e00; // IBM 8512/8513, color
 }
 
 static void
-cirrus_extbios_A2h(struct bregs *regs)
+clext_1012a2(struct bregs *regs)
 {
     regs->al = 0x07; // HSync 31.5 - 64.0 kHz
 }
 
 static void
-cirrus_extbios_AEh(struct bregs *regs)
+clext_1012ae(struct bregs *regs)
 {
     regs->al = 0x01; // High Refresh 75Hz
 }
 
-void
-cirrus_extbios(struct bregs *regs)
+static void
+clext_1012XX(struct bregs *regs)
 {
-    // XXX - regs->bl < 0x80 or > 0xaf call regular handlers.
+    debug_stub(regs);
+}
+
+void
+clext_1012(struct bregs *regs)
+{
     switch (regs->bl) {
-    case 0x80: cirrus_extbios_80h(regs); break;
-    case 0x81: cirrus_extbios_81h(regs); break;
-    case 0x82: cirrus_extbios_82h(regs); break;
-    case 0x85: cirrus_extbios_85h(regs); break;
-    case 0x9a: cirrus_extbios_9Ah(regs); break;
-    case 0xa0: cirrus_extbios_A0h(regs); break;
-    case 0xa1: cirrus_extbios_A1h(regs); break;
-    case 0xa2: cirrus_extbios_A2h(regs); break;
-    case 0xae: cirrus_extbios_AEh(regs); break;
-    default: break;
+    case 0x80: clext_101280(regs); break;
+    case 0x81: clext_101281(regs); break;
+    case 0x82: clext_101282(regs); break;
+    case 0x85: clext_101285(regs); break;
+    case 0x9a: clext_10129a(regs); break;
+    case 0xa0: clext_1012a0(regs); break;
+    case 0xa1: clext_1012a1(regs); break;
+    case 0xa2: clext_1012a2(regs); break;
+    case 0xae: clext_1012ae(regs); break;
+    default:   clext_1012XX(regs); break;
     }
 }
 

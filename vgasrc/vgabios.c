@@ -18,9 +18,7 @@
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
 #include "stdvga.h" // stdvga_set_cursor_shape
-#include "geodevga.h" // geodevga_init
-#include "bochsvga.h" // bochsvga_init
-#include "clext.h" // clext_init
+#include "clext.h" // clext_1012
 #include "vgahw.h" // vgahw_set_mode
 
 // XXX
@@ -942,6 +940,11 @@ handle_1012XX(struct bregs *regs)
 static void
 handle_1012(struct bregs *regs)
 {
+    if (CONFIG_VGA_CIRRUS && regs->bl >= 0x80) {
+        clext_1012(regs);
+        return;
+    }
+
     switch (regs->bl) {
     case 0x10: handle_101210(regs); break;
     case 0x30: handle_101230(regs); break;
@@ -953,8 +956,6 @@ handle_1012(struct bregs *regs)
     case 0x36: handle_101236(regs); break;
     default:   handle_1012XX(regs); break;
     }
-
-    // XXX - cirrus has 1280, 1281, 1282, 1285, 129a, 12a0, 12a1, 12a2, 12ae
 }
 
 
