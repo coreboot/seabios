@@ -87,7 +87,10 @@ static int legacyio_check(void)
     int ret=0;
     union u64_u32_u val;
 
-    val=geode_msrRead(MSR_GLIU0_BASE4);
+    if (CONFIG_VGA_GEODEGX2)
+        val=geode_msrRead(GLIU0_P2D_BM_4);
+    else
+        val=geode_msrRead(MSR_GLIU0_BASE4);
     if (val.lo != 0x0A0fffe0)
         ret|=1;
 
@@ -255,7 +258,10 @@ int vp_setup(void)
 
     dprintf(2,"VP_SETUP\n");
     /* set output to crt and RGB/YUV */
-    geode_msrWrite(VP_MSR_CONFIG,~0 ,~0xf8,0,0);
+    if (CONFIG_VGA_GEODEGX2)
+    geode_msrWrite(VP_MSR_CONFIG_GX2,~0 ,~0xf8,0,0);
+    else
+    geode_msrWrite(VP_MSR_CONFIG_LX,~0 ,~0xf8,0,0);
 
     /* get vp register base from pci */
     outl(GEODE_PCI_VP,PORT_PCI_CMD);

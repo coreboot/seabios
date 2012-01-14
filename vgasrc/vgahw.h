@@ -22,7 +22,7 @@ static inline int vgahw_init(void) {
         return clext_init();
     if (CONFIG_VGA_BOCHS)
         return bochsvga_init();
-    if (CONFIG_VGA_GEODELX)
+    if (CONFIG_VGA_GEODEGX2 || CONFIG_VGA_GEODELX)
         return geodevga_init();
     return stdvga_init();
 }

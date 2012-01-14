@@ -337,6 +337,12 @@ menu "VGA ROM"
         help
             Build support for Bochs DISPI interface.
 
+    config VGA_GEODEGX2
+        bool "GeodeGX2 interface VGA BIOS"
+        default n
+        help
+            Build support for Geode GX2 vga.
+
     config VGA_GEODELX
         bool "GeodeLX interface VGA BIOS"
         default n
@@ -355,6 +361,7 @@ menu "VGA ROM"
         hex "PCI Vendor ID"
         default 0x1013 if VGA_CIRRUS
         default 0x1234 if VGA_BOCHS
+        default 0x100b if VGA_GEODEGX2
         default 0x1022 if VGA_GEODELX
         default 0x0000
         help
@@ -365,6 +372,7 @@ menu "VGA ROM"
         hex "PCI Device ID"
         default 0x00b8 if VGA_CIRRUS
         default 0x1111 if VGA_BOCHS
+        default 0x0030 if VGA_GEODEGX2
         default 0x2081 if VGA_GEODELX
         default 0x0000
         help
