@@ -4,6 +4,21 @@
 #include "types.h" // u8
 #include "farptr.h" // struct segoff_s
 
+// standard BIOS Video Parameter Table
+struct VideoParam_s {
+    u8 twidth;
+    u8 theightm1;
+    u8 cheight;
+    u16 slength;
+    u8 sequ_regs[4];
+    u8 miscreg;
+    u8 crtc_regs[25];
+    u8 actl_regs[20];
+    u8 grdc_regs[9];
+} PACKED;
+
+extern struct VideoParam_s video_param_table[29];
+
 struct saveBDAstate {
     u8 video_mode;
     u16 video_cols;
@@ -49,10 +64,6 @@ struct vgamode_s {
     u8 cheight;
     u16 sstart;
 };
-
-// vgatables.c
-void build_video_param(void);
-extern struct VideoSavePointer_s video_save_pointer_table;
 
 // vgafonts.c
 extern u8 vgafont8[];

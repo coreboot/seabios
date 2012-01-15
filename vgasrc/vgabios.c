@@ -25,6 +25,20 @@
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
 
+// Standard Video Save Pointer Table
+struct VideoSavePointer_s {
+    struct segoff_s videoparam;
+    struct segoff_s paramdynamicsave;
+    struct segoff_s textcharset;
+    struct segoff_s graphcharset;
+    struct segoff_s secsavepointer;
+    u8 reserved[8];
+} PACKED;
+
+static struct VideoSavePointer_s video_save_pointer_table VAR16;
+
+struct VideoParam_s video_param_table[29] VAR16;
+
 
 /****************************************************************
  * PCI Data
@@ -1229,7 +1243,9 @@ vga_post(struct bregs *regs)
 
     init_bios_area();
 
-    build_video_param();
+    SET_VGA(video_save_pointer_table.videoparam
+            , SEGOFF(get_global_seg(), (u32)video_param_table));
+    stdvga_build_video_param();
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));

@@ -8,97 +8,11 @@
 #include "vgabios.h" // struct VideoParamTableEntry_s
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
-#include "stdvga.h" // struct vgamode_s
+#include "stdvga.h" // stdvga_find_mode
 
 
 /****************************************************************
- * Video parameter table
- ****************************************************************/
-
-// Standard Video Save Pointer Table
-struct VideoSavePointer_s {
-    struct segoff_s videoparam;
-    struct segoff_s paramdynamicsave;
-    struct segoff_s textcharset;
-    struct segoff_s graphcharset;
-    struct segoff_s secsavepointer;
-    u8 reserved[8];
-} PACKED;
-
-struct VideoSavePointer_s video_save_pointer_table VAR16;
-
-// standard BIOS Video Parameter Table
-struct VideoParam_s {
-    u8 twidth;
-    u8 theightm1;
-    u8 cheight;
-    u16 slength;
-    u8 sequ_regs[4];
-    u8 miscreg;
-    u8 crtc_regs[25];
-    u8 actl_regs[20];
-    u8 grdc_regs[9];
-} PACKED;
-
-struct VideoParam_s video_param_table[29] VAR16;
-
-void
-build_video_param(void)
-{
-    static u8 parammodes[ARRAY_SIZE(video_param_table)] VAR16 = {
-        0, 0, 0, 0, 0x04, 0x05, 0x06, 0x07,
-        0, 0, 0, 0, 0, 0x0d, 0x0e, 0,
-        0, 0x0f, 0x10, 0, 0, 0, 0, 0x01,
-        0x03, 0x07, 0x11, 0x12, 0x13
-    };
-
-    int i;
-    for (i=0; i<ARRAY_SIZE(parammodes); i++) {
-        int mode = GET_GLOBAL(parammodes[i]);
-        if (! mode)
-            continue;
-        struct VideoParam_s *vparam_g = &video_param_table[i];
-        struct vgamode_s *vmode_g = stdvga_find_mode(mode);
-        if (!vmode_g)
-            continue;
-        int width = GET_GLOBAL(vmode_g->width);
-        int height = GET_GLOBAL(vmode_g->height);
-        u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
-        int cheight = GET_GLOBAL(vmode_g->cheight);
-        if (memmodel == MM_TEXT) {
-            SET_VGA(vparam_g->twidth, width);
-            SET_VGA(vparam_g->theightm1, height-1);
-        } else {
-            int cwidth = GET_GLOBAL(vmode_g->cwidth);
-            SET_VGA(vparam_g->twidth, width / cwidth);
-            SET_VGA(vparam_g->theightm1, (height / cheight) - 1);
-        }
-        SET_VGA(vparam_g->cheight, cheight);
-        SET_VGA(vparam_g->slength, calc_page_size(memmodel, width, height));
-        struct stdvga_mode_s *stdmode_g = container_of(
-            vmode_g, struct stdvga_mode_s, info);
-        memcpy_far(get_global_seg(), vparam_g->sequ_regs
-                   , get_global_seg(), GET_GLOBAL(stdmode_g->sequ_regs)
-                   , ARRAY_SIZE(vparam_g->sequ_regs));
-        SET_VGA(vparam_g->miscreg, GET_GLOBAL(stdmode_g->miscreg));
-        memcpy_far(get_global_seg(), vparam_g->crtc_regs
-                   , get_global_seg(), GET_GLOBAL(stdmode_g->crtc_regs)
-                   , ARRAY_SIZE(vparam_g->crtc_regs));
-        memcpy_far(get_global_seg(), vparam_g->actl_regs
-                   , get_global_seg(), GET_GLOBAL(stdmode_g->actl_regs)
-                   , ARRAY_SIZE(vparam_g->actl_regs));
-        memcpy_far(get_global_seg(), vparam_g->grdc_regs
-                   , get_global_seg(), GET_GLOBAL(stdmode_g->grdc_regs)
-                   , ARRAY_SIZE(vparam_g->grdc_regs));
-    }
-
-    SET_VGA(video_save_pointer_table.videoparam
-            , SEGOFF(get_global_seg(), (u32)video_param_table));
-}
-
-
-/****************************************************************
- * Register definitions
+ * Video mode register definitions
  ****************************************************************/
 
 /* Mono */
@@ -340,13 +254,7 @@ static u8 crtc_6A[] VAR16 = {
     0x59, 0x8d, 0x57, 0x32, 0x00, 0x57, 0x73, 0xe3,
     0xff };
 
-
-/****************************************************************
- * Video mode list
- ****************************************************************/
-
 #define PAL(x) x, sizeof(x)
-#define VPARAM(x) &video_param_table[x]
 
 static struct stdvga_mode_s vga_modes[] VAR16 = {
     //mode { model       tx   ty bpp cw ch  sstart    }
@@ -385,6 +293,11 @@ static struct stdvga_mode_s vga_modes[] VAR16 = {
      , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_6A, actl_10, grdc_0d},
 };
 
+
+/****************************************************************
+ * Mode functions
+ ****************************************************************/
+
 struct vgamode_s *
 stdvga_find_mode(int mode)
 {
@@ -395,4 +308,55 @@ stdvga_find_mode(int mode)
             return &stdmode_g->info;
     }
     return NULL;
+}
+
+void
+stdvga_build_video_param(void)
+{
+    static u8 parammodes[] VAR16 = {
+        0, 0, 0, 0, 0x04, 0x05, 0x06, 0x07,
+        0, 0, 0, 0, 0, 0x0d, 0x0e, 0,
+        0, 0x0f, 0x10, 0, 0, 0, 0, 0x01,
+        0x03, 0x07, 0x11, 0x12, 0x13
+    };
+
+    int i;
+    for (i=0; i<ARRAY_SIZE(parammodes); i++) {
+        int mode = GET_GLOBAL(parammodes[i]);
+        if (! mode)
+            continue;
+        struct VideoParam_s *vparam_g = &video_param_table[i];
+        struct vgamode_s *vmode_g = stdvga_find_mode(mode);
+        if (!vmode_g)
+            continue;
+        int width = GET_GLOBAL(vmode_g->width);
+        int height = GET_GLOBAL(vmode_g->height);
+        u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+        int cheight = GET_GLOBAL(vmode_g->cheight);
+        if (memmodel == MM_TEXT) {
+            SET_VGA(vparam_g->twidth, width);
+            SET_VGA(vparam_g->theightm1, height-1);
+        } else {
+            int cwidth = GET_GLOBAL(vmode_g->cwidth);
+            SET_VGA(vparam_g->twidth, width / cwidth);
+            SET_VGA(vparam_g->theightm1, (height / cheight) - 1);
+        }
+        SET_VGA(vparam_g->cheight, cheight);
+        SET_VGA(vparam_g->slength, calc_page_size(memmodel, width, height));
+        struct stdvga_mode_s *stdmode_g = container_of(
+            vmode_g, struct stdvga_mode_s, info);
+        memcpy_far(get_global_seg(), vparam_g->sequ_regs
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->sequ_regs)
+                   , ARRAY_SIZE(vparam_g->sequ_regs));
+        SET_VGA(vparam_g->miscreg, GET_GLOBAL(stdmode_g->miscreg));
+        memcpy_far(get_global_seg(), vparam_g->crtc_regs
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->crtc_regs)
+                   , ARRAY_SIZE(vparam_g->crtc_regs));
+        memcpy_far(get_global_seg(), vparam_g->actl_regs
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->actl_regs)
+                   , ARRAY_SIZE(vparam_g->actl_regs));
+        memcpy_far(get_global_seg(), vparam_g->grdc_regs
+                   , get_global_seg(), GET_GLOBAL(stdmode_g->grdc_regs)
+                   , ARRAY_SIZE(vparam_g->grdc_regs));
+    }
 }

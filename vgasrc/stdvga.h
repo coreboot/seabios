@@ -84,6 +84,7 @@ struct saveDACcolors {
 
 // vgatables.c
 struct vgamode_s *stdvga_find_mode(int mode);
+void stdvga_build_video_param(void);
 
 // stdvgaio.c
 u8 stdvga_pelmask_read(void);
