@@ -327,7 +327,12 @@ endmenu
 menu "VGA ROM"
     choice
         prompt "VGA Hardware Type"
-        default VGA_CIRRUS
+        default NO_VGABIOS
+
+        config NO_VGABIOS
+            bool "None"
+            help
+                Do not build a VGA BIOS.
 
         config VGA_STANDARD_VGA
             bool "Standard VGA"
@@ -355,7 +360,12 @@ menu "VGA ROM"
                 Build support for Geode LX vga.
     endchoice
 
+    config BUILD_VGABIOS
+        bool
+        default !NO_VGABIOS
+
     config VGA_PCI
+        depends on BUILD_VGABIOS
         bool "PCI ROM Headers"
         default y
         help

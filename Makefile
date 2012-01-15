@@ -47,8 +47,6 @@ CFLAGS16INC = $(CFLAGSSEG) -DMODE16=1 \
     $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
 CFLAGS16 = $(CFLAGS16INC) -g -fomit-frame-pointer
 
-all: $(OUT) $(OUT)bios.bin
-
 # Run with "make V=1" to see the actual compile commands
 ifdef V
 Q=
@@ -57,10 +55,24 @@ Q=@
 MAKEFLAGS += --no-print-directory
 endif
 
+# Common command definitions
+export HOSTCC             := $(CC)
+export CONFIG_SHELL       := sh
+export KCONFIG_AUTOHEADER := autoconf.h
+export KCONFIG_CONFIG     := $(CURDIR)/.config
 OBJCOPY=objcopy
 OBJDUMP=objdump
 STRIP=strip
 
+# Default targets
+-include $(KCONFIG_CONFIG)
+
+target-y = $(OUT) $(OUT)bios.bin
+target-$(CONFIG_BUILD_VGABIOS) += $(OUT)vgabios.bin
+
+all: $(target-y)
+
+# Make definitions
 .PHONY : all clean distclean FORCE
 
 vpath %.c src vgasrc
@@ -206,24 +218,16 @@ src/%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
 $(OUT)ccode32flat.o: src/acpi-dsdt.hex src/ssdt-proc.hex src/ssdt-pcihp.hex
 
 ####### Kconfig rules
-export HOSTCC             := $(CC)
-export CONFIG_SHELL       := sh
-export KCONFIG_AUTOHEADER := autoconf.h
-export KCONFIG_CONFIG     := $(CURDIR)/.config
+define do-kconfig
+$(Q)mkdir -p $(OUT)/tools/kconfig/lxdialog
+$(Q)mkdir -p $(OUT)/include/config
+$(Q)$(MAKE) -C $(OUT) -f $(CURDIR)/tools/kconfig/Makefile srctree=$(CURDIR) src=tools/kconfig obj=tools/kconfig Q=$(Q) Kconfig=$(CURDIR)/src/Kconfig $1
+endef
 
-$(OUT)autoconf.h : $(KCONFIG_CONFIG)
-	$(Q)$(MAKE) silentoldconfig
-
-$(KCONFIG_CONFIG):
-	$(Q)$(MAKE) defconfig
-
-%onfig:
-	$(Q)mkdir -p $(OUT)/tools/kconfig/lxdialog
-	$(Q)mkdir -p $(OUT)/include/config
-	$(Q)$(MAKE) -C $(OUT) -f $(CURDIR)/tools/kconfig/Makefile srctree=$(CURDIR) src=tools/kconfig obj=tools/kconfig Q=$(Q) Kconfig=$(CURDIR)/src/Kconfig $@
-
-help:
-	$(Q)$(MAKE) -f $(CURDIR)/tools/kconfig/Makefile help
+$(OUT)autoconf.h : $(KCONFIG_CONFIG) ; $(call do-kconfig, silentoldconfig)
+$(KCONFIG_CONFIG): ; $(call do-kconfig, defconfig)
+%onfig: ; $(call do-kconfig, $@)
+help: ; $(call do-kconfig, $@)
 
 ####### Generic rules
 clean:
