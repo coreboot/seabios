@@ -360,18 +360,18 @@ static void
 cirrus_switch_mode(struct cirrus_mode_s *table)
 {
     // Unlock cirrus special
-    outw(0x1206, VGAREG_SEQU_ADDRESS);
+    stdvga_sequ_write(0x06, 0x12);
     cirrus_switch_mode_setregs(GET_GLOBAL(table->seq), VGAREG_SEQU_ADDRESS);
     cirrus_switch_mode_setregs(GET_GLOBAL(table->graph), VGAREG_GRDC_ADDRESS);
     cirrus_switch_mode_setregs(GET_GLOBAL(table->crtc), stdvga_get_crtc());
 
-    outb(0x00, VGAREG_PEL_MASK);
-    inb(VGAREG_PEL_MASK);
-    inb(VGAREG_PEL_MASK);
-    inb(VGAREG_PEL_MASK);
-    inb(VGAREG_PEL_MASK);
-    outb(GET_GLOBAL(table->hidden_dac), VGAREG_PEL_MASK);
-    outb(0xff, VGAREG_PEL_MASK);
+    stdvga_pelmask_write(0x00);
+    stdvga_pelmask_read();
+    stdvga_pelmask_read();
+    stdvga_pelmask_read();
+    stdvga_pelmask_read();
+    stdvga_pelmask_write(GET_GLOBAL(table->hidden_dac));
+    stdvga_pelmask_write(0xff);
 
     u8 memmodel = GET_GLOBAL(table->info.memmodel);
     u8 on = 0;
@@ -386,25 +386,18 @@ static u8
 cirrus_get_memsize(void)
 {
     // get DRAM band width
-    outb(0x0f, VGAREG_SEQU_ADDRESS);
-    u8 v = inb(VGAREG_SEQU_DATA);
+    u8 v = stdvga_sequ_read(0x0f);
     u8 x = (v >> 3) & 0x03;
-    if (x == 0x03) {
-        if (v & 0x80)
-            // 4MB
-            return 0x40;
-        // 2MB
-        return 0x20;
-    }
+    if (x == 0x03 && v & 0x80)
+        // 4MB
+        return 0x40;
     return 0x04 << x;
 }
 
 static void
 cirrus_enable_16k_granularity(void)
 {
-    outb(0x0b, VGAREG_GRDC_ADDRESS);
-    u8 v = inb(VGAREG_GRDC_DATA);
-    outb(v | 0x20, VGAREG_GRDC_DATA);
+    stdvga_grdc_mask(0x0b, 0x00, 0x20);
 }
 
 static void
@@ -414,10 +407,10 @@ cirrus_clear_vram(u16 param)
     u8 count = cirrus_get_memsize() * 4;
     u8 i;
     for (i=0; i<count; i++) {
-        outw((i<<8) | 0x09, VGAREG_GRDC_ADDRESS);
+        stdvga_grdc_write(0x09, i);
         memset16_far(SEG_GRAPH, 0, param, 16 * 1024);
     }
-    outw(0x0009, VGAREG_GRDC_ADDRESS);
+    stdvga_grdc_write(0x09, 0x00);
 }
 
 int
@@ -444,8 +437,8 @@ clext_set_mode(int mode, int flags)
 static int
 cirrus_check(void)
 {
-    outw(0x9206, VGAREG_SEQU_ADDRESS);
-    return inb(VGAREG_SEQU_DATA) == 0x12;
+    stdvga_sequ_write(0x06, 0x92);
+    return stdvga_sequ_read(0x06) == 0x12;
 }
 
 
@@ -456,9 +449,7 @@ cirrus_check(void)
 static void
 clext_101280(struct bregs *regs)
 {
-    u16 crtc_addr = stdvga_get_crtc();
-    outb(0x27, crtc_addr);
-    u8 v = inb(crtc_addr + 1);
+    u8 v = stdvga_crtc_read(stdvga_get_crtc(), 0x27);
     if (v == 0xa0)
         // 5430
         regs->ax = 0x0032;
@@ -481,9 +472,7 @@ clext_101281(struct bregs *regs)
 static void
 clext_101282(struct bregs *regs)
 {
-    u16 crtc_addr = stdvga_get_crtc();
-    outb(0x27, crtc_addr);
-    regs->al = inb(crtc_addr + 1) & 0x03;
+    regs->al = stdvga_crtc_read(stdvga_get_crtc(), 0x27) & 0x03;
     regs->ah = 0xAF;
 }
 
@@ -577,8 +566,7 @@ clext_list_modes(u16 seg, u16 *dest, u16 *last)
 static u8
 cirrus_get_bpp_bytes(void)
 {
-    outb(0x07, VGAREG_SEQU_ADDRESS);
-    u8 v = inb(VGAREG_SEQU_DATA) & 0x0e;
+    u8 v = stdvga_sequ_read(0x07) & 0x0e;
     if (v == 0x06)
         v &= 0x02;
     v >>= 1;
@@ -592,23 +580,16 @@ cirrus_set_line_offset(u16 new_line_offset)
 {
     new_line_offset /= 8;
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x13, crtc_addr);
-    outb(new_line_offset, crtc_addr + 1);
-
-    outb(0x1b, crtc_addr);
-    u8 v = inb(crtc_addr + 1);
-    outb(((new_line_offset & 0x100) >> 4) | (v & 0xef), crtc_addr + 1);
+    stdvga_crtc_write(crtc_addr, 0x13, new_line_offset);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x10, (new_line_offset & 0x100) >> 4);
 }
 
 static u16
 cirrus_get_line_offset(void)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x13, crtc_addr);
-    u8 reg13 = inb(crtc_addr + 1);
-    outb(0x1b, crtc_addr);
-    u8 reg1b = inb(crtc_addr + 1);
-
+    u8 reg13 = stdvga_crtc_read(crtc_addr, 0x13);
+    u8 reg1b = stdvga_crtc_read(crtc_addr, 0x1b);
     return (((reg1b & 0x10) << 4) + reg13) * 8;
 }
 
@@ -616,38 +597,21 @@ static void
 cirrus_set_start_addr(u32 addr)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x0d, crtc_addr);
-    outb(addr, crtc_addr + 1);
-
-    outb(0x0c, crtc_addr);
-    outb(addr>>8, crtc_addr + 1);
-
-    outb(0x1d, crtc_addr);
-    u8 v = inb(crtc_addr + 1);
-    outb(((addr & 0x0800) >> 4) | (v & 0x7f), crtc_addr + 1);
-
-    outb(0x1b, crtc_addr);
-    v = inb(crtc_addr + 1);
-    outb(((addr & 0x0100) >> 8) | ((addr & 0x0600) >> 7) | (v & 0xf2)
-         , crtc_addr + 1);
+    stdvga_crtc_write(crtc_addr, 0x0d, addr);
+    stdvga_crtc_write(crtc_addr, 0x0c, addr >> 8);
+    stdvga_crtc_mask(crtc_addr, 0x1d, 0x80, (addr & 0x0800) >> 4);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x0d
+                     , ((addr & 0x0100) >> 8) | ((addr & 0x0600) >> 7));
 }
 
 static u32
 cirrus_get_start_addr(void)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x0c, crtc_addr);
-    u8 b2 = inb(crtc_addr + 1);
-
-    outb(0x0d, crtc_addr);
-    u8 b1 = inb(crtc_addr + 1);
-
-    outb(0x1b, crtc_addr);
-    u8 b3 = inb(crtc_addr + 1);
-
-    outb(0x1d, crtc_addr);
-    u8 b4 = inb(crtc_addr + 1);
-
+    u8 b2 = stdvga_crtc_read(crtc_addr, 0x0c);
+    u8 b1 = stdvga_crtc_read(crtc_addr, 0x0d);
+    u8 b3 = stdvga_crtc_read(crtc_addr, 0x1b);
+    u8 b4 = stdvga_crtc_read(crtc_addr, 0x1d);
     return (b1 | (b2<<8) | ((b3 & 0x01) << 16) | ((b3 & 0x0c) << 15)
             | ((b4 & 0x80) << 12));
 }
@@ -661,11 +625,10 @@ cirrus_vesa_05h(struct bregs *regs)
         // set mempage
         if (regs->dx >= 0x100)
             goto fail;
-        outw((regs->dx << 8) | (regs->bl + 9), VGAREG_GRDC_ADDRESS);
+        stdvga_grdc_write(regs->bl + 9, regs->dx);
     } else if (regs->bh == 1) {
         // get mempage
-        outb(regs->bl + 9, VGAREG_GRDC_ADDRESS);
-        regs->dx = inb(VGAREG_GRDC_DATA);
+        regs->dx = stdvga_grdc_read(regs->bl + 9);
     } else
         goto fail;
 
@@ -784,14 +747,12 @@ clext_init(void)
     SET_VGA(VBE_win_granularity, 16);
 
     // memory setup
-    outb(0x0f, VGAREG_SEQU_ADDRESS);
-    u8 v = inb(VGAREG_SEQU_DATA);
-    outb(((v & 0x18) << 8) | 0x0a, VGAREG_SEQU_ADDRESS);
+    stdvga_sequ_write(0x0a, stdvga_sequ_read(0x0f) & 0x18);
     // set vga mode
-    outw(0x0007, VGAREG_SEQU_ADDRESS);
+    stdvga_sequ_write(0x07, 0x00);
     // reset bitblt
-    outw(0x0431, VGAREG_GRDC_ADDRESS);
-    outw(0x0031, VGAREG_GRDC_ADDRESS);
+    stdvga_grdc_write(0x31, 0x04);
+    stdvga_grdc_write(0x31, 0x00);
 
     return 0;
 }
