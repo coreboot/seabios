@@ -360,3 +360,14 @@ stdvga_build_video_param(void)
                    , ARRAY_SIZE(vparam_g->grdc_regs));
     }
 }
+
+void
+stdvga_override_crtc(int mode, u8 *crtc)
+{
+    struct vgamode_s *vmode_g = stdvga_find_mode(mode);
+    if (!vmode_g)
+        return;
+    struct stdvga_mode_s *stdmode_g = container_of(
+        vmode_g, struct stdvga_mode_s, info);
+    SET_VGA(stdmode_g->crtc_regs, crtc);
+}

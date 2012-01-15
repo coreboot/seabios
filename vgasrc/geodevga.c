@@ -360,14 +360,8 @@ int geodevga_init(void)
     int i;
     for (i=0; i<ARRAY_SIZE(new_crtc); i++) {
         u8 *crtc = GET_GLOBAL(new_crtc[i]);
-        if (!crtc)
-            continue;
-        struct vgamode_s *vmode_g = stdvga_find_mode(i);
-        if (!vmode_g)
-            continue;
-        struct stdvga_mode_s *stdmode_g = container_of(
-            vmode_g, struct stdvga_mode_s, info);
-        SET_VGA(stdmode_g->crtc_regs, crtc);
+        if (crtc)
+            stdvga_override_crtc(i, crtc);
     }
 
     ret |= vp_setup();
