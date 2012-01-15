@@ -325,29 +325,35 @@ menu "BIOS Tables"
 endmenu
 
 menu "VGA ROM"
-    config VGA_CIRRUS
-        bool "QEMU Cirrus CLGD 54xx VGA BIOS"
-        default n
-        help
-            Build support for Cirrus VGA emulation.
+    choice
+        prompt "VGA Hardware Type"
+        default VGA_CIRRUS
 
-    config VGA_BOCHS
-        bool "Bochs DISPI interface VGA BIOS"
-        default n
-        help
-            Build support for Bochs DISPI interface.
+        config VGA_STANDARD_VGA
+            bool "Standard VGA"
+            help
+                Build basic VGA BIOS support.
 
-    config VGA_GEODEGX2
-        bool "GeodeGX2 interface VGA BIOS"
-        default n
-        help
-            Build support for Geode GX2 vga.
+        config VGA_CIRRUS
+            bool "QEMU Cirrus CLGD 54xx VGA BIOS"
+            help
+                Build support for Cirrus VGA emulation.
 
-    config VGA_GEODELX
-        bool "GeodeLX interface VGA BIOS"
-        default n
-        help
-            Build support for Geode LX vga.
+        config VGA_BOCHS
+            bool "Bochs DISPI interface VGA BIOS"
+            help
+                Build support for Bochs DISPI interface.
+
+        config VGA_GEODEGX2
+            bool "GeodeGX2 interface VGA BIOS"
+            help
+                Build support for Geode GX2 vga.
+
+        config VGA_GEODELX
+            bool "GeodeLX interface VGA BIOS"
+            help
+                Build support for Geode LX vga.
+    endchoice
 
     config VGA_PCI
         bool "PCI ROM Headers"
@@ -356,9 +362,16 @@ menu "VGA ROM"
             Build PCI ROM headers so the vga rom can be extracted from
             a PCI device.
 
+    config OVERRIDE_PCI_ID
+        depends on VGA_PCI
+        bool "Override PCI Vendor and Device IDs"
+        help
+            Specify specific values for the PCI Vendor and Device IDs.
+
     config VGA_VID
         depends on VGA_PCI
-        hex "PCI Vendor ID"
+        hex
+        prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x1013 if VGA_CIRRUS
         default 0x1234 if VGA_BOCHS
         default 0x100b if VGA_GEODEGX2
@@ -369,7 +382,8 @@ menu "VGA ROM"
 
     config VGA_DID
         depends on VGA_PCI
-        hex "PCI Device ID"
+        hex
+        prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x00b8 if VGA_CIRRUS
         default 0x1111 if VGA_BOCHS
         default 0x0030 if VGA_GEODEGX2
