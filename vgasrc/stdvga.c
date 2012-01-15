@@ -12,102 +12,53 @@
 #include "util.h" // memcpy_far
 #include "vbe.h" // VBE_RETURN_STATUS_FAILED
 
-// TODO
-//  * replace direct in/out calls with wrapper functions
-
 
 /****************************************************************
  * Attribute control
  ****************************************************************/
 
-static void
-stdvga_screen_disable(void)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x00, VGAREG_ACTL_ADDRESS);
-}
-
-static void
-stdvga_screen_enable(void)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
 void
 stdvga_set_border_color(u8 color)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x00, VGAREG_ACTL_ADDRESS);
     u8 v1 = color & 0x0f;
     if (v1 & 0x08)
         v1 += 0x08;
-    outb(v1, VGAREG_ACTL_WRITE_DATA);
+    stdvga_attr_write(0x00, v1);
 
-    u8 v2 = color & 0x10;
     int i;
-    for (i = 1; i < 4; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-
-        u8 cur = inb(VGAREG_ACTL_READ_DATA);
-        cur &= 0xef;
-        cur |= v2;
-        outb(cur, VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    for (i = 1; i < 4; i++)
+        stdvga_attr_mask(i, 0x10, color & 0x10);
 }
 
 void
 stdvga_set_overscan_border_color(u8 color)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(color, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    stdvga_attr_write(0x11, color);
 }
 
 u8
 stdvga_get_overscan_border_color(void)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    u8 v = inb(VGAREG_ACTL_READ_DATA);
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-    return v;
+    return stdvga_attr_read(0x11);
 }
 
 void
 stdvga_set_palette(u8 palid)
 {
-    inb(VGAREG_ACTL_RESET);
-    palid &= 0x01;
     int i;
-    for (i = 1; i < 4; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-
-        u8 v = inb(VGAREG_ACTL_READ_DATA);
-        v &= 0xfe;
-        v |= palid;
-        outb(v, VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    for (i = 1; i < 4; i++)
+        stdvga_attr_mask(i, 0x01, palid & 0x01);
 }
 
 void
 stdvga_set_all_palette_reg(u16 seg, u8 *data_far)
 {
-    inb(VGAREG_ACTL_RESET);
     int i;
     for (i = 0; i < 0x10; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-        u8 val = GET_FARVAR(seg, *data_far);
-        outb(val, VGAREG_ACTL_WRITE_DATA);
+        stdvga_attr_write(i, GET_FARVAR(seg, *data_far));
         data_far++;
     }
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    outb(GET_FARVAR(seg, *data_far), VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    stdvga_attr_write(0x11, GET_FARVAR(seg, *data_far));
 }
 
 void
@@ -115,67 +66,41 @@ stdvga_get_all_palette_reg(u16 seg, u8 *data_far)
 {
     int i;
     for (i = 0; i < 0x10; i++) {
-        inb(VGAREG_ACTL_RESET);
-        outb(i, VGAREG_ACTL_ADDRESS);
-        SET_FARVAR(seg, *data_far, inb(VGAREG_ACTL_READ_DATA));
+        SET_FARVAR(seg, *data_far, stdvga_attr_read(i));
         data_far++;
     }
-    inb(VGAREG_ACTL_RESET);
-    outb(0x11, VGAREG_ACTL_ADDRESS);
-    SET_FARVAR(seg, *data_far, inb(VGAREG_ACTL_READ_DATA));
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    SET_FARVAR(seg, *data_far, stdvga_attr_read(0x11));
 }
 
 void
 stdvga_toggle_intensity(u8 flag)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val = (inb(VGAREG_ACTL_READ_DATA) & 0xf7) | ((flag & 0x01) << 3);
-    outb(val, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    stdvga_attr_mask(0x10, 0x08, (flag & 0x01) << 3);
 }
 
 void
 stdvga_select_video_dac_color_page(u8 flag, u8 data)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val = inb(VGAREG_ACTL_READ_DATA);
     if (!(flag & 0x01)) {
         // select paging mode
-        val = (val & 0x7f) | (data << 7);
-        outb(val, VGAREG_ACTL_WRITE_DATA);
-        outb(0x20, VGAREG_ACTL_ADDRESS);
+        stdvga_attr_mask(0x10, 0x80, data << 7);
         return;
     }
     // select page
-    inb(VGAREG_ACTL_RESET);
-    outb(0x14, VGAREG_ACTL_ADDRESS);
+    u8 val = stdvga_attr_read(0x10);
     if (!(val & 0x80))
         data <<= 2;
     data &= 0x0f;
-    outb(data, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
+    stdvga_attr_write(0x14, data);
 }
 
 void
 stdvga_read_video_dac_state(u8 *pmode, u8 *curpage)
 {
-    inb(VGAREG_ACTL_RESET);
-    outb(0x10, VGAREG_ACTL_ADDRESS);
-    u8 val1 = inb(VGAREG_ACTL_READ_DATA) >> 7;
-
-    inb(VGAREG_ACTL_RESET);
-    outb(0x14, VGAREG_ACTL_ADDRESS);
-    u8 val2 = inb(VGAREG_ACTL_READ_DATA) & 0x0f;
+    u8 val1 = stdvga_attr_read(0x10) >> 7;
+    u8 val2 = stdvga_attr_read(0x14) & 0x0f;
     if (!(val1 & 0x01))
         val2 >>= 2;
-
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-
     *pmode = val1;
     *curpage = val2;
 }
@@ -191,7 +116,7 @@ stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
     /* XXX: check this */
     SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
     SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
-    SET_FARVAR(seg, info->pelmask, inb(VGAREG_PEL_MASK));
+    SET_FARVAR(seg, info->pelmask, stdvga_pelmask_read());
     stdvga_dac_read(seg, info->dac, 0, 256);
     SET_FARVAR(seg, info->color_select, 0);
 }
@@ -199,7 +124,7 @@ stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
 void
 stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
 {
-    outb(GET_FARVAR(seg, info->pelmask), VGAREG_PEL_MASK);
+    stdvga_pelmask_write(GET_FARVAR(seg, info->pelmask));
     stdvga_dac_write(seg, info->dac, 0, 256);
     outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
 }
@@ -207,7 +132,7 @@ stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
 void
 stdvga_perform_gray_scale_summing(u16 start, u16 count)
 {
-    stdvga_screen_disable();
+    stdvga_attrindex_write(0x00);
     int i;
     for (i = start; i < start+count; i++) {
         u8 rgb[3];
@@ -220,7 +145,7 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
 
         stdvga_dac_write(GET_SEG(SS), rgb, i, 1);
     }
-    stdvga_screen_enable();
+    stdvga_attrindex_write(0x20);
 }
 
 
@@ -231,7 +156,7 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
 void
 stdvga_set_text_block_specifier(u8 spec)
 {
-    outw((spec << 8) | 0x03, VGAREG_SEQU_ADDRESS);
+    stdvga_sequ_write(0x03, spec);
 }
 
 
@@ -242,26 +167,26 @@ stdvga_set_text_block_specifier(u8 spec)
 static void
 get_font_access(void)
 {
-    outw(0x0100, VGAREG_SEQU_ADDRESS);
-    outw(0x0402, VGAREG_SEQU_ADDRESS);
-    outw(0x0704, VGAREG_SEQU_ADDRESS);
-    outw(0x0300, VGAREG_SEQU_ADDRESS);
-    outw(0x0204, VGAREG_GRDC_ADDRESS);
-    outw(0x0005, VGAREG_GRDC_ADDRESS);
-    outw(0x0406, VGAREG_GRDC_ADDRESS);
+    stdvga_sequ_write(0x00, 0x01);
+    stdvga_sequ_write(0x02, 0x04);
+    stdvga_sequ_write(0x04, 0x07);
+    stdvga_sequ_write(0x00, 0x03);
+    stdvga_grdc_write(0x04, 0x02);
+    stdvga_grdc_write(0x05, 0x00);
+    stdvga_grdc_write(0x06, 0x04);
 }
 
 static void
 release_font_access(void)
 {
-    outw(0x0100, VGAREG_SEQU_ADDRESS);
-    outw(0x0302, VGAREG_SEQU_ADDRESS);
-    outw(0x0304, VGAREG_SEQU_ADDRESS);
-    outw(0x0300, VGAREG_SEQU_ADDRESS);
-    u16 v = (inb(VGAREG_READ_MISC_OUTPUT) & 0x01) ? 0x0e : 0x0a;
-    outw((v << 8) | 0x06, VGAREG_GRDC_ADDRESS);
-    outw(0x0004, VGAREG_GRDC_ADDRESS);
-    outw(0x1005, VGAREG_GRDC_ADDRESS);
+    stdvga_sequ_write(0x00, 0x01);
+    stdvga_sequ_write(0x02, 0x03);
+    stdvga_sequ_write(0x04, 0x03);
+    stdvga_sequ_write(0x00, 0x03);
+    u16 v = (stdvga_misc_read() & 0x01) ? 0x0e : 0x0a;
+    stdvga_grdc_write(0x06, v);
+    stdvga_grdc_write(0x04, 0x00);
+    stdvga_grdc_write(0x05, 0x10);
 }
 
 void
@@ -295,40 +220,30 @@ void
 stdvga_set_cursor_shape(u8 start, u8 end)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x0a, crtc_addr);
-    outb(start, crtc_addr + 1);
-    outb(0x0b, crtc_addr);
-    outb(end, crtc_addr + 1);
+    stdvga_crtc_write(crtc_addr, 0x0a, start);
+    stdvga_crtc_write(crtc_addr, 0x0b, end);
 }
 
 void
 stdvga_set_active_page(u16 address)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x0c, crtc_addr);
-    outb((address & 0xff00) >> 8, crtc_addr + 1);
-    outb(0x0d, crtc_addr);
-    outb(address & 0x00ff, crtc_addr + 1);
+    stdvga_crtc_write(crtc_addr, 0x0c, address >> 8);
+    stdvga_crtc_write(crtc_addr, 0x0d, address);
 }
 
 void
 stdvga_set_cursor_pos(u16 address)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x0e, crtc_addr);
-    outb((address & 0xff00) >> 8, crtc_addr + 1);
-    outb(0x0f, crtc_addr);
-    outb(address & 0x00ff, crtc_addr + 1);
+    stdvga_crtc_write(crtc_addr, 0x0e, address >> 8);
+    stdvga_crtc_write(crtc_addr, 0x0f, address);
 }
 
 void
 stdvga_set_scan_lines(u8 lines)
 {
-    u16 crtc_addr = stdvga_get_crtc();
-    outb(0x09, crtc_addr);
-    u8 crtc_r9 = inb(crtc_addr + 1);
-    crtc_r9 = (crtc_r9 & 0xe0) | (lines - 1);
-    outb(crtc_r9, crtc_addr + 1);
+    stdvga_crtc_mask(stdvga_get_crtc(), 0x09, 0x1f, lines - 1);
 }
 
 // Get vertical display end
@@ -336,10 +251,8 @@ u16
 stdvga_get_vde(void)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    outb(0x12, crtc_addr);
-    u16 vde = inb(crtc_addr + 1);
-    outb(0x07, crtc_addr);
-    u8 ovl = inb(crtc_addr + 1);
+    u16 vde = stdvga_crtc_read(crtc_addr, 0x12);
+    u8 ovl = stdvga_crtc_read(crtc_addr, 0x07);
     vde += (((ovl & 0x02) << 7) + ((ovl & 0x40) << 3) + 1);
     return vde;
 }
@@ -356,35 +269,22 @@ stdvga_save_state(u16 seg, struct saveVideoHardware *info)
     SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
     SET_FARVAR(seg, info->crtc_index, inb(crtc_addr));
     SET_FARVAR(seg, info->grdc_index, inb(VGAREG_GRDC_ADDRESS));
-    inb(VGAREG_ACTL_RESET);
-    u16 ar_index = inb(VGAREG_ACTL_ADDRESS);
-    SET_FARVAR(seg, info->actl_index, ar_index);
+    SET_FARVAR(seg, info->actl_index, stdvga_attrindex_read());
     SET_FARVAR(seg, info->feature, inb(VGAREG_READ_FEATURE_CTL));
 
-    u16 i;
-    for (i=0; i<4; i++) {
-        outb(i+1, VGAREG_SEQU_ADDRESS);
-        SET_FARVAR(seg, info->sequ_regs[i], inb(VGAREG_SEQU_DATA));
-    }
-    outb(0, VGAREG_SEQU_ADDRESS);
-    SET_FARVAR(seg, info->sequ0, inb(VGAREG_SEQU_DATA));
+    int i;
+    for (i=0; i<4; i++)
+        SET_FARVAR(seg, info->sequ_regs[i], stdvga_sequ_read(i+1));
+    SET_FARVAR(seg, info->sequ0, stdvga_sequ_read(0));
 
-    for (i=0; i<25; i++) {
-        outb(i, crtc_addr);
-        SET_FARVAR(seg, info->crtc_regs[i], inb(crtc_addr + 1));
-    }
+    for (i=0; i<25; i++)
+        SET_FARVAR(seg, info->crtc_regs[i], stdvga_crtc_read(crtc_addr, i));
 
-    for (i=0; i<20; i++) {
-        inb(VGAREG_ACTL_RESET);
-        outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
-        SET_FARVAR(seg, info->actl_regs[i], inb(VGAREG_ACTL_READ_DATA));
-    }
-    inb(VGAREG_ACTL_RESET);
+    for (i=0; i<20; i++)
+        SET_FARVAR(seg, info->actl_regs[i], stdvga_attr_read(i));
 
-    for (i=0; i<9; i++) {
-        outb(i, VGAREG_GRDC_ADDRESS);
-        SET_FARVAR(seg, info->grdc_regs[i], inb(VGAREG_GRDC_DATA));
-    }
+    for (i=0; i<9; i++)
+        SET_FARVAR(seg, info->grdc_regs[i], stdvga_grdc_read(i));
 
     SET_FARVAR(seg, info->crtc_addr, crtc_addr);
 
@@ -396,51 +296,31 @@ stdvga_save_state(u16 seg, struct saveVideoHardware *info)
 void
 stdvga_restore_state(u16 seg, struct saveVideoHardware *info)
 {
-    // Reset Attribute Ctl flip-flop
-    inb(VGAREG_ACTL_RESET);
-
-    u16 crtc_addr = GET_FARVAR(seg, info->crtc_addr);
-
-    u16 i;
-    for (i=0; i<4; i++) {
-        outb(i+1, VGAREG_SEQU_ADDRESS);
-        outb(GET_FARVAR(seg, info->sequ_regs[i]), VGAREG_SEQU_DATA);
-    }
-    outb(0, VGAREG_SEQU_ADDRESS);
-    outb(GET_FARVAR(seg, info->sequ0), VGAREG_SEQU_DATA);
+    int i;
+    for (i=0; i<4; i++)
+        stdvga_sequ_write(i+1, GET_FARVAR(seg, info->sequ_regs[i]));
+    stdvga_sequ_write(0x00, GET_FARVAR(seg, info->sequ0));
 
     // Disable CRTC write protection
-    outw(0x0011, crtc_addr);
+    u16 crtc_addr = GET_FARVAR(seg, info->crtc_addr);
+    stdvga_crtc_write(crtc_addr, 0x11, 0x00);
     // Set CRTC regs
     for (i=0; i<25; i++)
-        if (i != 0x11) {
-            outb(i, crtc_addr);
-            outb(GET_FARVAR(seg, info->crtc_regs[i]), crtc_addr + 1);
-        }
+        if (i != 0x11)
+            stdvga_crtc_write(crtc_addr, i, GET_FARVAR(seg, info->crtc_regs[i]));
     // select crtc base address
-    u16 v = inb(VGAREG_READ_MISC_OUTPUT) & ~0x01;
-    if (crtc_addr == VGAREG_VGA_CRTC_ADDRESS)
-        v |= 0x01;
-    outb(v, VGAREG_WRITE_MISC_OUTPUT);
+    stdvga_misc_mask(0x01, crtc_addr == VGAREG_VGA_CRTC_ADDRESS ? 0x01 : 0x00);
 
     // enable write protection if needed
-    outb(0x11, crtc_addr);
-    outb(GET_FARVAR(seg, info->crtc_regs[0x11]), crtc_addr + 1);
+    stdvga_crtc_write(crtc_addr, 0x11, GET_FARVAR(seg, info->crtc_regs[0x11]));
 
     // Set Attribute Ctl
-    u16 ar_index = GET_FARVAR(seg, info->actl_index);
-    inb(VGAREG_ACTL_RESET);
-    for (i=0; i<20; i++) {
-        outb(i | (ar_index & 0x20), VGAREG_ACTL_ADDRESS);
-        outb(GET_FARVAR(seg, info->actl_regs[i]), VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(ar_index, VGAREG_ACTL_ADDRESS);
-    inb(VGAREG_ACTL_RESET);
+    for (i=0; i<20; i++)
+        stdvga_attr_write(i, GET_FARVAR(seg, info->actl_regs[i]));
+    stdvga_attrindex_write(GET_FARVAR(seg, info->actl_index));
 
-    for (i=0; i<9; i++) {
-        outb(i, VGAREG_GRDC_ADDRESS);
-        outb(GET_FARVAR(seg, info->grdc_regs[i]), VGAREG_GRDC_DATA);
-    }
+    for (i=0; i<9; i++)
+        stdvga_grdc_write(i, GET_FARVAR(seg, info->grdc_regs[i]));
 
     outb(GET_FARVAR(seg, info->sequ_index), VGAREG_SEQU_ADDRESS);
     outb(GET_FARVAR(seg, info->crtc_index), crtc_addr);
@@ -486,7 +366,7 @@ stdvga_set_mode(int mode, int flags)
 
         // Always 256*3 values
         stdvga_dac_write(get_global_seg(), palette_g, 0, palsize);
-        u16 i;
+        int i;
         for (i = palsize; i < 0x0100; i++) {
             static u8 rgb[3] VAR16;
             stdvga_dac_write(get_global_seg(), rgb, i, 1);
@@ -496,34 +376,23 @@ stdvga_set_mode(int mode, int flags)
             stdvga_perform_gray_scale_summing(0x00, 0x100);
     }
 
-    // Reset Attribute Ctl flip-flop
-    inb(VGAREG_ACTL_RESET);
-
     // Set Attribute Ctl
     u8 *regs = GET_GLOBAL(stdmode_g->actl_regs);
-    u16 i;
-    for (i = 0; i <= 0x13; i++) {
-        outb(i, VGAREG_ACTL_ADDRESS);
-        outb(GET_GLOBAL(regs[i]), VGAREG_ACTL_WRITE_DATA);
-    }
-    outb(0x14, VGAREG_ACTL_ADDRESS);
-    outb(0x00, VGAREG_ACTL_WRITE_DATA);
+    int i;
+    for (i = 0; i <= 0x13; i++)
+        stdvga_attr_write(i, GET_GLOBAL(regs[i]));
+    stdvga_attr_write(0x14, 0x00);
 
     // Set Sequencer Ctl
-    outb(0, VGAREG_SEQU_ADDRESS);
-    outb(0x03, VGAREG_SEQU_DATA);
+    stdvga_sequ_write(0x00, 0x03);
     regs = GET_GLOBAL(stdmode_g->sequ_regs);
-    for (i = 1; i <= 4; i++) {
-        outb(i, VGAREG_SEQU_ADDRESS);
-        outb(GET_GLOBAL(regs[i - 1]), VGAREG_SEQU_DATA);
-    }
+    for (i = 1; i <= 4; i++)
+        stdvga_sequ_write(i, GET_GLOBAL(regs[i - 1]));
 
     // Set Grafx Ctl
     regs = GET_GLOBAL(stdmode_g->grdc_regs);
-    for (i = 0; i <= 8; i++) {
-        outb(i, VGAREG_GRDC_ADDRESS);
-        outb(GET_GLOBAL(regs[i]), VGAREG_GRDC_DATA);
-    }
+    for (i = 0; i <= 8; i++)
+        stdvga_grdc_write(i, GET_GLOBAL(regs[i]));
 
     // Set CRTC address VGA or MDA
     u8 miscreg = GET_GLOBAL(stdmode_g->miscreg);
@@ -532,20 +401,17 @@ stdvga_set_mode(int mode, int flags)
         crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
 
     // Disable CRTC write protection
-    outw(0x0011, crtc_addr);
+    stdvga_crtc_write(crtc_addr, 0x11, 0x00);
     // Set CRTC regs
     regs = GET_GLOBAL(stdmode_g->crtc_regs);
-    for (i = 0; i <= 0x18; i++) {
-        outb(i, crtc_addr);
-        outb(GET_GLOBAL(regs[i]), crtc_addr + 1);
-    }
+    for (i = 0; i <= 0x18; i++)
+        stdvga_crtc_write(crtc_addr, i, GET_GLOBAL(regs[i]));
 
     // Set the misc register
-    outb(miscreg, VGAREG_WRITE_MISC_OUTPUT);
+    stdvga_misc_write(miscreg);
 
     // Enable video
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-    inb(VGAREG_ACTL_RESET);
+    stdvga_attrindex_write(0x20);
 
     // Clear screen
     if (!(flags & MF_NOCLEARMEM))
@@ -577,18 +443,16 @@ void
 stdvga_enable_video_addressing(u8 disable)
 {
     u8 v = (disable & 1) ? 0x00 : 0x02;
-    u8 v2 = inb(VGAREG_READ_MISC_OUTPUT) & ~0x02;
-    outb(v | v2, VGAREG_WRITE_MISC_OUTPUT);
+    stdvga_misc_mask(0x02, v);
 }
 
 int
 stdvga_init(void)
 {
     // switch to color mode and enable CPU access 480 lines
-    outb(0xc3, VGAREG_WRITE_MISC_OUTPUT);
+    stdvga_misc_write(0xc3);
     // more than 64k 3C4/04
-    outb(0x04, VGAREG_SEQU_ADDRESS);
-    outb(0x02, VGAREG_SEQU_DATA);
+    stdvga_sequ_write(0x04, 0x02);
 
     return 0;
 }
