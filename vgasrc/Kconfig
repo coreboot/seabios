@@ -1,0 +1,80 @@
+# Kconfig SeaBIOS VGA BIOS configuration
+
+menu "VGA ROM"
+    choice
+        prompt "VGA Hardware Type"
+        default NO_VGABIOS
+
+        config NO_VGABIOS
+            bool "None"
+            help
+                Do not build a VGA BIOS.
+
+        config VGA_STANDARD_VGA
+            bool "Standard VGA"
+            help
+                Build basic VGA BIOS support.
+
+        config VGA_CIRRUS
+            bool "QEMU Cirrus CLGD 54xx VGA BIOS"
+            help
+                Build support for Cirrus VGA emulation.
+
+        config VGA_BOCHS
+            bool "Bochs DISPI interface VGA BIOS"
+            help
+                Build support for Bochs DISPI interface.
+
+        config VGA_GEODEGX2
+            bool "GeodeGX2 interface VGA BIOS"
+            help
+                Build support for Geode GX2 vga.
+
+        config VGA_GEODELX
+            bool "GeodeLX interface VGA BIOS"
+            help
+                Build support for Geode LX vga.
+    endchoice
+
+    config BUILD_VGABIOS
+        bool
+        default !NO_VGABIOS
+
+    config VGA_PCI
+        depends on BUILD_VGABIOS
+        bool "PCI ROM Headers"
+        default y
+        help
+            Build PCI ROM headers so the vga rom can be extracted from
+            a PCI device.
+
+    config OVERRIDE_PCI_ID
+        depends on VGA_PCI
+        bool "Override PCI Vendor and Device IDs"
+        help
+            Specify specific values for the PCI Vendor and Device IDs.
+
+    config VGA_VID
+        depends on VGA_PCI
+        hex
+        prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
+        default 0x1013 if VGA_CIRRUS
+        default 0x1234 if VGA_BOCHS
+        default 0x100b if VGA_GEODEGX2
+        default 0x1022 if VGA_GEODELX
+        default 0x0000
+        help
+            Vendor ID for the PCI ROM
+
+    config VGA_DID
+        depends on VGA_PCI
+        hex
+        prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
+        default 0x00b8 if VGA_CIRRUS
+        default 0x1111 if VGA_BOCHS
+        default 0x0030 if VGA_GEODEGX2
+        default 0x2081 if VGA_GEODELX
+        default 0x0000
+        help
+            Device ID for the PCI ROM
+endmenu
