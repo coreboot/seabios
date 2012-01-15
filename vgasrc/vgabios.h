@@ -53,7 +53,6 @@ struct vgamode_s {
 // vgatables.c
 void build_video_param(void);
 extern struct VideoSavePointer_s video_save_pointer_table;
-extern u8 static_functionality[];
 
 // vgafonts.c
 extern u8 vgafont8[];

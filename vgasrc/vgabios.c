@@ -1010,6 +1010,22 @@ handle_101a(struct bregs *regs)
 }
 
 
+static u8 static_functionality[0x10] VAR16 = {
+ /* 0 */ 0xff,  // All modes supported #1
+ /* 1 */ 0xe0,  // All modes supported #2
+ /* 2 */ 0x0f,  // All modes supported #3
+ /* 3 */ 0x00, 0x00, 0x00, 0x00,  // reserved
+ /* 7 */ 0x07,  // 200, 350, 400 scan lines
+ /* 8 */ 0x02,  // mamimum number of visible charsets in text mode
+ /* 9 */ 0x08,  // total number of charset blocks in text mode
+ /* a */ 0xe7,  // Change to add new functions
+ /* b */ 0x0c,  // Change to add new functions
+ /* c */ 0x00,  // reserved
+ /* d */ 0x00,  // reserved
+ /* e */ 0x00,  // Change to add new functions
+ /* f */ 0x00   // reserved
+};
+
 struct funcInfo {
     struct segoff_s static_functionality;
     u8 bda_0x49[30];
