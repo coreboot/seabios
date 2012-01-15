@@ -121,7 +121,6 @@ bochsvga_init(void)
         return -1;
     }
 
-    SET_VGA(VBE_enabled, 1);
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID5);
 
     u32 lfb_addr;

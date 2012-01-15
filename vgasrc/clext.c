@@ -736,7 +736,6 @@ clext_init(void)
         return -1;
     dprintf(1, "cirrus init 2\n");
 
-    SET_VGA(VBE_enabled, 1);
     u32 lfb_addr = 0;
     if (CONFIG_VGA_PCI)
         lfb_addr = (pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0)

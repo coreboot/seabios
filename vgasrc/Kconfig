@@ -40,6 +40,13 @@ menu "VGA ROM"
         bool
         default !NO_VGABIOS
 
+    config VGA_VBE
+        depends on BUILD_VGABIOS
+        bool "Video BIOS Extensions (VBE)"
+        default y
+        help
+            Support VBE.
+
     config VGA_PCI
         depends on BUILD_VGABIOS
         bool "PCI ROM Headers"

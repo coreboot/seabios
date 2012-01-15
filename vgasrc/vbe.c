@@ -13,7 +13,6 @@
 #include "biosvar.h" // get_global_set
 #include "vgahw.h" // vgahw_set_mode
 
-int VBE_enabled VAR16;
 u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;
 u32 VBE_framebuffer VAR16;
@@ -257,7 +256,7 @@ vbe_104fXX(struct bregs *regs)
 void
 handle_104f(struct bregs *regs)
 {
-    if (!GET_GLOBAL(VBE_enabled)) {
+    if (!CONFIG_VGA_VBE) {
         vbe_104fXX(regs);
         return;
     }

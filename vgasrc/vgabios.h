@@ -93,7 +93,6 @@ void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
 
 // vbe.c
-int VBE_enabled;
 u32 VBE_total_memory;
 u32 VBE_capabilities;
 u32 VBE_framebuffer;
