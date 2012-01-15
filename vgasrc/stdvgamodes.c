@@ -1,4 +1,4 @@
-// Tables used by VGA bios
+// Standard VGA mode information.
 //
 // Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2001-2008 the LGPL VGABios developers Team
