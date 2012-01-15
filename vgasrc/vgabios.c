@@ -575,7 +575,7 @@ handle_101000(struct bregs *regs)
 {
     if (regs->bl > 0x14)
         return;
-    stdvga_set_single_palette_reg(regs->bl, regs->bh);
+    stdvga_attr_write(regs->bl, regs->bh);
 }
 
 static void
@@ -601,7 +601,7 @@ handle_101007(struct bregs *regs)
 {
     if (regs->bl > 0x14)
         return;
-    regs->bh = stdvga_get_single_palette_reg(regs->bl);
+    regs->bh = stdvga_attr_read(regs->bl);
 }
 
 static void
@@ -620,13 +620,13 @@ static void noinline
 handle_101010(struct bregs *regs)
 {
     u8 rgb[3] = {regs->dh, regs->ch, regs->cl};
-    stdvga_set_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
+    stdvga_dac_write(GET_SEG(SS), rgb, regs->bx, 1);
 }
 
 static void
 handle_101012(struct bregs *regs)
 {
-    stdvga_set_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+    stdvga_dac_write(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
@@ -639,7 +639,7 @@ static void noinline
 handle_101015(struct bregs *regs)
 {
     u8 rgb[3];
-    stdvga_get_dac_regs(GET_SEG(SS), rgb, regs->bx, 1);
+    stdvga_dac_read(GET_SEG(SS), rgb, regs->bx, 1);
     regs->dh = rgb[0];
     regs->ch = rgb[1];
     regs->cl = rgb[2];
@@ -648,19 +648,19 @@ handle_101015(struct bregs *regs)
 static void
 handle_101017(struct bregs *regs)
 {
-    stdvga_get_dac_regs(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+    stdvga_dac_read(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
 handle_101018(struct bregs *regs)
 {
-    stdvga_set_pel_mask(regs->bl);
+    stdvga_pelmask_write(regs->bl);
 }
 
 static void
 handle_101019(struct bregs *regs)
 {
-    regs->bl = stdvga_get_pel_mask();
+    regs->bl = stdvga_pelmask_read();
 }
 
 static void

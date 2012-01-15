@@ -85,27 +85,42 @@ struct saveDACcolors {
 // vgatables.c
 struct vgamode_s *stdvga_find_mode(int mode);
 
+// stdvgaio.c
+u8 stdvga_pelmask_read(void);
+void stdvga_pelmask_write(u8 val);
+u8 stdvga_misc_read(void);
+void stdvga_misc_write(u8 value);
+void stdvga_misc_mask(u8 off, u8 on);
+u8 stdvga_sequ_read(u8 index);
+void stdvga_sequ_write(u8 index, u8 value);
+void stdvga_sequ_mask(u8 index, u8 off, u8 on);
+u8 stdvga_grdc_read(u8 index);
+void stdvga_grdc_write(u8 index, u8 value);
+void stdvga_grdc_mask(u8 index, u8 off, u8 on);
+u8 stdvga_crtc_read(u16 crtc_addr, u8 index);
+void stdvga_crtc_write(u16 crtc_addr, u8 index, u8 value);
+void stdvga_crtc_mask(u16 crtc_addr, u8 index, u8 off, u8 on);
+u8 stdvga_attr_read(u8 index);
+void stdvga_attr_write(u8 index, u8 value);
+void stdvga_attr_mask(u8 index, u8 off, u8 on);
+u8 stdvga_attrindex_read(void);
+void stdvga_attrindex_write(u8 value);
+void stdvga_dac_read(u16 seg, u8 *data_far, u8 start, int count);
+void stdvga_dac_write(u16 seg, u8 *data_far, u8 start, int count);
+
 // stdvga.c
 void stdvga_set_border_color(u8 color);
 void stdvga_set_overscan_border_color(u8 color);
 u8 stdvga_get_overscan_border_color(void);
 void stdvga_set_palette(u8 palid);
-void stdvga_set_single_palette_reg(u8 reg, u8 val);
-u8 stdvga_get_single_palette_reg(u8 reg);
 void stdvga_set_all_palette_reg(u16 seg, u8 *data_far);
 void stdvga_get_all_palette_reg(u16 seg, u8 *data_far);
 void stdvga_toggle_intensity(u8 flag);
 void stdvga_select_video_dac_color_page(u8 flag, u8 data);
 void stdvga_read_video_dac_state(u8 *pmode, u8 *curpage);
-void stdvga_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
-void stdvga_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count);
-void stdvga_set_pel_mask(u8 val);
-u8 stdvga_get_pel_mask(void);
 void stdvga_save_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_perform_gray_scale_summing(u16 start, u16 count);
-void stdvga_sequ_write(u8 index, u8 value);
-void stdvga_grdc_write(u8 index, u8 value);
 void stdvga_set_text_block_specifier(u8 spec);
 void stdvga_load_font(u16 seg, void *src_far, u16 count
                       , u16 start, u8 destflags, u8 fontsize);

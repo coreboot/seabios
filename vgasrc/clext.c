@@ -374,12 +374,12 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
     outb(0xff, VGAREG_PEL_MASK);
 
     u8 memmodel = GET_GLOBAL(table->info.memmodel);
-    u8 v = stdvga_get_single_palette_reg(0x10) & 0xfe;
+    u8 on = 0;
     if (memmodel == MM_PLANAR)
-        v |= 0x41;
+        on = 0x41;
     else if (memmodel != MM_TEXT)
-        v |= 0x01;
-    stdvga_set_single_palette_reg(0x10, v);
+        on = 0x01;
+    stdvga_attr_mask(0x10, 0x01, on);
 }
 
 static u8

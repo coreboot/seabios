@@ -1,4 +1,4 @@
-// VGA io port access
+// Standard VGA driver code
 //
 // Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2001-2008 the LGPL VGABios developers Team
@@ -95,26 +95,6 @@ stdvga_set_palette(u8 palid)
 }
 
 void
-stdvga_set_single_palette_reg(u8 reg, u8 val)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(reg, VGAREG_ACTL_ADDRESS);
-    outb(val, VGAREG_ACTL_WRITE_DATA);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-}
-
-u8
-stdvga_get_single_palette_reg(u8 reg)
-{
-    inb(VGAREG_ACTL_RESET);
-    outb(reg, VGAREG_ACTL_ADDRESS);
-    u8 v = inb(VGAREG_ACTL_READ_DATA);
-    inb(VGAREG_ACTL_RESET);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-    return v;
-}
-
-void
 stdvga_set_all_palette_reg(u16 seg, u8 *data_far)
 {
     inb(VGAREG_ACTL_RESET);
@@ -206,55 +186,13 @@ stdvga_read_video_dac_state(u8 *pmode, u8 *curpage)
  ****************************************************************/
 
 void
-stdvga_set_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
-{
-    outb(start, VGAREG_DAC_WRITE_ADDRESS);
-    while (count) {
-        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
-        data_far++;
-        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
-        data_far++;
-        outb(GET_FARVAR(seg, *data_far), VGAREG_DAC_DATA);
-        data_far++;
-        count--;
-    }
-}
-
-void
-stdvga_get_dac_regs(u16 seg, u8 *data_far, u8 start, int count)
-{
-    outb(start, VGAREG_DAC_READ_ADDRESS);
-    while (count) {
-        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
-        data_far++;
-        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
-        data_far++;
-        SET_FARVAR(seg, *data_far, inb(VGAREG_DAC_DATA));
-        data_far++;
-        count--;
-    }
-}
-
-void
-stdvga_set_pel_mask(u8 val)
-{
-    outb(val, VGAREG_PEL_MASK);
-}
-
-u8
-stdvga_get_pel_mask(void)
-{
-    return inb(VGAREG_PEL_MASK);
-}
-
-void
 stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
 {
     /* XXX: check this */
     SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
     SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
     SET_FARVAR(seg, info->pelmask, inb(VGAREG_PEL_MASK));
-    stdvga_get_dac_regs(seg, info->dac, 0, 256);
+    stdvga_dac_read(seg, info->dac, 0, 256);
     SET_FARVAR(seg, info->color_select, 0);
 }
 
@@ -262,7 +200,7 @@ void
 stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
 {
     outb(GET_FARVAR(seg, info->pelmask), VGAREG_PEL_MASK);
-    stdvga_set_dac_regs(seg, info->dac, 0, 256);
+    stdvga_dac_write(seg, info->dac, 0, 256);
     outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
 }
 
@@ -273,14 +211,14 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
     int i;
     for (i = start; i < start+count; i++) {
         u8 rgb[3];
-        stdvga_get_dac_regs(GET_SEG(SS), rgb, i, 1);
+        stdvga_dac_read(GET_SEG(SS), rgb, i, 1);
 
         // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
         u16 intensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
         if (intensity > 0x3f)
             intensity = 0x3f;
 
-        stdvga_set_dac_regs(GET_SEG(SS), rgb, i, 1);
+        stdvga_dac_write(GET_SEG(SS), rgb, i, 1);
     }
     stdvga_screen_enable();
 }
@@ -289,18 +227,6 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
 /****************************************************************
  * Memory control
  ****************************************************************/
-
-void
-stdvga_sequ_write(u8 index, u8 value)
-{
-    outw((value<<8) | index, VGAREG_SEQU_ADDRESS);
-}
-
-void
-stdvga_grdc_write(u8 index, u8 value)
-{
-    outw((value<<8) | index, VGAREG_GRDC_ADDRESS);
-}
 
 void
 stdvga_set_text_block_specifier(u8 spec)
@@ -360,7 +286,7 @@ stdvga_load_font(u16 seg, void *src_far, u16 count
 u16
 stdvga_get_crtc(void)
 {
-    if (inb(VGAREG_READ_MISC_OUTPUT) & 1)
+    if (stdvga_misc_read() & 1)
         return VGAREG_VGA_CRTC_ADDRESS;
     return VGAREG_MDA_CRTC_ADDRESS;
 }
@@ -552,18 +478,18 @@ stdvga_set_mode(int mode, int flags)
 
     // if palette loading (bit 3 of modeset ctl = 0)
     if (!(flags & MF_NOPALETTE)) {    // Set the PEL mask
-        stdvga_set_pel_mask(GET_GLOBAL(stdmode_g->pelmask));
+        stdvga_pelmask_write(GET_GLOBAL(stdmode_g->pelmask));
 
         // From which palette
         u8 *palette_g = GET_GLOBAL(stdmode_g->dac);
         u16 palsize = GET_GLOBAL(stdmode_g->dacsize) / 3;
 
         // Always 256*3 values
-        stdvga_set_dac_regs(get_global_seg(), palette_g, 0, palsize);
+        stdvga_dac_write(get_global_seg(), palette_g, 0, palsize);
         u16 i;
         for (i = palsize; i < 0x0100; i++) {
             static u8 rgb[3] VAR16;
-            stdvga_set_dac_regs(get_global_seg(), rgb, i, 1);
+            stdvga_dac_write(get_global_seg(), rgb, i, 1);
         }
 
         if (flags & MF_GRAYSUM)
