@@ -238,43 +238,28 @@ bochsvga_set_mode(int mode, int flags)
 
     /* VGA compat setup */
     //XXX: This probably needs some reverse engineering
-    u8 v;
-    outw(0x0011, VGAREG_VGA_CRTC_ADDRESS);
-    outw(((width * 4 - 1) << 8) | 0x1, VGAREG_VGA_CRTC_ADDRESS);
+    u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
+    stdvga_crtc_write(crtc_addr, 0x11, 0x00);
+    stdvga_crtc_write(crtc_addr, 0x01, width / 8 - 1);
     dispi_write(VBE_DISPI_INDEX_VIRT_WIDTH, width);
-    outw(((height - 1) << 8) | 0x12, VGAREG_VGA_CRTC_ADDRESS);
-    outw(((height - 1) & 0xff00) | 0x7, VGAREG_VGA_CRTC_ADDRESS);
-    v = inb(VGAREG_VGA_CRTC_DATA) & 0xbd;
-    if (v & 0x1)
-        v |= 0x2;
-    if (v & 0x2)
+    stdvga_crtc_write(crtc_addr, 0x12, height - 1);
+    u8 v = 0;
+    if ((height - 1) & 0x0100)
+        v |= 0x02;
+    if ((height - 1) & 0x0200)
         v |= 0x40;
-    outb(v, VGAREG_VGA_CRTC_DATA);
+    stdvga_crtc_mask(crtc_addr, 0x07, 0x42, v);
 
-    outw(0x9, VGAREG_VGA_CRTC_ADDRESS);
-    outb(0x17, VGAREG_VGA_CRTC_ADDRESS);
-    outb(inb(VGAREG_VGA_CRTC_DATA) | 0x3, VGAREG_VGA_CRTC_DATA);
-    v = inb(VGAREG_ACTL_RESET);
-    outw(0x10, VGAREG_ACTL_ADDRESS);
-    v = inb(VGAREG_ACTL_READ_DATA) | 0x1;
-    outb(v, VGAREG_ACTL_ADDRESS);
-    outb(0x20, VGAREG_ACTL_ADDRESS);
-    outw(0x0506, VGAREG_GRDC_ADDRESS);
-    outw(0x0f02, VGAREG_SEQU_ADDRESS);
+    stdvga_crtc_write(crtc_addr, 0x09, 0x00);
+    stdvga_crtc_mask(crtc_addr, 0x17, 0x00, 0x03);
+    stdvga_attr_mask(0x10, 0x00, 0x01);
+    stdvga_grdc_write(0x06, 0x05);
+    stdvga_sequ_write(0x02, 0x0f);
     if (depth >= 8) {
-        outb(0x14, VGAREG_VGA_CRTC_ADDRESS);
-        outb(inb(VGAREG_VGA_CRTC_DATA) | 0x40, VGAREG_VGA_CRTC_DATA);
-        v = inb(VGAREG_ACTL_RESET);
-        outw(0x10, VGAREG_ACTL_ADDRESS);
-        v = inb(VGAREG_ACTL_READ_DATA) | 0x40;
-        outb(v, VGAREG_ACTL_ADDRESS);
-        outb(0x20, VGAREG_ACTL_ADDRESS);
-        outb(0x04, VGAREG_SEQU_ADDRESS);
-        v = inb(VGAREG_SEQU_DATA) | 0x08;
-        outb(v, VGAREG_SEQU_DATA);
-        outb(0x05, VGAREG_GRDC_ADDRESS);
-        v = inb(VGAREG_GRDC_DATA) & 0x9f;
-        outb(v | 0x40, VGAREG_GRDC_DATA);
+        stdvga_crtc_mask(crtc_addr, 0x14, 0x00, 0x40);
+        stdvga_attr_mask(0x10, 0x00, 0x40);
+        stdvga_sequ_mask(0x04, 0x00, 0x08);
+        stdvga_grdc_mask(0x05, 0x20, 0x40);
     }
 
     SET_BDA(vbe_mode, mode | flags);

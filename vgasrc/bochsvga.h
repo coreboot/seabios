@@ -2,7 +2,7 @@
 #define __BOCHSVGA_H
 
 #include "types.h" // u8
-#include "ioport.h" // outb
+#include "ioport.h" // outw
 
 #define VBE_DISPI_BANK_ADDRESS           0xA0000
 #define VBE_DISPI_BANK_SIZE_KB           64
