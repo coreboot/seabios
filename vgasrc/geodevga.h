@@ -26,12 +26,6 @@
 #define OEM_BAR2                        0x58
 #define OEM_BAR3                        0x5C
 
-#define GEODE_PCI_ADDR                  0x80000900
-#define GEODE_PCI_CMD                   (GEODE_PCI_ADDR + 0x04)
-#define GEODE_PCI_FB                    (GEODE_PCI_ADDR + 0x10)
-#define GEODE_PCI_DC                    (GEODE_PCI_ADDR + 0x18)
-#define GEODE_PCI_VP                    (GEODE_PCI_ADDR + 0x1c)
-
 #define DC_LOCK_LOCK                    0x00000000
 #define DC_LOCK_UNLOCK                  0x00004758
 

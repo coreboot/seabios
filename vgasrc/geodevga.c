@@ -7,12 +7,13 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "geodevga.h" // geodevga_init
-#include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
 #include "vgabios.h" // VGAREG_*
 #include "util.h" // memset
 #include "stdvga.h" // stdvga_crtc_write
+#include "pci.h" // pci_config_readl
+#include "pci_regs.h" // PCI_BASE_ADDRESS_0
 
 
 /****************************************************************
@@ -226,8 +227,7 @@ static int dc_setup(void)
 
     /* read fb-bar from pci, then point dc to the fb base */
     dc_fb = dc_read(seg,DC_GLIU0_MEM_OFFSET);
-    outl(GEODE_PCI_FB,PORT_PCI_CMD);
-    fb = inl(PORT_PCI_DATA);
+    fb = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0);
     if (fb!=dc_fb) {
         dc_write(seg,DC_GLIU0_MEM_OFFSET,fb);
     }
@@ -254,13 +254,12 @@ int vp_setup(void)
     dprintf(2,"VP_SETUP\n");
     /* set output to crt and RGB/YUV */
     if (CONFIG_VGA_GEODEGX2)
-    geode_msrWrite(VP_MSR_CONFIG_GX2,~0 ,~0xf8,0,0);
+        geode_msrWrite(VP_MSR_CONFIG_GX2, ~0, ~0xf8, 0, 0);
     else
-    geode_msrWrite(VP_MSR_CONFIG_LX,~0 ,~0xf8,0,0);
+        geode_msrWrite(VP_MSR_CONFIG_LX, ~0, ~0xf8, 0, 0);
 
     /* get vp register base from pci */
-    outl(GEODE_PCI_VP,PORT_PCI_CMD);
-    vp = inl(PORT_PCI_DATA);
+    vp = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_3);
 
     /* Set mmio registers
     * there may be some timing issues here, the reads seem
