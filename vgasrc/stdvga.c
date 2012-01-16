@@ -159,6 +159,20 @@ stdvga_set_text_block_specifier(u8 spec)
     stdvga_sequ_write(0x03, spec);
 }
 
+// Enable reads and writes to the given "plane" when in planar4 mode.
+void
+stdvga_planar4_plane(int plane)
+{
+    if (plane < 0) {
+        // Return to default mode (read plane0, write all planes)
+        stdvga_sequ_write(0x02, 0x0f);
+        stdvga_grdc_write(0x04, 0);
+    } else {
+        stdvga_sequ_write(0x02, 1<<plane);
+        stdvga_grdc_write(0x04, plane);
+    }
+}
+
 
 /****************************************************************
  * Font loading

@@ -124,6 +124,7 @@ void stdvga_save_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_perform_gray_scale_summing(u16 start, u16 count);
 void stdvga_set_text_block_specifier(u8 spec);
+void stdvga_planar4_plane(int plane);
 void stdvga_load_font(u16 seg, void *src_far, u16 count
                       , u16 start, u8 destflags, u8 fontsize);
 u16 stdvga_get_crtc(void);
