@@ -20,6 +20,8 @@
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "clext.h" // clext_1012
 #include "vgahw.h" // vgahw_set_mode
+#include "pci.h" // pci_config_readw
+#include "pci_regs.h" // PCI_VENDOR_ID
 
 // XXX
 #define DEBUG_VGA_POST 1
@@ -1226,14 +1228,19 @@ init_bios_area(void)
     SET_BDA(video_msr, 0x09);
 }
 
-u16 VgaBDF VAR16;
+int VgaBDF VAR16 = -1;
 
 void VISIBLE16
 vga_post(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_VGA_POST);
 
-    SET_VGA(VgaBDF, regs->ax);
+    if (CONFIG_VGA_PCI) {
+        u16 bdf = regs->ax;
+        if (pci_config_readw(bdf, PCI_VENDOR_ID) == CONFIG_VGA_VID
+            && pci_config_readw(bdf, PCI_DEVICE_ID) == CONFIG_VGA_DID)
+            SET_VGA(VgaBDF, bdf);
+    }
 
     int ret = vgahw_init();
     if (ret) {

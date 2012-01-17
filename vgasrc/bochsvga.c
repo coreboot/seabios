@@ -123,12 +123,11 @@ bochsvga_init(void)
 
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID5);
 
-    u32 lfb_addr;
-    if (CONFIG_VGA_PCI)
-        lfb_addr = (pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0)
+    u32 lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
+    int bdf = GET_GLOBAL(VgaBDF);
+    if (CONFIG_VGA_PCI && bdf >= 0)
+        lfb_addr = (pci_config_readl(bdf, PCI_BASE_ADDRESS_0)
                     & PCI_BASE_ADDRESS_MEM_MASK);
-    else
-        lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
 
     SET_VGA(VBE_framebuffer, lfb_addr);
     u16 totalmem = dispi_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K);

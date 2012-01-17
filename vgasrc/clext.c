@@ -737,8 +737,9 @@ clext_init(void)
     dprintf(1, "cirrus init 2\n");
 
     u32 lfb_addr = 0;
-    if (CONFIG_VGA_PCI)
-        lfb_addr = (pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0)
+    int bdf = GET_GLOBAL(VgaBDF);
+    if (CONFIG_VGA_PCI && bdf >= 0)
+        lfb_addr = (pci_config_readl(bdf, PCI_BASE_ADDRESS_0)
                     & PCI_BASE_ADDRESS_MEM_MASK);
     SET_VGA(VBE_framebuffer, lfb_addr);
     u16 totalmem = cirrus_get_memsize();

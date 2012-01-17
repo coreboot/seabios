@@ -363,6 +363,9 @@ int geodevga_init(void)
             stdvga_override_crtc(i, crtc);
     }
 
+    if (GET_GLOBAL(VgaBDF) < 0)
+        // Device should be at 00:01.1
+        SET_VGA(VgaBDF, pci_to_bdf(0, 1, 1));
     ret |= vp_setup();
     ret |= dc_setup();
 
