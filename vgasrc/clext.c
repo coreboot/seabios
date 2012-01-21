@@ -404,7 +404,7 @@ static void
 cirrus_clear_vram(u16 param)
 {
     cirrus_enable_16k_granularity();
-    u8 count = cirrus_get_memsize() * 4;
+    u8 count = GET_GLOBAL(VBE_total_memory) / (16 * 1024);
     u8 i;
     for (i=0; i<count; i++) {
         stdvga_grdc_write(0x09, i);
@@ -479,7 +479,7 @@ clext_101282(struct bregs *regs)
 static void
 clext_101285(struct bregs *regs)
 {
-    regs->al = cirrus_get_memsize();
+    regs->al = GET_GLOBAL(VBE_total_memory) / (64*1024);
 }
 
 static void
@@ -655,7 +655,7 @@ cirrus_vesa_06h(struct bregs *regs)
     u32 v = cirrus_get_line_offset();
     regs->cx = v / cirrus_get_bpp_bytes();
     regs->bx = v;
-    regs->dx = (cirrus_get_memsize() * 64 * 1024) / v;
+    regs->dx = GET_GLOBAL(VBE_total_memory) / v;
     regs->ax = 0x004f;
 }
 
