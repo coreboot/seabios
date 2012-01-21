@@ -84,6 +84,7 @@ struct saveDACcolors {
 
 // stdvgamodes.c
 struct vgamode_s *stdvga_find_mode(int mode);
+int stdvga_is_mode(struct vgamode_s *vmode_g);
 void stdvga_build_video_param(void);
 void stdvga_override_crtc(int mode, u8 *crtc);
 
@@ -135,7 +136,7 @@ void stdvga_set_scan_lines(u8 lines);
 u16 stdvga_get_vde(void);
 void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
-int stdvga_set_mode(int mode, int flags);
+int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
 void stdvga_enable_video_addressing(u8 disable);
 void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
 int stdvga_init(void);

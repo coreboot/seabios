@@ -298,6 +298,13 @@ static struct stdvga_mode_s vga_modes[] VAR16 = {
  * Mode functions
  ****************************************************************/
 
+int
+stdvga_is_mode(struct vgamode_s *vmode_g)
+{
+    return (vmode_g >= &vga_modes[0].info
+            && vmode_g <= &vga_modes[ARRAY_SIZE(vga_modes)-1].info);
+}
+
 struct vgamode_s *
 stdvga_find_mode(int mode)
 {

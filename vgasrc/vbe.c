@@ -184,9 +184,9 @@ vbe_104f02(struct bregs *regs)
 {
     dprintf(1, "VBE mode set: %x\n", regs->bx);
 
-    int mode = regs->bx & 0x1ff;
-    int flags = regs->bx & (MF_CUSTOMCRTC|MF_LINEARFB|MF_NOCLEARMEM);
-    int ret = vgahw_set_mode(mode, flags);
+    int mode = regs->bx & ~MF_VBEFLAGS;
+    int flags = regs->bx & MF_VBEFLAGS;
+    int ret = vga_set_mode(mode, flags);
 
     regs->ah = ret;
     regs->al = 0x4f;
@@ -195,12 +195,8 @@ vbe_104f02(struct bregs *regs)
 static void
 vbe_104f03(struct bregs *regs)
 {
-    u16 mode = GET_BDA(vbe_mode);
-    if (!mode)
-        regs->bx = GET_BDA(video_mode);
-
+    regs->bx = GET_BDA(vbe_mode);
     dprintf(1, "VBE current mode=%x\n", regs->bx);
-
     regs->ax = 0x004f;
 }
 

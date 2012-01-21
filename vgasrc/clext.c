@@ -10,7 +10,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
 #include "bregs.h" // struct bregs
-#include "vbe.h" // struct vbe_info
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
 #include "pci.h" // pci_config_readl
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
@@ -309,6 +308,13 @@ static struct {
  * helper functions
  ****************************************************************/
 
+int
+is_cirrus_mode(struct vgamode_s *vmode_g)
+{
+    return (vmode_g >= &cirrus_modes[0].info
+            && vmode_g <= &cirrus_modes[ARRAY_SIZE(cirrus_modes)-1].info);
+}
+
 static u16
 cirrus_vesamode_to_mode(u16 vesamode)
 {
@@ -414,24 +420,21 @@ cirrus_clear_vram(u16 param)
 }
 
 int
-clext_set_mode(int mode, int flags)
+clext_set_mode(struct vgamode_s *vmode_g, int flags)
 {
-    dprintf(1, "cirrus mode %x\n", mode);
-    SET_BDA(vbe_mode, 0);
-    struct cirrus_mode_s *table_g = cirrus_get_modeentry(mode);
-    if (table_g) {
-        cirrus_switch_mode(table_g);
-        if (!(flags & MF_LINEARFB))
-            cirrus_enable_16k_granularity();
-        if (!(flags & MF_NOCLEARMEM))
-            cirrus_clear_vram(0);
-        SET_BDA(video_mode, mode);
-        SET_BDA(vbe_mode, mode | flags);
-        return 0;
+    if (!is_cirrus_mode(vmode_g)) {
+        cirrus_switch_mode(&mode_switchback);
+        dprintf(1, "cirrus mode switch regular\n");
+        return stdvga_set_mode(vmode_g, flags);
     }
-    cirrus_switch_mode(&mode_switchback);
-    dprintf(1, "cirrus mode switch regular\n");
-    return stdvga_set_mode(mode, flags);
+    struct cirrus_mode_s *table_g = container_of(
+        vmode_g, struct cirrus_mode_s, info);
+    cirrus_switch_mode(table_g);
+    if (!(flags & MF_LINEARFB))
+        cirrus_enable_16k_granularity();
+    if (!(flags & MF_NOCLEARMEM))
+        cirrus_clear_vram(0);
+    return 0;
 }
 
 static int

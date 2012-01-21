@@ -44,6 +44,7 @@ struct saveBDAstate {
 #define MF_CUSTOMCRTC 0x0800
 #define MF_LINEARFB   0x4000
 #define MF_NOCLEARMEM 0x8000
+#define MF_VBEFLAGS   0xfe00
 
 // Memory model types
 #define MM_TEXT            0x00
@@ -83,7 +84,7 @@ struct cursorpos {
 };
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
 struct vgamode_s *get_current_mode(void);
-void modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g);
+int vga_set_mode(int mode, int flags);
 
 // vgafb.c
 void vgafb_scroll(int nblines, int attr

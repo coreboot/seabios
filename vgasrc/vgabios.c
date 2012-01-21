@@ -20,6 +20,7 @@
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "clext.h" // clext_1012
 #include "vgahw.h" // vgahw_set_mode
+#include "vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "pci.h" // pci_config_readw
 #include "pci_regs.h" // PCI_VENDOR_ID
 
@@ -316,7 +317,9 @@ save_bda_state(u16 seg, struct saveBDAstate *info)
 static void
 restore_bda_state(u16 seg, struct saveBDAstate *info)
 {
-    SET_BDA(video_mode, GET_FARVAR(seg, info->video_mode));
+    u16 mode = GET_FARVAR(seg, info->video_mode);
+    SET_BDA(video_mode, mode);
+    SET_BDA(vbe_mode, mode);
     SET_BDA(video_cols, GET_FARVAR(seg, info->video_cols));
     SET_BDA(video_pagesize, GET_FARVAR(seg, info->video_pagesize));
     SET_BDA(crtc_address, GET_FARVAR(seg, info->crtc_address));
@@ -344,19 +347,32 @@ restore_bda_state(u16 seg, struct saveBDAstate *info)
 struct vgamode_s *
 get_current_mode(void)
 {
-    return vgahw_find_mode(GET_BDA(video_mode));
+    return vgahw_find_mode(GET_BDA(vbe_mode) & ~MF_VBEFLAGS);
 }
 
 // Setup BDA after a mode switch.
-void
-modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
+int
+vga_set_mode(int mode, int flags)
 {
+    dprintf(1, "set VGA mode %x\n", mode);
+    struct vgamode_s *vmode_g = vgahw_find_mode(mode);
+    if (!vmode_g)
+        return VBE_RETURN_STATUS_FAILED;
+
+    int ret = vgahw_set_mode(vmode_g, flags);
+    if (ret)
+        return ret;
+
     // Set the BIOS mem
     int width = GET_GLOBAL(vmode_g->width);
     int height = GET_GLOBAL(vmode_g->height);
     u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
     int cheight = GET_GLOBAL(vmode_g->cheight);
-    SET_BDA(video_mode, mode);
+    if (mode < 0x100)
+        SET_BDA(video_mode, mode);
+    else
+        SET_BDA(video_mode, 0xff);
+    SET_BDA(vbe_mode, mode | (flags & MF_VBEFLAGS));
     if (memmodel == MM_TEXT) {
         SET_BDA(video_cols, width);
         SET_BDA(video_rows, height-1);
@@ -402,6 +418,8 @@ modeswitch_set_bda(int mode, int flags, struct vgamode_s *vmode_g)
         SET_IVT(0x43, SEGOFF(get_global_seg(), (u32)vgafont16));
         break;
     }
+
+    return 0;
 }
 
 
@@ -426,7 +444,7 @@ handle_1000(struct bregs *regs)
     if (regs->al & 0x80)
         flags |= MF_NOCLEARMEM;
 
-    vgahw_set_mode(mode, flags);
+    vga_set_mode(mode, flags);
 }
 
 static void

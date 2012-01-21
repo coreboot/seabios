@@ -10,7 +10,6 @@
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // memcpy_far
-#include "vbe.h" // VBE_RETURN_STATUS_FAILED
 
 
 /****************************************************************
@@ -360,13 +359,12 @@ clear_screen(struct vgamode_s *vmode_g)
 }
 
 int
-stdvga_set_mode(int mode, int flags)
+stdvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
-    // find the entry in the video modes
-    struct vgamode_s *vmode_g = stdvga_find_mode(mode);
-    dprintf(1, "mode search %02x found %p\n", mode, vmode_g);
-    if (!vmode_g)
-        return VBE_RETURN_STATUS_FAILED;
+    if (! stdvga_is_mode(vmode_g)) {
+        warn_internalerror();
+        return -1;
+    }
     struct stdvga_mode_s *stdmode_g = container_of(
         vmode_g, struct stdvga_mode_s, info);
 
@@ -435,9 +433,6 @@ stdvga_set_mode(int mode, int flags)
     u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
     if (memmodel == MM_TEXT)
         stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
-
-    // Setup BDA variables
-    modeswitch_set_bda(mode, flags, vmode_g);
 
     return 0;
 }

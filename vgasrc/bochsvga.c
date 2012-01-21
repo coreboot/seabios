@@ -1,9 +1,9 @@
 #include "vgabios.h" // struct vbe_modeinfo
-#include "vbe.h" // VBE_MODE_VESA_DEFINED
+#include "vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "bochsvga.h" // bochsvga_set_mode
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
-#include "biosvar.h" // SET_BDA
+#include "biosvar.h" // GET_GLOBAL
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
 #include "pci.h" // pci_config_readl
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
@@ -77,6 +77,12 @@ static struct bochsvga_mode
     { 0x18b, { MM_DIRECT, 2560, 1600, 24, 8, 16, SEG_GRAPH } },
     { 0x18c, { MM_DIRECT, 2560, 1600, 32, 8, 16, SEG_GRAPH } },
 };
+
+static int is_bochsvga_mode(struct vgamode_s *vmode_g)
+{
+    return (vmode_g >= &bochsvga_modes[0].info
+            && vmode_g <= &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)-1].info);
+}
 
 static u16 dispi_get_max_xres(void)
 {
@@ -203,26 +209,18 @@ bochsvga_clear_scr(void)
 }
 
 int
-bochsvga_set_mode(int mode, int flags)
+bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
-    if (!(mode & VBE_MODE_VESA_DEFINED)) {
-        dprintf(1, "set VGA mode %x\n", mode);
-
-        SET_BDA(vbe_mode, 0);
+    if (! is_bochsvga_mode(vmode_g)) {
         bochsvga_hires_enable(0);
-        return stdvga_set_mode(mode, flags);
+        return stdvga_set_mode(vmode_g, flags);
     }
 
-    struct vgamode_s *vmode_g = bochsvga_find_mode(mode);
-    if (!vmode_g) {
-        dprintf(1, "VBE mode %x not found\n", mode);
-        return VBE_RETURN_STATUS_FAILED;
-    }
     bochsvga_hires_enable(1);
 
     u8 depth = GET_GLOBAL(vmode_g->depth);
     if (depth == 4)
-        stdvga_set_mode(0x6a, 0);
+        stdvga_set_mode(stdvga_find_mode(0x6a), 0);
     if (depth == 8)
         // XXX load_dac_palette(3);
         ;
@@ -260,13 +258,11 @@ bochsvga_set_mode(int mode, int flags)
         stdvga_grdc_mask(0x05, 0x20, 0x40);
     }
 
-    SET_BDA(vbe_mode, mode | flags);
-
     if (flags & MF_LINEARFB) {
         /* Linear frame buffer */
         /* XXX: ??? */
     }
-    if (!(mode & MF_NOCLEARMEM)) {
+    if (!(flags & MF_NOCLEARMEM)) {
         bochsvga_clear_scr();
     }
 

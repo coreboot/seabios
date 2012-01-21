@@ -17,12 +17,12 @@ static inline struct vgamode_s *vgahw_find_mode(int mode) {
     return stdvga_find_mode(mode);
 }
 
-static inline int vgahw_set_mode(int mode, int flags) {
+static inline int vgahw_set_mode(struct vgamode_s *vmode_g, int flags) {
     if (CONFIG_VGA_CIRRUS)
-        return clext_set_mode(mode, flags);
+        return clext_set_mode(vmode_g, flags);
     if (CONFIG_VGA_BOCHS)
-        return bochsvga_set_mode(mode, flags);
-    return stdvga_set_mode(mode, flags);
+        return bochsvga_set_mode(vmode_g, flags);
+    return stdvga_set_mode(vmode_g, flags);
 }
 
 static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
