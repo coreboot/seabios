@@ -44,4 +44,21 @@ static inline int vgahw_init(void) {
     return stdvga_init();
 }
 
+static inline int vgahw_get_window(struct vgamode_s *vmode_g, int window) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_get_window(vmode_g, window);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_get_window(vmode_g, window);
+    return stdvga_get_window(vmode_g, window);
+}
+
+static inline int vgahw_set_window(struct vgamode_s *vmode_g, int window
+                                   , int val) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_set_window(vmode_g, window, val);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_set_window(vmode_g, window, val);
+    return stdvga_set_window(vmode_g, window, val);
+}
+
 #endif // vgahw.h

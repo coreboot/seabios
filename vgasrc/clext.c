@@ -400,6 +400,21 @@ cirrus_get_memsize(void)
     return 0x04 << x;
 }
 
+int
+clext_get_window(struct vgamode_s *vmode_g, int window)
+{
+    return stdvga_grdc_read(window + 9);
+}
+
+int
+clext_set_window(struct vgamode_s *vmode_g, int window, int val)
+{
+    if (val >= 0x100)
+        return -1;
+    stdvga_grdc_write(window + 9, val);
+    return 0;
+}
+
 static void
 cirrus_enable_16k_granularity(void)
 {
@@ -620,28 +635,6 @@ cirrus_get_start_addr(void)
 }
 
 static void
-cirrus_vesa_05h(struct bregs *regs)
-{
-    if (regs->bl > 1)
-        goto fail;
-    if (regs->bh == 0) {
-        // set mempage
-        if (regs->dx >= 0x100)
-            goto fail;
-        stdvga_grdc_write(regs->bl + 9, regs->dx);
-    } else if (regs->bh == 1) {
-        // get mempage
-        regs->dx = stdvga_grdc_read(regs->bl + 9);
-    } else
-        goto fail;
-
-    regs->ax = 0x004f;
-    return;
-fail:
-    regs->ax = 0x014f;
-}
-
-static void
 cirrus_vesa_06h(struct bregs *regs)
 {
     if (regs->bl > 2) {
@@ -714,7 +707,6 @@ void
 cirrus_vesa(struct bregs *regs)
 {
     switch (regs->al) {
-    case 0x05: cirrus_vesa_05h(regs); break;
     case 0x06: cirrus_vesa_06h(regs); break;
     case 0x07: cirrus_vesa_07h(regs); break;
     case 0x10: cirrus_vesa_10h(regs); break;

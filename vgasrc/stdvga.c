@@ -270,6 +270,18 @@ stdvga_get_vde(void)
     return vde;
 }
 
+int
+stdvga_get_window(struct vgamode_s *vmode_g, int window)
+{
+    return -1;
+}
+
+int
+stdvga_set_window(struct vgamode_s *vmode_g, int window, int val)
+{
+    return -1;
+}
+
 
 /****************************************************************
  * Save/Restore/Set state

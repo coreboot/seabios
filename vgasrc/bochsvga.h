@@ -55,6 +55,8 @@ static inline void dispi_write(u16 reg, u16 val)
 int bochsvga_init(void);
 void bochsvga_list_modes(u16 seg, u16 *dest, u16 *last);
 struct vgamode_s *bochsvga_find_mode(int mode);
+int bochsvga_get_window(struct vgamode_s *vmode_g, int window);
+int bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val);
 int bochsvga_set_mode(struct vgamode_s *vmode_g, int flags);
 
 #endif // bochsvga.h

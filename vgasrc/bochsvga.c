@@ -198,6 +198,25 @@ bochsvga_hires_enable(int enable)
     dispi_write(VBE_DISPI_INDEX_ENABLE, flags);
 }
 
+int
+bochsvga_get_window(struct vgamode_s *vmode_g, int window)
+{
+    if (window != 0)
+        return -1;
+    return dispi_read(VBE_DISPI_INDEX_BANK);
+}
+
+int
+bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val)
+{
+    if (window != 0)
+        return -1;
+    dispi_write(VBE_DISPI_INDEX_BANK, val);
+    if (dispi_read(VBE_DISPI_INDEX_BANK) != val)
+        return -1;
+    return 0;
+}
+
 static void
 bochsvga_clear_scr(void)
 {

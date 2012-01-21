@@ -50,6 +50,11 @@ _rom_header_signature:
  * Entry points
  ****************************************************************/
 
+        DECLFUNC entry_104f05
+entry_104f05:
+        ENTRY_ARG vbe_104f05
+        lretw
+
         DECLFUNC _optionrom_entry
 _optionrom_entry:
         ENTRY_ARG vga_post

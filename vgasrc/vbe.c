@@ -102,7 +102,9 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
     SET_FARVAR(seg, info->winA_seg, GET_GLOBAL(vmode_g->sstart));
     SET_FARVAR(seg, info->winB_seg, 0x0);
-    SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0);
+    extern void entry_104f05(void);
+    SET_FARVAR(seg, info->win_func_ptr
+               , SEGOFF(get_global_seg(), (u32)entry_104f05));
     int width = GET_GLOBAL(vmode_g->width);
     int height = GET_GLOBAL(vmode_g->height);
     int linesize = width * DIV_ROUND_UP(depth, 8);
@@ -207,10 +209,32 @@ vbe_104f04(struct bregs *regs)
     regs->ax = 0x0100;
 }
 
-static void
+void VISIBLE16
 vbe_104f05(struct bregs *regs)
 {
-    debug_stub(regs);
+    if (regs->bh > 1 || regs->bl > 1)
+        goto fail;
+    if (GET_BDA(vbe_mode) & MF_LINEARFB) {
+        regs->ah = VBE_RETURN_STATUS_INVALID;
+        return;
+    }
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (! vmode_g)
+        goto fail;
+    if (regs->bh) {
+        int ret = vgahw_get_window(vmode_g, regs->bl);
+        if (ret < 0)
+            goto fail;
+        regs->dx = ret;
+        regs->ax = 0x004f;
+        return;
+    }
+    int ret = vgahw_set_window(vmode_g, regs->bl, regs->dx);
+    if (ret)
+        goto fail;
+    regs->ax = 0x004f;
+    return;
+fail:
     regs->ax = 0x0100;
 }
 
