@@ -227,42 +227,42 @@ struct cirrus_mode_s {
 };
 
 static struct cirrus_mode_s cirrus_modes[] VAR16 = {
-    {0x5f,{MM_PACKED,640,480,8},0x00,
+    {0x5f,{MM_PACKED,640,480,8,8,16,SEG_GRAPH},0x00,
      cseq_640x480x8,cgraph_svgacolor,ccrtc_640x480x8},
-    {0x64,{MM_DIRECT,640,480,16},0xe1,
+    {0x64,{MM_DIRECT,640,480,16,8,16,SEG_GRAPH},0xe1,
      cseq_640x480x16,cgraph_svgacolor,ccrtc_640x480x16},
-    {0x66,{MM_DIRECT,640,480,15},0xf0,
+    {0x66,{MM_DIRECT,640,480,15,8,16,SEG_GRAPH},0xf0,
      cseq_640x480x16,cgraph_svgacolor,ccrtc_640x480x16},
-    {0x71,{MM_DIRECT,640,480,24},0xe5,
+    {0x71,{MM_DIRECT,640,480,24,8,16,SEG_GRAPH},0xe5,
      cseq_640x480x24,cgraph_svgacolor,ccrtc_640x480x24},
 
-    {0x5c,{MM_PACKED,800,600,8},0x00,
+    {0x5c,{MM_PACKED,800,600,8,8,16,SEG_GRAPH},0x00,
      cseq_800x600x8,cgraph_svgacolor,ccrtc_800x600x8},
-    {0x65,{MM_DIRECT,800,600,16},0xe1,
+    {0x65,{MM_DIRECT,800,600,16,8,16,SEG_GRAPH},0xe1,
      cseq_800x600x16,cgraph_svgacolor,ccrtc_800x600x16},
-    {0x67,{MM_DIRECT,800,600,15},0xf0,
+    {0x67,{MM_DIRECT,800,600,15,8,16,SEG_GRAPH},0xf0,
      cseq_800x600x16,cgraph_svgacolor,ccrtc_800x600x16},
 
-    {0x60,{MM_PACKED,1024,768,8},0x00,
+    {0x60,{MM_PACKED,1024,768,8,8,16,SEG_GRAPH},0x00,
      cseq_1024x768x8,cgraph_svgacolor,ccrtc_1024x768x8},
-    {0x74,{MM_DIRECT,1024,768,16},0xe1,
+    {0x74,{MM_DIRECT,1024,768,16,8,16,SEG_GRAPH},0xe1,
      cseq_1024x768x16,cgraph_svgacolor,ccrtc_1024x768x16},
-    {0x68,{MM_DIRECT,1024,768,15},0xf0,
+    {0x68,{MM_DIRECT,1024,768,15,8,16,SEG_GRAPH},0xf0,
      cseq_1024x768x16,cgraph_svgacolor,ccrtc_1024x768x16},
 
-    {0x78,{MM_DIRECT,800,600,24},0xe5,
+    {0x78,{MM_DIRECT,800,600,24,8,16,SEG_GRAPH},0xe5,
      cseq_800x600x24,cgraph_svgacolor,ccrtc_800x600x24},
-    {0x79,{MM_DIRECT,1024,768,24},0xe5,
+    {0x79,{MM_DIRECT,1024,768,24,8,16,SEG_GRAPH},0xe5,
      cseq_1024x768x24,cgraph_svgacolor,ccrtc_1024x768x24},
 
-    {0x6d,{MM_PACKED,1280,1024,8},0x00,
+    {0x6d,{MM_PACKED,1280,1024,8,8,16,SEG_GRAPH},0x00,
      cseq_1280x1024x8,cgraph_svgacolor,ccrtc_1280x1024x8},
-    {0x69,{MM_DIRECT,1280,1024,15},0xf0,
+    {0x69,{MM_DIRECT,1280,1024,15,8,16,SEG_GRAPH},0xf0,
      cseq_1280x1024x16,cgraph_svgacolor,ccrtc_1280x1024x16},
-    {0x75,{MM_DIRECT,1280,1024,16},0xe1,
+    {0x75,{MM_DIRECT,1280,1024,16,8,16,SEG_GRAPH},0xe1,
      cseq_1280x1024x16,cgraph_svgacolor,ccrtc_1280x1024x16},
 
-    {0x7b,{MM_PACKED,1600,1200,8},0x00,
+    {0x7b,{MM_PACKED,1600,1200,8,8,16,SEG_GRAPH},0x00,
      cseq_1600x1200x8,cgraph_svgacolor,ccrtc_1600x1200x8},
 };
 

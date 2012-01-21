@@ -100,7 +100,7 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->winB_attributes, 0);
     SET_FARVAR(seg, info->win_granularity, GET_GLOBAL(VBE_win_granularity));
     SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
-    SET_FARVAR(seg, info->winA_seg, SEG_GRAPH);
+    SET_FARVAR(seg, info->winA_seg, GET_GLOBAL(vmode_g->sstart));
     SET_FARVAR(seg, info->winB_seg, 0x0);
     SET_FARVAR(seg, info->win_func_ptr.segoff, 0x0);
     int width = GET_GLOBAL(vmode_g->width);
@@ -109,8 +109,8 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->bytes_per_scanline, linesize);
     SET_FARVAR(seg, info->xres, width);
     SET_FARVAR(seg, info->yres, height);
-    SET_FARVAR(seg, info->xcharsize, 8);
-    SET_FARVAR(seg, info->ycharsize, 16);
+    SET_FARVAR(seg, info->xcharsize, GET_GLOBAL(vmode_g->cwidth));
+    SET_FARVAR(seg, info->ycharsize, GET_GLOBAL(vmode_g->cheight));
     if (depth == 4)
         SET_FARVAR(seg, info->planes, 4);
     else
