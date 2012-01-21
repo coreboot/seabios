@@ -151,7 +151,7 @@ set_active_page(u8 page)
         return;
 
     // Get the mode
-    struct vgamode_s *vmode_g = vgahw_find_mode(GET_BDA(video_mode));
+    struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
 
@@ -334,6 +334,17 @@ restore_bda_state(u16 seg, struct saveBDAstate *info)
     /* current font */
     SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
     SET_IVT(0x43, GET_FARVAR(seg, info->font1));
+}
+
+
+/****************************************************************
+ * Mode setting
+ ****************************************************************/
+
+struct vgamode_s *
+get_current_mode(void)
+{
+    return vgahw_find_mode(GET_BDA(video_mode));
 }
 
 // Setup BDA after a mode switch.
