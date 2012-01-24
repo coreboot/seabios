@@ -61,4 +61,20 @@ static inline int vgahw_set_window(struct vgamode_s *vmode_g, int window
     return stdvga_set_window(vmode_g, window, val);
 }
 
+static inline int vgahw_get_linelength(struct vgamode_s *vmode_g) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_get_linelength(vmode_g);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_get_linelength(vmode_g);
+    return stdvga_get_linelength(vmode_g);
+}
+
+static inline int vgahw_set_linelength(struct vgamode_s *vmode_g, int val) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_set_linelength(vmode_g, val);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_set_linelength(vmode_g, val);
+    return stdvga_set_linelength(vmode_g, val);
+}
+
 #endif // vgahw.h

@@ -229,6 +229,22 @@ stdvga_get_crtc(void)
     return VGAREG_MDA_CRTC_ADDRESS;
 }
 
+// Return the multiplication factor needed for the vga offset register.
+int
+stdvga_bpp_factor(struct vgamode_s *vmode_g)
+{
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case MM_TEXT:
+        return 2;
+    case MM_CGA:
+        return GET_GLOBAL(vmode_g->depth);
+    case MM_PLANAR:
+        return 1;
+    default:
+        return 4;
+    }
+}
+
 void
 stdvga_set_cursor_shape(u8 start, u8 end)
 {
@@ -280,6 +296,21 @@ int
 stdvga_set_window(struct vgamode_s *vmode_g, int window, int val)
 {
     return -1;
+}
+
+int
+stdvga_get_linelength(struct vgamode_s *vmode_g)
+{
+    u8 val = stdvga_crtc_read(stdvga_get_crtc(), 0x13);
+    return val * stdvga_bpp_factor(vmode_g) * 2;
+}
+
+int
+stdvga_set_linelength(struct vgamode_s *vmode_g, int val)
+{
+    int factor = stdvga_bpp_factor(vmode_g) * 2;
+    stdvga_crtc_write(stdvga_get_crtc(), 0x13, DIV_ROUND_UP(val, factor));
+    return 0;
 }
 
 

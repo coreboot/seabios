@@ -63,6 +63,22 @@ struct pci_data rom_pci_data VAR16VISIBLE = {
  * Helper functions
  ****************************************************************/
 
+// Return the bits per pixel in system memory for a given mode.
+int
+vga_bpp(struct vgamode_s *vmode_g)
+{
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case MM_TEXT:
+        return 16;
+    case MM_PLANAR:
+        return 1;
+    }
+    u8 depth = GET_GLOBAL(vmode_g->depth);
+    if (depth > 8)
+        return ALIGN(depth, 8);
+    return depth;
+}
+
 u16
 calc_page_size(u8 memmodel, u16 width, u16 height)
 {

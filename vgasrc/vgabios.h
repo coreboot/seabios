@@ -82,6 +82,7 @@ struct carattr {
 struct cursorpos {
     u8 x, y, page;
 };
+int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);

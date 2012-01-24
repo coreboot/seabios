@@ -241,8 +241,33 @@ fail:
 static void
 vbe_104f06(struct bregs *regs)
 {
-    debug_stub(regs);
-    regs->ax = 0x0100;
+    if (regs->bl > 0x02)
+        goto fail;
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (! vmode_g)
+        goto fail;
+    int bpp = vga_bpp(vmode_g);
+
+    if (regs->bl == 0x00) {
+        int ret = vgahw_set_linelength(vmode_g, DIV_ROUND_UP(regs->cx * bpp, 8));
+        if (ret)
+            goto fail;
+    } else if (regs->bl == 0x02) {
+        int ret = vgahw_set_linelength(vmode_g, regs->cx);
+        if (ret)
+            goto fail;
+    }
+    int linelength = vgahw_get_linelength(vmode_g);
+    if (linelength < 0)
+        goto fail;
+
+    regs->bx = linelength;
+    regs->cx = (linelength * 8) / bpp;
+    regs->dx = GET_GLOBAL(VBE_total_memory) / linelength;
+    regs->ax = 0x004f;
+    return;
+fail:
+    regs->ax = 0x014f;
 }
 
 static void

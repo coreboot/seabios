@@ -217,6 +217,21 @@ bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val)
     return 0;
 }
 
+int
+bochsvga_get_linelength(struct vgamode_s *vmode_g)
+{
+    return dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * vga_bpp(vmode_g) / 8;
+}
+
+int
+bochsvga_set_linelength(struct vgamode_s *vmode_g, int val)
+{
+    stdvga_set_linelength(vmode_g, val);
+    int pixels = (val * 8) / vga_bpp(vmode_g);
+    dispi_write(VBE_DISPI_INDEX_VIRT_WIDTH, pixels);
+    return 0;
+}
+
 static void
 bochsvga_clear_scr(void)
 {

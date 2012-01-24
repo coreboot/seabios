@@ -415,6 +415,26 @@ clext_set_window(struct vgamode_s *vmode_g, int window, int val)
     return 0;
 }
 
+int
+clext_get_linelength(struct vgamode_s *vmode_g)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    u8 reg13 = stdvga_crtc_read(crtc_addr, 0x13);
+    u8 reg1b = stdvga_crtc_read(crtc_addr, 0x1b);
+    return (((reg1b & 0x10) << 4) + reg13) * stdvga_bpp_factor(vmode_g) * 2;
+}
+
+int
+clext_set_linelength(struct vgamode_s *vmode_g, int val)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    int factor = stdvga_bpp_factor(vmode_g) * 2;
+    int new_line_offset = DIV_ROUND_UP(val, factor);
+    stdvga_crtc_write(crtc_addr, 0x13, new_line_offset);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x10, (new_line_offset & 0x100) >> 4);
+    return 0;
+}
+
 static void
 cirrus_enable_16k_granularity(void)
 {
@@ -593,15 +613,6 @@ cirrus_get_bpp_bytes(void)
     return v;
 }
 
-static void
-cirrus_set_line_offset(u16 new_line_offset)
-{
-    new_line_offset /= 8;
-    u16 crtc_addr = stdvga_get_crtc();
-    stdvga_crtc_write(crtc_addr, 0x13, new_line_offset);
-    stdvga_crtc_mask(crtc_addr, 0x1b, 0x10, (new_line_offset & 0x100) >> 4);
-}
-
 static u16
 cirrus_get_line_offset(void)
 {
@@ -632,27 +643,6 @@ cirrus_get_start_addr(void)
     u8 b4 = stdvga_crtc_read(crtc_addr, 0x1d);
     return (b1 | (b2<<8) | ((b3 & 0x01) << 16) | ((b3 & 0x0c) << 15)
             | ((b4 & 0x80) << 12));
-}
-
-static void
-cirrus_vesa_06h(struct bregs *regs)
-{
-    if (regs->bl > 2) {
-        regs->ax = 0x0100;
-        return;
-    }
-
-    if (regs->bl == 0x00) {
-        cirrus_set_line_offset(cirrus_get_bpp_bytes() * regs->cx);
-    } else if (regs->bl == 0x02) {
-        cirrus_set_line_offset(regs->cx);
-    }
-
-    u32 v = cirrus_get_line_offset();
-    regs->cx = v / cirrus_get_bpp_bytes();
-    regs->bx = v;
-    regs->dx = GET_GLOBAL(VBE_total_memory) / v;
-    regs->ax = 0x004f;
 }
 
 static void
@@ -707,7 +697,6 @@ void
 cirrus_vesa(struct bregs *regs)
 {
     switch (regs->al) {
-    case 0x06: cirrus_vesa_06h(regs); break;
     case 0x07: cirrus_vesa_07h(regs); break;
     case 0x10: cirrus_vesa_10h(regs); break;
     default:   cirrus_vesa_not_handled(regs); break;

@@ -129,6 +129,7 @@ void stdvga_planar4_plane(int plane);
 void stdvga_load_font(u16 seg, void *src_far, u16 count
                       , u16 start, u8 destflags, u8 fontsize);
 u16 stdvga_get_crtc(void);
+int stdvga_bpp_factor(struct vgamode_s *vmode_g);
 void stdvga_set_cursor_shape(u8 start, u8 end);
 void stdvga_set_active_page(u16 address);
 void stdvga_set_cursor_pos(u16 address);
@@ -136,6 +137,8 @@ void stdvga_set_scan_lines(u8 lines);
 u16 stdvga_get_vde(void);
 int stdvga_get_window(struct vgamode_s *vmode_g, int window);
 int stdvga_set_window(struct vgamode_s *vmode_g, int window, int val);
+int stdvga_get_linelength(struct vgamode_s *vmode_g);
+int stdvga_set_linelength(struct vgamode_s *vmode_g, int val);
 void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
 int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
