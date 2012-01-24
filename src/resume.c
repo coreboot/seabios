@@ -107,6 +107,7 @@ s3_resume(void)
         return;
     }
 
+    pic_setup();
     smm_init();
 
     s3_resume_vga_init();
