@@ -321,6 +321,26 @@ vbe_104f0a(struct bregs *regs)
 }
 
 static void
+vbe_104f10(struct bregs *regs)
+{
+    switch (regs->bl) {
+    case 0x00:
+        regs->bx = 0x0f30;
+        break;
+    case 0x01:
+        SET_BDA(vbe_flag, regs->bh);
+        break;
+    case 0x02:
+        regs->bh = GET_BDA(vbe_flag);
+        break;
+    default:
+        regs->ax = 0x014f;
+        return;
+    }
+    regs->ax = 0x004f;
+}
+
+static void
 vbe_104fXX(struct bregs *regs)
 {
     debug_stub(regs);
@@ -346,6 +366,7 @@ handle_104f(struct bregs *regs)
     case 0x07: vbe_104f07(regs); break;
     case 0x08: vbe_104f08(regs); break;
     case 0x0a: vbe_104f0a(regs); break;
+    case 0x10: vbe_104f10(regs); break;
     default:   vbe_104fXX(regs); break;
     }
 }

@@ -315,6 +315,17 @@ is_cirrus_mode(struct vgamode_s *vmode_g)
             && vmode_g <= &cirrus_modes[ARRAY_SIZE(cirrus_modes)-1].info);
 }
 
+void
+clext_list_modes(u16 seg, u16 *dest, u16 *last)
+{
+    int i;
+    for (i=0; i<ARRAY_SIZE(cirrus_vesa_modelist) && dest<last; i++) {
+        SET_FARVAR(seg, *dest, GET_GLOBAL(cirrus_vesa_modelist[i].vesamode));
+        dest++;
+    }
+    stdvga_list_modes(seg, dest, last);
+}
+
 static u16
 cirrus_vesamode_to_mode(u16 vesamode)
 {
@@ -608,59 +619,6 @@ clext_1012(struct bregs *regs)
     case 0xa2: clext_1012a2(regs); break;
     case 0xae: clext_1012ae(regs); break;
     default:   clext_1012XX(regs); break;
-    }
-}
-
-
-/****************************************************************
- * vesa calls
- ****************************************************************/
-
-void
-clext_list_modes(u16 seg, u16 *dest, u16 *last)
-{
-    int i;
-    for (i=0; i<ARRAY_SIZE(cirrus_vesa_modelist) && dest<last; i++) {
-        SET_FARVAR(seg, *dest, GET_GLOBAL(cirrus_vesa_modelist[i].vesamode));
-        dest++;
-    }
-    stdvga_list_modes(seg, dest, last);
-}
-
-static void
-cirrus_vesa_10h(struct bregs *regs)
-{
-    if (regs->bl == 0x00) {
-        regs->bx = 0x0f30;
-        regs->ax = 0x004f;
-        return;
-    }
-    if (regs->bl == 0x01) {
-        SET_BDA(vbe_flag, regs->bh);
-        regs->ax = 0x004f;
-        return;
-    }
-    if (regs->bl == 0x02) {
-        regs->bh = GET_BDA(vbe_flag);
-        regs->ax = 0x004f;
-        return;
-    }
-    regs->ax = 0x014f;
-}
-
-static void
-cirrus_vesa_not_handled(struct bregs *regs)
-{
-    debug_stub(regs);
-    regs->ax = 0x014f;
-}
-
-void
-cirrus_vesa(struct bregs *regs)
-{
-    switch (regs->al) {
-    case 0x10: cirrus_vesa_10h(regs); break;
-    default:   cirrus_vesa_not_handled(regs); break;
     }
 }
 
