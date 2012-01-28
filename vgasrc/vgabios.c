@@ -138,11 +138,9 @@ set_cursor_pos(struct cursorpos cp)
         return;
 
     // Calculate the memory address
-    u16 nbcols = GET_BDA(video_cols);
-    u16 address = (GET_BDA(video_pagesize) * cp.page
-                   + (cp.x + cp.y * nbcols) * 2);
-
-    stdvga_set_cursor_pos(address / 2);
+    int address = (GET_BDA(video_pagesize) * cp.page
+                   + (cp.x + cp.y * GET_BDA(video_cols)) * 2);
+    stdvga_set_cursor_pos(address);
 }
 
 static struct cursorpos

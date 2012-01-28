@@ -254,9 +254,10 @@ stdvga_set_cursor_shape(u8 start, u8 end)
 }
 
 void
-stdvga_set_cursor_pos(u16 address)
+stdvga_set_cursor_pos(int address)
 {
     u16 crtc_addr = stdvga_get_crtc();
+    address /= 2;  // Assume we're in text mode.
     stdvga_crtc_write(crtc_addr, 0x0e, address >> 8);
     stdvga_crtc_write(crtc_addr, 0x0f, address);
 }
