@@ -2,7 +2,6 @@
 #define __STDVGA_H
 
 #include "types.h" // u8
-#include "vgabios.h" // struct vgamode_s
 
 // VGA registers
 #define VGAREG_ACTL_ADDRESS            0x3c0
@@ -45,20 +44,6 @@
 #define SEG_CTEXT 0xB800
 #define SEG_MTEXT 0xB000
 
-struct stdvga_mode_s {
-    u16 mode;
-    struct vgamode_s info;
-
-    u8 pelmask;
-    u8 *dac;
-    u16 dacsize;
-    u8 *sequ_regs;
-    u8 miscreg;
-    u8 *crtc_regs;
-    u8 *actl_regs;
-    u8 *grdc_regs;
-};
-
 struct saveVideoHardware {
     u8 sequ_index;
     u8 crtc_index;
@@ -84,9 +69,10 @@ struct saveDACcolors {
 
 // stdvgamodes.c
 struct vgamode_s *stdvga_find_mode(int mode);
-int stdvga_is_mode(struct vgamode_s *vmode_g);
+void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
 void stdvga_build_video_param(void);
 void stdvga_override_crtc(int mode, u8 *crtc);
+int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
 
 // stdvgaio.c
 u8 stdvga_pelmask_read(void);
@@ -142,9 +128,7 @@ int stdvga_get_displaystart(struct vgamode_s *vmode_g);
 int stdvga_set_displaystart(struct vgamode_s *vmode_g, int val);
 void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
-int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
 void stdvga_enable_video_addressing(u8 disable);
-void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
 int stdvga_init(void);
 
 #endif // stdvga.h

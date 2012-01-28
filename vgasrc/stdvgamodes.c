@@ -256,6 +256,20 @@ static u8 crtc_6A[] VAR16 = {
 
 #define PAL(x) x, sizeof(x)
 
+struct stdvga_mode_s {
+    u16 mode;
+    struct vgamode_s info;
+
+    u8 pelmask;
+    u8 *dac;
+    u16 dacsize;
+    u8 *sequ_regs;
+    u8 miscreg;
+    u8 *crtc_regs;
+    u8 *actl_regs;
+    u8 *grdc_regs;
+};
+
 static struct stdvga_mode_s vga_modes[] VAR16 = {
     //mode { model       tx   ty bpp cw ch  sstart    }
     // pelm  dac            sequ     misc  crtc     actl     grdc
@@ -298,8 +312,8 @@ static struct stdvga_mode_s vga_modes[] VAR16 = {
  * Mode functions
  ****************************************************************/
 
-int
-stdvga_is_mode(struct vgamode_s *vmode_g)
+static int
+is_stdvga_mode(struct vgamode_s *vmode_g)
 {
     return (vmode_g >= &vga_modes[0].info
             && vmode_g <= &vga_modes[ARRAY_SIZE(vga_modes)-1].info);
@@ -315,6 +329,12 @@ stdvga_find_mode(int mode)
             return &stdmode_g->info;
     }
     return NULL;
+}
+
+void
+stdvga_list_modes(u16 seg, u16 *dest, u16 *last)
+{
+    SET_FARVAR(seg, *dest, 0xffff);
 }
 
 void
@@ -377,4 +397,100 @@ stdvga_override_crtc(int mode, u8 *crtc)
     struct stdvga_mode_s *stdmode_g = container_of(
         vmode_g, struct stdvga_mode_s, info);
     SET_VGA(stdmode_g->crtc_regs, crtc);
+}
+
+static void
+clear_screen(struct vgamode_s *vmode_g)
+{
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case MM_TEXT:
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
+        break;
+    case MM_CGA:
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
+        break;
+    default:
+        // XXX - old code gets/sets/restores sequ register 2 to 0xf -
+        // but it should always be 0xf anyway.
+        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
+    }
+}
+
+int
+stdvga_set_mode(struct vgamode_s *vmode_g, int flags)
+{
+    if (! is_stdvga_mode(vmode_g)) {
+        warn_internalerror();
+        return -1;
+    }
+    struct stdvga_mode_s *stdmode_g = container_of(
+        vmode_g, struct stdvga_mode_s, info);
+
+    // if palette loading (bit 3 of modeset ctl = 0)
+    if (!(flags & MF_NOPALETTE)) {    // Set the PEL mask
+        stdvga_pelmask_write(GET_GLOBAL(stdmode_g->pelmask));
+
+        // From which palette
+        u8 *palette_g = GET_GLOBAL(stdmode_g->dac);
+        u16 palsize = GET_GLOBAL(stdmode_g->dacsize) / 3;
+
+        // Always 256*3 values
+        stdvga_dac_write(get_global_seg(), palette_g, 0, palsize);
+        int i;
+        for (i = palsize; i < 0x0100; i++) {
+            static u8 rgb[3] VAR16;
+            stdvga_dac_write(get_global_seg(), rgb, i, 1);
+        }
+
+        if (flags & MF_GRAYSUM)
+            stdvga_perform_gray_scale_summing(0x00, 0x100);
+    }
+
+    // Set Attribute Ctl
+    u8 *regs = GET_GLOBAL(stdmode_g->actl_regs);
+    int i;
+    for (i = 0; i <= 0x13; i++)
+        stdvga_attr_write(i, GET_GLOBAL(regs[i]));
+    stdvga_attr_write(0x14, 0x00);
+
+    // Set Sequencer Ctl
+    stdvga_sequ_write(0x00, 0x03);
+    regs = GET_GLOBAL(stdmode_g->sequ_regs);
+    for (i = 1; i <= 4; i++)
+        stdvga_sequ_write(i, GET_GLOBAL(regs[i - 1]));
+
+    // Set Grafx Ctl
+    regs = GET_GLOBAL(stdmode_g->grdc_regs);
+    for (i = 0; i <= 8; i++)
+        stdvga_grdc_write(i, GET_GLOBAL(regs[i]));
+
+    // Set CRTC address VGA or MDA
+    u8 miscreg = GET_GLOBAL(stdmode_g->miscreg);
+    u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
+    if (!(miscreg & 1))
+        crtc_addr = VGAREG_MDA_CRTC_ADDRESS;
+
+    // Disable CRTC write protection
+    stdvga_crtc_write(crtc_addr, 0x11, 0x00);
+    // Set CRTC regs
+    regs = GET_GLOBAL(stdmode_g->crtc_regs);
+    for (i = 0; i <= 0x18; i++)
+        stdvga_crtc_write(crtc_addr, i, GET_GLOBAL(regs[i]));
+
+    // Set the misc register
+    stdvga_misc_write(miscreg);
+
+    // Enable video
+    stdvga_attrindex_write(0x20);
+
+    // Clear screen
+    if (!(flags & MF_NOCLEARMEM))
+        clear_screen(vmode_g);
+
+    // Write the fonts in memory
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    if (memmodel == MM_TEXT)
+        stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, 0, 16);
+
+    return 0;
 }

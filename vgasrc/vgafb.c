@@ -5,6 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "vgabios.h" // vgafb_scroll
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset_far
 #include "stdvga.h" // stdvga_planar4_plane
