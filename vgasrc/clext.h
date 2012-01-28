@@ -8,6 +8,8 @@ int clext_get_window(struct vgamode_s *vmode_g, int window);
 int clext_set_window(struct vgamode_s *vmode_g, int window, int val);
 int clext_get_linelength(struct vgamode_s *vmode_g);
 int clext_set_linelength(struct vgamode_s *vmode_g, int val);
+int clext_get_displaystart(struct vgamode_s *vmode_g);
+int clext_set_displaystart(struct vgamode_s *vmode_g, int val);
 int clext_set_mode(struct vgamode_s *vmode_g, int flags);
 void clext_list_modes(u16 seg, u16 *dest, u16 *last);
 int clext_init(void);

@@ -435,6 +435,32 @@ clext_set_linelength(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
+int
+clext_get_displaystart(struct vgamode_s *vmode_g)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    u8 b2 = stdvga_crtc_read(crtc_addr, 0x0c);
+    u8 b1 = stdvga_crtc_read(crtc_addr, 0x0d);
+    u8 b3 = stdvga_crtc_read(crtc_addr, 0x1b);
+    u8 b4 = stdvga_crtc_read(crtc_addr, 0x1d);
+    int val = (b1 | (b2<<8) | ((b3 & 0x01) << 16) | ((b3 & 0x0c) << 15)
+               | ((b4 & 0x80) << 12));
+    return val * stdvga_bpp_factor(vmode_g);
+}
+
+int
+clext_set_displaystart(struct vgamode_s *vmode_g, int val)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    val /= stdvga_bpp_factor(vmode_g);
+    stdvga_crtc_write(crtc_addr, 0x0d, val);
+    stdvga_crtc_write(crtc_addr, 0x0c, val >> 8);
+    stdvga_crtc_mask(crtc_addr, 0x1d, 0x80, (val & 0x0800) >> 4);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x0d
+                     , ((val & 0x0100) >> 8) | ((val & 0x0600) >> 7));
+    return 0;
+}
+
 static void
 cirrus_enable_16k_granularity(void)
 {
@@ -601,70 +627,6 @@ clext_list_modes(u16 seg, u16 *dest, u16 *last)
     stdvga_list_modes(seg, dest, last);
 }
 
-static u8
-cirrus_get_bpp_bytes(void)
-{
-    u8 v = stdvga_sequ_read(0x07) & 0x0e;
-    if (v == 0x06)
-        v &= 0x02;
-    v >>= 1;
-    if (v != 0x04)
-        v++;
-    return v;
-}
-
-static u16
-cirrus_get_line_offset(void)
-{
-    u16 crtc_addr = stdvga_get_crtc();
-    u8 reg13 = stdvga_crtc_read(crtc_addr, 0x13);
-    u8 reg1b = stdvga_crtc_read(crtc_addr, 0x1b);
-    return (((reg1b & 0x10) << 4) + reg13) * 8;
-}
-
-static void
-cirrus_set_start_addr(u32 addr)
-{
-    u16 crtc_addr = stdvga_get_crtc();
-    stdvga_crtc_write(crtc_addr, 0x0d, addr);
-    stdvga_crtc_write(crtc_addr, 0x0c, addr >> 8);
-    stdvga_crtc_mask(crtc_addr, 0x1d, 0x80, (addr & 0x0800) >> 4);
-    stdvga_crtc_mask(crtc_addr, 0x1b, 0x0d
-                     , ((addr & 0x0100) >> 8) | ((addr & 0x0600) >> 7));
-}
-
-static u32
-cirrus_get_start_addr(void)
-{
-    u16 crtc_addr = stdvga_get_crtc();
-    u8 b2 = stdvga_crtc_read(crtc_addr, 0x0c);
-    u8 b1 = stdvga_crtc_read(crtc_addr, 0x0d);
-    u8 b3 = stdvga_crtc_read(crtc_addr, 0x1b);
-    u8 b4 = stdvga_crtc_read(crtc_addr, 0x1d);
-    return (b1 | (b2<<8) | ((b3 & 0x01) << 16) | ((b3 & 0x0c) << 15)
-            | ((b4 & 0x80) << 12));
-}
-
-static void
-cirrus_vesa_07h(struct bregs *regs)
-{
-    if (regs->bl == 0x80 || regs->bl == 0x00) {
-        u32 addr = (cirrus_get_bpp_bytes() * regs->cx
-                    + cirrus_get_line_offset() * regs->dx);
-        cirrus_set_start_addr(addr / 4);
-    } else if (regs->bl == 0x01) {
-        u32 addr = cirrus_get_start_addr() * 4;
-        u32 linelength = cirrus_get_line_offset();
-        regs->dx = addr / linelength;
-        regs->cx = (addr % linelength) / cirrus_get_bpp_bytes();
-    } else {
-        regs->ax = 0x0100;
-        return;
-    }
-
-    regs->ax = 0x004f;
-}
-
 static void
 cirrus_vesa_10h(struct bregs *regs)
 {
@@ -697,7 +659,6 @@ void
 cirrus_vesa(struct bregs *regs)
 {
     switch (regs->al) {
-    case 0x07: cirrus_vesa_07h(regs); break;
     case 0x10: cirrus_vesa_10h(regs); break;
     default:   cirrus_vesa_not_handled(regs); break;
     }

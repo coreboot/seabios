@@ -273,8 +273,37 @@ fail:
 static void
 vbe_104f07(struct bregs *regs)
 {
-    debug_stub(regs);
-    regs->ax = 0x0100;
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (! vmode_g)
+        goto fail;
+    int bpp = vga_bpp(vmode_g);
+    int linelength = vgahw_get_linelength(vmode_g);
+    if (linelength < 0)
+        goto fail;
+
+    int ret;
+    switch (regs->bl) {
+    case 0x80:
+    case 0x00:
+        ret = vgahw_set_displaystart(
+            vmode_g, DIV_ROUND_UP(regs->cx * bpp, 8) + linelength * regs->dx);
+        if (ret)
+            goto fail;
+        break;
+    case 0x01:
+        ret = vgahw_get_displaystart(vmode_g);
+        if (ret < 0)
+            goto fail;
+        regs->dx = ret / linelength;
+        regs->cx = (ret % linelength) * 8 / bpp;
+        break;
+    default:
+        goto fail;
+    }
+    regs->ax = 0x004f;
+    return;
+fail:
+    regs->ax = 0x014f;
 }
 
 static void

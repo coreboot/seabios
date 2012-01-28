@@ -59,6 +59,8 @@ int bochsvga_get_window(struct vgamode_s *vmode_g, int window);
 int bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val);
 int bochsvga_get_linelength(struct vgamode_s *vmode_g);
 int bochsvga_set_linelength(struct vgamode_s *vmode_g, int val);
+int bochsvga_get_displaystart(struct vgamode_s *vmode_g);
+int bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val);
 int bochsvga_set_mode(struct vgamode_s *vmode_g, int flags);
 
 #endif // bochsvga.h

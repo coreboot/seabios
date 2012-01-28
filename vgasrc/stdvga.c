@@ -254,14 +254,6 @@ stdvga_set_cursor_shape(u8 start, u8 end)
 }
 
 void
-stdvga_set_active_page(u16 address)
-{
-    u16 crtc_addr = stdvga_get_crtc();
-    stdvga_crtc_write(crtc_addr, 0x0c, address >> 8);
-    stdvga_crtc_write(crtc_addr, 0x0d, address);
-}
-
-void
 stdvga_set_cursor_pos(u16 address)
 {
     u16 crtc_addr = stdvga_get_crtc();
@@ -310,6 +302,25 @@ stdvga_set_linelength(struct vgamode_s *vmode_g, int val)
 {
     int factor = stdvga_bpp_factor(vmode_g) * 2;
     stdvga_crtc_write(stdvga_get_crtc(), 0x13, DIV_ROUND_UP(val, factor));
+    return 0;
+}
+
+int
+stdvga_get_displaystart(struct vgamode_s *vmode_g)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    int addr = (stdvga_crtc_read(crtc_addr, 0x0c) << 8
+                | stdvga_crtc_read(crtc_addr, 0x0d));
+    return addr * stdvga_bpp_factor(vmode_g);
+}
+
+int
+stdvga_set_displaystart(struct vgamode_s *vmode_g, int val)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    val /= stdvga_bpp_factor(vmode_g);
+    stdvga_crtc_write(crtc_addr, 0x0c, val >> 8);
+    stdvga_crtc_write(crtc_addr, 0x0d, val);
     return 0;
 }
 

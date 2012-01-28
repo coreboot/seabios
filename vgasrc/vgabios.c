@@ -176,9 +176,8 @@ set_active_page(u8 page)
     struct cursorpos cp = get_cursor_pos(page);
 
     // Calculate memory address of start of page
-    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
-    u16 address = GET_BDA(video_pagesize) * page;
-    stdvga_set_active_page(memmodel == MM_TEXT ? address / 2 : address);
+    int address = GET_BDA(video_pagesize) * page;
+    vgahw_set_displaystart(vmode_g, address);
 
     // And change the BIOS page
     SET_BDA(video_pagestart, address);

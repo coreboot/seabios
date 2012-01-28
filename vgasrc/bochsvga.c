@@ -232,6 +232,27 @@ bochsvga_set_linelength(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
+int
+bochsvga_get_displaystart(struct vgamode_s *vmode_g)
+{
+    int bpp = vga_bpp(vmode_g);
+    int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
+    int x = dispi_read(VBE_DISPI_INDEX_X_OFFSET);
+    int y = dispi_read(VBE_DISPI_INDEX_Y_OFFSET);
+    return x * bpp / 8 + linelength * y;
+}
+
+int
+bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
+{
+    stdvga_set_displaystart(vmode_g, val);
+    int bpp = vga_bpp(vmode_g);
+    int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
+    dispi_write(VBE_DISPI_INDEX_X_OFFSET, (val % linelength) * 8 / bpp);
+    dispi_write(VBE_DISPI_INDEX_Y_OFFSET, val / linelength);
+    return 0;
+}
+
 static void
 bochsvga_clear_scr(void)
 {
