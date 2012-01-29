@@ -96,10 +96,10 @@ void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
 
 // vbe.c
-u32 VBE_total_memory;
-u32 VBE_capabilities;
-u32 VBE_framebuffer;
-u16 VBE_win_granularity;
+extern u32 VBE_total_memory;
+extern u32 VBE_capabilities;
+extern u32 VBE_framebuffer;
+extern u16 VBE_win_granularity;
 #define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
 #define VBE_VENDOR_STRING "SeaBIOS Developers"
 #define VBE_PRODUCT_STRING "SeaBIOS VBE Adapter"
