@@ -239,6 +239,10 @@ struct extended_bios_data_area_s {
 
     u16 boot_sequence;
 
+    /* TSC emulation timekeepers */
+    u64 tsc_8254;
+    int last_tsc_8254;
+
     // Stack space available for code that needs it.
     u8 extra_stack[512] __aligned(8);
 } PACKED;

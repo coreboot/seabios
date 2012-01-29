@@ -50,6 +50,7 @@ static inline void wbinvd(void)
     asm volatile("wbinvd": : :"memory");
 }
 
+#define CPUID_TSC (1 << 4)
 #define CPUID_MSR (1 << 5)
 #define CPUID_APIC (1 << 9)
 #define CPUID_MTRR (1 << 12)
@@ -326,9 +327,7 @@ void lpt_setup(void);
 // clock.c
 #define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
 #define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
-static inline int check_tsc(u64 end) {
-    return (s64)(rdtscll() - end) > 0;
-}
+int check_tsc(u64 end);
 void timer_setup(void);
 void ndelay(u32 count);
 void udelay(u32 count);
