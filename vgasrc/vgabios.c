@@ -1279,8 +1279,10 @@ vga_post(struct bregs *regs)
 
     if (CONFIG_VGA_PCI) {
         u16 bdf = regs->ax;
-        if (pci_config_readw(bdf, PCI_VENDOR_ID) == CONFIG_VGA_VID
-            && pci_config_readw(bdf, PCI_DEVICE_ID) == CONFIG_VGA_DID)
+        if ((pci_config_readw(bdf, PCI_VENDOR_ID)
+             == GET_GLOBAL(rom_pci_data.vendor))
+            && (pci_config_readw(bdf, PCI_DEVICE_ID)
+                == GET_GLOBAL(rom_pci_data.device)))
             SET_VGA(VgaBDF, bdf);
     }
 
