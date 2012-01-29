@@ -11,6 +11,7 @@
 #define F_CF (1<<0)
 #define F_ZF (1<<6)
 #define F_IF (1<<9)
+#define F_ID (1<<21)
 
 // CR0 flags
 #define CR0_PG (1<<31) // Paging

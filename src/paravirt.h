@@ -11,6 +11,8 @@
 
 static inline int kvm_para_available(void)
 {
+    if (CONFIG_COREBOOT)
+        return 0;
     unsigned int eax, ebx, ecx, edx;
     char signature[13];
 

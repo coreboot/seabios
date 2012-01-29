@@ -84,9 +84,9 @@ void mtrr_setup(void)
     int phys_bits = 36;
     cpuid(0x80000000u, &eax, &ebx, &ecx, &edx);
     if (eax >= 0x80000008) {
-            /* Get physical bits from leaf 0x80000008 (if available) */
-            cpuid(0x80000008u, &eax, &ebx, &ecx, &edx);
-            phys_bits = eax & 0xff;
+        /* Get physical bits from leaf 0x80000008 (if available) */
+        cpuid(0x80000008u, &eax, &ebx, &ecx, &edx);
+        phys_bits = eax & 0xff;
     }
     u64 phys_mask = ((1ull << phys_bits) - 1);
     for (i=0; i<vcnt; i++) {

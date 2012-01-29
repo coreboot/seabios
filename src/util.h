@@ -18,15 +18,14 @@ static inline void irq_enable(void)
     asm volatile("sti": : :"memory");
 }
 
-static inline unsigned long irq_save(void)
+static inline u32 save_flags(void)
 {
-    unsigned long flags;
-    asm volatile("pushfl ; popl %0" : "=g" (flags): :"memory");
-    irq_disable();
+    u32 flags;
+    asm volatile("pushfl ; popl %0" : "=rm" (flags));
     return flags;
 }
 
-static inline void irq_restore(unsigned long flags)
+static inline void restore_flags(u32 flags)
 {
     asm volatile("pushl %0 ; popfl" : : "g" (flags) : "memory", "cc");
 }
@@ -54,7 +53,7 @@ static inline void wbinvd(void)
 #define CPUID_MSR (1 << 5)
 #define CPUID_APIC (1 << 9)
 #define CPUID_MTRR (1 << 12)
-static inline void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
+static inline void __cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
 {
     asm("cpuid"
         : "=a" (*eax), "=b" (*ebx), "=c" (*ecx), "=d" (*edx)
@@ -196,6 +195,7 @@ struct descloc_s {
 } PACKED;
 
 // util.c
+void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx);
 struct bregs;
 inline void call16(struct bregs *callregs);
 inline void call16big(struct bregs *callregs);
