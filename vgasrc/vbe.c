@@ -108,25 +108,20 @@ vbe_104f01(struct bregs *regs)
                , SEGOFF(get_global_seg(), (u32)entry_104f05));
     int width = GET_GLOBAL(vmode_g->width);
     int height = GET_GLOBAL(vmode_g->height);
-    int linesize = width * DIV_ROUND_UP(depth, 8);
+    int linesize = DIV_ROUND_UP(width * vga_bpp(vmode_g), 8);
     SET_FARVAR(seg, info->bytes_per_scanline, linesize);
     SET_FARVAR(seg, info->xres, width);
     SET_FARVAR(seg, info->yres, height);
     SET_FARVAR(seg, info->xcharsize, GET_GLOBAL(vmode_g->cwidth));
     SET_FARVAR(seg, info->ycharsize, GET_GLOBAL(vmode_g->cheight));
-    if (depth == 4)
-        SET_FARVAR(seg, info->planes, 4);
-    else
-        SET_FARVAR(seg, info->planes, 1);
+    int planes = (depth == 4) ? 4 : 1;
+    SET_FARVAR(seg, info->planes, planes);
     SET_FARVAR(seg, info->bits_per_pixel, depth);
     SET_FARVAR(seg, info->banks, 1);
     SET_FARVAR(seg, info->mem_model, GET_GLOBAL(vmode_g->memmodel));
     SET_FARVAR(seg, info->bank_size, 0);
     u32 pages = GET_GLOBAL(VBE_total_memory) / (height * linesize);
-    if (depth == 4)
-        SET_FARVAR(seg, info->pages, (pages / 4) - 1);
-    else
-        SET_FARVAR(seg, info->pages, pages - 1);
+    SET_FARVAR(seg, info->pages, (pages / planes) - 1);
     SET_FARVAR(seg, info->reserved0, 1);
 
     u8 r_size, r_pos, g_size, g_pos, b_size, b_pos, a_size, a_pos;

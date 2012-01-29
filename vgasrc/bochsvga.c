@@ -171,7 +171,8 @@ static int mode_valid(struct vgamode_s *vmode_g)
     u16 width = GET_GLOBAL(vmode_g->width);
     u16 height = GET_GLOBAL(vmode_g->height);
     u8 depth = GET_GLOBAL(vmode_g->depth);
-    u32 mem = width * height * DIV_ROUND_UP(depth, 8);
+    u32 mem = (height * DIV_ROUND_UP(width * vga_bpp(vmode_g), 8)
+               * 4 / stdvga_bpp_factor(vmode_g));
 
     return width <= max_xres && depth <= max_bpp && mem <= max_mem;
 }
