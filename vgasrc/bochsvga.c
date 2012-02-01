@@ -205,17 +205,6 @@ bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
     stdvga_list_modes(seg, dest, last);
 }
 
-static void
-bochsvga_hires_enable(int enable)
-{
-    u16 flags = enable ?
-        VBE_DISPI_ENABLED |
-        VBE_DISPI_LFB_ENABLED |
-        VBE_DISPI_NOCLEARMEM : 0;
-
-    dispi_write(VBE_DISPI_INDEX_ENABLE, flags);
-}
-
 int
 bochsvga_get_window(struct vgamode_s *vmode_g, int window)
 {
@@ -271,25 +260,12 @@ bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
-static void
-bochsvga_clear_scr(void)
-{
-    u16 en;
-
-    en = dispi_read(VBE_DISPI_INDEX_ENABLE);
-    en &= ~VBE_DISPI_NOCLEARMEM;
-    dispi_write(VBE_DISPI_INDEX_ENABLE, en);
-}
-
 int
 bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
-    if (! is_bochsvga_mode(vmode_g)) {
-        bochsvga_hires_enable(0);
+    dispi_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
+    if (! is_bochsvga_mode(vmode_g))
         return stdvga_set_mode(vmode_g, flags);
-    }
-
-    bochsvga_hires_enable(1);
 
     u8 depth = GET_GLOBAL(vmode_g->depth);
     if (depth == 4)
@@ -304,13 +280,15 @@ bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
     dispi_write(VBE_DISPI_INDEX_XRES, width);
     dispi_write(VBE_DISPI_INDEX_YRES, height);
     dispi_write(VBE_DISPI_INDEX_BANK, 0);
+    u16 bf = ((flags & MF_NOCLEARMEM ? VBE_DISPI_NOCLEARMEM : 0)
+              | (flags & MF_LINEARFB ? VBE_DISPI_LFB_ENABLED : 0));
+    dispi_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED | bf);
 
     /* VGA compat setup */
-    //XXX: This probably needs some reverse engineering
     u16 crtc_addr = VGAREG_VGA_CRTC_ADDRESS;
     stdvga_crtc_write(crtc_addr, 0x11, 0x00);
     stdvga_crtc_write(crtc_addr, 0x01, width / 8 - 1);
-    dispi_write(VBE_DISPI_INDEX_VIRT_WIDTH, width);
+    stdvga_set_linelength(vmode_g, width);
     stdvga_crtc_write(crtc_addr, 0x12, height - 1);
     u8 v = 0;
     if ((height - 1) & 0x0100)
@@ -329,14 +307,6 @@ bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
         stdvga_attr_mask(0x10, 0x00, 0x40);
         stdvga_sequ_mask(0x04, 0x00, 0x08);
         stdvga_grdc_mask(0x05, 0x20, 0x40);
-    }
-
-    if (flags & MF_LINEARFB) {
-        /* Linear frame buffer */
-        /* XXX: ??? */
-    }
-    if (!(flags & MF_NOCLEARMEM)) {
-        bochsvga_clear_scr();
     }
 
     return 0;
