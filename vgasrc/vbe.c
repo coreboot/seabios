@@ -1,6 +1,7 @@
 // Video Bios Extensions handlers
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2012  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2011  Julian Pidancet <julian.pidancet@citrix.com>
 // Copyright (C) 2001-2008 the LGPL VGABios developers Team
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
