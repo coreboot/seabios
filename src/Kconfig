@@ -348,4 +348,21 @@ menu "Debugging"
         default 0x3f8
         help
             Base port for serial - generally 0x3f8, 0x2f8, 0x3e8, or 0x2e8.
+
+    config DEBUG_IO
+        depends on !COREBOOT && DEBUG_LEVEL != 0
+        bool "Special IO port debugging"
+        default y
+        help
+            Some emulators or hypervisors provide with a way to output debug
+            information by outputing strings in a special port present in the
+            IO space.
+
+    config DEBUG_IO_PORT
+        depends on DEBUG_IO
+        hex "Debug IO port address"
+        default 0x0402
+        help
+            Bochs uses the 0x0402 address by default, whereas Xen
+            makes the 0xe9 IO address available for guests use.
 endmenu

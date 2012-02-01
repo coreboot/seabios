@@ -75,9 +75,9 @@ putc_debug(struct putcinfo *action, char c)
 {
     if (! CONFIG_DEBUG_LEVEL)
         return;
-    if (! CONFIG_COREBOOT)
+    if (CONFIG_DEBUG_IO)
         // Send character to debug port.
-        outb(c, PORT_BIOS_DEBUG);
+        outb(c, CONFIG_DEBUG_IO_PORT);
     if (c == '\n')
         debug_serial('\r');
     debug_serial(c);
