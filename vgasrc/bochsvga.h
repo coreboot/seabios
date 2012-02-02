@@ -52,9 +52,8 @@ static inline void dispi_write(u16 reg, u16 val)
     outw(val, VBE_DISPI_IOPORT_DATA);
 }
 
-int bochsvga_init(void);
-void bochsvga_list_modes(u16 seg, u16 *dest, u16 *last);
 struct vgamode_s *bochsvga_find_mode(int mode);
+void bochsvga_list_modes(u16 seg, u16 *dest, u16 *last);
 int bochsvga_get_window(struct vgamode_s *vmode_g, int window);
 int bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val);
 int bochsvga_get_linelength(struct vgamode_s *vmode_g);
@@ -62,5 +61,6 @@ int bochsvga_set_linelength(struct vgamode_s *vmode_g, int val);
 int bochsvga_get_displaystart(struct vgamode_s *vmode_g);
 int bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val);
 int bochsvga_set_mode(struct vgamode_s *vmode_g, int flags);
+int bochsvga_init(void);
 
 #endif // bochsvga.h
