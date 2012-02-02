@@ -307,56 +307,6 @@ clext_list_modes(u16 seg, u16 *dest, u16 *last)
  * helper functions
  ****************************************************************/
 
-static void
-cirrus_switch_mode_setregs(u16 *data, u16 port)
-{
-    for (;;) {
-        u16 val = GET_GLOBAL(*data);
-        if (val == 0xffff)
-            return;
-        outw(val, port);
-        data++;
-    }
-}
-
-static void
-cirrus_switch_mode(struct cirrus_mode_s *table)
-{
-    // Unlock cirrus special
-    stdvga_sequ_write(0x06, 0x12);
-    cirrus_switch_mode_setregs(GET_GLOBAL(table->seq), VGAREG_SEQU_ADDRESS);
-    cirrus_switch_mode_setregs(GET_GLOBAL(table->graph), VGAREG_GRDC_ADDRESS);
-    cirrus_switch_mode_setregs(GET_GLOBAL(table->crtc), stdvga_get_crtc());
-
-    stdvga_pelmask_write(0x00);
-    stdvga_pelmask_read();
-    stdvga_pelmask_read();
-    stdvga_pelmask_read();
-    stdvga_pelmask_read();
-    stdvga_pelmask_write(GET_GLOBAL(table->hidden_dac));
-    stdvga_pelmask_write(0xff);
-
-    u8 memmodel = GET_GLOBAL(table->info.memmodel);
-    u8 on = 0;
-    if (memmodel == MM_PLANAR)
-        on = 0x41;
-    else if (memmodel != MM_TEXT)
-        on = 0x01;
-    stdvga_attr_mask(0x10, 0x01, on);
-}
-
-static u8
-cirrus_get_memsize(void)
-{
-    // get DRAM band width
-    u8 v = stdvga_sequ_read(0x0f);
-    u8 x = (v >> 3) & 0x03;
-    if (x == 0x03 && v & 0x80)
-        // 4MB
-        return 0x40;
-    return 0x04 << x;
-}
-
 int
 clext_get_window(struct vgamode_s *vmode_g, int window)
 {
@@ -418,6 +368,49 @@ clext_set_displaystart(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
+
+/****************************************************************
+ * Mode setting
+ ****************************************************************/
+
+static void
+cirrus_switch_mode_setregs(u16 *data, u16 port)
+{
+    for (;;) {
+        u16 val = GET_GLOBAL(*data);
+        if (val == 0xffff)
+            return;
+        outw(val, port);
+        data++;
+    }
+}
+
+static void
+cirrus_switch_mode(struct cirrus_mode_s *table)
+{
+    // Unlock cirrus special
+    stdvga_sequ_write(0x06, 0x12);
+    cirrus_switch_mode_setregs(GET_GLOBAL(table->seq), VGAREG_SEQU_ADDRESS);
+    cirrus_switch_mode_setregs(GET_GLOBAL(table->graph), VGAREG_GRDC_ADDRESS);
+    cirrus_switch_mode_setregs(GET_GLOBAL(table->crtc), stdvga_get_crtc());
+
+    stdvga_pelmask_write(0x00);
+    stdvga_pelmask_read();
+    stdvga_pelmask_read();
+    stdvga_pelmask_read();
+    stdvga_pelmask_read();
+    stdvga_pelmask_write(GET_GLOBAL(table->hidden_dac));
+    stdvga_pelmask_write(0xff);
+
+    u8 memmodel = GET_GLOBAL(table->info.memmodel);
+    u8 on = 0;
+    if (memmodel == MM_PLANAR)
+        on = 0x41;
+    else if (memmodel != MM_TEXT)
+        on = 0x01;
+    stdvga_attr_mask(0x10, 0x01, on);
+}
+
 static void
 cirrus_enable_16k_granularity(void)
 {
@@ -425,14 +418,14 @@ cirrus_enable_16k_granularity(void)
 }
 
 static void
-cirrus_clear_vram(u16 param)
+cirrus_clear_vram(void)
 {
     cirrus_enable_16k_granularity();
     u8 count = GET_GLOBAL(VBE_total_memory) / (16 * 1024);
     u8 i;
     for (i=0; i<count; i++) {
         stdvga_grdc_write(0x09, i);
-        memset16_far(SEG_GRAPH, 0, param, 16 * 1024);
+        memset16_far(SEG_GRAPH, 0, 0, 16 * 1024);
     }
     stdvga_grdc_write(0x09, 0x00);
 }
@@ -451,15 +444,8 @@ clext_set_mode(struct vgamode_s *vmode_g, int flags)
     if (!(flags & MF_LINEARFB))
         cirrus_enable_16k_granularity();
     if (!(flags & MF_NOCLEARMEM))
-        cirrus_clear_vram(0);
+        cirrus_clear_vram();
     return 0;
-}
-
-static int
-cirrus_check(void)
-{
-    stdvga_sequ_write(0x06, 0x92);
-    return stdvga_sequ_read(0x06) == 0x12;
 }
 
 
@@ -572,6 +558,25 @@ clext_1012(struct bregs *regs)
 /****************************************************************
  * init
  ****************************************************************/
+
+static int
+cirrus_check(void)
+{
+    stdvga_sequ_write(0x06, 0x92);
+    return stdvga_sequ_read(0x06) == 0x12;
+}
+
+static u8
+cirrus_get_memsize(void)
+{
+    // get DRAM band width
+    u8 v = stdvga_sequ_read(0x0f);
+    u8 x = (v >> 3) & 0x03;
+    if (x == 0x03 && v & 0x80)
+        // 4MB
+        return 0x40;
+    return 0x04 << x;
+}
 
 int
 clext_init(void)

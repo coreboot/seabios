@@ -12,8 +12,8 @@ int clext_set_linelength(struct vgamode_s *vmode_g, int val);
 int clext_get_displaystart(struct vgamode_s *vmode_g);
 int clext_set_displaystart(struct vgamode_s *vmode_g, int val);
 int clext_set_mode(struct vgamode_s *vmode_g, int flags);
-int clext_init(void);
 struct bregs;
 void clext_1012(struct bregs *regs);
+int clext_init(void);
 
 #endif // clext.h
