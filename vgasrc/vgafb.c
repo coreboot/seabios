@@ -253,40 +253,23 @@ write_gfx_char_cga(struct vgamode_s *vmode_g
         u8 *dest_far = (void*)(addr + (i >> 1) * 80);
         if (i & 1)
             dest_far += 0x2000;
-        u8 mask = 0x80;
         if (bpp == 1) {
-            u8 data = 0;
+            u8 colors = (ca.attr & 0x01) ? 0xff : 0x00;
+            u8 pixels = colors & GET_GLOBAL(fdata_g[src + i]);
             if (ca.attr & 0x80)
-                data = GET_FARVAR(SEG_CTEXT, *dest_far);
-            u8 j;
-            for (j = 0; j < 8; j++) {
-                if (GET_GLOBAL(fdata_g[src + i]) & mask) {
-                    if (ca.attr & 0x80)
-                        data ^= (ca.attr & 0x01) << (7 - j);
-                    else
-                        data |= (ca.attr & 0x01) << (7 - j);
-                }
-                mask >>= 1;
-            }
-            SET_FARVAR(SEG_CTEXT, *dest_far, data);
+                pixels ^= GET_FARVAR(SEG_GRAPH, *dest_far);
+            SET_FARVAR(SEG_CTEXT, *dest_far, pixels);
         } else {
-            while (mask > 0) {
-                u8 data = 0;
-                if (ca.attr & 0x80)
-                    data = GET_FARVAR(SEG_CTEXT, *dest_far);
-                u8 j;
-                for (j = 0; j < 4; j++) {
-                    if (GET_GLOBAL(fdata_g[src + i]) & mask) {
-                        if (ca.attr & 0x80)
-                            data ^= (ca.attr & 0x03) << ((3 - j) * 2);
-                        else
-                            data |= (ca.attr & 0x03) << ((3 - j) * 2);
-                    }
-                    mask >>= 1;
-                }
-                SET_FARVAR(SEG_CTEXT, *dest_far, data);
-                dest_far += 1;
-            }
+            u16 pixels = 0;
+            u8 fontline = GET_GLOBAL(fdata_g[src + i]);
+            int j;
+            for (j = 0; j < 8; j++)
+                if (fontline & (1<<j))
+                    pixels |= (ca.attr & 0x03) << (j*2);
+            pixels = htons(pixels);
+            if (ca.attr & 0x80)
+                pixels ^= GET_FARVAR(SEG_GRAPH, *(u16*)dest_far);
+            SET_FARVAR(SEG_CTEXT, *(u16*)dest_far, pixels);
         }
     }
 }
@@ -306,14 +289,11 @@ write_gfx_char_lin(struct vgamode_s *vmode_g
     u8 i;
     for (i = 0; i < 8; i++) {
         u8 *dest_far = (void*)(addr + i * nbcols * 8);
-        u8 mask = 0x80;
+        u8 fontline = GET_GLOBAL(fdata_g[src + i]);
         u8 j;
         for (j = 0; j < 8; j++) {
-            u8 data = 0x00;
-            if (GET_GLOBAL(fdata_g[src + i]) & mask)
-                data = ca.attr;
-            SET_FARVAR(SEG_GRAPH, dest_far[j], data);
-            mask >>= 1;
+            u8 pixel = (fontline & (0x80>>j)) ? ca.attr : 0x00;
+            SET_FARVAR(SEG_GRAPH, dest_far[j], pixel);
         }
     }
 }
