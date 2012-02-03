@@ -590,6 +590,17 @@ clext_init(void)
         return -1;
     dprintf(1, "cirrus init 2\n");
 
+    // memory setup
+    stdvga_sequ_write(0x0a, stdvga_sequ_read(0x0f) & 0x18);
+    // set vga mode
+    stdvga_sequ_write(0x07, 0x00);
+    // reset bitblt
+    stdvga_grdc_write(0x31, 0x04);
+    stdvga_grdc_write(0x31, 0x00);
+
+    if (GET_GLOBAL(HaveRunInit))
+        return 0;
+
     u32 lfb_addr = 0;
     int bdf = GET_GLOBAL(VgaBDF);
     if (CONFIG_VGA_PCI && bdf >= 0)
@@ -599,14 +610,6 @@ clext_init(void)
     u16 totalmem = cirrus_get_memsize();
     SET_VGA(VBE_total_memory, totalmem * 64 * 1024);
     SET_VGA(VBE_win_granularity, 16);
-
-    // memory setup
-    stdvga_sequ_write(0x0a, stdvga_sequ_read(0x0f) & 0x18);
-    // set vga mode
-    stdvga_sequ_write(0x07, 0x00);
-    // reset bitblt
-    stdvga_grdc_write(0x31, 0x04);
-    stdvga_grdc_write(0x31, 0x00);
 
     return 0;
 }

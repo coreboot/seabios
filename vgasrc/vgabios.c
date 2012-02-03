@@ -1271,13 +1271,14 @@ init_bios_area(void)
 }
 
 int VgaBDF VAR16 = -1;
+int HaveRunInit VAR16;
 
 void VISIBLE16
 vga_post(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_VGA_POST);
 
-    if (CONFIG_VGA_PCI) {
+    if (CONFIG_VGA_PCI && !GET_GLOBAL(HaveRunInit)) {
         u16 bdf = regs->ax;
         if ((pci_config_readw(bdf, PCI_VENDOR_ID)
              == GET_GLOBAL(rom_pci_data.vendor))
@@ -1292,6 +1293,9 @@ vga_post(struct bregs *regs)
         return;
     }
 
+    if (GET_GLOBAL(HaveRunInit))
+        return;
+
     init_bios_area();
 
     SET_VGA(video_save_pointer_table.videoparam
@@ -1302,6 +1306,8 @@ vga_post(struct bregs *regs)
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
 
     // XXX - clear screen and display info
+
+    SET_VGA(HaveRunInit, 1);
 
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;

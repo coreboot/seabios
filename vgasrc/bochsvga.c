@@ -258,6 +258,9 @@ bochsvga_init(void)
 
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID5);
 
+    if (GET_GLOBAL(HaveRunInit))
+        return 0;
+
     u32 lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
     int bdf = GET_GLOBAL(VgaBDF);
     if (CONFIG_VGA_PCI && bdf >= 0) {
