@@ -93,6 +93,10 @@ scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
     }
     if (attr < 0)
         attr = 0;
+    if (cwidth == 1)
+        attr = (attr&1) | ((attr&1)<<1);
+    attr &= 3;
+    attr |= (attr<<2) | (attr<<4) | (attr<<6);
     int cols = lr.x - ul.x + 1;
     int rows = lr.y - ul.y + 1;
     if (nblines < rows) {
