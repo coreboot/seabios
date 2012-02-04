@@ -20,7 +20,7 @@ struct VideoParam_s {
 extern struct VideoParam_s video_param_table[29];
 
 struct saveBDAstate {
-    u8 video_mode;
+    u16 video_mode;
     u16 video_cols;
     u16 video_pagesize;
     u16 crtc_address;

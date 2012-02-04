@@ -105,4 +105,28 @@ static inline int vgahw_set_dacformat(struct vgamode_s *vmode_g, int val) {
     return stdvga_set_dacformat(vmode_g, val);
 }
 
+static inline int vgahw_size_state(int states) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_size_state(states);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_size_state(states);
+    return stdvga_size_state(states);
+}
+
+static inline int vgahw_save_state(u16 seg, void *data, int states) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_save_state(seg, data, states);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_save_state(seg, data, states);
+    return stdvga_save_state(seg, data, states);
+}
+
+static inline int vgahw_restore_state(u16 seg, void *data, int states) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_restore_state(seg, data, states);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_restore_state(seg, data, states);
+    return stdvga_restore_state(seg, data, states);
+}
+
 #endif // vgahw.h

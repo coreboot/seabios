@@ -201,8 +201,36 @@ vbe_104f03(struct bregs *regs)
 static void
 vbe_104f04(struct bregs *regs)
 {
-    debug_stub(regs);
-    regs->ax = 0x0100;
+    u16 seg = regs->es;
+    void *data = (void*)(regs->bx+0);
+    u16 states = regs->cx;
+    if (states & ~0x0f)
+        goto fail;
+    int ret;
+    switch (regs->dl) {
+    case 0x00:
+        ret = vgahw_size_state(states);
+        if (ret < 0)
+            goto fail;
+        regs->bx = ret / 64;
+        break;
+    case 0x01:
+        ret = vgahw_save_state(seg, data, states);
+        if (ret)
+            goto fail;
+        break;
+    case 0x02:
+        ret = vgahw_restore_state(seg, data, states);
+        if (ret)
+            goto fail;
+        break;
+    default:
+        goto fail;
+    }
+    regs->ax = 0x004f;
+    return;
+fail:
+    regs->ax = 0x014f;
 }
 
 void VISIBLE16

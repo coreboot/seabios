@@ -307,7 +307,7 @@ write_string(struct cursorpos *pcp, u8 attr, u16 count, u16 seg, u8 *offset_far)
 void
 save_bda_state(u16 seg, struct saveBDAstate *info)
 {
-    SET_FARVAR(seg, info->video_mode, GET_BDA(video_mode));
+    SET_FARVAR(seg, info->video_mode, GET_BDA(vbe_mode));
     SET_FARVAR(seg, info->video_cols, GET_BDA(video_cols));
     SET_FARVAR(seg, info->video_pagesize, GET_BDA(video_pagesize));
     SET_FARVAR(seg, info->crtc_address, GET_BDA(crtc_address));
@@ -331,8 +331,11 @@ void
 restore_bda_state(u16 seg, struct saveBDAstate *info)
 {
     u16 mode = GET_FARVAR(seg, info->video_mode);
-    SET_BDA(video_mode, mode);
     SET_BDA(vbe_mode, mode);
+    if (mode < 0x100)
+        SET_BDA(video_mode, mode);
+    else
+        SET_BDA(video_mode, 0xff);
     SET_BDA(video_cols, GET_FARVAR(seg, info->video_cols));
     SET_BDA(video_pagesize, GET_FARVAR(seg, info->video_pagesize));
     SET_BDA(crtc_address, GET_FARVAR(seg, info->crtc_address));
@@ -1140,18 +1143,18 @@ handle_101c(struct bregs *regs)
     int ret;
     switch (regs->al) {
     case 0x00:
-        ret = stdvga_size_state(states);
+        ret = vgahw_size_state(states);
         if (ret < 0)
             goto fail;
         regs->bx = ret / 64;
         break;
     case 0x01:
-        ret = stdvga_save_state(seg, data, states);
+        ret = vgahw_save_state(seg, data, states);
         if (ret)
             goto fail;
         break;
     case 0x02:
-        ret = stdvga_restore_state(seg, data, states);
+        ret = vgahw_restore_state(seg, data, states);
         if (ret)
             goto fail;
         break;

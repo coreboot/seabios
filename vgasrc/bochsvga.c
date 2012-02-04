@@ -201,6 +201,71 @@ bochsvga_set_dacformat(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
+int
+bochsvga_size_state(int states)
+{
+    int size = stdvga_size_state(states);
+    if (size < 0)
+        return size;
+    if (states & 8)
+        size += (VBE_DISPI_INDEX_Y_OFFSET-VBE_DISPI_INDEX_XRES+1)*sizeof(u16);
+    return size;
+}
+
+int
+bochsvga_save_state(u16 seg, void *data, int states)
+{
+    int ret = stdvga_save_state(seg, data, states);
+    if (ret < 0)
+        return ret;
+
+    if (!(states & 8))
+        return 0;
+
+    u16 *info = (data + stdvga_size_state(states));
+    u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
+    SET_FARVAR(seg, *info, en);
+    info++;
+    if (!(en & VBE_DISPI_ENABLED))
+        return 0;
+    int i;
+    for (i = VBE_DISPI_INDEX_XRES; i <= VBE_DISPI_INDEX_Y_OFFSET; i++)
+        if (i != VBE_DISPI_INDEX_ENABLE) {
+            u16 v = dispi_read(i);
+            SET_FARVAR(seg, *info, v);
+            info++;
+        }
+    return 0;
+}
+
+int
+bochsvga_restore_state(u16 seg, void *data, int states)
+{
+    int ret = stdvga_restore_state(seg, data, states);
+    if (ret < 0)
+        return ret;
+
+    if (!(states & 8))
+        return 0;
+
+    u16 *info = (data + stdvga_size_state(states));
+    u16 en = GET_FARVAR(seg, *info);
+    info++;
+    if (!(en & VBE_DISPI_ENABLED)) {
+        dispi_write(VBE_DISPI_INDEX_ENABLE, en);
+        return 0;
+    }
+    int i;
+    for (i = VBE_DISPI_INDEX_XRES; i <= VBE_DISPI_INDEX_Y_OFFSET; i++)
+        if (i == VBE_DISPI_INDEX_ENABLE) {
+            dispi_write(i, en);
+        } else {
+            dispi_write(i, GET_FARVAR(seg, *info));
+            info++;
+        }
+    return 0;
+}
+
 
 /****************************************************************
  * Mode setting
