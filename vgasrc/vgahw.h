@@ -93,4 +93,16 @@ static inline int vgahw_set_displaystart(struct vgamode_s *vmode_g, int val) {
     return stdvga_set_displaystart(vmode_g, val);
 }
 
+static inline int vgahw_get_dacformat(struct vgamode_s *vmode_g) {
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_get_dacformat(vmode_g);
+    return stdvga_get_dacformat(vmode_g);
+}
+
+static inline int vgahw_set_dacformat(struct vgamode_s *vmode_g, int val) {
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_set_dacformat(vmode_g, val);
+    return stdvga_set_dacformat(vmode_g, val);
+}
+
 #endif // vgahw.h

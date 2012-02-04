@@ -305,8 +305,29 @@ fail:
 static void
 vbe_104f08(struct bregs *regs)
 {
-    debug_stub(regs);
-    regs->ax = 0x0100;
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (! vmode_g)
+        goto fail;
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    if (memmodel == MM_DIRECT || memmodel == MM_YUV) {
+        regs->ax = 0x034f;
+        return;
+    }
+    if (regs->bl > 1)
+        goto fail;
+    if (regs->bl == 0) {
+        int ret = vgahw_set_dacformat(vmode_g, regs->bh);
+        if (ret < 0)
+            goto fail;
+    }
+    int ret = vgahw_get_dacformat(vmode_g);
+    if (ret < 0)
+        goto fail;
+    regs->bh = ret;
+    regs->ax = 0x004f;
+    return;
+fail:
+    regs->ax = 0x014f;
 }
 
 static void

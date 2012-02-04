@@ -326,6 +326,18 @@ stdvga_set_displaystart(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
+int
+stdvga_get_dacformat(struct vgamode_s *vmode_g)
+{
+    return -1;
+}
+
+int
+stdvga_set_dacformat(struct vgamode_s *vmode_g, int val)
+{
+    return -1;
+}
+
 
 /****************************************************************
  * Save/Restore state

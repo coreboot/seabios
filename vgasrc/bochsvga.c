@@ -180,6 +180,27 @@ bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
     return 0;
 }
 
+int
+bochsvga_get_dacformat(struct vgamode_s *vmode_g)
+{
+    u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
+    return (en & VBE_DISPI_8BIT_DAC) ? 8 : 6;
+}
+
+int
+bochsvga_set_dacformat(struct vgamode_s *vmode_g, int val)
+{
+    u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
+    if (val == 6)
+        en &= ~VBE_DISPI_8BIT_DAC;
+    else if (val == 8)
+        en |= VBE_DISPI_8BIT_DAC;
+    else
+        return -1;
+    dispi_write(VBE_DISPI_INDEX_ENABLE, en);
+    return 0;
+}
+
 
 /****************************************************************
  * Mode setting

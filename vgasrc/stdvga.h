@@ -126,6 +126,8 @@ int stdvga_get_linelength(struct vgamode_s *vmode_g);
 int stdvga_set_linelength(struct vgamode_s *vmode_g, int val);
 int stdvga_get_displaystart(struct vgamode_s *vmode_g);
 int stdvga_set_displaystart(struct vgamode_s *vmode_g, int val);
+int stdvga_get_dacformat(struct vgamode_s *vmode_g);
+int stdvga_set_dacformat(struct vgamode_s *vmode_g, int val);
 void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
 void stdvga_enable_video_addressing(u8 disable);
