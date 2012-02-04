@@ -304,7 +304,7 @@ write_string(struct cursorpos *pcp, u8 attr, u16 count, u16 seg, u8 *offset_far)
  * Save and restore bda state
  ****************************************************************/
 
-static void
+void
 save_bda_state(u16 seg, struct saveBDAstate *info)
 {
     SET_FARVAR(seg, info->video_mode, GET_BDA(video_mode));
@@ -317,7 +317,7 @@ save_bda_state(u16 seg, struct saveBDAstate *info)
     SET_FARVAR(seg, info->video_switches, GET_BDA(video_switches));
     SET_FARVAR(seg, info->modeset_ctl, GET_BDA(modeset_ctl));
     SET_FARVAR(seg, info->cursor_type, GET_BDA(cursor_type));
-    u16 i;
+    int i;
     for (i=0; i<8; i++)
         SET_FARVAR(seg, info->cursor_pos[i], GET_BDA(cursor_pos[i]));
     SET_FARVAR(seg, info->video_pagestart, GET_BDA(video_pagestart));
@@ -327,7 +327,7 @@ save_bda_state(u16 seg, struct saveBDAstate *info)
     SET_FARVAR(seg, info->font1, GET_IVT(0x43));
 }
 
-static void
+void
 restore_bda_state(u16 seg, struct saveBDAstate *info)
 {
     u16 mode = GET_FARVAR(seg, info->video_mode);
@@ -342,7 +342,7 @@ restore_bda_state(u16 seg, struct saveBDAstate *info)
     SET_BDA(video_switches, GET_FARVAR(seg, info->video_switches));
     SET_BDA(modeset_ctl, GET_FARVAR(seg, info->modeset_ctl));
     SET_BDA(cursor_type, GET_FARVAR(seg, info->cursor_type));
-    u16 i;
+    int i;
     for (i = 0; i < 8; i++)
         SET_BDA(cursor_pos[i], GET_FARVAR(seg, info->cursor_pos[i]));
     SET_BDA(video_pagestart, GET_FARVAR(seg, info->video_pagestart));
@@ -1130,73 +1130,37 @@ handle_101b(struct bregs *regs)
 
 
 static void
-handle_101c00(struct bregs *regs)
-{
-    u16 flags = regs->cx;
-    u16 size = 0;
-    if (flags & 1)
-        size += sizeof(struct saveVideoHardware);
-    if (flags & 2)
-        size += sizeof(struct saveBDAstate);
-    if (flags & 4)
-        size += sizeof(struct saveDACcolors);
-    regs->bx = size;
-    regs->al = 0x1c;
-}
-
-static void
-handle_101c01(struct bregs *regs)
-{
-    u16 flags = regs->cx;
-    u16 seg = regs->es;
-    void *data = (void*)(regs->bx+0);
-    if (flags & 1) {
-        stdvga_save_state(seg, data);
-        data += sizeof(struct saveVideoHardware);
-    }
-    if (flags & 2) {
-        save_bda_state(seg, data);
-        data += sizeof(struct saveBDAstate);
-    }
-    if (flags & 4)
-        stdvga_save_dac_state(seg, data);
-    regs->al = 0x1c;
-}
-
-static void
-handle_101c02(struct bregs *regs)
-{
-    u16 flags = regs->cx;
-    u16 seg = regs->es;
-    void *data = (void*)(regs->bx+0);
-    if (flags & 1) {
-        stdvga_restore_state(seg, data);
-        data += sizeof(struct saveVideoHardware);
-    }
-    if (flags & 2) {
-        restore_bda_state(seg, data);
-        data += sizeof(struct saveBDAstate);
-    }
-    if (flags & 4)
-        stdvga_restore_dac_state(seg, data);
-    regs->al = 0x1c;
-}
-
-static void
-handle_101cXX(struct bregs *regs)
-{
-    debug_stub(regs);
-}
-
-static void
 handle_101c(struct bregs *regs)
 {
+    u16 seg = regs->es;
+    void *data = (void*)(regs->bx+0);
+    u16 states = regs->cx;
+    if (states & ~0x07)
+        goto fail;
+    int ret;
     switch (regs->al) {
-    case 0x00: handle_101c00(regs); break;
-    case 0x01: handle_101c01(regs); break;
-    case 0x02: handle_101c02(regs); break;
-    default:   handle_101cXX(regs); break;
+    case 0x00:
+        ret = stdvga_size_state(states);
+        if (ret < 0)
+            goto fail;
+        regs->bx = ret / 64;
+        break;
+    case 0x01:
+        ret = stdvga_save_state(seg, data, states);
+        if (ret)
+            goto fail;
+        break;
+    case 0x02:
+        ret = stdvga_restore_state(seg, data, states);
+        if (ret)
+            goto fail;
+        break;
+    default:
+        goto fail;
     }
+    regs->al = 0x1c;
+fail:
+    return;
 }
 
 static void

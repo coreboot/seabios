@@ -44,29 +44,6 @@
 #define SEG_CTEXT 0xB800
 #define SEG_MTEXT 0xB000
 
-struct saveVideoHardware {
-    u8 sequ_index;
-    u8 crtc_index;
-    u8 grdc_index;
-    u8 actl_index;
-    u8 feature;
-    u8 sequ_regs[4];
-    u8 sequ0;
-    u8 crtc_regs[25];
-    u8 actl_regs[20];
-    u8 grdc_regs[9];
-    u16 crtc_addr;
-    u8 plane_latch[4];
-};
-
-struct saveDACcolors {
-    u8 rwmode;
-    u8 peladdr;
-    u8 pelmask;
-    u8 dac[768];
-    u8 color_select;
-};
-
 // stdvgamodes.c
 struct vgamode_s *stdvga_find_mode(int mode);
 void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
@@ -107,8 +84,6 @@ void stdvga_get_all_palette_reg(u16 seg, u8 *data_far);
 void stdvga_toggle_intensity(u8 flag);
 void stdvga_select_video_dac_color_page(u8 flag, u8 data);
 void stdvga_read_video_dac_state(u8 *pmode, u8 *curpage);
-void stdvga_save_dac_state(u16 seg, struct saveDACcolors *info);
-void stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info);
 void stdvga_perform_gray_scale_summing(u16 start, u16 count);
 void stdvga_set_text_block_specifier(u8 spec);
 void stdvga_planar4_plane(int plane);
@@ -128,8 +103,9 @@ int stdvga_get_displaystart(struct vgamode_s *vmode_g);
 int stdvga_set_displaystart(struct vgamode_s *vmode_g, int val);
 int stdvga_get_dacformat(struct vgamode_s *vmode_g);
 int stdvga_set_dacformat(struct vgamode_s *vmode_g, int val);
-void stdvga_save_state(u16 seg, struct saveVideoHardware *info);
-void stdvga_restore_state(u16 seg, struct saveVideoHardware *info);
+int stdvga_size_state(int states);
+int stdvga_save_state(u16 seg, void *data, int states);
+int stdvga_restore_state(u16 seg, void *data, int states);
 void stdvga_enable_video_addressing(u8 disable);
 int stdvga_init(void);
 

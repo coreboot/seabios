@@ -85,6 +85,8 @@ struct cursorpos {
 };
 int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
+void save_bda_state(u16 seg, struct saveBDAstate *info);
+void restore_bda_state(u16 seg, struct saveBDAstate *info);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
 

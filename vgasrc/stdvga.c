@@ -111,25 +111,6 @@ stdvga_read_video_dac_state(u8 *pmode, u8 *curpage)
  ****************************************************************/
 
 void
-stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
-{
-    /* XXX: check this */
-    SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
-    SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
-    SET_FARVAR(seg, info->pelmask, stdvga_pelmask_read());
-    stdvga_dac_read(seg, info->dac, 0, 256);
-    SET_FARVAR(seg, info->color_select, 0);
-}
-
-void
-stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
-{
-    stdvga_pelmask_write(GET_FARVAR(seg, info->pelmask));
-    stdvga_dac_write(seg, info->dac, 0, 256);
-    outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
-}
-
-void
 stdvga_perform_gray_scale_summing(u16 start, u16 count)
 {
     stdvga_attrindex_write(0x00);
@@ -343,8 +324,23 @@ stdvga_set_dacformat(struct vgamode_s *vmode_g, int val)
  * Save/Restore state
  ****************************************************************/
 
-void
-stdvga_save_state(u16 seg, struct saveVideoHardware *info)
+struct saveVideoHardware {
+    u8 sequ_index;
+    u8 crtc_index;
+    u8 grdc_index;
+    u8 actl_index;
+    u8 feature;
+    u8 sequ_regs[4];
+    u8 sequ0;
+    u8 crtc_regs[25];
+    u8 actl_regs[20];
+    u8 grdc_regs[9];
+    u16 crtc_addr;
+    u8 plane_latch[4];
+};
+
+static void
+stdvga_save_hw_state(u16 seg, struct saveVideoHardware *info)
 {
     u16 crtc_addr = stdvga_get_crtc();
     SET_FARVAR(seg, info->sequ_index, inb(VGAREG_SEQU_ADDRESS));
@@ -374,8 +370,8 @@ stdvga_save_state(u16 seg, struct saveVideoHardware *info)
         SET_FARVAR(seg, info->plane_latch[i], 0);
 }
 
-void
-stdvga_restore_state(u16 seg, struct saveVideoHardware *info)
+static void
+stdvga_restore_hw_state(u16 seg, struct saveVideoHardware *info)
 {
     int i;
     for (i=0; i<4; i++)
@@ -407,6 +403,78 @@ stdvga_restore_state(u16 seg, struct saveVideoHardware *info)
     outb(GET_FARVAR(seg, info->crtc_index), crtc_addr);
     outb(GET_FARVAR(seg, info->grdc_index), VGAREG_GRDC_ADDRESS);
     outb(GET_FARVAR(seg, info->feature), crtc_addr - 0x4 + 0xa);
+}
+
+struct saveDACcolors {
+    u8 rwmode;
+    u8 peladdr;
+    u8 pelmask;
+    u8 dac[768];
+    u8 color_select;
+};
+
+static void
+stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
+{
+    /* XXX: check this */
+    SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
+    SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
+    SET_FARVAR(seg, info->pelmask, stdvga_pelmask_read());
+    stdvga_dac_read(seg, info->dac, 0, 256);
+    SET_FARVAR(seg, info->color_select, 0);
+}
+
+static void
+stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
+{
+    stdvga_pelmask_write(GET_FARVAR(seg, info->pelmask));
+    stdvga_dac_write(seg, info->dac, 0, 256);
+    outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
+}
+
+int
+stdvga_size_state(int states)
+{
+    int size = 0;
+    if (states & 1)
+        size += sizeof(struct saveVideoHardware);
+    if (states & 2)
+        size += sizeof(struct saveBDAstate);
+    if (states & 4)
+        size += sizeof(struct saveDACcolors);
+    return size;
+}
+
+int
+stdvga_save_state(u16 seg, void *data, int states)
+{
+    if (states & 1) {
+        stdvga_save_hw_state(seg, data);
+        data += sizeof(struct saveVideoHardware);
+    }
+    if (states & 2) {
+        save_bda_state(seg, data);
+        data += sizeof(struct saveBDAstate);
+    }
+    if (states & 4)
+        stdvga_save_dac_state(seg, data);
+    return 0;
+}
+
+int
+stdvga_restore_state(u16 seg, void *data, int states)
+{
+    if (states & 1) {
+        stdvga_restore_hw_state(seg, data);
+        data += sizeof(struct saveVideoHardware);
+    }
+    if (states & 2) {
+        restore_bda_state(seg, data);
+        data += sizeof(struct saveBDAstate);
+    }
+    if (states & 4)
+        stdvga_restore_dac_state(seg, data);
+    return 0;
 }
 
 
