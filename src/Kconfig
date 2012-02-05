@@ -283,7 +283,6 @@ menu "BIOS interfaces"
             Support S3 resume handler.
 
     config VGAHOOKS
-        depends on COREBOOT
         bool "Hardware specific VGA helpers"
         default y
         help

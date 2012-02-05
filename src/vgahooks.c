@@ -186,11 +186,20 @@ intel_155f40(struct bregs *regs)
 }
 
 static void
+intel_155f50(struct bregs *regs)
+{
+    /* Mandatory hook on some Dell laptops */
+    regs->ax = 0x005f;
+    set_success(regs);
+}
+
+static void
 intel_155f(struct bregs *regs)
 {
     switch (regs->al) {
     case 0x35: intel_155f35(regs); break;
     case 0x40: intel_155f40(regs); break;
+    case 0x50: intel_155f50(regs); break;
     default:   handle_155fXX(regs); break;
     }
 }
@@ -204,6 +213,15 @@ intel_155f(struct bregs *regs)
 #define BOOT_DISPLAY_TV2        (1 << 5)
 #define BOOT_DISPLAY_EFP2       (1 << 6)
 #define BOOT_DISPLAY_LCD2       (1 << 7)
+
+static void
+intel_setup(struct pci_device *pci)
+{
+    VGAHookHandlerType = VH_INTEL;
+
+    IntelDisplayType = BOOT_DISPLAY_DEFAULT;
+    IntelDisplayId = 3;
+}
 
 static void
 roda_setup(struct pci_device *pci)
@@ -254,7 +272,7 @@ handle_155f(struct bregs *regs)
 void
 vgahook_setup(struct pci_device *pci)
 {
-    if (!CONFIG_VGAHOOKS || !CBvendor || !CBpart)
+    if (!CONFIG_VGAHOOKS)
         return;
 
     if (strcmp(CBvendor, "KONTRON") == 0 && strcmp(CBpart, "986LCD-M") == 0)
@@ -265,4 +283,6 @@ vgahook_setup(struct pci_device *pci)
         roda_setup(pci);
     else if (pci->vendor == PCI_VENDOR_ID_VIA)
         via_setup(pci);
+    else if (pci->vendor == PCI_VENDOR_ID_INTEL)
+        intel_setup(pci);
 }

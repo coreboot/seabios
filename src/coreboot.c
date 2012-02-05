@@ -117,7 +117,7 @@ find_cb_subtable(struct cb_header *cbh, u32 tag)
 }
 
 static struct cb_memory *CBMemTable;
-const char *CBvendor, *CBpart;
+const char *CBvendor = "", *CBpart = "";
 
 // Populate max ram and e820 map info by scanning for a coreboot table.
 static void
