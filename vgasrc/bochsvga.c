@@ -367,7 +367,7 @@ bochsvga_init(void)
     SET_VGA(VBE_capabilities, VBE_CAPABILITY_8BIT_DAC);
 
     dprintf(1, "VBE DISPI: lfb_addr=%x, size %d MB\n",
-            lfb_addr, totalmem / 16);
+            lfb_addr, totalmem >> 20);
 
     // Validate modes
     u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
