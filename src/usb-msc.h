@@ -8,7 +8,6 @@ struct usb_interface_descriptor;
 struct usb_pipe;
 int usb_msc_init(struct usb_pipe *pipe
                  , struct usb_interface_descriptor *iface, int imax);
-int process_usb_op(struct disk_op_s *op);
 
 
 /****************************************************************

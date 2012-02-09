@@ -276,7 +276,7 @@ map_floppy_drive(struct drive_s *drive_g)
  * 16bit calling interface
  ****************************************************************/
 
-int
+static int
 process_scsi_op(struct disk_op_s *op)
 {
     if (!CONFIG_USB_MSC)
