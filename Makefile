@@ -61,6 +61,7 @@ endif
 OBJCOPY=objcopy
 OBJDUMP=objdump
 STRIP=strip
+PYTHON=python
 
 .PHONY : all clean distclean FORCE
 
@@ -141,7 +142,7 @@ $(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)code16.o tool
 	$(Q)$(OBJDUMP) -thr $(OUT)code32flat.o > $(OUT)code32flat.o.objdump
 	$(Q)$(OBJDUMP) -thr $(OUT)code32seg.o > $(OUT)code32seg.o.objdump
 	$(Q)$(OBJDUMP) -thr $(OUT)code16.o > $(OUT)code16.o.objdump
-	$(Q)./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32seg.o.objdump $(OUT)code32flat.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds
+	$(Q)$(PYTHON) ./tools/layoutrom.py $(OUT)code16.o.objdump $(OUT)code32seg.o.objdump $(OUT)code32flat.o.objdump $(OUT)romlayout16.lds $(OUT)romlayout32seg.lds $(OUT)romlayout32flat.lds
 
 # These are actually built by tools/layoutrom.py above, but by pulling them
 # into an extra rule we prevent make -j from spawning layoutrom.py 4 times.
@@ -163,7 +164,7 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o tools/checkrom.py
 	@echo "  Prepping $@"
 	$(Q)$(OBJDUMP) -thr $< > $<.objdump
 	$(Q)$(OBJCOPY) -O binary $< $(OUT)bios.bin.raw
-	$(Q)./tools/checkrom.py $<.objdump $(OUT)bios.bin.raw $(OUT)bios.bin
+	$(Q)$(PYTHON) ./tools/checkrom.py $<.objdump $(OUT)bios.bin.raw $(OUT)bios.bin
 	$(Q)$(STRIP) -R .comment $< -o $(OUT)bios.bin.elf
 
 
@@ -189,7 +190,7 @@ $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
 
 $(OUT)vgabios.bin: $(OUT)vgabios.bin.raw tools/buildrom.py
 	@echo "  Finalizing rom $@"
-	$(Q)./tools/buildrom.py $< $@
+	$(Q)$(PYTHON) ./tools/buildrom.py $< $@
 
 ####### dsdt build rules
 src/%.hex: src/%.dsl
