@@ -135,6 +135,11 @@ extended_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
 
     dop.buf_fl = SEGOFF_TO_FLATPTR(GET_INT13EXT(regs, data));
     dop.count = GET_INT13EXT(regs, count);
+    if (! dop.count) {
+        // Nothing to do.
+        disk_ret(regs, DISK_RET_SUCCESS);
+        return;
+    }
 
     int status = send_disk_op(&dop);
 
