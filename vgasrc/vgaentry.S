@@ -1,16 +1,9 @@
 // Rom layout and bios assembler to C interface.
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2012  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-
-/****************************************************************
- * Include of 16bit C code
- ****************************************************************/
-
-        .code16gcc
-#include "vgaccode.16.s"
 
 #include "config.h" // CONFIG_*
 #include "entryfuncs.S" // ENTRY_*
@@ -21,6 +14,7 @@
  ****************************************************************/
 
         .section .rom.header
+        .code16gcc
         .global _rom_header, _rom_header_size, _rom_header_checksum
 _rom_header:
         .word 0xaa55

@@ -1,17 +1,9 @@
 // Rom layout and bios assembler to C interface.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2012  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
-
-
-/****************************************************************
- * Include of 16bit C code
- ****************************************************************/
-
-        .code16gcc
-#include "ccode.16.s"
 
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_A20
@@ -29,6 +21,7 @@
 // %edx = return location (in 32bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
+        .code16gcc
 transition32:
         movl %eax, %ecx
 
