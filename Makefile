@@ -200,8 +200,10 @@ $(OUT)vgaentry.o: vgaentry.S $(OUT)autoconf.h
 	$(Q)$(CC) $(CFLAGS16VGA) -c -D__ASSEMBLY__ $< -o $@
 
 $(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgalayout.lds
-	@echo "  Linking $@"
-	$(Q)$(LD) --gc-sections -T $(OUT)vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o -o $@
+	@echo "  Linking $@ (version \"$(VERSION)\")"
+	$(Q)printf '#include "types.h"\nchar VERSION[] VAR16 = "$(VERSION)";' > $(OUT)vgaversion.c
+	$(Q)$(CC) $(CFLAGS16VGA) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
+	$(Q)$(LD) --gc-sections -T $(OUT)vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
 
 $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
 	@echo "  Extracting binary $@"
