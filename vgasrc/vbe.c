@@ -11,7 +11,7 @@
 #include "bregs.h" // struct bregs
 #include "vbe.h" // struct vbe_info
 #include "util.h" // dprintf
-#include "biosvar.h" // get_global_set
+#include "biosvar.h" // GET_GLOBAL
 #include "vgahw.h" // vgahw_set_mode
 
 u32 VBE_total_memory VAR16 = 256 * 1024;
@@ -37,7 +37,7 @@ vbe_104f00(struct bregs *regs)
 
     SET_FARVAR(seg, info->signature, VESA_SIGNATURE);
 
-    SET_FARVAR(seg, info->version, 0x0200);
+    SET_FARVAR(seg, info->version, 0x0300);
 
     SET_FARVAR(seg, info->oem_string,
             SEGOFF(get_global_seg(), (u32)VBE_OEM_STRING));
@@ -47,7 +47,7 @@ vbe_104f00(struct bregs *regs)
     u16 *destmode = (void*)info->reserved;
     SET_FARVAR(seg, info->video_mode, SEGOFF(seg, (u32)destmode));
 
-    /* Total memory (in 64 blocks) */
+    /* Total memory (in 64k blocks) */
     SET_FARVAR(seg, info->total_memory
                , GET_GLOBAL(VBE_total_memory) / (64*1024));
 
@@ -77,7 +77,7 @@ vbe_104f01(struct bregs *regs)
     struct vgamode_s *vmode_g = vgahw_find_mode(mode);
     if (! vmode_g) {
         dprintf(1, "VBE mode %x not found\n", mode);
-        regs->ax = 0x0100;
+        regs->ax = 0x014f;
         return;
     }
 
@@ -88,10 +88,7 @@ vbe_104f01(struct bregs *regs)
                     VBE_MODE_ATTRIBUTE_GRAPHICS_MODE |
                     VBE_MODE_ATTRIBUTE_NOT_VGA_COMPATIBLE;
     u32 framebuffer = GET_GLOBAL(VBE_framebuffer);
-    int depth = GET_GLOBAL(vmode_g->depth);
-    if (depth == 4)
-        mode_attr |= VBE_MODE_ATTRIBUTE_TTY_BIOS_SUPPORT;
-    else if (framebuffer)
+    if (framebuffer)
         mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
     SET_FARVAR(seg, info->mode_attributes, mode_attr);
     SET_FARVAR(seg, info->winA_attributes,
@@ -114,13 +111,14 @@ vbe_104f01(struct bregs *regs)
     SET_FARVAR(seg, info->yres, height);
     SET_FARVAR(seg, info->xcharsize, GET_GLOBAL(vmode_g->cwidth));
     SET_FARVAR(seg, info->ycharsize, GET_GLOBAL(vmode_g->cheight));
+    int depth = GET_GLOBAL(vmode_g->depth);
     int planes = (depth == 4) ? 4 : 1;
     SET_FARVAR(seg, info->planes, planes);
     SET_FARVAR(seg, info->bits_per_pixel, depth);
     SET_FARVAR(seg, info->banks, 1);
     SET_FARVAR(seg, info->mem_model, GET_GLOBAL(vmode_g->memmodel));
     SET_FARVAR(seg, info->bank_size, 0);
-    u32 pages = GET_GLOBAL(VBE_total_memory) / (height * linesize);
+    u32 pages = GET_GLOBAL(VBE_total_memory) / ALIGN(height * linesize, 64*1024);
     SET_FARVAR(seg, info->pages, (pages / planes) - 1);
     SET_FARVAR(seg, info->reserved0, 1);
 
@@ -259,7 +257,7 @@ vbe_104f05(struct bregs *regs)
     regs->ax = 0x004f;
     return;
 fail:
-    regs->ax = 0x0100;
+    regs->ax = 0x014f;
 }
 
 static void
