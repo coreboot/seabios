@@ -73,6 +73,10 @@ extern u8 vgafont16[];
 extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
+// Debug settings
+#define DEBUG_VGA_POST 1
+#define DEBUG_VGA_10 3
+
 // vgabios.c
 extern int VgaBDF;
 extern int HaveRunInit;

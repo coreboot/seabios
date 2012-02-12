@@ -533,8 +533,8 @@ clext_1012a0(struct bregs *regs)
 {
     struct vgamode_s *table_g = clext_find_mode(regs->al & 0x7f);
     regs->ah = (table_g ? 1 : 0);
-    regs->si = 0xffff;
-    regs->di = regs->ds = regs->es = regs->bx = (u32)a0h_callback;
+    regs->bx = (u32)a0h_callback;
+    regs->ds = regs->si = regs->es = regs->di = 0xffff;
 }
 
 static void

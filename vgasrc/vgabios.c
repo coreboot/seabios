@@ -1,15 +1,9 @@
 // VGA bios implementation
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2012  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2001-2008 the LGPL VGABios developers Team
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
-
-
-// TODO:
-//  * review correctness of converted asm by comparing with RBIL
-//
-//  * convert vbe/clext code
 
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
@@ -23,10 +17,6 @@
 #include "vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "pci.h" // pci_config_readw
 #include "pci_regs.h" // PCI_VENDOR_ID
-
-// XXX
-#define DEBUG_VGA_POST 1
-#define DEBUG_VGA_10 3
 
 // Standard Video Save Pointer Table
 struct VideoSavePointer_s {
@@ -46,7 +36,7 @@ struct VideoParam_s video_param_table[29] VAR16;
 /****************************************************************
  * PCI Data
  ****************************************************************/
-#if CONFIG_VGA_PCI == 1
+
 struct pci_data rom_pci_data VAR16VISIBLE = {
     .signature = PCI_ROM_SIGNATURE,
     .vendor = CONFIG_VGA_VID,
@@ -57,7 +47,7 @@ struct pci_data rom_pci_data VAR16VISIBLE = {
     .type = PCIROM_CODETYPE_X86,
     .indicator = 0x80,
 };
-#endif
+
 
 /****************************************************************
  * Helper functions
@@ -170,7 +160,7 @@ set_active_page(u8 page)
     if (!vmode_g)
         return;
 
-    // Get pos curs pos for the right page
+    // Get cursor pos for the given page
     struct cursorpos cp = get_cursor_pos(page);
 
     // Calculate memory address of start of page
@@ -875,7 +865,7 @@ handle_101130(struct bregs *regs)
     regs->cx = GET_BDA(char_height) & 0xff;
 
     // Set Highest char row
-    regs->dx = GET_BDA(video_rows);
+    regs->dl = GET_BDA(video_rows);
 }
 
 static void
@@ -1273,8 +1263,6 @@ vga_post(struct bregs *regs)
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
-
-    // XXX - clear screen and display info
 
     SET_VGA(HaveRunInit, 1);
 
