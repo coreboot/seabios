@@ -82,10 +82,10 @@ extern int VgaBDF;
 extern int HaveRunInit;
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 struct carattr {
-    u8 car, attr, use_attr;
+    u8 car, attr, use_attr, pad;
 };
 struct cursorpos {
-    u8 x, y, page;
+    u8 x, y, page, pad;
 };
 int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);

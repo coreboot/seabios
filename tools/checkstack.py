@@ -149,7 +149,7 @@ def calc():
                 stackusage += int(im.group('num'), 16)
 
             if atstart:
-                if insn == 'movl   %esp,%ebp':
+                if '%esp' in insn or insn.startswith('leal'):
                     # Still part of initial header
                     continue
                 cur[1] = stackusage

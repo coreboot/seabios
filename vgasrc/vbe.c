@@ -390,7 +390,7 @@ vbe_104fXX(struct bregs *regs)
     regs->ax = 0x0100;
 }
 
-void
+void noinline
 handle_104f(struct bregs *regs)
 {
     if (!CONFIG_VGA_VBE) {
