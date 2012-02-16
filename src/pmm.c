@@ -214,7 +214,8 @@ malloc_fixupreloc(void)
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {
         struct zone_s *zone = Zones[i];
-        zone->info->pprev = &zone->info;
+        if (zone->info)
+            zone->info->pprev = &zone->info;
     }
 
     // Add space free'd during relocation in f-segment to ZoneFSeg
