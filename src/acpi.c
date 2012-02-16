@@ -496,6 +496,10 @@ static void* build_pcihp(void)
     int i;
 
     u8 *ssdt = malloc_high(sizeof ssdp_pcihp_aml);
+    if (!ssdt) {
+        warn_noalloc();
+        return NULL;
+    }
     memcpy(ssdt, ssdp_pcihp_aml, sizeof ssdp_pcihp_aml);
 
     /* Runtime patching of EJ0: to disable hotplug for a slot,
