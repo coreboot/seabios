@@ -75,9 +75,9 @@ scsi_is_ready(struct disk_op_s *op)
     return 0;
 }
 
-// Validate drive and find block size and sector count.
+// Validate drive, find block size / sector count, and register drive.
 int
-scsi_init_drive(struct drive_s *drive, const char *s, int *pdt, char **desc)
+scsi_init_drive(struct drive_s *drive, const char *s, int prio)
 {
     if (!CONFIG_USB_MSC)
         return 0;
@@ -97,18 +97,19 @@ scsi_init_drive(struct drive_s *drive, const char *s, int *pdt, char **desc)
     nullTrailingSpace(product);
     strtcpy(rev, data.rev, sizeof(rev));
     nullTrailingSpace(rev);
-    *pdt = data.pdt & 0x1f;
+    int pdt = data.pdt & 0x1f;
     int removable = !!(data.removable & 0x80);
     dprintf(1, "%s vendor='%s' product='%s' rev='%s' type=%d removable=%d\n"
-            , s, vendor, product, rev, *pdt, removable);
+            , s, vendor, product, rev, pdt, removable);
     drive->removable = removable;
 
-    if (*pdt == SCSI_TYPE_CDROM) {
+    if (pdt == SCSI_TYPE_CDROM) {
         drive->blksize = CDROM_SECTOR_SIZE;
         drive->sectors = (u64)-1;
 
-        *desc = znprintf(MAXDESCSIZE, "DVD/CD [%s Drive %s %s %s]"
+        char *desc = znprintf(MAXDESCSIZE, "DVD/CD [%s Drive %s %s %s]"
                               , s, vendor, product, rev);
+        boot_add_cd(drive, desc, prio);
         return 0;
     }
 
@@ -127,6 +128,10 @@ scsi_init_drive(struct drive_s *drive, const char *s, int *pdt, char **desc)
     // We do not bother with READ CAPACITY(16) because BIOS does not support
     // 64-bit LBA anyway.
     drive->blksize = ntohl(capdata.blksize);
+    if (drive->blksize != DISK_SECTOR_SIZE) {
+        dprintf(1, "%s: unsupported block size %d\n", s, drive->blksize);
+        return -1;
+    }
     drive->sectors = (u64)ntohl(capdata.sectors) + 1;
     dprintf(1, "%s blksize=%d sectors=%d\n"
             , s, drive->blksize, (unsigned)drive->sectors);
@@ -143,13 +148,13 @@ scsi_init_drive(struct drive_s *drive, const char *s, int *pdt, char **desc)
             ((u32)drive->sectors % (geomdata.heads * cylinders) == 0)) {
             drive->pchs.cylinders = cylinders;
             drive->pchs.heads = geomdata.heads;
-            drive->pchs.spt = (u32)drive->sectors
-     / (geomdata.heads * cylinders);
+            drive->pchs.spt = (u32)drive->sectors / (geomdata.heads * cylinders);
         }
     }
 
-    *desc = znprintf(MAXDESCSIZE, "%s Drive %s %s %s"
-                      , s, vendor, product, rev);
+    char *desc = znprintf(MAXDESCSIZE, "%s Drive %s %s %s"
+                          , s, vendor, product, rev);
+    boot_add_hd(drive, desc, prio);
     return 0;
 }
 

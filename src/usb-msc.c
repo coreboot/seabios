@@ -122,33 +122,6 @@ fail:
  * Setup
  ****************************************************************/
 
-static int
-setup_drive_cdrom(struct drive_s *drive, char *desc)
-{
-    drive->sectors = (u64)-1;
-    struct usb_pipe *pipe = container_of(
-        drive, struct usbdrive_s, drive)->bulkout;
-    int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
-    boot_add_cd(drive, desc, prio);
-    return 0;
-}
-
-static int
-setup_drive_hd(struct drive_s *drive, char *desc)
-{
-    if (drive->blksize != DISK_SECTOR_SIZE) {
-        dprintf(1, "Unsupported USB MSC block size %d\n", drive->blksize);
-        return -1;
-    }
-
-    // Register with bcv system.
-    struct usb_pipe *pipe = container_of(
-        drive, struct usbdrive_s, drive)->bulkout;
-    int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
-    boot_add_hd(drive, desc, prio);
-    return 0;
-}
-
 // Configure a usb msc device.
 int
 usb_msc_init(struct usb_pipe *pipe
@@ -188,17 +161,8 @@ usb_msc_init(struct usb_pipe *pipe
     if (!udrive_g->bulkin || !udrive_g->bulkout)
         goto fail;
 
-    int ret, pdt;
-    char *desc = NULL;
-    ret = scsi_init_drive(&udrive_g->drive, "USB MSC", &pdt, &desc);
-    if (ret)
-        goto fail;
-
-    if (pdt == SCSI_TYPE_CDROM)
-        ret = setup_drive_cdrom(&udrive_g->drive, desc);
-    else
-        ret = setup_drive_hd(&udrive_g->drive, desc);
-
+    int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
+    int ret = scsi_init_drive(&udrive_g->drive, "USB MSC", prio);
     if (ret)
         goto fail;
 
