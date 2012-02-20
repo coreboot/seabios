@@ -16,8 +16,17 @@
 struct usb_uhci_s {
     struct usb_s usb;
     u16 iobase;
-    struct uhci_qh *control_qh, *bulk_qh;
+    struct uhci_qh *control_qh;
     struct uhci_framelist *framelist;
+};
+
+struct uhci_pipe {
+    struct uhci_qh qh;
+    struct uhci_td *next_td;
+    struct usb_pipe pipe;
+    u16 iobase;
+    u8 toggle;
+    u8 iscontrol;
 };
 
 
@@ -97,6 +106,52 @@ check_uhci_ports(struct usb_uhci_s *cntl)
  * Setup
  ****************************************************************/
 
+// Wait for next USB frame to start - for ensuring safe memory release.
+static void
+uhci_waittick(u16 iobase)
+{
+    barrier();
+    u16 startframe = inw(iobase + USBFRNUM);
+    u64 end = calc_future_tsc(1000 * 5);
+    for (;;) {
+        if (inw(iobase + USBFRNUM) != startframe)
+            break;
+        if (check_tsc(end)) {
+            warn_timeout();
+            return;
+        }
+        yield();
+    }
+}
+
+static void
+uhci_free_pipes(struct usb_uhci_s *cntl)
+{
+    dprintf(7, "uhci_free_pipes %p\n", cntl);
+
+    struct uhci_qh *pos = (void*)(cntl->framelist->links[0] & ~UHCI_PTR_BITS);
+    for (;;) {
+        u32 link = pos->link;
+        if (link == UHCI_PTR_TERM)
+            break;
+        struct uhci_qh *next = (void*)(link & ~UHCI_PTR_BITS);
+        struct uhci_pipe *pipe = container_of(next, struct uhci_pipe, qh);
+        if (pipe->pipe.cntl != &cntl->usb)
+            pos->link = next->link;
+        else
+            pos = next;
+    }
+    uhci_waittick(cntl->iobase);
+    for (;;) {
+        struct usb_pipe *usbpipe = cntl->usb.freelist;
+        if (!usbpipe)
+            break;
+        cntl->usb.freelist = usbpipe->freenext;
+        struct uhci_pipe *pipe = container_of(usbpipe, struct uhci_pipe, pipe);
+        free(pipe);
+    }
+}
+
 static void
 reset_uhci(struct usb_uhci_s *cntl, u16 bdf)
 {
@@ -122,9 +177,9 @@ configure_uhci(void *data)
     // Allocate ram for schedule storage
     struct uhci_td *term_td = malloc_high(sizeof(*term_td));
     struct uhci_framelist *fl = memalign_high(sizeof(*fl), sizeof(*fl));
-    struct uhci_qh *intr_qh = malloc_high(sizeof(*intr_qh));
-    struct uhci_qh *term_qh = malloc_high(sizeof(*term_qh));
-    if (!term_td || !fl || !intr_qh || !term_qh) {
+    struct uhci_pipe *intr_pipe = malloc_high(sizeof(*intr_pipe));
+    struct uhci_pipe *term_pipe = malloc_high(sizeof(*term_pipe));
+    if (!term_td || !fl || !intr_pipe || !term_pipe) {
         warn_noalloc();
         goto fail;
     }
@@ -134,19 +189,21 @@ configure_uhci(void *data)
     term_td->link = UHCI_PTR_TERM;
     term_td->token = (uhci_explen(0) | (0x7f << TD_TOKEN_DEVADDR_SHIFT)
                       | USB_PID_IN);
-    memset(term_qh, 0, sizeof(*term_qh));
-    term_qh->element = (u32)term_td;
-    term_qh->link = UHCI_PTR_TERM;
+    memset(term_pipe, 0, sizeof(*term_pipe));
+    term_pipe->qh.element = (u32)term_td;
+    term_pipe->qh.link = UHCI_PTR_TERM;
+    term_pipe->pipe.cntl = &cntl->usb;
 
     // Set schedule to point to primary intr queue head
-    memset(intr_qh, 0, sizeof(*intr_qh));
-    intr_qh->element = UHCI_PTR_TERM;
-    intr_qh->link = (u32)term_qh | UHCI_PTR_QH;
+    memset(intr_pipe, 0, sizeof(*intr_pipe));
+    intr_pipe->qh.element = UHCI_PTR_TERM;
+    intr_pipe->qh.link = (u32)&term_pipe->qh | UHCI_PTR_QH;
+    intr_pipe->pipe.cntl = &cntl->usb;
     int i;
     for (i=0; i<ARRAY_SIZE(fl->links); i++)
-        fl->links[i] = (u32)intr_qh | UHCI_PTR_QH;
+        fl->links[i] = (u32)&intr_pipe->qh | UHCI_PTR_QH;
     cntl->framelist = fl;
-    cntl->control_qh = cntl->bulk_qh = intr_qh;
+    cntl->control_qh = &intr_pipe->qh;
     barrier();
 
     // Set the frame length to the default: 1 ms exactly
@@ -164,6 +221,7 @@ configure_uhci(void *data)
     // Find devices
     int count = check_uhci_ports(cntl);
     free_pipe(cntl->usb.defaultpipe);
+    uhci_free_pipes(cntl);
     if (count)
         // Success
         return;
@@ -173,8 +231,8 @@ configure_uhci(void *data)
 fail:
     free(term_td);
     free(fl);
-    free(intr_qh);
-    free(term_qh);
+    free(intr_pipe);
+    free(term_pipe);
     free(cntl);
 }
 
@@ -212,32 +270,6 @@ uhci_init(struct pci_device *pci, int busid)
  * End point communication
  ****************************************************************/
 
-struct uhci_pipe {
-    struct uhci_qh qh;
-    struct uhci_td *next_td;
-    struct usb_pipe pipe;
-    u16 iobase;
-    u8 toggle;
-};
-
-// Wait for next USB frame to start - for ensuring safe memory release.
-static void
-uhci_waittick(u16 iobase)
-{
-    barrier();
-    u16 startframe = inw(iobase + USBFRNUM);
-    u64 end = calc_future_tsc(1000 * 5);
-    for (;;) {
-        if (inw(iobase + USBFRNUM) != startframe)
-            break;
-        if (check_tsc(end)) {
-            warn_timeout();
-            return;
-        }
-        yield();
-    }
-}
-
 static int
 wait_pipe(struct uhci_pipe *pipe, int timeout)
 {
@@ -263,49 +295,44 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
 }
 
 void
-uhci_free_pipe(struct usb_pipe *p)
+uhci_free_pipe(struct usb_pipe *pipe)
 {
     if (! CONFIG_USB_UHCI)
         return;
-    dprintf(7, "uhci_free_pipe %p\n", p);
-    struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
-    struct usb_uhci_s *cntl = container_of(
-        pipe->pipe.cntl, struct usb_uhci_s, usb);
-
-    struct uhci_qh *pos = (void*)(cntl->framelist->links[0] & ~UHCI_PTR_BITS);
-    for (;;) {
-        u32 link = pos->link;
-        if (link == UHCI_PTR_TERM) {
-            // Not found?!  Exit without freeing.
-            warn_internalerror();
-            return;
-        }
-        struct uhci_qh *next = (void*)(link & ~UHCI_PTR_BITS);
-        if (next == &pipe->qh) {
-            pos->link = next->link;
-            if (cntl->control_qh == next)
-                cntl->control_qh = pos;
-            if (cntl->bulk_qh == next)
-                cntl->bulk_qh = pos;
-            uhci_waittick(cntl->iobase);
-            free(pipe);
-            return;
-        }
-        pos = next;
-    }
+    // Add to controller's free list.
+    struct usb_s *cntl = pipe->cntl;
+    pipe->freenext = cntl->freelist;
+    cntl->freelist = pipe;
 }
 
-struct usb_pipe *
-uhci_alloc_control_pipe(struct usb_pipe *dummy)
+static struct usb_pipe *
+uhci_alloc_pipe(struct usb_pipe *dummy, int iscontrol)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
     struct usb_uhci_s *cntl = container_of(
         dummy->cntl, struct usb_uhci_s, usb);
-    dprintf(7, "uhci_alloc_control_pipe %p\n", &cntl->usb);
+    dprintf(7, "uhci_alloc_pipe %p %d\n", &cntl->usb, iscontrol);
 
-    // Allocate a queue head.
-    struct uhci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
+    struct usb_pipe *freepipe = cntl->usb.freelist;
+    while (freepipe) {
+        struct uhci_pipe *pipe = container_of(cntl->usb.freelist
+                                              , struct uhci_pipe, pipe);
+        if (pipe->iscontrol == iscontrol) {
+            // Use previously allocated queue head.
+            cntl->usb.freelist = pipe->pipe.freenext;
+            memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+            return &pipe->pipe;
+        }
+        freepipe = freepipe->freenext;
+    }
+
+    // Allocate a new queue head.
+    struct uhci_pipe *pipe;
+    if (iscontrol)
+        pipe = malloc_tmphigh(sizeof(*pipe));
+    else
+        pipe = malloc_low(sizeof(*pipe));
     if (!pipe) {
         warn_noalloc();
         return NULL;
@@ -314,15 +341,28 @@ uhci_alloc_control_pipe(struct usb_pipe *dummy)
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.element = UHCI_PTR_TERM;
     pipe->iobase = cntl->iobase;
+    pipe->iscontrol = iscontrol;
 
     // Add queue head to controller list.
     struct uhci_qh *control_qh = cntl->control_qh;
     pipe->qh.link = control_qh->link;
     barrier();
     control_qh->link = (u32)&pipe->qh | UHCI_PTR_QH;
-    if (cntl->bulk_qh == control_qh)
-        cntl->bulk_qh = &pipe->qh;
+    if (iscontrol)
+        cntl->control_qh = &pipe->qh;
     return &pipe->pipe;
+}
+
+struct usb_pipe *
+uhci_alloc_control_pipe(struct usb_pipe *dummy)
+{
+    return uhci_alloc_pipe(dummy, 1);
+}
+
+struct usb_pipe *
+uhci_alloc_bulk_pipe(struct usb_pipe *dummy)
+{
+    return uhci_alloc_pipe(dummy, 0);
 }
 
 int
@@ -380,35 +420,6 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     int ret = wait_pipe(pipe, 500);
     free(tds);
     return ret;
-}
-
-struct usb_pipe *
-uhci_alloc_bulk_pipe(struct usb_pipe *dummy)
-{
-    if (! CONFIG_USB_UHCI)
-        return NULL;
-    struct usb_uhci_s *cntl = container_of(
-        dummy->cntl, struct usb_uhci_s, usb);
-    dprintf(7, "uhci_alloc_bulk_pipe %p\n", &cntl->usb);
-
-    // Allocate a queue head.
-    struct uhci_pipe *pipe = malloc_low(sizeof(*pipe));
-    if (!pipe) {
-        warn_noalloc();
-        return NULL;
-    }
-    memset(pipe, 0, sizeof(*pipe));
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
-    pipe->qh.element = UHCI_PTR_TERM;
-    pipe->iobase = cntl->iobase;
-
-    // Add queue head to controller list.
-    struct uhci_qh *bulk_qh = cntl->bulk_qh;
-    pipe->qh.link = bulk_qh->link;
-    barrier();
-    bulk_qh->link = (u32)&pipe->qh | UHCI_PTR_QH;
-
-    return &pipe->pipe;
 }
 
 static int
@@ -547,8 +558,6 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
         intr_qh->link = (u32)&pipe->qh | UHCI_PTR_QH;
         if (cntl->control_qh == intr_qh)
             cntl->control_qh = &pipe->qh;
-        if (cntl->bulk_qh == intr_qh)
-            cntl->bulk_qh = &pipe->qh;
     } else {
         int startpos = 1<<(frameexp-1);
         pipe->qh.link = fl->links[startpos];
