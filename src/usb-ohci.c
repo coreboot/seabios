@@ -19,6 +19,14 @@ struct usb_ohci_s {
     struct ohci_regs *regs;
 };
 
+struct ohci_pipe {
+    struct ohci_ed ed;
+    struct usb_pipe pipe;
+    void *data;
+    int count;
+    struct ohci_td *tds;
+};
+
 
 /****************************************************************
  * Root hub
@@ -109,6 +117,56 @@ check_ohci_ports(struct usb_ohci_s *cntl)
  * Setup
  ****************************************************************/
 
+// Wait for next USB frame to start - for ensuring safe memory release.
+static void
+ohci_waittick(struct usb_ohci_s *cntl)
+{
+    barrier();
+    struct ohci_hcca *hcca = (void*)cntl->regs->hcca;
+    u32 startframe = hcca->frame_no;
+    u64 end = calc_future_tsc(1000 * 5);
+    for (;;) {
+        if (hcca->frame_no != startframe)
+            break;
+        if (check_tsc(end)) {
+            warn_timeout();
+            return;
+        }
+        yield();
+    }
+}
+
+static void
+ohci_free_pipes(struct usb_ohci_s *cntl)
+{
+    dprintf(7, "ohci_free_pipes %p\n", cntl);
+
+    u32 creg = readl(&cntl->regs->control);
+    if (creg & (OHCI_CTRL_CLE|OHCI_CTRL_BLE)) {
+        writel(&cntl->regs->control, creg & ~(OHCI_CTRL_CLE|OHCI_CTRL_BLE));
+        ohci_waittick(cntl);
+    }
+
+    u32 *pos = &cntl->regs->ed_controlhead;
+    for (;;) {
+        struct ohci_ed *next = (void*)*pos;
+        if (!next)
+            break;
+        struct ohci_pipe *pipe = container_of(next, struct ohci_pipe, ed);
+        if (pipe->pipe.cntl != &cntl->usb) {
+            *pos = next->hwNextED;
+            free(pipe);
+        } else {
+            pos = &next->hwNextED;
+        }
+    }
+
+    writel(&cntl->regs->ed_controlcurrent, 0);
+    writel(&cntl->regs->ed_bulkcurrent, 0);
+    writel(&cntl->regs->control, creg);
+    cntl->usb.freelist = NULL;
+}
+
 static int
 start_ohci(struct usb_ohci_s *cntl, struct ohci_hcca *hcca)
 {
@@ -192,6 +250,7 @@ configure_ohci(void *data)
 
     int count = check_ohci_ports(cntl);
     free_pipe(cntl->usb.defaultpipe);
+    ohci_free_pipes(cntl);
     if (! count)
         goto err;
     return;
@@ -260,74 +319,13 @@ wait_ed(struct ohci_ed *ed)
     }
 }
 
-// Wait for next USB frame to start - for ensuring safe memory release.
-static void
-ohci_waittick(struct usb_ohci_s *cntl)
-{
-    barrier();
-    struct ohci_hcca *hcca = (void*)cntl->regs->hcca;
-    u32 startframe = hcca->frame_no;
-    u64 end = calc_future_tsc(1000 * 5);
-    for (;;) {
-        if (hcca->frame_no != startframe)
-            break;
-        if (check_tsc(end)) {
-            warn_timeout();
-            return;
-        }
-        yield();
-    }
-}
-
-static void
-signal_freelist(struct usb_ohci_s *cntl)
-{
-    u32 v = readl(&cntl->regs->control);
-    if (v & OHCI_CTRL_CLE) {
-        writel(&cntl->regs->control, v & ~(OHCI_CTRL_CLE|OHCI_CTRL_BLE));
-        ohci_waittick(cntl);
-        writel(&cntl->regs->ed_controlcurrent, 0);
-        writel(&cntl->regs->ed_bulkcurrent, 0);
-        writel(&cntl->regs->control, v);
-    } else {
-        ohci_waittick(cntl);
-    }
-}
-
-struct ohci_pipe {
-    struct ohci_ed ed;
-    struct usb_pipe pipe;
-    void *data;
-    int count;
-    struct ohci_td *tds;
-};
-
 void
-ohci_free_pipe(struct usb_pipe *p)
+ohci_free_pipe(struct usb_pipe *pipe)
 {
-    if (! CONFIG_USB_OHCI)
-        return;
-    dprintf(7, "ohci_free_pipe %p\n", p);
-    struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-    struct usb_ohci_s *cntl = container_of(
-        pipe->pipe.cntl, struct usb_ohci_s, usb);
-
-    u32 *pos = &cntl->regs->ed_controlhead;
-    for (;;) {
-        struct ohci_ed *next = (void*)*pos;
-        if (!next) {
-            // Not found?!  Exit without freeing.
-            warn_internalerror();
-            return;
-        }
-        if (next == &pipe->ed) {
-            *pos = next->hwNextED;
-            signal_freelist(cntl);
-            free(pipe);
-            return;
-        }
-        pos = &next->hwNextED;
-    }
+    // Add to controller's free list.
+    struct usb_s *cntl = pipe->cntl;
+    pipe->freenext = cntl->freelist;
+    cntl->freelist = pipe;
 }
 
 struct usb_pipe *
@@ -339,7 +337,17 @@ ohci_alloc_control_pipe(struct usb_pipe *dummy)
         dummy->cntl, struct usb_ohci_s, usb);
     dprintf(7, "ohci_alloc_control_pipe %p\n", &cntl->usb);
 
-    // Allocate a queue head.
+    if (cntl->usb.freelist) {
+        // Use previously allocated queue head.
+        struct ohci_pipe *pipe = container_of(cntl->usb.freelist
+                                              , struct ohci_pipe, pipe);
+        cntl->usb.freelist = pipe->pipe.freenext;
+
+        memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+        return &pipe->pipe;
+    }
+
+    // Allocate a new queue head.
     struct ohci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
     if (!pipe) {
         warn_noalloc();
