@@ -26,6 +26,14 @@ struct usb_ehci_s {
     int legacycount;
 };
 
+struct ehci_pipe {
+    struct ehci_qh qh;
+    struct ehci_qtd *next_td, *tds;
+    void *data;
+    struct usb_pipe pipe;
+    u8 iscontrol;
+};
+
 
 /****************************************************************
  * Root hub
@@ -169,6 +177,76 @@ check_ehci_ports(struct usb_ehci_s *cntl)
  * Setup
  ****************************************************************/
 
+// Wait for next USB async frame to start - for ensuring safe memory release.
+static void
+ehci_waittick(struct usb_ehci_s *cntl)
+{
+    if (MODE16) {
+        msleep(10);
+        return;
+    }
+    // Wait for access to "doorbell"
+    barrier();
+    u32 cmd, sts;
+    u64 end = calc_future_tsc(100);
+    for (;;) {
+        sts = readl(&cntl->regs->usbsts);
+        if (!(sts & STS_IAA)) {
+            cmd = readl(&cntl->regs->usbcmd);
+            if (!(cmd & CMD_IAAD))
+                break;
+        }
+        if (check_tsc(end)) {
+            warn_timeout();
+            return;
+        }
+        yield();
+    }
+    // Ring "doorbell"
+    writel(&cntl->regs->usbcmd, cmd | CMD_IAAD);
+    // Wait for completion
+    for (;;) {
+        sts = readl(&cntl->regs->usbsts);
+        if (sts & STS_IAA)
+            break;
+        if (check_tsc(end)) {
+            warn_timeout();
+            return;
+        }
+        yield();
+    }
+    // Ack completion
+    writel(&cntl->regs->usbsts, STS_IAA);
+}
+
+static void
+ehci_free_pipes(struct usb_ehci_s *cntl)
+{
+    dprintf(7, "ehci_free_pipes %p\n", cntl);
+
+    struct ehci_qh *start = cntl->async_qh;
+    struct ehci_qh *pos = start;
+    for (;;) {
+        struct ehci_qh *next = (void*)(pos->next & ~EHCI_PTR_BITS);
+        if (next == start)
+            break;
+        struct ehci_pipe *pipe = container_of(next, struct ehci_pipe, qh);
+        if (pipe->pipe.cntl != &cntl->usb)
+            pos->next = next->next;
+        else
+            pos = next;
+    }
+    ehci_waittick(cntl);
+    for (;;) {
+        struct usb_pipe *usbpipe = cntl->usb.freelist;
+        if (!usbpipe)
+            break;
+        cntl->usb.freelist = usbpipe->freenext;
+        struct ehci_pipe *pipe = container_of(usbpipe, struct ehci_pipe, pipe);
+        free(pipe);
+    }
+}
+
 static void
 configure_ehci(void *data)
 {
@@ -233,6 +311,7 @@ configure_ehci(void *data)
     // Find devices
     int count = check_ehci_ports(cntl);
     free_pipe(cntl->usb.defaultpipe);
+    ehci_free_pipes(cntl);
     if (count)
         // Success
         return;
@@ -303,55 +382,6 @@ ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
  * End point communication
  ****************************************************************/
 
-struct ehci_pipe {
-    struct ehci_qh qh;
-    struct ehci_qtd *next_td, *tds;
-    void *data;
-    struct usb_pipe pipe;
-};
-
-// Wait for next USB async frame to start - for ensuring safe memory release.
-static void
-ehci_waittick(struct usb_ehci_s *cntl)
-{
-    if (MODE16) {
-        msleep(10);
-        return;
-    }
-    // Wait for access to "doorbell"
-    barrier();
-    u32 cmd, sts;
-    u64 end = calc_future_tsc(100);
-    for (;;) {
-        sts = readl(&cntl->regs->usbsts);
-        if (!(sts & STS_IAA)) {
-            cmd = readl(&cntl->regs->usbcmd);
-            if (!(cmd & CMD_IAAD))
-                break;
-        }
-        if (check_tsc(end)) {
-            warn_timeout();
-            return;
-        }
-        yield();
-    }
-    // Ring "doorbell"
-    writel(&cntl->regs->usbcmd, cmd | CMD_IAAD);
-    // Wait for completion
-    for (;;) {
-        sts = readl(&cntl->regs->usbsts);
-        if (sts & STS_IAA)
-            break;
-        if (check_tsc(end)) {
-            warn_timeout();
-            return;
-        }
-        yield();
-    }
-    // Ack completion
-    writel(&cntl->regs->usbsts, STS_IAA);
-}
-
 static void
 ehci_reset_pipe(struct ehci_pipe *pipe)
 {
@@ -394,45 +424,44 @@ ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
 }
 
 void
-ehci_free_pipe(struct usb_pipe *p)
+ehci_free_pipe(struct usb_pipe *pipe)
 {
     if (! CONFIG_USB_EHCI)
         return;
-    dprintf(7, "ehci_free_pipe %p\n", p);
-    struct ehci_pipe *pipe = container_of(p, struct ehci_pipe, pipe);
-    struct usb_ehci_s *cntl = container_of(
-        pipe->pipe.cntl, struct usb_ehci_s, usb);
-
-    struct ehci_qh *start = cntl->async_qh;
-    struct ehci_qh *pos = start;
-    for (;;) {
-        struct ehci_qh *next = (void*)(pos->next & ~EHCI_PTR_BITS);
-        if (next == start) {
-            // Not found?!  Exit without freeing.
-            warn_internalerror();
-            return;
-        }
-        if (next == &pipe->qh) {
-            pos->next = next->next;
-            ehci_waittick(cntl);
-            free(pipe);
-            return;
-        }
-        pos = next;
-    }
+    // Add to controller's free list.
+    struct usb_s *cntl = pipe->cntl;
+    pipe->freenext = cntl->freelist;
+    cntl->freelist = pipe;
 }
 
-struct usb_pipe *
-ehci_alloc_control_pipe(struct usb_pipe *dummy)
+static struct usb_pipe *
+ehci_alloc_pipe(struct usb_pipe *dummy, int iscontrol)
 {
     if (! CONFIG_USB_EHCI)
         return NULL;
     struct usb_ehci_s *cntl = container_of(
         dummy->cntl, struct usb_ehci_s, usb);
-    dprintf(7, "ehci_alloc_control_pipe %p\n", &cntl->usb);
+    dprintf(7, "ehci_alloc_pipe %p %d\n", &cntl->usb, iscontrol);
 
-    // Allocate a queue head.
-    struct ehci_pipe *pipe = memalign_tmphigh(EHCI_QH_ALIGN, sizeof(*pipe));
+    struct usb_pipe *freepipe = cntl->usb.freelist;
+    while (freepipe) {
+        struct ehci_pipe *pipe = container_of(cntl->usb.freelist
+                                              , struct ehci_pipe, pipe);
+        if (pipe->iscontrol == iscontrol) {
+            // Use previously allocated queue head.
+            cntl->usb.freelist = pipe->pipe.freenext;
+            memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+            return &pipe->pipe;
+        }
+        freepipe = freepipe->freenext;
+    }
+
+    // Allocate a new queue head.
+    struct ehci_pipe *pipe;
+    if (iscontrol)
+        pipe = memalign_tmphigh(EHCI_QH_ALIGN, sizeof(*pipe));
+    else
+        pipe = memalign_low(EHCI_QH_ALIGN, sizeof(*pipe));
     if (!pipe) {
         warn_noalloc();
         return NULL;
@@ -440,6 +469,7 @@ ehci_alloc_control_pipe(struct usb_pipe *dummy)
     memset(pipe, 0, sizeof(*pipe));
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
+    pipe->iscontrol = iscontrol;
 
     // Add queue head to controller list.
     struct ehci_qh *async_qh = cntl->async_qh;
@@ -447,6 +477,18 @@ ehci_alloc_control_pipe(struct usb_pipe *dummy)
     barrier();
     async_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
     return &pipe->pipe;
+}
+
+struct usb_pipe *
+ehci_alloc_control_pipe(struct usb_pipe *dummy)
+{
+    return ehci_alloc_pipe(dummy, 1);
+}
+
+struct usb_pipe *
+ehci_alloc_bulk_pipe(struct usb_pipe *dummy)
+{
+    return ehci_alloc_pipe(dummy, 0);
 }
 
 static int
@@ -544,34 +586,6 @@ ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     }
     free(tds);
     return ret;
-}
-
-struct usb_pipe *
-ehci_alloc_bulk_pipe(struct usb_pipe *dummy)
-{
-    // XXX - this func is same as alloc_control except for malloc_low
-    if (! CONFIG_USB_EHCI)
-        return NULL;
-    struct usb_ehci_s *cntl = container_of(
-        dummy->cntl, struct usb_ehci_s, usb);
-    dprintf(7, "ehci_alloc_bulk_pipe %p\n", &cntl->usb);
-
-    // Allocate a queue head.
-    struct ehci_pipe *pipe = memalign_low(EHCI_QH_ALIGN, sizeof(*pipe));
-    if (!pipe) {
-        warn_noalloc();
-        return NULL;
-    }
-    memset(pipe, 0, sizeof(*pipe));
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
-    pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
-
-    // Add queue head to controller list.
-    struct ehci_qh *async_qh = cntl->async_qh;
-    pipe->qh.next = async_qh->next;
-    barrier();
-    async_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
-    return &pipe->pipe;
 }
 
 #define STACKQTDS 4
