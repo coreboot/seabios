@@ -169,6 +169,10 @@ usb_msc_init(struct usb_pipe *pipe
     return 0;
 fail:
     dprintf(1, "Unable to configure USB MSC device.\n");
-    free(udrive_g);
+    if (udrive_g) {
+        free_pipe(udrive_g->bulkin);
+        free_pipe(udrive_g->bulkout);
+        free(udrive_g);
+    }
     return -1;
 }
