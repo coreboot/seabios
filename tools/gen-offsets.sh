@@ -1,4 +1,4 @@
-:
+#!/bin/sh
 # Extract definitions from an assembler file.  This is based on code
 # from the Linux Kernel.
 INFILE=$1
