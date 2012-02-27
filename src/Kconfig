@@ -113,6 +113,12 @@ menu "Hardware support"
         default y
         help
             Support boot from virtio-blk storage.
+    config VIRTIO_SCSI
+        depends on DRIVES && !COREBOOT
+        bool "virtio-scsi controllers"
+        default y
+        help
+            Support boot from virtio-scsi storage.
     config FLOPPY
         depends on DRIVES
         bool "Floppy controller"

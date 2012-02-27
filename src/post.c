@@ -26,6 +26,7 @@
 #include "xen.h" // xen_probe_hvm_info
 #include "ps2port.h" // ps2port_setup
 #include "virtio-blk.h" // virtio_blk_setup
+#include "virtio-scsi.h" // virtio_scsi_setup
 
 
 /****************************************************************
@@ -189,6 +190,7 @@ init_hw(void)
     cbfs_payload_setup();
     ramdisk_setup();
     virtio_blk_setup();
+    virtio_scsi_setup();
 }
 
 // Begin the boot process by invoking an int0x19 in 16bit mode.

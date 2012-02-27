@@ -279,7 +279,7 @@ map_floppy_drive(struct drive_s *drive_g)
 static int
 process_scsi_op(struct disk_op_s *op)
 {
-    if (!CONFIG_USB_MSC)
+    if (!CONFIG_VIRTIO_SCSI && !CONFIG_USB_MSC)
         return 0;
     switch (op->command) {
     case CMD_READ:
@@ -320,6 +320,7 @@ process_op(struct disk_op_s *op)
     case DTYPE_AHCI:
 	return process_ahci_op(op);
     case DTYPE_USB:
+    case DTYPE_VIRTIO_SCSI:
         return process_scsi_op(op);
     default:
         op->count = 0;

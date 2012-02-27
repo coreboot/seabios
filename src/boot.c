@@ -128,6 +128,20 @@ int bootprio_find_pci_device(struct pci_device *pci)
     return find_prio(desc);
 }
 
+int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun)
+{
+    if (!CONFIG_BOOTORDER)
+        return -1;
+    if (!pci)
+        // support only pci machine for now
+        return -1;
+    // Find scsi drive - for example: /pci@i0cf8/scsi@5/channel@0/disk@1,0
+    char desc[256], *p;
+    p = build_pci_path(desc, sizeof(desc), "*", pci);
+    snprintf(p, desc+sizeof(desc)-p, "/*@0/*@%d,%d", target, lun);
+    return find_prio(desc);
+}
+
 int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave)
 {
     if (!CONFIG_BOOTORDER)

@@ -551,7 +551,8 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     SET_INT13DPT(regs, blksize, blksize);
 
     if (size < 30 ||
-        (type != DTYPE_ATA && type != DTYPE_ATAPI && type != DTYPE_VIRTIO_BLK)) {
+        (type != DTYPE_ATA && type != DTYPE_ATAPI &&
+         type != DTYPE_VIRTIO_BLK && type != DTYPE_VIRTIO_SCSI)) {
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
     }

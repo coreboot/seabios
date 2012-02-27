@@ -12,6 +12,7 @@
 #include "ata.h" // atapi_cmd_data
 #include "ahci.h" // atapi_cmd_data
 #include "usb-msc.h" // usb_cmd_data
+#include "virtio-scsi.h" // virtio_scsi_cmd_data
 #include "boot.h" // boot_add_hd
 
 // Route command to low-level handler.
@@ -26,6 +27,8 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return usb_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_AHCI:
         return ahci_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_VIRTIO_SCSI:
+        return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;
@@ -80,7 +83,7 @@ scsi_is_ready(struct disk_op_s *op)
 int
 scsi_init_drive(struct drive_s *drive, const char *s, int prio)
 {
-    if (!CONFIG_USB_MSC)
+    if (!CONFIG_USB_MSC && !CONFIG_VIRTIO_SCSI)
         return 0;
 
     struct disk_op_s dop;
