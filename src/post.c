@@ -150,8 +150,7 @@ ram_probe(void)
         add_e820(0xfffbc000, 4*4096, E820_RESERVED);
     }
 
-    dprintf(1, "Ram Size=0x%08x (0x%08x%08x high)\n"
-            , RamSize, (u32)(RamSizeOver4G >> 32), (u32)RamSizeOver4G);
+    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
 }
 
 static void

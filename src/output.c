@@ -194,28 +194,10 @@ putsinglehex(struct putcinfo *action, u32 val)
     putc(action, val);
 }
 
-// Output an integer in hexadecimal.
+// Output an integer in hexadecimal with a specified width.
 static void
-puthex(struct putcinfo *action, u32 val, int width, int spacepad)
+puthex(struct putcinfo *action, u32 val, int width)
 {
-    if (!width) {
-        u32 tmp = val;
-        width = 1;
-        while (tmp >>= 4)
-            width++;
-    } else if (spacepad)  {
-        u32 tmp = val;
-        u32 count = 1;
-        while (tmp >>= 4)
-            count++;
-        if (width > count) {
-            count = width - count;
-            width -= count;
-            while (count--)
-                putc(action, ' ');
-        }
-    }
-
     switch (width) {
     default: putsinglehex(action, (val >> 28) & 0xf);
     case 7:  putsinglehex(action, (val >> 24) & 0xf);
@@ -226,6 +208,20 @@ puthex(struct putcinfo *action, u32 val, int width, int spacepad)
     case 2:  putsinglehex(action, (val >> 4) & 0xf);
     case 1:  putsinglehex(action, (val >> 0) & 0xf);
     }
+}
+
+// Output an integer in hexadecimal with a minimum width.
+static void
+putprettyhex(struct putcinfo *action, u32 val, int width, char padchar)
+{
+    u32 tmp = val;
+    int count = 1;
+    while (tmp >>= 4)
+        count++;
+    width -= count;
+    while (width-- > 0)
+        putc(action, padchar);
+    puthex(action, val, count);
 }
 
 static inline int
@@ -248,19 +244,25 @@ bvprintf(struct putcinfo *action, const char *fmt, va_list args)
         }
         const char *n = s+1;
         int field_width = 0;
-        int spacepad = 1;
+        char padchar = ' ';
+        u8 is64 = 0;
         for (;;) {
             c = GET_GLOBAL(*(u8*)n);
             if (!isdigit(c))
                 break;
             if (!field_width && (c == '0'))
-                spacepad = 0;
+                padchar = '0';
             else
                 field_width = field_width * 10 + c - '0';
             n++;
         }
         if (c == 'l') {
             // Ignore long format indicator
+            n++;
+            c = GET_GLOBAL(*(u8*)n);
+        }
+        if (c == 'l') {
+            is64 = 1;
             n++;
             c = GET_GLOBAL(*(u8*)n);
         }
@@ -272,6 +274,8 @@ bvprintf(struct putcinfo *action, const char *fmt, va_list args)
             break;
         case 'd':
             val = va_arg(args, s32);
+            if (is64)
+                va_arg(args, s32);
             if (val < 0) {
                 putc(action, '-');
                 val = -val;
@@ -280,17 +284,27 @@ bvprintf(struct putcinfo *action, const char *fmt, va_list args)
             break;
         case 'u':
             val = va_arg(args, s32);
+            if (is64)
+                va_arg(args, s32);
             putuint(action, val);
             break;
         case 'p':
-            /* %p always has 0x prepended */
+            val = va_arg(args, s32);
             putc(action, '0');
             putc(action, 'x');
-            field_width = 8;
-            spacepad = 0;
+            puthex(action, val, 8);
+            break;
         case 'x':
             val = va_arg(args, s32);
-            puthex(action, val, field_width, spacepad);
+            if (is64) {
+                u32 upper = va_arg(args, s32);
+                if (upper) {
+                    putprettyhex(action, upper, field_width - 8, padchar);
+                    puthex(action, val, 8);
+                    break;
+                }
+            }
+            putprettyhex(action, val, field_width, padchar);
             break;
         case 'c':
             val = va_arg(args, int);
@@ -342,7 +356,7 @@ __dprintf(const char *fmt, ...)
         if (cur != &MainThread) {
             // Show "thread id" for this debug message.
             putc_debug(&debuginfo, '|');
-            puthex(&debuginfo, (u32)cur, 8, 0);
+            puthex(&debuginfo, (u32)cur, 8);
             putc_debug(&debuginfo, '|');
             putc_debug(&debuginfo, ' ');
         }
@@ -444,12 +458,12 @@ hexdump(const void *d, int len)
     while (len > 0) {
         if (count % 8 == 0) {
             putc(&debuginfo, '\n');
-            puthex(&debuginfo, count*4, 8, 0);
+            puthex(&debuginfo, count*4, 8);
             putc(&debuginfo, ':');
         } else {
             putc(&debuginfo, ' ');
         }
-        puthex(&debuginfo, *(u32*)d, 8, 0);
+        puthex(&debuginfo, *(u32*)d, 8);
         count++;
         len-=4;
         d+=4;
