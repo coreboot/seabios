@@ -1260,6 +1260,7 @@ vga_post(struct bregs *regs)
     // Fixup checksum
     extern u8 _rom_header_size, _rom_header_checksum;
     SET_VGA(_rom_header_checksum, 0);
-    u8 sum = -checksum_far(get_global_seg(), 0, _rom_header_size * 512);
+    u8 sum = -checksum_far(get_global_seg(), 0,
+                           GET_GLOBAL(_rom_header_size) * 512);
     SET_VGA(_rom_header_checksum, sum);
 }
