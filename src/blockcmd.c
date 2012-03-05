@@ -137,19 +137,29 @@ scsi_init_drive(struct drive_s *drive, const char *s, int prio)
     dprintf(1, "%s blksize=%d sectors=%d\n"
             , s, drive->blksize, (unsigned)drive->sectors);
 
-    struct cdbres_mode_sense_geom geomdata;
-    ret = cdb_mode_sense_geom(&dop, &geomdata);
-    if (ret == 0) {
-        u32 cylinders;
-        cylinders = geomdata.cyl[0] << 16;
-        cylinders |= geomdata.cyl[1] << 8;
-        cylinders |= geomdata.cyl[2];
-        if (cylinders && geomdata.heads &&
-            drive->sectors <= 0xFFFFFFFFULL &&
-            ((u32)drive->sectors % (geomdata.heads * cylinders) == 0)) {
-            drive->pchs.cylinders = cylinders;
-            drive->pchs.heads = geomdata.heads;
-            drive->pchs.spt = (u32)drive->sectors / (geomdata.heads * cylinders);
+    // We do not recover from USB stalls, so try to be safe and avoid
+    // sending the command if the (obsolete, but still provided by QEMU)
+    // fixed disk geometry page may not be supported.
+    //
+    // We could also send the command only to small disks (e.g. <504MiB)
+    // but some old USB keys only support a very small subset of SCSI which
+    // does not even include the MODE SENSE command!
+    //
+    if (! CONFIG_COREBOOT && memcmp(vendor, "QEMU    ", 8) == 0) {
+        struct cdbres_mode_sense_geom geomdata;
+        ret = cdb_mode_sense_geom(&dop, &geomdata);
+        if (ret == 0) {
+            u32 cylinders;
+            cylinders = geomdata.cyl[0] << 16;
+            cylinders |= geomdata.cyl[1] << 8;
+            cylinders |= geomdata.cyl[2];
+            if (cylinders && geomdata.heads &&
+                drive->sectors <= 0xFFFFFFFFULL &&
+                ((u32)drive->sectors % (geomdata.heads * cylinders) == 0)) {
+                drive->pchs.cylinders = cylinders;
+                drive->pchs.heads = geomdata.heads;
+                drive->pchs.spt = (u32)drive->sectors / (geomdata.heads * cylinders);
+            }
         }
     }
 
