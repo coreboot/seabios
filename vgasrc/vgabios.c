@@ -510,10 +510,15 @@ handle_1008(struct bregs *regs)
 static void noinline
 write_chars(u8 page, struct carattr ca, u16 count)
 {
+    u16 nbcols = GET_BDA(video_cols);
     struct cursorpos cp = get_cursor_pos(page);
     while (count--) {
         vgafb_write_char(cp, ca);
         cp.x++;
+        if (cp.x >= nbcols) {
+            cp.x -= nbcols;
+            cp.y++;
+        }
     }
 }
 
