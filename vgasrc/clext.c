@@ -526,7 +526,7 @@ ASM16(
     "a0h_callback:"
     "cli\n"
     "hlt\n"
-    "retf");
+    "lretw");
 
 static void
 clext_1012a0(struct bregs *regs)
