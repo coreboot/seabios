@@ -60,6 +60,7 @@ export HOSTCC             := $(CC)
 export CONFIG_SHELL       := sh
 export KCONFIG_AUTOHEADER := autoconf.h
 export KCONFIG_CONFIG     := $(CURDIR)/.config
+AS=as
 OBJCOPY=objcopy
 OBJDUMP=objdump
 STRIP=strip
@@ -193,7 +194,12 @@ SRCVGA=src/output.c src/util.c src/pci.c \
 
 CFLAGS16VGA = $(CFLAGS16INC) -Isrc
 
-$(OUT)vgaccode16.o: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16VGA), $(SRCVGA),$@)
+$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16VGA) -S, $(SRCVGA),$@)
+
+$(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s
+	@echo "  Fixup VGA rom assembler"
+	$(Q)$(PYTHON) ./tools/vgafixup.py $< $(OUT)vgaccode16.s
+	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.s -o $@
 
 $(OUT)vgaentry.o: vgaentry.S $(OUT)autoconf.h
 	@echo "  Compiling (16bit) $@"
