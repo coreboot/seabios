@@ -246,19 +246,16 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     if (cntl->maxaddr >= USB_MAXADDR)
         return NULL;
 
-    struct usb_pipe *defpipe = cntl->defaultpipe;
-    if (!defpipe) {
-        // Create a pipe for the default address.
-        struct usb_pipe dummy;
-        memset(&dummy, 0, sizeof(dummy));
-        dummy.cntl = cntl;
-        dummy.type = cntl->type;
-        dummy.maxpacket = 8;
-        dummy.path = (u64)-1;
-        cntl->defaultpipe = defpipe = alloc_default_control_pipe(&dummy);
-        if (!defpipe)
-            return NULL;
-    }
+    // Create a pipe for the default address.
+    struct usb_pipe dummy;
+    memset(&dummy, 0, sizeof(dummy));
+    dummy.cntl = cntl;
+    dummy.type = cntl->type;
+    dummy.maxpacket = 8;
+    dummy.path = (u64)-1;
+    struct usb_pipe *defpipe = alloc_default_control_pipe(&dummy);
+    if (!defpipe)
+        return NULL;
     defpipe->speed = speed;
     if (hub->pipe) {
         if (hub->pipe->speed == USB_HIGHSPEED) {
@@ -271,6 +268,9 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     } else {
         defpipe->tt_devaddr = defpipe->tt_port = 0;
     }
+    if (hub->pipe)
+        defpipe->path = hub->pipe->path;
+    defpipe->path = (defpipe->path << 8) | port;
 
     msleep(USB_TIME_RSTRCY);
 
@@ -281,19 +281,16 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     req.wIndex = 0;
     req.wLength = 0;
     int ret = send_default_control(defpipe, &req, NULL);
-    if (ret)
+    if (ret) {
+        free_pipe(defpipe);
         return NULL;
+    }
 
     msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
     defpipe->devaddr = cntl->maxaddr;
-    struct usb_pipe *pipe = alloc_default_control_pipe(defpipe);
-    defpipe->devaddr = 0;
-    if (hub->pipe)
-        pipe->path = hub->pipe->path;
-    pipe->path = (pipe->path << 8) | port;
-    return pipe;
+    return defpipe;
 }
 
 // Called for every found device - see if a driver is available for

@@ -22,7 +22,6 @@ struct usb_pipe {
 
 // Common information for usb controllers.
 struct usb_s {
-    struct usb_pipe *defaultpipe;
     struct usb_pipe *freelist;
     struct mutex_s resetlock;
     struct pci_device *pci;

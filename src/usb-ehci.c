@@ -310,7 +310,6 @@ configure_ehci(void *data)
 
     // Find devices
     int count = check_ehci_ports(cntl);
-    free_pipe(cntl->usb.defaultpipe);
     ehci_free_pipes(cntl);
     if (count)
         // Success

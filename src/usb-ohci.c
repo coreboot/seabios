@@ -249,7 +249,6 @@ configure_ohci(void *data)
         goto err;
 
     int count = check_ohci_ports(cntl);
-    free_pipe(cntl->usb.defaultpipe);
     ohci_free_pipes(cntl);
     if (! count)
         goto err;

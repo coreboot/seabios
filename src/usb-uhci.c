@@ -220,7 +220,6 @@ configure_uhci(void *data)
 
     // Find devices
     int count = check_uhci_ports(cntl);
-    free_pipe(cntl->usb.defaultpipe);
     uhci_free_pipes(cntl);
     if (count)
         // Success
