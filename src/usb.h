@@ -21,6 +21,14 @@ struct usb_pipe {
     u8 eptype;
 };
 
+// Common information for usb devices.
+struct usbdevice_s {
+    struct usbhub_s *hub;
+    struct usb_pipe *defpipe;
+    u32 port;
+    u8 speed;
+};
+
 // Common information for usb controllers.
 struct usb_s {
     struct usb_pipe *freelist;

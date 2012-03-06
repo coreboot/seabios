@@ -245,14 +245,15 @@ set_configuration(struct usb_pipe *pipe, u16 val)
 
 // Assign an address to a device in the default state on the given
 // controller.
-static struct usb_pipe *
-usb_set_address(struct usbhub_s *hub, int port, int speed)
+static int
+usb_set_address(struct usbdevice_s *usbdev)
 {
     ASSERT32FLAT();
+    struct usbhub_s *hub = usbdev->hub;
     struct usb_s *cntl = hub->cntl;
     dprintf(3, "set_address %p\n", cntl);
     if (cntl->maxaddr >= USB_MAXADDR)
-        return NULL;
+        return -1;
 
     // Create a pipe for the default address.
     struct usb_pipe dummy;
@@ -264,12 +265,13 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     dummy.eptype = USB_ENDPOINT_XFER_CONTROL;
     struct usb_pipe *defpipe = alloc_async_pipe(&dummy);
     if (!defpipe)
-        return NULL;
-    defpipe->speed = speed;
+        return -1;
+    usbdev->defpipe = defpipe;
+    defpipe->speed = usbdev->speed;
     if (hub->pipe) {
         if (hub->pipe->speed == USB_HIGHSPEED) {
             defpipe->tt_devaddr = hub->pipe->devaddr;
-            defpipe->tt_port = port;
+            defpipe->tt_port = usbdev->port;
         } else {
             defpipe->tt_devaddr = hub->pipe->tt_devaddr;
             defpipe->tt_port = hub->pipe->tt_port;
@@ -279,7 +281,7 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     }
     if (hub->pipe)
         defpipe->path = hub->pipe->path;
-    defpipe->path = (defpipe->path << 8) | port;
+    defpipe->path = (defpipe->path << 8) | usbdev->port;
 
     msleep(USB_TIME_RSTRCY);
 
@@ -292,22 +294,23 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     int ret = send_default_control(defpipe, &req, NULL);
     if (ret) {
         free_pipe(defpipe);
-        return NULL;
+        return -1;
     }
 
     msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
     defpipe->devaddr = cntl->maxaddr;
-    return defpipe;
+    return 0;
 }
 
 // Called for every found device - see if a driver is available for
 // this device and do setup if so.
 static int
-configure_usb_device(struct usb_pipe *pipe)
+configure_usb_device(struct usbdevice_s *usbdev)
 {
     ASSERT32FLAT();
+    struct usb_pipe *pipe = usbdev->defpipe;
     dprintf(3, "config_usb: %p\n", pipe);
 
     // Set the max packet size for endpoint 0 of this device.
@@ -362,8 +365,9 @@ fail:
 static void
 usb_init_hub_port(void *data)
 {
-    struct usbhub_s *hub = data;
-    u32 port = hub->port; // XXX - find better way to pass port
+    struct usbdevice_s *usbdev = data;
+    struct usbhub_s *hub = usbdev->hub;
+    u32 port = usbdev->port;
 
     // Detect if device present (and possibly start reset)
     int ret = hub->op->detect(hub, port);
@@ -377,23 +381,25 @@ usb_init_hub_port(void *data)
     if (ret < 0)
         // Reset failed
         goto resetfail;
+    usbdev->speed = ret;
 
     // Set address of port
-    struct usb_pipe *pipe = usb_set_address(hub, port, ret);
-    if (!pipe) {
+    ret = usb_set_address(usbdev);
+    if (ret) {
         hub->op->disconnect(hub, port);
         goto resetfail;
     }
     mutex_unlock(&hub->cntl->resetlock);
 
     // Configure the device
-    int count = configure_usb_device(pipe);
-    free_pipe(pipe);
+    int count = configure_usb_device(usbdev);
+    free_pipe(usbdev->defpipe);
     if (!count)
         hub->op->disconnect(hub, port);
     hub->devcount += count;
 done:
     hub->threads--;
+    free(usbdev);
     return;
 
 resetfail:
@@ -410,8 +416,15 @@ usb_enumerate(struct usbhub_s *hub)
     // Launch a thread for every port.
     int i;
     for (i=0; i<portcount; i++) {
-        hub->port = i;
-        run_thread(usb_init_hub_port, hub);
+        struct usbdevice_s *usbdev = malloc_tmphigh(sizeof(*usbdev));
+        if (!usbdev) {
+            warn_noalloc();
+            continue;
+        }
+        memset(usbdev, 0, sizeof(*usbdev));
+        usbdev->hub = hub;
+        usbdev->port = i;
+        run_thread(usb_init_hub_port, usbdev);
     }
 
     // Wait for threads to complete.
