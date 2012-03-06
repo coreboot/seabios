@@ -423,17 +423,6 @@ ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
     return 0;
 }
 
-void
-ehci_free_pipe(struct usb_pipe *pipe)
-{
-    if (! CONFIG_USB_EHCI)
-        return;
-    // Add to controller's free list.
-    struct usb_s *cntl = pipe->cntl;
-    pipe->freenext = cntl->freelist;
-    cntl->freelist = pipe;
-}
-
 static struct usb_pipe *
 ehci_alloc_pipe(struct usb_pipe *dummy, int iscontrol)
 {

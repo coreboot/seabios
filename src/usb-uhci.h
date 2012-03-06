@@ -4,7 +4,6 @@
 // usb-uhci.c
 void uhci_init(struct pci_device *pci, int busid);
 struct usb_pipe;
-void uhci_free_pipe(struct usb_pipe *p);
 struct usb_pipe *uhci_alloc_control_pipe(struct usb_pipe *dummy);
 int uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);

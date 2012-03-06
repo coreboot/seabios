@@ -319,15 +319,6 @@ wait_ed(struct ohci_ed *ed)
     }
 }
 
-void
-ohci_free_pipe(struct usb_pipe *pipe)
-{
-    // Add to controller's free list.
-    struct usb_s *cntl = pipe->cntl;
-    pipe->freenext = cntl->freelist;
-    cntl->freelist = pipe;
-}
-
 struct usb_pipe *
 ohci_alloc_control_pipe(struct usb_pipe *dummy)
 {

@@ -294,17 +294,6 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
     }
 }
 
-void
-uhci_free_pipe(struct usb_pipe *pipe)
-{
-    if (! CONFIG_USB_UHCI)
-        return;
-    // Add to controller's free list.
-    struct usb_s *cntl = pipe->cntl;
-    pipe->freenext = cntl->freelist;
-    cntl->freelist = pipe;
-}
-
 static struct usb_pipe *
 uhci_alloc_pipe(struct usb_pipe *dummy, int iscontrol)
 {

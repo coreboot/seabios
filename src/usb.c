@@ -30,15 +30,10 @@ free_pipe(struct usb_pipe *pipe)
     ASSERT32FLAT();
     if (!pipe)
         return;
-    switch (pipe->type) {
-    default:
-    case USB_TYPE_UHCI:
-        return uhci_free_pipe(pipe);
-    case USB_TYPE_OHCI:
-        return ohci_free_pipe(pipe);
-    case USB_TYPE_EHCI:
-        return ehci_free_pipe(pipe);
-    }
+    // Add to controller's free list.
+    struct usb_s *cntl = pipe->cntl;
+    pipe->freenext = cntl->freelist;
+    cntl->freelist = pipe;
 }
 
 // Allocate a control pipe to a default endpoint (which can only be
