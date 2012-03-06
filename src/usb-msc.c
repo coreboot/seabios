@@ -11,7 +11,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // cdb_read
 #include "disk.h" // DTYPE_USB
-#include "boot.h" // boot_add_hd
+#include "boot.h" // bootprio_find_usb
 
 struct usbdrive_s {
     struct drive_s drive;

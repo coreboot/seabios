@@ -12,6 +12,7 @@
 #include "ata.h" // atapi_cmd_data
 #include "ahci.h" // atapi_cmd_data
 #include "usb-msc.h" // usb_cmd_data
+#include "boot.h" // boot_add_hd
 
 // Route command to low-level handler.
 static int
