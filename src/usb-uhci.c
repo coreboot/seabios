@@ -26,7 +26,6 @@ struct uhci_pipe {
     struct usb_pipe pipe;
     u16 iobase;
     u8 toggle;
-    u8 iscontrol;
 };
 
 
@@ -293,31 +292,18 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
     }
 }
 
-static struct usb_pipe *
-uhci_alloc_pipe(struct usb_pipe *dummy, int iscontrol)
+struct usb_pipe *
+uhci_alloc_async_pipe(struct usb_pipe *dummy)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
     struct usb_uhci_s *cntl = container_of(
         dummy->cntl, struct usb_uhci_s, usb);
-    dprintf(7, "uhci_alloc_pipe %p %d\n", &cntl->usb, iscontrol);
-
-    struct usb_pipe *freepipe = cntl->usb.freelist;
-    while (freepipe) {
-        struct uhci_pipe *pipe = container_of(cntl->usb.freelist
-                                              , struct uhci_pipe, pipe);
-        if (pipe->iscontrol == iscontrol) {
-            // Use previously allocated queue head.
-            cntl->usb.freelist = pipe->pipe.freenext;
-            memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
-            return &pipe->pipe;
-        }
-        freepipe = freepipe->freenext;
-    }
+    dprintf(7, "uhci_alloc_async_pipe %p %d\n", &cntl->usb, dummy->eptype);
 
     // Allocate a new queue head.
     struct uhci_pipe *pipe;
-    if (iscontrol)
+    if (dummy->eptype == USB_ENDPOINT_XFER_CONTROL)
         pipe = malloc_tmphigh(sizeof(*pipe));
     else
         pipe = malloc_low(sizeof(*pipe));
@@ -329,28 +315,15 @@ uhci_alloc_pipe(struct usb_pipe *dummy, int iscontrol)
     memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
     pipe->qh.element = UHCI_PTR_TERM;
     pipe->iobase = cntl->iobase;
-    pipe->iscontrol = iscontrol;
 
     // Add queue head to controller list.
     struct uhci_qh *control_qh = cntl->control_qh;
     pipe->qh.link = control_qh->link;
     barrier();
     control_qh->link = (u32)&pipe->qh | UHCI_PTR_QH;
-    if (iscontrol)
+    if (dummy->eptype == USB_ENDPOINT_XFER_CONTROL)
         cntl->control_qh = &pipe->qh;
     return &pipe->pipe;
-}
-
-struct usb_pipe *
-uhci_alloc_control_pipe(struct usb_pipe *dummy)
-{
-    return uhci_alloc_pipe(dummy, 1);
-}
-
-struct usb_pipe *
-uhci_alloc_bulk_pipe(struct usb_pipe *dummy)
-{
-    return uhci_alloc_pipe(dummy, 0);
 }
 
 int

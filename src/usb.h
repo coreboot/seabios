@@ -18,6 +18,7 @@ struct usb_pipe {
     u16 maxpacket;
     u8 tt_devaddr;
     u8 tt_port;
+    u8 eptype;
 };
 
 // Common information for usb controllers.

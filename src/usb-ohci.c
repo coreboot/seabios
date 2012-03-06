@@ -319,23 +319,17 @@ wait_ed(struct ohci_ed *ed)
 }
 
 struct usb_pipe *
-ohci_alloc_control_pipe(struct usb_pipe *dummy)
+ohci_alloc_async_pipe(struct usb_pipe *dummy)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
+    if (dummy->eptype != USB_ENDPOINT_XFER_CONTROL) {
+        dprintf(1, "OHCI Bulk transfers not supported.\n");
+        return NULL;
+    }
     struct usb_ohci_s *cntl = container_of(
         dummy->cntl, struct usb_ohci_s, usb);
-    dprintf(7, "ohci_alloc_control_pipe %p\n", &cntl->usb);
-
-    if (cntl->usb.freelist) {
-        // Use previously allocated queue head.
-        struct ohci_pipe *pipe = container_of(cntl->usb.freelist
-                                              , struct ohci_pipe, pipe);
-        cntl->usb.freelist = pipe->pipe.freenext;
-
-        memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
-        return &pipe->pipe;
-    }
+    dprintf(7, "ohci_alloc_async_pipe %p\n", &cntl->usb);
 
     // Allocate a new queue head.
     struct ohci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
@@ -413,15 +407,6 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         ohci_waittick(cntl);
     free(tds);
     return ret;
-}
-
-struct usb_pipe *
-ohci_alloc_bulk_pipe(struct usb_pipe *dummy)
-{
-    if (! CONFIG_USB_OHCI)
-        return NULL;
-    dprintf(1, "OHCI Bulk transfers not supported.\n");
-    return NULL;
 }
 
 int

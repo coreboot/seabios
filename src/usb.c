@@ -36,19 +36,34 @@ free_pipe(struct usb_pipe *pipe)
     cntl->freelist = pipe;
 }
 
-// Allocate a control pipe to a default endpoint (which can only be
-// used by 32bit code)
+// Allocate an async pipe (control or bulk).
 static struct usb_pipe *
-alloc_default_control_pipe(struct usb_pipe *dummy)
+alloc_async_pipe(struct usb_pipe *dummy)
 {
+    // Check for an available pipe on the freelist.
+    struct usb_pipe **pfree = &dummy->cntl->freelist;
+    for (;;) {
+        struct usb_pipe *pipe = *pfree;
+        if (!pipe)
+            break;
+        if (pipe->eptype == dummy->eptype) {
+            // Use previously allocated pipe.
+            *pfree = pipe->freenext;
+            memcpy(pipe, dummy, sizeof(*pipe));
+            return pipe;
+        }
+        pfree = &pipe->freenext;
+    }
+
+    // Allocate a new pipe.
     switch (dummy->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_control_pipe(dummy);
+        return uhci_alloc_async_pipe(dummy);
     case USB_TYPE_OHCI:
-        return ohci_alloc_control_pipe(dummy);
+        return ohci_alloc_async_pipe(dummy);
     case USB_TYPE_EHCI:
-        return ehci_alloc_control_pipe(dummy);
+        return ehci_alloc_async_pipe(dummy);
     }
 }
 
@@ -84,15 +99,8 @@ alloc_bulk_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 {
     struct usb_pipe dummy;
     desc2pipe(&dummy, pipe, epdesc);
-    switch (pipe->type) {
-    default:
-    case USB_TYPE_UHCI:
-        return uhci_alloc_bulk_pipe(&dummy);
-    case USB_TYPE_OHCI:
-        return ohci_alloc_bulk_pipe(&dummy);
-    case USB_TYPE_EHCI:
-        return ehci_alloc_bulk_pipe(&dummy);
-    }
+    dummy.eptype = USB_ENDPOINT_XFER_BULK;
+    return alloc_async_pipe(&dummy);
 }
 
 int
@@ -253,7 +261,8 @@ usb_set_address(struct usbhub_s *hub, int port, int speed)
     dummy.type = cntl->type;
     dummy.maxpacket = 8;
     dummy.path = (u64)-1;
-    struct usb_pipe *defpipe = alloc_default_control_pipe(&dummy);
+    dummy.eptype = USB_ENDPOINT_XFER_CONTROL;
+    struct usb_pipe *defpipe = alloc_async_pipe(&dummy);
     if (!defpipe)
         return NULL;
     defpipe->speed = speed;
