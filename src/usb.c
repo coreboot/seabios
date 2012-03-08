@@ -36,34 +36,66 @@ free_pipe(struct usb_pipe *pipe)
     cntl->freelist = pipe;
 }
 
-// Allocate an async pipe (control or bulk).
-static struct usb_pipe *
-alloc_async_pipe(struct usb_pipe *dummy)
+// Fill "pipe" endpoint info from an endpoint descriptor.
+static void
+desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
+          , struct usb_endpoint_descriptor *epdesc)
 {
+    memset(pipe, 0, sizeof(*pipe));
+    pipe->cntl = usbdev->hub->cntl;
+    pipe->type = usbdev->hub->cntl->type;
+    pipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+    pipe->devaddr = usbdev->devaddr;
+    pipe->speed = usbdev->speed;
+    pipe->maxpacket = epdesc->wMaxPacketSize;
+    pipe->eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+
+    struct usbdevice_s *hubdev = usbdev->hub->usbdev;
+    if (hubdev) {
+        if (hubdev->defpipe->speed == USB_HIGHSPEED) {
+            pipe->tt_devaddr = usbdev->devaddr;
+            pipe->tt_port = usbdev->port;
+        } else {
+            pipe->tt_devaddr = hubdev->defpipe->tt_devaddr;
+            pipe->tt_port = hubdev->defpipe->tt_port;
+        }
+    } else {
+        pipe->tt_devaddr = pipe->tt_port = 0;
+    }
+}
+
+// Allocate an async pipe (control or bulk).
+struct usb_pipe *
+alloc_async_pipe(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
+{
+    struct usb_pipe dummy;
+    desc2pipe(&dummy, usbdev, epdesc);
+
     // Check for an available pipe on the freelist.
-    struct usb_pipe **pfree = &dummy->cntl->freelist;
+    struct usb_pipe **pfree = &dummy.cntl->freelist;
     for (;;) {
         struct usb_pipe *pipe = *pfree;
         if (!pipe)
             break;
-        if (pipe->eptype == dummy->eptype) {
+        if (pipe->eptype == dummy.eptype) {
             // Use previously allocated pipe.
             *pfree = pipe->freenext;
-            memcpy(pipe, dummy, sizeof(*pipe));
+            memcpy(pipe, &dummy, sizeof(*pipe));
             return pipe;
         }
         pfree = &pipe->freenext;
     }
 
     // Allocate a new pipe.
-    switch (dummy->type) {
+    switch (dummy.type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_async_pipe(dummy);
+        return uhci_alloc_async_pipe(&dummy);
     case USB_TYPE_OHCI:
-        return ohci_alloc_async_pipe(dummy);
+        return ohci_alloc_async_pipe(&dummy);
     case USB_TYPE_EHCI:
-        return ehci_alloc_async_pipe(dummy);
+        return ehci_alloc_async_pipe(&dummy);
     }
 }
 
@@ -82,26 +114,6 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
     case USB_TYPE_EHCI:
         return ehci_control(pipe, dir, cmd, cmdsize, data, datasize);
     }
-}
-
-// Fill "pipe" endpoint info from an endpoint descriptor.
-static void
-desc2pipe(struct usb_pipe *newpipe, struct usbdevice_s *usbdev
-          , struct usb_endpoint_descriptor *epdesc)
-{
-    memcpy(newpipe, usbdev->defpipe, sizeof(*newpipe));
-    newpipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
-    newpipe->maxpacket = epdesc->wMaxPacketSize;
-}
-
-struct usb_pipe *
-alloc_bulk_pipe(struct usbdevice_s *usbdev
-                , struct usb_endpoint_descriptor *epdesc)
-{
-    struct usb_pipe dummy;
-    desc2pipe(&dummy, usbdev, epdesc);
-    dummy.eptype = USB_ENDPOINT_XFER_BULK;
-    return alloc_async_pipe(&dummy);
 }
 
 int
@@ -250,54 +262,41 @@ static int
 usb_set_address(struct usbdevice_s *usbdev)
 {
     ASSERT32FLAT();
-    struct usbhub_s *hub = usbdev->hub;
-    struct usb_s *cntl = hub->cntl;
+    struct usb_s *cntl = usbdev->hub->cntl;
     dprintf(3, "set_address %p\n", cntl);
     if (cntl->maxaddr >= USB_MAXADDR)
         return -1;
 
     // Create a pipe for the default address.
-    struct usb_pipe dummy;
-    memset(&dummy, 0, sizeof(dummy));
-    dummy.cntl = cntl;
-    dummy.type = cntl->type;
-    dummy.maxpacket = 8;
-    dummy.eptype = USB_ENDPOINT_XFER_CONTROL;
-    struct usb_pipe *defpipe = alloc_async_pipe(&dummy);
-    if (!defpipe)
+    struct usb_endpoint_descriptor epdesc = {
+        .wMaxPacketSize = 8,
+        .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
+    };
+    usbdev->defpipe = alloc_async_pipe(usbdev, &epdesc);
+    if (!usbdev->defpipe)
         return -1;
-    usbdev->defpipe = defpipe;
-    defpipe->speed = usbdev->speed;
-    if (hub->usbdev) {
-        if (hub->usbdev->defpipe->speed == USB_HIGHSPEED) {
-            defpipe->tt_devaddr = hub->usbdev->defpipe->devaddr;
-            defpipe->tt_port = usbdev->port;
-        } else {
-            defpipe->tt_devaddr = hub->usbdev->defpipe->tt_devaddr;
-            defpipe->tt_port = hub->usbdev->defpipe->tt_port;
-        }
-    } else {
-        defpipe->tt_devaddr = defpipe->tt_port = 0;
-    }
 
     msleep(USB_TIME_RSTRCY);
 
+    // Send set_address command.
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_OUT | USB_TYPE_STANDARD | USB_RECIP_DEVICE;
     req.bRequest = USB_REQ_SET_ADDRESS;
     req.wValue = cntl->maxaddr + 1;
     req.wIndex = 0;
     req.wLength = 0;
-    int ret = send_default_control(defpipe, &req, NULL);
-    if (ret) {
-        free_pipe(defpipe);
+    int ret = send_default_control(usbdev->defpipe, &req, NULL);
+    free_pipe(usbdev->defpipe);
+    if (ret)
         return -1;
-    }
 
     msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
-    defpipe->devaddr = cntl->maxaddr;
+    usbdev->devaddr = cntl->maxaddr;
+    usbdev->defpipe = alloc_async_pipe(usbdev, &epdesc);
+    if (!usbdev->defpipe)
+        return -1;
     return 0;
 }
 
@@ -307,12 +306,11 @@ static int
 configure_usb_device(struct usbdevice_s *usbdev)
 {
     ASSERT32FLAT();
-    struct usb_pipe *pipe = usbdev->defpipe;
-    dprintf(3, "config_usb: %p\n", pipe);
+    dprintf(3, "config_usb: %p\n", usbdev->defpipe);
 
     // Set the max packet size for endpoint 0 of this device.
     struct usb_device_descriptor dinfo;
-    int ret = get_device_info8(pipe, &dinfo);
+    int ret = get_device_info8(usbdev->defpipe, &dinfo);
     if (ret)
         return 0;
     dprintf(3, "device rev=%04x cls=%02x sub=%02x proto=%02x size=%02x\n"
@@ -320,10 +318,17 @@ configure_usb_device(struct usbdevice_s *usbdev)
             , dinfo.bDeviceProtocol, dinfo.bMaxPacketSize0);
     if (dinfo.bMaxPacketSize0 < 8 || dinfo.bMaxPacketSize0 > 64)
         return 0;
-    pipe->maxpacket = dinfo.bMaxPacketSize0;
+    free_pipe(usbdev->defpipe);
+    struct usb_endpoint_descriptor epdesc = {
+        .wMaxPacketSize = dinfo.bMaxPacketSize0,
+        .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
+    };
+    usbdev->defpipe = alloc_async_pipe(usbdev, &epdesc);
+    if (!usbdev->defpipe)
+        return -1;
 
     // Get configuration
-    struct usb_config_descriptor *config = get_device_config(pipe);
+    struct usb_config_descriptor *config = get_device_config(usbdev->defpipe);
     if (!config)
         return 0;
 
@@ -337,7 +342,7 @@ configure_usb_device(struct usbdevice_s *usbdev)
         goto fail;
 
     // Set the configuration.
-    ret = set_configuration(pipe, config->bConfigurationValue);
+    ret = set_configuration(usbdev->defpipe, config->bConfigurationValue);
     if (ret)
         goto fail;
 

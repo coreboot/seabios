@@ -156,8 +156,8 @@ usb_msc_init(struct usbdevice_s *usbdev)
         usbdev, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
     if (!indesc || !outdesc)
         goto fail;
-    udrive_g->bulkin = alloc_bulk_pipe(usbdev, indesc);
-    udrive_g->bulkout = alloc_bulk_pipe(usbdev, outdesc);
+    udrive_g->bulkin = alloc_async_pipe(usbdev, indesc);
+    udrive_g->bulkout = alloc_async_pipe(usbdev, outdesc);
     if (!udrive_g->bulkin || !udrive_g->bulkout)
         goto fail;
 

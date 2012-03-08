@@ -29,6 +29,7 @@ struct usbdevice_s {
     struct usb_interface_descriptor *iface;
     int imax;
     u8 speed;
+    u8 devaddr;
 };
 
 // Common information for usb controllers.
@@ -217,8 +218,8 @@ int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *re
                          , void *data);
 int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
 void free_pipe(struct usb_pipe *pipe);
-struct usb_pipe *alloc_bulk_pipe(struct usbdevice_s *usbdev
-                                 , struct usb_endpoint_descriptor *epdesc);
+struct usb_pipe *alloc_async_pipe(struct usbdevice_s *usbdev
+                                  , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe *alloc_intr_pipe(struct usbdevice_s *usbdev
                                  , struct usb_endpoint_descriptor *epdesc);
 int usb_poll_intr(struct usb_pipe *pipe, void *data);
