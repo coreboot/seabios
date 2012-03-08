@@ -10,7 +10,6 @@ struct usb_pipe {
         struct usb_s *cntl;
         struct usb_pipe *freenext;
     };
-    u64 path;
     u8 type;
     u8 ep;
     u8 devaddr;
@@ -45,7 +44,7 @@ struct usb_s {
 // Information for enumerating USB hubs
 struct usbhub_s {
     struct usbhub_op_s *op;
-    struct usb_pipe *pipe;
+    struct usbdevice_s *usbdev;
     struct usb_s *cntl;
     struct mutex_s lock;
     u32 powerwait;

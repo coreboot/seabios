@@ -19,6 +19,7 @@ int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave);
 int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid);
 int bootprio_find_pci_rom(struct pci_device *pci, int instance);
 int bootprio_find_named_rom(const char *name, int instance);
-int bootprio_find_usb(struct pci_device *pci, u64 path);
+struct usbdevice_s;
+int bootprio_find_usb(struct usbdevice_s *usbdev);
 
 #endif // __BOOT_H

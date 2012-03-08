@@ -262,27 +262,23 @@ usb_set_address(struct usbdevice_s *usbdev)
     dummy.cntl = cntl;
     dummy.type = cntl->type;
     dummy.maxpacket = 8;
-    dummy.path = (u64)-1;
     dummy.eptype = USB_ENDPOINT_XFER_CONTROL;
     struct usb_pipe *defpipe = alloc_async_pipe(&dummy);
     if (!defpipe)
         return -1;
     usbdev->defpipe = defpipe;
     defpipe->speed = usbdev->speed;
-    if (hub->pipe) {
-        if (hub->pipe->speed == USB_HIGHSPEED) {
-            defpipe->tt_devaddr = hub->pipe->devaddr;
+    if (hub->usbdev) {
+        if (hub->usbdev->defpipe->speed == USB_HIGHSPEED) {
+            defpipe->tt_devaddr = hub->usbdev->defpipe->devaddr;
             defpipe->tt_port = usbdev->port;
         } else {
-            defpipe->tt_devaddr = hub->pipe->tt_devaddr;
-            defpipe->tt_port = hub->pipe->tt_port;
+            defpipe->tt_devaddr = hub->usbdev->defpipe->tt_devaddr;
+            defpipe->tt_port = hub->usbdev->defpipe->tt_port;
         }
     } else {
         defpipe->tt_devaddr = defpipe->tt_port = 0;
     }
-    if (hub->pipe)
-        defpipe->path = hub->pipe->path;
-    defpipe->path = (defpipe->path << 8) | usbdev->port;
 
     msleep(USB_TIME_RSTRCY);
 

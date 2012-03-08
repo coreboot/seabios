@@ -31,7 +31,7 @@ set_port_feature(struct usbhub_s *hub, int port, int feature)
     req.wIndex = port + 1;
     req.wLength = 0;
     mutex_lock(&hub->lock);
-    int ret = send_default_control(hub->pipe, &req, NULL);
+    int ret = send_default_control(hub->usbdev->defpipe, &req, NULL);
     mutex_unlock(&hub->lock);
     return ret;
 }
@@ -46,7 +46,7 @@ clear_port_feature(struct usbhub_s *hub, int port, int feature)
     req.wIndex = port + 1;
     req.wLength = 0;
     mutex_lock(&hub->lock);
-    int ret = send_default_control(hub->pipe, &req, NULL);
+    int ret = send_default_control(hub->usbdev->defpipe, &req, NULL);
     mutex_unlock(&hub->lock);
     return ret;
 }
@@ -61,7 +61,7 @@ get_port_status(struct usbhub_s *hub, int port, struct usb_port_status *sts)
     req.wIndex = port + 1;
     req.wLength = sizeof(*sts);
     mutex_lock(&hub->lock);
-    int ret = send_default_control(hub->pipe, &req, sts);
+    int ret = send_default_control(hub->usbdev->defpipe, &req, sts);
     mutex_unlock(&hub->lock);
     return ret;
 }
@@ -171,7 +171,7 @@ usb_hub_init(struct usbdevice_s *usbdev)
 
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
-    hub.pipe = usbdev->defpipe;
+    hub.usbdev = usbdev;
     hub.cntl = usbdev->defpipe->cntl;
     hub.powerwait = desc.bPwrOn2PwrGood * 2;
     hub.portcount = desc.bNbrPorts;

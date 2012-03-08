@@ -161,8 +161,7 @@ usb_msc_init(struct usbdevice_s *usbdev)
     if (!udrive_g->bulkin || !udrive_g->bulkout)
         goto fail;
 
-    int prio = bootprio_find_usb(usbdev->defpipe->cntl->pci
-                                 , usbdev->defpipe->path);
+    int prio = bootprio_find_usb(usbdev);
     int ret = scsi_init_drive(&udrive_g->drive, "USB MSC", prio);
     if (ret)
         goto fail;

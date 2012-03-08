@@ -14,6 +14,7 @@
 #include "cmos.h" // inb_cmos
 #include "paravirt.h" // romfile_loadfile
 #include "pci.h" //pci_bdf_to_*
+#include "usb.h" // struct usbdevice_s
 
 
 /****************************************************************
@@ -194,20 +195,26 @@ int bootprio_find_named_rom(const char *name, int instance)
     return find_prio(desc);
 }
 
-int bootprio_find_usb(struct pci_device *pci, u64 path)
+static char *
+build_usb_path(char *buf, int max, struct usbhub_s *hub)
+{
+    if (!hub->usbdev)
+        // Root hub - nothing to add.
+        return buf;
+    char *p = build_usb_path(buf, max, hub->usbdev->hub);
+    p += snprintf(p, buf+max-p, "/hub@%x", hub->usbdev->port+1);
+    return p;
+}
+
+int bootprio_find_usb(struct usbdevice_s *usbdev)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
     // Find usb - for example: /pci@i0cf8/usb@1,2/hub@1/network@0/ethernet@0
-    int i;
     char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "usb", pci);
-    for (i=56; i>0; i-=8) {
-        int port = (path >> i) & 0xff;
-        if (port != 0xff)
-            p += snprintf(p, desc+sizeof(desc)-p, "/hub@%x", port+1);
-    }
-    snprintf(p, desc+sizeof(desc)-p, "/*@%x", (u32)(path & 0xff)+1);
+    p = build_pci_path(desc, sizeof(desc), "usb", usbdev->hub->cntl->pci);
+    p = build_usb_path(p, desc+sizeof(desc)-p, usbdev->hub);
+    snprintf(p, desc+sizeof(desc)-p, "/*@%x", usbdev->port+1);
     return find_prio(desc);
 }
 
