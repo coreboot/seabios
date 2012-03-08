@@ -124,13 +124,13 @@ fail:
 
 // Configure a usb msc device.
 int
-usb_msc_init(struct usb_pipe *pipe
-             , struct usb_interface_descriptor *iface, int imax)
+usb_msc_init(struct usbdevice_s *usbdev)
 {
     if (!CONFIG_USB_MSC)
         return -1;
 
     // Verify right kind of device
+    struct usb_interface_descriptor *iface = usbdev->iface;
     if ((iface->bInterfaceSubClass != US_SC_SCSI &&
 	 iface->bInterfaceSubClass != US_SC_ATAPI_8070 &&
 	 iface->bInterfaceSubClass != US_SC_ATAPI_8020)
@@ -151,17 +151,18 @@ usb_msc_init(struct usb_pipe *pipe
 
     // Find bulk in and bulk out endpoints.
     struct usb_endpoint_descriptor *indesc = findEndPointDesc(
-        iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_IN);
+        usbdev, USB_ENDPOINT_XFER_BULK, USB_DIR_IN);
     struct usb_endpoint_descriptor *outdesc = findEndPointDesc(
-        iface, imax, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
+        usbdev, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
     if (!indesc || !outdesc)
         goto fail;
-    udrive_g->bulkin = alloc_bulk_pipe(pipe, indesc);
-    udrive_g->bulkout = alloc_bulk_pipe(pipe, outdesc);
+    udrive_g->bulkin = alloc_bulk_pipe(usbdev, indesc);
+    udrive_g->bulkout = alloc_bulk_pipe(usbdev, outdesc);
     if (!udrive_g->bulkin || !udrive_g->bulkout)
         goto fail;
 
-    int prio = bootprio_find_usb(pipe->cntl->pci, pipe->path);
+    int prio = bootprio_find_usb(usbdev->defpipe->cntl->pci
+                                 , usbdev->defpipe->path);
     int ret = scsi_init_drive(&udrive_g->drive, "USB MSC", prio);
     if (ret)
         goto fail;

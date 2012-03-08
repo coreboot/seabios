@@ -49,7 +49,8 @@ set_idle(struct usb_pipe *pipe, int ms)
 #define KEYREPEATMS 33
 
 static int
-usb_kbd_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
+usb_kbd_init(struct usbdevice_s *usbdev
+             , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_KEYBOARD)
         return -1;
@@ -61,15 +62,15 @@ usb_kbd_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
         return -1;
 
     // Enable "boot" protocol.
-    int ret = set_protocol(pipe, 0);
+    int ret = set_protocol(usbdev->defpipe, 0);
     if (ret)
         return -1;
     // Periodically send reports to enable key repeat.
-    ret = set_idle(pipe, KEYREPEATMS);
+    ret = set_idle(usbdev->defpipe, KEYREPEATMS);
     if (ret)
         return -1;
 
-    keyboard_pipe = alloc_intr_pipe(pipe, epdesc);
+    keyboard_pipe = alloc_intr_pipe(usbdev, epdesc);
     if (!keyboard_pipe)
         return -1;
 
@@ -78,7 +79,8 @@ usb_kbd_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 }
 
 static int
-usb_mouse_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
+usb_mouse_init(struct usbdevice_s *usbdev
+               , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_MOUSE)
         return -1;
@@ -90,11 +92,11 @@ usb_mouse_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
         return -1;
 
     // Enable "boot" protocol.
-    int ret = set_protocol(pipe, 0);
+    int ret = set_protocol(usbdev->defpipe, 0);
     if (ret)
         return -1;
 
-    mouse_pipe = alloc_intr_pipe(pipe, epdesc);
+    mouse_pipe = alloc_intr_pipe(usbdev, epdesc);
     if (!mouse_pipe)
         return -1;
 
@@ -104,29 +106,29 @@ usb_mouse_init(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
 
 // Initialize a found USB HID device (if applicable).
 int
-usb_hid_init(struct usb_pipe *pipe
-             , struct usb_interface_descriptor *iface, int imax)
+usb_hid_init(struct usbdevice_s *usbdev)
 {
     if (! CONFIG_USB_KEYBOARD || ! CONFIG_USB_MOUSE)
         return -1;
-    dprintf(2, "usb_hid_init %p\n", pipe);
+    dprintf(2, "usb_hid_init %p\n", usbdev->defpipe);
 
+    struct usb_interface_descriptor *iface = usbdev->iface;
     if (iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT)
         // Doesn't support boot protocol.
         return -1;
 
     // Find intr in endpoint.
     struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
-        iface, imax, USB_ENDPOINT_XFER_INT, USB_DIR_IN);
+        usbdev, USB_ENDPOINT_XFER_INT, USB_DIR_IN);
     if (!epdesc) {
         dprintf(1, "No usb hid intr in?\n");
         return -1;
     }
 
     if (iface->bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
-        return usb_kbd_init(pipe, epdesc);
+        return usb_kbd_init(usbdev, epdesc);
     if (iface->bInterfaceProtocol == USB_INTERFACE_PROTOCOL_MOUSE)
-        return usb_mouse_init(pipe, epdesc);
+        return usb_mouse_init(usbdev, epdesc);
     return -1;
 }
 

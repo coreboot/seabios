@@ -4,10 +4,8 @@
 // usb-msc.c
 struct disk_op_s;
 int usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
-struct usb_interface_descriptor;
-struct usb_pipe;
-int usb_msc_init(struct usb_pipe *pipe
-                 , struct usb_interface_descriptor *iface, int imax);
+struct usbdevice_s;
+int usb_msc_init(struct usbdevice_s *usbdev);
 
 
 /****************************************************************

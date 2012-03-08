@@ -158,21 +158,21 @@ static struct usbhub_op_s HubOp = {
 
 // Configure a usb hub and then find devices connected to it.
 int
-usb_hub_init(struct usb_pipe *pipe)
+usb_hub_init(struct usbdevice_s *usbdev)
 {
     ASSERT32FLAT();
     if (!CONFIG_USB_HUB)
         return -1;
 
     struct usb_hub_descriptor desc;
-    int ret = get_hub_desc(pipe, &desc);
+    int ret = get_hub_desc(usbdev->defpipe, &desc);
     if (ret)
         return ret;
 
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
-    hub.pipe = pipe;
-    hub.cntl = pipe->cntl;
+    hub.pipe = usbdev->defpipe;
+    hub.cntl = usbdev->defpipe->cntl;
     hub.powerwait = desc.bPwrOn2PwrGood * 2;
     hub.portcount = desc.bNbrPorts;
     hub.op = &HubOp;

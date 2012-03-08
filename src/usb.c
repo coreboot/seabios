@@ -86,19 +86,20 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
 
 // Fill "pipe" endpoint info from an endpoint descriptor.
 static void
-desc2pipe(struct usb_pipe *newpipe, struct usb_pipe *origpipe
+desc2pipe(struct usb_pipe *newpipe, struct usbdevice_s *usbdev
           , struct usb_endpoint_descriptor *epdesc)
 {
-    memcpy(newpipe, origpipe, sizeof(*newpipe));
+    memcpy(newpipe, usbdev->defpipe, sizeof(*newpipe));
     newpipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
     newpipe->maxpacket = epdesc->wMaxPacketSize;
 }
 
 struct usb_pipe *
-alloc_bulk_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
+alloc_bulk_pipe(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
 {
     struct usb_pipe dummy;
-    desc2pipe(&dummy, pipe, epdesc);
+    desc2pipe(&dummy, usbdev, epdesc);
     dummy.eptype = USB_ENDPOINT_XFER_BULK;
     return alloc_async_pipe(&dummy);
 }
@@ -118,18 +119,19 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
 }
 
 struct usb_pipe *
-alloc_intr_pipe(struct usb_pipe *pipe, struct usb_endpoint_descriptor *epdesc)
+alloc_intr_pipe(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
 {
     struct usb_pipe dummy;
-    desc2pipe(&dummy, pipe, epdesc);
+    desc2pipe(&dummy, usbdev, epdesc);
     // Find the exponential period of the requested time.
     int period = epdesc->bInterval;
     int frameexp;
-    if (pipe->speed != USB_HIGHSPEED)
+    if (usbdev->speed != USB_HIGHSPEED)
         frameexp = (period <= 0) ? 0 : __fls(period);
     else
         frameexp = (period <= 4) ? 0 : period - 4;
-    switch (pipe->type) {
+    switch (dummy.type) {
     default:
     case USB_TYPE_UHCI:
         return uhci_alloc_intr_pipe(&dummy, frameexp);
@@ -161,12 +163,11 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 
 // Find the first endpoing of a given type in an interface description.
 struct usb_endpoint_descriptor *
-findEndPointDesc(struct usb_interface_descriptor *iface, int imax
-                 , int type, int dir)
+findEndPointDesc(struct usbdevice_s *usbdev, int type, int dir)
 {
-    struct usb_endpoint_descriptor *epdesc = (void*)&iface[1];
+    struct usb_endpoint_descriptor *epdesc = (void*)&usbdev->iface[1];
     for (;;) {
-        if ((void*)epdesc >= (void*)iface + imax
+        if ((void*)epdesc >= (void*)usbdev->iface + usbdev->imax
             || epdesc->bDescriptorType == USB_DT_INTERFACE) {
             return NULL;
         }
@@ -345,13 +346,15 @@ configure_usb_device(struct usbdevice_s *usbdev)
         goto fail;
 
     // Configure driver.
-    int imax = (void*)config + config->wTotalLength - (void*)iface;
+    usbdev->config = config;
+    usbdev->iface = iface;
+    usbdev->imax = (void*)config + config->wTotalLength - (void*)iface;
     if (iface->bInterfaceClass == USB_CLASS_HUB)
-        ret = usb_hub_init(pipe);
+        ret = usb_hub_init(usbdev);
     else if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE)
-        ret = usb_msc_init(pipe, iface, imax);
+        ret = usb_msc_init(usbdev);
     else
-        ret = usb_hid_init(pipe, iface, imax);
+        ret = usb_hid_init(usbdev);
     if (ret)
         goto fail;
 
