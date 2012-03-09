@@ -3,8 +3,11 @@
 
 // usb-uhci.c
 void uhci_init(struct pci_device *pci, int busid);
+struct usbdevice_s;
+struct usb_endpoint_descriptor;
+struct usb_pipe *uhci_alloc_async_pipe(struct usbdevice_s *usbdev
+                                       , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe;
-struct usb_pipe *uhci_alloc_async_pipe(struct usb_pipe *dummy);
 int uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
 int uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);

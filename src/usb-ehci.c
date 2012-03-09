@@ -422,17 +422,26 @@ ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
 }
 
 struct usb_pipe *
-ehci_alloc_async_pipe(struct usb_pipe *dummy)
+ehci_alloc_async_pipe(struct usbdevice_s *usbdev
+                      , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_EHCI)
         return NULL;
     struct usb_ehci_s *cntl = container_of(
-        dummy->cntl, struct usb_ehci_s, usb);
-    dprintf(7, "ehci_alloc_async_pipe %p %d\n", &cntl->usb, dummy->eptype);
+        usbdev->hub->cntl, struct usb_ehci_s, usb);
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    dprintf(7, "ehci_alloc_async_pipe %p %d\n", &cntl->usb, eptype);
+
+    struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
+    if (usbpipe) {
+        // Use previously allocated pipe.
+        usb_desc2pipe(usbpipe, usbdev, epdesc);
+        return usbpipe;
+    }
 
     // Allocate a new queue head.
     struct ehci_pipe *pipe;
-    if (dummy->eptype == USB_ENDPOINT_XFER_CONTROL)
+    if (eptype == USB_ENDPOINT_XFER_CONTROL)
         pipe = memalign_tmphigh(EHCI_QH_ALIGN, sizeof(*pipe));
     else
         pipe = memalign_low(EHCI_QH_ALIGN, sizeof(*pipe));
@@ -441,7 +450,7 @@ ehci_alloc_async_pipe(struct usb_pipe *dummy)
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
     pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
 
     // Add queue head to controller list.

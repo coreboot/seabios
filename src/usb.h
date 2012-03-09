@@ -218,6 +218,9 @@ int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *re
                          , void *data);
 int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
 void free_pipe(struct usb_pipe *pipe);
+void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
+                   , struct usb_endpoint_descriptor *epdesc);
+struct usb_pipe *usb_getFreePipe(struct usb_s *cntl, u8 eptype);
 struct usb_pipe *alloc_async_pipe(struct usbdevice_s *usbdev
                                   , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe *alloc_intr_pipe(struct usbdevice_s *usbdev

@@ -319,17 +319,26 @@ wait_ed(struct ohci_ed *ed)
 }
 
 struct usb_pipe *
-ohci_alloc_async_pipe(struct usb_pipe *dummy)
+ohci_alloc_async_pipe(struct usbdevice_s *usbdev
+                      , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
-    if (dummy->eptype != USB_ENDPOINT_XFER_CONTROL) {
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    if (eptype != USB_ENDPOINT_XFER_CONTROL) {
         dprintf(1, "OHCI Bulk transfers not supported.\n");
         return NULL;
     }
     struct usb_ohci_s *cntl = container_of(
-        dummy->cntl, struct usb_ohci_s, usb);
+        usbdev->hub->cntl, struct usb_ohci_s, usb);
     dprintf(7, "ohci_alloc_async_pipe %p\n", &cntl->usb);
+
+    struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
+    if (usbpipe) {
+        // Use previously allocated pipe.
+        usb_desc2pipe(usbpipe, usbdev, epdesc);
+        return usbpipe;
+    }
 
     // Allocate a new queue head.
     struct ohci_pipe *pipe = malloc_tmphigh(sizeof(*pipe));
@@ -338,7 +347,7 @@ ohci_alloc_async_pipe(struct usb_pipe *dummy)
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
     pipe->ed.hwINFO = ED_SKIP;
 
     // Add queue head to controller list.

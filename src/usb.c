@@ -37,11 +37,10 @@ free_pipe(struct usb_pipe *pipe)
 }
 
 // Fill "pipe" endpoint info from an endpoint descriptor.
-static void
-desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
-          , struct usb_endpoint_descriptor *epdesc)
+void
+usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
+              , struct usb_endpoint_descriptor *epdesc)
 {
-    memset(pipe, 0, sizeof(*pipe));
     pipe->cntl = usbdev->hub->cntl;
     pipe->type = usbdev->hub->cntl->type;
     pipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
@@ -64,38 +63,36 @@ desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
     }
 }
 
-// Allocate an async pipe (control or bulk).
+// Check for an available pipe on the freelist.
 struct usb_pipe *
-alloc_async_pipe(struct usbdevice_s *usbdev
-                , struct usb_endpoint_descriptor *epdesc)
+usb_getFreePipe(struct usb_s *cntl, u8 eptype)
 {
-    struct usb_pipe dummy;
-    desc2pipe(&dummy, usbdev, epdesc);
-
-    // Check for an available pipe on the freelist.
-    struct usb_pipe **pfree = &dummy.cntl->freelist;
+    struct usb_pipe **pfree = &cntl->freelist;
     for (;;) {
         struct usb_pipe *pipe = *pfree;
         if (!pipe)
-            break;
-        if (pipe->eptype == dummy.eptype) {
-            // Use previously allocated pipe.
+            return NULL;
+        if (pipe->eptype == eptype) {
             *pfree = pipe->freenext;
-            memcpy(pipe, &dummy, sizeof(*pipe));
             return pipe;
         }
         pfree = &pipe->freenext;
     }
+}
 
-    // Allocate a new pipe.
-    switch (dummy.type) {
+// Allocate an async pipe (control or bulk).
+struct usb_pipe *
+alloc_async_pipe(struct usbdevice_s *usbdev
+                 , struct usb_endpoint_descriptor *epdesc)
+{
+    switch (usbdev->hub->cntl->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_async_pipe(&dummy);
+        return uhci_alloc_async_pipe(usbdev, epdesc);
     case USB_TYPE_OHCI:
-        return ohci_alloc_async_pipe(&dummy);
+        return ohci_alloc_async_pipe(usbdev, epdesc);
     case USB_TYPE_EHCI:
-        return ehci_alloc_async_pipe(&dummy);
+        return ehci_alloc_async_pipe(usbdev, epdesc);
     }
 }
 
@@ -135,7 +132,7 @@ alloc_intr_pipe(struct usbdevice_s *usbdev
                 , struct usb_endpoint_descriptor *epdesc)
 {
     struct usb_pipe dummy;
-    desc2pipe(&dummy, usbdev, epdesc);
+    usb_desc2pipe(&dummy, usbdev, epdesc);
     // Find the exponential period of the requested time.
     int period = epdesc->bInterval;
     int frameexp;
