@@ -23,63 +23,6 @@
  * Controller function wrappers
  ****************************************************************/
 
-// Free an allocated control or bulk pipe.
-void
-free_pipe(struct usb_pipe *pipe)
-{
-    ASSERT32FLAT();
-    if (!pipe)
-        return;
-    // Add to controller's free list.
-    struct usb_s *cntl = pipe->cntl;
-    pipe->freenext = cntl->freelist;
-    cntl->freelist = pipe;
-}
-
-// Fill "pipe" endpoint info from an endpoint descriptor.
-void
-usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
-              , struct usb_endpoint_descriptor *epdesc)
-{
-    pipe->cntl = usbdev->hub->cntl;
-    pipe->type = usbdev->hub->cntl->type;
-    pipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
-    pipe->devaddr = usbdev->devaddr;
-    pipe->speed = usbdev->speed;
-    pipe->maxpacket = epdesc->wMaxPacketSize;
-    pipe->eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
-
-    struct usbdevice_s *hubdev = usbdev->hub->usbdev;
-    if (hubdev) {
-        if (hubdev->defpipe->speed == USB_HIGHSPEED) {
-            pipe->tt_devaddr = usbdev->devaddr;
-            pipe->tt_port = usbdev->port;
-        } else {
-            pipe->tt_devaddr = hubdev->defpipe->tt_devaddr;
-            pipe->tt_port = hubdev->defpipe->tt_port;
-        }
-    } else {
-        pipe->tt_devaddr = pipe->tt_port = 0;
-    }
-}
-
-// Check for an available pipe on the freelist.
-struct usb_pipe *
-usb_getFreePipe(struct usb_s *cntl, u8 eptype)
-{
-    struct usb_pipe **pfree = &cntl->freelist;
-    for (;;) {
-        struct usb_pipe *pipe = *pfree;
-        if (!pipe)
-            return NULL;
-        if (pipe->eptype == eptype) {
-            *pfree = pipe->freenext;
-            return pipe;
-        }
-        pfree = &pipe->freenext;
-    }
-}
-
 // Allocate an async pipe (control or bulk).
 struct usb_pipe *
 usb_alloc_pipe(struct usbdevice_s *usbdev
@@ -127,17 +70,6 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     }
 }
 
-// Find the exponential period of the requested interrupt end point.
-int
-usb_getFrameExp(struct usbdevice_s *usbdev
-                , struct usb_endpoint_descriptor *epdesc)
-{
-    int period = epdesc->bInterval;
-    if (usbdev->speed != USB_HIGHSPEED)
-        return (period <= 0) ? 0 : __fls(period);
-    return (period <= 4) ? 0 : period - 4;
-}
-
 int noinline
 usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 {
@@ -157,6 +89,83 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
  * Helper functions
  ****************************************************************/
 
+// Send a message to the default control pipe of a device.
+int
+send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
+                     , void *data)
+{
+    return send_control(pipe, req->bRequestType & USB_DIR_IN
+                        , req, sizeof(*req), data, req->wLength);
+}
+
+// Free an allocated control or bulk pipe.
+void
+free_pipe(struct usb_pipe *pipe)
+{
+    ASSERT32FLAT();
+    if (!pipe)
+        return;
+    // Add to controller's free list.
+    struct usb_s *cntl = pipe->cntl;
+    pipe->freenext = cntl->freelist;
+    cntl->freelist = pipe;
+}
+
+// Check for an available pipe on the freelist.
+struct usb_pipe *
+usb_getFreePipe(struct usb_s *cntl, u8 eptype)
+{
+    struct usb_pipe **pfree = &cntl->freelist;
+    for (;;) {
+        struct usb_pipe *pipe = *pfree;
+        if (!pipe)
+            return NULL;
+        if (pipe->eptype == eptype) {
+            *pfree = pipe->freenext;
+            return pipe;
+        }
+        pfree = &pipe->freenext;
+    }
+}
+
+// Fill "pipe" endpoint info from an endpoint descriptor.
+void
+usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
+              , struct usb_endpoint_descriptor *epdesc)
+{
+    pipe->cntl = usbdev->hub->cntl;
+    pipe->type = usbdev->hub->cntl->type;
+    pipe->ep = epdesc->bEndpointAddress & USB_ENDPOINT_NUMBER_MASK;
+    pipe->devaddr = usbdev->devaddr;
+    pipe->speed = usbdev->speed;
+    pipe->maxpacket = epdesc->wMaxPacketSize;
+    pipe->eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+
+    struct usbdevice_s *hubdev = usbdev->hub->usbdev;
+    if (hubdev) {
+        if (hubdev->defpipe->speed == USB_HIGHSPEED) {
+            pipe->tt_devaddr = usbdev->devaddr;
+            pipe->tt_port = usbdev->port;
+        } else {
+            pipe->tt_devaddr = hubdev->defpipe->tt_devaddr;
+            pipe->tt_port = hubdev->defpipe->tt_port;
+        }
+    } else {
+        pipe->tt_devaddr = pipe->tt_port = 0;
+    }
+}
+
+// Find the exponential period of the requested interrupt end point.
+int
+usb_getFrameExp(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
+{
+    int period = epdesc->bInterval;
+    if (usbdev->speed != USB_HIGHSPEED)
+        return (period <= 0) ? 0 : __fls(period);
+    return (period <= 4) ? 0 : period - 4;
+}
+
 // Find the first endpoing of a given type in an interface description.
 struct usb_endpoint_descriptor *
 findEndPointDesc(struct usbdevice_s *usbdev, int type, int dir)
@@ -173,15 +182,6 @@ findEndPointDesc(struct usbdevice_s *usbdev, int type, int dir)
             return epdesc;
         epdesc = (void*)epdesc + epdesc->bLength;
     }
-}
-
-// Send a message to the default control pipe of a device.
-int
-send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
-                     , void *data)
-{
-    return send_control(pipe, req->bRequestType & USB_DIR_IN
-                        , req, sizeof(*req), data, req->wLength);
 }
 
 // Get the first 8 bytes of the device descriptor.

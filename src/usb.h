@@ -212,21 +212,21 @@ struct usb_endpoint_descriptor {
  ****************************************************************/
 
 // usb.c
-void usb_setup(void);
-void usb_enumerate(struct usbhub_s *hub);
-int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
-                         , void *data);
-int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
-void free_pipe(struct usb_pipe *pipe);
-void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
-                   , struct usb_endpoint_descriptor *epdesc);
-struct usb_pipe *usb_getFreePipe(struct usb_s *cntl, u8 eptype);
 struct usb_pipe *usb_alloc_pipe(struct usbdevice_s *usbdev
                                 , struct usb_endpoint_descriptor *epdesc);
+int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
+int usb_poll_intr(struct usb_pipe *pipe, void *data);
+int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
+                         , void *data);
+void free_pipe(struct usb_pipe *pipe);
+struct usb_pipe *usb_getFreePipe(struct usb_s *cntl, u8 eptype);
+void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
+                   , struct usb_endpoint_descriptor *epdesc);
 int usb_getFrameExp(struct usbdevice_s *usbdev
                     , struct usb_endpoint_descriptor *epdesc);
-int usb_poll_intr(struct usb_pipe *pipe, void *data);
 struct usb_endpoint_descriptor *findEndPointDesc(struct usbdevice_s *usbdev
                                                  , int type, int dir);
+void usb_enumerate(struct usbhub_s *hub);
+void usb_setup(void);
 
 #endif // usb.h
