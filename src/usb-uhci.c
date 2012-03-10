@@ -268,12 +268,10 @@ uhci_init(struct pci_device *pci, int busid)
  * End point communication
  ****************************************************************/
 
-struct usb_pipe *
+static struct usb_pipe *
 uhci_alloc_intr_pipe(struct usbdevice_s *usbdev
                      , struct usb_endpoint_descriptor *epdesc)
 {
-    if (! CONFIG_USB_UHCI)
-        return NULL;
     struct usb_uhci_s *cntl = container_of(
         usbdev->hub->cntl, struct usb_uhci_s, usb);
     int frameexp = usb_getFrameExp(usbdev, epdesc);
@@ -341,14 +339,16 @@ fail:
 }
 
 struct usb_pipe *
-uhci_alloc_async_pipe(struct usbdevice_s *usbdev
-                      , struct usb_endpoint_descriptor *epdesc)
+uhci_alloc_pipe(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    if (eptype == USB_ENDPOINT_XFER_INT)
+        return uhci_alloc_intr_pipe(usbdev, epdesc);
     struct usb_uhci_s *cntl = container_of(
         usbdev->hub->cntl, struct usb_uhci_s, usb);
-    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
     dprintf(7, "uhci_alloc_async_pipe %p %d\n", &cntl->usb, eptype);
 
     struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);

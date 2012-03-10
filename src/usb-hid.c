@@ -70,7 +70,7 @@ usb_kbd_init(struct usbdevice_s *usbdev
     if (ret)
         return -1;
 
-    keyboard_pipe = alloc_intr_pipe(usbdev, epdesc);
+    keyboard_pipe = usb_alloc_pipe(usbdev, epdesc);
     if (!keyboard_pipe)
         return -1;
 
@@ -96,7 +96,7 @@ usb_mouse_init(struct usbdevice_s *usbdev
     if (ret)
         return -1;
 
-    mouse_pipe = alloc_intr_pipe(usbdev, epdesc);
+    mouse_pipe = usb_alloc_pipe(usbdev, epdesc);
     if (!mouse_pipe)
         return -1;
 

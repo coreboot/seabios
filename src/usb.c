@@ -82,17 +82,17 @@ usb_getFreePipe(struct usb_s *cntl, u8 eptype)
 
 // Allocate an async pipe (control or bulk).
 struct usb_pipe *
-alloc_async_pipe(struct usbdevice_s *usbdev
-                 , struct usb_endpoint_descriptor *epdesc)
+usb_alloc_pipe(struct usbdevice_s *usbdev
+               , struct usb_endpoint_descriptor *epdesc)
 {
     switch (usbdev->hub->cntl->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_async_pipe(usbdev, epdesc);
+        return uhci_alloc_pipe(usbdev, epdesc);
     case USB_TYPE_OHCI:
-        return ohci_alloc_async_pipe(usbdev, epdesc);
+        return ohci_alloc_pipe(usbdev, epdesc);
     case USB_TYPE_EHCI:
-        return ehci_alloc_async_pipe(usbdev, epdesc);
+        return ehci_alloc_pipe(usbdev, epdesc);
     }
 }
 
@@ -136,21 +136,6 @@ usb_getFrameExp(struct usbdevice_s *usbdev
     if (usbdev->speed != USB_HIGHSPEED)
         return (period <= 0) ? 0 : __fls(period);
     return (period <= 4) ? 0 : period - 4;
-}
-
-struct usb_pipe *
-alloc_intr_pipe(struct usbdevice_s *usbdev
-                , struct usb_endpoint_descriptor *epdesc)
-{
-    switch (usbdev->hub->cntl->type) {
-    default:
-    case USB_TYPE_UHCI:
-        return uhci_alloc_intr_pipe(usbdev, epdesc);
-    case USB_TYPE_OHCI:
-        return ohci_alloc_intr_pipe(usbdev, epdesc);
-    case USB_TYPE_EHCI:
-        return ehci_alloc_intr_pipe(usbdev, epdesc);
-    }
 }
 
 int noinline
@@ -271,7 +256,7 @@ usb_set_address(struct usbdevice_s *usbdev)
         .wMaxPacketSize = 8,
         .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
     };
-    usbdev->defpipe = alloc_async_pipe(usbdev, &epdesc);
+    usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
     if (!usbdev->defpipe)
         return -1;
 
@@ -293,7 +278,7 @@ usb_set_address(struct usbdevice_s *usbdev)
 
     cntl->maxaddr++;
     usbdev->devaddr = cntl->maxaddr;
-    usbdev->defpipe = alloc_async_pipe(usbdev, &epdesc);
+    usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
     if (!usbdev->defpipe)
         return -1;
     return 0;
@@ -322,7 +307,7 @@ configure_usb_device(struct usbdevice_s *usbdev)
         .wMaxPacketSize = dinfo.bMaxPacketSize0,
         .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
     };
-    usbdev->defpipe = alloc_async_pipe(usbdev, &epdesc);
+    usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
     if (!usbdev->defpipe)
         return -1;
 

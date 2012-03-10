@@ -302,12 +302,10 @@ ohci_init(struct pci_device *pci, int busid)
  * End point communication
  ****************************************************************/
 
-struct usb_pipe *
+static struct usb_pipe *
 ohci_alloc_intr_pipe(struct usbdevice_s *usbdev
                      , struct usb_endpoint_descriptor *epdesc)
 {
-    if (! CONFIG_USB_OHCI)
-        return NULL;
     struct usb_ohci_s *cntl = container_of(
         usbdev->hub->cntl, struct usb_ohci_s, usb);
     int frameexp = usb_getFrameExp(usbdev, epdesc);
@@ -370,12 +368,14 @@ err:
 }
 
 struct usb_pipe *
-ohci_alloc_async_pipe(struct usbdevice_s *usbdev
-                      , struct usb_endpoint_descriptor *epdesc)
+ohci_alloc_pipe(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_OHCI)
         return NULL;
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    if (eptype == USB_ENDPOINT_XFER_INT)
+        return ohci_alloc_intr_pipe(usbdev, epdesc);
     if (eptype != USB_ENDPOINT_XFER_CONTROL) {
         dprintf(1, "OHCI Bulk transfers not supported.\n");
         return NULL;
