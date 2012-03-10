@@ -353,16 +353,17 @@ ohci_alloc_intr_pipe(struct usbdevice_s *usbdev
     }
 
     // Add to interrupt schedule.
-    barrier();
     struct ohci_hcca *hcca = (void*)cntl->regs->hcca;
     if (frameexp == 0) {
         // Add to existing interrupt entry.
         struct ohci_ed *intr_ed = (void*)hcca->int_table[0];
         ed->hwNextED = intr_ed->hwNextED;
+        barrier();
         intr_ed->hwNextED = (u32)ed;
     } else {
         int startpos = 1<<(frameexp-1);
         ed->hwNextED = hcca->int_table[startpos];
+        barrier();
         for (i=startpos; i<ARRAY_SIZE(hcca->int_table); i+=ms)
             hcca->int_table[i] = (u32)ed;
     }
