@@ -621,17 +621,19 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
 }
 
 struct usb_pipe *
-ehci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
+ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
+                     , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_EHCI)
         return NULL;
     struct usb_ehci_s *cntl = container_of(
-        dummy->cntl, struct usb_ehci_s, usb);
+        usbdev->hub->cntl, struct usb_ehci_s, usb);
+    int frameexp = usb_getFrameExp(usbdev, epdesc);
     dprintf(7, "ehci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
 
     if (frameexp > 10)
         frameexp = 10;
-    int maxpacket = dummy->maxpacket;
+    int maxpacket = epdesc->wMaxPacketSize;
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
@@ -643,7 +645,7 @@ ehci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
         goto fail;
     }
     memset(pipe, 0, sizeof(*pipe));
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
     pipe->next_td = pipe->tds = tds;
     pipe->data = data;
 

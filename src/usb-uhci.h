@@ -11,7 +11,8 @@ struct usb_pipe;
 int uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  , void *data, int datasize);
 int uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);
-struct usb_pipe *uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp);
+struct usb_pipe *uhci_alloc_intr_pipe(struct usbdevice_s *usbdev
+                                      , struct usb_endpoint_descriptor *epdesc);
 int uhci_poll_intr(struct usb_pipe *p, void *data);
 
 

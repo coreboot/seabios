@@ -475,19 +475,19 @@ fail:
 }
 
 struct usb_pipe *
-uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
+uhci_alloc_intr_pipe(struct usbdevice_s *usbdev
+                     , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_UHCI)
         return NULL;
     struct usb_uhci_s *cntl = container_of(
-        dummy->cntl, struct usb_uhci_s, usb);
+        usbdev->hub->cntl, struct usb_uhci_s, usb);
+    int frameexp = usb_getFrameExp(usbdev, epdesc);
     dprintf(7, "uhci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
 
     if (frameexp > 10)
         frameexp = 10;
-    int maxpacket = dummy->maxpacket;
-    int lowspeed = dummy->speed;
-    int devaddr = dummy->devaddr | (dummy->ep << 7);
+    int maxpacket = epdesc->wMaxPacketSize;
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
     int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
@@ -500,7 +500,9 @@ uhci_alloc_intr_pipe(struct usb_pipe *dummy, int frameexp)
         goto fail;
     }
     memset(pipe, 0, sizeof(*pipe));
-    memcpy(&pipe->pipe, dummy, sizeof(pipe->pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    int lowspeed = pipe->pipe.speed;
+    int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
     pipe->qh.element = (u32)tds;
     pipe->next_td = &tds[0];
     pipe->iobase = cntl->iobase;

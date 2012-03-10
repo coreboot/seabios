@@ -223,6 +223,8 @@ void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
 struct usb_pipe *usb_getFreePipe(struct usb_s *cntl, u8 eptype);
 struct usb_pipe *alloc_async_pipe(struct usbdevice_s *usbdev
                                   , struct usb_endpoint_descriptor *epdesc);
+int usb_getFrameExp(struct usbdevice_s *usbdev
+                    , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe *alloc_intr_pipe(struct usbdevice_s *usbdev
                                  , struct usb_endpoint_descriptor *epdesc);
 int usb_poll_intr(struct usb_pipe *pipe, void *data);

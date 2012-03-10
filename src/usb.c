@@ -127,27 +127,29 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     }
 }
 
+// Find the exponential period of the requested interrupt end point.
+int
+usb_getFrameExp(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
+{
+    int period = epdesc->bInterval;
+    if (usbdev->speed != USB_HIGHSPEED)
+        return (period <= 0) ? 0 : __fls(period);
+    return (period <= 4) ? 0 : period - 4;
+}
+
 struct usb_pipe *
 alloc_intr_pipe(struct usbdevice_s *usbdev
                 , struct usb_endpoint_descriptor *epdesc)
 {
-    struct usb_pipe dummy;
-    usb_desc2pipe(&dummy, usbdev, epdesc);
-    // Find the exponential period of the requested time.
-    int period = epdesc->bInterval;
-    int frameexp;
-    if (usbdev->speed != USB_HIGHSPEED)
-        frameexp = (period <= 0) ? 0 : __fls(period);
-    else
-        frameexp = (period <= 4) ? 0 : period - 4;
-    switch (dummy.type) {
+    switch (usbdev->hub->cntl->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_alloc_intr_pipe(&dummy, frameexp);
+        return uhci_alloc_intr_pipe(usbdev, epdesc);
     case USB_TYPE_OHCI:
-        return ohci_alloc_intr_pipe(&dummy, frameexp);
+        return ohci_alloc_intr_pipe(usbdev, epdesc);
     case USB_TYPE_EHCI:
-        return ehci_alloc_intr_pipe(&dummy, frameexp);
+        return ehci_alloc_intr_pipe(usbdev, epdesc);
     }
 }
 
