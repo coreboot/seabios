@@ -380,45 +380,80 @@ ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
  * End point communication
  ****************************************************************/
 
-static void
-ehci_reset_pipe(struct ehci_pipe *pipe)
+struct usb_pipe *
+ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
+                     , struct usb_endpoint_descriptor *epdesc)
 {
-    SET_FLATPTR(pipe->qh.qtd_next, EHCI_PTR_TERM);
-    SET_FLATPTR(pipe->qh.alt_next, EHCI_PTR_TERM);
-    barrier();
-    SET_FLATPTR(pipe->qh.token, GET_FLATPTR(pipe->qh.token) & QTD_TOGGLE);
-}
+    if (! CONFIG_USB_EHCI)
+        return NULL;
+    struct usb_ehci_s *cntl = container_of(
+        usbdev->hub->cntl, struct usb_ehci_s, usb);
+    int frameexp = usb_getFrameExp(usbdev, epdesc);
+    dprintf(7, "ehci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
 
-static int
-ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
-{
-    u64 end = calc_future_tsc(timeout);
-    u32 status;
-    for (;;) {
-        status = td->token;
-        if (!(status & QTD_STS_ACTIVE))
-            break;
-        if (check_tsc(end)) {
-            u32 cur = GET_FLATPTR(pipe->qh.current);
-            u32 tok = GET_FLATPTR(pipe->qh.token);
-            u32 next = GET_FLATPTR(pipe->qh.qtd_next);
-            warn_timeout();
-            dprintf(1, "ehci pipe=%p cur=%08x tok=%08x next=%x td=%p status=%x\n"
-                    , pipe, cur, tok, next, td, status);
-            ehci_reset_pipe(pipe);
-            struct usb_ehci_s *cntl = container_of(
-                GET_FLATPTR(pipe->pipe.cntl), struct usb_ehci_s, usb);
-            ehci_waittick(cntl);
-            return -1;
-        }
-        yield();
+    if (frameexp > 10)
+        frameexp = 10;
+    int maxpacket = epdesc->wMaxPacketSize;
+    // Determine number of entries needed for 2 timer ticks.
+    int ms = 1<<frameexp;
+    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
+    struct ehci_pipe *pipe = memalign_low(EHCI_QH_ALIGN, sizeof(*pipe));
+    struct ehci_qtd *tds = memalign_low(EHCI_QTD_ALIGN, sizeof(*tds) * count);
+    void *data = malloc_low(maxpacket * count);
+    if (!pipe || !tds || !data) {
+        warn_noalloc();
+        goto fail;
     }
-    if (status & QTD_STS_HALT) {
-        dprintf(1, "ehci_wait_td error - status=%x\n", status);
-        ehci_reset_pipe(pipe);
-        return -2;
+    memset(pipe, 0, sizeof(*pipe));
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    pipe->next_td = pipe->tds = tds;
+    pipe->data = data;
+
+    pipe->qh.info1 = (
+        (1 << QH_MULT_SHIFT)
+        | (maxpacket << QH_MAXPACKET_SHIFT)
+        | (pipe->pipe.speed << QH_SPEED_SHIFT)
+        | (pipe->pipe.ep << QH_EP_SHIFT)
+        | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
+    pipe->qh.info2 = ((1 << QH_MULT_SHIFT)
+                      | (pipe->pipe.tt_port << QH_HUBPORT_SHIFT)
+                      | (pipe->pipe.tt_devaddr << QH_HUBADDR_SHIFT)
+                      | (0x01 << QH_SMASK_SHIFT)
+                      | (0x1c << QH_CMASK_SHIFT));
+    pipe->qh.qtd_next = (u32)tds;
+
+    int i;
+    for (i=0; i<count; i++) {
+        struct ehci_qtd *td = &tds[i];
+        td->qtd_next = (i==count-1 ? (u32)tds : (u32)&td[1]);
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (ehci_explen(maxpacket) | QTD_STS_ACTIVE
+                     | QTD_PID_IN | ehci_maxerr(3));
+        td->buf[0] = (u32)data + maxpacket * i;
     }
-    return 0;
+
+    // Add to interrupt schedule.
+    struct ehci_framelist *fl = (void*)readl(&cntl->regs->periodiclistbase);
+    if (frameexp == 0) {
+        // Add to existing interrupt entry.
+        struct ehci_qh *intr_qh = (void*)(fl->links[0] & ~EHCI_PTR_BITS);
+        pipe->qh.next = intr_qh->next;
+        barrier();
+        intr_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
+    } else {
+        int startpos = 1<<(frameexp-1);
+        pipe->qh.next = fl->links[startpos];
+        barrier();
+        for (i=startpos; i<ARRAY_SIZE(fl->links); i+=ms)
+            fl->links[i] = (u32)&pipe->qh | EHCI_PTR_QH;
+    }
+
+    return &pipe->pipe;
+fail:
+    free(pipe);
+    free(tds);
+    free(data);
+    return NULL;
 }
 
 struct usb_pipe *
@@ -459,6 +494,47 @@ ehci_alloc_async_pipe(struct usbdevice_s *usbdev
     barrier();
     async_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
     return &pipe->pipe;
+}
+
+static void
+ehci_reset_pipe(struct ehci_pipe *pipe)
+{
+    SET_FLATPTR(pipe->qh.qtd_next, EHCI_PTR_TERM);
+    SET_FLATPTR(pipe->qh.alt_next, EHCI_PTR_TERM);
+    barrier();
+    SET_FLATPTR(pipe->qh.token, GET_FLATPTR(pipe->qh.token) & QTD_TOGGLE);
+}
+
+static int
+ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
+{
+    u64 end = calc_future_tsc(timeout);
+    u32 status;
+    for (;;) {
+        status = td->token;
+        if (!(status & QTD_STS_ACTIVE))
+            break;
+        if (check_tsc(end)) {
+            u32 cur = GET_FLATPTR(pipe->qh.current);
+            u32 tok = GET_FLATPTR(pipe->qh.token);
+            u32 next = GET_FLATPTR(pipe->qh.qtd_next);
+            warn_timeout();
+            dprintf(1, "ehci pipe=%p cur=%08x tok=%08x next=%x td=%p status=%x\n"
+                    , pipe, cur, tok, next, td, status);
+            ehci_reset_pipe(pipe);
+            struct usb_ehci_s *cntl = container_of(
+                GET_FLATPTR(pipe->pipe.cntl), struct usb_ehci_s, usb);
+            ehci_waittick(cntl);
+            return -1;
+        }
+        yield();
+    }
+    if (status & QTD_STS_HALT) {
+        dprintf(1, "ehci_wait_td error - status=%x\n", status);
+        ehci_reset_pipe(pipe);
+        return -2;
+    }
+    return 0;
 }
 
 static int
@@ -618,82 +694,6 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     }
 
     return 0;
-}
-
-struct usb_pipe *
-ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
-                     , struct usb_endpoint_descriptor *epdesc)
-{
-    if (! CONFIG_USB_EHCI)
-        return NULL;
-    struct usb_ehci_s *cntl = container_of(
-        usbdev->hub->cntl, struct usb_ehci_s, usb);
-    int frameexp = usb_getFrameExp(usbdev, epdesc);
-    dprintf(7, "ehci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
-
-    if (frameexp > 10)
-        frameexp = 10;
-    int maxpacket = epdesc->wMaxPacketSize;
-    // Determine number of entries needed for 2 timer ticks.
-    int ms = 1<<frameexp;
-    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
-    struct ehci_pipe *pipe = memalign_low(EHCI_QH_ALIGN, sizeof(*pipe));
-    struct ehci_qtd *tds = memalign_low(EHCI_QTD_ALIGN, sizeof(*tds) * count);
-    void *data = malloc_low(maxpacket * count);
-    if (!pipe || !tds || !data) {
-        warn_noalloc();
-        goto fail;
-    }
-    memset(pipe, 0, sizeof(*pipe));
-    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
-    pipe->next_td = pipe->tds = tds;
-    pipe->data = data;
-
-    pipe->qh.info1 = (
-        (1 << QH_MULT_SHIFT)
-        | (maxpacket << QH_MAXPACKET_SHIFT)
-        | (pipe->pipe.speed << QH_SPEED_SHIFT)
-        | (pipe->pipe.ep << QH_EP_SHIFT)
-        | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
-    pipe->qh.info2 = ((1 << QH_MULT_SHIFT)
-                      | (pipe->pipe.tt_port << QH_HUBPORT_SHIFT)
-                      | (pipe->pipe.tt_devaddr << QH_HUBADDR_SHIFT)
-                      | (0x01 << QH_SMASK_SHIFT)
-                      | (0x1c << QH_CMASK_SHIFT));
-    pipe->qh.qtd_next = (u32)tds;
-
-    int i;
-    for (i=0; i<count; i++) {
-        struct ehci_qtd *td = &tds[i];
-        td->qtd_next = (i==count-1 ? (u32)tds : (u32)&td[1]);
-        td->alt_next = EHCI_PTR_TERM;
-        td->token = (ehci_explen(maxpacket) | QTD_STS_ACTIVE
-                     | QTD_PID_IN | ehci_maxerr(3));
-        td->buf[0] = (u32)data + maxpacket * i;
-    }
-
-    // Add to interrupt schedule.
-    struct ehci_framelist *fl = (void*)readl(&cntl->regs->periodiclistbase);
-    if (frameexp == 0) {
-        // Add to existing interrupt entry.
-        struct ehci_qh *intr_qh = (void*)(fl->links[0] & ~EHCI_PTR_BITS);
-        pipe->qh.next = intr_qh->next;
-        barrier();
-        intr_qh->next = (u32)&pipe->qh | EHCI_PTR_QH;
-    } else {
-        int startpos = 1<<(frameexp-1);
-        pipe->qh.next = fl->links[startpos];
-        barrier();
-        for (i=startpos; i<ARRAY_SIZE(fl->links); i+=ms)
-            fl->links[i] = (u32)&pipe->qh | EHCI_PTR_QH;
-    }
-
-    return &pipe->pipe;
-fail:
-    free(pipe);
-    free(tds);
-    free(data);
-    return NULL;
 }
 
 int
