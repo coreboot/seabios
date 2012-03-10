@@ -302,6 +302,17 @@ ohci_init(struct pci_device *pci, int busid)
  * End point communication
  ****************************************************************/
 
+// Setup fields in ed
+static void
+ohci_desc2pipe(struct ohci_pipe *pipe, struct usbdevice_s *usbdev
+               , struct usb_endpoint_descriptor *epdesc)
+{
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    pipe->ed.hwINFO = (ED_SKIP | usbdev->devaddr | (pipe->pipe.ep << 7)
+                       | (epdesc->wMaxPacketSize << 16)
+                       | (usbdev->speed ? ED_LOWSPEED : 0));
+}
+
 static struct usb_pipe *
 ohci_alloc_intr_pipe(struct usbdevice_s *usbdev
                      , struct usb_endpoint_descriptor *epdesc)
@@ -323,9 +334,8 @@ ohci_alloc_intr_pipe(struct usbdevice_s *usbdev
     if (!pipe || !tds || !data)
         goto err;
     memset(pipe, 0, sizeof(*pipe));
-    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
-    int lowspeed = pipe->pipe.speed;
-    int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
+    ohci_desc2pipe(pipe, usbdev, epdesc);
+    pipe->ed.hwINFO &= ~ED_SKIP;
     pipe->data = data;
     pipe->count = count;
     pipe->tds = tds;
@@ -333,7 +343,6 @@ ohci_alloc_intr_pipe(struct usbdevice_s *usbdev
     struct ohci_ed *ed = &pipe->ed;
     ed->hwHeadP = (u32)&tds[0];
     ed->hwTailP = (u32)&tds[count-1];
-    ed->hwINFO = devaddr | (maxpacket << 16) | (lowspeed ? ED_LOWSPEED : 0);
 
     int i;
     for (i=0; i<count-1; i++) {
@@ -387,7 +396,8 @@ ohci_alloc_pipe(struct usbdevice_s *usbdev
     struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
     if (usbpipe) {
         // Use previously allocated pipe.
-        usb_desc2pipe(usbpipe, usbdev, epdesc);
+        struct ohci_pipe *pipe = container_of(usbpipe, struct ohci_pipe, pipe);
+        ohci_desc2pipe(pipe, usbdev, epdesc);
         return usbpipe;
     }
 
@@ -398,8 +408,7 @@ ohci_alloc_pipe(struct usbdevice_s *usbdev
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
-    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
-    pipe->ed.hwINFO = ED_SKIP;
+    ohci_desc2pipe(pipe, usbdev, epdesc);
 
     // Add queue head to controller list.
     pipe->ed.hwNextED = cntl->regs->ed_controlhead;
@@ -439,9 +448,6 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
     struct usb_ohci_s *cntl = container_of(
         pipe->pipe.cntl, struct usb_ohci_s, usb);
-    int maxpacket = pipe->pipe.maxpacket;
-    int lowspeed = pipe->pipe.speed;
-    int devaddr = pipe->pipe.devaddr | (pipe->pipe.ep << 7);
 
     // Setup transfer descriptors
     struct ohci_td *tds = malloc_tmphigh(sizeof(*tds) * 3);
@@ -469,16 +475,14 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     td++;
 
     // Transfer data
-    pipe->ed.hwINFO = ED_SKIP;
-    barrier();
     pipe->ed.hwHeadP = (u32)tds;
     pipe->ed.hwTailP = (u32)td;
     barrier();
-    pipe->ed.hwINFO = devaddr | (maxpacket << 16) | (lowspeed ? ED_LOWSPEED : 0);
+    pipe->ed.hwINFO &= ~ED_SKIP;
     writel(&cntl->regs->cmdstatus, OHCI_CLF);
 
     int ret = wait_ed(&pipe->ed);
-    pipe->ed.hwINFO = ED_SKIP;
+    pipe->ed.hwINFO |= ED_SKIP;
     if (ret)
         ohci_waittick(cntl);
     free(tds);
