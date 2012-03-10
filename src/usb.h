@@ -15,8 +15,6 @@ struct usb_pipe {
     u8 devaddr;
     u8 speed;
     u16 maxpacket;
-    u8 tt_devaddr;
-    u8 tt_port;
     u8 eptype;
 };
 

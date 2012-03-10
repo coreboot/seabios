@@ -380,6 +380,40 @@ ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
  * End point communication
  ****************************************************************/
 
+// Setup fields in qh
+static void
+ehci_desc2pipe(struct ehci_pipe *pipe, struct usbdevice_s *usbdev
+               , struct usb_endpoint_descriptor *epdesc)
+{
+    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+
+    pipe->qh.info1 = (
+        (1 << QH_MULT_SHIFT)
+        | (pipe->pipe.maxpacket << QH_MAXPACKET_SHIFT)
+        | (pipe->pipe.speed << QH_SPEED_SHIFT)
+        | (pipe->pipe.ep << QH_EP_SHIFT)
+        | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
+
+    pipe->qh.info2 = (1 << QH_MULT_SHIFT);
+    struct usbdevice_s *hubdev = usbdev->hub->usbdev;
+    if (hubdev) {
+        struct ehci_pipe *hpipe = container_of(
+            hubdev->defpipe, struct ehci_pipe, pipe);
+        if (hpipe->pipe.speed == USB_HIGHSPEED)
+            pipe->qh.info2 |= ((usbdev->port << QH_HUBPORT_SHIFT)
+                               | (hpipe->pipe.devaddr << QH_HUBADDR_SHIFT));
+        else
+            pipe->qh.info2 = hpipe->qh.info2;
+    }
+
+    u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    if (eptype == USB_ENDPOINT_XFER_CONTROL)
+        pipe->qh.info1 |= ((pipe->pipe.speed != USB_HIGHSPEED ? QH_CONTROL : 0)
+                           | QH_TOGGLECONTROL);
+    else if (eptype == USB_ENDPOINT_XFER_INT)
+        pipe->qh.info2 |= (0x01 << QH_SMASK_SHIFT) | (0x1c << QH_CMASK_SHIFT);
+}
+
 static struct usb_pipe *
 ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
                      , struct usb_endpoint_descriptor *epdesc)
@@ -403,21 +437,9 @@ ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
         goto fail;
     }
     memset(pipe, 0, sizeof(*pipe));
-    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    ehci_desc2pipe(pipe, usbdev, epdesc);
     pipe->next_td = pipe->tds = tds;
     pipe->data = data;
-
-    pipe->qh.info1 = (
-        (1 << QH_MULT_SHIFT)
-        | (maxpacket << QH_MAXPACKET_SHIFT)
-        | (pipe->pipe.speed << QH_SPEED_SHIFT)
-        | (pipe->pipe.ep << QH_EP_SHIFT)
-        | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
-    pipe->qh.info2 = ((1 << QH_MULT_SHIFT)
-                      | (pipe->pipe.tt_port << QH_HUBPORT_SHIFT)
-                      | (pipe->pipe.tt_devaddr << QH_HUBADDR_SHIFT)
-                      | (0x01 << QH_SMASK_SHIFT)
-                      | (0x1c << QH_CMASK_SHIFT));
     pipe->qh.qtd_next = (u32)tds;
 
     int i;
@@ -470,7 +492,8 @@ ehci_alloc_pipe(struct usbdevice_s *usbdev
     struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
     if (usbpipe) {
         // Use previously allocated pipe.
-        usb_desc2pipe(usbpipe, usbdev, epdesc);
+        struct ehci_pipe *pipe = container_of(usbpipe, struct ehci_pipe, pipe);
+        ehci_desc2pipe(pipe, usbdev, epdesc);
         return usbpipe;
     }
 
@@ -485,7 +508,7 @@ ehci_alloc_pipe(struct usbdevice_s *usbdev
         return NULL;
     }
     memset(pipe, 0, sizeof(*pipe));
-    usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
+    ehci_desc2pipe(pipe, usbdev, epdesc);
     pipe->qh.qtd_next = pipe->qh.alt_next = EHCI_PTR_TERM;
 
     // Add queue head to controller list.
@@ -575,21 +598,6 @@ ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     }
     struct ehci_pipe *pipe = container_of(p, struct ehci_pipe, pipe);
 
-    u16 maxpacket = pipe->pipe.maxpacket;
-    int speed = pipe->pipe.speed;
-
-    // Setup fields in qh
-    pipe->qh.info1 = (
-        (1 << QH_MULT_SHIFT) | (speed != USB_HIGHSPEED ? QH_CONTROL : 0)
-        | (maxpacket << QH_MAXPACKET_SHIFT)
-        | QH_TOGGLECONTROL
-        | (speed << QH_SPEED_SHIFT)
-        | (pipe->pipe.ep << QH_EP_SHIFT)
-        | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
-    pipe->qh.info2 = ((1 << QH_MULT_SHIFT)
-                      | (pipe->pipe.tt_port << QH_HUBPORT_SHIFT)
-                      | (pipe->pipe.tt_devaddr << QH_HUBADDR_SHIFT));
-
     // Setup transfer descriptors
     struct ehci_qtd *tds = memalign_tmphigh(EHCI_QTD_ALIGN, sizeof(*tds) * 3);
     if (!tds) {
@@ -603,6 +611,7 @@ ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     td->alt_next = EHCI_PTR_TERM;
     td->token = (ehci_explen(cmdsize) | QTD_STS_ACTIVE
                  | QTD_PID_SETUP | ehci_maxerr(3));
+    u16 maxpacket = pipe->pipe.maxpacket;
     fillTDbuffer(td, maxpacket, cmd, cmdsize);
     td++;
 
@@ -645,26 +654,14 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     dprintf(7, "ehci_send_bulk qh=%p dir=%d data=%p size=%d\n"
             , &pipe->qh, dir, data, datasize);
 
-    // Allocate 4 tds on stack (16byte aligned)
+    // Allocate 4 tds on stack (with required alignment)
     u8 tdsbuf[sizeof(struct ehci_qtd) * STACKQTDS + EHCI_QTD_ALIGN - 1];
     struct ehci_qtd *tds = (void*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN);
     memset(tds, 0, sizeof(*tds) * STACKQTDS);
-
-    // Setup fields in qh
-    u16 maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
-    SET_FLATPTR(pipe->qh.info1
-                , ((1 << QH_MULT_SHIFT)
-                   | (maxpacket << QH_MAXPACKET_SHIFT)
-                   | (GET_FLATPTR(pipe->pipe.speed) << QH_SPEED_SHIFT)
-                   | (GET_FLATPTR(pipe->pipe.ep) << QH_EP_SHIFT)
-                   | (GET_FLATPTR(pipe->pipe.devaddr) << QH_DEVADDR_SHIFT)));
-    SET_FLATPTR(pipe->qh.info2
-                , ((1 << QH_MULT_SHIFT)
-                   | (GET_FLATPTR(pipe->pipe.tt_port) << QH_HUBPORT_SHIFT)
-                   | (GET_FLATPTR(pipe->pipe.tt_devaddr) << QH_HUBADDR_SHIFT)));
     barrier();
     SET_FLATPTR(pipe->qh.qtd_next, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
 
+    u16 maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
     int tdpos = 0;
     while (datasize) {
         struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];

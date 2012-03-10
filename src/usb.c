@@ -140,19 +140,6 @@ usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
     pipe->speed = usbdev->speed;
     pipe->maxpacket = epdesc->wMaxPacketSize;
     pipe->eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
-
-    struct usbdevice_s *hubdev = usbdev->hub->usbdev;
-    if (hubdev) {
-        if (hubdev->defpipe->speed == USB_HIGHSPEED) {
-            pipe->tt_devaddr = usbdev->devaddr;
-            pipe->tt_port = usbdev->port;
-        } else {
-            pipe->tt_devaddr = hubdev->defpipe->tt_devaddr;
-            pipe->tt_port = hubdev->defpipe->tt_port;
-        }
-    } else {
-        pipe->tt_devaddr = pipe->tt_port = 0;
-    }
 }
 
 // Find the exponential period of the requested interrupt end point.
