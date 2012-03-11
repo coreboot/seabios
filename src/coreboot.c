@@ -323,7 +323,7 @@ cbfs_verify(struct cbfs_file *file)
         return NULL;
     u64 magic = file->magic;
     if (magic == CBFS_FILE_MAGIC) {
-        dprintf(5, "Found CBFS file %s\n", file->filename);
+        dprintf(8, "Found CBFS file %s\n", file->filename);
         return file;
     }
     return NULL;
@@ -350,7 +350,7 @@ cbfs_getnext(struct cbfs_file *file)
 struct cbfs_file *
 cbfs_findfile(const char *fname)
 {
-    dprintf(3, "Searching CBFS for %s\n", fname);
+    dprintf(7, "Searching CBFS for %s\n", fname);
     struct cbfs_file *file;
     for (file = cbfs_getfirst(); file; file = cbfs_getnext(file))
         if (strcmp(fname, file->filename) == 0)
@@ -365,7 +365,7 @@ cbfs_findprefix(const char *prefix, struct cbfs_file *last)
     if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return NULL;
 
-    dprintf(3, "Searching CBFS for prefix %s\n", prefix);
+    dprintf(7, "Searching CBFS for prefix %s\n", prefix);
     int len = strlen(prefix);
     struct cbfs_file *file;
     if (! last)

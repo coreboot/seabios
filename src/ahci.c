@@ -130,7 +130,7 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     SET_FLATPTR(list[0].base,   ((u32)(cmd)));
     SET_FLATPTR(list[0].baseu,  0);
 
-    dprintf(2, "AHCI/%d: send cmd ...\n", pnr);
+    dprintf(8, "AHCI/%d: send cmd ...\n", pnr);
     intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
     if (intbits)
         ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, intbits);
@@ -160,7 +160,7 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
             }
             yield();
         }
-        dprintf(2, "AHCI/%d: ... intbits 0x%x, status 0x%x ...\n",
+        dprintf(8, "AHCI/%d: ... intbits 0x%x, status 0x%x ...\n",
                 pnr, intbits, status);
     } while (status & ATA_CB_STAT_BSY);
 
@@ -168,7 +168,7 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
                                   ATA_CB_STAT_ERR)) &&
                ATA_CB_STAT_RDY == (status & (ATA_CB_STAT_RDY)));
     if (success) {
-        dprintf(2, "AHCI/%d: ... finished, status 0x%x, OK\n", pnr,
+        dprintf(8, "AHCI/%d: ... finished, status 0x%x, OK\n", pnr,
                 status);
     } else {
         dprintf(2, "AHCI/%d: ... finished, status 0x%x, ERROR 0x%x\n", pnr,
@@ -250,7 +250,7 @@ ahci_disk_readwrite_aligned(struct disk_op_s *op, int iswrite)
     sata_prep_readwrite(&cmd->fis, op, iswrite);
     rc = ahci_command(port, iswrite, 0, op->buf_fl,
                       op->count * DISK_SECTOR_SIZE);
-    dprintf(2, "ahci disk %s, lba %6x, count %3x, buf %p, rc %d\n",
+    dprintf(8, "ahci disk %s, lba %6x, count %3x, buf %p, rc %d\n",
             iswrite ? "write" : "read", (u32)op->lba, op->count, op->buf_fl, rc);
     if (rc < 0)
         return DISK_RET_EBADTRACK;
@@ -470,11 +470,11 @@ static int ahci_port_init(struct ahci_port_s *port)
     for (;;) {
         stat = ahci_port_readl(ctrl, pnr, PORT_SCR_STAT);
         if ((stat & 0x07) == 0x03) {
-            dprintf(1, "AHCI/%d: link up\n", port->pnr);
+            dprintf(2, "AHCI/%d: link up\n", port->pnr);
             break;
         }
         if (check_tsc(end)) {
-            dprintf(1, "AHCI/%d: link down\n", port->pnr);
+            dprintf(2, "AHCI/%d: link down\n", port->pnr);
             return -1;
         }
         yield();
