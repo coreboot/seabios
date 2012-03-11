@@ -387,12 +387,10 @@ ehci_desc2pipe(struct ehci_pipe *pipe, struct usbdevice_s *usbdev
 {
     usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
 
-    pipe->qh.info1 = (
-        (1 << QH_MULT_SHIFT)
-        | (pipe->pipe.maxpacket << QH_MAXPACKET_SHIFT)
-        | (pipe->pipe.speed << QH_SPEED_SHIFT)
-        | (pipe->pipe.ep << QH_EP_SHIFT)
-        | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
+    pipe->qh.info1 = ((pipe->pipe.maxpacket << QH_MAXPACKET_SHIFT)
+                      | (pipe->pipe.speed << QH_SPEED_SHIFT)
+                      | (pipe->pipe.ep << QH_EP_SHIFT)
+                      | (pipe->pipe.devaddr << QH_DEVADDR_SHIFT));
 
     pipe->qh.info2 = (1 << QH_MULT_SHIFT);
     struct usbdevice_s *hubdev = usbdev->hub->usbdev;
