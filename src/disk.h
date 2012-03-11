@@ -204,10 +204,10 @@ struct drive_s {
 #define DTYPE_ATAPI        0x03
 #define DTYPE_RAMDISK      0x04
 #define DTYPE_CDEMU        0x05
-#define DTYPE_USB          0x06
-#define DTYPE_VIRTIO_BLK   0x07
-#define DTYPE_AHCI         0x08
-#define DTYPE_VIRTIO_SCSI  0x09
+#define DTYPE_AHCI         0x06
+#define DTYPE_VIRTIO_SCSI  0x07
+#define DTYPE_VIRTIO_BLK   0x08
+#define DTYPE_USB          0x09
 
 #define MAXDESCSIZE 80
 
