@@ -404,6 +404,9 @@ handle_09(void)
 
     process_key(v);
 
+    // Some old programs expect ISR to turn keyboard back on.
+    i8042_command(I8042_CMD_KBD_ENABLE, NULL);
+
 done:
     eoi_pic1();
 }
