@@ -19,8 +19,8 @@ struct virtio_blk_config
 #define VIRTIO_BLK_F_BLK_SIZE 6
 
 /* These two define direction. */
-#define VIRTIO_BLK_T_IN		0
-#define VIRTIO_BLK_T_OUT	1
+#define VIRTIO_BLK_T_IN         0
+#define VIRTIO_BLK_T_OUT        1
 
 /* This is the first element of the read scatter-gather list. */
 struct virtio_blk_outhdr {
@@ -32,9 +32,9 @@ struct virtio_blk_outhdr {
     u64 sector;
 };
 
-#define VIRTIO_BLK_S_OK		0
-#define VIRTIO_BLK_S_IOERR	1
-#define VIRTIO_BLK_S_UNSUPP	2
+#define VIRTIO_BLK_S_OK         0
+#define VIRTIO_BLK_S_IOERR      1
+#define VIRTIO_BLK_S_UNSUPP     2
 
 struct disk_op_s;
 int process_virtio_blk_op(struct disk_op_s *op);

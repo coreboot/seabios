@@ -512,7 +512,7 @@ static void* build_pcihp(void)
     for (i = 0; i < ARRAY_SIZE(aml_ej0_name); ++i) {
         /* Slot is in byte 2 in _ADR */
         u8 slot = ssdp_pcihp_aml[aml_adr_dword[i] + 2] & 0x1F;
-	/* Sanity check */
+        /* Sanity check */
         if (memcmp(ssdp_pcihp_aml + aml_ej0_name[i], "_EJ0", 4)) {
             warn_internalerror();
             free(ssdt);

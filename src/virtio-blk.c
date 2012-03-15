@@ -39,16 +39,16 @@ virtio_blk_op(struct disk_op_s *op, int write)
     u8 status = VIRTIO_BLK_S_UNSUPP;
     struct vring_list sg[] = {
         {
-            .addr	= MAKE_FLATPTR(GET_SEG(SS), &hdr),
-            .length	= sizeof(hdr),
+            .addr       = MAKE_FLATPTR(GET_SEG(SS), &hdr),
+            .length     = sizeof(hdr),
         },
         {
-            .addr	= op->buf_fl,
-            .length	= GET_GLOBAL(vdrive_g->drive.blksize) * op->count,
+            .addr       = op->buf_fl,
+            .length     = GET_GLOBAL(vdrive_g->drive.blksize) * op->count,
         },
         {
-            .addr	= MAKE_FLATPTR(GET_SEG(SS), &status),
-            .length	= sizeof(status),
+            .addr       = MAKE_FLATPTR(GET_SEG(SS), &status),
+            .length     = sizeof(status),
         },
     };
 

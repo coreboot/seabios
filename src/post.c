@@ -104,7 +104,7 @@ ram_probe(void)
     if (CONFIG_COREBOOT) {
         coreboot_setup();
     } else if (usingXen()) {
-	xen_setup();
+        xen_setup();
     } else {
         // On emulators, get memory size from nvram.
         u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
@@ -162,8 +162,8 @@ init_bios_tables(void)
         return;
     }
     if (usingXen()) {
-	xen_copy_biostables();
-	return;
+        xen_copy_biostables();
+        return;
     }
 
     create_pirtable();

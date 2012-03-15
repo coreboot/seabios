@@ -43,15 +43,15 @@ insert_e820(int i, u64 start, u64 size, u32 type)
 static const char *
 e820_type_name(u32 type)
 {
-	switch (type) {
-	case E820_RAM:      return "RAM";
-	case E820_RESERVED: return "RESERVED";
-	case E820_ACPI:     return "ACPI";
-	case E820_NVS:      return "NVS";
-	case E820_UNUSABLE: return "UNUSABLE";
-	case E820_HOLE:     return "HOLE";
-	default:            return "UNKNOWN";
-	}
+    switch (type) {
+    case E820_RAM:      return "RAM";
+    case E820_RESERVED: return "RESERVED";
+    case E820_ACPI:     return "ACPI";
+    case E820_NVS:      return "NVS";
+    case E820_UNUSABLE: return "UNUSABLE";
+    case E820_HOLE:     return "HOLE";
+    default:            return "UNKNOWN";
+    }
 }
 
 // Show the current e820_list.

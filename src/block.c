@@ -318,7 +318,7 @@ process_op(struct disk_op_s *op)
     case DTYPE_VIRTIO_BLK:
         return process_virtio_blk_op(op);
     case DTYPE_AHCI:
-	return process_ahci_op(op);
+        return process_ahci_op(op);
     case DTYPE_USB:
     case DTYPE_VIRTIO_SCSI:
         return process_scsi_op(op);

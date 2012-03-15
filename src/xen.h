@@ -12,7 +12,7 @@ void xen_copy_biostables(void);
 
 static inline int usingXen(void) {
     if (!CONFIG_XEN)
-	return 0;
+        return 0;
     return (xen_cpuid_base != 0);
 }
 
