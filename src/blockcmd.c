@@ -35,6 +35,13 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     }
 }
 
+// Determine if the command is a request to pull data from the device
+int
+cdb_is_read(u8 *cdbcmd, u16 blocksize)
+{
+    return blocksize && cdbcmd[0] != CDB_CMD_WRITE_10;
+}
+
 int
 scsi_is_ready(struct disk_op_s *op)
 {

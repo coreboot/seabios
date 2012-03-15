@@ -31,7 +31,7 @@ struct virtio_lun_s {
 
 static int
 virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
-                void *cdbcmd, u16 target, u16 lun, u32 len)
+                void *cdbcmd, u16 target, u16 lun, u16 blocksize)
 {
     struct virtio_scsi_req_cmd req;
     struct virtio_scsi_resp_cmd resp;
@@ -44,7 +44,8 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
     req.lun[3] = (lun & 0xff);
     memcpy(req.cdb, cdbcmd, 16);
 
-    int datain = (req.cdb[0] != CDB_CMD_WRITE_10);
+    u32 len = op->count * blocksize;
+    int datain = cdb_is_read(cdbcmd, blocksize);
     int data_idx = (datain ? 2 : 1);
     int out_num = (datain ? 1 : 2);
     int in_num = (len ? 3 : 2) - out_num;
@@ -89,7 +90,7 @@ virtio_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     return virtio_scsi_cmd(GET_GLOBAL(vlun->ioaddr),
                            GET_GLOBAL(vlun->vq), op, cdbcmd,
                            GET_GLOBAL(vlun->target), GET_GLOBAL(vlun->lun),
-                           blocksize * op->count);
+                           blocksize);
 }
 
 static int

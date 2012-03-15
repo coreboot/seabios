@@ -77,13 +77,13 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     cbw.dCBWSignature = CBW_SIGNATURE;
     cbw.dCBWTag = 999; // XXX
     cbw.dCBWDataTransferLength = bytes;
-    cbw.bmCBWFlags = (cbw.CBWCB[0] == CDB_CMD_WRITE_10) ? USB_DIR_OUT : USB_DIR_IN;
+    cbw.bmCBWFlags = cdb_is_read(cdbcmd, blocksize) ? USB_DIR_IN : USB_DIR_OUT;
     cbw.bCBWLUN = 0; // XXX
     cbw.bCBWCBLength = USB_CDB_SIZE;
 
     // Transfer cbw to device.
     int ret = usb_msc_send(udrive_g, USB_DIR_OUT
-                            , MAKE_FLATPTR(GET_SEG(SS), &cbw), sizeof(cbw));
+                           , MAKE_FLATPTR(GET_SEG(SS), &cbw), sizeof(cbw));
     if (ret)
         goto fail;
 
