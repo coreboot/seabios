@@ -46,9 +46,8 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
 
     u32 len = op->count * blocksize;
     int datain = cdb_is_read(cdbcmd, blocksize);
-    int data_idx = (datain ? 2 : 1);
-    int out_num = (datain ? 1 : 2);
-    int in_num = (len ? 3 : 2) - out_num;
+    int in_num = (datain ? 2 : 1);
+    int out_num = (len ? 3 : 2) - in_num;
 
     sg[0].addr   = MAKE_FLATPTR(GET_SEG(SS), &req);
     sg[0].length = sizeof(req);
@@ -56,8 +55,11 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
     sg[out_num].addr   = MAKE_FLATPTR(GET_SEG(SS), &resp);
     sg[out_num].length = sizeof(resp);
 
-    sg[data_idx].addr   = op->buf_fl;
-    sg[data_idx].length = len;
+    if (len) {
+        int data_idx = (datain ? 2 : 1);
+        sg[data_idx].addr   = op->buf_fl;
+        sg[data_idx].length = len;
+    }
 
     /* Add to virtqueue and kick host */
     vring_add_buf(vq, sg, out_num, in_num, 0, 0);
