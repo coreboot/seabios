@@ -645,13 +645,15 @@ atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         ret = -2;
         goto fail;
     }
-    if (!(status & ATA_CB_STAT_DRQ)) {
-        dprintf(6, "send_atapi_cmd : DRQ not set (status %02x)\n", status);
-        ret = -3;
-        goto fail;
-    }
+    if (blocksize) {
+        if (!(status & ATA_CB_STAT_DRQ)) {
+            dprintf(6, "send_atapi_cmd : DRQ not set (status %02x)\n", status);
+            ret = -3;
+            goto fail;
+        }
 
-    ret = ata_pio_transfer(op, 0, blocksize);
+        ret = ata_pio_transfer(op, 0, blocksize);
+    }
 
 fail:
     // Enable interrupts
