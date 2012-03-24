@@ -4,9 +4,6 @@
 #
 # This file may be distributed under the terms of the GNU LGPLv3 license.
 
-# Program version
-VERSION=pre-1.6.4-$(shell date +"%Y%m%d_%H%M%S")-$(shell hostname)
-
 # Output directory
 OUT=out/
 
@@ -150,8 +147,8 @@ $(OUT)romlayout.o: romlayout.S $(OUT)asm-offsets.h
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
 $(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)ccode16.o $(OUT)romlayout.o tools/layoutrom.py
-	@echo "  Building ld scripts (version \"$(VERSION)\")"
-	$(Q)echo 'const char VERSION[] = "$(VERSION)";' > $(OUT)version.c
+	@echo "  Building ld scripts"
+	$(Q)./tools/buildversion.sh $(OUT)version.c
 	$(Q)$(CC) $(CFLAGS32FLAT) -c $(OUT)version.c -o $(OUT)version.o
 	$(Q)$(LD) -melf_i386 -r $(OUT)ccode32flat.o $(OUT)version.o -o $(OUT)code32flat.o
 	$(Q)$(LD) -melf_i386 -r $(OUT)ccode16.o $(OUT)romlayout.o -o $(OUT)code16.o
@@ -206,8 +203,8 @@ $(OUT)vgaentry.o: vgaentry.S $(OUT)autoconf.h
 	$(Q)$(CC) $(CFLAGS16VGA) -c -D__ASSEMBLY__ $< -o $@
 
 $(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgalayout.lds
-	@echo "  Linking $@ (version \"$(VERSION)\")"
-	$(Q)printf '#include "types.h"\nchar VERSION[] VAR16 = "$(VERSION)";' > $(OUT)vgaversion.c
+	@echo "  Linking $@"
+	$(Q)./tools/buildversion.sh $(OUT)vgaversion.c VAR16
 	$(Q)$(CC) $(CFLAGS16VGA) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
 	$(Q)$(LD) --gc-sections -T $(OUT)vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
 
