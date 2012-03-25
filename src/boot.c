@@ -530,7 +530,7 @@ call_boot_entry(struct segoff_s bootsegip, u8 bootdrv)
     // Set the magic number in ax and the boot drive in dl.
     br.dl = bootdrv;
     br.ax = 0xaa55;
-    call16(&br);
+    farcall16(&br);
 }
 
 // Boot from a disk (either floppy or harddrive)
@@ -633,7 +633,7 @@ boot_fail(void)
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.code = SEGOFF(SEG_BIOS, (u32)reset_vector);
-    call16big(&br);
+    farcall16big(&br);
 }
 
 // Determine next boot method and attempt a boot using it.

@@ -198,8 +198,8 @@ struct descloc_s {
 // util.c
 void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx);
 struct bregs;
-inline void call16(struct bregs *callregs);
-inline void call16big(struct bregs *callregs);
+inline void farcall16(struct bregs *callregs);
+inline void farcall16big(struct bregs *callregs);
 inline void __call16_int(struct bregs *callregs, u16 offset);
 #define call16_int(nr, callregs) do {                           \
         extern void irq_trampoline_ ##nr ();                    \

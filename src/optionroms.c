@@ -38,7 +38,7 @@ __callrom(struct rom_header *rom, u16 offset, u16 bdf)
     br.di = get_pnp_offset();
     br.code = SEGOFF(seg, offset);
     start_preempt();
-    call16big(&br);
+    farcall16big(&br);
     finish_preempt();
 
     debug_serial_setup();

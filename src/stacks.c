@@ -114,7 +114,7 @@ check_irqs(void)
     br.flags = F_IF;
     br.code.seg = SEG_BIOS;
     br.code.offset = (u32)&trampoline_checkirqs;
-    call16big(&br);
+    farcall16big(&br);
 }
 
 // 16bit trampoline for waiting for an irq from 32bit mode.
@@ -144,7 +144,7 @@ yield_toirq(void)
     br.flags = 0;
     br.code.seg = SEG_BIOS;
     br.code.offset = (u32)&trampoline_waitirq;
-    call16big(&br);
+    farcall16big(&br);
 }
 
 

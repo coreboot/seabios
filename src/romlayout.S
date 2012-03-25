@@ -127,11 +127,11 @@ transition16big:
         movl %ecx, %eax
         jmpl *%edx
 
-// Call a 16bit function from 16bit mode with a specified cpu register state
+// Far call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs
 // Clobbers: %e[bcd]x, %e[ds]i, flags
-        DECLFUNC __call16
-__call16:
+        DECLFUNC __farcall16
+__farcall16:
         // Save %eax, %ebp
         pushl %ebp
         pushl %eax
@@ -183,22 +183,22 @@ __call16:
 
         retl
 
-// Call a 16bit function from 32bit mode.
+// Far call a 16bit function from 32bit mode.
 // %eax = address of struct bregs
 // Clobbers: %e[bcd]x, %e[ds]i, flags, segment registers, idt/gdt
-        DECLFUNC __call16_from32
-        .global __call16big_from32
+        DECLFUNC __farcall16_from32
+        .global __farcall16big_from32
         .code32
-__call16_from32:
+__farcall16_from32:
         movl $1f, %edx
         jmp transition16
-__call16big_from32:
+__farcall16big_from32:
         movl $1f, %edx
         jmp transition16big
 
         // Make call.
         .code16gcc
-1:      calll __call16
+1:      calll __farcall16
         // Return via transition32
         movl $(2f + BUILD_BIOS_ADDR), %edx
         jmp transition32

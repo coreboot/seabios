@@ -120,7 +120,7 @@ s3_resume(void)
     memset(&br, 0, sizeof(br));
     dprintf(1, "Jump to resume vector (%x)\n", s3_resume_vector);
     br.code = FLATPTR_TO_SEGOFF((void*)s3_resume_vector);
-    call16big(&br);
+    farcall16big(&br);
 }
 
 // Attempt to invoke a hard-reboot.
