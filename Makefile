@@ -227,6 +227,7 @@ src/%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
 	$(Q)$(PYTHON) ./tools/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
+$(OUT)ccode32flat.o: src/acpi-dsdt.hex src/ssdt-proc.hex src/ssdt-pcihp.hex
 
 ################ Kconfig rules
 
