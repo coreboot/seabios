@@ -33,6 +33,7 @@ struct pci_region_entry {
     struct pci_device *dev;
     int bar;
     u32 size;
+    u32 align;
     int is64;
     enum pci_region_type type;
     struct pci_region_entry *next;
@@ -41,7 +42,7 @@ struct pci_region_entry {
 struct pci_bus {
     struct {
         /* pci region stats */
-        u32 sum, max;
+        u32 sum, align;
         /* pci region assignments */
         u32 base;
         struct pci_region_entry *list;
@@ -307,12 +308,6 @@ pci_bios_init_bus(void)
  * Bus sizing
  ****************************************************************/
 
-static u32 pci_size_roundup(u32 size)
-{
-    int index = __fls(size-1)+1;
-    return 0x1 << index;
-}
-
 static void
 pci_bios_get_bar(struct pci_device *pci, int bar, u32 *val, u32 *size)
 {
@@ -338,7 +333,7 @@ pci_bios_get_bar(struct pci_device *pci, int bar, u32 *val, u32 *size)
 
 static struct pci_region_entry *
 pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
-                        int bar, u32 size, int type, int is64)
+                        int bar, u32 size, u32 align, int type, int is64)
 {
     struct pci_region_entry *entry = malloc_tmp(sizeof(*entry));
     if (!entry) {
@@ -349,21 +344,22 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     entry->dev = dev;
     entry->bar = bar;
     entry->size = size;
+    entry->align = align;
     entry->is64 = is64;
     entry->type = type;
     // Insert into list in sorted order.
     struct pci_region_entry **pprev;
     for (pprev = &bus->r[type].list; *pprev; pprev = &(*pprev)->next) {
         struct pci_region_entry *pos = *pprev;
-        if (pos->size < size)
+        if (pos->align < align || (pos->align == align && pos->size < size))
             break;
     }
     entry->next = *pprev;
     *pprev = entry;
 
     bus->r[type].sum += size;
-    if (bus->r[type].max < size)
-        bus->r[type].max = size;
+    if (bus->r[type].align < align)
+        bus->r[type].align = align;
     return entry;
 }
 
@@ -393,7 +389,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
                         (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK)
                         == PCI_BASE_ADDRESS_MEM_TYPE_64);
             struct pci_region_entry *entry = pci_region_create_entry(
-                bus, pci, i, size, type, is64);
+                bus, pci, i, size, size, type, is64);
             if (!entry)
                 return -1;
 
@@ -411,15 +407,14 @@ static int pci_bios_check_devices(struct pci_bus *busses)
         struct pci_bus *parent = &busses[pci_bdf_to_bus(s->bus_dev->bdf)];
         int type;
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
-            u32 limit = (type == PCI_REGION_TYPE_IO) ?
+            u32 align = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
-            u32 size = s->r[type].sum;
-            if (size < limit)
-                size = limit;
-            size = pci_size_roundup(size);
+            if (s->r[type].align > align)
+                align = s->r[type].align;
+            u32 size = ALIGN(s->r[type].sum, align);
             // entry->bar is -1 if the entry represents a bridge region
             struct pci_region_entry *entry = pci_region_create_entry(
-                parent, s->bus_dev, -1, size, type, 0);
+                parent, s->bus_dev, -1, size, align, type, 0);
             if (!entry)
                 return -1;
             dprintf(1, "PCI: secondary bus %d size %x type %s\n",
@@ -430,7 +425,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
     return 0;
 }
 
-#define ROOT_BASE(top, sum, max) ALIGN_DOWN((top)-(sum),(max) ?: 1)
+#define ROOT_BASE(top, sum, align) ALIGN_DOWN((top)-(sum),(align) ?: 1)
 
 // Setup region bases (given the regions' size and alignment)
 static int pci_bios_init_root_regions(struct pci_bus *bus, u32 start, u32 end)
@@ -438,14 +433,14 @@ static int pci_bios_init_root_regions(struct pci_bus *bus, u32 start, u32 end)
     bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
 
     int reg1 = PCI_REGION_TYPE_PREFMEM, reg2 = PCI_REGION_TYPE_MEM;
-    if (bus->r[reg1].sum < bus->r[reg2].sum) {
-        // Swap regions so larger area is more likely to align well.
+    if (bus->r[reg1].align < bus->r[reg2].align) {
+        // Swap regions to improve alignment.
         reg1 = PCI_REGION_TYPE_MEM;
         reg2 = PCI_REGION_TYPE_PREFMEM;
     }
-    bus->r[reg2].base = ROOT_BASE(end, bus->r[reg2].sum, bus->r[reg2].max);
+    bus->r[reg2].base = ROOT_BASE(end, bus->r[reg2].sum, bus->r[reg2].align);
     bus->r[reg1].base = ROOT_BASE(bus->r[reg2].base, bus->r[reg1].sum
-                                  , bus->r[reg1].max);
+                                  , bus->r[reg1].align);
     if (bus->r[reg1].base < start)
         // Memory range requested is larger than available.
         return -1;
