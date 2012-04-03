@@ -723,11 +723,11 @@ DefinitionBlock (
         Method(_L00) {
             Return(0x01)
         }
-        Method(_L01) {
+        Method(_E01) {
             // PCI hotplug event
             Return(\_SB.PCI0.PCNF())
         }
-        Method(_L02) {
+        Method(_E02) {
             // CPU hotplug event
             Return(\_SB.PRSC())
         }
