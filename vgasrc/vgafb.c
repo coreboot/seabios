@@ -194,6 +194,8 @@ vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
     case MM_PACKED:
         scroll_lin(vmode_g, nblines, attr, ul, lr);
         break;
+    default:
+        break;
     }
 }
 
@@ -342,6 +344,8 @@ vgafb_write_char(struct cursorpos cp, struct carattr ca)
     case MM_PACKED:
         write_gfx_char_lin(vmode_g, cp, ca);
         break;
+    default:
+        break;
     }
 }
 
@@ -428,6 +432,7 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
         addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
         SET_FARVAR(SEG_GRAPH, *addr_far, color);
         break;
+    default:
     case MM_TEXT:
         return;
     }
@@ -470,6 +475,7 @@ vgafb_read_pixel(u16 x, u16 y)
         addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
         attr = GET_FARVAR(SEG_GRAPH, *addr_far);
         break;
+    default:
     case MM_TEXT:
         return 0;
     }
