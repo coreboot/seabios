@@ -12,13 +12,14 @@ menu "VGA ROM"
 
         config VGA_STANDARD_VGA
             depends on !COREBOOT
-            bool "Standard VGA"
+            bool "QEMU/Bochs Original IBM 256K VGA"
             help
-                Build basic VGA BIOS support for use on emulators.
+                Build basic VGA BIOS support (pre Super-VGA) for use
+                on emulators.
 
         config VGA_CIRRUS
             depends on !COREBOOT
-            bool "QEMU Cirrus CLGD 54xx VGA BIOS"
+            bool "QEMU/Bochs Cirrus SVGA"
             help
                 Build support for Cirrus VGA emulation found on QEMU
                 and Bochs emulators.  This is for emulators; it is not
@@ -26,18 +27,18 @@ menu "VGA ROM"
 
         config VGA_BOCHS
             depends on !COREBOOT
-            bool "Bochs DISPI interface VGA BIOS"
+            bool "QEMU/Bochs VBE SVGA"
             help
-                Build support for Bochs DISPI interface found on QEMU
-                and Bochs emulators.
+                Build support for Bochs DISPI interface (a custom VBE
+                protocol) found on QEMU and Bochs emulators.
 
         config VGA_GEODEGX2
-            bool "GeodeGX2 interface VGA BIOS"
+            bool "GeodeGX2"
             help
                 Build support for Geode GX2 vga.
 
         config VGA_GEODELX
-            bool "GeodeLX interface VGA BIOS"
+            bool "GeodeLX"
             help
                 Build support for Geode LX vga.
     endchoice
