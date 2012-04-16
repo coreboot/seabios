@@ -15,7 +15,7 @@ VERSION="${VERSION}-`date +"%Y%m%d_%H%M%S"`-`hostname`"
 echo "Version: ${VERSION}"
 
 # Build header file
-if [ "$VAR16MODE" == "VAR16" ]; then
+if [ "$VAR16MODE" = "VAR16" ]; then
     cat > ${OUTFILE} <<EOF
 #include "types.h"
 char VERSION[] VAR16 = "${VERSION}";
