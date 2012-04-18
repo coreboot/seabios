@@ -51,11 +51,6 @@ struct pci_device {
     u8 prog_if, revision;
     u8 header_type;
     u8 secondary_bus;
-    struct {
-        u32 addr;
-        u32 size;
-        int is64;
-    } bars[PCI_NUM_REGIONS];
 
     // Local information on device.
     int have_driver;
