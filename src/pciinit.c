@@ -12,9 +12,7 @@
 #include "pci_regs.h" // PCI_COMMAND
 #include "xen.h" // usingXen
 
-#define PCI_IO_INDEX_SHIFT 2
-#define PCI_MEM_INDEX_SHIFT 12
-
+#define PCI_DEVICE_MEM_MIN     0x1000
 #define PCI_BRIDGE_IO_MIN      0x1000
 #define PCI_BRIDGE_MEM_MIN   0x100000
 
@@ -43,35 +41,13 @@ struct pci_region_entry {
 struct pci_bus {
     struct {
         /* pci region stats */
-        u32 count[32 - PCI_MEM_INDEX_SHIFT];
         u32 sum, max;
         /* pci region assignments */
-        u32 bases[32 - PCI_MEM_INDEX_SHIFT];
         u32 base;
         struct pci_region_entry *list;
     } r[PCI_REGION_TYPE_COUNT];
     struct pci_device *bus_dev;
 };
-
-static int pci_size_to_index(u32 size, enum pci_region_type type)
-{
-    int index = __fls(size);
-    int shift = (type == PCI_REGION_TYPE_IO) ?
-        PCI_IO_INDEX_SHIFT : PCI_MEM_INDEX_SHIFT;
-
-    if (index < shift)
-        index = shift;
-    index -= shift;
-    return index;
-}
-
-static u32 pci_index_to_size(int index, enum pci_region_type type)
-{
-    int shift = (type == PCI_REGION_TYPE_IO) ?
-        PCI_IO_INDEX_SHIFT : PCI_MEM_INDEX_SHIFT;
-
-    return 0x1 << (index + shift);
-}
 
 static enum pci_region_type pci_addr_to_type(u32 addr)
 {
@@ -385,9 +361,6 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     entry->next = *pprev;
     *pprev = entry;
 
-    int index = pci_size_to_index(size, type);
-    size = pci_index_to_size(index, type);
-    bus->r[type].count[index]++;
     bus->r[type].sum += size;
     if (bus->r[type].max < size)
         bus->r[type].max = size;
@@ -413,11 +386,14 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             if (val == 0)
                 continue;
 
+            int type = pci_addr_to_type(val);
+            if (type != PCI_REGION_TYPE_IO && size < PCI_DEVICE_MEM_MIN)
+                size = PCI_DEVICE_MEM_MIN;
             int is64 = (!(val & PCI_BASE_ADDRESS_SPACE_IO) &&
                         (val & PCI_BASE_ADDRESS_MEM_TYPE_MASK)
                         == PCI_BASE_ADDRESS_MEM_TYPE_64);
             struct pci_region_entry *entry = pci_region_create_entry(
-                bus, pci, i, size, pci_addr_to_type(val), is64);
+                bus, pci, i, size, type, is64);
             if (!entry)
                 return -1;
 
@@ -481,38 +457,6 @@ static int pci_bios_init_root_regions(struct pci_bus *bus, u32 start, u32 end)
  * BAR assignment
  ****************************************************************/
 
-static void pci_bios_init_bus_bases(struct pci_bus *bus)
-{
-    u32 base, newbase, size;
-    int type, i;
-
-    for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
-        dprintf(1, "  type %s max %x sum %x base %x\n", region_type_name[type],
-                bus->r[type].max, bus->r[type].sum, bus->r[type].base);
-        base = bus->r[type].base;
-        for (i = ARRAY_SIZE(bus->r[type].count)-1; i >= 0; i--) {
-            size = pci_index_to_size(i, type);
-            if (!bus->r[type].count[i])
-                continue;
-            newbase = base + size * bus->r[type].count[i];
-            dprintf(1, "    size %8x: %d bar(s), %8x -> %8x\n",
-                    size, bus->r[type].count[i], base, newbase - 1);
-            bus->r[type].bases[i] = base;
-            base = newbase;
-        }
-    }
-}
-
-static u32 pci_bios_bus_get_addr(struct pci_bus *bus, int type, u32 size)
-{
-    u32 index, addr;
-
-    index = pci_size_to_index(size, type);
-    addr = bus->r[type].bases[index];
-    bus->r[type].bases[index] += pci_index_to_size(index, type);
-    return addr;
-}
-
 #define PCI_IO_SHIFT            8
 #define PCI_MEMORY_SHIFT        16
 #define PCI_PREF_MEMORY_SHIFT   16
@@ -522,7 +466,8 @@ pci_region_map_one_entry(struct pci_bus *busses, struct pci_region_entry *entry)
 {
     u16 bdf = entry->dev->bdf;
     struct pci_bus *bus = &busses[pci_bdf_to_bus(bdf)];
-    u32 addr = pci_bios_bus_get_addr(bus, entry->type, entry->size);
+    u32 addr = bus->r[entry->type].base;
+    bus->r[entry->type].base += entry->size;
     if (entry->bar >= 0) {
         dprintf(1, "PCI: map device bdf=%02x:%02x.%x"
                 "  bar %d, addr %08x, size %08x [%s]\n",
@@ -561,8 +506,6 @@ static void pci_bios_map_devices(struct pci_bus *busses)
     // Map regions on each device.
     int bus;
     for (bus = 0; bus<=MaxPCIBus; bus++) {
-        dprintf(1, "PCI: init bases bus %d\n", bus);
-        pci_bios_init_bus_bases(&busses[bus]);
         int type;
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             struct pci_region_entry *entry = busses[bus].r[type].list;
