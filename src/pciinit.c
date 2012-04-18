@@ -526,8 +526,8 @@ pci_region_map_one_entry(struct pci_bus *busses, struct pci_region_entry *entry)
 {
     u16 bdf = entry->dev->bdf;
     struct pci_bus *bus = &busses[pci_bdf_to_bus(bdf)];
+    u32 addr = pci_bios_bus_get_addr(bus, entry->type, entry->size);
     if (entry->bar >= 0) {
-        u32 addr = pci_bios_bus_get_addr(bus, entry->type, entry->size);
         dprintf(1, "PCI: map device bdf=%02x:%02x.%x"
                 "  bar %d, addr %08x, size %08x [%s]\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf),
@@ -536,54 +536,37 @@ pci_region_map_one_entry(struct pci_bus *busses, struct pci_region_entry *entry)
         pci_set_io_region_addr(entry->dev, entry->bar, addr);
         if (entry->is64)
             pci_set_io_region_addr(entry->dev, entry->bar + 1, 0);
+        return;
+    }
+
+    struct pci_bus *child_bus = &busses[entry->dev->secondary_bus];
+    child_bus->r[entry->type].base = addr;
+    u32 limit = addr + entry->size - 1;
+    if (entry->type == PCI_REGION_TYPE_IO) {
+        pci_config_writeb(bdf, PCI_IO_BASE, addr >> PCI_IO_SHIFT);
+        pci_config_writew(bdf, PCI_IO_BASE_UPPER16, 0);
+        pci_config_writeb(bdf, PCI_IO_LIMIT, limit >> PCI_IO_SHIFT);
+        pci_config_writew(bdf, PCI_IO_LIMIT_UPPER16, 0);
+    }
+    if (entry->type == PCI_REGION_TYPE_MEM) {
+        pci_config_writew(bdf, PCI_MEMORY_BASE, addr >> PCI_MEMORY_SHIFT);
+        pci_config_writew(bdf, PCI_MEMORY_LIMIT, limit >> PCI_MEMORY_SHIFT);
+    }
+    if (entry->type == PCI_REGION_TYPE_PREFMEM) {
+        pci_config_writew(bdf, PCI_PREF_MEMORY_BASE, addr >> PCI_PREF_MEMORY_SHIFT);
+        pci_config_writew(bdf, PCI_PREF_MEMORY_LIMIT, limit >> PCI_PREF_MEMORY_SHIFT);
+        pci_config_writel(bdf, PCI_PREF_BASE_UPPER32, 0);
+        pci_config_writel(bdf, PCI_PREF_LIMIT_UPPER32, 0);
     }
 }
 
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
-    // Setup bases for root bus.
-    dprintf(1, "PCI: init bases bus 0 (primary)\n");
-    pci_bios_init_bus_bases(&busses[0]);
-
-    // Map regions on each secondary bus.
-    int secondary_bus;
-    for (secondary_bus=1; secondary_bus<=MaxPCIBus; secondary_bus++) {
-        struct pci_bus *s = &busses[secondary_bus];
-        if (!s->bus_dev)
-            continue;
-        u16 bdf = s->bus_dev->bdf;
-        struct pci_bus *parent = &busses[pci_bdf_to_bus(bdf)];
-        int type;
-        for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
-            s->r[type].base = pci_bios_bus_get_addr(
-                parent, type, s->r[type].size);
-        }
-        dprintf(1, "PCI: init bases bus %d (secondary)\n", secondary_bus);
-        pci_bios_init_bus_bases(s);
-
-        u32 base = s->r[PCI_REGION_TYPE_IO].base;
-        u32 limit = base + s->r[PCI_REGION_TYPE_IO].size - 1;
-        pci_config_writeb(bdf, PCI_IO_BASE, base >> PCI_IO_SHIFT);
-        pci_config_writew(bdf, PCI_IO_BASE_UPPER16, 0);
-        pci_config_writeb(bdf, PCI_IO_LIMIT, limit >> PCI_IO_SHIFT);
-        pci_config_writew(bdf, PCI_IO_LIMIT_UPPER16, 0);
-
-        base = s->r[PCI_REGION_TYPE_MEM].base;
-        limit = base + s->r[PCI_REGION_TYPE_MEM].size - 1;
-        pci_config_writew(bdf, PCI_MEMORY_BASE, base >> PCI_MEMORY_SHIFT);
-        pci_config_writew(bdf, PCI_MEMORY_LIMIT, limit >> PCI_MEMORY_SHIFT);
-
-        base = s->r[PCI_REGION_TYPE_PREFMEM].base;
-        limit = base + s->r[PCI_REGION_TYPE_PREFMEM].size - 1;
-        pci_config_writew(bdf, PCI_PREF_MEMORY_BASE, base >> PCI_PREF_MEMORY_SHIFT);
-        pci_config_writew(bdf, PCI_PREF_MEMORY_LIMIT, limit >> PCI_PREF_MEMORY_SHIFT);
-        pci_config_writel(bdf, PCI_PREF_BASE_UPPER32, 0);
-        pci_config_writel(bdf, PCI_PREF_LIMIT_UPPER32, 0);
-    }
-
     // Map regions on each device.
     int bus;
     for (bus = 0; bus<=MaxPCIBus; bus++) {
+        dprintf(1, "PCI: init bases bus %d\n", bus);
+        pci_bios_init_bus_bases(&busses[bus]);
         int type;
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             struct pci_region_entry *entry = busses[bus].r[type].list;
