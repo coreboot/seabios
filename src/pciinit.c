@@ -45,8 +45,6 @@ struct pci_bus {
         /* pci region stats */
         u32 count[32 - PCI_MEM_INDEX_SHIFT];
         u32 sum, max;
-        /* seconday bus region sizes */
-        u32 size;
         /* pci region assignments */
         u32 bases[32 - PCI_MEM_INDEX_SHIFT];
         u32 base;
@@ -439,21 +437,19 @@ static int pci_bios_check_devices(struct pci_bus *busses)
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u32 limit = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
-            s->r[type].size = s->r[type].sum;
-            if (s->r[type].size < limit)
-                s->r[type].size = limit;
-            s->r[type].size = pci_size_roundup(s->r[type].size);
+            u32 size = s->r[type].sum;
+            if (size < limit)
+                size = limit;
+            size = pci_size_roundup(size);
             // entry->bar is -1 if the entry represents a bridge region
             struct pci_region_entry *entry = pci_region_create_entry(
-                parent, s->bus_dev, -1, s->r[type].size, type, 0);
+                parent, s->bus_dev, -1, size, type, 0);
             if (!entry)
                 return -1;
+            dprintf(1, "PCI: secondary bus %d size %x type %s\n",
+                      entry->dev->secondary_bus, size,
+                      region_type_name[entry->type]);
         }
-        dprintf(1, "PCI: secondary bus %d sizes: io %x, mem %x, prefmem %x\n",
-                secondary_bus,
-                s->r[PCI_REGION_TYPE_IO].size,
-                s->r[PCI_REGION_TYPE_MEM].size,
-                s->r[PCI_REGION_TYPE_PREFMEM].size);
     }
     return 0;
 }
