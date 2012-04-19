@@ -347,6 +347,28 @@ pci_bios_get_bar(struct pci_device *pci, int bar,
     *pis64 = is64;
 }
 
+static int pci_bios_bridge_region_is64(struct pci_region *r,
+                                 struct pci_device *pci, int type)
+{
+    if (type != PCI_REGION_TYPE_PREFMEM)
+        return 0;
+    u32 pmem = pci_config_readl(pci->bdf, PCI_PREF_MEMORY_BASE);
+    if (!pmem) {
+        pci_config_writel(pci->bdf, PCI_PREF_MEMORY_BASE, 0xfff0fff0);
+        pmem = pci_config_readl(pci->bdf, PCI_PREF_MEMORY_BASE);
+        pci_config_writel(pci->bdf, PCI_PREF_MEMORY_BASE, 0x0);
+    }
+    if ((pmem & PCI_PREF_RANGE_TYPE_MASK) != PCI_PREF_RANGE_TYPE_64)
+       return 0;
+    struct pci_region_entry *entry = r->list;
+    while (entry) {
+        if (!entry->is64)
+            return 0;
+        entry = entry->next;
+    }
+    return 1;
+}
+
 static struct pci_region_entry *
 pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
                         int bar, u64 size, u64 align, int type, int is64)
@@ -427,9 +449,11 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             if (s->r[type].align > align)
                 align = s->r[type].align;
             u64 size = ALIGN(s->r[type].sum, align);
+            int is64 = pci_bios_bridge_region_is64(&s->r[type],
+                                            s->bus_dev, type);
             // entry->bar is -1 if the entry represents a bridge region
             struct pci_region_entry *entry = pci_region_create_entry(
-                parent, s->bus_dev, -1, size, align, type, 0);
+                parent, s->bus_dev, -1, size, align, type, is64);
             if (!entry)
                 return -1;
             dprintf(1, "PCI: secondary bus %d size %08llx type %s\n",
