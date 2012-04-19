@@ -5,6 +5,7 @@
 
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
+#define PCI_BRIDGE_NUM_REGIONS 2
 
 static inline u8 pci_bdf_to_bus(u16 bdf) {
     return bdf >> 8;

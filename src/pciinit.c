@@ -370,13 +370,15 @@ static int pci_bios_check_devices(struct pci_bus *busses)
     // Calculate resources needed for regular (non-bus) devices.
     struct pci_device *pci;
     foreachpci(pci) {
-        if (pci->class == PCI_CLASS_BRIDGE_PCI) {
+        if (pci->class == PCI_CLASS_BRIDGE_PCI)
             busses[pci->secondary_bus].bus_dev = pci;
-            continue;
-        }
+
         struct pci_bus *bus = &busses[pci_bdf_to_bus(pci->bdf)];
         int i;
         for (i = 0; i < PCI_NUM_REGIONS; i++) {
+            if ((pci->class == PCI_CLASS_BRIDGE_PCI) &&
+                (i >= PCI_BRIDGE_NUM_REGIONS && i < PCI_ROM_SLOT))
+                continue;
             u32 val, size;
             pci_bios_get_bar(pci, i, &val, &size);
             if (val == 0)
