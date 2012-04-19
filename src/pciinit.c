@@ -39,14 +39,16 @@ struct pci_region_entry {
     struct pci_region_entry *next;
 };
 
+struct pci_region {
+    /* pci region stats */
+    u64 sum, align;
+    /* pci region assignments */
+    u64 base;
+    struct pci_region_entry *list;
+};
+
 struct pci_bus {
-    struct {
-        /* pci region stats */
-        u64 sum, align;
-        /* pci region assignments */
-        u64 base;
-        struct pci_region_entry *list;
-    } r[PCI_REGION_TYPE_COUNT];
+    struct pci_region r[PCI_REGION_TYPE_COUNT];
     struct pci_device *bus_dev;
 };
 
@@ -472,12 +474,9 @@ static void pci_bios_init_root_regions(struct pci_bus *bus)
 #define PCI_PREF_MEMORY_SHIFT   16
 
 static void
-pci_region_map_one_entry(struct pci_bus *busses, struct pci_region_entry *entry)
+pci_region_map_one_entry(struct pci_region_entry *entry, u64 addr)
 {
     u16 bdf = entry->dev->bdf;
-    struct pci_bus *bus = &busses[pci_bdf_to_bus(bdf)];
-    u64 addr = bus->r[entry->type].base;
-    bus->r[entry->type].base += entry->size;
     if (entry->bar >= 0) {
         dprintf(1, "PCI: map device bdf=%02x:%02x.%x"
                 "  bar %d, addr %08llx, size %08llx [%s]\n",
@@ -488,8 +487,6 @@ pci_region_map_one_entry(struct pci_bus *busses, struct pci_region_entry *entry)
         return;
     }
 
-    struct pci_bus *child_bus = &busses[entry->dev->secondary_bus];
-    child_bus->r[entry->type].base = addr;
     u64 limit = addr + entry->size - 1;
     if (entry->type == PCI_REGION_TYPE_IO) {
         pci_config_writeb(bdf, PCI_IO_BASE, addr >> PCI_IO_SHIFT);
@@ -509,21 +506,30 @@ pci_region_map_one_entry(struct pci_bus *busses, struct pci_region_entry *entry)
     }
 }
 
+static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
+{
+    struct pci_region_entry *entry = r->list;
+    while(entry) {
+        u64 addr = r->base;
+        r->base += entry->size;
+        if (entry->bar == -1)
+            // Update bus base address if entry is a bridge region
+            busses[entry->dev->secondary_bus].r[entry->type].base = addr;
+        pci_region_map_one_entry(entry, addr);
+        struct pci_region_entry *next = entry->next;
+        free(entry);
+        entry = next;
+    }
+}
+
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
     // Map regions on each device.
     int bus;
     for (bus = 0; bus<=MaxPCIBus; bus++) {
         int type;
-        for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
-            struct pci_region_entry *entry = busses[bus].r[type].list;
-            while (entry) {
-                pci_region_map_one_entry(busses, entry);
-                struct pci_region_entry *next = entry->next;
-                free(entry);
-                entry = next;
-            }
-        }
+        for (type = 0; type < PCI_REGION_TYPE_COUNT; type++)
+            pci_region_map_entries(busses, &busses[bus].r[type]);
     }
 }
 
