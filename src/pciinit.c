@@ -386,6 +386,27 @@ static u64 pci_region_sum(struct pci_region *r)
    return sum;
 }
 
+static void pci_region_migrate_64bit_entries(struct pci_region *from,
+                                             struct pci_region *to)
+{
+    struct pci_region_entry **pprev = &from->list;
+    struct pci_region_entry **last = &to->list;
+    while(*pprev) {
+        if ((*pprev)->is64) {
+            struct pci_region_entry *entry;
+            entry = *pprev;
+            /* Delete the entry and move next */
+            *pprev = (*pprev)->next;
+            /* Add entry at tail to keep a sorted order */
+            entry->next = NULL;
+            *last = entry;
+            last = &entry->next;
+        }
+        else
+            pprev = &(*pprev)->next;
+    }
+}
+
 static struct pci_region_entry *
 pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
                         int bar, u64 size, u64 align, int type, int is64)
@@ -479,7 +500,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
 }
 
 // Setup region bases (given the regions' size and alignment)
-static void pci_bios_init_root_regions(struct pci_bus *bus)
+static int pci_bios_init_root_regions(struct pci_bus *bus)
 {
     bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
 
@@ -501,7 +522,8 @@ static void pci_bios_init_root_regions(struct pci_bus *bus)
     if ((r_start->base < BUILD_PCIMEM_START) ||
          (r_start->base > BUILD_PCIMEM_END))
         // Memory range requested is larger than available.
-        panic("PCI: out of address space\n");
+        return -1;
+    return 0;
 }
 
 
@@ -564,6 +586,27 @@ static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
+    if (pci_bios_init_root_regions(busses)) {
+        struct pci_region r64_mem, r64_pref;
+        r64_mem.list = NULL;
+        r64_pref.list = NULL;
+        pci_region_migrate_64bit_entries(&busses[0].r[PCI_REGION_TYPE_MEM],
+                                         &r64_mem);
+        pci_region_migrate_64bit_entries(&busses[0].r[PCI_REGION_TYPE_PREFMEM],
+                                         &r64_pref);
+
+        if (pci_bios_init_root_regions(busses))
+            panic("PCI: out of 32bit address space\n");
+
+        r64_mem.base = BUILD_PCIMEM64_START;
+        u64 sum = pci_region_sum(&r64_mem);
+        u64 align = pci_region_align(&r64_pref);
+        r64_pref.base = ALIGN(r64_mem.base + sum, align);
+        if (r64_pref.base + pci_region_sum(&r64_pref) > BUILD_PCIMEM64_END)
+            panic("PCI: out of 64bit address space\n");
+        pci_region_map_entries(busses, &r64_mem);
+        pci_region_map_entries(busses, &r64_pref);
+    }
     // Map regions on each device.
     int bus;
     for (bus = 0; bus<=MaxPCIBus; bus++) {
@@ -607,8 +650,6 @@ pci_setup(void)
     memset(busses, 0, sizeof(*busses) * (MaxPCIBus + 1));
     if (pci_bios_check_devices(busses))
         return;
-
-    pci_bios_init_root_regions(&busses[0]);
 
     dprintf(1, "=== PCI new allocation pass #2 ===\n");
     pci_bios_map_devices(busses);
