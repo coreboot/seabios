@@ -40,8 +40,6 @@ struct pci_region_entry {
 };
 
 struct pci_region {
-    /* pci region stats */
-    u64 sum, align;
     /* pci region assignments */
     u64 base;
     struct pci_region_entry *list;
@@ -369,6 +367,25 @@ static int pci_bios_bridge_region_is64(struct pci_region *r,
     return 1;
 }
 
+static u64 pci_region_align(struct pci_region *r)
+{
+    if (!r->list)
+        return 1;
+    // The first entry in the sorted list has the largest alignment
+    return r->list->align;
+}
+
+static u64 pci_region_sum(struct pci_region *r)
+{
+    struct pci_region_entry *entry = r->list;
+    u64 sum = 0;
+    while (entry) {
+        sum += entry->size;
+        entry = entry->next;
+   }
+   return sum;
+}
+
 static struct pci_region_entry *
 pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
                         int bar, u64 size, u64 align, int type, int is64)
@@ -394,10 +411,6 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     }
     entry->next = *pprev;
     *pprev = entry;
-
-    bus->r[type].sum += size;
-    if (bus->r[type].align < align)
-        bus->r[type].align = align;
     return entry;
 }
 
@@ -446,9 +459,10 @@ static int pci_bios_check_devices(struct pci_bus *busses)
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u64 align = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
-            if (s->r[type].align > align)
-                align = s->r[type].align;
-            u64 size = ALIGN(s->r[type].sum, align);
+            if (pci_region_align(&s->r[type]) > align)
+                 align = pci_region_align(&s->r[type]);
+            u64 sum = pci_region_sum(&s->r[type]);
+            u64 size = ALIGN(sum, align);
             int is64 = pci_bios_bridge_region_is64(&s->r[type],
                                             s->bus_dev, type);
             // entry->bar is -1 if the entry represents a bridge region
@@ -464,26 +478,28 @@ static int pci_bios_check_devices(struct pci_bus *busses)
     return 0;
 }
 
-#define ROOT_BASE(top, sum, align) ALIGN_DOWN((top)-(sum),(align) ?: 1)
-
 // Setup region bases (given the regions' size and alignment)
 static void pci_bios_init_root_regions(struct pci_bus *bus)
 {
-    u64 start = BUILD_PCIMEM_START;
-    u64 end   = BUILD_PCIMEM_END;
-
     bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
 
-    int reg1 = PCI_REGION_TYPE_PREFMEM, reg2 = PCI_REGION_TYPE_MEM;
-    if (bus->r[reg1].align < bus->r[reg2].align) {
+    struct pci_region *r_end = &bus->r[PCI_REGION_TYPE_PREFMEM];
+    struct pci_region *r_start = &bus->r[PCI_REGION_TYPE_MEM];
+
+    if (pci_region_align(r_start) < pci_region_align(r_end)) {
         // Swap regions to improve alignment.
-        reg1 = PCI_REGION_TYPE_MEM;
-        reg2 = PCI_REGION_TYPE_PREFMEM;
+        r_end = r_start;
+        r_start = &bus->r[PCI_REGION_TYPE_PREFMEM];
     }
-    bus->r[reg2].base = ROOT_BASE(end, bus->r[reg2].sum, bus->r[reg2].align);
-    bus->r[reg1].base = ROOT_BASE(bus->r[reg2].base, bus->r[reg1].sum
-                                  , bus->r[reg1].align);
-    if (bus->r[reg1].base < start)
+    u64 sum = pci_region_sum(r_end);
+    u64 align = pci_region_align(r_end);
+    r_end->base = ALIGN_DOWN((BUILD_PCIMEM_END - sum), align);
+    sum = pci_region_sum(r_start);
+    align = pci_region_align(r_start);
+    r_start->base = ALIGN_DOWN((r_end->base - sum), align);
+
+    if ((r_start->base < BUILD_PCIMEM_START) ||
+         (r_start->base > BUILD_PCIMEM_END))
         // Memory range requested is larger than available.
         panic("PCI: out of address space\n");
 }
