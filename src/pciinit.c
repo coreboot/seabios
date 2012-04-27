@@ -389,21 +389,18 @@ static u64 pci_region_sum(struct pci_region *r)
 static void pci_region_migrate_64bit_entries(struct pci_region *from,
                                              struct pci_region *to)
 {
-    struct pci_region_entry **pprev = &from->list;
-    struct pci_region_entry **last = &to->list;
+    struct pci_region_entry **pprev = &from->list, **last = &to->list;
     while (*pprev) {
-        if ((*pprev)->is64) {
-            struct pci_region_entry *entry;
-            entry = *pprev;
-            /* Delete the entry and move next */
-            *pprev = (*pprev)->next;
-            /* Add entry at tail to keep a sorted order */
-            entry->next = NULL;
-            *last = entry;
-            last = &entry->next;
+        struct pci_region_entry *entry = *pprev;
+        if (!entry->is64) {
+            pprev = &entry->next;
+            continue;
         }
-        else
-            pprev = &(*pprev)->next;
+        // Move from source list to destination list.
+        *pprev = entry->next;
+        entry->next = NULL;
+        *last = entry;
+        last = &entry->next;
     }
 }
 
