@@ -62,6 +62,7 @@ OBJCOPY=objcopy
 OBJDUMP=objdump
 STRIP=strip
 PYTHON=python
+IASL:=iasl
 
 # Default targets
 -include $(KCONFIG_CONFIG)
@@ -223,7 +224,7 @@ src/%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
 	@echo "Compiling DSDT"
 	$(Q)cpp -P $< > $(OUT)$*.dsl.i.orig
 	$(Q)$(PYTHON) ./tools/acpi_extract_preprocess.py $(OUT)$*.dsl.i.orig > $(OUT)$*.dsl.i
-	$(Q)iasl -l -tc -p $(OUT)$* $(OUT)$*.dsl.i
+	$(Q)$(IASL) -l -tc -p $(OUT)$* $(OUT)$*.dsl.i
 	$(Q)$(PYTHON) ./tools/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
