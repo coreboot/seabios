@@ -81,9 +81,15 @@ const u8 pci_irqs[4] = {
 };
 
 // Return the global irq number corresponding to a host bus device irq pin.
-static int pci_slot_get_irq(u16 bdf, int pin)
+static int pci_slot_get_irq(struct pci_device *pci, int pin)
 {
-    int slot_addend = pci_bdf_to_dev(bdf) - 1;
+    int slot_addend = 0;
+
+    while (pci->parent != NULL) {
+        slot_addend += pci_bdf_to_dev(pci->bdf);
+        pci = pci->parent;
+    }
+    slot_addend += pci_bdf_to_dev(pci->bdf) - 1;
     return pci_irqs[(pin - 1 + slot_addend) & 3];
 }
 
@@ -204,7 +210,7 @@ static void pci_bios_init_device(struct pci_device *pci)
     /* map the interrupt */
     int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
     if (pin != 0)
-        pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pci_slot_get_irq(bdf, pin));
+        pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pci_slot_get_irq(pci, pin));
 
     pci_init_device(pci_device_tbl, pci, NULL);
 }
