@@ -175,13 +175,6 @@ DefinitionBlock (
                     0x00000000,         // Address Translation Offset
                     0x1EC00000,         // Address Length
                     ,, , AddressRangeMemory, TypeStatic)
-                QWordMemory (ResourceProducer, PosDecode, MinFixed, MaxFixed, Cacheable, ReadWrite,
-                    0x00000000,          // Address Space Granularity
-                    0x8000000000,        // Address Range Minimum
-                    0xFFFFFFFFFF,        // Address Range Maximum
-                    0x00000000,          // Address Translation Offset
-                    0x8000000000,        // Address Length
-                    ,, , AddressRangeMemory, TypeStatic)
             })
         }
     }
