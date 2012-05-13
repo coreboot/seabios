@@ -195,17 +195,6 @@ struct fdpt_s {
     u8 checksum;
 } PACKED;
 
-struct usbkeyinfo {
-    union {
-        struct {
-            u8 modifiers;
-            u8 repeatcount;
-            u8 keys[6];
-        };
-        u64 data;
-    };
-};
-
 struct extended_bios_data_area_s {
     u8 size;
     u8 reserved1[0x21];
@@ -223,7 +212,6 @@ struct extended_bios_data_area_s {
     u8 other2[0xC4];
 
     // 0x121 - Begin custom storage.
-    struct usbkeyinfo usbkey_last;
 
     // El Torito Emulation data
     struct cdemu_s cdemu;
