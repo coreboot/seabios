@@ -617,6 +617,29 @@ boot_rom(u32 vector)
     call_boot_entry(so, 0);
 }
 
+// Unable to find bootable device - warn user and eventually retry.
+static void
+boot_fail(void)
+{
+    u32 retrytime = romfile_loadint("etc/boot-fail-wait", 60*1000);
+    if (retrytime == (u32)-1)
+        printf("No bootable device.\n");
+    else
+        printf("No bootable device.  Retrying in %d seconds.\n", retrytime/1000);
+    // Wait for 'retrytime' milliseconds and then reboot.
+    u32 end = calc_future_timer(retrytime);
+    for (;;) {
+        if (retrytime != (u32)-1 && check_timer(end))
+            break;
+        wait_irq();
+    }
+    printf("Rebooting.\n");
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.code = SEGOFF(SEG_BIOS, (u32)reset_vector);
+    call16big(&br);
+}
+
 // Determine next boot method and attempt a boot using it.
 static void
 do_boot(u16 seq_nr)
@@ -624,12 +647,8 @@ do_boot(u16 seq_nr)
     if (! CONFIG_BOOT)
         panic("Boot support not compiled in.\n");
 
-    if (seq_nr >= BEVCount) {
-        printf("No bootable device.\n");
-        // Loop with irqs enabled - this allows ctrl+alt+delete to work.
-        for (;;)
-            wait_irq();
-    }
+    if (seq_nr >= BEVCount)
+        boot_fail();
 
     // Boot the given BEV type.
     struct bev_s *ie = &BEV[seq_nr];
