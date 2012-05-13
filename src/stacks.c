@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // get_ebda_seg
+#include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 
@@ -149,21 +149,24 @@ wait_irq(void)
 
 
 /****************************************************************
- * Stack in EBDA
+ * Extra 16bit stack
  ****************************************************************/
 
-// Switch to the extra stack in ebda and call a function.
+// Space for a stack for 16bit code.
+u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
+
+// Switch to the extra stack and call a function.
 inline u32
 stack_hop(u32 eax, u32 edx, void *func)
 {
     ASSERT16();
-    u16 ebda_seg = get_ebda_seg(), bkup_ss;
+    u16 stack_seg = SEG_LOW, bkup_ss;
     u32 bkup_esp;
     asm volatile(
         // Backup current %ss/%esp values.
         "movw %%ss, %w3\n"
         "movl %%esp, %4\n"
-        // Copy ebda seg to %ds/%ss and set %esp
+        // Copy stack seg to %ds/%ss and set %esp
         "movw %w6, %%ds\n"
         "movw %w6, %%ss\n"
         "movl %5, %%esp\n"
@@ -174,7 +177,7 @@ stack_hop(u32 eax, u32 edx, void *func)
         "movw %w3, %%ss\n"
         "movl %4, %%esp"
         : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
-        : "i" (EBDA_OFFSET_TOP_STACK), "r" (ebda_seg)
+        : "i" (&ExtraStack[BUILD_EXTRA_STACK_SIZE]), "r" (stack_seg)
         : "cc", "memory");
     return eax;
 }

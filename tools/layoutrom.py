@@ -40,7 +40,7 @@ def alignpos(pos, alignbytes):
 
 # Determine the final addresses for a list of sections that end at an
 # address.
-def setSectionsStart(sections, endaddr, minalign=1):
+def setSectionsStart(sections, endaddr, minalign=1, segoffset=0):
     totspace = 0
     for section in sections:
         if section.align > minalign:
@@ -53,12 +53,14 @@ def setSectionsStart(sections, endaddr, minalign=1):
     for section in sections:
         curaddr = alignpos(curaddr, section.align)
         section.finalloc = curaddr
+        section.finalsegloc = curaddr - segoffset
         curaddr += section.size
-    return startaddr
+    return startaddr, minalign
 
 # The 16bit code can't exceed 64K of space.
 BUILD_BIOS_ADDR = 0xf0000
 BUILD_BIOS_SIZE = 0x10000
+BUILD_ROM_START = 0xc0000
 
 # Layout the 16bit code.  This ensures sections with fixed offset
 # requirements are placed in the correct location.  It also places the
@@ -69,7 +71,8 @@ def fitSections(sections, fillsections):
     for section in sections:
         if section.name.startswith('.fixedaddr.'):
             addr = int(section.name[11:], 16)
-            section.finalloc = addr
+            section.finalloc = addr + BUILD_BIOS_ADDR
+            section.finalsegloc = addr
             fixedsections.append((addr, section))
             if section.align != 1:
                 print "Error: Fixed section %s has non-zero alignment (%d)" % (
@@ -99,7 +102,7 @@ def fitSections(sections, fillsections):
     canrelocate = [section for size, align, name, section in canrelocate]
     totalused = 0
     for freespace, fixedsection in fixedAddr:
-        addpos = fixedsection.finalloc + fixedsection.size
+        addpos = fixedsection.finalsegloc + fixedsection.size
         totalused += fixedsection.size
         nextfixedaddr = addpos + freespace
 #        print "Filling section %x uses %d, next=%x, available=%d" % (
@@ -122,7 +125,8 @@ def fitSections(sections, fillsections):
             # Found a section that can fit.
             fitnextaddr, fitsection = canfit
             canrelocate.remove(fitsection)
-            fitsection.finalloc = addpos
+            fitsection.finalloc = addpos + BUILD_BIOS_ADDR
+            fitsection.finalsegloc = addpos
             addpos = fitnextaddr
             totalused += fitsection.size
 #            print "    Adding %s (size %d align %d) pos=%x avail=%d" % (
@@ -137,68 +141,104 @@ def fitSections(sections, fillsections):
             firstfixed, BUILD_BIOS_SIZE, total, slack,
             (float(slack) / total) * 100.0))
 
-    return firstfixed
+    return firstfixed + BUILD_BIOS_ADDR
+
+# Return the subset of sections with a given category
+def getSectionsCategory(sections, category):
+    return [section for section in sections if section.category == category]
 
 # Return the subset of sections with a given name prefix
-def getSectionsPrefix(sections, category, prefix):
+def getSectionsPrefix(sections, prefix):
     return [section for section in sections
-            if section.category == category and section.name.startswith(prefix)]
+            if section.name.startswith(prefix)]
 
-def doLayout(sections):
+# The sections (and associated information) to be placed in output rom
+class LayoutInfo:
+    sections16 = sec16_start = sec16_align = None
+    sections32seg = sec32seg_start = sec32seg_align = None
+    sections32flat = sec32flat_start = sec32flat_align = None
+    sections32init = sec32init_start = sec32init_align = None
+    sections32low = sec32low_start = sec32low_align = None
+    datalow_base = None
+
+# Determine final memory addresses for sections
+def doLayout(sections, genreloc):
+    li = LayoutInfo()
     # Determine 16bit positions
-    textsections = getSectionsPrefix(sections, '16', '.text.')
+    li.sections16 = getSectionsCategory(sections, '16')
+    textsections = getSectionsPrefix(li.sections16, '.text.')
     rodatasections = (
-        getSectionsPrefix(sections, '16', '.rodata.str1.1')
-        + getSectionsPrefix(sections, '16', '.rodata.__func__.')
-        + getSectionsPrefix(sections, '16', '.rodata.__PRETTY_FUNCTION__.'))
-    datasections = getSectionsPrefix(sections, '16', '.data16.')
-    fixedsections = getSectionsPrefix(sections, '16', '.fixedaddr.')
+        getSectionsPrefix(li.sections16, '.rodata.str1.1')
+        + getSectionsPrefix(li.sections16, '.rodata.__func__.')
+        + getSectionsPrefix(li.sections16, '.rodata.__PRETTY_FUNCTION__.'))
+    datasections = getSectionsPrefix(li.sections16, '.data16.')
+    fixedsections = getSectionsPrefix(li.sections16, '.fixedaddr.')
 
     firstfixed = fitSections(fixedsections, textsections)
     remsections = [s for s in textsections+rodatasections+datasections
                    if s.finalloc is None]
-    code16_start = setSectionsStart(remsections, firstfixed)
+    li.sec16_start, li.sec16_align = setSectionsStart(
+        remsections, firstfixed, segoffset=BUILD_BIOS_ADDR)
 
     # Determine 32seg positions
-    textsections = getSectionsPrefix(sections, '32seg', '.text.')
+    li.sections32seg = getSectionsCategory(sections, '32seg')
+    textsections = getSectionsPrefix(li.sections32seg, '.text.')
     rodatasections = (
-        getSectionsPrefix(sections, '32seg', '.rodata.str1.1')
-        + getSectionsPrefix(sections, '32seg', '.rodata.__func__.')
-        + getSectionsPrefix(sections, '32seg', '.rodata.__PRETTY_FUNCTION__.'))
-    datasections = getSectionsPrefix(sections, '32seg', '.data32seg.')
+        getSectionsPrefix(li.sections32seg, '.rodata.str1.1')
+        + getSectionsPrefix(li.sections32seg, '.rodata.__func__.')
+        + getSectionsPrefix(li.sections32seg, '.rodata.__PRETTY_FUNCTION__.'))
+    datasections = getSectionsPrefix(li.sections32seg, '.data32seg.')
 
-    code32seg_start = setSectionsStart(
-        textsections + rodatasections + datasections, code16_start)
+    li.sec32seg_start, li.sec32seg_align = setSectionsStart(
+        textsections + rodatasections + datasections, li.sec16_start
+        , segoffset=BUILD_BIOS_ADDR)
 
     # Determine 32flat runtime positions
-    textsections = getSectionsPrefix(sections, '32flat', '.text.')
-    rodatasections = getSectionsPrefix(sections, '32flat', '.rodata')
-    datasections = getSectionsPrefix(sections, '32flat', '.data.')
-    bsssections = getSectionsPrefix(sections, '32flat', '.bss.')
+    li.sections32flat = getSectionsCategory(sections, '32flat')
+    textsections = getSectionsPrefix(li.sections32flat, '.text.')
+    rodatasections = getSectionsPrefix(li.sections32flat, '.rodata')
+    datasections = getSectionsPrefix(li.sections32flat, '.data.')
+    bsssections = getSectionsPrefix(li.sections32flat, '.bss.')
 
-    code32flat_start = setSectionsStart(
+    li.sec32flat_start, li.sec32flat_align = setSectionsStart(
         textsections + rodatasections + datasections + bsssections
-        , code32seg_start + BUILD_BIOS_ADDR, 16)
+        , li.sec32seg_start, 16)
 
     # Determine 32flat init positions
-    textsections = getSectionsPrefix(sections, '32init', '.text.')
-    rodatasections = getSectionsPrefix(sections, '32init', '.rodata')
-    datasections = getSectionsPrefix(sections, '32init', '.data.')
-    bsssections = getSectionsPrefix(sections, '32init', '.bss.')
+    li.sections32init = getSectionsCategory(sections, '32init')
+    textsections = getSectionsPrefix(li.sections32init, '.text.')
+    rodatasections = getSectionsPrefix(li.sections32init, '.rodata')
+    datasections = getSectionsPrefix(li.sections32init, '.data.')
+    bsssections = getSectionsPrefix(li.sections32init, '.bss.')
 
-    code32init_start = setSectionsStart(
+    li.sec32init_start, li.sec32init_align = setSectionsStart(
         textsections + rodatasections + datasections + bsssections
-        , code32flat_start, 16)
+        , li.sec32flat_start, 16)
+
+    # Determine "low memory" data positions
+    li.sections32low = getSectionsCategory(sections, '32low')
+    if genreloc:
+        sec32low_top = li.sec32init_start
+        datalow_base = min(BUILD_BIOS_ADDR, li.sec32flat_start) - 64*1024
+    else:
+        sec32low_top = min(BUILD_BIOS_ADDR, li.sec32init_start)
+        datalow_base = sec32low_top - 64*1024
+    li.datalow_base = max(BUILD_ROM_START, alignpos(datalow_base, 2*1024))
+    li.sec32low_start, li.sec32low_align = setSectionsStart(
+        li.sections32low, sec32low_top, 16, segoffset=li.datalow_base)
 
     # Print statistics
-    size16 = BUILD_BIOS_SIZE - code16_start
-    size32seg = code16_start - code32seg_start
-    size32flat = code32seg_start + BUILD_BIOS_ADDR - code32flat_start
-    size32init = code32flat_start - code32init_start
+    size16 = BUILD_BIOS_ADDR + BUILD_BIOS_SIZE - li.sec16_start
+    size32seg = li.sec16_start - li.sec32seg_start
+    size32flat = li.sec32seg_start - li.sec32flat_start
+    size32init = li.sec32flat_start - li.sec32init_start
+    sizelow = sec32low_top - li.sec32low_start
     print "16bit size:           %d" % size16
     print "32bit segmented size: %d" % size32seg
     print "32bit flat size:      %d" % size32flat
     print "32bit flat init size: %d" % size32init
+    print "Lowmem size:          %d" % sizelow
+    return li
 
 
 ######################################################################
@@ -206,7 +246,7 @@ def doLayout(sections):
 ######################################################################
 
 # Write LD script includes for the given cross references
-def outXRefs(sections):
+def outXRefs(sections, useseg=0):
     xrefs = {}
     out = ""
     for section in sections:
@@ -218,161 +258,154 @@ def outXRefs(sections):
                 or reloc.symbolname in xrefs):
                 continue
             xrefs[reloc.symbolname] = 1
-            addr = symbol.section.finalloc + symbol.offset
-            if (section.fileid == '32flat'
-                and symbol.section.fileid in ('16', '32seg')):
-                addr += BUILD_BIOS_ADDR
-            out += "%s = 0x%x ;\n" % (reloc.symbolname, addr)
+            loc = symbol.section.finalloc
+            if useseg:
+                loc = symbol.section.finalsegloc
+            out += "%s = 0x%x ;\n" % (reloc.symbolname, loc + symbol.offset)
     return out
 
 # Write LD script includes for the given sections using relative offsets
-def outRelSections(sections, startsym):
+def outRelSections(sections, startsym, useseg=0):
+    sections = [(section.finalloc, section) for section in sections
+                if section.finalloc is not None]
+    sections.sort()
     out = ""
-    for section in sections:
-        out += ". = ( 0x%x - %s ) ;\n" % (section.finalloc, startsym)
+    for addr, section in sections:
+        loc = section.finalloc
+        if useseg:
+            loc = section.finalsegloc
+        out += ". = ( 0x%x - %s ) ;\n" % (loc, startsym)
         if section.name == '.rodata.str1.1':
             out += "_rodata = . ;\n"
         out += "*(%s)\n" % (section.name,)
     return out
 
-def getSectionsFile(sections, fileid, defaddr=0):
-    sections = [(section.finalloc, section)
-                for section in sections if section.fileid == fileid]
-    sections.sort()
-    sections = [section for addr, section in sections]
-    pos = defaddr
-    if sections:
-        pos = sections[0].finalloc
-    return sections, pos
+# Build linker script output for a list of relocations.
+def strRelocs(outname, outrel, relocs):
+    relocs.sort()
+    return ("        %s_start = ABSOLUTE(.) ;\n" % (outname,)
+            + "".join(["LONG(0x%x - %s)\n" % (pos, outrel)
+                       for pos in relocs])
+            + "        %s_end = ABSOLUTE(.) ;\n" % (outname,))
 
-# Layout the 32bit segmented code.  This places the code as high as possible.
-def writeLinkerScripts(sections, entrysym, genreloc, out16, out32seg, out32flat):
+# Find all relocations in the given sections with the given attributes
+def getRelocs(sections, type=None, category=None, notcategory=None):
+    out = []
+    for section in sections:
+        for reloc in section.relocs:
+            if reloc.symbol.section is None:
+                continue
+            destcategory = reloc.symbol.section.category
+            if ((type is None or reloc.type == type)
+                and (category is None or destcategory == category)
+                and (notcategory is None or destcategory != notcategory)):
+                out.append(section.finalloc + reloc.offset)
+    return out
+
+# Return the start address and minimum alignment for a set of sections
+def getSectionsStart(sections, defaddr=0):
+    return min([section.finalloc for section in sections
+                if section.finalloc is not None] or [defaddr])
+
+# Output the linker scripts for all required sections.
+def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
     # Write 16bit linker script
-    sections16, code16_start = getSectionsFile(sections, '16')
-    output = open(out16, 'wb')
-    output.write(COMMONHEADER + outXRefs(sections16) + """
+    out = outXRefs(li.sections16, useseg=1) + """
+    _datalow_base = 0x%x ;
+    _datalow_seg = 0x%x ;
+
     code16_start = 0x%x ;
     .text16 code16_start : {
-""" % (code16_start)
-                 + outRelSections(sections16, 'code16_start')
-                 + """
+%s
     }
-"""
-                 + COMMONTRAILER)
-    output.close()
+""" % (li.datalow_base,
+       li.datalow_base / 16,
+       li.sec16_start - BUILD_BIOS_ADDR,
+       outRelSections(li.sections16, 'code16_start', useseg=1))
+    outfile = open(out16, 'wb')
+    outfile.write(COMMONHEADER + out + COMMONTRAILER)
+    outfile.close()
 
     # Write 32seg linker script
-    sections32seg, code32seg_start = getSectionsFile(
-        sections, '32seg', code16_start)
-    output = open(out32seg, 'wb')
-    output.write(COMMONHEADER + outXRefs(sections32seg) + """
+    out = outXRefs(li.sections32seg, useseg=1) + """
     code32seg_start = 0x%x ;
     .text32seg code32seg_start : {
-""" % (code32seg_start)
-                 + outRelSections(sections32seg, 'code32seg_start')
-                 + """
+%s
     }
-"""
-                 + COMMONTRAILER)
-    output.close()
+""" % (li.sec32seg_start - BUILD_BIOS_ADDR,
+       outRelSections(li.sections32seg, 'code32seg_start', useseg=1))
+    outfile = open(out32seg, 'wb')
+    outfile.write(COMMONHEADER + out + COMMONTRAILER)
+    outfile.close()
 
     # Write 32flat linker script
-    sections32flat, code32flat_start = getSectionsFile(
-        sections, '32flat', code32seg_start)
+    sections32all = li.sections32flat + li.sections32init + li.sections32low
+    sec32all_start = li.sec32low_start
+    entrysympos = entrysym.section.finalloc + entrysym.offset
     relocstr = ""
-    relocminalign = 0
     if genreloc:
         # Generate relocations
-        relocstr, size, relocminalign = genRelocs(sections)
-        code32flat_start -= size
-    output = open(out32flat, 'wb')
-    output.write(COMMONHEADER
-                 + outXRefs(sections32flat) + """
+        absrelocs = getRelocs(
+            li.sections32init, type='R_386_32', category='32init')
+        relrelocs = getRelocs(
+            li.sections32init, type='R_386_PC32', notcategory='32init')
+        initrelocs = getRelocs(
+            li.sections32flat + li.sections32low + li.sections16
+            + li.sections32seg, category='32init')
+        lowrelocs = getRelocs(
+            li.sections16 + li.sections32seg + sections32all, category='32low')
+        relocstr = (strRelocs("_reloc_abs", "code32init_start", absrelocs)
+                    + strRelocs("_reloc_rel", "code32init_start", relrelocs)
+                    + strRelocs("_reloc_init", "code32flat_start", initrelocs)
+                    + strRelocs("_reloc_datalow", "code32flat_start", lowrelocs))
+        numrelocs = len(absrelocs + relrelocs + initrelocs + lowrelocs)
+        sec32all_start -= numrelocs * 4
+    out = outXRefs(sections32all) + """
     %s = 0x%x ;
     _reloc_min_align = 0x%x ;
+    _datalow_min_align = 0x%x ;
+
     code32flat_start = 0x%x ;
     .text code32flat_start : {
-""" % (entrysym.name,
-       entrysym.section.finalloc + entrysym.offset + BUILD_BIOS_ADDR,
-       relocminalign, code32flat_start)
-                 + relocstr
-                 + """
+%s
+        datalow_start = ABSOLUTE(.) ;
+%s
+        datalow_end = ABSOLUTE(.) ;
         code32init_start = ABSOLUTE(.) ;
-"""
-                 + outRelSections(getSectionsPrefix(sections32flat, '32init', '')
-                                  , 'code32flat_start')
-                 + """
+%s
         code32init_end = ABSOLUTE(.) ;
-"""
-                 + outRelSections(getSectionsPrefix(sections32flat, '32flat', '')
-                                  , 'code32flat_start')
-                 + """
+%s
         . = ( 0x%x - code32flat_start ) ;
         *(.text32seg)
         . = ( 0x%x - code32flat_start ) ;
         *(.text16)
         code32flat_end = ABSOLUTE(.) ;
     } :text
-""" % (code32seg_start + BUILD_BIOS_ADDR, code16_start + BUILD_BIOS_ADDR)
-                 + COMMONTRAILER
-                 + """
+""" % (entrysym.name, entrysympos,
+       li.sec32init_align,
+       li.sec32low_align,
+       sec32all_start,
+       relocstr,
+       outRelSections(li.sections32low, 'code32flat_start'),
+       outRelSections(li.sections32init, 'code32flat_start'),
+       outRelSections(li.sections32flat, 'code32flat_start'),
+       li.sec32seg_start,
+       li.sec16_start)
+    out = COMMONHEADER + out + COMMONTRAILER + """
 ENTRY(%s)
 PHDRS
 {
         text PT_LOAD AT ( code32flat_start ) ;
 }
-""" % (entrysym.name,))
-    output.close()
+""" % (entrysym.name,)
+    outfile = open(out32flat, 'wb')
+    outfile.write(out)
+    outfile.close()
 
 
 ######################################################################
 # Detection of init code
 ######################################################################
-
-# Determine init section relocations
-def genRelocs(sections):
-    absrelocs = []
-    relrelocs = []
-    initrelocs = []
-    minalign = 16
-    for section in sections:
-        if section.category == '32init' and section.align > minalign:
-            minalign = section.align
-        for reloc in section.relocs:
-            symbol = reloc.symbol
-            if symbol.section is None:
-                continue
-            relocpos = section.finalloc + reloc.offset
-            if (reloc.type == 'R_386_32' and section.category == '32init'
-                and symbol.section.category == '32init'):
-                # Absolute relocation
-                absrelocs.append(relocpos)
-            elif (reloc.type == 'R_386_PC32' and section.category == '32init'
-                  and symbol.section.category != '32init'):
-                # Relative relocation
-                relrelocs.append(relocpos)
-            elif (section.category != '32init'
-                  and symbol.section.category == '32init'):
-                # Relocation to the init section
-                if section.fileid in ('16', '32seg'):
-                    relocpos += BUILD_BIOS_ADDR
-                initrelocs.append(relocpos)
-    absrelocs.sort()
-    relrelocs.sort()
-    initrelocs.sort()
-    out = ("        _reloc_abs_start = ABSOLUTE(.) ;\n"
-           + "".join(["LONG(0x%x - code32init_start)\n" % (pos,)
-                      for pos in absrelocs])
-           + "        _reloc_abs_end = ABSOLUTE(.) ;\n"
-           + "        _reloc_rel_start = ABSOLUTE(.) ;\n"
-           + "".join(["LONG(0x%x - code32init_start)\n" % (pos,)
-                      for pos in relrelocs])
-           + "        _reloc_rel_end = ABSOLUTE(.) ;\n"
-           + "        _reloc_init_start = ABSOLUTE(.) ;\n"
-           + "".join(["LONG(0x%x - code32flat_start)\n" % (pos,)
-                      for pos in initrelocs])
-           + "        _reloc_init_end = ABSOLUTE(.) ;\n")
-    return out, len(absrelocs + relrelocs + initrelocs) * 4, minalign
 
 def markRuntime(section, sections):
     if (section is None or not section.keep or section.category is not None
@@ -386,7 +419,8 @@ def markRuntime(section, sections):
 def findInit(sections):
     # Recursively find and mark all "runtime" sections.
     for section in sections:
-        if '.runtime.' in section.name or '.export.' in section.name:
+        if ('.datalow.' in section.name or '.runtime.' in section.name
+            or '.export.' in section.name):
             markRuntime(section, sections)
     for section in sections:
         if section.category is not None:
@@ -468,7 +502,7 @@ def gc(info16, info32seg, info32flat):
 
 class Section:
     name = size = alignment = fileid = relocs = None
-    finalloc = category = keep = None
+    finalloc = finalsegloc = category = keep = None
 class Reloc:
     offset = type = symbolname = symbol = None
 class Symbol:
@@ -571,13 +605,17 @@ def main():
     # Separate 32bit flat into runtime and init parts
     findInit(sections)
 
+    # Note "low memory" parts
+    for section in getSectionsPrefix(sections, '.datalow.'):
+        section.category = '32low'
+
     # Determine the final memory locations of each kept section.
-    doLayout(sections)
+    genreloc = '_reloc_abs_start' in info32flat[1]
+    li = doLayout(sections, genreloc)
 
     # Write out linker script files.
     entrysym = info16[1]['entry_elf']
-    genreloc = '_reloc_abs_start' in info32flat[1]
-    writeLinkerScripts(sections, entrysym, genreloc, out16, out32seg, out32flat)
+    writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat)
 
 if __name__ == '__main__':
     main()

@@ -10,7 +10,7 @@
 #include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
 #include "pic.h" // enable_hwirq
-#include "biosvar.h" // GET_EBDA
+#include "biosvar.h" // GET_GLOBAL
 #include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
@@ -379,6 +379,7 @@ struct sff_dma_prd {
 static int
 ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
 {
+    ASSERT16();
     if (! CONFIG_ATA_DMA)
         return -1;
     u32 dest = (u32)op->buf_fl;
@@ -396,9 +397,7 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
         return -1;
 
     // Build PRD dma structure.
-    struct sff_dma_prd *dma = MAKE_FLATPTR(
-        get_ebda_seg()
-        , (void*)offsetof(struct extended_bios_data_area_s, extra_stack));
+    struct sff_dma_prd *dma = MAKE_FLATPTR(SEG_LOW, ExtraStack);
     struct sff_dma_prd *origdma = dma;
     while (bytes) {
         if (dma >= &origdma[16])

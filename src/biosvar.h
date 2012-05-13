@@ -242,9 +242,6 @@ struct extended_bios_data_area_s {
     /* TSC emulation timekeepers */
     u64 tsc_8254;
     int last_tsc_8254;
-
-    // Stack space available for code that needs it.
-    u8 extra_stack[512] __aligned(8);
 } PACKED;
 
 // The initial size and location of EBDA
@@ -271,11 +268,6 @@ get_ebda_ptr(void)
     GET_EBDA2(get_ebda_seg(), var)
 #define SET_EBDA(var, val)                      \
     SET_EBDA2(get_ebda_seg(), var, (val))
-
-#define EBDA_OFFSET_TOP_STACK                                   \
-    offsetof(struct extended_bios_data_area_s, extra_stack[     \
-                 FIELD_SIZEOF(struct extended_bios_data_area_s  \
-                              , extra_stack)])
 
 
 /****************************************************************
@@ -318,6 +310,22 @@ static inline u16 get_global_seg(void) {
 #endif
 // Access a "flat" pointer known to point to the f-segment.
 #define GET_GLOBALFLAT(var) GET_GLOBAL(*GLOBALFLAT2GLOBAL(&(var)))
+
+
+/****************************************************************
+ * "Low" memory variables
+ ****************************************************************/
+
+extern u8 _datalow_seg, _datalow_base[];
+#define SEG_LOW ((u32)&_datalow_seg)
+
+#if MODESEGMENT
+#define GET_LOW(var)            GET_FARVAR(SEG_LOW, (var))
+#define SET_LOW(var, val)       SET_FARVAR(SEG_LOW, (var), (val))
+#else
+#define GET_LOW(var)            (var)
+#define SET_LOW(var, val)       do { (var) = (val); } while (0)
+#endif
 
 
 /****************************************************************

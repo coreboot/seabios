@@ -232,13 +232,11 @@ entry_resume:
         // Disable interrupts
         cli
         cld
-        // Use a stack in EBDA
-        movw $SEG_BDA, %ax
-        movw %ax, %ds
-        movw BDA_ebda_seg, %ax
+        // Use the ExtraStack in low mem.
+        movl $_datalow_seg, %eax
         movw %ax, %ds
         movw %ax, %ss
-        movl $EBDA_OFFSET_TOP_STACK, %esp
+        movl $ExtraStack + BUILD_EXTRA_STACK_SIZE, %esp
         // Call handler.
         jmp handle_resume
 

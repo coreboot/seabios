@@ -230,6 +230,7 @@ int get_keystroke(int msec);
 
 // stacks.c
 u32 call32(void *func, u32 eax, u32 errret);
+extern u8 ExtraStack[];
 inline u32 stack_hop(u32 eax, u32 edx, void *func);
 extern struct thread_info MainThread;
 extern int CanPreempt;

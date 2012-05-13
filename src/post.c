@@ -211,9 +211,6 @@ startBoot(void)
 static void
 maininit(void)
 {
-    // Running at new code address - do code relocation fixups
-    malloc_fixupreloc();
-
     // Setup ivt/bda/ebda
     init_ivt();
     init_bda();
@@ -287,6 +284,21 @@ maininit(void)
  * POST entry and code relocation
  ****************************************************************/
 
+// Relocation fixup code that runs at new address after relocation complete.
+static void
+afterReloc(void *datalow)
+{
+    // Running at new code address - do code relocation fixups
+    malloc_fixupreloc();
+
+    // Move low-memory initial variable content to new location.
+    extern u8 datalow_start[], datalow_end[];
+    memmove(datalow, datalow_start, datalow_end - datalow_start);
+
+    // Run main code
+    maininit();
+}
+
 // Update given relocs for the code at 'dest' with a given 'delta'
 static void
 updateRelocs(void *dest, u32 *rstart, u32 *rend, u32 delta)
@@ -306,32 +318,42 @@ reloc_init(void)
     }
     // Symbols populated by the build.
     extern u8 code32flat_start[];
-    extern u8 _reloc_min_align[];
+    extern u8 _reloc_min_align;
     extern u32 _reloc_abs_start[], _reloc_abs_end[];
     extern u32 _reloc_rel_start[], _reloc_rel_end[];
     extern u32 _reloc_init_start[], _reloc_init_end[];
     extern u8 code32init_start[], code32init_end[];
+    extern u32 _reloc_datalow_start[], _reloc_datalow_end[];
+    extern u8 _datalow_min_align;
+    extern u8 datalow_start[], datalow_end[];
 
     // Allocate space for init code.
     u32 initsize = code32init_end - code32init_start;
-    u32 align = (u32)&_reloc_min_align;
-    void *dest = memalign_tmp(align, initsize);
-    if (!dest)
+    u32 codealign = (u32)&_reloc_min_align;
+    void *codedest = memalign_tmp(codealign, initsize);
+    u32 datalowsize = datalow_end - datalow_start;
+    u32 datalowalign = (u32)&_datalow_min_align;
+    void *datalow = memalign_low(datalowalign, datalowsize);
+    if (!codedest || !datalow)
         panic("No space for init relocation.\n");
 
     // Copy code and update relocs (init absolute, init relative, and runtime)
+    dprintf(1, "Relocating low data from %p to %p (size %d)\n"
+            , datalow_start, datalow, datalowsize);
+    updateRelocs(code32flat_start, _reloc_datalow_start, _reloc_datalow_end
+                 , datalow - (void*)datalow_start);
     dprintf(1, "Relocating init from %p to %p (size %d)\n"
-            , code32init_start, dest, initsize);
-    s32 delta = dest - (void*)code32init_start;
-    memcpy(dest, code32init_start, initsize);
-    updateRelocs(dest, _reloc_abs_start, _reloc_abs_end, delta);
-    updateRelocs(dest, _reloc_rel_start, _reloc_rel_end, -delta);
+            , code32init_start, codedest, initsize);
+    s32 delta = codedest - (void*)code32init_start;
+    memcpy(codedest, code32init_start, initsize);
+    updateRelocs(codedest, _reloc_abs_start, _reloc_abs_end, delta);
+    updateRelocs(codedest, _reloc_rel_start, _reloc_rel_end, -delta);
     updateRelocs(code32flat_start, _reloc_init_start, _reloc_init_end, delta);
 
     // Call maininit() in relocated code.
-    void (*func)(void) = (void*)maininit + delta;
+    void (*func)(void*) = (void*)afterReloc + delta;
     barrier();
-    func();
+    func(datalow);
 }
 
 // Setup for code relocation and then call reloc_init

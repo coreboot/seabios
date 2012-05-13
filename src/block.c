@@ -328,7 +328,7 @@ process_op(struct disk_op_s *op)
     }
 }
 
-// Execute a "disk_op_s" request - this runs on a stack in the ebda.
+// Execute a "disk_op_s" request - this runs on the extra stack.
 static int
 __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
 {
@@ -349,7 +349,7 @@ __send_disk_op(struct disk_op_s *op_far, u16 op_seg)
     return status;
 }
 
-// Execute a "disk_op_s" request by jumping to a stack in the ebda.
+// Execute a "disk_op_s" request by jumping to the extra 16bit stack.
 int
 send_disk_op(struct disk_op_s *op)
 {
