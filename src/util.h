@@ -400,7 +400,7 @@ void call_bcv(u16 seg, u16 ip);
 void optionrom_setup(void);
 void vga_setup(void);
 void s3_resume_vga_init(void);
-extern u32 RomEnd;
+extern u32 RomEnd, RomTop;
 extern int ScreenAndDebug;
 
 // bootsplash.c

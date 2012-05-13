@@ -16,12 +16,10 @@
 #include "paravirt.h" // qemu_cfg_*
 #include "optionroms.h" // struct rom_header
 
-/****************************************************************
- * Definitions
- ****************************************************************/
-
 // The end of the last deployed rom.
 u32 RomEnd = BUILD_ROM_START;
+// The maximum memory location a rom may extend to.
+u32 RomTop;
 
 
 /****************************************************************
@@ -120,15 +118,9 @@ get_pci_rom(struct rom_header *rom)
     return pd;
 }
 
-// Return start of code in 0xc0000-0xf0000 space.
-static inline u32 _max_rom(void) {
-    extern u8 code32flat_start[], code32init_end[];
-    return CONFIG_RELOCATE_INIT ? (u32)code32init_end : (u32)code32flat_start;
-}
 // Return the memory position up to which roms may be located.
 static inline u32 max_rom(void) {
-    u32 end = _max_rom();
-    return end > BUILD_BIOS_ADDR ? BUILD_BIOS_ADDR : end;
+    return RomTop;
 }
 
 // Copy a rom to its permanent location below 1MiB
