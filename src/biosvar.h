@@ -226,8 +226,6 @@ struct extended_bios_data_area_s {
     u8 ps2ctr;
     struct usbkeyinfo usbkey_last;
 
-    int RTCusers;
-
     // El Torito Emulation data
     struct cdemu_s cdemu;
 
@@ -238,10 +236,6 @@ struct extended_bios_data_area_s {
     u8 cdrom_locks[CONFIG_MAX_EXTDRIVE];
 
     u16 boot_sequence;
-
-    /* TSC emulation timekeepers */
-    u64 tsc_8254;
-    int last_tsc_8254;
 } PACKED;
 
 // The initial size and location of EBDA
