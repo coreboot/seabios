@@ -234,8 +234,6 @@ struct extended_bios_data_area_s {
 
     // Locks for removable devices
     u8 cdrom_locks[CONFIG_MAX_EXTDRIVE];
-
-    u16 boot_sequence;
 } PACKED;
 
 // The initial size and location of EBDA

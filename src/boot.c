@@ -238,8 +238,6 @@ boot_setup(void)
     if (! CONFIG_BOOT)
         return;
 
-    SET_EBDA(boot_sequence, 0xffff);
-
     if (!CONFIG_COREBOOT) {
         // On emulators, get boot order from nvram.
         if (inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1)
@@ -642,7 +640,7 @@ boot_fail(void)
 
 // Determine next boot method and attempt a boot using it.
 static void
-do_boot(u16 seq_nr)
+do_boot(int seq_nr)
 {
     if (! CONFIG_BOOT)
         panic("Boot support not compiled in.\n");
@@ -679,15 +677,16 @@ do_boot(u16 seq_nr)
     call16_int(0x18, &br);
 }
 
+int BootSequence VARLOW = -1;
+
 // Boot Failure recovery: try the next device.
 void VISIBLE32FLAT
 handle_18(void)
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_18);
-    u16 ebda_seg = get_ebda_seg();
-    u16 seq = GET_EBDA2(ebda_seg, boot_sequence) + 1;
-    SET_EBDA2(ebda_seg, boot_sequence, seq);
+    int seq = BootSequence + 1;
+    BootSequence = seq;
     do_boot(seq);
 }
 
@@ -697,6 +696,6 @@ handle_19(void)
 {
     debug_serial_setup();
     debug_enter(NULL, DEBUG_HDL_19);
-    SET_EBDA(boot_sequence, 0);
+    BootSequence = 0;
     do_boot(0);
 }
