@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "biosvar.h" // GET_EBDA
 #include "paravirt.h" // qemu_cfg_smbios_load_field
 #include "smbios.h" // struct smbios_entry_point
 

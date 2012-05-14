@@ -10,7 +10,6 @@
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
 #include "jpeg.h" // splash
-#include "biosvar.h" // SET_EBDA
 #include "paravirt.h" // romfile_find
 #include "vbe.h" // struct vbe_info
 #include "bmp.h"

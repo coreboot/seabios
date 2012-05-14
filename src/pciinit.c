@@ -7,9 +7,10 @@
 
 #include "util.h" // dprintf
 #include "pci.h" // pci_config_readl
-#include "biosvar.h" // GET_EBDA
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_COMMAND
+#include "ioport.h" // PORT_ATA1_CMD_BASE
+#include "config.h" // CONFIG_*
 #include "xen.h" // usingXen
 
 #define PCI_DEVICE_MEM_MIN     0x1000

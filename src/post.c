@@ -93,7 +93,7 @@ init_bda(void)
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = esize;
 
-    add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA2(ebda_seg, size) * 1024
+    add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA(ebda_seg, size) * 1024
              , E820_RESERVED);
 }
 

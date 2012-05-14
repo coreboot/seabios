@@ -1,7 +1,8 @@
 #ifndef __XEN_H
 #define __XEN_H
 
-#include "util.h"
+#include "config.h" // CONFIG_*
+#include "types.h" // u32
 
 extern u32 xen_cpuid_base;
 

@@ -9,7 +9,7 @@
 #include "util.h" // handle_1ab1
 #include "pci.h" // pci_config_readl
 #include "bregs.h" // struct bregs
-#include "biosvar.h" // GET_EBDA
+#include "biosvar.h" // GET_GLOBAL
 #include "pci_regs.h" // PCI_VENDOR_ID
 
 // romlayout.S

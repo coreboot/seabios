@@ -198,14 +198,10 @@ get_ebda_ptr(void)
     ASSERT32FLAT();
     return MAKE_FLATPTR(get_ebda_seg(), 0);
 }
-#define GET_EBDA2(eseg, var)                                            \
+#define GET_EBDA(eseg, var)                                             \
     GET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var)
-#define SET_EBDA2(eseg, var, val)                                       \
+#define SET_EBDA(eseg, var, val)                                        \
     SET_FARVAR(eseg, ((struct extended_bios_data_area_s *)0)->var, (val))
-#define GET_EBDA(var)                           \
-    GET_EBDA2(get_ebda_seg(), var)
-#define SET_EBDA(var, val)                      \
-    SET_EBDA2(get_ebda_seg(), var, (val))
 
 
 /****************************************************************
