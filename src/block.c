@@ -18,6 +18,7 @@ u8 FloppyCount VAR16VISIBLE;
 u8 CDCount;
 struct drive_s *IDMap[3][CONFIG_MAX_EXTDRIVE] VAR16VISIBLE;
 u8 *bounce_buf_fl VAR16VISIBLE;
+struct dpte_s DefaultDPTE VARLOW;
 
 struct drive_s *
 getDrive(u8 exttype, u8 extdriveoffset)

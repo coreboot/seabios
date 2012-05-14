@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "biosvar.h" // GET_EBDA
 #include "config.h" // CONFIG_*
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
@@ -585,9 +584,8 @@ boot_cdrom(struct drive_s *drive_g)
         return;
     }
 
-    u16 ebda_seg = get_ebda_seg();
-    u8 bootdrv = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
-    u16 bootseg = GET_EBDA2(ebda_seg, cdemu.load_segment);
+    u8 bootdrv = CDEmu.emulated_extdrive;
+    u16 bootseg = CDEmu.load_segment;
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;

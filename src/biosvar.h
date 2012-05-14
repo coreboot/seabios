@@ -8,8 +8,7 @@
 
 #include "types.h" // u8
 #include "farptr.h" // GET_FARVAR
-#include "config.h" // CONFIG_*
-#include "disk.h" // struct chs_s
+#include "config.h" // SEG_BDA
 
 
 /****************************************************************
@@ -149,37 +148,6 @@ struct bios_data_area_s {
  * Extended Bios Data Area (EBDA)
  ****************************************************************/
 
-// DPTE definition
-struct dpte_s {
-    u16 iobase1;
-    u16 iobase2;
-    u8  prefix;
-    u8  unused;
-    u8  irq;
-    u8  blkcount;
-    u8  dma;
-    u8  pio;
-    u16 options;
-    u16 reserved;
-    u8  revision;
-    u8  checksum;
-};
-
-// ElTorito Device Emulation data
-struct cdemu_s {
-    struct drive_s *emulated_drive_gf;
-    u32 ilba;
-    u16 buffer_segment;
-    u16 load_segment;
-    u16 sector_count;
-    u8  active;
-    u8  media;
-    u8  emulated_extdrive;
-
-    // Virtual device
-    struct chs_s lchs;
-};
-
 struct fdpt_s {
     u16 cylinders;
     u8 heads;
@@ -212,15 +180,6 @@ struct extended_bios_data_area_s {
     u8 other2[0xC4];
 
     // 0x121 - Begin custom storage.
-
-    // El Torito Emulation data
-    struct cdemu_s cdemu;
-
-    // Buffer for disk DPTE table
-    struct dpte_s dpte;
-
-    // Locks for removable devices
-    u8 cdrom_locks[CONFIG_MAX_EXTDRIVE];
 } PACKED;
 
 // The initial size and location of EBDA

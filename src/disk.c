@@ -60,14 +60,13 @@ fillLCHS(struct drive_s *drive_g, u16 *nlc, u16 *nlh, u16 *nlspt)
 {
     if (CONFIG_CDROM_EMU
         && drive_g == GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf))) {
-        // Emulated drive - get info from ebda.  (It's not possible to
+        // Emulated drive - get info from CDEmu.  (It's not possible to
         // populate the geometry directly in the driveid because the
         // geometry is only known after the bios segment is made
         // read-only).
-        u16 ebda_seg = get_ebda_seg();
-        *nlc = GET_EBDA2(ebda_seg, cdemu.lchs.cylinders);
-        *nlh = GET_EBDA2(ebda_seg, cdemu.lchs.heads);
-        *nlspt = GET_EBDA2(ebda_seg, cdemu.lchs.spt);
+        *nlc = GET_LOW(CDEmu.lchs.cylinders);
+        *nlh = GET_LOW(CDEmu.lchs.heads);
+        *nlspt = GET_LOW(CDEmu.lchs.spt);
         return;
     }
     *nlc = GET_GLOBAL(drive_g->lchs.cylinders);
@@ -231,7 +230,6 @@ disk_1305(struct bregs *regs, struct drive_s *drive_g)
 static void noinline
 disk_1308(struct bregs *regs, struct drive_s *drive_g)
 {
-    u16 ebda_seg = get_ebda_seg();
     // Get logical geometry from table
     u16 nlc, nlh, nlspt;
     fillLCHS(drive_g, &nlc, &nlh, &nlspt);
@@ -244,7 +242,7 @@ disk_1308(struct bregs *regs, struct drive_s *drive_g)
 
         if (CONFIG_CDROM_EMU
             && drive_g == GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf)))
-            regs->bx = GET_EBDA2(ebda_seg, cdemu.media) * 2;
+            regs->bx = GET_LOW(CDEmu.media) * 2;
         else
             regs->bx = GET_GLOBAL(drive_g->floppy_type);
 
@@ -261,8 +259,8 @@ disk_1308(struct bregs *regs, struct drive_s *drive_g)
         return;
     }
 
-    if (CONFIG_CDROM_EMU && GET_EBDA2(ebda_seg, cdemu.active)) {
-        u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
+    if (CONFIG_CDROM_EMU && GET_LOW(CDEmu.active)) {
+        u8 emudrive = GET_LOW(CDEmu.emulated_extdrive);
         if (((emudrive ^ regs->dl) & 0x80) == 0)
             // Note extra drive due to emulation.
             count++;
@@ -397,15 +395,14 @@ disk_1344(struct bregs *regs, struct drive_s *drive_g)
 static void
 disk_134500(struct bregs *regs, struct drive_s *drive_g)
 {
-    u16 ebda_seg = get_ebda_seg();
     int cdid = regs->dl - EXTSTART_CD;
-    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[cdid]);
+    u8 locks = GET_LOW(CDRom_locks[cdid]);
     if (locks == 0xff) {
         regs->al = 1;
         disk_ret(regs, DISK_RET_ETOOMANYLOCKS);
         return;
     }
-    SET_EBDA2(ebda_seg, cdrom_locks[cdid], locks + 1);
+    SET_LOW(CDRom_locks[cdid], locks + 1);
     regs->al = 1;
     disk_ret(regs, DISK_RET_SUCCESS);
 }
@@ -414,16 +411,15 @@ disk_134500(struct bregs *regs, struct drive_s *drive_g)
 static void
 disk_134501(struct bregs *regs, struct drive_s *drive_g)
 {
-    u16 ebda_seg = get_ebda_seg();
     int cdid = regs->dl - EXTSTART_CD;
-    u8 locks = GET_EBDA2(ebda_seg, cdrom_locks[cdid]);
+    u8 locks = GET_LOW(CDRom_locks[cdid]);
     if (locks == 0x00) {
         regs->al = 0;
         disk_ret(regs, DISK_RET_ENOTLOCKED);
         return;
     }
     locks--;
-    SET_EBDA2(ebda_seg, cdrom_locks[cdid], locks);
+    SET_LOW(CDRom_locks[cdid], locks);
     regs->al = (locks ? 1 : 0);
     disk_ret(regs, DISK_RET_SUCCESS);
 }
@@ -433,7 +429,7 @@ static void
 disk_134502(struct bregs *regs, struct drive_s *drive_g)
 {
     int cdid = regs->dl - EXTSTART_CD;
-    u8 locks = GET_EBDA(cdrom_locks[cdid]);
+    u8 locks = GET_LOW(CDRom_locks[cdid]);
     regs->al = (locks ? 1 : 0);
     disk_ret(regs, DISK_RET_SUCCESS);
 }
@@ -473,7 +469,7 @@ disk_1346(struct bregs *regs, struct drive_s *drive_g)
     }
 
     int cdid = regs->dl - EXTSTART_CD;
-    u8 locks = GET_EBDA(cdrom_locks[cdid]);
+    u8 locks = GET_LOW(CDRom_locks[cdid]);
     if (locks != 0) {
         disk_ret(regs, DISK_RET_ELOCKED);
         return;
@@ -565,11 +561,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     u8 channel = 0;
     SET_INT13DPT(regs, size, 30);
     if (type == DTYPE_ATA || type == DTYPE_ATAPI) {
-        u16 ebda_seg = get_ebda_seg();
-
-        SET_INT13DPT(regs, dpte_segment, ebda_seg);
-        SET_INT13DPT(regs, dpte_offset
-                     , offsetof(struct extended_bios_data_area_s, dpte));
+        SET_INT13DPT(regs, dpte, SEGOFF(SEG_LOW, (u32)&DefaultDPTE));
 
         // Fill in dpte
         struct atadrive_s *adrive_g = container_of(
@@ -602,25 +594,23 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         if (CONFIG_ATA_PIO32)
             options |= 1<<7;
 
-        SET_EBDA2(ebda_seg, dpte.iobase1, iobase1);
-        SET_EBDA2(ebda_seg, dpte.iobase2, iobase2 + ATA_CB_DC);
-        SET_EBDA2(ebda_seg, dpte.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
-                                          | ATA_CB_DH_LBA));
-        SET_EBDA2(ebda_seg, dpte.unused, 0xcb);
-        SET_EBDA2(ebda_seg, dpte.irq, irq);
-        SET_EBDA2(ebda_seg, dpte.blkcount, 1);
-        SET_EBDA2(ebda_seg, dpte.dma, 0);
-        SET_EBDA2(ebda_seg, dpte.pio, 0);
-        SET_EBDA2(ebda_seg, dpte.options, options);
-        SET_EBDA2(ebda_seg, dpte.reserved, 0);
-        SET_EBDA2(ebda_seg, dpte.revision, 0x11);
+        SET_LOW(DefaultDPTE.iobase1, iobase1);
+        SET_LOW(DefaultDPTE.iobase2, iobase2 + ATA_CB_DC);
+        SET_LOW(DefaultDPTE.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
+                                  | ATA_CB_DH_LBA));
+        SET_LOW(DefaultDPTE.unused, 0xcb);
+        SET_LOW(DefaultDPTE.irq, irq);
+        SET_LOW(DefaultDPTE.blkcount, 1);
+        SET_LOW(DefaultDPTE.dma, 0);
+        SET_LOW(DefaultDPTE.pio, 0);
+        SET_LOW(DefaultDPTE.options, options);
+        SET_LOW(DefaultDPTE.reserved, 0);
+        SET_LOW(DefaultDPTE.revision, 0x11);
 
-        u8 sum = checksum_far(
-            ebda_seg, (void*)offsetof(struct extended_bios_data_area_s, dpte), 15);
-        SET_EBDA2(ebda_seg, dpte.checksum, -sum);
+        u8 sum = checksum_far(SEG_LOW, &DefaultDPTE, 15);
+        SET_LOW(DefaultDPTE.checksum, -sum);
     } else {
-        SET_INT13DPT(regs, dpte_segment, 0);
-        SET_INT13DPT(regs, dpte_offset, 0);
+        SET_INT13DPT(regs, dpte.segoff, 0);
         bdf = GET_GLOBAL(drive_g->cntl_id);
     }
 
@@ -866,9 +856,8 @@ handle_13(struct bregs *regs)
             cdemu_134b(regs);
             return;
         }
-        u16 ebda_seg = get_ebda_seg();
-        if (GET_EBDA2(ebda_seg, cdemu.active)) {
-            u8 emudrive = GET_EBDA2(ebda_seg, cdemu.emulated_extdrive);
+        if (GET_LOW(CDEmu.active)) {
+            u8 emudrive = GET_LOW(CDEmu.emulated_extdrive);
             if (extdrive == emudrive) {
                 // Access to an emulated drive.
                 struct drive_s *cdemu_g;

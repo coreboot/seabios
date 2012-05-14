@@ -6,10 +6,11 @@
 
 #include "memmap.h" // add_e820
 #include "util.h" // dprintf
-#include "biosvar.h" // GET_EBDA
 #include "lzmadecode.h" // LzmaDecode
 #include "smbios.h" // smbios_init
 #include "boot.h" // boot_add_cbfs
+#include "disk.h" // MAXDESCSIZE
+#include "config.h" // CONFIG_*
 
 
 /****************************************************************

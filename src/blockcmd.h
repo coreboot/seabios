@@ -101,6 +101,7 @@ struct cdbres_mode_sense_geom {
 
 // blockcmd.c
 int cdb_is_read(u8 *cdbcmd, u16 blocksize);
+struct disk_op_s;
 int cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data);
 int cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data);
 int cdb_test_unit_ready(struct disk_op_s *op);
@@ -111,6 +112,7 @@ int cdb_read(struct disk_op_s *op);
 int cdb_write(struct disk_op_s *op);
 
 int scsi_is_ready(struct disk_op_s *op);
+struct drive_s;
 int scsi_init_drive(struct drive_s *drive, const char *s, int prio);
 
 #endif // blockcmd.h
