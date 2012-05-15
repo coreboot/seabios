@@ -220,9 +220,6 @@ static void pci_bios_init_devices(void)
 {
     struct pci_device *pci;
     foreachpci(pci) {
-        if (pci_bdf_to_bus(pci->bdf) != 0)
-            // Only init devices on host bus.
-            break;
         pci_bios_init_device(pci);
     }
 
