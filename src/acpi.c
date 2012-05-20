@@ -518,6 +518,8 @@ extern void link_time_assertion(void);
 
 static void* build_pcihp(void)
 {
+    char *sys_states;
+    int sys_state_size;
     u32 rmvc_pcrm;
     int i;
 
@@ -548,6 +550,19 @@ static void* build_pcihp(void)
             memcpy(ssdt + aml_ej0_name[i], "EJ0_", 4);
         }
     }
+
+    sys_states = romfile_loadfile("etc/system-states", &sys_state_size);
+    if (!sys_states || sys_state_size != 6)
+        sys_states = (char[]){128, 0, 0, 129, 128, 128};
+
+    if (!(sys_states[3] & 128))
+        ssdt[acpi_s3_name[0]] = 'X';
+    if (!(sys_states[4] & 128))
+        ssdt[acpi_s4_name[0]] = 'X';
+    else
+        ssdt[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
+    ((struct acpi_table_header*)ssdt)->checksum = 0;
+    ((struct acpi_table_header*)ssdt)->checksum -= checksum(ssdt, sizeof(ssdp_pcihp_aml));
 
     return ssdt;
 }

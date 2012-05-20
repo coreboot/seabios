@@ -664,38 +664,6 @@ DefinitionBlock (
         }
     }
 
-
-/****************************************************************
- * Suspend
- ****************************************************************/
-
-    /*
-     * S3 (suspend-to-ram), S4 (suspend-to-disk) and S5 (power-off) type codes:
-     * must match piix4 emulation.
-     */
-    Name (\_S3, Package (0x04)
-    {
-        0x01,  /* PM1a_CNT.SLP_TYP */
-        0x01,  /* PM1b_CNT.SLP_TYP */
-        Zero,  /* reserved */
-        Zero   /* reserved */
-    })
-    Name (\_S4, Package (0x04)
-    {
-        Zero,  /* PM1a_CNT.SLP_TYP */
-        Zero,  /* PM1b_CNT.SLP_TYP */
-        Zero,  /* reserved */
-        Zero   /* reserved */
-    })
-    Name (\_S5, Package (0x04)
-    {
-        Zero,  /* PM1a_CNT.SLP_TYP */
-        Zero,  /* PM1b_CNT.SLP_TYP */
-        Zero,  /* reserved */
-        Zero   /* reserved */
-    })
-
-
 /****************************************************************
  * CPU hotplug
  ****************************************************************/
