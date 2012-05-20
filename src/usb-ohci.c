@@ -10,7 +10,7 @@
 #include "usb-ohci.h" // struct ohci_hcca
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "usb.h" // struct usb_s
-#include "farptr.h" // GET_FLATPTR
+#include "biosvar.h" // GET_LOWFLAT
 
 #define FIT                     (1 << 31)
 
@@ -504,10 +504,10 @@ ohci_poll_intr(struct usb_pipe *p, void *data)
         return -1;
 
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-    struct ohci_td *tds = GET_FLATPTR(pipe->tds);
-    struct ohci_td *head = (void*)(GET_FLATPTR(pipe->ed.hwHeadP) & ~(ED_C|ED_H));
-    struct ohci_td *tail = (void*)GET_FLATPTR(pipe->ed.hwTailP);
-    int count = GET_FLATPTR(pipe->count);
+    struct ohci_td *tds = GET_LOWFLAT(pipe->tds);
+    struct ohci_td *head = (void*)(GET_LOWFLAT(pipe->ed.hwHeadP) & ~(ED_C|ED_H));
+    struct ohci_td *tail = (void*)GET_LOWFLAT(pipe->ed.hwTailP);
+    int count = GET_LOWFLAT(pipe->count);
     int pos = (tail - tds + 1) % count;
     struct ohci_td *next = &tds[pos];
     if (head == next)
@@ -516,21 +516,19 @@ ohci_poll_intr(struct usb_pipe *p, void *data)
     // XXX - check for errors.
 
     // Copy data.
-    int maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
-    void *pipedata = GET_FLATPTR(pipe->data);
+    int maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
+    void *pipedata = GET_LOWFLAT((pipe->data));
     void *intrdata = pipedata + maxpacket * pos;
-    memcpy_far(GET_SEG(SS), data
-               , FLATPTR_TO_SEG(intrdata), (void*)FLATPTR_TO_OFFSET(intrdata)
-               , maxpacket);
+    memcpy_far(GET_SEG(SS), data, SEG_LOW, LOWFLAT2LOW(intrdata), maxpacket);
 
     // Reenable this td.
-    SET_FLATPTR(tail->hwINFO, TD_DP_IN | TD_T_TOGGLE | TD_CC);
+    SET_LOWFLAT(tail->hwINFO, TD_DP_IN | TD_T_TOGGLE | TD_CC);
     intrdata = pipedata + maxpacket * (tail-tds);
-    SET_FLATPTR(tail->hwCBP, (u32)intrdata);
-    SET_FLATPTR(tail->hwNextTD, (u32)next);
-    SET_FLATPTR(tail->hwBE, (u32)intrdata + maxpacket - 1);
+    SET_LOWFLAT(tail->hwCBP, (u32)intrdata);
+    SET_LOWFLAT(tail->hwNextTD, (u32)next);
+    SET_LOWFLAT(tail->hwBE, (u32)intrdata + maxpacket - 1);
     barrier();
-    SET_FLATPTR(pipe->ed.hwTailP, (u32)next);
+    SET_LOWFLAT(pipe->ed.hwTailP, (u32)next);
 
     return 0;
 }

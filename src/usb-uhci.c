@@ -11,7 +11,7 @@
 #include "usb-uhci.h" // USBLEGSUP
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "usb.h" // struct usb_s
-#include "farptr.h" // GET_FLATPTR
+#include "biosvar.h" // GET_LOWFLAT
 
 struct usb_uhci_s {
     struct usb_s usb;
@@ -388,18 +388,18 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
 {
     u64 end = calc_future_tsc(timeout);
     for (;;) {
-        u32 el_link = GET_FLATPTR(pipe->qh.element);
+        u32 el_link = GET_LOWFLAT(pipe->qh.element);
         if (el_link & UHCI_PTR_TERM)
             return 0;
         if (check_tsc(end)) {
             warn_timeout();
-            u16 iobase = GET_FLATPTR(pipe->iobase);
+            u16 iobase = GET_LOWFLAT(pipe->iobase);
             struct uhci_td *td = (void*)(el_link & ~UHCI_PTR_BITS);
             dprintf(1, "Timeout on wait_pipe %p (td=%p s=%x c=%x/%x)\n"
-                    , pipe, (void*)el_link, GET_FLATPTR(td->status)
+                    , pipe, (void*)el_link, GET_LOWFLAT(td->status)
                     , inw(iobase + USBCMD)
                     , inw(iobase + USBSTS));
-            SET_FLATPTR(pipe->qh.element, UHCI_PTR_TERM);
+            SET_LOWFLAT(pipe->qh.element, UHCI_PTR_TERM);
             uhci_waittick(iobase);
             return -1;
         }
@@ -497,11 +497,11 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
     dprintf(7, "uhci_send_bulk qh=%p dir=%d data=%p size=%d\n"
             , &pipe->qh, dir, data, datasize);
-    int maxpacket = GET_FLATPTR(pipe->pipe.maxpacket);
-    int lowspeed = GET_FLATPTR(pipe->pipe.speed);
-    int devaddr = (GET_FLATPTR(pipe->pipe.devaddr)
-                   | (GET_FLATPTR(pipe->pipe.ep) << 7));
-    int toggle = GET_FLATPTR(pipe->toggle) ? TD_TOKEN_TOGGLE : 0;
+    int maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
+    int lowspeed = GET_LOWFLAT(pipe->pipe.speed);
+    int devaddr = (GET_LOWFLAT(pipe->pipe.devaddr)
+                   | (GET_LOWFLAT(pipe->pipe.ep) << 7));
+    int toggle = GET_LOWFLAT(pipe->toggle) ? TD_TOKEN_TOGGLE : 0;
 
     // Allocate 4 tds on stack (16byte aligned)
     u8 tdsbuf[sizeof(struct uhci_td) * STACKTDS + TDALIGN - 1];
@@ -510,7 +510,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
 
     // Enable tds
     barrier();
-    SET_FLATPTR(pipe->qh.element, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
+    SET_LOWFLAT(pipe->qh.element, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
 
     int tdpos = 0;
     while (datasize) {
@@ -537,12 +537,12 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
         data += transfer;
         datasize -= transfer;
     }
-    SET_FLATPTR(pipe->toggle, !!toggle);
+    SET_LOWFLAT(pipe->toggle, !!toggle);
     return wait_pipe(pipe, 5000);
 fail:
     dprintf(1, "uhci_send_bulk failed\n");
-    SET_FLATPTR(pipe->qh.element, UHCI_PTR_TERM);
-    uhci_waittick(GET_FLATPTR(pipe->iobase));
+    SET_LOWFLAT(pipe->qh.element, UHCI_PTR_TERM);
+    uhci_waittick(GET_LOWFLAT(pipe->iobase));
     return -1;
 }
 
@@ -554,25 +554,24 @@ uhci_poll_intr(struct usb_pipe *p, void *data)
         return -1;
 
     struct uhci_pipe *pipe = container_of(p, struct uhci_pipe, pipe);
-    struct uhci_td *td = GET_FLATPTR(pipe->next_td);
-    u32 status = GET_FLATPTR(td->status);
-    u32 token = GET_FLATPTR(td->token);
+    struct uhci_td *td = GET_LOWFLAT(pipe->next_td);
+    u32 status = GET_LOWFLAT(td->status);
+    u32 token = GET_LOWFLAT(td->token);
     if (status & TD_CTRL_ACTIVE)
         // No intrs found.
         return -1;
     // XXX - check for errors.
 
     // Copy data.
-    void *tddata = GET_FLATPTR(td->buffer);
-    memcpy_far(GET_SEG(SS), data
-               , FLATPTR_TO_SEG(tddata), (void*)FLATPTR_TO_OFFSET(tddata)
+    void *tddata = GET_LOWFLAT(td->buffer);
+    memcpy_far(GET_SEG(SS), data, SEG_LOW, LOWFLAT2LOW(tddata)
                , uhci_expected_length(token));
 
     // Reenable this td.
-    struct uhci_td *next = (void*)(GET_FLATPTR(td->link) & ~UHCI_PTR_BITS);
-    SET_FLATPTR(pipe->next_td, next);
+    struct uhci_td *next = (void*)(GET_LOWFLAT(td->link) & ~UHCI_PTR_BITS);
+    SET_LOWFLAT(pipe->next_td, next);
     barrier();
-    SET_FLATPTR(td->status, (uhci_maxerr(0) | (status & TD_CTRL_LS)
+    SET_LOWFLAT(td->status, (uhci_maxerr(0) | (status & TD_CTRL_LS)
                              | TD_CTRL_ACTIVE));
 
     return 0;

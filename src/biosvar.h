@@ -256,10 +256,14 @@ extern u8 _datalow_seg, _datalow_base[];
 #if MODESEGMENT
 #define GET_LOW(var)            GET_FARVAR(SEG_LOW, (var))
 #define SET_LOW(var, val)       SET_FARVAR(SEG_LOW, (var), (val))
+#define LOWFLAT2LOW(var) ((typeof(var))((void*)(var) - (u32)_datalow_base))
 #else
 #define GET_LOW(var)            (var)
 #define SET_LOW(var, val)       do { (var) = (val); } while (0)
+#define LOWFLAT2LOW(var) (var)
 #endif
+#define GET_LOWFLAT(var) GET_LOW(*LOWFLAT2LOW(&(var)))
+#define SET_LOWFLAT(var, val) SET_LOW(*LOWFLAT2LOW(&(var)), (val))
 
 
 /****************************************************************
