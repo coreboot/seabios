@@ -29,6 +29,7 @@
 # ACPI_EXTRACT_PROCESSOR_START - start of Processor() block
 # ACPI_EXTRACT_PROCESSOR_STRING - extract a NameString from Processor()
 # ACPI_EXTRACT_PROCESSOR_END - offset at last byte of Processor() + 1
+# ACPI_EXTRACT_PKG_START - start of Package block
 #
 # ACPI_EXTRACT_ALL_CODE - create an array storing the generated AML bytecode
 # 
@@ -185,6 +186,15 @@ def aml_processor_end(offset):
     pkglen = aml_pkglen(offset)
     return offset + pkglen
 
+def aml_package_start(offset):
+    offset = aml_name_string(offset) + 4
+    # 0x12 PkgLength NumElements PackageElementList
+    if (aml[offset] != 0x12):
+        die( "Name offset 0x%x: expected 0x12 actual 0x%x" %
+             (offset, aml[offset]));
+    offset += 1
+    return offset + aml_pkglen_bytes(offset) + 1
+
 lineno = 0
 for line in fileinput.input():
     # Strip trailing newline
@@ -267,6 +277,8 @@ for i in range(len(asl)):
         offset = aml_processor_string(offset)
     elif (directive == "ACPI_EXTRACT_PROCESSOR_END"):
         offset = aml_processor_end(offset)
+    elif (directive == "ACPI_EXTRACT_PKG_START"):
+        offset = aml_package_start(offset)
     else:
         die("Unsupported directive %s" % directive)
 
