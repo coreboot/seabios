@@ -121,7 +121,11 @@ def aml_name_string(offset):
     if (aml[offset] != 0x08):
         die( "Name offset 0x%x: expected 0x08 actual 0x%x" %
              (offset, aml[offset]));
-    return offset + 1;
+    offset += 1
+    # Block Name Modifier. Skip it.
+    if (aml[offset] == 0x5c or aml[offset] == 0x5e):
+        offset += 1
+    return offset;
 
 # Given data offset, find dword const offset
 def aml_data_dword_const(offset):
