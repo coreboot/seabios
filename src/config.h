@@ -38,7 +38,6 @@
 #define BUILD_ROM_START           0xc0000
 #define BUILD_BIOS_ADDR           0xf0000
 #define BUILD_BIOS_SIZE           0x10000
-#define BUILD_LOWMEM_SIZE         0x8000
 #define BUILD_EXTRA_STACK_SIZE    0x800
 // 32KB for shadow ram copying (works around emulator deficiencies)
 #define BUILD_BIOS_TMP_ADDR       0x30000

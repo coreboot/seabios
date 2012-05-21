@@ -363,6 +363,7 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
     out = outXRefs(sections32all) + """
     %s = 0x%x ;
     _reloc_min_align = 0x%x ;
+    _datalow_base = 0x%x ;
     _datalow_min_align = 0x%x ;
 
     code32flat_start = 0x%x ;
@@ -383,6 +384,7 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
     } :text
 """ % (entrysym.name, entrysympos,
        li.sec32init_align,
+       li.datalow_base,
        li.sec32low_align,
        sec32all_start,
        relocstr,

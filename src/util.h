@@ -401,7 +401,6 @@ void call_bcv(u16 seg, u16 ip);
 void optionrom_setup(void);
 void vga_setup(void);
 void s3_resume_vga_init(void);
-extern u32 RomEnd, RomTop;
 extern int ScreenAndDebug;
 
 // bootsplash.c
@@ -420,6 +419,10 @@ void pnp_setup(void);
 
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
+u32 rom_get_top(void);
+u32 rom_get_last(void);
+struct rom_header *rom_reserve(u32 size);
+int rom_confirm(u32 size);
 void malloc_setup(void);
 void malloc_fixupreloc(void);
 void malloc_finalize(void);
