@@ -297,7 +297,8 @@ malloc_finalize(void)
     u32 base = rom_get_top();
     struct rom_header *dummyrom = (void*)base;
     dummyrom->signature = OPTION_ROM_SIGNATURE;
-    dummyrom->size = (BUILD_BIOS_ADDR - base) / 512;
+    int size = (BUILD_BIOS_ADDR - base) / 512;
+    dummyrom->size = (size > 255) ? 255 : size;
     memset((void*)RomEnd, 0, base-RomEnd);
     dprintf(1, "Space available for UMB: %08x-%08x\n", RomEnd, base);
 
