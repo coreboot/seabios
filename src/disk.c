@@ -122,8 +122,9 @@ static void noinline
 extended_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
 {
     struct disk_op_s dop;
+    struct int13ext_s *param_far = (struct int13ext_s*)(regs->si+0);
     // Get lba and check.
-    dop.lba = GET_INT13EXT(regs, lba);
+    dop.lba = GET_FARVAR(regs->ds, param_far->lba);
     dop.command = command;
     dop.drive_g = drive_g;
     if (dop.lba >= GET_GLOBAL(drive_g->sectors)) {
@@ -132,8 +133,8 @@ extended_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
         return;
     }
 
-    dop.buf_fl = SEGOFF_TO_FLATPTR(GET_INT13EXT(regs, data));
-    dop.count = GET_INT13EXT(regs, count);
+    dop.buf_fl = SEGOFF_TO_FLATPTR(GET_FARVAR(regs->ds, param_far->data));
+    dop.count = GET_FARVAR(regs->ds, param_far->count);
     if (! dop.count) {
         // Nothing to do.
         disk_ret(regs, DISK_RET_SUCCESS);
@@ -142,7 +143,7 @@ extended_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
 
     int status = send_disk_op(&dop);
 
-    SET_INT13EXT(regs, count, dop.count);
+    SET_FARVAR(regs->ds, param_far->count, dop.count);
 
     disk_ret(regs, status);
 }
@@ -500,10 +501,12 @@ disk_1347(struct bregs *regs, struct drive_s *drive_g)
 }
 
 // IBM/MS get drive parameters
-static void
+static void noinline
 disk_1348(struct bregs *regs, struct drive_s *drive_g)
 {
-    u16 size = GET_INT13DPT(regs, size);
+    u16 seg = regs->ds;
+    struct int13dpt_s *param_far = (struct int13dpt_s*)(regs->si+0);
+    u16 size = GET_FARVAR(seg, param_far->size);
     u16 t13 = size == 74;
 
     // Buffer is too small
@@ -524,27 +527,27 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     dprintf(DEBUG_HDL_13, "disk_1348 size=%d t=%d chs=%d,%d,%d lba=%d bs=%d\n"
             , size, type, npc, nph, npspt, (u32)lba, blksize);
 
-    SET_INT13DPT(regs, size, 26);
+    SET_FARVAR(seg, param_far->size, 26);
     if (type == DTYPE_ATAPI) {
         // 0x74 = removable, media change, lockable, max values
-        SET_INT13DPT(regs, infos, 0x74);
-        SET_INT13DPT(regs, cylinders, 0xffffffff);
-        SET_INT13DPT(regs, heads, 0xffffffff);
-        SET_INT13DPT(regs, spt, 0xffffffff);
-        SET_INT13DPT(regs, sector_count, (u64)-1);
+        SET_FARVAR(seg, param_far->infos, 0x74);
+        SET_FARVAR(seg, param_far->cylinders, 0xffffffff);
+        SET_FARVAR(seg, param_far->heads, 0xffffffff);
+        SET_FARVAR(seg, param_far->spt, 0xffffffff);
+        SET_FARVAR(seg, param_far->sector_count, (u64)-1);
     } else {
         if (lba > (u64)npspt*nph*0x3fff) {
-            SET_INT13DPT(regs, infos, 0x00); // geometry is invalid
-            SET_INT13DPT(regs, cylinders, 0x3fff);
+            SET_FARVAR(seg, param_far->infos, 0x00); // geometry is invalid
+            SET_FARVAR(seg, param_far->cylinders, 0x3fff);
         } else {
-            SET_INT13DPT(regs, infos, 0x02); // geometry is valid
-            SET_INT13DPT(regs, cylinders, (u32)npc);
+            SET_FARVAR(seg, param_far->infos, 0x02); // geometry is valid
+            SET_FARVAR(seg, param_far->cylinders, (u32)npc);
         }
-        SET_INT13DPT(regs, heads, (u32)nph);
-        SET_INT13DPT(regs, spt, (u32)npspt);
-        SET_INT13DPT(regs, sector_count, lba);
+        SET_FARVAR(seg, param_far->heads, (u32)nph);
+        SET_FARVAR(seg, param_far->spt, (u32)npspt);
+        SET_FARVAR(seg, param_far->sector_count, lba);
     }
-    SET_INT13DPT(regs, blksize, blksize);
+    SET_FARVAR(seg, param_far->blksize, blksize);
 
     if (size < 30 ||
         (type != DTYPE_ATA && type != DTYPE_ATAPI &&
@@ -559,9 +562,9 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     u16 iobase1 = 0;
     u64 device_path = 0;
     u8 channel = 0;
-    SET_INT13DPT(regs, size, 30);
+    SET_FARVAR(seg, param_far->size, 30);
     if (type == DTYPE_ATA || type == DTYPE_ATAPI) {
-        SET_INT13DPT(regs, dpte, SEGOFF(SEG_LOW, (u32)&DefaultDPTE));
+        SET_FARVAR(seg, param_far->dpte, SEGOFF(SEG_LOW, (u32)&DefaultDPTE));
 
         // Fill in dpte
         struct atadrive_s *adrive_g = container_of(
@@ -610,7 +613,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         u8 sum = checksum_far(SEG_LOW, &DefaultDPTE, 15);
         SET_LOW(DefaultDPTE.checksum, -sum);
     } else {
-        SET_INT13DPT(regs, dpte.segoff, 0);
+        SET_FARVAR(seg, param_far->dpte.segoff, 0);
         bdf = GET_GLOBAL(drive_g->cntl_id);
     }
 
@@ -620,60 +623,60 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     }
 
     // EDD 3.x
-    SET_INT13DPT(regs, key, 0xbedd);
-    SET_INT13DPT(regs, dpi_length, t13 ? 44 : 36);
-    SET_INT13DPT(regs, reserved1, 0);
-    SET_INT13DPT(regs, reserved2, 0);
+    SET_FARVAR(seg, param_far->key, 0xbedd);
+    SET_FARVAR(seg, param_far->dpi_length, t13 ? 44 : 36);
+    SET_FARVAR(seg, param_far->reserved1, 0);
+    SET_FARVAR(seg, param_far->reserved2, 0);
 
     if (bdf != -1) {
-        SET_INT13DPT(regs, host_bus[0], 'P');
-        SET_INT13DPT(regs, host_bus[1], 'C');
-        SET_INT13DPT(regs, host_bus[2], 'I');
-        SET_INT13DPT(regs, host_bus[3], ' ');
+        SET_FARVAR(seg, param_far->host_bus[0], 'P');
+        SET_FARVAR(seg, param_far->host_bus[1], 'C');
+        SET_FARVAR(seg, param_far->host_bus[2], 'I');
+        SET_FARVAR(seg, param_far->host_bus[3], ' ');
 
         u32 path = (pci_bdf_to_bus(bdf) | (pci_bdf_to_dev(bdf) << 8)
                     | (pci_bdf_to_fn(bdf) << 16));
         if (t13)
             path |= channel << 24;
 
-        SET_INT13DPT(regs, iface_path, path);
+        SET_FARVAR(seg, param_far->iface_path, path);
     } else {
         // ISA
-        SET_INT13DPT(regs, host_bus[0], 'I');
-        SET_INT13DPT(regs, host_bus[1], 'S');
-        SET_INT13DPT(regs, host_bus[2], 'A');
-        SET_INT13DPT(regs, host_bus[3], ' ');
+        SET_FARVAR(seg, param_far->host_bus[0], 'I');
+        SET_FARVAR(seg, param_far->host_bus[1], 'S');
+        SET_FARVAR(seg, param_far->host_bus[2], 'A');
+        SET_FARVAR(seg, param_far->host_bus[3], ' ');
 
-        SET_INT13DPT(regs, iface_path, iobase1);
+        SET_FARVAR(seg, param_far->iface_path, iobase1);
     }
 
     if (type != DTYPE_VIRTIO_BLK) {
-        SET_INT13DPT(regs, iface_type[0], 'A');
-        SET_INT13DPT(regs, iface_type[1], 'T');
-        SET_INT13DPT(regs, iface_type[2], 'A');
-        SET_INT13DPT(regs, iface_type[3], ' ');
+        SET_FARVAR(seg, param_far->iface_type[0], 'A');
+        SET_FARVAR(seg, param_far->iface_type[1], 'T');
+        SET_FARVAR(seg, param_far->iface_type[2], 'A');
+        SET_FARVAR(seg, param_far->iface_type[3], ' ');
     } else {
-        SET_INT13DPT(regs, iface_type[0], 'S');
-        SET_INT13DPT(regs, iface_type[1], 'C');
-        SET_INT13DPT(regs, iface_type[2], 'S');
-        SET_INT13DPT(regs, iface_type[3], 'I');
+        SET_FARVAR(seg, param_far->iface_type[0], 'S');
+        SET_FARVAR(seg, param_far->iface_type[1], 'C');
+        SET_FARVAR(seg, param_far->iface_type[2], 'S');
+        SET_FARVAR(seg, param_far->iface_type[3], 'I');
     }
-    SET_INT13DPT(regs, iface_type[4], ' ');
-    SET_INT13DPT(regs, iface_type[5], ' ');
-    SET_INT13DPT(regs, iface_type[6], ' ');
-    SET_INT13DPT(regs, iface_type[7], ' ');
+    SET_FARVAR(seg, param_far->iface_type[4], ' ');
+    SET_FARVAR(seg, param_far->iface_type[5], ' ');
+    SET_FARVAR(seg, param_far->iface_type[6], ' ');
+    SET_FARVAR(seg, param_far->iface_type[7], ' ');
 
     if (t13) {
-        SET_INT13DPT(regs, t13.device_path[0], device_path);
-        SET_INT13DPT(regs, t13.device_path[1], 0);
+        SET_FARVAR(seg, param_far->t13.device_path[0], device_path);
+        SET_FARVAR(seg, param_far->t13.device_path[1], 0);
 
-        SET_INT13DPT(regs, t13.checksum
-                     , -checksum_far(regs->ds, (void*)(regs->si+30), 43));
+        SET_FARVAR(seg, param_far->t13.checksum
+                   , -checksum_far(seg, (void*)param_far+30, 43));
     } else {
-        SET_INT13DPT(regs, phoenix.device_path, device_path);
+        SET_FARVAR(seg, param_far->phoenix.device_path, device_path);
 
-        SET_INT13DPT(regs, phoenix.checksum
-                     , -checksum_far(regs->ds, (void*)(regs->si+30), 35));
+        SET_FARVAR(seg, param_far->phoenix.checksum
+                   , -checksum_far(seg, (void*)param_far+30, 35));
     }
 
     disk_ret(regs, DISK_RET_SUCCESS);

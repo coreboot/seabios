@@ -40,11 +40,6 @@ struct int13ext_s {
     u64 lba;
 } PACKED;
 
-#define GET_INT13EXT(regs,var)                                          \
-    GET_FARVAR((regs)->ds, ((struct int13ext_s*)((regs)->si+0))->var)
-#define SET_INT13EXT(regs,var,val)                                      \
-    SET_FARVAR((regs)->ds, ((struct int13ext_s*)((regs)->si+0))->var, (val))
-
 // DPTE definition
 struct dpte_s {
     u16 iobase1;
@@ -93,11 +88,6 @@ struct int13dpt_s {
         } t13;
     };
 } PACKED;
-
-#define GET_INT13DPT(regs,var)                                          \
-    GET_FARVAR((regs)->ds, ((struct int13dpt_s*)((regs)->si+0))->var)
-#define SET_INT13DPT(regs,var,val)                                      \
-    SET_FARVAR((regs)->ds, ((struct int13dpt_s*)((regs)->si+0))->var, (val))
 
 // Floppy "Disk Base Table"
 struct floppy_dbt_s {
