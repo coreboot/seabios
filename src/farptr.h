@@ -79,15 +79,29 @@ extern void __force_link_error__unknown_type(void);
             __force_link_error__unknown_type();         \
     } while (0)
 
+#define DECL_SEGFUNCS(SEG)                              \
+static inline void __set_seg_##SEG(u16 seg) {           \
+    __asm__("movw %w1, %%" #SEG : "=m"(__segment_##SEG) \
+            : "rm"(seg));                               \
+}                                                       \
+static inline u16 __get_seg_##SEG(void) {               \
+    u16 res;                                            \
+    __asm__("movw %%" #SEG ", %w0" : "=rm"(res)         \
+            : "m"(__segment_##SEG));                    \
+    return res;                                         \
+}
+DECL_SEGFUNCS(CS)
+DECL_SEGFUNCS(DS)
+DECL_SEGFUNCS(ES)
+DECL_SEGFUNCS(FS)
+DECL_SEGFUNCS(GS)
+DECL_SEGFUNCS(SS)
+
 // Low level macros for getting/setting a segment register.
-#define __SET_SEG(SEG, value)                                   \
-    __asm__("movw %w1, %%" #SEG : "=m"(__segment_ ## SEG)       \
-            : "rm"(value))
-#define __GET_SEG(SEG) ({                                       \
-    u16 __seg;                                                  \
-    __asm__("movw %%" #SEG ", %w0" : "=rm"(__seg)               \
-            : "m"(__segment_ ## SEG));                          \
-    __seg;})
+#define __SET_SEG(SEG, value)                   \
+    __set_seg_##SEG(value)
+#define __GET_SEG(SEG)                          \
+    __get_seg_##SEG()
 
 // Macros for accessing a variable in another segment.  (They
 // automatically update the %es segment and then make the appropriate
