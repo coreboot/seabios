@@ -408,14 +408,14 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
         if (count > max)
             count = max;
 
-        SET_FLATPTR(dma->buf_fl, dest);
+        SET_LOWFLAT(dma->buf_fl, dest);
         bytes -= count;
         if (!bytes)
             // Last descriptor.
             count |= 1<<31;
         dprintf(16, "dma@%p: %08x %08x\n", dma, dest, count);
         dest += count;
-        SET_FLATPTR(dma->count, count);
+        SET_LOWFLAT(dma->count, count);
         dma++;
     }
 

@@ -59,7 +59,7 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
 int
 usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
 {
-    switch (GET_FLATPTR(pipe_fl->type)) {
+    switch (GET_LOWFLAT(pipe_fl->type)) {
     default:
     case USB_TYPE_UHCI:
         return uhci_send_bulk(pipe_fl, dir, data, datasize);
@@ -73,7 +73,7 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
 int noinline
 usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 {
-    switch (GET_FLATPTR(pipe_fl->type)) {
+    switch (GET_LOWFLAT(pipe_fl->type)) {
     default:
     case USB_TYPE_UHCI:
         return uhci_poll_intr(pipe_fl, data);
