@@ -29,7 +29,7 @@
 static void sata_prep_simple(struct sata_cmd_fis *fis, u8 command)
 {
     memset_fl(fis, 0, sizeof(*fis));
-    SET_FLATPTR(fis->command, command);
+    SET_LOWFLAT(fis->command, command);
 }
 
 static void sata_prep_readwrite(struct sata_cmd_fis *fis,
@@ -41,10 +41,10 @@ static void sata_prep_readwrite(struct sata_cmd_fis *fis,
     memset_fl(fis, 0, sizeof(*fis));
 
     if (op->count >= (1<<8) || lba + op->count >= (1<<28)) {
-        SET_FLATPTR(fis->sector_count2, op->count >> 8);
-        SET_FLATPTR(fis->lba_low2,      lba >> 24);
-        SET_FLATPTR(fis->lba_mid2,      lba >> 32);
-        SET_FLATPTR(fis->lba_high2,     lba >> 40);
+        SET_LOWFLAT(fis->sector_count2, op->count >> 8);
+        SET_LOWFLAT(fis->lba_low2,      lba >> 24);
+        SET_LOWFLAT(fis->lba_mid2,      lba >> 32);
+        SET_LOWFLAT(fis->lba_high2,     lba >> 40);
         lba &= 0xffffff;
         command = (iswrite ? ATA_CMD_WRITE_DMA_EXT
                    : ATA_CMD_READ_DMA_EXT);
@@ -52,22 +52,22 @@ static void sata_prep_readwrite(struct sata_cmd_fis *fis,
         command = (iswrite ? ATA_CMD_WRITE_DMA
                    : ATA_CMD_READ_DMA);
     }
-    SET_FLATPTR(fis->feature,      1); /* dma */
-    SET_FLATPTR(fis->command,      command);
-    SET_FLATPTR(fis->sector_count, op->count);
-    SET_FLATPTR(fis->lba_low,      lba);
-    SET_FLATPTR(fis->lba_mid,      lba >> 8);
-    SET_FLATPTR(fis->lba_high,     lba >> 16);
-    SET_FLATPTR(fis->device,       ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
+    SET_LOWFLAT(fis->feature,      1); /* dma */
+    SET_LOWFLAT(fis->command,      command);
+    SET_LOWFLAT(fis->sector_count, op->count);
+    SET_LOWFLAT(fis->lba_low,      lba);
+    SET_LOWFLAT(fis->lba_mid,      lba >> 8);
+    SET_LOWFLAT(fis->lba_high,     lba >> 16);
+    SET_LOWFLAT(fis->device,       ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
 }
 
 static void sata_prep_atapi(struct sata_cmd_fis *fis, u16 blocksize)
 {
     memset_fl(fis, 0, sizeof(*fis));
-    SET_FLATPTR(fis->command,  ATA_CMD_PACKET);
-    SET_FLATPTR(fis->feature,  1); /* dma */
-    SET_FLATPTR(fis->lba_mid,  blocksize);
-    SET_FLATPTR(fis->lba_high, blocksize >> 8);
+    SET_LOWFLAT(fis->command,  ATA_CMD_PACKET);
+    SET_LOWFLAT(fis->feature,  1); /* dma */
+    SET_LOWFLAT(fis->lba_mid,  blocksize);
+    SET_LOWFLAT(fis->lba_high, blocksize >> 8);
 }
 
 // ahci register access helpers
@@ -115,20 +115,20 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
     u32 pnr                  = GET_GLOBAL(port->pnr);
     u64 end;
 
-    SET_FLATPTR(cmd->fis.reg,       0x27);
-    SET_FLATPTR(cmd->fis.pmp_type,  (1 << 7)); /* cmd fis */
-    SET_FLATPTR(cmd->prdt[0].base,  ((u32)buffer));
-    SET_FLATPTR(cmd->prdt[0].baseu, 0);
-    SET_FLATPTR(cmd->prdt[0].flags, bsize-1);
+    SET_LOWFLAT(cmd->fis.reg,       0x27);
+    SET_LOWFLAT(cmd->fis.pmp_type,  (1 << 7)); /* cmd fis */
+    SET_LOWFLAT(cmd->prdt[0].base,  ((u32)buffer));
+    SET_LOWFLAT(cmd->prdt[0].baseu, 0);
+    SET_LOWFLAT(cmd->prdt[0].flags, bsize-1);
 
     flags = ((1 << 16) | /* one prd entry */
              (iswrite ? (1 << 6) : 0) |
              (isatapi ? (1 << 5) : 0) |
              (5 << 0)); /* fis length (dwords) */
-    SET_FLATPTR(list[0].flags,  flags);
-    SET_FLATPTR(list[0].bytes,  0);
-    SET_FLATPTR(list[0].base,   ((u32)(cmd)));
-    SET_FLATPTR(list[0].baseu,  0);
+    SET_LOWFLAT(list[0].flags,  flags);
+    SET_LOWFLAT(list[0].bytes,  0);
+    SET_LOWFLAT(list[0].base,   ((u32)(cmd)));
+    SET_LOWFLAT(list[0].baseu,  0);
 
     dprintf(8, "AHCI/%d: send cmd ...\n", pnr);
     intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
@@ -144,13 +144,13 @@ static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
             if (intbits) {
                 ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, intbits);
                 if (intbits & 0x02) {
-                    status = GET_FLATPTR(fis->psfis[2]);
-                    error  = GET_FLATPTR(fis->psfis[3]);
+                    status = GET_LOWFLAT(fis->psfis[2]);
+                    error  = GET_LOWFLAT(fis->psfis[3]);
                     break;
                 }
                 if (intbits & 0x01) {
-                    status = GET_FLATPTR(fis->rfis[2]);
-                    error  = GET_FLATPTR(fis->rfis[3]);
+                    status = GET_LOWFLAT(fis->rfis[2]);
+                    error  = GET_LOWFLAT(fis->rfis[3]);
                     break;
                 }
             }
@@ -229,7 +229,7 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 
     sata_prep_atapi(&cmd->fis, blocksize);
     for (i = 0; i < CDROM_CDB_SIZE; i++) {
-        SET_FLATPTR(cmd->atapi[i], atapi[i]);
+        SET_LOWFLAT(cmd->atapi[i], atapi[i]);
     }
     rc = ahci_command(port, 0, 1, op->buf_fl,
                       op->count * blocksize);
