@@ -55,23 +55,25 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
     __disk_stub((regs), __LINE__, __func__)
 
 // Get the cylinders/heads/sectors for the given drive.
-static void
-fillLCHS(struct drive_s *drive_g, u16 *nlc, u16 *nlh, u16 *nlspt)
+static struct chs_s
+getLCHS(struct drive_s *drive_g)
 {
+    struct chs_s res = { };
     if (CONFIG_CDROM_EMU
         && drive_g == GLOBALFLAT2GLOBAL(GET_GLOBAL(cdemu_drive_gf))) {
         // Emulated drive - get info from CDEmu.  (It's not possible to
         // populate the geometry directly in the driveid because the
         // geometry is only known after the bios segment is made
         // read-only).
-        *nlc = GET_LOW(CDEmu.lchs.cylinders);
-        *nlh = GET_LOW(CDEmu.lchs.heads);
-        *nlspt = GET_LOW(CDEmu.lchs.spt);
-        return;
+        res.cylinders = GET_LOW(CDEmu.lchs.cylinders);
+        res.heads = GET_LOW(CDEmu.lchs.heads);
+        res.spt = GET_LOW(CDEmu.lchs.spt);
+        return res;
     }
-    *nlc = GET_GLOBAL(drive_g->lchs.cylinders);
-    *nlh = GET_GLOBAL(drive_g->lchs.heads);
-    *nlspt = GET_GLOBAL(drive_g->lchs.spt);
+    res.cylinders = GET_GLOBAL(drive_g->lchs.cylinders);
+    res.heads = GET_GLOBAL(drive_g->lchs.heads);
+    res.spt = GET_GLOBAL(drive_g->lchs.spt);
+    return res;
 }
 
 // Perform read/write/verify using old-style chs accesses
@@ -94,8 +96,8 @@ basic_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
     }
     dop.count = count;
 
-    u16 nlc, nlh, nlspt;
-    fillLCHS(drive_g, &nlc, &nlh, &nlspt);
+    struct chs_s chs = getLCHS(drive_g);
+    u16 nlc=chs.cylinders, nlh=chs.heads, nlspt=chs.spt;
 
     // sanity check on cyl heads, sec
     if (cylinder >= nlc || head >= nlh || sector > nlspt) {
@@ -206,8 +208,8 @@ disk_1305(struct bregs *regs, struct drive_s *drive_g)
 {
     debug_stub(regs);
 
-    u16 nlc, nlh, nlspt;
-    fillLCHS(drive_g, &nlc, &nlh, &nlspt);
+    struct chs_s chs = getLCHS(drive_g);
+    u16 nlh=chs.heads, nlspt=chs.spt;
 
     u8 num_sectors = regs->al;
     u8 head        = regs->dh;
@@ -232,8 +234,8 @@ static void noinline
 disk_1308(struct bregs *regs, struct drive_s *drive_g)
 {
     // Get logical geometry from table
-    u16 nlc, nlh, nlspt;
-    fillLCHS(drive_g, &nlc, &nlh, &nlspt);
+    struct chs_s chs = getLCHS(drive_g);
+    u16 nlc=chs.cylinders, nlh=chs.heads, nlspt=chs.spt;
     nlc--;
     nlh--;
     u8 count;
@@ -340,8 +342,8 @@ disk_1315(struct bregs *regs, struct drive_s *drive_g)
     // Hard drive
 
     // Get logical geometry from table
-    u16 nlc, nlh, nlspt;
-    fillLCHS(drive_g, &nlc, &nlh, &nlspt);
+    struct chs_s chs = getLCHS(drive_g);
+    u16 nlc=chs.cylinders, nlh=chs.heads, nlspt=chs.spt;
 
     // Compute sector count seen by int13
     u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;

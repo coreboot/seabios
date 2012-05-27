@@ -186,6 +186,7 @@ struct chs_s {
     u16 heads;      // # heads
     u16 cylinders;  // # cylinders
     u16 spt;        // # sectors / track
+    u16 pad;
 };
 
 // ElTorito Device Emulation data
