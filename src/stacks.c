@@ -128,7 +128,7 @@ ASM16(
 
 // Wait for next irq to occur.
 void
-wait_irq(void)
+yield_toirq(void)
 {
     if (MODESEGMENT) {
         asm volatile("sti ; hlt ; cli ; cld": : :"memory");

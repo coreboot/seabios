@@ -335,6 +335,6 @@ get_keystroke(int msec)
             return get_raw_keystroke();
         if (check_timer(end))
             return -1;
-        wait_irq();
+        yield_toirq();
     }
 }

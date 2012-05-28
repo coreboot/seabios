@@ -87,7 +87,7 @@ dequeue_key(struct bregs *regs, int incr, int extended)
             regs->flags |= F_ZF;
             return;
         }
-        wait_irq();
+        yield_toirq();
     }
 
     u8 ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0));

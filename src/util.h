@@ -236,7 +236,7 @@ extern struct thread_info MainThread;
 extern int CanPreempt;
 struct thread_info *getCurThread(void);
 void yield(void);
-void wait_irq(void);
+void yield_toirq(void);
 void run_thread(void (*func)(void*), void *data);
 void wait_threads(void);
 struct mutex_s { u32 isLocked; };

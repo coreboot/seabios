@@ -627,7 +627,7 @@ boot_fail(void)
     for (;;) {
         if (retrytime != (u32)-1 && check_timer(end))
             break;
-        wait_irq();
+        yield_toirq();
     }
     printf("Rebooting.\n");
     struct bregs br;

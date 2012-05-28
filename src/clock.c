@@ -612,7 +612,7 @@ handle_1586(struct bregs *regs)
         return;
     }
     while (!statusflag)
-        wait_irq();
+        yield_toirq();
     set_success(regs);
 }
 

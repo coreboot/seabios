@@ -9,7 +9,7 @@
 #include "disk.h" // DISK_RET_SUCCESS
 #include "config.h" // CONFIG_FLOPPY
 #include "biosvar.h" // SET_BDA
-#include "util.h" // wait_irq
+#include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
 #include "pic.h" // eoi_pic1
 #include "bregs.h" // struct bregs
@@ -192,7 +192,7 @@ wait_floppy_irq(void)
         v = GET_BDA(floppy_recalibration_status);
         if (v & FRS_TIMEOUT)
             break;
-        // Could use wait_irq() here, but that causes issues on
+        // Could use yield_toirq() here, but that causes issues on
         // bochs, so use yield() instead.
         yield();
     }
