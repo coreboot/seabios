@@ -93,7 +93,7 @@ memset_far(u16 d_seg, void *d_far, u8 c, size_t len)
     asm volatile(
         "rep stosb %%es:(%%di)"
         : "+c"(len), "+D"(d_far)
-        : "a"(c)
+        : "a"(c), "m" (__segment_ES)
         : "cc", "memory");
 }
 
@@ -105,7 +105,7 @@ memset16_far(u16 d_seg, void *d_far, u16 c, size_t len)
     asm volatile(
         "rep stosw %%es:(%%di)"
         : "+c"(len), "+D"(d_far)
-        : "a"(c)
+        : "a"(c), "m" (__segment_ES)
         : "cc", "memory");
 }
 
@@ -137,7 +137,7 @@ memcpy_far(u16 d_seg, void *d_far, u16 s_seg, const void *s_far, size_t len)
         "rep movsb (%%si),%%es:(%%di)\n"
         "movw %w0, %%ds"
         : "=&r"(bkup_ds), "+c"(len), "+S"(s_far), "+D"(d_far)
-        : "r"(s_seg)
+        : "r"(s_seg), "m" (__segment_ES)
         : "cc", "memory");
 }
 
@@ -166,7 +166,7 @@ memcpy(void *d1, const void *s1, size_t len)
         asm volatile(
             "rep movsb (%%esi),%%es:(%%edi)"
             : "+c"(len), "+S"(s1), "+D"(d)
-            : : "cc", "memory");
+            : "m" (__segment_ES) : "cc", "memory");
         return d1;
     }
     // Common case - use 4-byte copy
@@ -174,7 +174,7 @@ memcpy(void *d1, const void *s1, size_t len)
     asm volatile(
         "rep movsl (%%esi),%%es:(%%edi)"
         : "+c"(len), "+S"(s1), "+D"(d)
-        : : "cc", "memory");
+        : "m" (__segment_ES) : "cc", "memory");
     return d1;
 }
 
@@ -183,6 +183,7 @@ memcpy(void *d1, const void *s1, size_t len)
 void
 iomemcpy(void *d, const void *s, u32 len)
 {
+    ASSERT32FLAT();
     yield();
     while (len > 3) {
         u32 copylen = len;

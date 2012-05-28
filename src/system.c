@@ -162,8 +162,8 @@ handle_1587(struct bregs *regs)
         // Restore %ds (from %ss)
         "  movw %%ss, %%ax\n"
         "  movw %%ax, %%ds\n"
-        : "+c"(count), "+S"(si)
-        : : "eax", "di", "cc"); // XXX - also clobbers %es
+        : "+c"(count), "+S"(si), "+m" (__segment_ES)
+        : : "eax", "di", "cc");
 
     set_a20(prev_a20_enable);
 
@@ -222,7 +222,7 @@ handle_1589(struct bregs *regs)
         "  movw %%ax, %%ds\n"
         "  movw %%ax, %%ss\n"
         :
-        : "S"(gdt_far)
+        : "S"(gdt_far), "m" (__segment_ES)
         : "eax", "cc");
 }
 
