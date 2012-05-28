@@ -165,7 +165,7 @@ handle_1609(struct bregs *regs)
 }
 
 // GET KEYBOARD ID
-static void
+static void noinline
 handle_160a(struct bregs *regs)
 {
     u8 param[2];
@@ -231,7 +231,7 @@ handle_16XX(struct bregs *regs)
     warn_unimplemented(regs);
 }
 
-static void
+static void noinline
 set_leds(void)
 {
     u8 shift_flags = (GET_BDA(kbd_flag0) >> 4) & 0x07;
