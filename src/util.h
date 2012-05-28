@@ -221,7 +221,7 @@ void nullTrailingSpace(char *buf);
 int get_keystroke(int msec);
 
 // stacks.c
-extern u8 ExtraStack[];
+extern u8 ExtraStack[], *StackPos;
 inline u32 stack_hop(u32 eax, u32 edx, void *func);
 u32 call32(void *func, u32 eax, u32 errret);
 struct bregs;

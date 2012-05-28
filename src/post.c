@@ -95,6 +95,9 @@ init_bda(void)
 
     add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA(ebda_seg, size) * 1024
              , E820_RESERVED);
+
+    // Init extra stack
+    StackPos = (void*)(&ExtraStack[BUILD_EXTRA_STACK_SIZE] - _datalow_base);
 }
 
 static void
