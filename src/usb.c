@@ -70,7 +70,7 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     }
 }
 
-int noinline
+int
 usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 {
     switch (GET_LOWFLAT(pipe_fl->type)) {

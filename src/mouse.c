@@ -303,7 +303,7 @@ invoke_mouse_handler(u16 ebda_seg)
         : "edi", "esi", "cc", "memory");
 }
 
-void noinline
+void
 process_mouse(u8 data)
 {
     if (!CONFIG_MOUSE)

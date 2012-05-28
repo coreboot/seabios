@@ -378,10 +378,8 @@ static struct scaninfo {
     { 0x8600, 0x8800, 0x8a00, 0x8c00, none }, /* F12 */
 };
 
-// Handle a scancode read from the ps2 port.  Note that "noinline" is
-// used to make sure the call to call16_int in process_key doesn't
-// have the overhead of this function's stack.
-static void noinline
+// Handle a ps2 style scancode read from the keyboard.
+static void
 __process_key(u8 scancode)
 {
     u8 flags0 = GET_BDA(kbd_flag0);

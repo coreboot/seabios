@@ -224,7 +224,7 @@ struct usbkeyinfo {
 struct usbkeyinfo LastUSBkey VARLOW;
 
 // Process USB keyboard data.
-static void noinline
+static void
 handle_key(struct keyevent *data)
 {
     dprintf(9, "Got key %x %x\n", data->modifiers, data->keys[0]);
