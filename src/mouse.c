@@ -21,12 +21,12 @@ mouse_setup(void)
     SETBITS_BDA(equipment_list_flags, 0x04);
 }
 
-static inline int
+static int
 mouse_command(int command, u8 *param)
 {
     if (usb_mouse_active())
-        return usb_mouse_command(command, param);
-    return ps2_mouse_command(command, param);
+        return stack_hop(command, (u32)param, usb_mouse_command);
+    return stack_hop(command, (u32)param, ps2_mouse_command);
 }
 
 #define RET_SUCCESS      0x00

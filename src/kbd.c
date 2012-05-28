@@ -110,12 +110,12 @@ dequeue_key(struct bregs *regs, int incr, int extended)
     SET_BDA(kbd_buf_head, buffer_head);
 }
 
-static inline int
+static int
 kbd_command(int command, u8 *param)
 {
     if (usb_kbd_active())
-        return usb_kbd_command(command, param);
-    return ps2_kbd_command(command, param);
+        return stack_hop(command, (u32)param, usb_kbd_command);
+    return stack_hop(command, (u32)param, ps2_kbd_command);
 }
 
 // read keyboard input
