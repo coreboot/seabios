@@ -112,39 +112,68 @@ call32(void *func, u32 eax, u32 errret)
     return eax;
 }
 
-// Call a function with a specified register state.  Note that on
-// return, the interrupt enable/disable flag may be altered.
-inline void
-farcall16(struct bregs *callregs)
-{
-    if (!MODESEGMENT && getesp() > BUILD_STACK_ADDR)
-        panic("call16 with invalid stack\n");
-    asm volatile(
-#if MODE16 == 1
-        "calll __farcall16\n"
-        "cli\n"
-        "cld"
-#else
-        "calll __farcall16_from32"
-#endif
-        : "+a" (callregs), "+m" (*callregs)
-        :
-        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
-}
-
-inline void
-farcall16big(struct bregs *callregs)
+// Call a 16bit SeaBIOS function from a 32bit SeaBIOS function.
+static inline u32
+call16(u32 eax, void *func)
 {
     ASSERT32FLAT();
     if (getesp() > BUILD_STACK_ADDR)
         panic("call16 with invalid stack\n");
     asm volatile(
-        "calll __farcall16big_from32"
+        "calll __call16"
+        : "+a" (eax)
+        : "b" ((u32)func - BUILD_BIOS_ADDR)
+        : "ecx", "edx", "cc", "memory");
+    return eax;
+}
+
+static inline u32
+call16big(u32 eax, void *func)
+{
+    ASSERT32FLAT();
+    if (getesp() > BUILD_STACK_ADDR)
+        panic("call16big with invalid stack\n");
+    asm volatile(
+        "calll __call16big"
+        : "+a" (eax)
+        : "b" ((u32)func - BUILD_BIOS_ADDR)
+        : "ecx", "edx", "cc", "memory");
+    return eax;
+}
+
+// Far call 16bit code with a specified register state.
+void VISIBLE16
+_farcall16(struct bregs *callregs)
+{
+    ASSERT16();
+    asm volatile(
+        "calll __farcall16\n"
+        "cli\n"
+        "cld"
         : "+a" (callregs), "+m" (*callregs)
         :
         : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
 }
 
+inline void
+farcall16(struct bregs *callregs)
+{
+    if (MODE16) {
+        _farcall16(callregs);
+        return;
+    }
+    extern void _cfunc16__farcall16(void);
+    call16((u32)callregs, _cfunc16__farcall16);
+}
+
+inline void
+farcall16big(struct bregs *callregs)
+{
+    extern void _cfunc16__farcall16(void);
+    call16big((u32)callregs, _cfunc16__farcall16);
+}
+
+// Invoke a 16bit software interrupt.
 inline void
 __call16_int(struct bregs *callregs, u16 offset)
 {
@@ -204,68 +233,48 @@ switch_next(struct thread_info *cur)
         : "ebx", "edx", "esi", "edi", "cc", "memory");
 }
 
-// 16bit trampoline for enabling irqs from 32bit mode.
-ASM16(
-    "  .global trampoline_checkirqs\n"
-    "trampoline_checkirqs:\n"
-    "  rep ; nop\n"
-    "  lretw"
-    );
-
-static void
+// Low-level irq enable.
+void VISIBLE16
 check_irqs(void)
 {
-    if (MODESEGMENT) {
-        asm volatile(
-            "sti\n"
-            "nop\n"
-            "rep ; nop\n"
-            "cli\n"
-            "cld\n"
-            : : :"memory");
-        return;
-    }
-    extern void trampoline_checkirqs();
-    struct bregs br;
-    br.flags = F_IF;
-    br.code.seg = SEG_BIOS;
-    br.code.offset = (u32)&trampoline_checkirqs;
-    farcall16big(&br);
+    asm volatile("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
 }
 
 // Briefly permit irqs to occur.
 void
 yield(void)
 {
-    if (MODESEGMENT || !CONFIG_THREADS) {
+    if (MODESEGMENT) {
         // Just directly check irqs.
         check_irqs();
+        return;
+    }
+    extern void _cfunc16_check_irqs(void);
+    if (!CONFIG_THREADS) {
+        call16big(0, _cfunc16_check_irqs);
         return;
     }
     struct thread_info *cur = getCurThread();
     if (cur == &MainThread)
         // Permit irqs to fire
-        check_irqs();
+        call16big(0, _cfunc16_check_irqs);
 
     // Switch to the next thread
     switch_next(cur);
 }
 
-// 16bit trampoline for waiting for an irq from 32bit mode.
-ASM16(
-    "  .global trampoline_waitirq\n"
-    "trampoline_waitirq:\n"
-    "  sti\n"
-    "  hlt\n"
-    "  lretw"
-    );
+void VISIBLE16
+wait_irq(void)
+{
+    asm volatile("sti ; hlt ; cli ; cld": : :"memory");
+}
 
 // Wait for next irq to occur.
 void
 yield_toirq(void)
 {
     if (MODESEGMENT) {
-        asm volatile("sti ; hlt ; cli ; cld": : :"memory");
+        wait_irq();
         return;
     }
     if (CONFIG_THREADS && MainThread.next != &MainThread) {
@@ -273,12 +282,8 @@ yield_toirq(void)
         yield();
         return;
     }
-    extern void trampoline_waitirq();
-    struct bregs br;
-    br.flags = 0;
-    br.code.seg = SEG_BIOS;
-    br.code.offset = (u32)&trampoline_waitirq;
-    farcall16big(&br);
+    extern void _cfunc16_wait_irq(void);
+    call16big(0, _cfunc16_wait_irq);
 }
 
 // Last thing called from a thread (called on "next" stack).

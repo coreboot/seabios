@@ -183,22 +183,22 @@ __farcall16:
 
         retl
 
-// Far call a 16bit function from 32bit mode.
-// %eax = address of struct bregs
-// Clobbers: %e[bcd]x, %e[ds]i, flags, segment registers, idt/gdt
-        DECLFUNC __farcall16_from32
-        .global __farcall16big_from32
+// Call a 16bit SeaBIOS function from SeaBIOS 32bit C code.
+// %ebx = calling function
+// Clobbers: %ecx, %edx, flags, segment registers, idt/gdt
+        DECLFUNC __call16
+        .global __call16big
         .code32
-__farcall16_from32:
+__call16:
         movl $1f, %edx
         jmp transition16
-__farcall16big_from32:
+__call16big:
         movl $1f, %edx
         jmp transition16big
 
         // Make call.
         .code16gcc
-1:      calll __farcall16
+1:      calll *%ebx
         // Return via transition32
         movl $(2f + BUILD_BIOS_ADDR), %edx
         jmp transition32
