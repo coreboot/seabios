@@ -582,9 +582,9 @@ process_floppy_op(struct disk_op_s *op)
 
 // INT 0Eh Diskette Hardware ISR Entry Point
 void VISIBLE16
-handle_0e(void)
+handle_0e(struct bregs *regs)
 {
-    debug_isr(DEBUG_ISR_0e);
+    debug_enter(regs, DEBUG_ISR_0e);
     if (! CONFIG_FLOPPY)
         goto done;
 

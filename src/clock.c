@@ -516,9 +516,9 @@ handle_1a(struct bregs *regs)
 
 // INT 08h System Timer ISR Entry Point
 void VISIBLE16
-handle_08(void)
+handle_08(struct bregs *regs)
 {
-    debug_isr(DEBUG_ISR_08);
+    debug_enter(regs, DEBUG_ISR_08);
 
     floppy_tick();
 
@@ -536,8 +536,10 @@ handle_08(void)
     usb_check_event();
 
     // chain to user timer tick INT #0x1c
-    u32 eax=0, flags;
-    call16_simpint(0x1c, &eax, &flags);
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    call16_int(0x1c, &br);
 
     eoi_pic1();
 }
@@ -657,9 +659,9 @@ handle_1583(struct bregs *regs)
 
 // int70h: IRQ8 - CMOS RTC
 void VISIBLE16
-handle_70(void)
+handle_70(struct bregs *regs)
 {
-    debug_isr(DEBUG_ISR_70);
+    debug_enter(regs, DEBUG_ISR_70);
 
     // Check which modes are enabled and have occurred.
     u8 registerB = inb_cmos(CMOS_STATUS_B);
@@ -669,8 +671,10 @@ handle_70(void)
         goto done;
     if (registerC & RTC_B_AIE) {
         // Handle Alarm Interrupt.
-        u32 eax=0, flags;
-        call16_simpint(0x4a, &eax, &flags);
+        struct bregs br;
+        memset(&br, 0, sizeof(br));
+        br.flags = F_IF;
+        call16_int(0x4a, &br);
     }
     if (!(registerC & RTC_B_PIE))
         goto done;

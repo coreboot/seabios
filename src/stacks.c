@@ -25,7 +25,7 @@ on_extra_stack(void)
 }
 
 // Switch to the extra stack and call a function.
-inline u32
+u32
 stack_hop(u32 eax, u32 edx, void *func)
 {
     if (on_extra_stack())
@@ -58,7 +58,7 @@ stack_hop(u32 eax, u32 edx, void *func)
 }
 
 // Switch back to original caller's stack and call a function.
-static u32
+u32
 stack_hop_back(u32 eax, u32 edx, void *func)
 {
     if (!on_extra_stack())

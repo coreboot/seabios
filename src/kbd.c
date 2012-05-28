@@ -379,7 +379,7 @@ static struct scaninfo {
 };
 
 // Handle a scancode read from the ps2 port.  Note that "noinline" is
-// used to make sure the call to call16_simpint in process_key doesn't
+// used to make sure the call to call16_int in process_key doesn't
 // have the overhead of this function's stack.
 static void noinline
 __process_key(u8 scancode)
@@ -562,12 +562,14 @@ process_key(u8 key)
 
     if (CONFIG_KBD_CALL_INT15_4F) {
         // allow for keyboard intercept
-        u32 eax = (0x4f << 8) | key;
-        u32 flags;
-        call16_simpint(0x15, &eax, &flags);
-        if (!(flags & F_CF))
+        struct bregs br;
+        memset(&br, 0, sizeof(br));
+        br.eax = (0x4f << 8) | key;
+        br.flags = F_IF|F_CF;
+        call16_int(0x15, &br);
+        if (!(br.flags & F_CF))
             return;
-        key = eax;
+        key = br.eax;
     }
     __process_key(key);
 }

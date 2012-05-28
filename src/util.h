@@ -159,23 +159,6 @@ static inline u8 readb(const void *addr) {
     return *(volatile const u8 *)addr;
 }
 
-#define call16_simpint(nr, peax, pflags) do {                           \
-        ASSERT16();                                                     \
-        asm volatile(                                                   \
-            "pushl %%ebp\n"                                             \
-            "sti\n"                                                     \
-            "stc\n"                                                     \
-            "int %2\n"                                                  \
-            "pushfl\n"                                                  \
-            "popl %1\n"                                                 \
-            "cli\n"                                                     \
-            "cld\n"                                                     \
-            "popl %%ebp"                                                \
-            : "+a"(*peax), "=c"(*pflags)                                \
-            : "i"(nr)                                                   \
-            : "ebx", "edx", "esi", "edi", "cc", "memory");              \
-    } while (0)
-
 // GDT bits
 #define GDT_CODE     (0x9bULL << 40) // Code segment - P,R,A bits also set
 #define GDT_DATA     (0x93ULL << 40) // Data segment - W,A bits also set
@@ -222,7 +205,8 @@ int get_keystroke(int msec);
 
 // stacks.c
 extern u8 ExtraStack[], *StackPos;
-inline u32 stack_hop(u32 eax, u32 edx, void *func);
+u32 stack_hop(u32 eax, u32 edx, void *func);
+u32 stack_hop_back(u32 eax, u32 edx, void *func);
 u32 call32(void *func, u32 eax, u32 errret);
 struct bregs;
 inline void farcall16(struct bregs *callregs);
@@ -260,7 +244,6 @@ char * znprintf(size_t size, const char *fmt, ...)
 void __dprintf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void __debug_enter(struct bregs *regs, const char *fname);
-void __debug_isr(const char *fname);
 void __debug_stub(struct bregs *regs, int lineno, const char *fname);
 void __warn_invalid(struct bregs *regs, int lineno, const char *fname);
 void __warn_unimplemented(struct bregs *regs, int lineno, const char *fname);
@@ -281,10 +264,6 @@ void hexdump(const void *d, int len);
 #define debug_enter(regs, lvl) do {                     \
         if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
             __debug_enter((regs), __func__);            \
-    } while (0)
-#define debug_isr(lvl) do {                             \
-        if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
-            __debug_isr(__func__);                      \
     } while (0)
 #define debug_stub(regs)                        \
     __debug_stub((regs), __LINE__, __func__)

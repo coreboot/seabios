@@ -6,8 +6,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_EBDA
-#include "util.h" // debug_isr
-#include "pic.h" // eoi_pic2
+#include "util.h" // dprintf
 #include "bregs.h" // struct bregs
 #include "ps2port.h" // ps2_mouse_command
 #include "usb-hid.h" // usb_mouse_command
@@ -273,6 +272,37 @@ handle_15c2(struct bregs *regs)
     }
 }
 
+static void
+invoke_mouse_handler(u16 ebda_seg)
+{
+    u16 status = GET_EBDA(ebda_seg, mouse_data[0]);
+    u16 X      = GET_EBDA(ebda_seg, mouse_data[1]);
+    u16 Y      = GET_EBDA(ebda_seg, mouse_data[2]);
+
+    struct segoff_s func = GET_EBDA(ebda_seg, far_call_pointer);
+    dprintf(16, "mouse farcall s=%04x x=%04x y=%04x func=%04x:%04x\n"
+            , status, X, Y, func.seg, func.offset);
+
+    asm volatile(
+        "pushl %%ebp\n"
+        "sti\n"
+
+        "pushl %0\n"
+        "pushw %w1\n"  // status
+        "pushw %w2\n"  // X
+        "pushw %w3\n"  // Y
+        "pushw $0\n"   // Z
+        "lcallw *8(%%esp)\n"
+        "addl $12, %%esp\n"
+
+        "cli\n"
+        "cld\n"
+        "popl %%ebp"
+        : "+a"(func.segoff), "+c"(status), "+d"(X), "+b"(Y)
+        :
+        : "edi", "esi", "cc", "memory");
+}
+
 void noinline
 process_mouse(u8 data)
 {
@@ -297,31 +327,6 @@ process_mouse(u8 data)
         return;
     }
 
-    u16 status = GET_EBDA(ebda_seg, mouse_data[0]);
-    u16 X      = GET_EBDA(ebda_seg, mouse_data[1]);
-    u16 Y      = GET_EBDA(ebda_seg, mouse_data[2]);
     SET_EBDA(ebda_seg, mouse_flag1, 0);
-
-    struct segoff_s func = GET_EBDA(ebda_seg, far_call_pointer);
-    dprintf(16, "mouse farcall s=%04x x=%04x y=%04x func=%04x:%04x\n"
-            , status, X, Y, func.seg, func.offset);
-
-    asm volatile(
-        "pushl %%ebp\n"
-        "sti\n"
-
-        "pushl %0\n"
-        "pushw %w1\n"  // status
-        "pushw %w2\n"  // X
-        "pushw %w3\n"  // Y
-        "pushw $0\n"   // Z
-        "lcallw *8(%%esp)\n"
-        "addl $12, %%esp\n"
-
-        "cli\n"
-        "cld\n"
-        "popl %%ebp"
-        : "+a"(func.segoff), "+c"(status), "+d"(X), "+b"(Y)
-        :
-        : "edi", "esi", "cc", "memory");
+    stack_hop_back(ebda_seg, 0, invoke_mouse_handler);
 }

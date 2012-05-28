@@ -357,12 +357,12 @@ ps2_mouse_command(int command, u8 *param)
 
 // INT74h : PS/2 mouse hardware interrupt
 void VISIBLE16
-handle_74(void)
+handle_74(struct bregs *regs)
 {
     if (! CONFIG_PS2PORT)
         return;
 
-    debug_isr(DEBUG_ISR_74);
+    debug_enter(regs, DEBUG_ISR_74);
 
     u8 v = inb(PORT_PS2_STATUS);
     if ((v & (I8042_STR_OBF|I8042_STR_AUXDATA))
@@ -384,12 +384,12 @@ done:
 
 // INT09h : Keyboard Hardware Service Entry Point
 void VISIBLE16
-handle_09(void)
+handle_09(struct bregs *regs)
 {
     if (! CONFIG_PS2PORT)
         return;
 
-    debug_isr(DEBUG_ISR_09);
+    debug_enter(regs, DEBUG_ISR_09);
 
     // read key from keyboard controller
     u8 v = inb(PORT_PS2_STATUS);

@@ -219,12 +219,15 @@ __call16big:
         lretw
         .endm
 
+        IRQ_TRAMPOLINE 02
         IRQ_TRAMPOLINE 10
         IRQ_TRAMPOLINE 13
         IRQ_TRAMPOLINE 15
         IRQ_TRAMPOLINE 16
         IRQ_TRAMPOLINE 18
         IRQ_TRAMPOLINE 19
+        IRQ_TRAMPOLINE 1c
+        IRQ_TRAMPOLINE 4a
 
 
 /****************************************************************
@@ -386,10 +389,55 @@ entry_elf:
  * Interrupt entry points
  ****************************************************************/
 
-        // Main entry point for interrupts without args
-        DECLFUNC irqentry
-irqentry:
-        ENTRY_ST
+        // Main entry point for interrupts handled on extra stack
+        DECLFUNC irqentry_extrastack
+irqentry_extrastack:
+        cli
+        cld
+        pushw %ds
+        pushl %eax
+        movl $_datalow_seg, %eax
+        movl %eax, %ds
+        movl StackPos, %eax
+        subl $BREGS_size+12, %eax
+        popl BREGS_eax(%eax)
+        popw BREGS_ds(%eax)
+        movl %edi, BREGS_edi(%eax)
+        movl %esi, BREGS_esi(%eax)
+        movl %ebp, BREGS_ebp(%eax)
+        movl %ebx, BREGS_ebx(%eax)
+        movl %edx, BREGS_edx(%eax)
+        movl %ecx, BREGS_ecx(%eax)
+        movw %es, BREGS_es(%eax)
+        popl %ecx
+        popl BREGS_code(%eax)
+        popw BREGS_flags(%eax)
+
+        movw %ss, BREGS_size+8(%eax)
+        movzwl %sp, %edx
+        movl %edx, BREGS_size+4(%eax)
+        movl %esp, BREGS_size+0(%eax)
+        movw %ds, %dx
+        movw %dx, %ss
+        movl %eax, %esp
+        calll *%ecx
+
+        movl %esp, %eax
+        movw BREGS_size+8(%eax), %ss
+        movl BREGS_size+0(%eax), %esp
+        movl BREGS_edi(%eax), %edi
+        movl BREGS_esi(%eax), %esi
+        movl BREGS_ebp(%eax), %ebp
+        movl BREGS_ebx(%eax), %ebx
+        movl BREGS_edx(%eax), %edx
+        movl BREGS_ecx(%eax), %ecx
+        movw BREGS_es(%eax), %es
+        pushw BREGS_flags(%eax)
+        pushl BREGS_code(%eax)
+        pushw BREGS_ds(%eax)
+        pushl BREGS_eax(%eax)
+        popl %eax
+        popw %ds
         iretw
 
         // Main entry point for interrupts with args
@@ -398,12 +446,12 @@ irqentryarg:
         ENTRY_ARG_ST
         iretw
 
-        // Define an entry point for an interrupt (no args passed).
+        // Define an entry point for hardware interrupts.
         .macro IRQ_ENTRY num
         .global entry_\num
         entry_\num :
         pushl $ handle_\num
-        jmp irqentry
+        jmp irqentry_extrastack
         .endm
 
         .macro DECL_IRQ_ENTRY num

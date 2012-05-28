@@ -20,4 +20,5 @@ void foo(void)
     OFFSET(BREGS_edi, bregs, edi);
     OFFSET(BREGS_flags, bregs, flags);
     OFFSET(BREGS_code, bregs, code);
+    DEFINE(BREGS_size, sizeof(struct bregs));
 }
