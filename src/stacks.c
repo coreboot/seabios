@@ -195,10 +195,8 @@ _farcall16(struct bregs *callregs)
     ASSERT16();
     asm volatile(
         "calll __farcall16\n"
-        "cli\n"
-        "cld"
         : "+a" (callregs), "+m" (*callregs)
-        :
+        : "m" (__segment_ES)
         : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
 }
 
@@ -206,7 +204,8 @@ inline void
 farcall16(struct bregs *callregs)
 {
     if (MODE16) {
-        _farcall16(callregs);
+        SET_SEG(ES, GET_SEG(SS));
+        stack_hop_back((u32)callregs, 0, _farcall16);
         return;
     }
     extern void _cfunc16__farcall16(void);
