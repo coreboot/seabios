@@ -308,7 +308,7 @@ entry_pnp_real:
 entry_apm16:
         pushfw          // save flags
         pushl %eax      // dummy
-        ENTRY_ARG handle_apm16
+        ENTRY_ARG handle_apm
         addw $4, %sp    // pop dummy
         popfw           // restore flags
         lretw
@@ -321,7 +321,7 @@ entry_apm32:
         pushl %cs               // Move second descriptor after %cs to %gs
         addl $16, (%esp)
         popl %gs
-        ENTRY_ARG_ESP _cfunc32seg_handle_apm32
+        ENTRY_ARG_ESP _cfunc32seg_handle_apm
         popl %gs
         popfl
         lretl
