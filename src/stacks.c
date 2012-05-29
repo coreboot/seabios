@@ -8,20 +8,44 @@
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 
-// Thread info - stored at bottom of each thread stack - don't change
-// without also updating the inline assembler below.
-struct thread_info {
-    struct thread_info *next;
-    void *stackpos;
-    struct thread_info **pprev;
-};
-struct thread_info VAR32FLATVISIBLE MainThread = {
-    &MainThread, NULL, &MainThread.next
-};
+
+/****************************************************************
+ * Extra 16bit stack
+ ****************************************************************/
+
+// Space for a stack for 16bit code.
+u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
+
+// Switch to the extra stack and call a function.
+inline u32
+stack_hop(u32 eax, u32 edx, void *func)
+{
+    ASSERT16();
+    u16 stack_seg = SEG_LOW, bkup_ss;
+    u32 bkup_esp;
+    asm volatile(
+        // Backup current %ss/%esp values.
+        "movw %%ss, %w3\n"
+        "movl %%esp, %4\n"
+        // Copy stack seg to %ds/%ss and set %esp
+        "movw %w6, %%ds\n"
+        "movw %w6, %%ss\n"
+        "movl %5, %%esp\n"
+        // Call func
+        "calll *%2\n"
+        // Restore segments and stack
+        "movw %w3, %%ds\n"
+        "movw %w3, %%ss\n"
+        "movl %4, %%esp"
+        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
+        : "i" (&ExtraStack[BUILD_EXTRA_STACK_SIZE]), "r" (stack_seg)
+        : "cc", "memory");
+    return eax;
+}
 
 
 /****************************************************************
- * Low level helpers
+ * 16bit / 32bit calling
  ****************************************************************/
 
 static inline void sgdt(struct descloc_s *desc) {
@@ -88,98 +112,48 @@ call32(void *func, u32 eax, u32 errret)
     return eax;
 }
 
-// 16bit trampoline for enabling irqs from 32bit mode.
-ASM16(
-    "  .global trampoline_checkirqs\n"
-    "trampoline_checkirqs:\n"
-    "  rep ; nop\n"
-    "  lretw"
-    );
-
-static void
-check_irqs(void)
+// Call a function with a specified register state.  Note that on
+// return, the interrupt enable/disable flag may be altered.
+inline void
+farcall16(struct bregs *callregs)
 {
-    if (MODESEGMENT) {
-        asm volatile(
-            "sti\n"
-            "nop\n"
-            "rep ; nop\n"
-            "cli\n"
-            "cld\n"
-            : : :"memory");
-        return;
-    }
-    extern void trampoline_checkirqs();
-    struct bregs br;
-    br.flags = F_IF;
-    br.code.seg = SEG_BIOS;
-    br.code.offset = (u32)&trampoline_checkirqs;
-    farcall16big(&br);
-}
-
-// 16bit trampoline for waiting for an irq from 32bit mode.
-ASM16(
-    "  .global trampoline_waitirq\n"
-    "trampoline_waitirq:\n"
-    "  sti\n"
-    "  hlt\n"
-    "  lretw"
-    );
-
-// Wait for next irq to occur.
-void
-yield_toirq(void)
-{
-    if (MODESEGMENT) {
-        asm volatile("sti ; hlt ; cli ; cld": : :"memory");
-        return;
-    }
-    if (CONFIG_THREADS && MainThread.next != &MainThread) {
-        // Threads still active - do a yield instead.
-        yield();
-        return;
-    }
-    extern void trampoline_waitirq();
-    struct bregs br;
-    br.flags = 0;
-    br.code.seg = SEG_BIOS;
-    br.code.offset = (u32)&trampoline_waitirq;
-    farcall16big(&br);
-}
-
-
-/****************************************************************
- * Extra 16bit stack
- ****************************************************************/
-
-// Space for a stack for 16bit code.
-u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
-
-// Switch to the extra stack and call a function.
-inline u32
-stack_hop(u32 eax, u32 edx, void *func)
-{
-    ASSERT16();
-    u16 stack_seg = SEG_LOW, bkup_ss;
-    u32 bkup_esp;
+    if (!MODESEGMENT && getesp() > BUILD_STACK_ADDR)
+        panic("call16 with invalid stack\n");
     asm volatile(
-        // Backup current %ss/%esp values.
-        "movw %%ss, %w3\n"
-        "movl %%esp, %4\n"
-        // Copy stack seg to %ds/%ss and set %esp
-        "movw %w6, %%ds\n"
-        "movw %w6, %%ss\n"
-        "movl %5, %%esp\n"
-        // Call func
-        "calll *%2\n"
-        // Restore segments and stack
-        "movw %w3, %%ds\n"
-        "movw %w3, %%ss\n"
-        "movl %4, %%esp"
-        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
-        : "i" (&ExtraStack[BUILD_EXTRA_STACK_SIZE]), "r" (stack_seg)
-        : "cc", "memory");
-    return eax;
+#if MODE16 == 1
+        "calll __farcall16\n"
+        "cli\n"
+        "cld"
+#else
+        "calll __farcall16_from32"
+#endif
+        : "+a" (callregs), "+m" (*callregs)
+        :
+        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
+}
+
+inline void
+farcall16big(struct bregs *callregs)
+{
+    ASSERT32FLAT();
+    if (getesp() > BUILD_STACK_ADDR)
+        panic("call16 with invalid stack\n");
+    asm volatile(
+        "calll __farcall16big_from32"
+        : "+a" (callregs), "+m" (*callregs)
+        :
+        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
+}
+
+inline void
+__call16_int(struct bregs *callregs, u16 offset)
+{
+    if (MODESEGMENT)
+        callregs->code.seg = GET_SEG(CS);
+    else
+        callregs->code.seg = SEG_BIOS;
+    callregs->code.offset = offset;
+    farcall16(callregs);
 }
 
 
@@ -187,8 +161,17 @@ stack_hop(u32 eax, u32 edx, void *func)
  * Threads
  ****************************************************************/
 
+// Thread info - stored at bottom of each thread stack - don't change
+// without also updating the inline assembler below.
+struct thread_info {
+    struct thread_info *next;
+    void *stackpos;
+    struct thread_info **pprev;
+};
+struct thread_info VAR32FLATVISIBLE MainThread = {
+    &MainThread, NULL, &MainThread.next
+};
 #define THREADSTACKSIZE 4096
-int VAR16VISIBLE CanPreempt;
 
 // Return the 'struct thread_info' for the currently running thread.
 struct thread_info *
@@ -221,6 +204,35 @@ switch_next(struct thread_info *cur)
         : "ebx", "edx", "esi", "edi", "cc", "memory");
 }
 
+// 16bit trampoline for enabling irqs from 32bit mode.
+ASM16(
+    "  .global trampoline_checkirqs\n"
+    "trampoline_checkirqs:\n"
+    "  rep ; nop\n"
+    "  lretw"
+    );
+
+static void
+check_irqs(void)
+{
+    if (MODESEGMENT) {
+        asm volatile(
+            "sti\n"
+            "nop\n"
+            "rep ; nop\n"
+            "cli\n"
+            "cld\n"
+            : : :"memory");
+        return;
+    }
+    extern void trampoline_checkirqs();
+    struct bregs br;
+    br.flags = F_IF;
+    br.code.seg = SEG_BIOS;
+    br.code.offset = (u32)&trampoline_checkirqs;
+    farcall16big(&br);
+}
+
 // Briefly permit irqs to occur.
 void
 yield(void)
@@ -237,6 +249,36 @@ yield(void)
 
     // Switch to the next thread
     switch_next(cur);
+}
+
+// 16bit trampoline for waiting for an irq from 32bit mode.
+ASM16(
+    "  .global trampoline_waitirq\n"
+    "trampoline_waitirq:\n"
+    "  sti\n"
+    "  hlt\n"
+    "  lretw"
+    );
+
+// Wait for next irq to occur.
+void
+yield_toirq(void)
+{
+    if (MODESEGMENT) {
+        asm volatile("sti ; hlt ; cli ; cld": : :"memory");
+        return;
+    }
+    if (CONFIG_THREADS && MainThread.next != &MainThread) {
+        // Threads still active - do a yield instead.
+        yield();
+        return;
+    }
+    extern void trampoline_waitirq();
+    struct bregs br;
+    br.flags = 0;
+    br.code.seg = SEG_BIOS;
+    br.code.offset = (u32)&trampoline_waitirq;
+    farcall16big(&br);
 }
 
 // Last thing called from a thread (called on "next" stack).
@@ -332,6 +374,7 @@ mutex_unlock(struct mutex_s *mutex)
  * Thread preemption
  ****************************************************************/
 
+int VAR16VISIBLE CanPreempt;
 static u32 PreemptCount;
 
 // Turn on RTC irqs and arrange for them to check the 32bit threads.

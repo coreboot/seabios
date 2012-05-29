@@ -197,14 +197,6 @@ struct descloc_s {
 
 // util.c
 void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx);
-struct bregs;
-inline void farcall16(struct bregs *callregs);
-inline void farcall16big(struct bregs *callregs);
-inline void __call16_int(struct bregs *callregs, u16 offset);
-#define call16_int(nr, callregs) do {                           \
-        extern void irq_trampoline_ ##nr ();                    \
-        __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
-    } while (0)
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
 u8 checksum(void *buf, u32 len);
 size_t strlen(const char *s);
@@ -229,11 +221,18 @@ void nullTrailingSpace(char *buf);
 int get_keystroke(int msec);
 
 // stacks.c
-u32 call32(void *func, u32 eax, u32 errret);
 extern u8 ExtraStack[];
 inline u32 stack_hop(u32 eax, u32 edx, void *func);
+u32 call32(void *func, u32 eax, u32 errret);
+struct bregs;
+inline void farcall16(struct bregs *callregs);
+inline void farcall16big(struct bregs *callregs);
+inline void __call16_int(struct bregs *callregs, u16 offset);
+#define call16_int(nr, callregs) do {                           \
+        extern void irq_trampoline_ ##nr ();                    \
+        __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
+    } while (0)
 extern struct thread_info MainThread;
-extern int CanPreempt;
 struct thread_info *getCurThread(void);
 void yield(void);
 void yield_toirq(void);
@@ -242,6 +241,7 @@ void wait_threads(void);
 struct mutex_s { u32 isLocked; };
 void mutex_lock(struct mutex_s *mutex);
 void mutex_unlock(struct mutex_s *mutex);
+extern int CanPreempt;
 void start_preempt(void);
 void finish_preempt(void);
 int wait_preempt(void);

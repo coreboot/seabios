@@ -26,55 +26,6 @@ cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
 
 
 /****************************************************************
- * 16bit calls
- ****************************************************************/
-
-// Call a function with a specified register state.  Note that on
-// return, the interrupt enable/disable flag may be altered.
-inline void
-farcall16(struct bregs *callregs)
-{
-    if (!MODESEGMENT && getesp() > BUILD_STACK_ADDR)
-        panic("call16 with invalid stack\n");
-    asm volatile(
-#if MODE16 == 1
-        "calll __farcall16\n"
-        "cli\n"
-        "cld"
-#else
-        "calll __farcall16_from32"
-#endif
-        : "+a" (callregs), "+m" (*callregs)
-        :
-        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
-}
-
-inline void
-farcall16big(struct bregs *callregs)
-{
-    ASSERT32FLAT();
-    if (getesp() > BUILD_STACK_ADDR)
-        panic("call16 with invalid stack\n");
-    asm volatile(
-        "calll __farcall16big_from32"
-        : "+a" (callregs), "+m" (*callregs)
-        :
-        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
-}
-
-inline void
-__call16_int(struct bregs *callregs, u16 offset)
-{
-    if (MODESEGMENT)
-        callregs->code.seg = GET_SEG(CS);
-    else
-        callregs->code.seg = SEG_BIOS;
-    callregs->code.offset = offset;
-    farcall16(callregs);
-}
-
-
-/****************************************************************
  * String ops
  ****************************************************************/
 
