@@ -214,6 +214,10 @@ startBoot(void)
 static void
 maininit(void)
 {
+    // Setup romfile items.
+    qemu_cfg_romfile_setup();
+    coreboot_cbfs_setup();
+
     // Setup ivt/bda/ebda
     init_ivt();
     init_bda();

@@ -5,10 +5,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "config.h" // CONFIG_*
 #include "pci.h" // pci_config_writel
 #include "ioport.h" // outl
 #include "util.h" // dprintf
-#include "paravirt.h" // romfile_loadint
 #include "farptr.h" // MAKE_FLATPTR
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA

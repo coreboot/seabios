@@ -14,15 +14,15 @@
 void
 ramdisk_setup(void)
 {
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !CONFIG_FLASH_FLOPPY)
+    if (!CONFIG_FLASH_FLOPPY)
         return;
 
     // Find image.
-    struct cbfs_file *file = cbfs_findprefix("floppyimg/", NULL);
+    struct romfile_s *file = romfile_findprefix("floppyimg/", NULL);
     if (!file)
         return;
-    const char *filename = cbfs_filename(file);
-    u32 size = cbfs_datasize(file);
+    const char *filename = file->name;
+    u32 size = file->size;
     dprintf(3, "Found floppy file %s of size %d\n", filename, size);
     int ftype = find_floppy_type(size);
     if (ftype < 0) {
@@ -39,7 +39,9 @@ ramdisk_setup(void)
     add_e820((u32)pos, size, E820_RESERVED);
 
     // Copy image into ram.
-    cbfs_copyfile(file, pos, size);
+    int ret = file->copy(file, pos, size);
+    if (ret < 0)
+        return;
 
     // Setup driver.
     struct drive_s *drive_g = init_floppy((u32)pos, ftype);

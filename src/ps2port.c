@@ -7,7 +7,6 @@
 
 #include "ioport.h" // inb
 #include "util.h" // dprintf
-#include "paravirt.h" // romfile_loadint
 #include "biosvar.h" // GET_LOW
 #include "ps2port.h" // ps2_kbd_command
 #include "pic.h" // eoi_pic1

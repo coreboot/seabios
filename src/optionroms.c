@@ -13,7 +13,6 @@
 #include "pci_regs.h" // PCI_ROM_ADDRESS
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
-#include "paravirt.h" // qemu_cfg_*
 #include "optionroms.h" // struct rom_header
 
 
@@ -151,7 +150,8 @@ getRomPriority(u64 *sources, struct rom_header *rom, int instance)
         return -1;
     if (source & RS_PCIROM)
         return bootprio_find_pci_rom((void*)(u32)source, instance);
-    return bootprio_find_named_rom(romfile_name(source), instance);
+    struct romfile_s *file = (void*)(u32)source;
+    return bootprio_find_named_rom(file->name, instance);
 }
 
 
@@ -160,15 +160,15 @@ getRomPriority(u64 *sources, struct rom_header *rom, int instance)
  ****************************************************************/
 
 static struct rom_header *
-deploy_romfile(u32 file)
+deploy_romfile(struct romfile_s *file)
 {
-    u32 size = romfile_size(file);
+    u32 size = file->size;
     struct rom_header *rom = rom_reserve(size);
     if (!rom) {
         warn_noalloc();
         return NULL;
     }
-    int ret = romfile_copy(file, rom, size);
+    int ret = file->copy(file, rom, size);
     if (ret <= 0)
         return NULL;
     return rom;
@@ -181,7 +181,7 @@ lookup_hardcode(struct pci_device *pci)
     char fname[17];
     snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
              , pci->vendor, pci->device);
-    u32 file = romfile_find(fname);
+    struct romfile_s *file = romfile_find(fname);
     if (file)
         return deploy_romfile(file);
     return NULL;
@@ -191,14 +191,14 @@ lookup_hardcode(struct pci_device *pci)
 static void
 run_file_roms(const char *prefix, int isvga, u64 *sources)
 {
-    u32 file = 0;
+    struct romfile_s *file = NULL;
     for (;;) {
         file = romfile_findprefix(prefix, file);
         if (!file)
             break;
         struct rom_header *rom = deploy_romfile(file);
         if (rom) {
-            setRomSource(sources, rom, file);
+            setRomSource(sources, rom, (u32)file);
             init_optionrom(rom, 0, isvga);
         }
     }

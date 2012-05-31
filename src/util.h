@@ -353,15 +353,11 @@ void smp_probe(void);
 // coreboot.c
 extern const char *CBvendor, *CBpart;
 struct cbfs_file;
-struct cbfs_file *cbfs_finddatafile(const char *fname);
-struct cbfs_file *cbfs_findprefix(const char *prefix, struct cbfs_file *last);
-u32 cbfs_datasize(struct cbfs_file *file);
-const char *cbfs_filename(struct cbfs_file *file);
-int cbfs_copyfile(struct cbfs_file *file, void *dst, u32 maxlen);
 void cbfs_run_payload(struct cbfs_file *file);
 void coreboot_copy_biostable(void);
 void cbfs_payload_setup(void);
 void coreboot_setup(void);
+void coreboot_cbfs_setup(void);
 
 // biostable.c
 void copy_pir(void *pos);
@@ -457,6 +453,24 @@ static inline void free(void *data) {
 
 // mtrr.c
 void mtrr_setup(void);
+
+// romfile.c
+struct romfile_s {
+    struct romfile_s *next;
+    char name[128];
+    u32 size;
+    int (*copy)(struct romfile_s *file, void *dest, u32 maxlen);
+
+    u32 id;
+    u32 rawsize;
+    u32 flags;
+    void *data;
+};
+void romfile_add(struct romfile_s *file);
+struct romfile_s *romfile_findprefix(const char *prefix, struct romfile_s *prev);
+struct romfile_s *romfile_find(const char *name);
+void *romfile_loadfile(const char *name, int *psize);
+u64 romfile_loadint(const char *name, u64 defval);
 
 // romlayout.S
 void reset_vector(void) __noreturn;
