@@ -81,10 +81,10 @@ vpath %.S src vgasrc
 
 ################ Common build rules
 
-# Verify the gcc configuration and test if -fwhole-program works.
-TESTGCC:=$(shell CC="$(CC)" LD="$(LD)" tools/test-gcc.sh)
+# Verify the build environment works.
+TESTGCC:=$(shell CC="$(CC)" LD="$(LD)" IASL="$(IASL)" tools/test-build.sh)
 ifeq "$(TESTGCC)" "-1"
-$(error "Please upgrade GCC and/or binutils")
+$(error "Please upgrade the build environment")
 endif
 
 ifndef COMPSTRAT
@@ -220,15 +220,15 @@ $(OUT)vgabios.bin: $(OUT)vgabios.bin.raw tools/buildrom.py
 
 ################ DSDT build rules
 
-src/%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
-	@echo "Compiling DSDT"
+$(OUT)%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
+	@echo "  Compiling IASL $@"
 	$(Q)cpp -P $< > $(OUT)$*.dsl.i.orig
 	$(Q)$(PYTHON) ./tools/acpi_extract_preprocess.py $(OUT)$*.dsl.i.orig > $(OUT)$*.dsl.i
-	$(Q)$(IASL) -l -tc -p $(OUT)$* $(OUT)$*.dsl.i
+	$(Q)$(IASL) -vs -l -tc -p $(OUT)$* $(OUT)$*.dsl.i
 	$(Q)$(PYTHON) ./tools/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
-$(OUT)ccode32flat.o: src/acpi-dsdt.hex src/ssdt-proc.hex src/ssdt-pcihp.hex
+$(OUT)ccode32flat.o: $(OUT)acpi-dsdt.hex $(OUT)ssdt-proc.hex $(OUT)ssdt-pcihp.hex
 
 ################ Kconfig rules
 
