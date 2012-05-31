@@ -537,13 +537,6 @@ handle_pmm(u16 *args)
     u16 arg1 = args[0];
     dprintf(DEBUG_HDL_pmm, "pmm call arg1=%x\n", arg1);
 
-    int oldpreempt;
-    if (CONFIG_THREAD_OPTIONROMS) {
-        // Not a preemption event - don't wait in wait_preempt()
-        oldpreempt = CanPreempt;
-        CanPreempt = 0;
-    }
-
     u32 ret;
     switch (arg1) {
     case 0x00: ret = handle_pmm00(args); break;
@@ -551,9 +544,6 @@ handle_pmm(u16 *args)
     case 0x02: ret = handle_pmm02(args); break;
     default:   ret = handle_pmmXX(args); break;
     }
-
-    if (CONFIG_THREAD_OPTIONROMS)
-        CanPreempt = oldpreempt;
 
     return ret;
 }

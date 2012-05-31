@@ -225,7 +225,6 @@ void wait_threads(void);
 struct mutex_s { u32 isLocked; };
 void mutex_lock(struct mutex_s *mutex);
 void mutex_unlock(struct mutex_s *mutex);
-extern int CanPreempt;
 void start_preempt(void);
 void finish_preempt(void);
 int wait_preempt(void);
