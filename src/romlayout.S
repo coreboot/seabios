@@ -394,48 +394,35 @@ entry_elf:
 irqentry_extrastack:
         cli
         cld
-        pushw %ds
+        pushw %ds               // Set %ds:%eax to space on ExtraStack
         pushl %eax
         movl $_datalow_seg, %eax
         movl %eax, %ds
         movl StackPos, %eax
-        subl $BREGS_size+12, %eax
-        popl BREGS_eax(%eax)
-        popw BREGS_ds(%eax)
-        movl %edi, BREGS_edi(%eax)
-        movl %esi, BREGS_esi(%eax)
-        movl %ebp, BREGS_ebp(%eax)
-        movl %ebx, BREGS_ebx(%eax)
-        movl %edx, BREGS_edx(%eax)
-        movl %ecx, BREGS_ecx(%eax)
-        movw %es, BREGS_es(%eax)
+        subl $24, %eax
+        popl 0(%eax)            // Backup %eax, %ds, %es, %ecx, %edx
+        popw 4(%eax)
+        movw %es, 6(%eax)
+        movl %ecx, 8(%eax)
         popl %ecx
-        popl BREGS_code(%eax)
-        popw BREGS_flags(%eax)
+        movl %edx, 12(%eax)
+        movl %esp, 16(%eax)
+        movzwl %sp, %esp
+        movw %ss, 20(%eax)
 
-        movw %ss, BREGS_size+8(%eax)
-        movzwl %sp, %edx
-        movl %edx, BREGS_size+4(%eax)
-        movl %esp, BREGS_size+0(%eax)
-        movw %ds, %dx
+        movw %ds, %dx           // Setup %ss/%esp and call function
         movw %dx, %ss
         movl %eax, %esp
         calll *%ecx
 
-        movl %esp, %eax
-        movw BREGS_size+8(%eax), %ss
-        movl BREGS_size+0(%eax), %esp
-        movl BREGS_edi(%eax), %edi
-        movl BREGS_esi(%eax), %esi
-        movl BREGS_ebp(%eax), %ebp
-        movl BREGS_ebx(%eax), %ebx
-        movl BREGS_edx(%eax), %edx
-        movl BREGS_ecx(%eax), %ecx
-        movw BREGS_es(%eax), %es
-        pushw BREGS_flags(%eax)
-        pushl BREGS_code(%eax)
-        pushw BREGS_ds(%eax)
-        pushl BREGS_eax(%eax)
+        movl %esp, %eax         // Restore registers and return
+        movw 20(%eax), %ss
+        movl 16(%eax), %esp
+        movl 12(%eax), %edx
+        movl 8(%eax), %ecx
+        movw 6(%eax), %es
+        pushw 4(%eax)
+        pushl 0(%eax)
         popl %eax
         popw %ds
         iretw

@@ -487,6 +487,15 @@ dump_regs(struct bregs *regs)
             , regs->code.seg, regs->code.offset, regs->flags);
 }
 
+// Report entry to an Interrupt Service Routine (ISR).
+void
+__debug_isr(const char *fname)
+{
+    puts_cs(&debuginfo, fname);
+    putc(&debuginfo, '\n');
+    debug_serial_flush();
+}
+
 // Function called on handler startup.
 void
 __debug_enter(struct bregs *regs, const char *fname)

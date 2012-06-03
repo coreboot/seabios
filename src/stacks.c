@@ -74,7 +74,7 @@ stack_hop_back(u32 eax, u32 edx, void *func)
         // Restore original callers' %ss/%esp
         "movl -4(%4), %5\n"
         "movl %5, %%ss\n"
-        "movl %%ds:-8(%4), %%esp\n"
+        "movw %%ds:-8(%4), %%sp\n"
         "movl %5, %%ds\n"
         // Call func
         "calll *%2\n"

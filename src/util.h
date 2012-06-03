@@ -243,6 +243,7 @@ char * znprintf(size_t size, const char *fmt, ...)
 void __dprintf(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2)));
 void __debug_enter(struct bregs *regs, const char *fname);
+void __debug_isr(const char *fname);
 void __debug_stub(struct bregs *regs, int lineno, const char *fname);
 void __warn_invalid(struct bregs *regs, int lineno, const char *fname);
 void __warn_unimplemented(struct bregs *regs, int lineno, const char *fname);
@@ -263,6 +264,10 @@ void hexdump(const void *d, int len);
 #define debug_enter(regs, lvl) do {                     \
         if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
             __debug_enter((regs), __func__);            \
+    } while (0)
+#define debug_isr(lvl) do {                             \
+        if ((lvl) && (lvl) <= CONFIG_DEBUG_LEVEL)       \
+            __debug_isr(__func__);                      \
     } while (0)
 #define debug_stub(regs)                        \
     __debug_stub((regs), __LINE__, __func__)
