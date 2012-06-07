@@ -93,7 +93,7 @@ smbios_entry_point_init(u16 max_structure_size,
     } while (0)
 
 /* Type 0 -- BIOS Information */
-#define RELEASE_DATE_STR "01/01/2007"
+#define RELEASE_DATE_STR "01/01/2011"
 static void *
 smbios_init_type_0(void *start)
 {
