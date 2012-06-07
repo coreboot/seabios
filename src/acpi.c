@@ -415,7 +415,8 @@ build_ssdt(void)
     int length = ((1+3+4)
                   + (acpi_cpus * SD_SIZEOF)
                   + (1+2+5+(12*acpi_cpus))
-                  + (6+2+1+(1*acpi_cpus)));
+                  + (6+2+1+(1*acpi_cpus))
+                  + 17);
     u8 *ssdt = malloc_high(sizeof(struct acpi_table_header) + length);
     if (! ssdt) {
         warn_noalloc();
@@ -476,6 +477,31 @@ build_ssdt(void)
     *(ssdt_ptr++) = acpi_cpus;
     for (i=0; i<acpi_cpus; i++)
         *(ssdt_ptr++) = (i < CountCPUs) ? 0x01 : 0x00;
+
+    // store pci io windows: start, end, length
+    // this way we don't have to do the math in the dsdt
+    struct bfld *bfld = malloc_high(sizeof(struct bfld));
+    bfld->p0s = pcimem_start;
+    bfld->p0e = pcimem_end - 1;
+    bfld->p0l = pcimem_end - pcimem_start;
+    bfld->p1s = pcimem64_start;
+    bfld->p1e = pcimem64_end - 1;
+    bfld->p1l = pcimem64_end - pcimem64_start;
+
+    // build "OperationRegion(BDAT, SystemMemory, 0x12345678, 0x87654321)"
+    *(ssdt_ptr++) = 0x5B; // ExtOpPrefix
+    *(ssdt_ptr++) = 0x80; // OpRegionOp
+    *(ssdt_ptr++) = 'B';
+    *(ssdt_ptr++) = 'D';
+    *(ssdt_ptr++) = 'A';
+    *(ssdt_ptr++) = 'T';
+    *(ssdt_ptr++) = 0x00; // SystemMemory
+    *(ssdt_ptr++) = 0x0C; // DWordPrefix
+    *(u32*)ssdt_ptr = (u32)bfld;
+    ssdt_ptr += 4;
+    *(ssdt_ptr++) = 0x0C; // DWordPrefix
+    *(u32*)ssdt_ptr = sizeof(struct bfld);
+    ssdt_ptr += 4;
 
     build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
 

@@ -98,4 +98,13 @@ struct fadt_descriptor_rev1
 #endif
 } PACKED;
 
+struct bfld {
+    u64 p0s;  /* pci window 0 (below 4g) - start  */
+    u64 p0e;  /* pci window 0 (below 4g) - end    */
+    u64 p0l;  /* pci window 0 (below 4g) - length */
+    u64 p1s;  /* pci window 1 (above 4g) - start  */
+    u64 p1e;  /* pci window 1 (above 4g) - end    */
+    u64 p1l;  /* pci window 1 (above 4g) - length */
+} PACKED;
+
 #endif // acpi.h
