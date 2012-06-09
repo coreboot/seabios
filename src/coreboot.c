@@ -218,10 +218,6 @@ coreboot_copy_biostable(void)
         if (m->type == CB_MEM_TABLE)
             scan_tables(m->start, m->size);
     }
-
-    // XXX - create a dummy smbios table for now.
-    if (!SMBiosAddr)
-        smbios_init();
 }
 
 

@@ -303,14 +303,13 @@ menu "BIOS interfaces"
 endmenu
 
 menu "BIOS Tables"
+    depends on !COREBOOT
     config PIRTABLE
-        depends on !COREBOOT
         bool "PIR table"
         default y
         help
             Support generation of a PIR table in 0xf000 segment.
     config MPTABLE
-        depends on !COREBOOT
         bool "MPTable"
         default y
         help
@@ -322,7 +321,6 @@ menu "BIOS Tables"
             Support generation of SM BIOS tables.  This is also
             sometimes called DMI.
     config ACPI
-        depends on !COREBOOT
         bool "ACPI"
         default y
         help
