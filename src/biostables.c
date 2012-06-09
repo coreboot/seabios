@@ -17,7 +17,7 @@ copy_pir(void *pos)
     struct pir_header *p = pos;
     if (p->signature != PIR_SIGNATURE)
         return;
-    if (PirOffset)
+    if (PirAddr)
         return;
     if (p->size < sizeof(*p))
         return;
@@ -30,7 +30,7 @@ copy_pir(void *pos)
     }
     dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
     memcpy(newpos, pos, p->size);
-    PirOffset = (u32)newpos - BUILD_BIOS_ADDR;
+    PirAddr = newpos;
 }
 
 static void

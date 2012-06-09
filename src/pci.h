@@ -125,8 +125,6 @@ void create_pirtable(void);
  * PIR table
  ****************************************************************/
 
-extern u16 PirOffset;
-
 struct link_info {
     u8 link;
     u16 bitmap;
@@ -153,6 +151,8 @@ struct pir_header {
     u8 checksum;
     struct pir_slot slots[0];
 } PACKED;
+
+extern struct pir_header *PirAddr;
 
 #define PIR_SIGNATURE 0x52495024 // $PIR
 

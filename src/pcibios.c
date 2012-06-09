@@ -133,11 +133,12 @@ handle_1ab10d(struct bregs *regs)
 static void
 handle_1ab10e(struct bregs *regs)
 {
-    struct pir_header *pirtable_g = (void*)(GET_GLOBAL(PirOffset) + 0);
-    if (! pirtable_g) {
+    struct pir_header *pirtable_gf = GET_GLOBAL(PirAddr);
+    if (! pirtable_gf) {
         set_code_invalid(regs, RET_FUNC_NOT_SUPPORTED);
         return;
     }
+    struct pir_header *pirtable_g = GLOBALFLAT2GLOBAL(pirtable_gf);
 
     struct param_s {
         u16 size;
