@@ -11,7 +11,7 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "smbios.h" // struct smbios_entry_point
 
-void
+static void
 copy_pir(void *pos)
 {
     struct pir_header *p = pos;
@@ -33,7 +33,7 @@ copy_pir(void *pos)
     PirOffset = (u32)newpos - BUILD_BIOS_ADDR;
 }
 
-void
+static void
 copy_mptable(void *pos)
 {
     struct mptable_floating_s *p = pos;
@@ -57,7 +57,7 @@ copy_mptable(void *pos)
     memcpy((void*)newpos + length, (void*)p->physaddr, mpclength);
 }
 
-void
+static void
 copy_acpi_rsdp(void *pos)
 {
     if (RsdpAddr)
@@ -83,7 +83,7 @@ copy_acpi_rsdp(void *pos)
     RsdpAddr = newpos;
 }
 
-void
+static void
 copy_smbios(void *pos)
 {
     if (SMBiosAddr)
@@ -105,4 +105,13 @@ copy_smbios(void *pos)
     dprintf(1, "Copying SMBIOS entry point from %p to %p\n", pos, newpos);
     memcpy(newpos, pos, p->length);
     SMBiosAddr = newpos;
+}
+
+void
+copy_table(void *pos)
+{
+    copy_pir(pos);
+    copy_mptable(pos);
+    copy_acpi_rsdp(pos);
+    copy_smbios(pos);
 }

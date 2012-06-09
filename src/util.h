@@ -365,10 +365,7 @@ void coreboot_setup(void);
 void coreboot_cbfs_setup(void);
 
 // biostable.c
-void copy_pir(void *pos);
-void copy_mptable(void *pos);
-void copy_acpi_rsdp(void *pos);
-void copy_smbios(void *pos);
+void copy_table(void *pos);
 
 // vgahooks.c
 void handle_155f(struct bregs *regs);

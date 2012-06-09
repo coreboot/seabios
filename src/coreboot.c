@@ -198,12 +198,8 @@ scan_tables(u32 start, u32 size)
 {
     void *p = (void*)ALIGN(start, 16);
     void *end = (void*)start + size;
-    for (; p<end; p += 16) {
-        copy_pir(p);
-        copy_mptable(p);
-        copy_acpi_rsdp(p);
-        copy_smbios(p);
-    }
+    for (; p<end; p += 16)
+        copy_table(p);
 }
 
 void

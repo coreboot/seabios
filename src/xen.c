@@ -107,17 +107,12 @@ void xen_init_hypercalls(void)
 void xen_copy_biostables(void)
 {
     struct xen_seabios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
-    u32 *tables = (u32 *)info->tables;
+    void **tables = (void*)info->tables;
     int i;
 
     dprintf(1, "xen: copy BIOS tables...\n");
-    for (i=0; i<info->tables_nr; i++) {
-        void *table = (void *)tables[i];
-        copy_acpi_rsdp(table);
-        copy_mptable(table);
-        copy_pir(table);
-        copy_smbios(table);
-    }
+    for (i=0; i<info->tables_nr; i++)
+        copy_table(tables[i]);
 }
 
 void xen_setup(void)
