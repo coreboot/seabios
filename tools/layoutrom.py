@@ -48,8 +48,6 @@ def setSectionsStart(sections, endaddr, minalign=1, segoffset=0):
         totspace = alignpos(totspace, section.align) + section.size
     startaddr = (endaddr - totspace) / minalign * minalign
     curaddr = startaddr
-    # out = [(addr, sectioninfo), ...]
-    out = []
     for section in sections:
         curaddr = alignpos(curaddr, section.align)
         section.finalloc = curaddr
@@ -159,7 +157,7 @@ class LayoutInfo:
     sections32flat = sec32flat_start = sec32flat_align = None
     sections32init = sec32init_start = sec32init_align = None
     sections32low = sec32low_start = sec32low_align = None
-    datalow_base = None
+    datalow_base = final_sec32low_start = None
 
 # Determine final memory addresses for sections
 def doLayout(sections, genreloc):
@@ -219,13 +217,17 @@ def doLayout(sections, genreloc):
     li.sections32low = getSectionsCategory(sections, '32low')
     if genreloc:
         sec32low_top = li.sec32init_start
-        datalow_base = min(BUILD_BIOS_ADDR, li.sec32flat_start) - 64*1024
+        final_sec32low_top = min(BUILD_BIOS_ADDR, li.sec32flat_start)
     else:
         sec32low_top = min(BUILD_BIOS_ADDR, li.sec32init_start)
-        datalow_base = sec32low_top - 64*1024
+        final_sec32low_top = sec32low_top
+    relocdelta = final_sec32low_top - sec32low_top
+    datalow_base = final_sec32low_top - 64*1024
     li.datalow_base = max(BUILD_ROM_START, alignpos(datalow_base, 2*1024))
     li.sec32low_start, li.sec32low_align = setSectionsStart(
-        li.sections32low, sec32low_top, 16, segoffset=li.datalow_base)
+        li.sections32low, sec32low_top, 16
+        , segoffset=li.datalow_base - relocdelta)
+    li.final_sec32low_start = li.sec32low_start + relocdelta
 
     # Print statistics
     size16 = BUILD_BIOS_ADDR + BUILD_BIOS_SIZE - li.sec16_start
@@ -311,7 +313,7 @@ def getSectionsStart(sections, defaddr=0):
 def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
     # Write 16bit linker script
     out = outXRefs(li.sections16, useseg=1) + """
-    _datalow_base = 0x%x ;
+    datalow_base = 0x%x ;
     _datalow_seg = 0x%x ;
 
     code16_start = 0x%x ;
@@ -352,8 +354,7 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
         initrelocs = getRelocs(
             li.sections32flat + li.sections32low + li.sections16
             + li.sections32seg, category='32init')
-        lowrelocs = getRelocs(
-            li.sections16 + li.sections32seg + sections32all, category='32low')
+        lowrelocs = getRelocs(sections32all, category='32low')
         relocstr = (strRelocs("_reloc_abs", "code32init_start", absrelocs)
                     + strRelocs("_reloc_rel", "code32init_start", relrelocs)
                     + strRelocs("_reloc_init", "code32flat_start", initrelocs)
@@ -363,8 +364,8 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
     out = outXRefs(sections32all) + """
     %s = 0x%x ;
     _reloc_min_align = 0x%x ;
-    _datalow_base = 0x%x ;
-    _datalow_min_align = 0x%x ;
+    datalow_base = 0x%x ;
+    final_datalow_start = 0x%x ;
 
     code32flat_start = 0x%x ;
     .text code32flat_start : {
@@ -385,7 +386,7 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
 """ % (entrysym.name, entrysympos,
        li.sec32init_align,
        li.datalow_base,
-       li.sec32low_align,
+       li.final_sec32low_start,
        sec32all_start,
        relocstr,
        outRelSections(li.sections32low, 'code32flat_start'),

@@ -170,13 +170,6 @@ static struct allocinfo_s *RomBase;
 
 #define OPROM_HEADER_RESERVE 16
 
-// Return maximum address of read/writable "low mem" space.
-static inline u32 lowmemend(void) {
-    extern u8 code32flat_start[], code32init_end[];
-    u32 end = CONFIG_RELOCATE_INIT ? (u32)code32init_end : (u32)code32flat_start;
-    return end > BUILD_BIOS_ADDR ? BUILD_BIOS_ADDR : end;
-}
-
 // Return the memory position up to which roms may be located.
 u32
 rom_get_top(void)
@@ -199,8 +192,8 @@ rom_reserve(u32 size)
     u32 newend = ALIGN(RomEnd + size, OPTION_ROM_ALIGN) + OPROM_HEADER_RESERVE;
     if (newend > (u32)RomBase->allocend)
         return NULL;
-    if (newend < (u32)_datalow_base + OPROM_HEADER_RESERVE)
-        newend = (u32)_datalow_base + OPROM_HEADER_RESERVE;
+    if (newend < (u32)datalow_base + OPROM_HEADER_RESERVE)
+        newend = (u32)datalow_base + OPROM_HEADER_RESERVE;
     RomBase->data = RomBase->dataend = (void*)newend;
     return (void*)RomEnd;
 }
@@ -253,7 +246,8 @@ malloc_setup(void)
     // Populate other regions
     addSpace(&ZoneTmpLow, (void*)BUILD_STACK_ADDR, (void*)BUILD_EBDA_MINIMUM);
     addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
-    addSpace(&ZoneLow, _datalow_base + OPROM_HEADER_RESERVE, (void*)lowmemend());
+    extern u8 final_datalow_start[];
+    addSpace(&ZoneLow, datalow_base + OPROM_HEADER_RESERVE, final_datalow_start);
     RomBase = findLast(&ZoneLow);
     if (highram) {
         addSpace(&ZoneHigh, (void*)highram
