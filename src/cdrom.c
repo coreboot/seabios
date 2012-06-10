@@ -280,7 +280,7 @@ cdrom_boot(struct drive_s *drive_g)
         // Floppy emulation
         CDEmu.emulated_extdrive = 0x00;
         // XXX - get and set actual floppy count.
-        SETBITS_BDA(equipment_list_flags, 0x41);
+        set_equipment_flags(0x41, 0x41);
 
         switch (media) {
         case 0x01:  // 1.2M floppy

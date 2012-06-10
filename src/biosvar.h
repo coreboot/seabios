@@ -134,14 +134,12 @@ struct bios_data_area_s {
     GET_FARVAR(SEG_BDA, ((struct bios_data_area_s *)0)->var)
 #define SET_BDA(var, val) \
     SET_FARVAR(SEG_BDA, ((struct bios_data_area_s *)0)->var, (val))
-#define CLEARBITS_BDA(var, val) do {                                    \
-        typeof(((struct bios_data_area_s *)0)->var) __val = GET_BDA(var); \
-        SET_BDA(var, (__val & ~(val)));                                 \
-    } while (0)
-#define SETBITS_BDA(var, val) do {                                      \
-        typeof(((struct bios_data_area_s *)0)->var) __val = GET_BDA(var); \
-        SET_BDA(var, (__val | (val)));                                  \
-    } while (0)
+
+// Helper function to set the bits of the equipment_list_flags variable.
+static inline void set_equipment_flags(u16 clear, u16 set) {
+    u16 eqf = GET_BDA(equipment_list_flags);
+    SET_BDA(equipment_list_flags, (eqf & ~clear) | set);
+}
 
 
 /****************************************************************

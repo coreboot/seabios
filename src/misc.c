@@ -65,7 +65,7 @@ mathcp_setup(void)
 {
     dprintf(3, "math cp init\n");
     // 80x87 coprocessor installed
-    SETBITS_BDA(equipment_list_flags, 0x02);
+    set_equipment_flags(0x02, 0x02);
     enable_hwirq(13, FUNC16(entry_75));
 }
 

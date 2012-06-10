@@ -263,11 +263,11 @@ map_floppy_drive(struct drive_s *drive_g)
     // Update equipment word bits for floppy
     if (FloppyCount == 1) {
         // 1 drive, ready for boot
-        SETBITS_BDA(equipment_list_flags, 0x01);
+        set_equipment_flags(0x41, 0x01);
         SET_BDA(floppy_harddisk_info, 0x07);
     } else if (FloppyCount >= 2) {
         // 2 drives, ready for boot
-        SETBITS_BDA(equipment_list_flags, 0x41);
+        set_equipment_flags(0x41, 0x41);
         SET_BDA(floppy_harddisk_info, 0x77);
     }
 }

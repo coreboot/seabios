@@ -18,7 +18,7 @@ mouse_setup(void)
         return;
     dprintf(3, "init mouse\n");
     // pointing device installed
-    SETBITS_BDA(equipment_list_flags, 0x04);
+    set_equipment_flags(0x04, 0x04);
 }
 
 static int

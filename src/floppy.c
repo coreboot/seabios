@@ -185,27 +185,28 @@ static int
 wait_floppy_irq(void)
 {
     ASSERT16();
-    u8 v;
+    u8 frs;
     for (;;) {
         if (!GET_BDA(floppy_motor_counter))
             return -1;
-        v = GET_BDA(floppy_recalibration_status);
-        if (v & FRS_TIMEOUT)
+        frs = GET_BDA(floppy_recalibration_status);
+        if (frs & FRS_TIMEOUT)
             break;
         // Could use yield_toirq() here, but that causes issues on
         // bochs, so use yield() instead.
         yield();
     }
 
-    v &= ~FRS_TIMEOUT;
-    SET_BDA(floppy_recalibration_status, v);
+    frs &= ~FRS_TIMEOUT;
+    SET_BDA(floppy_recalibration_status, frs);
     return 0;
 }
 
 static void
 floppy_prepare_controller(u8 floppyid)
 {
-    CLEARBITS_BDA(floppy_recalibration_status, FRS_TIMEOUT);
+    u8 frs = GET_BDA(floppy_recalibration_status);
+    SET_BDA(floppy_recalibration_status, frs & ~FRS_TIMEOUT);
 
     // turn on motor of selected drive, DMA & int enabled, normal operation
     u8 prev_reset = inb(PORT_FD_DOR) & 0x04;
@@ -320,7 +321,8 @@ floppy_drive_recal(u8 floppyid)
     data[1] = floppyid; // 0=drive0, 1=drive1
     floppy_pio(data, 2);
 
-    SETBITS_BDA(floppy_recalibration_status, 1<<floppyid);
+    u8 frs = GET_BDA(floppy_recalibration_status);
+    SET_BDA(floppy_recalibration_status, frs | (1<<floppyid));
     set_diskette_current_cyl(floppyid, 0);
 }
 
@@ -597,7 +599,8 @@ handle_0e(void)
         } while ((inb(PORT_FD_STATUS) & 0xc0) == 0xc0);
     }
     // diskette interrupt has occurred
-    SETBITS_BDA(floppy_recalibration_status, FRS_TIMEOUT);
+    u8 frs = GET_BDA(floppy_recalibration_status);
+    SET_BDA(floppy_recalibration_status, frs | FRS_TIMEOUT);
 
 done:
     eoi_pic1();

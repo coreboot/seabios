@@ -1197,10 +1197,7 @@ init_bios_area(void)
 {
     // init detected hardware BIOS Area
     // set 80x25 color (not clear from RBIL but usual)
-    u16 eqf = GET_BDA(equipment_list_flags);
-    SET_BDA(equipment_list_flags, (eqf & 0xffcf) | 0x20);
-
-    // Just for the first int10 find its children
+    set_equipment_flags(0x30, 0x20);
 
     // the default char height
     SET_BDA(char_height, 0x10);
