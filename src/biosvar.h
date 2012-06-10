@@ -114,6 +114,9 @@ struct bios_data_area_s {
     u8 other_b0[9];
     u8 vbe_flag;
     u16 vbe_mode;
+    u8 other_bc[4];
+    // 40:C0
+    u8 other_c0[4*16];
 } PACKED;
 
 // BDA floppy_recalibration_status bitdefs
