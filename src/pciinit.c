@@ -592,6 +592,8 @@ static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
+    pcimem_start = RamSize;
+
     if (pci_bios_init_root_regions(busses)) {
         struct pci_region r64_mem, r64_pref;
         r64_mem.list = NULL;
@@ -604,14 +606,21 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         if (pci_bios_init_root_regions(busses))
             panic("PCI: out of 32bit address space\n");
 
-        r64_mem.base = pcimem64_start;
-        u64 sum = pci_region_sum(&r64_mem);
-        u64 align = pci_region_align(&r64_pref);
-        r64_pref.base = ALIGN(r64_mem.base + sum, align);
-        if (r64_pref.base + pci_region_sum(&r64_pref) > pcimem64_end)
-            panic("PCI: out of 64bit address space\n");
+        u64 sum_mem = pci_region_sum(&r64_mem);
+        u64 sum_pref = pci_region_sum(&r64_pref);
+        u64 align_mem = pci_region_align(&r64_mem);
+        u64 align_pref = pci_region_align(&r64_pref);
+
+        r64_mem.base = ALIGN(0x100000000LL + RamSizeOver4G, align_mem);
+        r64_pref.base = ALIGN(r64_mem.base + sum_mem, align_pref);
+        pcimem64_start = r64_mem.base;
+        pcimem64_end = r64_pref.base + sum_pref;
+
         pci_region_map_entries(busses, &r64_mem);
         pci_region_map_entries(busses, &r64_pref);
+    } else {
+        // no bars mapped high -> drop 64bit window (see dsdt)
+        pcimem64_start = 0;
     }
     // Map regions on each device.
     int bus;
