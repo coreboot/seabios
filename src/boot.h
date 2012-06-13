@@ -20,6 +20,6 @@ int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid);
 int bootprio_find_pci_rom(struct pci_device *pci, int instance);
 int bootprio_find_named_rom(const char *name, int instance);
 struct usbdevice_s;
-int bootprio_find_usb(struct usbdevice_s *usbdev);
+int bootprio_find_usb(struct usbdevice_s *usbdev, int lun);
 
 #endif // __BOOT_H

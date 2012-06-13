@@ -205,15 +205,21 @@ build_usb_path(char *buf, int max, struct usbhub_s *hub)
     return p;
 }
 
-int bootprio_find_usb(struct usbdevice_s *usbdev)
+int bootprio_find_usb(struct usbdevice_s *usbdev, int lun)
 {
     if (!CONFIG_BOOTORDER)
         return -1;
-    // Find usb - for example: /pci@i0cf8/usb@1,2/hub@1/network@0/ethernet@0
+    // Find usb - for example: /pci@i0cf8/usb@1,2/storage@1/channel@0/disk@0,0
     char desc[256], *p;
     p = build_pci_path(desc, sizeof(desc), "usb", usbdev->hub->cntl->pci);
     p = build_usb_path(p, desc+sizeof(desc)-p, usbdev->hub);
-    snprintf(p, desc+sizeof(desc)-p, "/*@%x", usbdev->port+1);
+    snprintf(p, desc+sizeof(desc)-p, "/storage@%x/*@0/*@0,%d"
+             , usbdev->port+1, lun);
+    int ret = find_prio(desc);
+    if (ret >= 0)
+        return ret;
+    // Try usb-host/redir - for example: /pci@i0cf8/usb@1,2/usb-host@1
+    snprintf(p, desc+sizeof(desc)-p, "/usb-*@%x", usbdev->port+1);
     return find_prio(desc);
 }
 

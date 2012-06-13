@@ -16,6 +16,7 @@
 struct usbdrive_s {
     struct drive_s drive;
     struct usb_pipe *bulkin, *bulkout;
+    int lun;
 };
 
 
@@ -78,7 +79,7 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     cbw.dCBWTag = 999; // XXX
     cbw.dCBWDataTransferLength = bytes;
     cbw.bmCBWFlags = cdb_is_read(cdbcmd, blocksize) ? USB_DIR_IN : USB_DIR_OUT;
-    cbw.bCBWLUN = 0; // XXX
+    cbw.bCBWLUN = GET_GLOBAL(udrive_g->lun);
     cbw.bCBWCBLength = USB_CDB_SIZE;
 
     // Transfer cbw to device.
@@ -117,6 +118,47 @@ fail:
     return DISK_RET_EBADTRACK;
 }
 
+static int
+usb_msc_maxlun(struct usb_pipe *pipe)
+{
+    struct usb_ctrlrequest req;
+    req.bRequestType = USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_INTERFACE;
+    req.bRequest = 0xfe;
+    req.wValue = 0;
+    req.wIndex = 0;
+    req.wLength = 1;
+    unsigned char maxlun;
+    int ret = send_default_control(pipe, &req, &maxlun);
+    if (ret)
+        return 0;
+    return maxlun;
+}
+
+static int
+usb_msc_init_lun(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
+                 struct usbdevice_s *usbdev, int lun)
+{
+    // Allocate drive structure.
+    struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
+    if (!udrive_g) {
+        warn_noalloc();
+        return -1;
+    }
+    memset(udrive_g, 0, sizeof(*udrive_g));
+    udrive_g->drive.type = DTYPE_USB;
+    udrive_g->bulkin = inpipe;
+    udrive_g->bulkout = outpipe;
+    udrive_g->lun = lun;
+
+    int prio = bootprio_find_usb(usbdev, lun);
+    int ret = scsi_init_drive(&udrive_g->drive, "USB MSC", prio);
+    if (ret) {
+        dprintf(1, "Unable to configure USB MSC drive.\n");
+        free(udrive_g);
+        return -1;
+    }
+    return 0;
+}
 
 /****************************************************************
  * Setup
@@ -140,39 +182,34 @@ usb_msc_init(struct usbdevice_s *usbdev)
         return -1;
     }
 
-    // Allocate drive structure.
-    struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
-    if (!udrive_g) {
-        warn_noalloc();
-        goto fail;
-    }
-    memset(udrive_g, 0, sizeof(*udrive_g));
-    udrive_g->drive.type = DTYPE_USB;
-
     // Find bulk in and bulk out endpoints.
+    struct usb_pipe *inpipe = NULL, *outpipe = NULL;
     struct usb_endpoint_descriptor *indesc = findEndPointDesc(
         usbdev, USB_ENDPOINT_XFER_BULK, USB_DIR_IN);
     struct usb_endpoint_descriptor *outdesc = findEndPointDesc(
         usbdev, USB_ENDPOINT_XFER_BULK, USB_DIR_OUT);
     if (!indesc || !outdesc)
         goto fail;
-    udrive_g->bulkin = usb_alloc_pipe(usbdev, indesc);
-    udrive_g->bulkout = usb_alloc_pipe(usbdev, outdesc);
-    if (!udrive_g->bulkin || !udrive_g->bulkout)
+    inpipe = usb_alloc_pipe(usbdev, indesc);
+    outpipe = usb_alloc_pipe(usbdev, outdesc);
+    if (!inpipe || !outpipe)
         goto fail;
 
-    int prio = bootprio_find_usb(usbdev);
-    int ret = scsi_init_drive(&udrive_g->drive, "USB MSC", prio);
-    if (ret)
+    int maxlun = usb_msc_maxlun(usbdev->defpipe);
+    int lun, pipesused = 0;
+    for (lun = 0; lun < maxlun + 1; lun++) {
+        int ret = usb_msc_init_lun(inpipe, outpipe, usbdev, lun);
+        if (!ret)
+            pipesused = 1;
+    }
+
+    if (!pipesused)
         goto fail;
 
     return 0;
 fail:
     dprintf(1, "Unable to configure USB MSC device.\n");
-    if (udrive_g) {
-        free_pipe(udrive_g->bulkin);
-        free_pipe(udrive_g->bulkout);
-        free(udrive_g);
-    }
+    free_pipe(inpipe);
+    free_pipe(outpipe);
     return -1;
 }
