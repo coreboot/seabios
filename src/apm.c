@@ -6,7 +6,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "farptr.h" // GET_VAR
 #include "bregs.h" // struct bregs
 #include "ioport.h" // outb
 #include "util.h" // dprintf
