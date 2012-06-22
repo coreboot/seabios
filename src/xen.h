@@ -17,7 +17,7 @@ static inline int usingXen(void) {
     return (xen_cpuid_base != 0);
 }
 
-unsigned long xen_hypercall_page;
+extern unsigned long xen_hypercall_page;
 
 #define _hypercall0(type, name)                                         \
 ({                                                                      \
