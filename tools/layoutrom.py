@@ -23,7 +23,7 @@ COMMONTRAILER = """
          */
         /DISCARD/ : {
                 *(.text*) *(.data*) *(.bss*) *(.rodata*)
-                *(COMMON) *(.discard*) *(.eh_frame)
+                *(COMMON) *(.discard*) *(.eh_frame) *(.note*)
                 }
 }
 """
@@ -556,7 +556,13 @@ def parseObjDump(file, fileid):
             continue
         if state == 'symbol':
             try:
-                sectionname, size, name = line[17:].split()
+                parts = line[17:].split()
+                if len(parts) == 3:
+                    sectionname, size, name = parts
+                elif len(parts) == 4 and parts[2] == '.hidden':
+                    sectionname, size, hidden, name = parts
+                else:
+                    continue
                 symbol = Symbol()
                 symbol.size = int(size, 16)
                 symbol.offset = int(line[:8], 16)
