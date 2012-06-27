@@ -14,6 +14,7 @@
 #define INFO_PHYSICAL_ADDRESS 0x00001000
 
 u32 xen_cpuid_base = 0;
+unsigned long xen_hypercall_page = 0;
 
 struct xen_seabios_info {
     char signature[14]; /* XenHVMSeaBIOS\0 */
