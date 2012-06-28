@@ -13,7 +13,7 @@ menu "General Features"
     config XEN
         depends on !COREBOOT
         bool "Build for Xen HVM"
-        default n
+        default y
         help
             Configure to be used by xen hvmloader, for a HVM guest.
 
