@@ -361,11 +361,4 @@ menu "Debugging"
             information by outputing strings in a special port present in the
             IO space.
 
-    config DEBUG_IO_PORT
-        depends on DEBUG_IO
-        hex "Debug IO port address"
-        default 0x0402
-        help
-            Bochs uses the 0x0402 address by default, whereas Xen
-            makes the 0xe9 IO address available for guests use.
 endmenu

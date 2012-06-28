@@ -23,6 +23,8 @@ struct putcinfo {
 
 #define DEBUG_TIMEOUT 100000
 
+u16 DebugOutputPort VAR16VISIBLE = 0x402;
+
 void
 debug_serial_setup(void)
 {
@@ -77,7 +79,7 @@ putc_debug(struct putcinfo *action, char c)
         return;
     if (CONFIG_DEBUG_IO)
         // Send character to debug port.
-        outb(c, CONFIG_DEBUG_IO_PORT);
+        outb(c, GET_GLOBAL(DebugOutputPort));
     if (c == '\n')
         debug_serial('\r');
     debug_serial(c);

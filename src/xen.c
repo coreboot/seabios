@@ -65,6 +65,10 @@ void xen_probe(void)
         dprintf(1, "Found hypervisor signature \"%s\" at %x\n",
                 signature, base);
         if (strcmp(signature, "XenVMMXenVMM") == 0) {
+            /* Set debug_io_port first, so the following messages work. */
+            DebugOutputPort = 0xe9;
+            dprintf(1, "SeaBIOS (version %s)\n\n", VERSION);
+            dprintf(1, "Found Xen hypervisor signature at %x\n", base);
             if ((eax - base) < 2)
                 panic("Insufficient Xen cpuid leaves. eax=%x at base %x\n",
                       eax, base);
@@ -72,6 +76,8 @@ void xen_probe(void)
             break;
         }
     }
+    if (!xen_cpuid_base)
+        dprintf(1, "No Xen hypervisor found.\n");
 }
 
 static int hypercall_xen_version( int cmd, void *arg)
