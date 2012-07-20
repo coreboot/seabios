@@ -27,6 +27,7 @@
 #include "ps2port.h" // ps2port_setup
 #include "virtio-blk.h" // virtio_blk_setup
 #include "virtio-scsi.h" // virtio_scsi_setup
+#include "lsi-scsi.h" // lsi_scsi_setup
 
 
 /****************************************************************
@@ -194,6 +195,7 @@ init_hw(void)
     ramdisk_setup();
     virtio_blk_setup();
     virtio_scsi_setup();
+    lsi_scsi_setup();
 }
 
 // Begin the boot process by invoking an int0x19 in 16bit mode.
