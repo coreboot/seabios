@@ -213,7 +213,8 @@ struct usb_endpoint_descriptor {
 #define US_SC_ATAPI_8070   0x05
 #define US_SC_SCSI         0x06
 
-#define US_PR_BULK         0x50
+#define US_PR_BULK         0x50  /* bulk-only transport */
+#define US_PR_UAS          0x62  /* usb attached scsi   */
 
 /****************************************************************
  * function defs

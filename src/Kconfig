@@ -161,7 +161,13 @@ menu "Hardware support"
         bool "USB drives"
         default y
         help
-            Support USB disks.
+            Support USB BOT (bulk-only transport) disks.
+    config USB_UAS
+        depends on USB && DRIVES
+        bool "UAS drives"
+        default y
+        help
+            Support USB UAS (usb attached scsi) disks.
     config USB_HUB
         depends on USB
         bool "USB hubs"

@@ -15,6 +15,7 @@
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb-hub.h" // usb_hub_init
 #include "usb-msc.h" // usb_msc_init
+#include "usb-uas.h" // usb_uas_init
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
 
@@ -323,9 +324,12 @@ configure_usb_device(struct usbdevice_s *usbdev)
     usbdev->imax = (void*)config + config->wTotalLength - (void*)iface;
     if (iface->bInterfaceClass == USB_CLASS_HUB)
         ret = usb_hub_init(usbdev);
-    else if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE)
-        ret = usb_msc_init(usbdev);
-    else
+    else if (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE) {
+        if (iface->bInterfaceProtocol == US_PR_BULK)
+            ret = usb_msc_init(usbdev);
+        if (iface->bInterfaceProtocol == US_PR_UAS)
+            ret = usb_uas_init(usbdev);
+    } else
         ret = usb_hid_init(usbdev);
     if (ret)
         goto fail;
