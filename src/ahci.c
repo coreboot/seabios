@@ -301,49 +301,23 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
 // command demuxer
 int process_ahci_op(struct disk_op_s *op)
 {
-    struct ahci_port_s *port;
-    u32 atapi;
-
     if (!CONFIG_AHCI)
         return 0;
-
-    port = container_of(op->drive_g, struct ahci_port_s, drive);
-    atapi = GET_GLOBAL(port->atapi);
-
-    if (atapi) {
-        switch (op->command) {
-        case CMD_READ:
-            return cdb_read(op);
-        case CMD_WRITE:
-        case CMD_FORMAT:
-            return DISK_RET_EWRITEPROTECT;
-        case CMD_RESET:
-            /* FIXME: what should we do here? */
-        case CMD_VERIFY:
-        case CMD_SEEK:
-            return DISK_RET_SUCCESS;
-        default:
-            dprintf(1, "AHCI: unknown cdrom command %d\n", op->command);
-            op->count = 0;
-            return DISK_RET_EPARAM;
-        }
-    } else {
-        switch (op->command) {
-        case CMD_READ:
-            return ahci_disk_readwrite(op, 0);
-        case CMD_WRITE:
-            return ahci_disk_readwrite(op, 1);
-        case CMD_RESET:
-            /* FIXME: what should we do here? */
-        case CMD_FORMAT:
-        case CMD_VERIFY:
-        case CMD_SEEK:
-            return DISK_RET_SUCCESS;
-        default:
-            dprintf(1, "AHCI: unknown disk command %d\n", op->command);
-            op->count = 0;
-            return DISK_RET_EPARAM;
-        }
+    switch (op->command) {
+    case CMD_READ:
+        return ahci_disk_readwrite(op, 0);
+    case CMD_WRITE:
+        return ahci_disk_readwrite(op, 1);
+    case CMD_FORMAT:
+    case CMD_RESET:
+    case CMD_ISREADY:
+    case CMD_VERIFY:
+    case CMD_SEEK:
+        return DISK_RET_SUCCESS;
+    default:
+        dprintf(1, "AHCI: unknown disk command %d\n", op->command);
+        op->count = 0;
+        return DISK_RET_EPARAM;
     }
 }
 
@@ -516,12 +490,12 @@ static int ahci_port_init(struct ahci_port_s *port)
             return -1;
     }
 
-    port->drive.type = DTYPE_AHCI;
     port->drive.cntl_id = pnr;
     port->drive.removable = (buffer[0] & 0x80) ? 1 : 0;
 
     if (!port->atapi) {
         // found disk (ata)
+        port->drive.type = DTYPE_AHCI;
         port->drive.blksize = DISK_SECTOR_SIZE;
         port->drive.pchs.cylinders = buffer[1];
         port->drive.pchs.heads = buffer[3];
@@ -548,11 +522,12 @@ static int ahci_port_init(struct ahci_port_s *port)
         port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
     } else {
         // found cdrom (atapi)
+        port->drive.type = DTYPE_AHCI_ATAPI;
         port->drive.blksize = CDROM_SECTOR_SIZE;
         port->drive.sectors = (u64)-1;
         u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
         if (!iscd) {
-            dprintf(1, "AHCI/%d: atapi device is'nt a cdrom\n", port->pnr);
+            dprintf(1, "AHCI/%d: atapi device isn't a cdrom\n", port->pnr);
             return -1;
         }
         port->desc = znprintf(MAXDESCSIZE

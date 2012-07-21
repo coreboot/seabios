@@ -280,8 +280,6 @@ map_floppy_drive(struct drive_s *drive_g)
 static int
 process_scsi_op(struct disk_op_s *op)
 {
-    if (!CONFIG_VIRTIO_SCSI && !CONFIG_USB_MSC && !CONFIG_USB_UAS && !CONFIG_LSI_SCSI)
-        return 0;
     switch (op->command) {
     case CMD_READ:
         return cdb_read(op);
@@ -299,6 +297,18 @@ process_scsi_op(struct disk_op_s *op)
     }
 }
 
+static int
+process_atapi_op(struct disk_op_s *op)
+{
+    switch (op->command) {
+    case CMD_WRITE:
+    case CMD_FORMAT:
+        return DISK_RET_EWRITEPROTECT;
+    default:
+        return process_scsi_op(op);
+    }
+}
+
 // Execute a disk_op request.
 int
 process_op(struct disk_op_s *op)
@@ -310,8 +320,6 @@ process_op(struct disk_op_s *op)
         return process_floppy_op(op);
     case DTYPE_ATA:
         return process_ata_op(op);
-    case DTYPE_ATAPI:
-        return process_atapi_op(op);
     case DTYPE_RAMDISK:
         return process_ramdisk_op(op);
     case DTYPE_CDEMU:
@@ -320,6 +328,9 @@ process_op(struct disk_op_s *op)
         return process_virtio_blk_op(op);
     case DTYPE_AHCI:
         return process_ahci_op(op);
+    case DTYPE_ATA_ATAPI:
+    case DTYPE_AHCI_ATAPI:
+        return process_atapi_op(op);
     case DTYPE_USB:
     case DTYPE_UAS:
     case DTYPE_VIRTIO_SCSI:

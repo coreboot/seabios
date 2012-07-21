@@ -530,7 +530,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
             , size, type, npc, nph, npspt, (u32)lba, blksize);
 
     SET_FARVAR(seg, param_far->size, 26);
-    if (type == DTYPE_ATAPI) {
+    if (type == DTYPE_ATA_ATAPI) {
         // 0x74 = removable, media change, lockable, max values
         SET_FARVAR(seg, param_far->infos, 0x74);
         SET_FARVAR(seg, param_far->cylinders, 0xffffffff);
@@ -552,7 +552,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     SET_FARVAR(seg, param_far->blksize, blksize);
 
     if (size < 30 ||
-        (type != DTYPE_ATA && type != DTYPE_ATAPI &&
+        (type != DTYPE_ATA && type != DTYPE_ATA_ATAPI &&
          type != DTYPE_VIRTIO_BLK && type != DTYPE_VIRTIO_SCSI)) {
         disk_ret(regs, DISK_RET_SUCCESS);
         return;
@@ -565,7 +565,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     u64 device_path = 0;
     u8 channel = 0;
     SET_FARVAR(seg, param_far->size, 30);
-    if (type == DTYPE_ATA || type == DTYPE_ATAPI) {
+    if (type == DTYPE_ATA || type == DTYPE_ATA_ATAPI) {
         SET_FARVAR(seg, param_far->dpte, SEGOFF(SEG_LOW, (u32)&DefaultDPTE));
 
         // Fill in dpte

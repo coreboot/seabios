@@ -28,7 +28,6 @@ int cdrom_read(struct disk_op_s *op);
 int atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
 void ata_setup(void);
 int process_ata_op(struct disk_op_s *op);
-int process_atapi_op(struct disk_op_s *op);
 
 // Global defines -- ATA register and register bits.
 // command block & control block regs

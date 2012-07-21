@@ -141,31 +141,6 @@ isready(struct atadrive_s *adrive_g)
     return DISK_RET_ENOTREADY;
 }
 
-// Default 16bit command demuxer for ATA and ATAPI devices.
-static int
-process_ata_misc_op(struct disk_op_s *op)
-{
-    if (!CONFIG_ATA)
-        return 0;
-
-    struct atadrive_s *adrive_g = container_of(
-        op->drive_g, struct atadrive_s, drive);
-    switch (op->command) {
-    case CMD_RESET:
-        ata_reset(adrive_g);
-        return DISK_RET_SUCCESS;
-    case CMD_ISREADY:
-        return isready(adrive_g);
-    case CMD_FORMAT:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
-    default:
-        op->count = 0;
-        return DISK_RET_EPARAM;
-    }
-}
-
 
 /****************************************************************
  * ATA send command
@@ -580,13 +555,25 @@ process_ata_op(struct disk_op_s *op)
     if (!CONFIG_ATA)
         return 0;
 
+    struct atadrive_s *adrive_g = container_of(
+        op->drive_g, struct atadrive_s, drive);
     switch (op->command) {
     case CMD_READ:
         return ata_readwrite(op, 0);
     case CMD_WRITE:
         return ata_readwrite(op, 1);
+    case CMD_RESET:
+        ata_reset(adrive_g);
+        return DISK_RET_SUCCESS;
+    case CMD_ISREADY:
+        return isready(adrive_g);
+    case CMD_FORMAT:
+    case CMD_VERIFY:
+    case CMD_SEEK:
+        return DISK_RET_SUCCESS;
     default:
-        return process_ata_misc_op(op);
+        op->count = 0;
+        return DISK_RET_EPARAM;
     }
 }
 
@@ -660,23 +647,6 @@ fail:
     if (ret)
         return DISK_RET_EBADTRACK;
     return DISK_RET_SUCCESS;
-}
-
-// 16bit command demuxer for ATAPI cdroms.
-int
-process_atapi_op(struct disk_op_s *op)
-{
-    if (!CONFIG_ATA)
-        return 0;
-    switch (op->command) {
-    case CMD_READ:
-        return cdb_read(op);
-    case CMD_FORMAT:
-    case CMD_WRITE:
-        return DISK_RET_EWRITEPROTECT;
-    default:
-        return process_ata_misc_op(op);
-    }
 }
 
 
@@ -762,7 +732,7 @@ init_drive_atapi(struct atadrive_s *dummy, u16 *buffer)
     struct atadrive_s *adrive_g = init_atadrive(dummy, buffer);
     if (!adrive_g)
         return NULL;
-    adrive_g->drive.type = DTYPE_ATAPI;
+    adrive_g->drive.type = DTYPE_ATA_ATAPI;
     adrive_g->drive.blksize = CDROM_SECTOR_SIZE;
     adrive_g->drive.sectors = (u64)-1;
     u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;

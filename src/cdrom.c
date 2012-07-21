@@ -201,7 +201,7 @@ cdrom_boot(struct drive_s *drive_g)
         dprintf(1, "scsi_is_ready returned %d\n", ret);
 
     // Read the Boot Record Volume Descriptor
-    u8 buffer[2048];
+    u8 buffer[CDROM_SECTOR_SIZE];
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = buffer;
