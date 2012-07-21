@@ -287,7 +287,6 @@ malloc_finalize(void)
     dprintf(3, "malloc finalize\n");
 
     // Place an optionrom signature around used low mem area.
-    struct allocinfo_s *info = findLast(&ZoneLow);
     u32 base = rom_get_top();
     struct rom_header *dummyrom = (void*)base;
     dummyrom->signature = OPTION_ROM_SIGNATURE;
@@ -295,6 +294,10 @@ malloc_finalize(void)
     dummyrom->size = (size > 255) ? 255 : size;
     memset((void*)RomEnd, 0, base-RomEnd);
     dprintf(1, "Space available for UMB: %08x-%08x\n", RomEnd, base);
+
+    // Clear unused f-seg ram.
+    struct allocinfo_s *info = findLast(&ZoneFSeg);
+    memset(info->dataend, 0, info->allocend - info->dataend);
 
     // Give back unused high ram.
     info = findLast(&ZoneHigh);
