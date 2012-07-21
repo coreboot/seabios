@@ -62,7 +62,7 @@ void xen_probe(void)
         memcpy(signature + 8, &edx, 4);
         signature[12] = 0;
 
-        dprintf(1, "Found hypervisor signature \"%s\" at %x\n",
+        dprintf(9, "Found hypervisor signature \"%s\" at %x\n",
                 signature, base);
         if (strcmp(signature, "XenVMMXenVMM") == 0) {
             /* Set debug_io_port first, so the following messages work. */
