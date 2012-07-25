@@ -92,7 +92,7 @@ mptable_init(void)
     entrycount += bus - buses;
 
     /* ioapic */
-    u8 ioapic_id = CountCPUs;
+    u8 ioapic_id = BUILD_IOAPIC_ID;
     struct mpt_ioapic *ioapic = (void*)bus;
     memset(ioapic, 0, sizeof(*ioapic));
     ioapic->type = MPT_TYPE_IOAPIC;

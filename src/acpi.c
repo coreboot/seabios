@@ -336,7 +336,7 @@ build_madt(void)
     struct madt_io_apic *io_apic = (void*)apic;
     io_apic->type = APIC_IO;
     io_apic->length = sizeof(*io_apic);
-    io_apic->io_apic_id = CountCPUs;
+    io_apic->io_apic_id = BUILD_IOAPIC_ID;
     io_apic->address = cpu_to_le32(BUILD_IOAPIC_ADDR);
     io_apic->interrupt = cpu_to_le32(0);
 

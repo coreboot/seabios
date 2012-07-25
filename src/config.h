@@ -52,6 +52,7 @@
 #define BUILD_PCIMEM64_END        0x10000000000ULL
 
 #define BUILD_IOAPIC_ADDR         0xfec00000
+#define BUILD_IOAPIC_ID           0
 #define BUILD_HPET_ADDRESS        0xfed00000
 #define BUILD_APIC_ADDR           0xfee00000
 
