@@ -36,6 +36,8 @@ wrmsr_smp(u32 index, u64 val)
 
 u32 CountCPUs VAR16VISIBLE;
 u32 MaxCountCPUs VAR16VISIBLE;
+// 256 bits for the found APIC IDs
+u32 FoundAPICIDs[256/32] VAR16VISIBLE;
 extern void smp_ap_boot_code(void);
 ASM16(
     "  .global smp_ap_boot_code\n"
@@ -59,6 +61,12 @@ ASM16(
     "  jmp 1b\n"
     "2:\n"
 
+    // get apic ID on EBX, set bit on FoundAPICIDs
+    "  movl $1, %eax\n"
+    "  cpuid\n"
+    "  shrl $24, %ebx\n"
+    "  lock btsl %ebx, FoundAPICIDs\n"
+
     // Increment the cpu counter
     "  lock incl CountCPUs\n"
 
@@ -66,6 +74,11 @@ ASM16(
     "1:hlt\n"
     "  jmp 1b\n"
     );
+
+int apic_id_is_present(u8 apic_id)
+{
+    return FoundAPICIDs[apic_id/32] & (1 << (apic_id % 32));
+}
 
 // find and initialize the CPUs by launching a SIPI to them
 void
@@ -81,6 +94,10 @@ smp_probe(void)
         MaxCountCPUs = 1;
         return;
     }
+
+    // mark the BSP initial APIC ID as found, too:
+    u8 apic_id = ebx>>24;
+    FoundAPICIDs[apic_id/32] |= (1 << (apic_id % 32));
 
     // Init the counter.
     writel(&CountCPUs, 1);

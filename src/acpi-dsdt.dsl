@@ -676,6 +676,7 @@ DefinitionBlock (
         /* Methods called by run-time generated SSDT Processor objects */
         Method (CPMA, 1, NotSerialized) {
             // _MAT method - create an madt apic buffer
+            // Arg0 = Processor ID = Local APIC ID
             // Local0 = CPON flag for this cpu
             Store(DerefOf(Index(CPON, Arg0)), Local0)
             // Local1 = Buffer (in madt apic form) to return
@@ -688,6 +689,7 @@ DefinitionBlock (
         }
         Method (CPST, 1, NotSerialized) {
             // _STA method - return ON status of cpu
+            // Arg0 = Processor ID = Local APIC ID
             // Local0 = CPON flag for this cpu
             Store(DerefOf(Index(CPON, Arg0)), Local0)
             If (Local0) { Return(0xF) } Else { Return(0x0) }
@@ -708,7 +710,7 @@ DefinitionBlock (
             Store (PRS, Local5)
             // Local2 = last read byte from bitmap
             Store (Zero, Local2)
-            // Local0 = cpuid iterator
+            // Local0 = Processor ID / APIC ID iterator
             Store (Zero, Local0)
             While (LLess(Local0, SizeOf(CPON))) {
                 // Local1 = CPON flag for this cpu
