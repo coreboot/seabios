@@ -115,8 +115,6 @@ lsi_scsi_cmd(struct lsi_lun_s *llun, struct disk_op_s *op,
     }
 
 fail:
-    // sledge hammer to get back into a known-good state: hba reset
-    outb(LSI_ISTAT0_SRST, iobase + LSI_REG_ISTAT0);
     return DISK_RET_EBADTRACK;
 }
 
