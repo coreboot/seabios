@@ -401,14 +401,13 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #include "ssdt-proc.hex"
 
 /* 0x5B 0x83 ProcessorOp PkgLength NameString ProcID */
-#define SD_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
-#define SD_OFFSET_CPUID1 (*ssdt_proc_name - *ssdt_proc_start + 4)
-#define SD_OFFSET_CPUID2 (*ssdt_proc_id - *ssdt_proc_start)
-#define SD_SIZEOF (*ssdt_proc_end - *ssdt_proc_start)
-#define SD_PROC (ssdp_proc_aml + *ssdt_proc_start)
+#define PROC_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
+#define PROC_OFFSET_CPUID1 (*ssdt_proc_name - *ssdt_proc_start + 4)
+#define PROC_OFFSET_CPUID2 (*ssdt_proc_id - *ssdt_proc_start)
+#define PROC_SIZEOF (*ssdt_proc_end - *ssdt_proc_start)
+#define PROC_AML (ssdp_proc_aml + *ssdt_proc_start)
 
 #define SSDT_SIGNATURE 0x54445353 // SSDT
-
 #define SSDT_HEADER_LENGTH 36
 
 #include "ssdt-susp.hex"
@@ -419,7 +418,7 @@ build_ssdt(void)
     int acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
     int length = (sizeof(ssdp_susp_aml)                     // _S3_ / _S4_ / _S5_
                   + (1+3+4)                                 // Scope(_SB_)
-                  + (acpi_cpus * SD_SIZEOF)                 // procs
+                  + (acpi_cpus * PROC_SIZEOF)               // procs
                   + (1+2+5+(12*acpi_cpus))                  // NTFY
                   + (6+2+1+(1*acpi_cpus))                   // CPON
                   + 17);                                    // BDAT
@@ -456,12 +455,12 @@ build_ssdt(void)
     // build Processor object for each processor
     int i;
     for (i=0; i<acpi_cpus; i++) {
-        memcpy(ssdt_ptr, SD_PROC, SD_SIZEOF);
-        ssdt_ptr[SD_OFFSET_CPUHEX] = getHex(i >> 4);
-        ssdt_ptr[SD_OFFSET_CPUHEX+1] = getHex(i);
-        ssdt_ptr[SD_OFFSET_CPUID1] = i;
-        ssdt_ptr[SD_OFFSET_CPUID2] = i;
-        ssdt_ptr += SD_SIZEOF;
+        memcpy(ssdt_ptr, PROC_AML, PROC_SIZEOF);
+        ssdt_ptr[PROC_OFFSET_CPUHEX] = getHex(i >> 4);
+        ssdt_ptr[PROC_OFFSET_CPUHEX+1] = getHex(i);
+        ssdt_ptr[PROC_OFFSET_CPUID1] = i;
+        ssdt_ptr[PROC_OFFSET_CPUID2] = i;
+        ssdt_ptr += PROC_SIZEOF;
     }
 
     // build "Method(NTFY, 2) {If (LEqual(Arg0, 0x00)) {Notify(CP00, Arg1)} ...}"
