@@ -407,12 +407,22 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #define PROC_SIZEOF (*ssdt_proc_end - *ssdt_proc_start)
 #define PROC_AML (ssdp_proc_aml + *ssdt_proc_start)
 
+/* 0x5B 0x82 DeviceOp PkgLength NameString */
+#define PCIHP_OFFSET_HEX (*ssdt_pcihp_name - *ssdt_pcihp_start + 1)
+#define PCIHP_OFFSET_ID (*ssdt_pcihp_id - *ssdt_pcihp_start)
+#define PCIHP_OFFSET_ADR (*ssdt_pcihp_adr - *ssdt_pcihp_start)
+#define PCIHP_OFFSET_EJ0 (*ssdt_pcihp_ej0 - *ssdt_pcihp_start)
+#define PCIHP_SIZEOF (*ssdt_pcihp_end - *ssdt_pcihp_start)
+#define PCIHP_AML (ssdp_pcihp_aml + *ssdt_pcihp_start)
 #define PCI_SLOTS 32
 
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 #define SSDT_HEADER_LENGTH 36
 
 #include "ssdt-susp.hex"
+#include "ssdt-pcihp.hex"
+
+#define PCI_RMV_BASE 0xae0c
 
 static u8*
 build_notify(u8 *ssdt_ptr, const char *name, int skip, int count,
@@ -444,6 +454,24 @@ build_notify(u8 *ssdt_ptr, const char *name, int skip, int count,
     return ssdt_ptr;
 }
 
+static void patch_pcihp(int slot, u8 *ssdt_ptr, u32 eject)
+{
+    ssdt_ptr[PCIHP_OFFSET_HEX] = getHex(slot >> 4);
+    ssdt_ptr[PCIHP_OFFSET_HEX+1] = getHex(slot);
+    ssdt_ptr[PCIHP_OFFSET_ID] = slot;
+    ssdt_ptr[PCIHP_OFFSET_ADR + 2] = slot;
+
+    /* Runtime patching of EJ0: to disable hotplug for a slot,
+     * replace the method name: _EJ0 by EJ0_. */
+    /* Sanity check */
+    if (memcmp(ssdt_ptr + PCIHP_OFFSET_EJ0, "_EJ0", 4)) {
+        warn_internalerror();
+    }
+    if (!eject) {
+        memcpy(ssdt_ptr + PCIHP_OFFSET_EJ0, "EJ0_", 4);
+    }
+}
+
 static void*
 build_ssdt(void)
 {
@@ -455,6 +483,7 @@ build_ssdt(void)
                   + (6+2+1+(1*acpi_cpus))                   // CPON
                   + 17                                      // BDAT
                   + (1+3+4)                                 // Scope(PCI0)
+                  + ((PCI_SLOTS - 1) * PCIHP_SIZEOF)        // slots
                   + (1+2+5+(12*(PCI_SLOTS - 1))));          // PCNT
     u8 *ssdt = malloc_high(length);
     if (! ssdt) {
@@ -546,56 +575,21 @@ build_ssdt(void)
     *(ssdt_ptr++) = 'I';
     *(ssdt_ptr++) = '0';
 
+    // build Device object for each slot
+    u32 rmvc_pcrm = inl(PCI_RMV_BASE);
+    for (i=1; i<PCI_SLOTS; i++) {
+        u32 eject = rmvc_pcrm & (0x1 << i);
+        memcpy(ssdt_ptr, PCIHP_AML, PCIHP_SIZEOF);
+        patch_pcihp(i, ssdt_ptr, eject != 0);
+        ssdt_ptr += PCIHP_SIZEOF;
+    }
+
     ssdt_ptr = build_notify(ssdt_ptr, "PCNT", 1, PCI_SLOTS, "S00_", 1);
 
     build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
 
     //hexdump(ssdt, ssdt_ptr - ssdt);
 
-    return ssdt;
-}
-
-#include "ssdt-pcihp.hex"
-
-#define PCI_RMV_BASE 0xae0c
-
-extern void link_time_assertion(void);
-
-static void* build_pcihp(void)
-{
-    u32 rmvc_pcrm;
-    int i;
-
-    u8 *ssdt = malloc_high(sizeof ssdp_pcihp_aml);
-    if (!ssdt) {
-        warn_noalloc();
-        return NULL;
-    }
-    memcpy(ssdt, ssdp_pcihp_aml, sizeof ssdp_pcihp_aml);
-
-    /* Runtime patching of EJ0: to disable hotplug for a slot,
-     * replace the method name: _EJ0 by EJ0_. */
-    if (ARRAY_SIZE(aml_ej0_name) != ARRAY_SIZE(aml_adr_dword)) {
-        link_time_assertion();
-    }
-
-    rmvc_pcrm = inl(PCI_RMV_BASE);
-    for (i = 0; i < ARRAY_SIZE(aml_ej0_name); ++i) {
-        /* Slot is in byte 2 in _ADR */
-        u8 slot = ssdp_pcihp_aml[aml_adr_dword[i] + 2] & 0x1F;
-        /* Sanity check */
-        if (memcmp(ssdp_pcihp_aml + aml_ej0_name[i], "_EJ0", 4)) {
-            warn_internalerror();
-            free(ssdt);
-            return NULL;
-        }
-        if (!(rmvc_pcrm & (0x1 << slot))) {
-            memcpy(ssdt + aml_ej0_name[i], "EJ0_", 4);
-        }
-    }
-
-    ((struct acpi_table_header*)ssdt)->checksum = 0;
-    ((struct acpi_table_header*)ssdt)->checksum -= checksum(ssdt, sizeof(ssdp_pcihp_aml));
     return ssdt;
 }
 
@@ -780,7 +774,6 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());
     ACPI_INIT_TABLE(build_srat());
-    ACPI_INIT_TABLE(build_pcihp());
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 
