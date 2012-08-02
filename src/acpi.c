@@ -409,26 +409,45 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 
+#define SSDT_HEADER_LENGTH 36
+
+#include "ssdt-susp.hex"
+
 static void*
 build_ssdt(void)
 {
     int acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
-    // length = ScopeOp + procs + NTYF method + CPON package
-    int length = ((1+3+4)
-                  + (acpi_cpus * SD_SIZEOF)
-                  + (1+2+5+(12*acpi_cpus))
-                  + (6+2+1+(1*acpi_cpus))
-                  + 17);
-    u8 *ssdt = malloc_high(sizeof(struct acpi_table_header) + length);
+    int length = (sizeof(ssdp_susp_aml)                     // _S3_ / _S4_ / _S5_
+                  + (1+3+4)                                 // Scope(_SB_)
+                  + (acpi_cpus * SD_SIZEOF)                 // procs
+                  + (1+2+5+(12*acpi_cpus))                  // NTFY
+                  + (6+2+1+(1*acpi_cpus))                   // CPON
+                  + 17);                                    // BDAT
+    u8 *ssdt = malloc_high(length);
     if (! ssdt) {
         warn_noalloc();
         return NULL;
     }
-    u8 *ssdt_ptr = ssdt + sizeof(struct acpi_table_header);
+    u8 *ssdt_ptr = ssdt;
+
+    // Copy header and encode fwcfg values in the S3_ / S4_ / S5_ packages
+    int sys_state_size;
+    char *sys_states = romfile_loadfile("etc/system-states", &sys_state_size);
+    if (!sys_states || sys_state_size != 6)
+        sys_states = (char[]){128, 0, 0, 129, 128, 128};
+
+    memcpy(ssdt_ptr, ssdp_susp_aml, sizeof(ssdp_susp_aml));
+    if (!(sys_states[3] & 128))
+        ssdt_ptr[acpi_s3_name[0]] = 'X';
+    if (!(sys_states[4] & 128))
+        ssdt_ptr[acpi_s4_name[0]] = 'X';
+    else
+        ssdt_ptr[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
+    ssdt_ptr += sizeof(ssdp_susp_aml);
 
     // build Scope(_SB_) header
     *(ssdt_ptr++) = 0x10; // ScopeOp
-    ssdt_ptr = encodeLen(ssdt_ptr, length-1, 3);
+    ssdt_ptr = encodeLen(ssdt_ptr, length - (ssdt_ptr - ssdt), 3);
     *(ssdt_ptr++) = '_';
     *(ssdt_ptr++) = 'S';
     *(ssdt_ptr++) = 'B';
@@ -521,8 +540,6 @@ extern void link_time_assertion(void);
 
 static void* build_pcihp(void)
 {
-    char *sys_states;
-    int sys_state_size;
     u32 rmvc_pcrm;
     int i;
 
@@ -554,19 +571,8 @@ static void* build_pcihp(void)
         }
     }
 
-    sys_states = romfile_loadfile("etc/system-states", &sys_state_size);
-    if (!sys_states || sys_state_size != 6)
-        sys_states = (char[]){128, 0, 0, 129, 128, 128};
-
-    if (!(sys_states[3] & 128))
-        ssdt[acpi_s3_name[0]] = 'X';
-    if (!(sys_states[4] & 128))
-        ssdt[acpi_s4_name[0]] = 'X';
-    else
-        ssdt[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
     ((struct acpi_table_header*)ssdt)->checksum = 0;
     ((struct acpi_table_header*)ssdt)->checksum -= checksum(ssdt, sizeof(ssdp_pcihp_aml));
-
     return ssdt;
 }
 
