@@ -82,7 +82,9 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
         writel(portreg, portsc);
         msleep(EHCI_TIME_POSTPOWER);
     } else {
-        msleep(1); // XXX - time for connect to be detected.
+        // Port is already powered up, but we don't know how long it
+        // has been powered up, so wait the 20ms.
+        msleep(EHCI_TIME_POSTPOWER);
     }
     portsc = readl(portreg);
 
