@@ -93,7 +93,7 @@ def aml_pkglen(offset):
     pkglenbytes = aml_pkglen_bytes(offset)
     pkglen = aml[offset] & 0x3F
     # If multibyte, first nibble only uses bits 0-3
-    if ((pkglenbytes > 0) and (pkglen & 0x30)):
+    if ((pkglenbytes > 1) and (pkglen & 0x30)):
         die("PkgLen bytes 0x%x but first nibble 0x%x expected 0x0X" %
             (pkglen, pkglen))
     offset += 1
