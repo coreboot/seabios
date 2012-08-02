@@ -57,42 +57,5 @@ DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
         hotplug_slot(1d)
         hotplug_slot(1e)
         hotplug_slot(1f)
-
-#define gen_pci_hotplug(slot)   \
-            If (LEqual(Arg0, 0x##slot)) { Notify(S##slot, Arg1) }
-
-        Method(PCNT, 2) {
-            gen_pci_hotplug(01)
-            gen_pci_hotplug(02)
-            gen_pci_hotplug(03)
-            gen_pci_hotplug(04)
-            gen_pci_hotplug(05)
-            gen_pci_hotplug(06)
-            gen_pci_hotplug(07)
-            gen_pci_hotplug(08)
-            gen_pci_hotplug(09)
-            gen_pci_hotplug(0a)
-            gen_pci_hotplug(0b)
-            gen_pci_hotplug(0c)
-            gen_pci_hotplug(0d)
-            gen_pci_hotplug(0e)
-            gen_pci_hotplug(0f)
-            gen_pci_hotplug(10)
-            gen_pci_hotplug(11)
-            gen_pci_hotplug(12)
-            gen_pci_hotplug(13)
-            gen_pci_hotplug(14)
-            gen_pci_hotplug(15)
-            gen_pci_hotplug(16)
-            gen_pci_hotplug(17)
-            gen_pci_hotplug(18)
-            gen_pci_hotplug(19)
-            gen_pci_hotplug(1a)
-            gen_pci_hotplug(1b)
-            gen_pci_hotplug(1c)
-            gen_pci_hotplug(1d)
-            gen_pci_hotplug(1e)
-            gen_pci_hotplug(1f)
-        }
     }
 }

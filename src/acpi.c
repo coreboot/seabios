@@ -407,10 +407,42 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #define PROC_SIZEOF (*ssdt_proc_end - *ssdt_proc_start)
 #define PROC_AML (ssdp_proc_aml + *ssdt_proc_start)
 
+#define PCI_SLOTS 32
+
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 #define SSDT_HEADER_LENGTH 36
 
 #include "ssdt-susp.hex"
+
+static u8*
+build_notify(u8 *ssdt_ptr, const char *name, int skip, int count,
+             const char *target, int ofs)
+{
+    count -= skip;
+
+    *(ssdt_ptr++) = 0x14; // MethodOp
+    ssdt_ptr = encodeLen(ssdt_ptr, 2+5+(12*count), 2);
+    memcpy(ssdt_ptr, name, 4);
+    ssdt_ptr += 4;
+    *(ssdt_ptr++) = 0x02; // MethodOp
+
+    int i;
+    for (i = skip; count-- > 0; i++) {
+        *(ssdt_ptr++) = 0xA0; // IfOp
+        ssdt_ptr = encodeLen(ssdt_ptr, 11, 1);
+        *(ssdt_ptr++) = 0x93; // LEqualOp
+        *(ssdt_ptr++) = 0x68; // Arg0Op
+        *(ssdt_ptr++) = 0x0A; // BytePrefix
+        *(ssdt_ptr++) = i;
+        *(ssdt_ptr++) = 0x86; // NotifyOp
+        memcpy(ssdt_ptr, target, 4);
+        ssdt_ptr[ofs] = getHex(i >> 4);
+        ssdt_ptr[ofs + 1] = getHex(i);
+        ssdt_ptr += 4;
+        *(ssdt_ptr++) = 0x69; // Arg1Op
+    }
+    return ssdt_ptr;
+}
 
 static void*
 build_ssdt(void)
@@ -421,7 +453,9 @@ build_ssdt(void)
                   + (acpi_cpus * PROC_SIZEOF)               // procs
                   + (1+2+5+(12*acpi_cpus))                  // NTFY
                   + (6+2+1+(1*acpi_cpus))                   // CPON
-                  + 17);                                    // BDAT
+                  + 17                                      // BDAT
+                  + (1+3+4)                                 // Scope(PCI0)
+                  + (1+2+5+(12*(PCI_SLOTS - 1))));          // PCNT
     u8 *ssdt = malloc_high(length);
     if (! ssdt) {
         warn_noalloc();
@@ -465,27 +499,7 @@ build_ssdt(void)
 
     // build "Method(NTFY, 2) {If (LEqual(Arg0, 0x00)) {Notify(CP00, Arg1)} ...}"
     // Arg0 = Processor ID = APIC ID
-    *(ssdt_ptr++) = 0x14; // MethodOp
-    ssdt_ptr = encodeLen(ssdt_ptr, 2+5+(12*acpi_cpus), 2);
-    *(ssdt_ptr++) = 'N';
-    *(ssdt_ptr++) = 'T';
-    *(ssdt_ptr++) = 'F';
-    *(ssdt_ptr++) = 'Y';
-    *(ssdt_ptr++) = 0x02;
-    for (i=0; i<acpi_cpus; i++) {
-        *(ssdt_ptr++) = 0xA0; // IfOp
-        ssdt_ptr = encodeLen(ssdt_ptr, 11, 1);
-        *(ssdt_ptr++) = 0x93; // LEqualOp
-        *(ssdt_ptr++) = 0x68; // Arg0Op
-        *(ssdt_ptr++) = 0x0A; // BytePrefix
-        *(ssdt_ptr++) = i;
-        *(ssdt_ptr++) = 0x86; // NotifyOp
-        *(ssdt_ptr++) = 'C';
-        *(ssdt_ptr++) = 'P';
-        *(ssdt_ptr++) = getHex(i >> 4);
-        *(ssdt_ptr++) = getHex(i);
-        *(ssdt_ptr++) = 0x69; // Arg1Op
-    }
+    ssdt_ptr = build_notify(ssdt_ptr, "NTFY", 0, acpi_cpus, "CP00", 2);
 
     // build "Name(CPON, Package() { One, One, ..., Zero, Zero, ... })"
     *(ssdt_ptr++) = 0x08; // NameOp
@@ -523,6 +537,16 @@ build_ssdt(void)
     *(ssdt_ptr++) = 0x0C; // DWordPrefix
     *(u32*)ssdt_ptr = sizeof(struct bfld);
     ssdt_ptr += 4;
+
+    // build Scope(PCI0) opcode
+    *(ssdt_ptr++) = 0x10; // ScopeOp
+    ssdt_ptr = encodeLen(ssdt_ptr, length - (ssdt_ptr - ssdt), 3);
+    *(ssdt_ptr++) = 'P';
+    *(ssdt_ptr++) = 'C';
+    *(ssdt_ptr++) = 'I';
+    *(ssdt_ptr++) = '0';
+
+    ssdt_ptr = build_notify(ssdt_ptr, "PCNT", 1, PCI_SLOTS, "S00_", 1);
 
     build_header((void*)ssdt, SSDT_SIGNATURE, ssdt_ptr - ssdt, 1);
 
