@@ -234,6 +234,7 @@ struct drive_s {
 #define DTYPE_USB          0x0a
 #define DTYPE_UAS          0x0b
 #define DTYPE_LSI_SCSI     0x0c
+#define DTYPE_ESP_SCSI     0x0d
 
 #define MAXDESCSIZE 80
 

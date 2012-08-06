@@ -15,6 +15,7 @@
 #include "usb-uas.h" // usb_cmd_data
 #include "virtio-scsi.h" // virtio_scsi_cmd_data
 #include "lsi-scsi.h" // lsi_scsi_cmd_data
+#include "esp-scsi.h" // esp_scsi_cmd_data
 #include "boot.h" // boot_add_hd
 
 // Route command to low-level handler.
@@ -35,6 +36,8 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_LSI_SCSI:
         return lsi_scsi_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_ESP_SCSI:
+        return esp_scsi_cmd_data(op, cdbcmd, blocksize);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

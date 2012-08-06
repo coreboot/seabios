@@ -119,6 +119,12 @@ menu "Hardware support"
         default y
         help
             Support boot from virtio-scsi storage.
+    config ESP_SCSI
+        depends on DRIVES && !COREBOOT
+        bool "AMD PCscsi controllers"
+        default y
+        help
+            Support boot from AMD PCscsi storage.
     config LSI_SCSI
         depends on DRIVES && !COREBOOT
         bool "lsi53c895a scsi controllers"

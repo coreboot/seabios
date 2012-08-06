@@ -335,6 +335,7 @@ process_op(struct disk_op_s *op)
     case DTYPE_UAS:
     case DTYPE_VIRTIO_SCSI:
     case DTYPE_LSI_SCSI:
+    case DTYPE_ESP_SCSI:
         return process_scsi_op(op);
     default:
         op->count = 0;

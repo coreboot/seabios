@@ -13,7 +13,7 @@ SRCBOTH=misc.c stacks.c pmm.c output.c util.c block.c floppy.c ata.c mouse.c \
     pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
     usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
     virtio-ring.c virtio-pci.c virtio-blk.c virtio-scsi.c apm.c ahci.c \
-    usb-uas.c lsi-scsi.c
+    usb-uas.c lsi-scsi.c esp-scsi.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
     acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
