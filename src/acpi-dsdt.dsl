@@ -86,7 +86,10 @@ DefinitionBlock (
 #define prt_slot3(nr) prt_slot(nr, LNKC, LNKD, LNKA, LNKB)
                prt_slot0(0x0000),
                /* Device 1 is power mgmt device, and can only use irq 9 */
-               prt_slot(0x0001, LNKS, LNKB, LNKC, LNKD),
+               Package() { 0x1ffff, 0,    0, 9 },
+               Package() { 0x1ffff, 1, LNKB, 0 },
+               Package() { 0x1ffff, 2, LNKC, 0 },
+               Package() { 0x1ffff, 3, LNKD, 0 },
                prt_slot2(0x0002),
                prt_slot3(0x0003),
                prt_slot0(0x0004),
@@ -650,17 +653,6 @@ DefinitionBlock (
             Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ3) }
             Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ3)) }
             Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ3, Arg0) }
-        }
-        Device(LNKS) {
-            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-            Name(_UID, 5)
-            Name(_PRS, ResourceTemplate() {
-                Interrupt (, Level, ActiveHigh, Shared)
-                    { 9 }
-            })
-            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
-            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ0) }
-            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
         }
     }
 
