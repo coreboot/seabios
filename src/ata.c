@@ -8,6 +8,7 @@
 #include "types.h" // u8
 #include "ioport.h" // inb
 #include "util.h" // dprintf
+#include "byteorder.h" // be16_to_cpu
 #include "cmos.h" // inb_cmos
 #include "pic.h" // enable_hwirq
 #include "biosvar.h" // GET_GLOBAL
@@ -696,7 +697,7 @@ ata_extract_model(char *model, u32 size, u16 *buffer)
     // Read model name
     int i;
     for (i=0; i<size/2; i++)
-        *(u16*)&model[i*2] = ntohs(buffer[27+i]);
+        *(u16*)&model[i*2] = be16_to_cpu(buffer[27+i]);
     model[size] = 0x00;
     nullTrailingSpace(model);
     return model;

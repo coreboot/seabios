@@ -6,6 +6,7 @@
 
 #include "memmap.h" // add_e820
 #include "util.h" // dprintf
+#include "byteorder.h" // be32_to_cpu
 #include "lzmadecode.h" // LzmaDecode
 #include "smbios.h" // smbios_init
 #include "boot.h" // boot_add_cbfs
@@ -329,17 +330,17 @@ coreboot_cbfs_setup(void)
         return;
 
     struct cbfs_header *hdr = *(void **)CBFS_HEADPTR_ADDR;
-    if (hdr->magic != htonl(CBFS_HEADER_MAGIC)) {
+    if (hdr->magic != cpu_to_be32(CBFS_HEADER_MAGIC)) {
         dprintf(1, "Unable to find CBFS (ptr=%p; got %x not %x)\n"
-                , hdr, hdr->magic, htonl(CBFS_HEADER_MAGIC));
+                , hdr, hdr->magic, cpu_to_be32(CBFS_HEADER_MAGIC));
         return;
     }
     dprintf(1, "Found CBFS header at %p\n", hdr);
 
-    struct cbfs_file *cfile = (void *)(0 - ntohl(hdr->romsize)
-                                       + ntohl(hdr->offset));
+    struct cbfs_file *cfile = (void *)(0 - be32_to_cpu(hdr->romsize)
+                                       + be32_to_cpu(hdr->offset));
     for (;;) {
-        if (cfile < (struct cbfs_file *)(0xFFFFFFFF - ntohl(hdr->romsize)))
+        if (cfile < (struct cbfs_file *)(0xFFFFFFFF - be32_to_cpu(hdr->romsize)))
             break;
         u64 magic = cfile->magic;
         if (magic != CBFS_FILE_MAGIC)
@@ -352,10 +353,10 @@ coreboot_cbfs_setup(void)
         memset(file, 0, sizeof(*file));
         strtcpy(file->name, cfile->filename, sizeof(file->name));
         dprintf(3, "Found CBFS file: %s\n", file->name);
-        file->size = file->rawsize = ntohl(cfile->len);
+        file->size = file->rawsize = be32_to_cpu(cfile->len);
         file->id = (u32)cfile;
         file->copy = cbfs_copyfile;
-        file->data = (void*)cfile + ntohl(cfile->offset);
+        file->data = (void*)cfile + be32_to_cpu(cfile->offset);
         int len = strlen(file->name);
         if (len > 5 && strcmp(&file->name[len-5], ".lzma") == 0) {
             // Using compression.
@@ -365,7 +366,7 @@ coreboot_cbfs_setup(void)
         }
         romfile_add(file);
 
-        cfile = (void*)ALIGN((u32)file->data + file->size, ntohl(hdr->align));
+        cfile = (void*)ALIGN((u32)file->data + file->size, be32_to_cpu(hdr->align));
     }
 }
 
@@ -394,13 +395,13 @@ cbfs_run_payload(struct cbfs_file *file)
     if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !file)
         return;
     dprintf(1, "Run %s\n", file->filename);
-    struct cbfs_payload *pay = (void*)file + ntohl(file->offset);
+    struct cbfs_payload *pay = (void*)file + be32_to_cpu(file->offset);
     struct cbfs_payload_segment *seg = pay->segments;
     for (;;) {
-        void *src = (void*)pay + ntohl(seg->offset);
-        void *dest = (void*)ntohl((u32)seg->load_addr);
-        u32 src_len = ntohl(seg->len);
-        u32 dest_len = ntohl(seg->mem_len);
+        void *src = (void*)pay + be32_to_cpu(seg->offset);
+        void *dest = (void*)(u32)be64_to_cpu(seg->load_addr);
+        u32 src_len = be32_to_cpu(seg->len);
+        u32 dest_len = be32_to_cpu(seg->mem_len);
         switch (seg->type) {
         case PAYLOAD_SEGMENT_BSS:
             dprintf(3, "BSS segment %d@%p\n", dest_len, dest);
@@ -415,12 +416,12 @@ cbfs_run_payload(struct cbfs_file *file)
         default:
             dprintf(3, "Segment %x %d@%p -> %d@%p\n"
                     , seg->type, src_len, src, dest_len, dest);
-            if (seg->compression == htonl(CBFS_COMPRESS_NONE)) {
+            if (seg->compression == cpu_to_be32(CBFS_COMPRESS_NONE)) {
                 if (src_len > dest_len)
                     src_len = dest_len;
                 memcpy(dest, src, src_len);
             } else if (CONFIG_LZMA
-                       && seg->compression == htonl(CBFS_COMPRESS_LZMA)) {
+                       && seg->compression == cpu_to_be32(CBFS_COMPRESS_LZMA)) {
                 int ret = ulzma(dest, dest_len, src, src_len);
                 if (ret < 0)
                     return;

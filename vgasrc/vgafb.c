@@ -8,6 +8,7 @@
 #include "vgabios.h" // vgafb_scroll
 #include "biosvar.h" // GET_BDA
 #include "util.h" // memset_far
+#include "byteorder.h" // cpu_to_be16
 #include "stdvga.h" // stdvga_planar4_plane
 
 
@@ -272,7 +273,7 @@ write_gfx_char_cga(struct vgamode_s *vmode_g
             for (j = 0; j < 8; j++)
                 if (fontline & (1<<j))
                     pixels |= (ca.attr & 0x03) << (j*2);
-            pixels = htons(pixels);
+            pixels = cpu_to_be16(pixels);
             if (ca.attr & 0x80)
                 pixels ^= GET_FARVAR(SEG_GRAPH, *(u16*)dest_far);
             SET_FARVAR(SEG_CTEXT, *(u16*)dest_far, pixels);

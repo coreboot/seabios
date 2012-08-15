@@ -6,7 +6,8 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_GLOBAL
-#include "util.h" // htonl
+#include "util.h" // dprintf
+#include "byteorder.h" // be32_to_cpu
 #include "disk.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "ata.h" // atapi_cmd_data
@@ -144,12 +145,12 @@ scsi_init_drive(struct drive_s *drive, const char *s, int prio)
     // READ CAPACITY returns the address of the last block.
     // We do not bother with READ CAPACITY(16) because BIOS does not support
     // 64-bit LBA anyway.
-    drive->blksize = ntohl(capdata.blksize);
+    drive->blksize = be32_to_cpu(capdata.blksize);
     if (drive->blksize != DISK_SECTOR_SIZE) {
         dprintf(1, "%s: unsupported block size %d\n", s, drive->blksize);
         return -1;
     }
-    drive->sectors = (u64)ntohl(capdata.sectors) + 1;
+    drive->sectors = (u64)be32_to_cpu(capdata.sectors) + 1;
     dprintf(1, "%s blksize=%d sectors=%d\n"
             , s, drive->blksize, (unsigned)drive->sectors);
 
@@ -243,7 +244,7 @@ cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
     cmd.command = CDB_CMD_MODE_SENSE;
     cmd.flags = 8; /* DBD */
     cmd.page = MODE_PAGE_HD_GEOMETRY;
-    cmd.count = htons(sizeof(*data));
+    cmd.count = cpu_to_be16(sizeof(*data));
     op->count = 1;
     op->buf_fl = data;
     return cdb_cmd_data(op, &cmd, sizeof(*data));
@@ -256,8 +257,8 @@ cdb_read(struct disk_op_s *op)
     struct cdb_rwdata_10 cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_READ_10;
-    cmd.lba = htonl(op->lba);
-    cmd.count = htons(op->count);
+    cmd.lba = cpu_to_be32(op->lba);
+    cmd.count = cpu_to_be16(op->count);
     return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
 }
 
@@ -268,7 +269,7 @@ cdb_write(struct disk_op_s *op)
     struct cdb_rwdata_10 cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_WRITE_10;
-    cmd.lba = htonl(op->lba);
-    cmd.count = htons(op->count);
+    cmd.lba = cpu_to_be32(op->lba);
+    cmd.count = cpu_to_be16(op->count);
     return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
 }

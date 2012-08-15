@@ -8,7 +8,8 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_COREBOOT
-#include "util.h" // ntoh[ls]
+#include "util.h" // dprintf
+#include "byteorder.h" // be32_to_cpu
 #include "ioport.h" // outw
 #include "paravirt.h" // qemu_cfg_port_probe
 #include "smbios.h" // struct smbios_structure_header
@@ -327,7 +328,7 @@ void qemu_cfg_romfile_setup(void)
 
     u32 count;
     qemu_cfg_read_entry(&count, QEMU_CFG_FILE_DIR, sizeof(count));
-    count = ntohl(count);
+    count = be32_to_cpu(count);
     u32 e;
     for (e = 0; e < count; e++) {
         struct QemuCfgFile qfile;
@@ -339,8 +340,8 @@ void qemu_cfg_romfile_setup(void)
         }
         memset(file, 0, sizeof(*file));
         strtcpy(file->name, qfile.name, sizeof(file->name));
-        file->size = ntohl(qfile.size);
-        file->id = ntohs(qfile.select);
+        file->size = be32_to_cpu(qfile.size);
+        file->id = be16_to_cpu(qfile.select);
         file->copy = qemu_cfg_read_file;
         romfile_add(file);
         dprintf(3, "Found fw_cfg file: %s (size=%d)\n", file->name, file->size);

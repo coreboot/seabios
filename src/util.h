@@ -104,36 +104,6 @@ static inline u32 __fls(u32 word)
     return word;
 }
 
-static inline u16 __htons_constant(u16 val) {
-    return (val<<8) | (val>>8);
-}
-static inline u32 __htonl_constant(u32 val) {
-    return (val<<24) | ((val&0xff00)<<8) | ((val&0xff0000)>>8) | (val>>24);
-}
-static inline u32 __htonl(u32 val) {
-    asm("bswapl %0" : "+r"(val));
-    return val;
-}
-#define htonl(x) (__builtin_constant_p((u32)(x)) ? __htonl_constant(x) : __htonl(x))
-#define ntohl(x) htonl(x)
-#define htons(x) __htons_constant(x)
-#define ntohs(x) htons(x)
-
-static inline u16 cpu_to_le16(u16 x)
-{
-    return x;
-}
-
-static inline u32 cpu_to_le32(u32 x)
-{
-    return x;
-}
-
-static inline u32 le32_to_cpu(u32 x)
-{
-    return x;
-}
-
 static inline u32 getesp(void) {
     u32 esp;
     asm("movl %%esp, %0" : "=rm"(esp));
