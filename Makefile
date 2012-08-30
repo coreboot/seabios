@@ -75,6 +75,7 @@ all: $(target-y)
 
 # Make definitions
 .PHONY : all clean distclean FORCE
+.DELETE_ON_ERROR:
 
 vpath %.c src vgasrc
 vpath %.S src vgasrc
