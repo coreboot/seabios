@@ -77,7 +77,7 @@ ASM16(
 
 int apic_id_is_present(u8 apic_id)
 {
-    return FoundAPICIDs[apic_id/32] & (1 << (apic_id % 32));
+    return !!(FoundAPICIDs[apic_id/32] & (1ul << (apic_id % 32)));
 }
 
 // find and initialize the CPUs by launching a SIPI to them
