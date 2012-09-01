@@ -106,6 +106,30 @@ static int legacyio_check(void)
     return ret;
 }
 
+static u32 framebuffer_size(void)
+{
+    u32 val;
+    union u64_u32_u msr;
+
+    /* We use the P2D_R0 msr to read out the number of pages.
+     * One page has a size of 4k
+     *
+     * Bit      Name    Description
+     * 39:20    PMAX    Physical Memory Address Max
+     * 19:0     PMIX    Physical Memory Address Min
+     *
+     */
+    msr = geode_msrRead(GLIU0_P2D_RO);
+
+    u32 pmax = ((msr.hi & 0xff) << 12) | ((msr.lo & 0xfff00000) >> 20);
+    u32 pmin = (msr.lo & 0x000fffff);
+    
+    val = pmax - pmin;
+    val += 1;
+
+    /* The page size is 4k */
+    return (val << 12);
+}
 
 /****************************************************************
 * Init Functions
@@ -140,6 +164,9 @@ static int dc_setup(void)
 
     geode_memWrite(dc_base + DC_UNLOCK, 0x0, DC_LOCK_LOCK);
 
+    u32 fb_size = framebuffer_size(); // in byte
+    dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, fb);
+    
     return 0;
 }
 
