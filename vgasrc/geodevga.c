@@ -166,6 +166,10 @@ static int dc_setup(void)
 
     u32 fb_size = framebuffer_size(); // in byte
     dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, fb);
+
+    /* update VBE variables */
+    SET_VGA(VBE_framebuffer, fb);
+    SET_VGA(VBE_total_memory, fb_size / 1024 / 64); // number of 64K blocks
     
     return 0;
 }
