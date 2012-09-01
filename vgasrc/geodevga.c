@@ -149,7 +149,7 @@ static u32 framebuffer_size(void)
 /* Set up the dc (display controller) portion of the geodelx
 *  The dc provides hardware support for VGA graphics.
 */
-static int dc_setup(void)
+static void dc_setup(void)
 {
     u32 dc_fb;
 
@@ -179,8 +179,6 @@ static int dc_setup(void)
     /* update VBE variables */
     SET_VGA(VBE_framebuffer, geode.fb);
     SET_VGA(VBE_total_memory, fb_size / 1024 / 64); // number of 64K blocks
-    
-    return 0;
 }
 
 /* Setup the vp (video processor) portion of the geodelx
@@ -189,7 +187,7 @@ static int dc_setup(void)
 *  The High Mem Access virtual register is used to  configure the
 *   pci mmio bar from 16bit friendly io space.
 */
-int vp_setup(void)
+static void vp_setup(void)
 {
     u32 reg;
 
@@ -216,8 +214,6 @@ int vp_setup(void)
     geode_memWrite(geode.vp + VP_DCFG, ~0,VP_CRT_EN+VP_HSYNC_EN+VP_VSYNC_EN+VP_DAC_BL_EN+VP_CRT_SKEW);
     reg = geode_memRead(geode.vp + VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
-
-    return 0;
 }
 
 static u8 geode_crtc_01[] VAR16 = {
@@ -315,8 +311,8 @@ int geodevga_init(void)
     dprintf(1, "dc addr: 0x%08x\n", geode.dc);
     dprintf(1, "vp addr: 0x%08x\n", geode.vp);
     
-    ret |= vp_setup();
-    ret |= dc_setup();
+    vp_setup();
+    dc_setup();
 
-    return ret;
+    return 0;
 }
