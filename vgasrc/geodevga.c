@@ -83,6 +83,17 @@ static void geode_memWrite(u32 addr, u32 and, u32 or )
     );
 }
 
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
+struct geode {
+    u32 fb;
+    u32 dc;
+    u32 vp;
+};
+struct geode geode VAR16;
+
 static int legacyio_check(void)
 {
     int ret=0;
@@ -140,35 +151,33 @@ static u32 framebuffer_size(void)
 */
 static int dc_setup(void)
 {
-    u32 fb, dc_fb, dc_base;
+    u32 dc_fb;
 
     dprintf(2, "DC_SETUP\n");
 
-    dc_base = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_2);
-    geode_memWrite(dc_base + DC_UNLOCK, 0x0, DC_LOCK_UNLOCK);
+    geode_memWrite(geode.dc + DC_UNLOCK, 0x0, DC_LOCK_UNLOCK);
 
     /* zero memory config */
-    geode_memWrite(dc_base + DC_FB_ST_OFFSET, 0x0, 0x0);
-    geode_memWrite(dc_base + DC_CB_ST_OFFSET, 0x0, 0x0);
-    geode_memWrite(dc_base + DC_CURS_ST_OFFSET, 0x0, 0x0);
+    geode_memWrite(geode.dc + DC_FB_ST_OFFSET, 0x0, 0x0);
+    geode_memWrite(geode.dc + DC_CB_ST_OFFSET, 0x0, 0x0);
+    geode_memWrite(geode.dc + DC_CURS_ST_OFFSET, 0x0, 0x0);
 
     /* read fb-bar from pci, then point dc to the fb base */
-    dc_fb = geode_memRead(dc_base + DC_GLIU0_MEM_OFFSET);
-    fb = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0);
-    if (fb!=dc_fb) {
-        geode_memWrite(dc_base + DC_GLIU0_MEM_OFFSET, 0x0, fb);
+    dc_fb = geode_memRead(geode.dc + DC_GLIU0_MEM_OFFSET);
+    if (geode.fb != dc_fb) {
+        geode_memWrite(geode.dc + DC_GLIU0_MEM_OFFSET, 0x0, geode.fb);
     }
 
-    geode_memWrite(dc_base + DC_DISPLAY_CFG, DC_CFG_MSK, DC_GDEN+DC_TRUP);
-    geode_memWrite(dc_base + DC_GENERAL_CFG, 0, DC_VGAE);
+    geode_memWrite(geode.dc + DC_DISPLAY_CFG, DC_CFG_MSK, DC_GDEN+DC_TRUP);
+    geode_memWrite(geode.dc + DC_GENERAL_CFG, 0, DC_VGAE);
 
-    geode_memWrite(dc_base + DC_UNLOCK, 0x0, DC_LOCK_LOCK);
+    geode_memWrite(geode.dc + DC_UNLOCK, 0x0, DC_LOCK_LOCK);
 
     u32 fb_size = framebuffer_size(); // in byte
-    dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, fb);
+    dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, geode.fb);
 
     /* update VBE variables */
-    SET_VGA(VBE_framebuffer, fb);
+    SET_VGA(VBE_framebuffer, geode.fb);
     SET_VGA(VBE_total_memory, fb_size / 1024 / 64); // number of 64K blocks
     
     return 0;
@@ -182,7 +191,7 @@ static int dc_setup(void)
 */
 int vp_setup(void)
 {
-    u32 reg,vp;
+    u32 reg;
 
     dprintf(2,"VP_SETUP\n");
     /* set output to crt and RGB/YUV */
@@ -191,24 +200,21 @@ int vp_setup(void)
     else
         geode_msrWrite(VP_MSR_CONFIG_LX, ~0, ~0xf8, 0, 0);
 
-    /* get vp register base from pci */
-    vp = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_3);
-
     /* Set mmio registers
     * there may be some timing issues here, the reads seem
     * to slow things down enough work reliably
     */
 
-    reg = geode_memRead(vp+VP_MISC);
+    reg = geode_memRead(geode.vp + VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
-    geode_memWrite(vp+VP_MISC,0,VP_BYP_BOTH);
-    reg = geode_memRead(vp+VP_MISC);
+    geode_memWrite(geode.vp + VP_MISC,0,VP_BYP_BOTH);
+    reg = geode_memRead(geode.vp + VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
 
-    reg = geode_memRead(vp+VP_DCFG);
+    reg = geode_memRead(geode.vp + VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
-    geode_memWrite(vp+VP_DCFG, ~0,VP_CRT_EN+VP_HSYNC_EN+VP_VSYNC_EN+VP_DAC_BL_EN+VP_CRT_SKEW);
-    reg = geode_memRead(vp+VP_DCFG);
+    geode_memWrite(geode.vp + VP_DCFG, ~0,VP_CRT_EN+VP_HSYNC_EN+VP_VSYNC_EN+VP_DAC_BL_EN+VP_CRT_SKEW);
+    reg = geode_memRead(geode.vp + VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
 
     return 0;
@@ -299,6 +305,16 @@ int geodevga_init(void)
     if (GET_GLOBAL(VgaBDF) < 0)
         // Device should be at 00:01.1
         SET_VGA(VgaBDF, pci_to_bdf(0, 1, 1));
+    
+    // setup geode struct which is used for register access
+    geode.fb = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0);
+    geode.dc = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_2);
+    geode.vp = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_3);
+    
+    dprintf(1, "fb addr: 0x%08x\n", geode.fb);
+    dprintf(1, "dc addr: 0x%08x\n", geode.dc);
+    dprintf(1, "vp addr: 0x%08x\n", geode.vp);
+    
     ret |= vp_setup();
     ret |= dc_setup();
 
