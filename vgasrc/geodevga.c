@@ -106,35 +106,6 @@ static int legacyio_check(void)
     return ret;
 }
 
-/****************************************************************
-* Extened CRTC Register functions
-****************************************************************/
-static void crtce_lock(void)
-{
-    stdvga_crtc_write(VGAREG_VGA_CRTC_ADDRESS, EXTENDED_REGISTER_LOCK
-                      , CRTCE_LOCK);
-}
-
-static void crtce_unlock(void)
-{
-    stdvga_crtc_write(VGAREG_VGA_CRTC_ADDRESS, EXTENDED_REGISTER_LOCK
-                      , CRTCE_UNLOCK);
-}
-
-static u8 crtce_read(u8 reg)
-{
-    crtce_unlock();
-    u8 val = stdvga_crtc_read(VGAREG_VGA_CRTC_ADDRESS, reg);
-    crtce_lock();
-    return val;
-}
-
-static void crtce_write(u8 reg, u8 val)
-{
-    crtce_unlock();
-    stdvga_crtc_write(VGAREG_VGA_CRTC_ADDRESS, reg, val);
-    crtce_lock();
-}
 
 /****************************************************************
 * Init Functions

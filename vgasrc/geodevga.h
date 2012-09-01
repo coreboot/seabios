@@ -13,13 +13,6 @@
 #define VRC_DATA                        0xAC1E  // Data register
 #define VR_UNLOCK                       0xFC53  // Virtual register unlock code
 
-#define EXTENDED_REGISTER_LOCK          0x30
-#define EXTENDED_MODE_CONTROL           0x43
-#define EXTENDED_START_ADDR             0x44
-
-#define CRTCE_UNLOCK                    0x4c
-#define CRTCE_LOCK                      0xff
-
 // Graphics-specific registers:
 #define OEM_BAR0                        0x50
 #define OEM_BAR1                        0x54
