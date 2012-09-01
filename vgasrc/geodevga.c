@@ -206,37 +206,33 @@ static void dc_unmap(void)
 ****************************************************************/
 
 /* Set up the dc (display controller) portion of the geodelx
-*  The dc provides hardware support for VGA graphics
-*  for features not accessible from the VGA registers,
-*  the dc's pci bar can be mapped to a vga memory segment
+*  The dc provides hardware support for VGA graphics.
 */
 static int dc_setup(void)
 {
-    u32 fb, dc_fb;
-    u16 seg;
+    u32 fb, dc_fb, dc_base;
 
     dprintf(2, "DC_SETUP\n");
 
-    seg = dc_map(SEG_GRAPH);
-    dc_unlock(seg);
+    dc_base = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_2);
+    geode_memWrite(dc_base + DC_UNLOCK, 0x0, DC_LOCK_UNLOCK);
 
     /* zero memory config */
-    dc_write(seg,DC_FB_ST_OFFSET,0x0);
-    dc_write(seg,DC_CB_ST_OFFSET,0x0);
-    dc_write(seg,DC_CURS_ST_OFFSET,0x0);
+    geode_memWrite(dc_base + DC_FB_ST_OFFSET, 0x0, 0x0);
+    geode_memWrite(dc_base + DC_CB_ST_OFFSET, 0x0, 0x0);
+    geode_memWrite(dc_base + DC_CURS_ST_OFFSET, 0x0, 0x0);
 
     /* read fb-bar from pci, then point dc to the fb base */
-    dc_fb = dc_read(seg,DC_GLIU0_MEM_OFFSET);
+    dc_fb = geode_memRead(dc_base + DC_GLIU0_MEM_OFFSET);
     fb = pci_config_readl(GET_GLOBAL(VgaBDF), PCI_BASE_ADDRESS_0);
     if (fb!=dc_fb) {
-        dc_write(seg,DC_GLIU0_MEM_OFFSET,fb);
+        geode_memWrite(dc_base + DC_GLIU0_MEM_OFFSET, 0x0, fb);
     }
 
-    dc_set(seg,DC_DISPLAY_CFG,DC_CFG_MSK,DC_GDEN+DC_TRUP);
-    dc_set(seg,DC_GENERAL_CFG,0,DC_VGAE);
+    geode_memWrite(dc_base + DC_DISPLAY_CFG, DC_CFG_MSK, DC_GDEN+DC_TRUP);
+    geode_memWrite(dc_base + DC_GENERAL_CFG, 0, DC_VGAE);
 
-    dc_lock(seg);
-    dc_unmap();
+    geode_memWrite(dc_base + DC_UNLOCK, 0x0, DC_LOCK_LOCK);
 
     return 0;
 }
