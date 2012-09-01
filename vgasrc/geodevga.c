@@ -94,6 +94,32 @@ struct geode {
 };
 struct geode geode VAR16;
 
+static u32 read_dc(int reg)
+{
+    u32 val = geode_memRead(geode.dc + reg);
+    dprintf(4, "%s(0x%08x) = 0x%08x\n", __func__, geode.dc + reg, val);
+    return val;
+}
+
+static u32 read_vp(int reg)
+{
+    u32 val = geode_memRead(geode.vp + reg);
+    dprintf(4, "%s(0x%08x) = 0x%08x\n", __func__, geode.vp + reg, val);
+    return val;
+}
+
+static void write_dc(int reg, u32 val)
+{
+    dprintf(4, "%s(0x%08x, 0x%08x)\n", __func__, geode.dc + reg, val);
+    geode_memWrite(geode.dc + reg, 0x0, val);
+}
+
+static void write_vp(int reg, u32 val)
+{
+    dprintf(4, "%s(0x%08x, 0x%08x)\n", __func__, geode.vp + reg, val);
+    geode_memWrite(geode.vp + reg, 0x0, val);
+}
+
 static int legacyio_check(void)
 {
     int ret=0;
@@ -155,23 +181,23 @@ static void dc_setup(void)
 
     dprintf(2, "DC_SETUP\n");
 
-    geode_memWrite(geode.dc + DC_UNLOCK, 0x0, DC_LOCK_UNLOCK);
+    write_dc(DC_UNLOCK, DC_LOCK_UNLOCK);
 
     /* zero memory config */
-    geode_memWrite(geode.dc + DC_FB_ST_OFFSET, 0x0, 0x0);
-    geode_memWrite(geode.dc + DC_CB_ST_OFFSET, 0x0, 0x0);
-    geode_memWrite(geode.dc + DC_CURS_ST_OFFSET, 0x0, 0x0);
+    write_dc(DC_FB_ST_OFFSET, 0x0);
+    write_dc(DC_CB_ST_OFFSET, 0x0);
+    write_dc(DC_CURS_ST_OFFSET, 0x0);
 
     /* read fb-bar from pci, then point dc to the fb base */
-    dc_fb = geode_memRead(geode.dc + DC_GLIU0_MEM_OFFSET);
+    dc_fb = read_dc(DC_GLIU0_MEM_OFFSET);
     if (geode.fb != dc_fb) {
-        geode_memWrite(geode.dc + DC_GLIU0_MEM_OFFSET, 0x0, geode.fb);
+        write_dc(DC_GLIU0_MEM_OFFSET, geode.fb);
     }
 
     geode_memWrite(geode.dc + DC_DISPLAY_CFG, DC_CFG_MSK, DC_GDEN+DC_TRUP);
-    geode_memWrite(geode.dc + DC_GENERAL_CFG, 0, DC_VGAE);
+    write_dc(DC_GENERAL_CFG, DC_VGAE);
 
-    geode_memWrite(geode.dc + DC_UNLOCK, 0x0, DC_LOCK_LOCK);
+    write_dc(DC_UNLOCK, DC_LOCK_LOCK);
 
     u32 fb_size = framebuffer_size(); // in byte
     dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, geode.fb);
@@ -203,16 +229,16 @@ static void vp_setup(void)
     * to slow things down enough work reliably
     */
 
-    reg = geode_memRead(geode.vp + VP_MISC);
+    reg = read_vp(VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
-    geode_memWrite(geode.vp + VP_MISC,0,VP_BYP_BOTH);
-    reg = geode_memRead(geode.vp + VP_MISC);
+    write_vp(VP_MISC, VP_BYP_BOTH);
+    reg = read_vp(VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
 
-    reg = geode_memRead(geode.vp + VP_DCFG);
+    reg = read_vp(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
     geode_memWrite(geode.vp + VP_DCFG, ~0,VP_CRT_EN+VP_HSYNC_EN+VP_VSYNC_EN+VP_DAC_BL_EN+VP_CRT_SKEW);
-    reg = geode_memRead(geode.vp + VP_DCFG);
+    reg = read_vp(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
 }
 
