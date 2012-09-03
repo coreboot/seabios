@@ -20,7 +20,7 @@
 * MSR and High Mem access through VSA Virtual Register
 ****************************************************************/
 
-static union u64_u32_u geode_msrRead(u32 msrAddr)
+static u64 geode_msr_read(u32 msrAddr)
 {
     union u64_u32_u val;
     asm __volatile__ (
@@ -33,11 +33,14 @@ static union u64_u32_u geode_msrRead(u32 msrAddr)
         : "c"(msrAddr)
         : "cc"
     );
-    return val;
+    return val.val;
 }
 
-static void geode_msrWrite(u32 msrAddr,u32 andhi, u32 andlo, u32 orhi, u32 orlo)
+static void geode_msr_mask(u32 msrAddr, u64 off, u64 on)
 {
+    union u64_u32_u uand, uor;
+    uand.val = ~off;
+    uor.val = on;
     asm __volatile__ (
         "push   %%eax                   \n"
         "movw   $0x0AC1C, %%dx          \n"
@@ -47,12 +50,12 @@ static void geode_msrWrite(u32 msrAddr,u32 andhi, u32 andlo, u32 orhi, u32 orlo)
         "pop    %%eax                   \n"
         "outw   %%ax, %%dx              \n"
         :
-        : "c"(msrAddr), "S" (andhi), "D" (andlo), "b" (orhi), "a" (orlo)
+        : "c"(msrAddr), "S" (uand.hi), "D" (uand.lo), "b" (uor.hi), "a" (uor.lo)
         : "%edx","cc"
     );
 }
 
-static u32 geode_memRead(u32 addr)
+static u32 geode_mem_read(u32 addr)
 {
     u32 val;
     asm __volatile__ (
@@ -69,7 +72,7 @@ static u32 geode_memRead(u32 addr)
     return val;
 }
 
-static void geode_memWrite(u32 addr, u32 and, u32 or )
+static void geode_mem_mask(u32 addr, u32 off, u32 or)
 {
     asm __volatile__ (
         "movw   $0x0AC1C, %%dx          \n"
@@ -78,7 +81,7 @@ static void geode_memWrite(u32 addr, u32 and, u32 or )
         "addb   $2, %%dl                \n"
         "outw   %%ax, %%dx              \n"
         :
-        : "b"(addr), "S" (and), "D" (or)
+        : "b"(addr), "S" (~off), "D" (or)
         : "%eax","cc"
     );
 }
@@ -94,50 +97,62 @@ struct geode {
 };
 struct geode geode VAR16;
 
-static u32 read_dc(int reg)
+static u32 geode_dc_read(int reg)
 {
-    u32 val = geode_memRead(geode.dc + reg);
+    u32 val = geode_mem_read(geode.dc + reg);
     dprintf(4, "%s(0x%08x) = 0x%08x\n", __func__, geode.dc + reg, val);
     return val;
 }
 
-static u32 read_vp(int reg)
+static void geode_dc_write(int reg, u32 val)
 {
-    u32 val = geode_memRead(geode.vp + reg);
+    dprintf(4, "%s(0x%08x, 0x%08x)\n", __func__, geode.dc + reg, val);
+    geode_mem_mask(geode.dc + reg, ~0, val);
+}
+
+static void geode_dc_mask(int reg, u32 off, u32 on)
+{
+    dprintf(4, "%s(0x%08x, 0x%08x, 0x%08x)\n", __func__, geode.dc + reg, off, on);
+    geode_mem_mask(geode.dc + reg, off, on);
+}
+
+static u32 geode_vp_read(int reg)
+{
+    u32 val = geode_mem_read(geode.vp + reg);
     dprintf(4, "%s(0x%08x) = 0x%08x\n", __func__, geode.vp + reg, val);
     return val;
 }
 
-static void write_dc(int reg, u32 val)
-{
-    dprintf(4, "%s(0x%08x, 0x%08x)\n", __func__, geode.dc + reg, val);
-    geode_memWrite(geode.dc + reg, 0x0, val);
-}
-
-static void write_vp(int reg, u32 val)
+static void geode_vp_write(int reg, u32 val)
 {
     dprintf(4, "%s(0x%08x, 0x%08x)\n", __func__, geode.vp + reg, val);
-    geode_memWrite(geode.vp + reg, 0x0, val);
+    geode_mem_mask(geode.vp + reg, ~0, val);
+}
+
+static void geode_vp_mask(int reg, u32 off, u32 on)
+{
+    dprintf(4, "%s(0x%08x, 0x%08x, 0x%08x)\n", __func__, geode.vp + reg, off, on);
+    geode_mem_mask(geode.vp + reg, off, on);
 }
 
 static int legacyio_check(void)
 {
     int ret=0;
-    union u64_u32_u val;
+    u64 val;
 
     if (CONFIG_VGA_GEODEGX2)
-        val=geode_msrRead(GLIU0_P2D_BM_4);
+        val = geode_msr_read(GLIU0_P2D_BM_4);
     else
-        val=geode_msrRead(MSR_GLIU0_BASE4);
-    if (val.lo != 0x0A0fffe0)
+        val = geode_msr_read(MSR_GLIU0_BASE4);
+    if ((val & 0xffffffff) != 0x0A0fffe0)
         ret|=1;
 
-    val=geode_msrRead(GLIU0_IOD_BM_0);
-    if (val.lo != 0x3c0ffff0)
+    val = geode_msr_read(GLIU0_IOD_BM_0);
+    if ((val & 0xffffffff) != 0x3c0ffff0)
         ret|=2;
 
-    val=geode_msrRead(GLIU0_IOD_BM_1);
-    if (val.lo != 0x3d0ffff0)
+    val = geode_msr_read(GLIU0_IOD_BM_1);
+    if ((val & 0xffffffff) != 0x3d0ffff0)
         ret|=4;
 
     return ret;
@@ -145,9 +160,6 @@ static int legacyio_check(void)
 
 static u32 framebuffer_size(void)
 {
-    u32 val;
-    union u64_u32_u msr;
-
     /* We use the P2D_R0 msr to read out the number of pages.
      * One page has a size of 4k
      *
@@ -156,12 +168,12 @@ static u32 framebuffer_size(void)
      * 19:0     PMIX    Physical Memory Address Min
      *
      */
-    msr = geode_msrRead(GLIU0_P2D_RO);
+    u64 msr = geode_msr_read(GLIU0_P2D_RO);
 
-    u32 pmax = ((msr.hi & 0xff) << 12) | ((msr.lo & 0xfff00000) >> 20);
-    u32 pmin = (msr.lo & 0x000fffff);
-    
-    val = pmax - pmin;
+    u32 pmax = (msr >> 20) & 0x000fffff;
+    u32 pmin = msr & 0x000fffff;
+
+    u32 val = pmax - pmin;
     val += 1;
 
     /* The page size is 4k */
@@ -177,27 +189,25 @@ static u32 framebuffer_size(void)
 */
 static void dc_setup(void)
 {
-    u32 dc_fb;
-
     dprintf(2, "DC_SETUP\n");
 
-    write_dc(DC_UNLOCK, DC_LOCK_UNLOCK);
+    geode_dc_write(DC_UNLOCK, DC_LOCK_UNLOCK);
 
     /* zero memory config */
-    write_dc(DC_FB_ST_OFFSET, 0x0);
-    write_dc(DC_CB_ST_OFFSET, 0x0);
-    write_dc(DC_CURS_ST_OFFSET, 0x0);
+    geode_dc_write(DC_FB_ST_OFFSET, 0x0);
+    geode_dc_write(DC_CB_ST_OFFSET, 0x0);
+    geode_dc_write(DC_CURS_ST_OFFSET, 0x0);
 
     /* read fb-bar from pci, then point dc to the fb base */
-    dc_fb = read_dc(DC_GLIU0_MEM_OFFSET);
+    u32 dc_fb = geode_dc_read(DC_GLIU0_MEM_OFFSET);
     if (geode.fb != dc_fb) {
-        write_dc(DC_GLIU0_MEM_OFFSET, geode.fb);
+        geode_dc_write(DC_GLIU0_MEM_OFFSET, geode.fb);
     }
 
-    geode_memWrite(geode.dc + DC_DISPLAY_CFG, DC_CFG_MSK, DC_GDEN+DC_TRUP);
-    write_dc(DC_GENERAL_CFG, DC_VGAE);
+    geode_dc_mask(DC_DISPLAY_CFG, ~DC_CFG_MSK, DC_GDEN|DC_TRUP);
+    geode_dc_write(DC_GENERAL_CFG, DC_VGAE);
 
-    write_dc(DC_UNLOCK, DC_LOCK_LOCK);
+    geode_dc_write(DC_UNLOCK, DC_LOCK_LOCK);
 
     u32 fb_size = framebuffer_size(); // in byte
     dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, geode.fb);
@@ -215,30 +225,28 @@ static void dc_setup(void)
 */
 static void vp_setup(void)
 {
-    u32 reg;
-
     dprintf(2,"VP_SETUP\n");
     /* set output to crt and RGB/YUV */
     if (CONFIG_VGA_GEODEGX2)
-        geode_msrWrite(VP_MSR_CONFIG_GX2, ~0, ~0xf8, 0, 0);
+        geode_msr_mask(VP_MSR_CONFIG_GX2, 0xf8, 0);
     else
-        geode_msrWrite(VP_MSR_CONFIG_LX, ~0, ~0xf8, 0, 0);
+        geode_msr_mask(VP_MSR_CONFIG_LX, 0xf8, 0);
 
     /* Set mmio registers
     * there may be some timing issues here, the reads seem
     * to slow things down enough work reliably
     */
 
-    reg = read_vp(VP_MISC);
+    u32 reg = geode_vp_read(VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
-    write_vp(VP_MISC, VP_BYP_BOTH);
-    reg = read_vp(VP_MISC);
+    geode_vp_write(VP_MISC, VP_BYP_BOTH);
+    reg = geode_vp_read(VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
 
-    reg = read_vp(VP_DCFG);
+    reg = geode_vp_read(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
-    geode_memWrite(geode.vp + VP_DCFG, ~0,VP_CRT_EN+VP_HSYNC_EN+VP_VSYNC_EN+VP_DAC_BL_EN+VP_CRT_SKEW);
-    reg = read_vp(VP_DCFG);
+    geode_vp_mask(VP_DCFG, 0, VP_CRT_EN|VP_HSYNC_EN|VP_VSYNC_EN|VP_DAC_BL_EN|VP_CRT_SKEW);
+    reg = geode_vp_read(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
 }
 
