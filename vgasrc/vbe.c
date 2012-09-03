@@ -74,7 +74,7 @@ vbe_104f01(struct bregs *regs)
 
     dprintf(1, "VBE mode info request: %x\n", mode);
 
-    struct vgamode_s *vmode_g = vgahw_find_mode(mode);
+    struct vgamode_s *vmode_g = vgahw_find_mode(mode & ~MF_VBEFLAGS);
     if (! vmode_g) {
         dprintf(1, "VBE mode %x not found\n", mode);
         regs->ax = 0x014f;
