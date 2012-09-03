@@ -11,7 +11,8 @@
 #include "util.h" // dprintf
 #include "jpeg.h" // splash
 #include "vbe.h" // struct vbe_info
-#include "bmp.h"
+#include "bmp.h" // bmp_alloc
+
 
 /****************************************************************
  * Helper functions
@@ -63,7 +64,7 @@ find_videomode(struct vbe_info *vesa_info, struct vbe_mode_info *mode_info
         struct bregs br;
         memset(&br, 0, sizeof(br));
         br.ax = 0x4f01;
-        br.cx = (1 << 14) | videomode;
+        br.cx = videomode;
         br.di = FLATPTR_TO_OFFSET(mode_info);
         br.es = FLATPTR_TO_SEG(mode_info);
         call16_int10(&br);
@@ -216,7 +217,7 @@ enable_bootsplash(void)
     dprintf(5, "Switching to graphics mode\n");
     memset(&br, 0, sizeof(br));
     br.ax = 0x4f02;
-    br.bx = (1 << 14) | videomode;
+    br.bx = videomode | VBE_MODE_LINEAR_FRAME_BUFFER;
     call16_int10(&br);
     if (br.ax != 0x4f) {
         dprintf(1, "set_mode failed.\n");
