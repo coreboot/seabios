@@ -364,6 +364,7 @@ bochsvga_init(void)
     SET_VGA(VBE_framebuffer, lfb_addr);
     u32 totalmem = dispi_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K) * 64 * 1024;
     SET_VGA(VBE_total_memory, totalmem);
+    SET_VGA(VBE_win_granularity, 64);
     SET_VGA(VBE_capabilities, VBE_CAPABILITY_8BIT_DAC);
 
     dprintf(1, "VBE DISPI: lfb_addr=%x, size %d MB\n",

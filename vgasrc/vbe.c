@@ -17,7 +17,7 @@
 u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;
 u32 VBE_framebuffer VAR16;
-u16 VBE_win_granularity VAR16 = 64;
+u16 VBE_win_granularity VAR16;
 
 static void
 vbe_104f00(struct bregs *regs)
@@ -91,12 +91,13 @@ vbe_104f01(struct bregs *regs)
     if (framebuffer)
         mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
     SET_FARVAR(seg, info->mode_attributes, mode_attr);
+    u32 win_granularity = GET_GLOBAL(VBE_win_granularity);
     SET_FARVAR(seg, info->winA_attributes,
-               VBE_WINDOW_ATTRIBUTE_RELOCATABLE |
+               (win_granularity ? VBE_WINDOW_ATTRIBUTE_RELOCATABLE : 0) |
                VBE_WINDOW_ATTRIBUTE_READABLE |
                VBE_WINDOW_ATTRIBUTE_WRITEABLE);
     SET_FARVAR(seg, info->winB_attributes, 0);
-    SET_FARVAR(seg, info->win_granularity, GET_GLOBAL(VBE_win_granularity));
+    SET_FARVAR(seg, info->win_granularity, win_granularity);
     SET_FARVAR(seg, info->win_size, 64); /* Bank size 64K */
     SET_FARVAR(seg, info->winA_seg, GET_GLOBAL(vmode_g->sstart));
     SET_FARVAR(seg, info->winB_seg, 0x0);
