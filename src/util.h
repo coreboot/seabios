@@ -282,6 +282,7 @@ void lpt_setup(void);
 // clock.c
 #define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
 #define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
+void pmtimer_init(u16 ioport, u32 khz);
 int check_tsc(u64 end);
 void timer_setup(void);
 void ndelay(u32 count);

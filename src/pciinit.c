@@ -180,6 +180,9 @@ static const struct pci_device_id pci_class_tbl[] = {
     PCI_DEVICE_END,
 };
 
+/* PM Timer ticks per second (HZ) */
+#define PM_TIMER_FREQUENCY  3579545
+
 /* PIIX4 Power Management device (for ACPI) */
 static void piix4_pm_init(struct pci_device *pci, void *arg)
 {
@@ -191,6 +194,8 @@ static void piix4_pm_init(struct pci_device *pci, void *arg)
     pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
     pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
     pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
+
+    pmtimer_init(PORT_ACPI_PM_BASE + 0x08, PM_TIMER_FREQUENCY / 1000);
 }
 
 static const struct pci_device_id pci_device_tbl[] = {

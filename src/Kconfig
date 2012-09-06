@@ -222,6 +222,12 @@ menu "Hardware support"
         default y
         help
             Initialize the Memory Type Range Registers (on emulators).
+    config PMTIMER
+        depends on !COREBOOT
+        bool "Use ACPI timer"
+        default y
+        help
+            Use the ACPI timer instead of the TSC for timekeeping (on qemu).
 endmenu
 
 menu "BIOS interfaces"

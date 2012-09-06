@@ -129,11 +129,42 @@ emulate_tsc(void)
     return ret;
 }
 
+u16 pmtimer_ioport VAR16VISIBLE;
+u32 pmtimer_wraps VARLOW;
+u32 pmtimer_last VARLOW;
+
+void pmtimer_init(u16 ioport, u32 khz)
+{
+    if (!CONFIG_PMTIMER)
+        return;
+    dprintf(1, "Using pmtimer, ioport 0x%x, freq %d kHz\n", ioport, khz);
+    SET_GLOBAL(pmtimer_ioport, ioport);
+    SET_GLOBAL(cpu_khz, khz);
+}
+
+static u64 pmtimer_get(void)
+{
+    u16 ioport = GET_GLOBAL(pmtimer_ioport);
+    u32 wraps = GET_LOW(pmtimer_wraps);
+    u32 pmtimer = inl(ioport) & 0xffffff;
+
+    if (pmtimer < GET_LOW(pmtimer_last)) {
+        wraps++;
+        SET_LOW(pmtimer_wraps, wraps);
+    }
+    SET_LOW(pmtimer_last, pmtimer);
+
+    dprintf(9, "pmtimer: %u:%u\n", wraps, pmtimer);
+    return (u64)wraps << 24 | pmtimer;
+}
+
 static u64
 get_tsc(void)
 {
     if (unlikely(GET_GLOBAL(no_tsc)))
         return emulate_tsc();
+    if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport))
+        return pmtimer_get();
     return rdtscll();
 }
 
