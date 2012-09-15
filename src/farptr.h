@@ -26,8 +26,8 @@ extern u16 __segment_FS, __segment_GS;
 #define READ64_SEG(prefix, SEG, value, var) do {                \
         union u64_u32_u __value;                                \
         union u64_u32_u *__r64_ptr = (union u64_u32_u *)&(var); \
-        READ32_SEG(prefix, SEG, __value.hi, __r64_ptr->hi);     \
         READ32_SEG(prefix, SEG, __value.lo, __r64_ptr->lo);     \
+        READ32_SEG(prefix, SEG, __value.hi, __r64_ptr->hi);     \
         *(u64*)&(value) = __value.val;                          \
     } while (0)
 #define WRITE8_SEG(prefix, SEG, var, value)                     \
@@ -44,8 +44,8 @@ extern u16 __segment_FS, __segment_GS;
         union u64_u32_u *__w64_ptr = (union u64_u32_u *)&(var); \
         typeof(var) __value_tmp = (value);                      \
         __value.val = *(u64*)&__value_tmp;                      \
-        WRITE32_SEG(prefix, SEG, __w64_ptr->hi, __value.hi);    \
         WRITE32_SEG(prefix, SEG, __w64_ptr->lo, __value.lo);    \
+        WRITE32_SEG(prefix, SEG, __w64_ptr->hi, __value.hi);    \
     } while (0)
 
 // Macros for automatically choosing the appropriate memory size

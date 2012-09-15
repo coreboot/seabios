@@ -17,8 +17,8 @@ static inline u32 __swab32(u32 val) {
 static inline u64 __swab64(u64 val) {
     union u64_u32_u i, o;
     i.val = val;
-    o.hi = __swab32(i.lo);
     o.lo = __swab32(i.hi);
+    o.hi = __swab32(i.lo);
     return o.val;
 }
 

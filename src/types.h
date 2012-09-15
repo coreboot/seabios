@@ -17,7 +17,7 @@ typedef signed long long s64;
 typedef u32 size_t;
 
 union u64_u32_u {
-    struct { u32 hi, lo; };
+    struct { u32 lo, hi; };
     u64 val;
 };
 
