@@ -206,8 +206,8 @@ static void dc_setup(void)
     if (geode_dc_read(DC_GLIU0_MEM_OFFSET) != fb)
         geode_dc_write(DC_GLIU0_MEM_OFFSET, fb);
 
-    geode_dc_mask(DC_DISPLAY_CFG, ~DC_CFG_MSK, DC_GDEN|DC_TRUP);
-    geode_dc_write(DC_GENERAL_CFG, DC_VGAE);
+    geode_dc_mask(DC_DISPLAY_CFG, ~DC_CFG_MSK, DC_DISPLAY_CFG_GDEN|DC_DISPLAY_CFG_TRUP);
+    geode_dc_write(DC_GENERAL_CFG, DC_DISPLAY_CFG_VGAE);
 
     geode_dc_write(DC_UNLOCK, DC_LOCK_LOCK);
 
@@ -241,13 +241,13 @@ static void vp_setup(void)
 
     u32 reg = geode_vp_read(VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
-    geode_vp_write(VP_MISC, VP_BYP_BOTH);
+    geode_vp_write(VP_MISC, VP_DCFG_BYP_BOTH);
     reg = geode_vp_read(VP_MISC);
     dprintf(1,"VP_SETUP VP_MISC=0x%08x\n",reg);
 
     reg = geode_vp_read(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
-    geode_vp_mask(VP_DCFG, 0, VP_CRT_EN|VP_HSYNC_EN|VP_VSYNC_EN|VP_DAC_BL_EN|VP_CRT_SKEW);
+    geode_vp_mask(VP_DCFG, 0, VP_DCFG_CRT_EN|VP_DCFG_HSYNC_EN|VP_DCFG_VSYNC_EN|VP_DCFG_DAC_BL_EN|VP_DCFG_CRT_SKEW);
     reg = geode_vp_read(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
 }

@@ -49,17 +49,17 @@
 
 
 /* DC bits */
-#define DC_VGAE                         (1 << 7)
-#define DC_GDEN                         (1 << 3)
-#define DC_TRUP                         (1 << 6)
+#define DC_DISPLAY_CFG_VGAE             (1 << 7)
+#define DC_DISPLAY_CFG_GDEN             (1 << 3)
+#define DC_DISPLAY_CFG_TRUP             (1 << 6)
 
 /* VP bits */
-#define VP_CRT_EN                       (1 << 0)
-#define VP_HSYNC_EN                     (1 << 1)
-#define VP_VSYNC_EN                     (1 << 2)
-#define VP_DAC_BL_EN                    (1 << 3)
-#define VP_CRT_SKEW                     (1 << 16)
-#define VP_BYP_BOTH                     (1 << 0)
+#define VP_DCFG_CRT_EN                  (1 << 0)
+#define VP_DCFG_HSYNC_EN                (1 << 1)
+#define VP_DCFG_VSYNC_EN                (1 << 2)
+#define VP_DCFG_DAC_BL_EN               (1 << 3)
+#define VP_DCFG_CRT_SKEW                (1 << 16)
+#define VP_DCFG_BYP_BOTH                (1 << 0)
 
 /* Mask */
 #define DC_CFG_MSK                      0xf000a6
