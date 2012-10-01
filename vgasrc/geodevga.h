@@ -47,6 +47,11 @@
 #define VP_DCFG                         0x8
 #define VP_MISC                         0x50
 
+/* FP REG OFFSET */
+#define FP_PT1                          0x00
+#define FP_PT2                          0x08
+#define FP_PM                           0x10
+
 
 /* DC bits */
 #define DC_DISPLAY_CFG_VGAE             (1 << 7)
@@ -60,6 +65,10 @@
 #define VP_DCFG_DAC_BL_EN               (1 << 3)
 #define VP_DCFG_CRT_SKEW                (1 << 16)
 #define VP_DCFG_BYP_BOTH                (1 << 0)
+
+/* FP bits */
+#define FP_PM_P                         (1 << 24)       /* panel power ctl */
+#define FP_PT2_SCRC                     (1 << 27)       /* panel shift clock retrace activity ctl  */
 
 /* Mask */
 #define DC_CFG_MSK                      0xf000a6
