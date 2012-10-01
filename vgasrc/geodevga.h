@@ -33,6 +33,13 @@
 #define VP_MSR_CONFIG_GX2               0xc0002001  /* GX2 */
 #define VP_MSR_CONFIG_LX                0x48002001  /* LX */
 
+/* VP_MSR_CONFIG bits */
+#define VP_MSR_CONFIG_FMT_CRT           (0)
+#define VP_MSR_CONFIG_FMT_FP            (1 << 3)
+#define VP_MSR_CONFIG_FPC               (1 << 15)
+#define VP_MSR_CONFIG_FMT               ((1 << 3) | (1 << 4) | (1 << 5))
+
+
 /* DC REG OFFSET */
 #define DC_UNLOCK                       0x0
 #define DC_GENERAL_CFG                  0x4
