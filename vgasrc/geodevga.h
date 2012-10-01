@@ -32,6 +32,10 @@
 #define DC_SPARE                        0x80000011
 #define VP_MSR_CONFIG_GX2               0xc0002001  /* GX2 */
 #define VP_MSR_CONFIG_LX                0x48002001  /* LX */
+#define VP_MSR_PADSEL                   0x48002011
+
+#define VP_MSR_PADSEL_TFT_SEL_LOW       0xDFFFFFFF
+#define VP_MSR_PADSEL_TFT_SEL_HIGH      0x0000003F
 
 /* VP_MSR_CONFIG bits */
 #define VP_MSR_CONFIG_FMT_CRT           (0)
