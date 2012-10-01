@@ -292,6 +292,25 @@ static void vp_setup(void)
     geode_vp_mask(VP_DCFG, 0, VP_DCFG_CRT_EN|VP_DCFG_HSYNC_EN|VP_DCFG_VSYNC_EN|VP_DCFG_DAC_BL_EN|VP_DCFG_CRT_SKEW);
     reg = geode_vp_read(VP_DCFG);
     dprintf(1,"VP_SETUP VP_DCFG=0x%08x\n",reg);
+
+    /* setup flat panel */
+    if (CONFIG_VGA_OUTPUT_PANEL || CONFIG_VGA_OUTPUT_CRT_PANEL) {
+        dprintf(1, "Setting up flat panel\n");
+        /* write timing register */
+        geode_fp_write(FP_PT1, 0x0);
+        geode_fp_write(FP_PT2, FP_PT2_SCRC);
+
+        /* set pad select for TFT/LVDS */
+        msr  = VP_MSR_PADSEL_TFT_SEL_HIGH;
+        msr  = msr << 32;
+        msr |= VP_MSR_PADSEL_TFT_SEL_LOW;
+        geode_msr_mask(VP_MSR_PADSEL, ~msr, msr);
+
+        /* turn the panel on (if it isn't already) */
+        reg = geode_fp_read(FP_PM);
+        reg |= FP_PM_P;
+        geode_fp_write(FP_PM, reg);
+    }
 }
 
 static u8 geode_crtc_01[] VAR16 = {
