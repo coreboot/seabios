@@ -43,6 +43,27 @@ menu "VGA ROM"
                 Build support for Geode LX vga.
     endchoice
 
+    choice
+        depends on VGA_GEODEGX2 || VGA_GEODELX
+        prompt "Output Mode"
+        default VGA_OUTPUT_CRT
+
+        config VGA_OUTPUT_CRT
+            bool "CRT"
+            help
+                Use CRT for output.
+
+        config VGA_OUTPUT_PANEL
+            bool "Flat Panel"
+            help
+                Use flat panel for output.
+
+        config VGA_OUTPUT_CRT_PANEL
+            bool "CRT and Flat Panel"
+            help
+                Use CRT and flat panel for output.
+    endchoice
+
     config BUILD_VGABIOS
         bool
         default !NO_VGABIOS
