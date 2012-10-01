@@ -86,6 +86,8 @@ static void geode_mem_mask(u32 addr, u32 off, u32 or)
     );
 }
 
+#define VP_FP_START     0x400
+
 static u32 GeodeFB VAR16;
 static u32 GeodeDC VAR16;
 static u32 GeodeVP VAR16;
@@ -132,6 +134,21 @@ static void geode_vp_mask(int reg, u32 off, u32 on)
     dprintf(4, "%s(0x%08x, 0x%08x, 0x%08x)\n"
             , __func__, GET_GLOBAL(GeodeVP) + reg, off, on);
     geode_mem_mask(GET_GLOBAL(GeodeVP) + reg, off, on);
+}
+
+static u32 geode_fp_read(int reg)
+{
+    u32 val = geode_mem_read(GET_GLOBAL(GeodeVP) + VP_FP_START + reg);
+    dprintf(4, "%s(0x%08x) = 0x%08x\n"
+            , __func__, GET_GLOBAL(GeodeVP) + reg, val);
+    return val;
+}
+
+static void geode_fp_write(int reg, u32 val)
+{
+    dprintf(4, "%s(0x%08x, 0x%08x)\n"
+            , __func__, GET_GLOBAL(GeodeVP) + VP_FP_START + reg, val);
+    geode_mem_mask(GET_GLOBAL(GeodeVP) + reg, ~0, val);
 }
 
 /****************************************************************
