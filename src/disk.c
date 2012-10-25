@@ -615,7 +615,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         u8 sum = checksum_far(SEG_LOW, &DefaultDPTE, 15);
         SET_LOW(DefaultDPTE.checksum, -sum);
     } else {
-        SET_FARVAR(seg, param_far->dpte.segoff, 0);
+        SET_FARVAR(seg, param_far->dpte.segoff, 0xffffffff);
         bdf = GET_GLOBAL(drive_g->cntl_id);
     }
 
