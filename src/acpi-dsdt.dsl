@@ -559,7 +559,6 @@ DefinitionBlock (
                     PCNT(Local0, 3)
                 }
             }
-            Return(One)
         }
 
     }
@@ -729,7 +728,6 @@ DefinitionBlock (
                 }
                 Increment(Local0)
             }
-            Return(One)
         }
     }
 
@@ -743,54 +741,40 @@ DefinitionBlock (
         Name(_HID, "ACPI0006")
 
         Method(_L00) {
-            Return(0x01)
         }
         Method(_E01) {
             // PCI hotplug event
-            Return(\_SB.PCI0.PCNF())
+            \_SB.PCI0.PCNF()
         }
         Method(_E02) {
             // CPU hotplug event
-            Return(\_SB.PRSC())
+            \_SB.PRSC()
         }
         Method(_L03) {
-            Return(0x01)
         }
         Method(_L04) {
-            Return(0x01)
         }
         Method(_L05) {
-            Return(0x01)
         }
         Method(_L06) {
-            Return(0x01)
         }
         Method(_L07) {
-            Return(0x01)
         }
         Method(_L08) {
-            Return(0x01)
         }
         Method(_L09) {
-            Return(0x01)
         }
         Method(_L0A) {
-            Return(0x01)
         }
         Method(_L0B) {
-            Return(0x01)
         }
         Method(_L0C) {
-            Return(0x01)
         }
         Method(_L0D) {
-            Return(0x01)
         }
         Method(_L0E) {
-            Return(0x01)
         }
         Method(_L0F) {
-            Return(0x01)
         }
     }
 }
