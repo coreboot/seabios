@@ -4,14 +4,24 @@ mainmenu "SeaBIOS Configuration"
 
 menu "General Features"
 
+choice
+    prompt "Build Target"
+    default QEMU
+
     config COREBOOT
         bool "Build for coreboot"
-        default n
         help
             Configure as a coreboot payload.
 
+    config QEMU
+        bool "Build for QEMU"
+        help
+            Configure as QEMU bios.
+
+endchoice
+
     config XEN
-        depends on !COREBOOT
+        depends on QEMU
         bool "Build for Xen HVM"
         default y
         help
@@ -108,25 +118,25 @@ menu "Hardware support"
         help
             Support for AHCI disk code.
     config VIRTIO_BLK
-        depends on DRIVES && !COREBOOT
+        depends on DRIVES && QEMU
         bool "virtio-blk controllers"
         default y
         help
             Support boot from virtio-blk storage.
     config VIRTIO_SCSI
-        depends on DRIVES && !COREBOOT
+        depends on DRIVES && QEMU
         bool "virtio-scsi controllers"
         default y
         help
             Support boot from virtio-scsi storage.
     config ESP_SCSI
-        depends on DRIVES && !COREBOOT
+        depends on DRIVES && QEMU
         bool "AMD PCscsi controllers"
         default y
         help
             Support boot from AMD PCscsi storage.
     config LSI_SCSI
-        depends on DRIVES && !COREBOOT
+        depends on DRIVES && QEMU
         bool "lsi53c895a scsi controllers"
         default y
         help
@@ -211,19 +221,19 @@ menu "Hardware support"
             Support parallel ports. This also enables int 17 parallel port calls.
 
     config USE_SMM
-        depends on !COREBOOT
+        depends on QEMU
         bool "System Management Mode (SMM)"
         default y
         help
             Support System Management Mode (on emulators).
     config MTRR_INIT
-        depends on !COREBOOT
+        depends on QEMU
         bool "Initialize MTRRs"
         default y
         help
             Initialize the Memory Type Range Registers (on emulators).
     config PMTIMER
-        depends on !COREBOOT
+        depends on QEMU
         bool "Use ACPI timer"
         default y
         help
@@ -327,7 +337,7 @@ menu "BIOS interfaces"
 endmenu
 
 menu "BIOS Tables"
-    depends on !COREBOOT
+    depends on QEMU
     config PIRTABLE
         bool "PIR table"
         default y
@@ -377,7 +387,7 @@ menu "Debugging"
             Base port for serial - generally 0x3f8, 0x2f8, 0x3e8, or 0x2e8.
 
     config DEBUG_IO
-        depends on !COREBOOT && DEBUG_LEVEL != 0
+        depends on QEMU && DEBUG_LEVEL != 0
         bool "Special IO port debugging"
         default y
         help
