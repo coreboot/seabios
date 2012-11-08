@@ -269,15 +269,11 @@ DefinitionBlock (
                     Return (0x0F)
             }
             Name(_CRS, ResourceTemplate() {
-                DWordMemory(
-                    ResourceConsumer, PosDecode, MinFixed, MaxFixed,
-                    NonCacheable, ReadWrite,
-                    0x00000000,
-                    0xFED00000,
-                    0xFED003FF,
-                    0x00000000,
-                    0x00000400 /* 1K memory: FED00000 - FED003FF */
-                )
+                IRQNoFlags () {2, 8}
+                Memory32Fixed (ReadOnly,
+                    0xFED00000,         // Address Base
+                    0x00000400,         // Address Length
+                    )
             })
         }
     }
