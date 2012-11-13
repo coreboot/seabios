@@ -235,6 +235,7 @@ struct drive_s {
 #define DTYPE_UAS          0x0b
 #define DTYPE_LSI_SCSI     0x0c
 #define DTYPE_ESP_SCSI     0x0d
+#define DTYPE_MEGASAS      0x0e
 
 #define MAXDESCSIZE 80
 

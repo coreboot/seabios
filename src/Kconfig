@@ -141,6 +141,12 @@ menu "Hardware support"
         default y
         help
             Support boot from qemu-emulated lsi53c895a scsi storage.
+    config MEGASAS
+        depends on DRIVES
+        bool "LSI MegaRAID SAS controllers"
+        default y
+        help
+            Support boot from LSI MegaRAID SAS scsi storage.
     config FLOPPY
         depends on DRIVES
         bool "Floppy controller"
