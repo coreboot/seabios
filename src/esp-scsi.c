@@ -202,6 +202,8 @@ init_esp_scsi(struct pci_device *pci)
             pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
             pci_bdf_to_fn(bdf), iobase);
 
+    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+
     // reset
     outb(ESP_CMD_RESET, iobase + ESP_CMD);
 
