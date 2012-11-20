@@ -177,6 +177,8 @@ init_lsi_scsi(struct pci_device *pci)
     u32 iobase = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
         & PCI_BASE_ADDRESS_IO_MASK;
 
+    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+
     dprintf(1, "found lsi53c895a at %02x:%02x.%x, io @ %x\n",
             pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
             pci_bdf_to_fn(bdf), iobase);
