@@ -119,16 +119,6 @@ static void piix_isa_bridge_init(struct pci_device *pci, void *arg)
     dprintf(1, "PIIX3/PIIX4 init: elcr=%02x %02x\n", elcr[0], elcr[1]);
 }
 
-static const struct pci_device_id pci_isa_bridge_tbl[] = {
-    /* PIIX3/PIIX4 PCI to ISA bridge */
-    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_0,
-               piix_isa_bridge_init),
-    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_0,
-               piix_isa_bridge_init),
-
-    PCI_DEVICE_END
-};
-
 static void storage_ide_init(struct pci_device *pci, void *arg)
 {
     /* IDE: we map it as in ISA mode */
@@ -158,28 +148,6 @@ static void apple_macio_init(struct pci_device *pci, void *arg)
     pci_set_io_region_addr(pci, 0, 0x80800000, 0);
 }
 
-static const struct pci_device_id pci_class_tbl[] = {
-    /* STORAGE IDE */
-    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_1,
-                     PCI_CLASS_STORAGE_IDE, piix_ide_init),
-    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB,
-                     PCI_CLASS_STORAGE_IDE, piix_ide_init),
-    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE,
-                     storage_ide_init),
-
-    /* PIC, IBM, MIPC & MPIC2 */
-    PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0x0046, PCI_CLASS_SYSTEM_PIC,
-                     pic_ibm_init),
-    PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0xFFFF, PCI_CLASS_SYSTEM_PIC,
-                     pic_ibm_init),
-
-    /* 0xff00 */
-    PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0017, 0xff00, apple_macio_init),
-    PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0022, 0xff00, apple_macio_init),
-
-    PCI_DEVICE_END,
-};
-
 /* PM Timer ticks per second (HZ) */
 #define PM_TIMER_FREQUENCY  3579545
 
@@ -199,9 +167,33 @@ static void piix4_pm_init(struct pci_device *pci, void *arg)
 }
 
 static const struct pci_device_id pci_device_tbl[] = {
+    /* PIIX3/PIIX4 PCI to ISA bridge */
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_0,
+               piix_isa_bridge_init),
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_0,
+               piix_isa_bridge_init),
+
+    /* STORAGE IDE */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_1,
+                     PCI_CLASS_STORAGE_IDE, piix_ide_init),
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB,
+                     PCI_CLASS_STORAGE_IDE, piix_ide_init),
+    PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE,
+                     storage_ide_init),
+
+    /* PIC, IBM, MIPC & MPIC2 */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0x0046, PCI_CLASS_SYSTEM_PIC,
+                     pic_ibm_init),
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0xFFFF, PCI_CLASS_SYSTEM_PIC,
+                     pic_ibm_init),
+
     /* PIIX4 Power Management device (for ACPI) */
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
                piix4_pm_init),
+
+    /* 0xff00 */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0017, 0xff00, apple_macio_init),
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0022, 0xff00, apple_macio_init),
 
     PCI_DEVICE_END,
 };
@@ -213,17 +205,15 @@ static void pci_bios_init_device(struct pci_device *pci)
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , pci->vendor, pci->device);
 
-    pci_init_device(pci_class_tbl, pci, NULL);
-
-    /* enable memory mappings */
-    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
-
     /* map the interrupt */
     int pin = pci_config_readb(bdf, PCI_INTERRUPT_PIN);
     if (pin != 0)
         pci_config_writeb(bdf, PCI_INTERRUPT_LINE, pci_slot_get_irq(pci, pin));
 
     pci_init_device(pci_device_tbl, pci, NULL);
+
+    /* enable memory mappings */
+    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
 }
 
 static void pci_bios_init_devices(void)
@@ -231,10 +221,6 @@ static void pci_bios_init_devices(void)
     struct pci_device *pci;
     foreachpci(pci) {
         pci_bios_init_device(pci);
-    }
-
-    foreachpci(pci) {
-        pci_init_device(pci_isa_bridge_tbl, pci, NULL);
     }
 }
 
