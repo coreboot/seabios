@@ -73,8 +73,6 @@ init_ivt(void)
     // set vector 0x79 to zero
     // this is used by 'gardian angel' protection system
     SET_IVT(0x79, SEGOFF(0, 0));
-
-    SET_IVT(0x1E, SEGOFF(SEG_BIOS, (u32)&diskette_param_table2 - BUILD_BIOS_ADDR));
 }
 
 static void

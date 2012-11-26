@@ -47,22 +47,7 @@ struct floppy_ext_dbt_s diskette_param_table2 VAR16VISIBLE = {
     .drive_type     = 4,    // drive type in cmos
 };
 
-// Since no provisions are made for multiple drive types, most
-// values in this table are ignored.  I set parameters for 1.44M
-// floppy here
-struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7) = {
-    .specify1       = 0xAF,
-    .specify2       = 0x02,
-    .shutoff_ticks  = FLOPPY_MOTOR_TICKS,
-    .bps_code       = FLOPPY_SIZE_CODE,
-    .sectors        = 18,
-    .interblock_len = FLOPPY_GAPLEN,
-    .data_len       = FLOPPY_DATALEN,
-    .gap_len        = FLOPPY_FORMAT_GAPLEN,
-    .fill_byte      = FLOPPY_FILLBYTE,
-    .settle_time    = 0x0F,
-    .startup_time   = 0x08,
-};
+struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7);
 
 struct floppyinfo_s {
     struct chs_s chs;
@@ -131,6 +116,11 @@ addFloppy(int floppyid, int ftype)
 void
 floppy_setup(void)
 {
+    memcpy(&diskette_param_table, &diskette_param_table2
+           , sizeof(diskette_param_table));
+    SET_IVT(0x1E, SEGOFF(SEG_BIOS
+                         , (u32)&diskette_param_table2 - BUILD_BIOS_ADDR));
+
     if (! CONFIG_FLOPPY)
         return;
     dprintf(3, "init floppy drives\n");
