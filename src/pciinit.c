@@ -226,6 +226,33 @@ static void pci_bios_init_devices(void)
 
 
 /****************************************************************
+ * Platform device initialization
+ ****************************************************************/
+
+void i440fx_mem_addr_init(struct pci_device *dev, void *arg)
+{
+    if (RamSize <= 0x80000000)
+        pcimem_start = 0x80000000;
+    else if (RamSize <= 0xc0000000)
+        pcimem_start = 0xc0000000;
+}
+
+static const struct pci_device_id pci_platform_tbl[] = {
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
+               i440fx_mem_addr_init),
+    PCI_DEVICE_END
+};
+
+static void pci_bios_init_platform(void)
+{
+    struct pci_device *pci;
+    foreachpci(pci) {
+        pci_init_device(pci_platform_tbl, pci, NULL);
+    }
+}
+
+
+/****************************************************************
  * Bus initialization
  ****************************************************************/
 
@@ -583,8 +610,6 @@ static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
-    pcimem_start = RamSize;
-
     if (pci_bios_init_root_regions(busses)) {
         struct pci_region r64_mem, r64_pref;
         r64_mem.list = NULL;
@@ -646,6 +671,9 @@ pci_setup(void)
 
     dprintf(1, "=== PCI device probing ===\n");
     pci_probe_devices();
+
+    pcimem_start = RamSize;
+    pci_bios_init_platform();
 
     dprintf(1, "=== PCI new allocation pass #1 ===\n");
     struct pci_bus *busses = malloc_tmp(sizeof(*busses) * (MaxPCIBus + 1));
