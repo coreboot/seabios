@@ -11,6 +11,7 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "xen.h" // usingXen
+#include "dev-q35.h" // PCI_VENDOR_ID_INTEL
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
 #define BIOS_SRC_OFFSET 0xfff00000
@@ -101,9 +102,16 @@ static void i440fx_bios_make_readonly(struct pci_device *pci, void *arg)
     make_bios_readonly_intel(pci->bdf, I440FX_PAM0);
 }
 
+void mch_bios_make_readonly(struct pci_device *pci, void *arg)
+{
+    make_bios_readonly_intel(pci->bdf, Q35_HOST_BRIDGE_PAM0);
+}
+
 static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82441,
                i440fx_bios_make_readonly),
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_Q35_MCH,
+               mch_bios_make_readonly),
     PCI_DEVICE_END
 };
 
@@ -125,6 +133,11 @@ make_bios_writable(void)
         if (vendor == PCI_VENDOR_ID_INTEL
             && device == PCI_DEVICE_ID_INTEL_82441) {
             make_bios_writable_intel(bdf, I440FX_PAM0);
+            return;
+        }
+        if (vendor == PCI_VENDOR_ID_INTEL
+            && device == PCI_DEVICE_ID_INTEL_Q35_MCH) {
+            make_bios_writable_intel(bdf, Q35_HOST_BRIDGE_PAM0);
             return;
         }
     }

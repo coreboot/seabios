@@ -13,6 +13,7 @@
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "ioport.h" // inl
 #include "paravirt.h" // qemu_cfg_irq0_override
+#include "dev-q35.h" // qemu_cfg_irq0_override
 
 /****************************************************/
 /* ACPI tables init */
@@ -260,11 +261,38 @@ static void piix4_fadt_init(struct pci_device *pci, void *arg)
                               (1 << 15));
 }
 
+/* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
+void ich9_lpc_fadt_init(struct pci_device *dev, void *arg)
+{
+    struct fadt_descriptor_rev1 *fadt = arg;
+
+    fadt->model = 1;
+    fadt->reserved1 = 0;
+    fadt->sci_int = cpu_to_le16(9);
+    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
+    fadt->acpi_enable = ICH9_ACPI_ENABLE;
+    fadt->acpi_disable = ICH9_ACPI_DISABLE;
+    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
+    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
+    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
+    fadt->gpe0_blk = cpu_to_le32(PORT_ACPI_PM_BASE + ICH9_PMIO_GPE0_STS);
+    fadt->pm1_evt_len = 4;
+    fadt->pm1_cnt_len = 2;
+    fadt->pm_tmr_len = 4;
+    fadt->gpe0_blk_len = ICH9_PMIO_GPE0_BLK_LEN;
+    fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
+    fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
+    /* WBINVD + PROC_C1 + SLP_BUTTON + FIX_RTC + RTC_S4 */
+    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 6) |
+                              (1 << 7));
+}
+
 static const struct pci_device_id fadt_init_tbl[] = {
     /* PIIX4 Power Management device (for ACPI) */
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
                piix4_fadt_init),
-
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC,
+               ich9_lpc_fadt_init),
     PCI_DEVICE_END
 };
 
@@ -739,7 +767,7 @@ build_srat(void)
 static const struct pci_device_id acpi_find_tbl[] = {
     /* PIIX4 Power Management device. */
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3, NULL),
-
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC, NULL),
     PCI_DEVICE_END,
 };
 

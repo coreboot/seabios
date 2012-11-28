@@ -11,6 +11,7 @@
 #include "ioport.h" // outb
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "xen.h" // usingXen
+#include "dev-q35.h"
 
 ASM32FLAT(
     ".global smm_relocation_start\n"
@@ -137,9 +138,45 @@ static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
     pci_config_writeb(i440_pci->bdf, I440FX_SMRAM, 0x02 | 0x08);
 }
 
+/* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
+void ich9_lpc_apmc_smm_init(struct pci_device *dev, void *arg)
+{
+    struct pci_device *mch_dev;
+    int mch_bdf;
+
+    // This code is hardcoded for Q35 Power Management device.
+    mch_dev = pci_find_device(PCI_VENDOR_ID_INTEL,
+                              PCI_DEVICE_ID_INTEL_Q35_MCH);
+    mch_bdf = mch_dev->bdf;
+
+    if (mch_bdf < 0)
+        return;
+
+    /* check if SMM init is already done */
+    u32 value = inl(PORT_ACPI_PM_BASE + ICH9_PMIO_SMI_EN);
+    if (value & ICH9_PMIO_SMI_EN_APMC_EN)
+        return;
+
+    /* enable the SMM memory window */
+    pci_config_writeb(mch_bdf, Q35_HOST_BRIDGE_SMRAM, 0x02 | 0x48);
+
+    smm_save_and_copy();
+
+    /* enable SMI generation when writing to the APMC register */
+    outl(value | ICH9_PMIO_SMI_EN_APMC_EN,
+         PORT_ACPI_PM_BASE + ICH9_PMIO_SMI_EN);
+
+    smm_relocate_and_restore();
+
+    /* close the SMM memory window and enable normal SMM */
+    pci_config_writeb(mch_bdf, Q35_HOST_BRIDGE_SMRAM, 0x02 | 0x08);
+}
+
 static const struct pci_device_id smm_init_tbl[] = {
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
                piix4_apmc_smm_init),
+    PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC,
+               ich9_lpc_apmc_smm_init),
 
     PCI_DEVICE_END,
 };
