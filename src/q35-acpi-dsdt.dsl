@@ -161,19 +161,10 @@ DefinitionBlock (
 #define prt_slot_lnkH(nr) prt_slot_lnk(nr, LNKH, LNKE, LNKF, LNKG)
 
 #define prt_slot_gsi(nr, gsi0, gsi1, gsi2, gsi3) \
-       Package() { nr##ffff, 0, 0, gsi0 },       \
-       Package() { nr##ffff, 1, 0, gsi1 },       \
-       Package() { nr##ffff, 2, 0, gsi2 },       \
-       Package() { nr##ffff, 3, 0, gsi3 }
-
-#define GSIA    0x10
-#define GSIB    0x11
-#define GSIC    0x12
-#define GSID    0x13
-#define GSIE    0x14
-#define GSIF    0x15
-#define GSIG    0x16
-#define GSIH    0x17
+       Package() { nr##ffff, 0, gsi0, 0 },       \
+       Package() { nr##ffff, 1, gsi1, 0 },       \
+       Package() { nr##ffff, 2, gsi2, 0 },       \
+       Package() { nr##ffff, 3, gsi3, 0 }
 
 #define prt_slot_gsiA(nr) prt_slot_gsi(nr, GSIA, GSIB, GSIC, GSID)
 #define prt_slot_gsiB(nr) prt_slot_gsi(nr, GSIB, GSIC, GSID, GSIA)
@@ -699,6 +690,35 @@ DefinitionBlock (
         define_link(LNKF, 5, \_SB.PCI0.LPC.PRQF)
         define_link(LNKG, 6, \_SB.PCI0.LPC.PRQG)
         define_link(LNKH, 7, \_SB.PCI0.LPC.PRQH)
+
+#define define_gsi_link(link, uid, gsi)                 \
+        Device(link){                                   \
+                Name(_HID, EISAID("PNP0C0F"))           \
+                Name(_UID, uid)                         \
+                Name(_PRS, ResourceTemplate() {         \
+                    Interrupt (, Level, ActiveHigh,     \
+                               Shared)                  \
+                        { gsi }                         \
+                })                                      \
+                Method (_CRS, 0, NotSerialized)         \
+                {                                       \
+                    Return (ResourceTemplate () {       \
+                        Interrupt (, Level, ActiveHigh, \
+                                   Shared)              \
+                             { gsi }                    \
+                    })                                  \
+                }                                       \
+                Method (_SRS, 1, NotSerialized) { }     \
+        }                                               \
+
+        define_gsi_link(GSIA, 0, 0x10)
+        define_gsi_link(GSIB, 0, 0x11)
+        define_gsi_link(GSIC, 0, 0x12)
+        define_gsi_link(GSID, 0, 0x13)
+        define_gsi_link(GSIE, 0, 0x14)
+        define_gsi_link(GSIF, 0, 0x15)
+        define_gsi_link(GSIG, 0, 0x16)
+        define_gsi_link(GSIH, 0, 0x17)
     }
 
     /* CPU hotplug */
