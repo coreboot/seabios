@@ -360,6 +360,8 @@ DefinitionBlock (
         }
     }
 
+#include "acpi-dsdt-hpet.dsl"
+
     Scope(\_SB.PCI0) {
         Device (VGA) {
                  Name (_ADR, 0x00020000)
@@ -420,25 +422,6 @@ DefinitionBlock (
                 FDEN,   1
             }
 
-            /* High Precision Event Timer */
-            Device(HPET) {
-                Name(_HID,  EISAID("PNP0103"))
-                Name(_UID, 0)
-                Method (_STA, 0, NotSerialized) {
-                        Return(0x0F)
-                }
-                Name(_CRS, ResourceTemplate() {
-                    DWordMemory(
-                        ResourceConsumer, PosDecode, MinFixed, MaxFixed,
-                        NonCacheable, ReadWrite,
-                        0x00000000,
-                        0xFED00000,
-                        0xFED003FF,
-                        0x00000000,
-                        0x00000400 /* 1K memory: FED00000 - FED003FF */
-                    )
-                })
-            }
             /* Real-time clock */
             Device (RTC)
             {
