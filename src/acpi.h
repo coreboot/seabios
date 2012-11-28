@@ -107,4 +107,21 @@ struct bfld {
     u64 p1l;  /* pci window 1 (above 4g) - length */
 } PACKED;
 
+/* PCI fw r3.0 MCFG table. */
+/* Subtable */
+struct acpi_mcfg_allocation {
+    u64 address;                /* Base address, processor-relative */
+    u16 pci_segment;            /* PCI segment group number */
+    u8 start_bus_number;       /* Starting PCI Bus number */
+    u8 end_bus_number;         /* Final PCI Bus number */
+    u32 reserved;
+} PACKED;
+
+#define MCFG_SIGNATURE 0x4746434d       // MCFG
+struct acpi_table_mcfg {
+    ACPI_TABLE_HEADER_DEF;
+    u8 reserved[8];
+    struct acpi_mcfg_allocation allocation[0];
+} PACKED;
+
 #endif // acpi.h

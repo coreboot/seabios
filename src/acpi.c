@@ -764,6 +764,27 @@ build_srat(void)
     return srat;
 }
 
+static void *
+build_mcfg_q35(void)
+{
+    struct acpi_table_mcfg *mcfg;
+
+    int len = sizeof(*mcfg) + 1 * sizeof(mcfg->allocation[0]);
+    mcfg = malloc_high(len);
+    if (!mcfg) {
+        warn_noalloc();
+        return NULL;
+    }
+    memset(mcfg, 0, len);
+    mcfg->allocation[0].address = Q35_HOST_BRIDGE_PCIEXBAR_ADDR;
+    mcfg->allocation[0].pci_segment = Q35_HOST_PCIE_PCI_SEGMENT;
+    mcfg->allocation[0].start_bus_number = Q35_HOST_PCIE_START_BUS_NUMBER;
+    mcfg->allocation[0].end_bus_number = Q35_HOST_PCIE_END_BUS_NUMBER;
+
+    build_header((void *)mcfg, MCFG_SIGNATURE, len, 1);
+    return mcfg;
+}
+
 static const struct pci_device_id acpi_find_tbl[] = {
     /* PIIX4 Power Management device. */
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3, NULL),
@@ -804,6 +825,8 @@ acpi_bios_init(void)
     ACPI_INIT_TABLE(build_madt());
     ACPI_INIT_TABLE(build_hpet());
     ACPI_INIT_TABLE(build_srat());
+    if (pci->device == PCI_DEVICE_ID_INTEL_ICH9_LPC)
+        ACPI_INIT_TABLE(build_mcfg_q35());
 
     u16 i, external_tables = qemu_cfg_acpi_additional_tables();
 
