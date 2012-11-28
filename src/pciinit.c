@@ -213,7 +213,8 @@ static void pci_bios_init_device(struct pci_device *pci)
     pci_init_device(pci_device_tbl, pci, NULL);
 
     /* enable memory mappings */
-    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
+    pci_config_maskw(bdf, PCI_COMMAND, 0,
+                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_SERR);
 }
 
 static void pci_bios_init_devices(void)
