@@ -230,12 +230,12 @@ maininit(void)
     timer_setup();
     mathcp_setup();
 
-    // Initialize mtrr
-    mtrr_setup();
-
     // Initialize pci
     pci_setup();
     smm_init();
+
+    // Initialize mtrr
+    mtrr_setup();
 
     // Setup Xen hypercalls
     xen_init_hypercalls();

@@ -7,6 +7,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "xen.h" // usingXen
+#include "pci.h" // pcimem_start
 
 #define MSR_MTRRcap                    0x000000fe
 #define MSR_MTRRfix64K_00000           0x00000250
@@ -94,9 +95,9 @@ void mtrr_setup(void)
         wrmsr_smp(MTRRphysMask_MSR(i), 0);
     }
     /* Mark 3.5-4GB as UC, anything not specified defaults to WB */
-    wrmsr_smp(MTRRphysBase_MSR(0), BUILD_MAX_HIGHMEM | MTRR_MEMTYPE_UC);
+    wrmsr_smp(MTRRphysBase_MSR(0), pcimem_start | MTRR_MEMTYPE_UC);
     wrmsr_smp(MTRRphysMask_MSR(0)
-              , (-((1ull<<32)-BUILD_MAX_HIGHMEM) & phys_mask) | 0x800);
+              , (-((1ull<<32)-pcimem_start) & phys_mask) | 0x800);
 
     // Enable fixed and variable MTRRs; set default type.
     wrmsr_smp(MSR_MTRRdefType, 0xc00 | MTRR_MEMTYPE_WB);
