@@ -161,6 +161,21 @@ DefinitionBlock (
  ****************************************************************/
 
     Scope(\_SB.PCI0.ISA) {
+
+	    /* enable bits */
+	    Field (\_SB.PCI0.PX13.P13C, AnyAcc, NoLock, Preserve)
+	    {
+                Offset(0x5f),
+		, 7,
+	        LPEN, 1,         // LPT
+                Offset(0x67),
+		, 3,
+		CAEN, 1,         // COM1
+		, 3,
+		CBEN, 1,         // COM2
+	    }
+	    Name (FDEN, 1)
+
             /* Real-time clock */
             Device (RTC)
             {
@@ -230,7 +245,15 @@ DefinitionBlock (
 	        Name (_HID, EisaId ("PNP0700"))
 		Method (_STA, 0, NotSerialized)
 		{
-		    Return (0x0F)
+                    Store (FDEN, Local0)
+                    If (LEqual (Local0, 0))
+                    {
+                         Return (0x00)
+                    }
+                    Else
+                    {
+                         Return (0x0F)
+                    }
 		}
 		Method (_CRS, 0, NotSerialized)
 		{
@@ -251,8 +274,7 @@ DefinitionBlock (
 	        Name (_HID, EisaId ("PNP0400"))
 		Method (_STA, 0, NotSerialized)
 		{
-		    Store (\_SB.PCI0.PX13.DRSA, Local0)
-		    And (Local0, 0x80000000, Local0)
+		    Store (LPEN, Local0)
 		    If (LEqual (Local0, 0))
 		    {
 			Return (0x00)
@@ -280,8 +302,7 @@ DefinitionBlock (
 		Name (_UID, 0x01)
 		Method (_STA, 0, NotSerialized)
 		{
-		    Store (\_SB.PCI0.PX13.DRSC, Local0)
-		    And (Local0, 0x08000000, Local0)
+		    Store (CAEN, Local0)
 		    If (LEqual (Local0, 0))
 		    {
 			Return (0x00)
@@ -308,8 +329,7 @@ DefinitionBlock (
 		Name (_UID, 0x02)
 		Method (_STA, 0, NotSerialized)
 		{
-		    Store (\_SB.PCI0.PX13.DRSC, Local0)
-		    And (Local0, 0x80000000, Local0)
+		    Store (CBEN, Local0)
 		    If (LEqual (Local0, 0))
 		    {
 			Return (0x00)
@@ -339,20 +359,7 @@ DefinitionBlock (
     Scope(\_SB.PCI0) {
         Device (PX13) {
 	    Name (_ADR, 0x00010003)
-
-	    OperationRegion (P13C, PCI_Config, 0x5c, 0x24)
-	    Field (P13C, DWordAcc, NoLock, Preserve)
-	    {
-		DRSA, 32,
-		DRSB, 32,
-		DRSC, 32,
-		DRSE, 32,
-		DRSF, 32,
-		DRSG, 32,
-		DRSH, 32,
-		DRSI, 32,
-		DRSJ, 32
-	    }
+	    OperationRegion (P13C, PCI_Config, 0x00, 0xff)
 	}
     }
 
