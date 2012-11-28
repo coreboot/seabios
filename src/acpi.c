@@ -233,13 +233,31 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 #define PIIX4_GPE0_BLK          0xafe0
 #define PIIX4_GPE0_BLK_LEN      4
 
+#define PIIX4_PM_INTRRUPT       9       // irq 9
+
 static void piix4_fadt_init(struct pci_device *pci, void *arg)
 {
     struct fadt_descriptor_rev1 *fadt = arg;
+
+    fadt->model = 1;
+    fadt->reserved1 = 0;
+    fadt->sci_int = cpu_to_le16(PIIX4_PM_INTRRUPT);
+    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
     fadt->acpi_enable = PIIX4_ACPI_ENABLE;
     fadt->acpi_disable = PIIX4_ACPI_DISABLE;
+    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
+    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
+    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
     fadt->gpe0_blk = cpu_to_le32(PIIX4_GPE0_BLK);
+    fadt->pm1_evt_len = 4;
+    fadt->pm1_cnt_len = 2;
+    fadt->pm_tmr_len = 4;
     fadt->gpe0_blk_len = PIIX4_GPE0_BLK_LEN;
+    fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
+    fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
+    /* WBINVD + PROC_C1 + SLP_BUTTON + RTC_S4 + USE_PLATFORM_CLOCK */
+    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 7) |
+                              (1 << 15));
 }
 
 static const struct pci_device_id fadt_init_tbl[] = {
@@ -281,23 +299,7 @@ build_fadt(struct pci_device *pci)
     fadt->firmware_ctrl = cpu_to_le32((u32)facs);
     fadt->dsdt = 0;  /* dsdt will be filled later in acpi_bios_init()
                         by fill_dsdt() */
-    fadt->model = 1;
-    fadt->reserved1 = 0;
-    int pm_sci_int = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
-    fadt->sci_int = cpu_to_le16(pm_sci_int);
-    fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
-    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
-    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
-    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
-    fadt->pm1_evt_len = 4;
-    fadt->pm1_cnt_len = 2;
-    fadt->pm_tmr_len = 4;
-    fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
-    fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
     pci_init_device(fadt_init_tbl, pci, fadt);
-    /* WBINVD + PROC_C1 + SLP_BUTTON + RTC_S4 + USE_PLATFORM_CLOCK */
-    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 7) |
-                              (1 << 15));
 
     build_header((void*)fadt, FACP_SIGNATURE, sizeof(*fadt), 1);
 
