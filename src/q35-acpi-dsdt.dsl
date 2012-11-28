@@ -277,7 +277,7 @@ DefinitionBlock (
 
 
         /* PCI D31:f0 LPC ISA bridge */
-        Device (LPC) {
+        Device (ISA) {
             /* PCI D31:f0 */
             Name (_ADR, 0x001f0000)
 
@@ -317,182 +317,10 @@ DefinitionBlock (
                 LPEN,   1,
                 FDEN,   1
             }
-
-            /* Real-time clock */
-            Device (RTC)
-            {
-                Name (_HID, EisaId ("PNP0B00"))
-                Name (_CRS, ResourceTemplate ()
-                {
-                    IO (Decode16, 0x0070, 0x0070, 0x10, 0x02)
-                    IRQNoFlags () {8}
-                    IO (Decode16, 0x0072, 0x0072, 0x02, 0x06)
-                })
-            }
-
-            /* Keyboard seems to be important for WinXP install */
-            Device (KBD)
-            {
-                Name (_HID, EisaId ("PNP0303"))
-                Method (_STA, 0, NotSerialized)
-                {
-                    Return (0x0f)
-                }
-
-                Method (_CRS, 0, NotSerialized)
-                {
-                     Name (TMP, ResourceTemplate ()
-                     {
-                    IO (Decode16,
-                        0x0060,             // Address Range Minimum
-                        0x0060,             // Address Range Maximum
-                        0x01,               // Address Alignment
-                        0x01,               // Address Length
-                        )
-                    IO (Decode16,
-                        0x0064,             // Address Range Minimum
-                        0x0064,             // Address Range Maximum
-                        0x01,               // Address Alignment
-                        0x01,               // Address Length
-                        )
-                    IRQNoFlags ()
-                        {1}
-                    })
-                    Return (TMP)
-                }
-            }
-
-	    /* PS/2 mouse */
-            Device (MOU)
-            {
-                Name (_HID, EisaId ("PNP0F13"))
-                Method (_STA, 0, NotSerialized)
-                {
-                    Return (0x0f)
-                }
-
-                Method (_CRS, 0, NotSerialized)
-                {
-                    Name (TMP, ResourceTemplate ()
-                    {
-                         IRQNoFlags () {12}
-                    })
-                    Return (TMP)
-                }
-            }
-
-	    /* PS/2 floppy controller */
-	    Device (FDC0)
-	    {
-	        Name (_HID, EisaId ("PNP0700"))
-		Method (_STA, 0, NotSerialized)
-		{
-                    Store (\_SB.PCI0.LPC.FDEN, Local0)
-                    If (LEqual (Local0, 0))
-                    {
-                         Return (0x00)
-                    }
-                    Else
-                    {
-                         Return (0x0F)
-                    }
-		}
-		Method (_CRS, 0, NotSerialized)
-		{
-		    Name (BUF0, ResourceTemplate ()
-                    {
-                        IO (Decode16, 0x03F2, 0x03F2, 0x00, 0x04)
-                        IO (Decode16, 0x03F7, 0x03F7, 0x00, 0x01)
-                        IRQNoFlags () {6}
-                        DMA (Compatibility, NotBusMaster, Transfer8) {2}
-                    })
-		    Return (BUF0)
-		}
-	    }
-
-	    /* Parallel port */
-	    Device (LPT)
-	    {
-	        Name (_HID, EisaId ("PNP0400"))
-		Method (_STA, 0, NotSerialized)
-		{
-		    Store (\_SB.PCI0.LPC.LPEN, Local0)
-		    If (LEqual (Local0, 0))
-		    {
-			Return (0x00)
-		    }
-		    Else
-		    {
-			Return (0x0F)
-		    }
-		}
-		Method (_CRS, 0, NotSerialized)
-		{
-		    Name (BUF0, ResourceTemplate ()
-                    {
-			IO (Decode16, 0x0378, 0x0378, 0x08, 0x08)
-			IRQNoFlags () {7}
-		    })
-		    Return (BUF0)
-		}
-	    }
-
-	    /* Serial Ports */
-	    Device (COM1)
-	    {
-	        Name (_HID, EisaId ("PNP0501"))
-		Name (_UID, 0x01)
-		Method (_STA, 0, NotSerialized)
-		{
-		    Store (\_SB.PCI0.LPC.CAEN, Local0)
-		    If (LEqual (Local0, 0))
-		    {
-			Return (0x00)
-		    }
-		    Else
-		    {
-			Return (0x0F)
-		    }
-		}
-		Method (_CRS, 0, NotSerialized)
-		{
-		    Name (BUF0, ResourceTemplate ()
-                    {
-			IO (Decode16, 0x03F8, 0x03F8, 0x00, 0x08)
-                	IRQNoFlags () {4}
-		    })
-		    Return (BUF0)
-		}
-	    }
-
-	    Device (COM2)
-	    {
-	        Name (_HID, EisaId ("PNP0501"))
-		Name (_UID, 0x02)
-		Method (_STA, 0, NotSerialized)
-		{
-		    Store (\_SB.PCI0.LPC.CBEN, Local0)
-		    If (LEqual (Local0, 0))
-		    {
-			Return (0x00)
-		    }
-		    Else
-		    {
-			Return (0x0F)
-		    }
-		}
-		Method (_CRS, 0, NotSerialized)
-		{
-		    Name (BUF0, ResourceTemplate ()
-                    {
-			IO (Decode16, 0x02F8, 0x02F8, 0x00, 0x08)
-                	IRQNoFlags () {3}
-		    })
-		    Return (BUF0)
-		}
-	    }
         }
     }
+
+#include "acpi-dsdt-isa.dsl"
 
     /* PCI IRQs */
     Scope(\_SB) {
@@ -538,14 +366,14 @@ DefinitionBlock (
                 }                                       \
         }
 
-        define_link(LNKA, 0, \_SB.PCI0.LPC.PRQA)
-        define_link(LNKB, 1, \_SB.PCI0.LPC.PRQB)
-        define_link(LNKC, 2, \_SB.PCI0.LPC.PRQC)
-        define_link(LNKD, 3, \_SB.PCI0.LPC.PRQD)
-        define_link(LNKE, 4, \_SB.PCI0.LPC.PRQE)
-        define_link(LNKF, 5, \_SB.PCI0.LPC.PRQF)
-        define_link(LNKG, 6, \_SB.PCI0.LPC.PRQG)
-        define_link(LNKH, 7, \_SB.PCI0.LPC.PRQH)
+        define_link(LNKA, 0, \_SB.PCI0.ISA.PRQA)
+        define_link(LNKB, 1, \_SB.PCI0.ISA.PRQB)
+        define_link(LNKC, 2, \_SB.PCI0.ISA.PRQC)
+        define_link(LNKD, 3, \_SB.PCI0.ISA.PRQD)
+        define_link(LNKE, 4, \_SB.PCI0.ISA.PRQE)
+        define_link(LNKF, 5, \_SB.PCI0.ISA.PRQF)
+        define_link(LNKG, 6, \_SB.PCI0.ISA.PRQG)
+        define_link(LNKH, 7, \_SB.PCI0.ISA.PRQH)
 
 #define define_gsi_link(link, uid, gsi)                 \
         Device(link){                                   \
