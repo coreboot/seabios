@@ -257,66 +257,35 @@ DefinitionBlock (
             }
             Return (PRR0)
         }
-        // _DIS method - disable interrupt
-#define DISIRQ(PRQVAR)                          \
-            Or(PRQVAR, 0x80, PRQVAR)            \
-        // _SRS method - set interrupt
-#define SETIRQ(PRQVAR, IRQINFO)                         \
-            CreateDWordField(IRQINFO, 0x05, PRRI)       \
-            Store(PRRI, PRQVAR)
 
-        Device(LNKA) {
-            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-            Name(_UID, 1)
-            Name(_PRS, ResourceTemplate() {
-                Interrupt(, Level, ActiveHigh, Shared) {
-                    5, 10, 11
-                }
-            })
-            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
-            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ0) }
-            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
-            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ0, Arg0) }
+#define define_link(link, uid, reg)                             \
+        Device(link) {                                          \
+            Name(_HID, EISAID("PNP0C0F"))                       \
+            Name(_UID, uid)                                     \
+            Name(_PRS, ResourceTemplate() {                     \
+                Interrupt(, Level, ActiveHigh, Shared) {        \
+                    5, 10, 11                                   \
+                }                                               \
+            })                                                  \
+            Method(_STA, 0, NotSerialized) {                    \
+                Return (IQST(reg))                              \
+            }                                                   \
+            Method(_DIS, 0, NotSerialized) {                    \
+                Or(reg, 0x80, reg)                              \
+            }                                                   \
+            Method(_CRS, 0, NotSerialized) {                    \
+                Return (IQCR(reg))                              \
+            }                                                   \
+            Method(_SRS, 1, NotSerialized) {                    \
+                CreateDWordField(Arg0, 0x05, PRRI)              \
+                Store(PRRI, reg)                                \
+            }                                                   \
         }
-        Device(LNKB) {
-            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-            Name(_UID, 2)
-            Name(_PRS, ResourceTemplate() {
-                Interrupt(, Level, ActiveHigh, Shared) {
-                    5, 10, 11
-                }
-            })
-            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ1)) }
-            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ1) }
-            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ1)) }
-            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ1, Arg0) }
-        }
-        Device(LNKC) {
-            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-            Name(_UID, 3)
-            Name(_PRS, ResourceTemplate() {
-                Interrupt(, Level, ActiveHigh, Shared) {
-                    5, 10, 11
-                }
-            })
-            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ2)) }
-            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ2) }
-            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ2)) }
-            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ2, Arg0) }
-        }
-        Device(LNKD) {
-            Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
-            Name(_UID, 4)
-            Name(_PRS, ResourceTemplate() {
-                Interrupt(, Level, ActiveHigh, Shared) {
-                    5, 10, 11
-                }
-            })
-            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ3)) }
-            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ3) }
-            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ3)) }
-            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ3, Arg0) }
-        }
+
+        define_link(LNKA, 0, PRQ0)
+        define_link(LNKB, 1, PRQ1)
+        define_link(LNKC, 2, PRQ2)
+        define_link(LNKD, 3, PRQ3)
     }
 
 #include "acpi-dsdt-cpu-hotplug.dsl"

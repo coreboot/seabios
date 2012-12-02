@@ -42,12 +42,6 @@ DefinitionBlock (
         }
     }
 
-    /* Zero => PIC mode, One => APIC Mode */
-    Name(\PICF, Zero)
-    Method(\_PIC, 1, NotSerialized) {
-        Store(Arg0, \PICF)
-    }
-
 
 /****************************************************************
  * PCI Bus definition
@@ -153,18 +147,6 @@ DefinitionBlock (
 
             /* ICH9 PCI to ISA irq remapping */
             OperationRegion(PIRQ, PCI_Config, 0x60, 0x0C)
-            Field(PIRQ, ByteAcc, NoLock, Preserve) {
-                PRQA,   8,
-                PRQB,   8,
-                PRQC,   8,
-                PRQD,   8,
-
-                Offset(0x08),
-                PRQE,   8,
-                PRQF,   8,
-                PRQG,   8,
-                PRQH,   8
-            }
 
             OperationRegion(LPCD, PCI_Config, 0x80, 0x2)
             Field(LPCD, AnyAcc, NoLock, Preserve) {
@@ -194,6 +176,12 @@ DefinitionBlock (
  * PCI IRQs
  ****************************************************************/
 
+    /* Zero => PIC mode, One => APIC Mode */
+    Name(\PICF, Zero)
+    Method(\_PIC, 1, NotSerialized) {
+        Store(Arg0, \PICF)
+    }
+
     Scope(\_SB) {
         Scope(PCI0) {
 #define prt_slot_lnk(nr, lnk0, lnk1, lnk2, lnk3)  \
@@ -211,22 +199,6 @@ DefinitionBlock (
 #define prt_slot_lnkF(nr) prt_slot_lnk(nr, LNKF, LNKG, LNKH, LNKE)
 #define prt_slot_lnkG(nr) prt_slot_lnk(nr, LNKG, LNKH, LNKE, LNKF)
 #define prt_slot_lnkH(nr) prt_slot_lnk(nr, LNKH, LNKE, LNKF, LNKG)
-
-#define prt_slot_gsi(nr, gsi0, gsi1, gsi2, gsi3)  \
-    Package() { nr##ffff, 0, gsi0, 0 },           \
-    Package() { nr##ffff, 1, gsi1, 0 },           \
-    Package() { nr##ffff, 2, gsi2, 0 },           \
-    Package() { nr##ffff, 3, gsi3, 0 }
-
-#define prt_slot_gsiA(nr) prt_slot_gsi(nr, GSIA, GSIB, GSIC, GSID)
-#define prt_slot_gsiB(nr) prt_slot_gsi(nr, GSIB, GSIC, GSID, GSIA)
-#define prt_slot_gsiC(nr) prt_slot_gsi(nr, GSIC, GSID, GSIA, GSIB)
-#define prt_slot_gsiD(nr) prt_slot_gsi(nr, GSID, GSIA, GSIB, GSIC)
-
-#define prt_slot_gsiE(nr) prt_slot_gsi(nr, GSIE, GSIF, GSIG, GSIH)
-#define prt_slot_gsiF(nr) prt_slot_gsi(nr, GSIF, GSIG, GSIH, GSIE)
-#define prt_slot_gsiG(nr) prt_slot_gsi(nr, GSIG, GSIH, GSIE, GSIF)
-#define prt_slot_gsiH(nr) prt_slot_gsi(nr, GSIH, GSIE, GSIF, GSIG)
 
             Name(PRTP, package() {
                 prt_slot_lnkE(0x0000),
@@ -268,6 +240,22 @@ DefinitionBlock (
 
                 prt_slot_lnkA(0x001f)
             })
+
+#define prt_slot_gsi(nr, gsi0, gsi1, gsi2, gsi3)  \
+    Package() { nr##ffff, 0, gsi0, 0 },           \
+    Package() { nr##ffff, 1, gsi1, 0 },           \
+    Package() { nr##ffff, 2, gsi2, 0 },           \
+    Package() { nr##ffff, 3, gsi3, 0 }
+
+#define prt_slot_gsiA(nr) prt_slot_gsi(nr, GSIA, GSIB, GSIC, GSID)
+#define prt_slot_gsiB(nr) prt_slot_gsi(nr, GSIB, GSIC, GSID, GSIA)
+#define prt_slot_gsiC(nr) prt_slot_gsi(nr, GSIC, GSID, GSIA, GSIB)
+#define prt_slot_gsiD(nr) prt_slot_gsi(nr, GSID, GSIA, GSIB, GSIC)
+
+#define prt_slot_gsiE(nr) prt_slot_gsi(nr, GSIE, GSIF, GSIG, GSIH)
+#define prt_slot_gsiF(nr) prt_slot_gsi(nr, GSIF, GSIG, GSIH, GSIE)
+#define prt_slot_gsiG(nr) prt_slot_gsi(nr, GSIG, GSIH, GSIE, GSIF)
+#define prt_slot_gsiH(nr) prt_slot_gsi(nr, GSIH, GSIE, GSIF, GSIG)
 
             Name(PRTA, package() {
                 prt_slot_gsiE(0x0000),
@@ -323,6 +311,36 @@ DefinitionBlock (
             }
         }
 
+        Field(PCI0.ISA.PIRQ, ByteAcc, NoLock, Preserve) {
+            PRQA,   8,
+            PRQB,   8,
+            PRQC,   8,
+            PRQD,   8,
+
+            Offset(0x08),
+            PRQE,   8,
+            PRQF,   8,
+            PRQG,   8,
+            PRQH,   8
+        }
+
+        Method(IQST, 1, NotSerialized) {
+            // _STA method - get status
+            If (And(0x80, Arg0)) {
+                Return (0x09)
+            }
+            Return (0x0B)
+        }
+        Method(IQCR, 1, NotSerialized) {
+            // _CRS method - get current settings
+            Name(PRR0, ResourceTemplate() {
+                Interrupt(, Level, ActiveHigh, Shared) { 0 }
+            })
+            CreateDWordField(PRR0, 0x05, PRRI)
+            Store(And(Arg0, 0x0F), PRRI)
+            Return (PRR0)
+        }
+
 #define define_link(link, uid, reg)                             \
         Device(link) {                                          \
             Name(_HID, EISAID("PNP0C0F"))                       \
@@ -333,40 +351,28 @@ DefinitionBlock (
                 }                                               \
             })                                                  \
             Method(_STA, 0, NotSerialized) {                    \
-                Store(0x0B, Local0)                             \
-                If (And(0x80, reg, Local1)) {                   \
-                    Store(0x09, Local0)                         \
-                }                                               \
-                Return (Local0)                                 \
+                Return (IQST(reg))                              \
             }                                                   \
             Method(_DIS, 0, NotSerialized) {                    \
                 Or(reg, 0x80, reg)                              \
             }                                                   \
             Method(_CRS, 0, NotSerialized) {                    \
-                Name(PRR0, ResourceTemplate() {                 \
-                    Interrupt(, Level, ActiveHigh, Shared) {    \
-                        1                                       \
-                    }                                           \
-                })                                              \
-                CreateDWordField(PRR0, 0x05, TMP)               \
-                And(reg, 0x0F, Local0)                          \
-                Store(Local0, TMP)                              \
-                Return (PRR0)                                   \
+                Return (IQCR(reg))                              \
             }                                                   \
             Method(_SRS, 1, NotSerialized) {                    \
-                CreateDWordField(Arg0, 0x05, TMP)               \
-                Store(TMP, reg)                                 \
+                CreateDWordField(Arg0, 0x05, PRRI)              \
+                Store(PRRI, reg)                                \
             }                                                   \
         }
 
-        define_link(LNKA, 0, \_SB.PCI0.ISA.PRQA)
-        define_link(LNKB, 1, \_SB.PCI0.ISA.PRQB)
-        define_link(LNKC, 2, \_SB.PCI0.ISA.PRQC)
-        define_link(LNKD, 3, \_SB.PCI0.ISA.PRQD)
-        define_link(LNKE, 4, \_SB.PCI0.ISA.PRQE)
-        define_link(LNKF, 5, \_SB.PCI0.ISA.PRQF)
-        define_link(LNKG, 6, \_SB.PCI0.ISA.PRQG)
-        define_link(LNKH, 7, \_SB.PCI0.ISA.PRQH)
+        define_link(LNKA, 0, PRQA)
+        define_link(LNKB, 1, PRQB)
+        define_link(LNKC, 2, PRQC)
+        define_link(LNKD, 3, PRQD)
+        define_link(LNKE, 4, PRQE)
+        define_link(LNKF, 5, PRQF)
+        define_link(LNKG, 6, PRQG)
+        define_link(LNKH, 7, PRQH)
 
 #define define_gsi_link(link, uid, gsi)                         \
         Device(link) {                                          \
@@ -377,13 +383,11 @@ DefinitionBlock (
                     gsi                                         \
                 }                                               \
             })                                                  \
-            Method(_CRS, 0, NotSerialized) {                    \
-                Return (ResourceTemplate() {                    \
-                    Interrupt(, Level, ActiveHigh, Shared) {    \
-                         gsi                                    \
-                    }                                           \
-                })                                              \
-            }                                                   \
+            Name(_CRS, ResourceTemplate() {                     \
+                Interrupt(, Level, ActiveHigh, Shared) {        \
+                    gsi                                         \
+                }                                               \
+            })                                                  \
             Method(_SRS, 1, NotSerialized) {                    \
             }                                                   \
         }
