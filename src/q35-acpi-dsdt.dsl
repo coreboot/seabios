@@ -50,7 +50,6 @@ DefinitionBlock (
 
     /* PCI Bus definition */
     Scope(\_SB) {
-
         Device(PCI0) {
             Name(_HID, EisaId("PNP0A08"))
             Name(_CID, EisaId("PNP0A03"))
@@ -110,132 +109,6 @@ DefinitionBlock (
                     Or(CDW1, 4, CDW1) // Unrecognized UUID
                 }
                 Return (Arg3)
-            }
-
-#define prt_slot_lnk(nr, lnk0, lnk1, lnk2, lnk3)  \
-    Package() { nr##ffff, 0, lnk0, 0 },           \
-    Package() { nr##ffff, 1, lnk1, 0 },           \
-    Package() { nr##ffff, 2, lnk2, 0 },           \
-    Package() { nr##ffff, 3, lnk3, 0 }
-
-#define prt_slot_lnkA(nr) prt_slot_lnk(nr, LNKA, LNKB, LNKC, LNKD)
-#define prt_slot_lnkB(nr) prt_slot_lnk(nr, LNKB, LNKC, LNKD, LNKA)
-#define prt_slot_lnkC(nr) prt_slot_lnk(nr, LNKC, LNKD, LNKA, LNKB)
-#define prt_slot_lnkD(nr) prt_slot_lnk(nr, LNKD, LNKA, LNKB, LNKC)
-
-#define prt_slot_lnkE(nr) prt_slot_lnk(nr, LNKE, LNKF, LNKG, LNKH)
-#define prt_slot_lnkF(nr) prt_slot_lnk(nr, LNKF, LNKG, LNKH, LNKE)
-#define prt_slot_lnkG(nr) prt_slot_lnk(nr, LNKG, LNKH, LNKE, LNKF)
-#define prt_slot_lnkH(nr) prt_slot_lnk(nr, LNKH, LNKE, LNKF, LNKG)
-
-#define prt_slot_gsi(nr, gsi0, gsi1, gsi2, gsi3)  \
-    Package() { nr##ffff, 0, gsi0, 0 },           \
-    Package() { nr##ffff, 1, gsi1, 0 },           \
-    Package() { nr##ffff, 2, gsi2, 0 },           \
-    Package() { nr##ffff, 3, gsi3, 0 }
-
-#define prt_slot_gsiA(nr) prt_slot_gsi(nr, GSIA, GSIB, GSIC, GSID)
-#define prt_slot_gsiB(nr) prt_slot_gsi(nr, GSIB, GSIC, GSID, GSIA)
-#define prt_slot_gsiC(nr) prt_slot_gsi(nr, GSIC, GSID, GSIA, GSIB)
-#define prt_slot_gsiD(nr) prt_slot_gsi(nr, GSID, GSIA, GSIB, GSIC)
-
-#define prt_slot_gsiE(nr) prt_slot_gsi(nr, GSIE, GSIF, GSIG, GSIH)
-#define prt_slot_gsiF(nr) prt_slot_gsi(nr, GSIF, GSIG, GSIH, GSIE)
-#define prt_slot_gsiG(nr) prt_slot_gsi(nr, GSIG, GSIH, GSIE, GSIF)
-#define prt_slot_gsiH(nr) prt_slot_gsi(nr, GSIH, GSIE, GSIF, GSIG)
-
-            NAME(PRTP, package() {
-                prt_slot_lnkE(0x0000),
-                prt_slot_lnkF(0x0001),
-                prt_slot_lnkG(0x0002),
-                prt_slot_lnkH(0x0003),
-                prt_slot_lnkE(0x0004),
-                prt_slot_lnkF(0x0005),
-                prt_slot_lnkG(0x0006),
-                prt_slot_lnkH(0x0007),
-                prt_slot_lnkE(0x0008),
-                prt_slot_lnkF(0x0009),
-                prt_slot_lnkG(0x000a),
-                prt_slot_lnkH(0x000b),
-                prt_slot_lnkE(0x000c),
-                prt_slot_lnkF(0x000d),
-                prt_slot_lnkG(0x000e),
-                prt_slot_lnkH(0x000f),
-                prt_slot_lnkE(0x0010),
-                prt_slot_lnkF(0x0011),
-                prt_slot_lnkG(0x0012),
-                prt_slot_lnkH(0x0013),
-                prt_slot_lnkE(0x0014),
-                prt_slot_lnkF(0x0015),
-                prt_slot_lnkG(0x0016),
-                prt_slot_lnkH(0x0017),
-                prt_slot_lnkE(0x0018),
-
-                /* INTA -> PIRQA for slot 25 - 31
-                   see the default value of D<N>IR */
-                prt_slot_lnkA(0x0019),
-                prt_slot_lnkA(0x001a),
-                prt_slot_lnkA(0x001b),
-                prt_slot_lnkA(0x001c),
-                prt_slot_lnkA(0x001d),
-
-                /* PCIe->PCI bridge. use PIRQ[E-H] */
-                prt_slot_lnkE(0x001e),
-
-                prt_slot_lnkA(0x001f)
-            })
-
-            NAME(PRTA, package() {
-                prt_slot_gsiE(0x0000),
-                prt_slot_gsiF(0x0001),
-                prt_slot_gsiG(0x0002),
-                prt_slot_gsiH(0x0003),
-                prt_slot_gsiE(0x0004),
-                prt_slot_gsiF(0x0005),
-                prt_slot_gsiG(0x0006),
-                prt_slot_gsiH(0x0007),
-                prt_slot_gsiE(0x0008),
-                prt_slot_gsiF(0x0009),
-                prt_slot_gsiG(0x000a),
-                prt_slot_gsiH(0x000b),
-                prt_slot_gsiE(0x000c),
-                prt_slot_gsiF(0x000d),
-                prt_slot_gsiG(0x000e),
-                prt_slot_gsiH(0x000f),
-                prt_slot_gsiE(0x0010),
-                prt_slot_gsiF(0x0011),
-                prt_slot_gsiG(0x0012),
-                prt_slot_gsiH(0x0013),
-                prt_slot_gsiE(0x0014),
-                prt_slot_gsiF(0x0015),
-                prt_slot_gsiG(0x0016),
-                prt_slot_gsiH(0x0017),
-                prt_slot_gsiE(0x0018),
-
-                /* INTA -> PIRQA for slot 25 - 31, but 30
-                   see the default value of D<N>IR */
-                prt_slot_gsiA(0x0019),
-                prt_slot_gsiA(0x001a),
-                prt_slot_gsiA(0x001b),
-                prt_slot_gsiA(0x001c),
-                prt_slot_gsiA(0x001d),
-
-                /* PCIe->PCI bridge. use PIRQ[E-H] */
-                prt_slot_gsiE(0x001e),
-
-                prt_slot_gsiA(0x001f)
-            })
-
-            Method(_PRT, 0, NotSerialized) {
-                /* PCI IRQ routing table, example from ACPI 2.0a specification,
-                   section 6.2.8.1 */
-                /* Note: we provide the same info as the PCI routing
-                   table of the Bochs BIOS */
-                If (LEqual(\PICF, Zero)) {
-                    Return (PRTP)
-                } Else {
-                    Return (PRTA)
-                }
             }
         }
     }
@@ -302,6 +175,134 @@ DefinitionBlock (
 
     /* PCI IRQs */
     Scope(\_SB) {
+        Scope(PCI0) {
+#define prt_slot_lnk(nr, lnk0, lnk1, lnk2, lnk3)  \
+    Package() { nr##ffff, 0, lnk0, 0 },           \
+    Package() { nr##ffff, 1, lnk1, 0 },           \
+    Package() { nr##ffff, 2, lnk2, 0 },           \
+    Package() { nr##ffff, 3, lnk3, 0 }
+
+#define prt_slot_lnkA(nr) prt_slot_lnk(nr, LNKA, LNKB, LNKC, LNKD)
+#define prt_slot_lnkB(nr) prt_slot_lnk(nr, LNKB, LNKC, LNKD, LNKA)
+#define prt_slot_lnkC(nr) prt_slot_lnk(nr, LNKC, LNKD, LNKA, LNKB)
+#define prt_slot_lnkD(nr) prt_slot_lnk(nr, LNKD, LNKA, LNKB, LNKC)
+
+#define prt_slot_lnkE(nr) prt_slot_lnk(nr, LNKE, LNKF, LNKG, LNKH)
+#define prt_slot_lnkF(nr) prt_slot_lnk(nr, LNKF, LNKG, LNKH, LNKE)
+#define prt_slot_lnkG(nr) prt_slot_lnk(nr, LNKG, LNKH, LNKE, LNKF)
+#define prt_slot_lnkH(nr) prt_slot_lnk(nr, LNKH, LNKE, LNKF, LNKG)
+
+#define prt_slot_gsi(nr, gsi0, gsi1, gsi2, gsi3)  \
+    Package() { nr##ffff, 0, gsi0, 0 },           \
+    Package() { nr##ffff, 1, gsi1, 0 },           \
+    Package() { nr##ffff, 2, gsi2, 0 },           \
+    Package() { nr##ffff, 3, gsi3, 0 }
+
+#define prt_slot_gsiA(nr) prt_slot_gsi(nr, GSIA, GSIB, GSIC, GSID)
+#define prt_slot_gsiB(nr) prt_slot_gsi(nr, GSIB, GSIC, GSID, GSIA)
+#define prt_slot_gsiC(nr) prt_slot_gsi(nr, GSIC, GSID, GSIA, GSIB)
+#define prt_slot_gsiD(nr) prt_slot_gsi(nr, GSID, GSIA, GSIB, GSIC)
+
+#define prt_slot_gsiE(nr) prt_slot_gsi(nr, GSIE, GSIF, GSIG, GSIH)
+#define prt_slot_gsiF(nr) prt_slot_gsi(nr, GSIF, GSIG, GSIH, GSIE)
+#define prt_slot_gsiG(nr) prt_slot_gsi(nr, GSIG, GSIH, GSIE, GSIF)
+#define prt_slot_gsiH(nr) prt_slot_gsi(nr, GSIH, GSIE, GSIF, GSIG)
+
+            Name(PRTP, package() {
+                prt_slot_lnkE(0x0000),
+                prt_slot_lnkF(0x0001),
+                prt_slot_lnkG(0x0002),
+                prt_slot_lnkH(0x0003),
+                prt_slot_lnkE(0x0004),
+                prt_slot_lnkF(0x0005),
+                prt_slot_lnkG(0x0006),
+                prt_slot_lnkH(0x0007),
+                prt_slot_lnkE(0x0008),
+                prt_slot_lnkF(0x0009),
+                prt_slot_lnkG(0x000a),
+                prt_slot_lnkH(0x000b),
+                prt_slot_lnkE(0x000c),
+                prt_slot_lnkF(0x000d),
+                prt_slot_lnkG(0x000e),
+                prt_slot_lnkH(0x000f),
+                prt_slot_lnkE(0x0010),
+                prt_slot_lnkF(0x0011),
+                prt_slot_lnkG(0x0012),
+                prt_slot_lnkH(0x0013),
+                prt_slot_lnkE(0x0014),
+                prt_slot_lnkF(0x0015),
+                prt_slot_lnkG(0x0016),
+                prt_slot_lnkH(0x0017),
+                prt_slot_lnkE(0x0018),
+
+                /* INTA -> PIRQA for slot 25 - 31
+                   see the default value of D<N>IR */
+                prt_slot_lnkA(0x0019),
+                prt_slot_lnkA(0x001a),
+                prt_slot_lnkA(0x001b),
+                prt_slot_lnkA(0x001c),
+                prt_slot_lnkA(0x001d),
+
+                /* PCIe->PCI bridge. use PIRQ[E-H] */
+                prt_slot_lnkE(0x001e),
+
+                prt_slot_lnkA(0x001f)
+            })
+
+            Name(PRTA, package() {
+                prt_slot_gsiE(0x0000),
+                prt_slot_gsiF(0x0001),
+                prt_slot_gsiG(0x0002),
+                prt_slot_gsiH(0x0003),
+                prt_slot_gsiE(0x0004),
+                prt_slot_gsiF(0x0005),
+                prt_slot_gsiG(0x0006),
+                prt_slot_gsiH(0x0007),
+                prt_slot_gsiE(0x0008),
+                prt_slot_gsiF(0x0009),
+                prt_slot_gsiG(0x000a),
+                prt_slot_gsiH(0x000b),
+                prt_slot_gsiE(0x000c),
+                prt_slot_gsiF(0x000d),
+                prt_slot_gsiG(0x000e),
+                prt_slot_gsiH(0x000f),
+                prt_slot_gsiE(0x0010),
+                prt_slot_gsiF(0x0011),
+                prt_slot_gsiG(0x0012),
+                prt_slot_gsiH(0x0013),
+                prt_slot_gsiE(0x0014),
+                prt_slot_gsiF(0x0015),
+                prt_slot_gsiG(0x0016),
+                prt_slot_gsiH(0x0017),
+                prt_slot_gsiE(0x0018),
+
+                /* INTA -> PIRQA for slot 25 - 31, but 30
+                   see the default value of D<N>IR */
+                prt_slot_gsiA(0x0019),
+                prt_slot_gsiA(0x001a),
+                prt_slot_gsiA(0x001b),
+                prt_slot_gsiA(0x001c),
+                prt_slot_gsiA(0x001d),
+
+                /* PCIe->PCI bridge. use PIRQ[E-H] */
+                prt_slot_gsiE(0x001e),
+
+                prt_slot_gsiA(0x001f)
+            })
+
+            Method(_PRT, 0, NotSerialized) {
+                /* PCI IRQ routing table, example from ACPI 2.0a specification,
+                   section 6.2.8.1 */
+                /* Note: we provide the same info as the PCI routing
+                   table of the Bochs BIOS */
+                If (LEqual(\PICF, Zero)) {
+                    Return (PRTP)
+                } Else {
+                    Return (PRTA)
+                }
+            }
+        }
+
 #define define_link(link, uid, reg)                             \
         Device(link) {                                          \
             Name(_HID, EISAID("PNP0C0F"))                       \
