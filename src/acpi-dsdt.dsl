@@ -31,78 +31,79 @@ DefinitionBlock (
 
 #include "acpi-dsdt-dbug.dsl"
 
+
 /****************************************************************
  * PCI Bus definition
  ****************************************************************/
 
     Scope(\_SB) {
         Device(PCI0) {
-            Name (_HID, EisaId ("PNP0A03"))
-            Name (_ADR, 0x00)
-            Name (_UID, 1)
+            Name(_HID, EisaId("PNP0A03"))
+            Name(_ADR, 0x00)
+            Name(_UID, 1)
             Name(_PRT, Package() {
                 /* PCI IRQ routing table, example from ACPI 2.0a specification,
                    section 6.2.8.1 */
                 /* Note: we provide the same info as the PCI routing
                    table of the Bochs BIOS */
+
 #define prt_slot(nr, lnk0, lnk1, lnk2, lnk3) \
-       Package() { nr##ffff, 0, lnk0, 0 }, \
-       Package() { nr##ffff, 1, lnk1, 0 }, \
-       Package() { nr##ffff, 2, lnk2, 0 }, \
-       Package() { nr##ffff, 3, lnk3, 0 }
+    Package() { nr##ffff, 0, lnk0, 0 }, \
+    Package() { nr##ffff, 1, lnk1, 0 }, \
+    Package() { nr##ffff, 2, lnk2, 0 }, \
+    Package() { nr##ffff, 3, lnk3, 0 }
 
 #define prt_slot0(nr) prt_slot(nr, LNKD, LNKA, LNKB, LNKC)
 #define prt_slot1(nr) prt_slot(nr, LNKA, LNKB, LNKC, LNKD)
 #define prt_slot2(nr) prt_slot(nr, LNKB, LNKC, LNKD, LNKA)
 #define prt_slot3(nr) prt_slot(nr, LNKC, LNKD, LNKA, LNKB)
-               prt_slot0(0x0000),
-               /* Device 1 is power mgmt device, and can only use irq 9 */
-               Package() { 0x1ffff, 0,    0, 9 },
-               Package() { 0x1ffff, 1, LNKB, 0 },
-               Package() { 0x1ffff, 2, LNKC, 0 },
-               Package() { 0x1ffff, 3, LNKD, 0 },
-               prt_slot2(0x0002),
-               prt_slot3(0x0003),
-               prt_slot0(0x0004),
-               prt_slot1(0x0005),
-               prt_slot2(0x0006),
-               prt_slot3(0x0007),
-               prt_slot0(0x0008),
-               prt_slot1(0x0009),
-               prt_slot2(0x000a),
-               prt_slot3(0x000b),
-               prt_slot0(0x000c),
-               prt_slot1(0x000d),
-               prt_slot2(0x000e),
-               prt_slot3(0x000f),
-               prt_slot0(0x0010),
-               prt_slot1(0x0011),
-               prt_slot2(0x0012),
-               prt_slot3(0x0013),
-               prt_slot0(0x0014),
-               prt_slot1(0x0015),
-               prt_slot2(0x0016),
-               prt_slot3(0x0017),
-               prt_slot0(0x0018),
-               prt_slot1(0x0019),
-               prt_slot2(0x001a),
-               prt_slot3(0x001b),
-               prt_slot0(0x001c),
-               prt_slot1(0x001d),
-               prt_slot2(0x001e),
-               prt_slot3(0x001f),
+
+                prt_slot0(0x0000),
+                /* Device 1 is power mgmt device, and can only use irq 9 */
+                Package() { 0x1ffff, 0,    0, 9 },
+                Package() { 0x1ffff, 1, LNKB, 0 },
+                Package() { 0x1ffff, 2, LNKC, 0 },
+                Package() { 0x1ffff, 3, LNKD, 0 },
+                prt_slot2(0x0002),
+                prt_slot3(0x0003),
+                prt_slot0(0x0004),
+                prt_slot1(0x0005),
+                prt_slot2(0x0006),
+                prt_slot3(0x0007),
+                prt_slot0(0x0008),
+                prt_slot1(0x0009),
+                prt_slot2(0x000a),
+                prt_slot3(0x000b),
+                prt_slot0(0x000c),
+                prt_slot1(0x000d),
+                prt_slot2(0x000e),
+                prt_slot3(0x000f),
+                prt_slot0(0x0010),
+                prt_slot1(0x0011),
+                prt_slot2(0x0012),
+                prt_slot3(0x0013),
+                prt_slot0(0x0014),
+                prt_slot1(0x0015),
+                prt_slot2(0x0016),
+                prt_slot3(0x0017),
+                prt_slot0(0x0018),
+                prt_slot1(0x0019),
+                prt_slot2(0x001a),
+                prt_slot3(0x001b),
+                prt_slot0(0x001c),
+                prt_slot1(0x001d),
+                prt_slot2(0x001e),
+                prt_slot3(0x001f),
             })
 
             OperationRegion(PCST, SystemIO, 0xae00, 0x08)
-            Field (PCST, DWordAcc, NoLock, WriteAsZeros)
-            {
+            Field(PCST, DWordAcc, NoLock, WriteAsZeros) {
                 PCIU, 32,
                 PCID, 32,
             }
 
             OperationRegion(SEJ, SystemIO, 0xae08, 0x04)
-            Field (SEJ, DWordAcc, NoLock, WriteAsZeros)
-            {
+            Field(SEJ, DWordAcc, NoLock, WriteAsZeros) {
                 B0EJ, 32,
             }
         }
@@ -111,33 +112,31 @@ DefinitionBlock (
 #include "acpi-dsdt-pci-crs.dsl"
 #include "acpi-dsdt-hpet.dsl"
 
+
 /****************************************************************
  * VGA
  ****************************************************************/
 
     Scope(\_SB.PCI0) {
-        Device (VGA) {
-                 Name (_ADR, 0x00020000)
-                 OperationRegion(PCIC, PCI_Config, Zero, 0x4)
-                 Field(PCIC, DWordAcc, NoLock, Preserve) {
-                         VEND, 32
-                 }
-                 Method (_S1D, 0, NotSerialized)
-                 {
-                         Return (0x00)
-                 }
-                 Method (_S2D, 0, NotSerialized)
-                 {
-                         Return (0x00)
-                 }
-                 Method (_S3D, 0, NotSerialized)
-                 {
-                         If (LEqual(VEND, 0x1001b36)) {
-                                 Return (0x03)           // QXL
-                         } Else {
-                                 Return (0x00)
-                         }
-                 }
+        Device(VGA) {
+            Name(_ADR, 0x00020000)
+            OperationRegion(PCIC, PCI_Config, Zero, 0x4)
+            Field(PCIC, DWordAcc, NoLock, Preserve) {
+                VEND, 32
+            }
+            Method(_S1D, 0, NotSerialized) {
+                Return (0x00)
+            }
+            Method(_S2D, 0, NotSerialized) {
+                Return (0x00)
+            }
+            Method(_S3D, 0, NotSerialized) {
+                If (LEqual(VEND, 0x1001b36)) {
+                    Return (0x03)           // QXL
+                } Else {
+                    Return (0x00)
+                }
+            }
         }
     }
 
@@ -147,11 +146,11 @@ DefinitionBlock (
  ****************************************************************/
 
     Scope(\_SB.PCI0) {
-        Device (ISA) {
-            Name (_ADR, 0x00010000)
+        Device(ISA) {
+            Name(_ADR, 0x00010000)
 
             /* PIIX PCI to ISA irq remapping */
-            OperationRegion (P40C, PCI_Config, 0x60, 0x04)
+            OperationRegion(P40C, PCI_Config, 0x60, 0x04)
         }
     }
 
@@ -162,19 +161,18 @@ DefinitionBlock (
 
     Scope(\_SB.PCI0.ISA) {
 
-	    /* enable bits */
-	    Field (\_SB.PCI0.PX13.P13C, AnyAcc, NoLock, Preserve)
-	    {
-                Offset(0x5f),
-		, 7,
-	        LPEN, 1,         // LPT
-                Offset(0x67),
-		, 3,
-		CAEN, 1,         // COM1
-		, 3,
-		CBEN, 1,         // COM2
-	    }
-	    Name (FDEN, 1)
+        /* enable bits */
+        Field(\_SB.PCI0.PX13.P13C, AnyAcc, NoLock, Preserve) {
+            Offset(0x5f),
+            , 7,
+            LPEN, 1,         // LPT
+            Offset(0x67),
+            , 3,
+            CAEN, 1,         // COM1
+            , 3,
+            CBEN, 1,         // COM2
+        }
+        Name(FDEN, 1)
     }
 
 #include "acpi-dsdt-isa.dsl"
@@ -185,10 +183,10 @@ DefinitionBlock (
  ****************************************************************/
 
     Scope(\_SB.PCI0) {
-        Device (PX13) {
-	    Name (_ADR, 0x00010003)
-	    OperationRegion (P13C, PCI_Config, 0x00, 0xff)
-	}
+        Device(PX13) {
+            Name(_ADR, 0x00010003)
+            OperationRegion(P13C, PCI_Config, 0x00, 0xff)
+        }
     }
 
 
@@ -200,19 +198,19 @@ DefinitionBlock (
         /* Methods called by bulk generated PCI devices below */
 
         /* Methods called by hotplug devices */
-        Method (PCEJ, 1, NotSerialized) {
+        Method(PCEJ, 1, NotSerialized) {
             // _EJ0 method - eject callback
             Store(ShiftLeft(1, Arg0), B0EJ)
             Return (0x0)
         }
 
-	/* Hotplug notification method supplied by SSDT */
-	External (\_SB.PCI0.PCNT, MethodObj)
+        /* Hotplug notification method supplied by SSDT */
+        External(\_SB.PCI0.PCNT, MethodObj)
 
         /* PCI hotplug notify method */
         Method(PCNF, 0) {
             // Local0 = iterator
-            Store (Zero, Local0)
+            Store(Zero, Local0)
             While (LLess(Local0, 31)) {
                 Increment(Local0)
                 If (And(PCIU, ShiftLeft(1, Local0))) {
@@ -223,7 +221,6 @@ DefinitionBlock (
                 }
             }
         }
-
     }
 
 
@@ -232,31 +229,28 @@ DefinitionBlock (
  ****************************************************************/
 
     Scope(\_SB) {
-        Field (PCI0.ISA.P40C, ByteAcc, NoLock, Preserve)
-        {
+        Field(PCI0.ISA.P40C, ByteAcc, NoLock, Preserve) {
             PRQ0,   8,
             PRQ1,   8,
             PRQ2,   8,
             PRQ3,   8
         }
 
-        Method (IQST, 1, NotSerialized) {
+        Method(IQST, 1, NotSerialized) {
             // _STA method - get status
-            If (And (0x80, Arg0)) {
+            If (And(0x80, Arg0)) {
                 Return (0x09)
             }
             Return (0x0B)
         }
-        Method (IQCR, 1, NotSerialized) {
+        Method(IQCR, 1, NotSerialized) {
             // _CRS method - get current settings
-            Name (PRR0, ResourceTemplate ()
-            {
-                Interrupt (, Level, ActiveHigh, Shared)
-                    { 0 }
+            Name(PRR0, ResourceTemplate() {
+                Interrupt(, Level, ActiveHigh, Shared) { 0 }
             })
-            CreateDWordField (PRR0, 0x05, PRRI)
-            If (LLess (Arg0, 0x80)) {
-                Store (Arg0, PRRI)
+            CreateDWordField(PRR0, 0x05, PRRI)
+            If (LLess(Arg0, 0x80)) {
+                Store(Arg0, PRRI)
             }
             Return (PRR0)
         }
@@ -265,67 +259,71 @@ DefinitionBlock (
             Or(PRQVAR, 0x80, PRQVAR)            \
         // _SRS method - set interrupt
 #define SETIRQ(PRQVAR, IRQINFO)                         \
-            CreateDWordField (IRQINFO, 0x05, PRRI)      \
-            Store (PRRI, PRQVAR)
+            CreateDWordField(IRQINFO, 0x05, PRRI)       \
+            Store(PRRI, PRQVAR)
 
         Device(LNKA) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
             Name(_UID, 1)
-            Name(_PRS, ResourceTemplate(){
-                Interrupt (, Level, ActiveHigh, Shared)
-                    { 5, 10, 11 }
+            Name(_PRS, ResourceTemplate() {
+                Interrupt(, Level, ActiveHigh, Shared) {
+                    5, 10, 11
+                }
             })
-            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
-            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ0) }
-            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
-            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ0, Arg0) }
+            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ0)) }
+            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ0) }
+            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ0)) }
+            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ0, Arg0) }
         }
         Device(LNKB) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
             Name(_UID, 2)
-            Name(_PRS, ResourceTemplate(){
-                Interrupt (, Level, ActiveHigh, Shared)
-                    { 5, 10, 11 }
+            Name(_PRS, ResourceTemplate() {
+                Interrupt(, Level, ActiveHigh, Shared) {
+                    5, 10, 11
+                }
             })
-            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ1)) }
-            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ1) }
-            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ1)) }
-            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ1, Arg0) }
+            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ1)) }
+            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ1) }
+            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ1)) }
+            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ1, Arg0) }
         }
         Device(LNKC) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
             Name(_UID, 3)
             Name(_PRS, ResourceTemplate() {
-                Interrupt (, Level, ActiveHigh, Shared)
-                    { 5, 10, 11 }
+                Interrupt(, Level, ActiveHigh, Shared) {
+                    5, 10, 11
+                }
             })
-            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ2)) }
-            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ2) }
-            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ2)) }
-            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ2, Arg0) }
+            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ2)) }
+            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ2) }
+            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ2)) }
+            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ2, Arg0) }
         }
         Device(LNKD) {
             Name(_HID, EISAID("PNP0C0F"))     // PCI interrupt link
             Name(_UID, 4)
             Name(_PRS, ResourceTemplate() {
-                Interrupt (, Level, ActiveHigh, Shared)
-                    { 5, 10, 11 }
+                Interrupt(, Level, ActiveHigh, Shared) {
+                    5, 10, 11
+                }
             })
-            Method (_STA, 0, NotSerialized) { Return (IQST(PRQ3)) }
-            Method (_DIS, 0, NotSerialized) { DISIRQ(PRQ3) }
-            Method (_CRS, 0, NotSerialized) { Return (IQCR(PRQ3)) }
-            Method (_SRS, 1, NotSerialized) { SETIRQ(PRQ3, Arg0) }
+            Method(_STA, 0, NotSerialized) { Return (IQST(PRQ3)) }
+            Method(_DIS, 0, NotSerialized) { DISIRQ(PRQ3) }
+            Method(_CRS, 0, NotSerialized) { Return (IQCR(PRQ3)) }
+            Method(_SRS, 1, NotSerialized) { SETIRQ(PRQ3, Arg0) }
         }
     }
 
 #include "acpi-dsdt-cpu-hotplug.dsl"
 
+
 /****************************************************************
  * General purpose events
  ****************************************************************/
 
-    Scope (\_GPE)
-    {
+    Scope(\_GPE) {
         Name(_HID, "ACPI0006")
 
         Method(_L00) {

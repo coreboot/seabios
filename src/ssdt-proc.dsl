@@ -22,26 +22,26 @@ DefinitionBlock ("ssdt-proc.aml", "SSDT", 0x01, "BXPC", "BXSSDT", 0x1)
     ACPI_EXTRACT_PROCESSOR_START ssdt_proc_start
     ACPI_EXTRACT_PROCESSOR_END ssdt_proc_end
     ACPI_EXTRACT_PROCESSOR_STRING ssdt_proc_name
-    Processor (CPAA, 0xAA, 0x0000b010, 0x06) {
+    Processor(CPAA, 0xAA, 0x0000b010, 0x06) {
         ACPI_EXTRACT_NAME_BYTE_CONST ssdt_proc_id
-        Name (ID, 0xAA)
+        Name(ID, 0xAA)
 /*
  * The src/acpi.c code requires the above ACP_EXTRACT tags so that it can update
  * CPAA and 0xAA with the appropriate CPU id (see
  * SD_OFFSET_CPUHEX/CPUID1/CPUID2).  Don't change the above without
  * also updating the C code.
  */
-        Name (_HID, "ACPI0007")
+        Name(_HID, "ACPI0007")
         External(CPMA, MethodObj)
         External(CPST, MethodObj)
         External(CPEJ, MethodObj)
         Method(_MAT, 0) {
-            Return(CPMA(ID))
+            Return (CPMA(ID))
         }
-        Method (_STA, 0) {
-            Return(CPST(ID))
+        Method(_STA, 0) {
+            Return (CPST(ID))
         }
-        Method (_EJ0, 1, NotSerialized) {
+        Method(_EJ0, 1, NotSerialized) {
             CPEJ(ID, Arg0)
         }
     }

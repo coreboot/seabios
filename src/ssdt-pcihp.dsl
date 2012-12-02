@@ -8,8 +8,8 @@ DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
  ****************************************************************/
 
     /* Objects supplied by DSDT */
-    External (\_SB.PCI0, DeviceObj)
-    External (\_SB.PCI0.PCEJ, MethodObj)
+    External(\_SB.PCI0, DeviceObj)
+    External(\_SB.PCI0.PCEJ, MethodObj)
 
     Scope(\_SB.PCI0) {
 
@@ -22,13 +22,15 @@ DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
         // at runtime, if the slot is detected to not support hotplug.
         // Extract the offset of the address dword and the
         // _EJ0 name to allow this patching.
-        Device (SAA) {
-           ACPI_EXTRACT_NAME_BYTE_CONST ssdt_pcihp_id
-           Name (_SUN, 0xAA)
-           ACPI_EXTRACT_NAME_DWORD_CONST ssdt_pcihp_adr
-           Name (_ADR, 0xAA0000)
-           ACPI_EXTRACT_METHOD_STRING ssdt_pcihp_ej0
-           Method (_EJ0, 1) { Return(PCEJ(_SUN)) }
+        Device(SAA) {
+            ACPI_EXTRACT_NAME_BYTE_CONST ssdt_pcihp_id
+            Name(_SUN, 0xAA)
+            ACPI_EXTRACT_NAME_DWORD_CONST ssdt_pcihp_adr
+            Name(_ADR, 0xAA0000)
+            ACPI_EXTRACT_METHOD_STRING ssdt_pcihp_ej0
+            Method(_EJ0, 1) {
+                Return (PCEJ(_SUN))
+            }
         }
     }
 }
