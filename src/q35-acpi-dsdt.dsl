@@ -48,7 +48,11 @@ DefinitionBlock (
         Store(Arg0, \PICF)
     }
 
-    /* PCI Bus definition */
+
+/****************************************************************
+ * PCI Bus definition
+ ****************************************************************/
+
     Scope(\_SB) {
         Device(PCI0) {
             Name(_HID, EisaId("PNP0A08"))
@@ -116,6 +120,11 @@ DefinitionBlock (
 #include "acpi-dsdt-pci-crs.dsl"
 #include "acpi-dsdt-hpet.dsl"
 
+
+/****************************************************************
+ * VGA
+ ****************************************************************/
+
     Scope(\_SB.PCI0) {
         Device(VGA) {
             Name(_ADR, 0x00010000)
@@ -129,7 +138,14 @@ DefinitionBlock (
                 Return (0x00)
             }
         }
+    }
 
+
+/****************************************************************
+ * LPC ISA bridge
+ ****************************************************************/
+
+    Scope(\_SB.PCI0) {
         /* PCI D31:f0 LPC ISA bridge */
         Device(ISA) {
             /* PCI D31:f0 */
@@ -173,7 +189,11 @@ DefinitionBlock (
 
 #include "acpi-dsdt-isa.dsl"
 
-    /* PCI IRQs */
+
+/****************************************************************
+ * PCI IRQs
+ ****************************************************************/
+
     Scope(\_SB) {
         Scope(PCI0) {
 #define prt_slot_lnk(nr, lnk0, lnk1, lnk2, lnk3)  \
@@ -379,6 +399,11 @@ DefinitionBlock (
     }
 
 #include "acpi-dsdt-cpu-hotplug.dsl"
+
+
+/****************************************************************
+ * General purpose events
+ ****************************************************************/
 
     Scope(\_GPE) {
         Name(_HID, "ACPI0006")
