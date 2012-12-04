@@ -77,20 +77,6 @@ DefinitionBlock (
 
 
 /****************************************************************
- * PIIX3 ISA bridge
- ****************************************************************/
-
-    Scope(\_SB.PCI0) {
-        Device(ISA) {
-            Name(_ADR, 0x00010000)
-
-            /* PIIX PCI to ISA irq remapping */
-            OperationRegion(P40C, PCI_Config, 0x60, 0x04)
-        }
-    }
-
-
-/****************************************************************
  * PIIX4 PM
  ****************************************************************/
 
@@ -103,23 +89,29 @@ DefinitionBlock (
 
 
 /****************************************************************
- * SuperIO devices (kbd, mouse, etc.)
+ * PIIX3 ISA bridge
  ****************************************************************/
 
-    Scope(\_SB.PCI0.ISA) {
+    Scope(\_SB.PCI0) {
+        Device(ISA) {
+            Name(_ADR, 0x00010000)
 
-        /* enable bits */
-        Field(\_SB.PCI0.PX13.P13C, AnyAcc, NoLock, Preserve) {
-            Offset(0x5f),
-            , 7,
-            LPEN, 1,         // LPT
-            Offset(0x67),
-            , 3,
-            CAEN, 1,         // COM1
-            , 3,
-            CBEN, 1,         // COM2
+            /* PIIX PCI to ISA irq remapping */
+            OperationRegion(P40C, PCI_Config, 0x60, 0x04)
+
+            /* enable bits */
+            Field(\_SB.PCI0.PX13.P13C, AnyAcc, NoLock, Preserve) {
+                Offset(0x5f),
+                , 7,
+                LPEN, 1,         // LPT
+                Offset(0x67),
+                , 3,
+                CAEN, 1,         // COM1
+                , 3,
+                CBEN, 1,         // COM2
+            }
+            Name(FDEN, 1)
         }
-        Name(FDEN, 1)
     }
 
 #include "acpi-dsdt-isa.dsl"
