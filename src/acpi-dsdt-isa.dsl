@@ -85,7 +85,7 @@ Scope(\_SB.PCI0.ISA) {
 
     Device(COM2) {
         Name(_HID, EisaId("PNP0501"))
-        Name(_UID, 0x01)
+        Name(_UID, 0x02)
         Method(_STA, 0, NotSerialized) {
             Store(CBEN, Local0)
             If (LEqual(Local0, 0)) {
