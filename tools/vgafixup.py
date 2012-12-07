@@ -13,7 +13,7 @@
 
 # It is also known that the Windows vgabios emulator has issues with
 # addressing negative offsets to the %esp register.  That has been
-# worked around by not using the gcc paremeter "-fomit-frame-pointer"
+# worked around by not using the gcc parameter "-fomit-frame-pointer"
 # when compiling.
 
 import sys
