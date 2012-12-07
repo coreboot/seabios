@@ -581,9 +581,9 @@ process_floppy_op(struct disk_op_s *op)
 void VISIBLE16
 handle_0e(void)
 {
-    debug_isr(DEBUG_ISR_0e);
     if (! CONFIG_FLOPPY)
-        goto done;
+        return;
+    debug_isr(DEBUG_ISR_0e);
 
     if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
         outb(0x08, PORT_FD_DATA); // sense interrupt status
@@ -597,7 +597,6 @@ handle_0e(void)
     u8 frs = GET_BDA(floppy_recalibration_status);
     SET_BDA(floppy_recalibration_status, frs | FRS_TIMEOUT);
 
-done:
     eoi_pic1();
 }
 
