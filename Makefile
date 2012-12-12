@@ -89,34 +89,17 @@ ifeq "$(TESTGCC)" "-1"
 $(error "Please upgrade the build environment")
 endif
 
-ifndef COMPSTRAT
-COMPSTRAT=$(TESTGCC)
+ifeq "$(TESTGCC)" "0"
+# Use -fwhole-program
+CFLAGSWHOLE=-fwhole-program -DWHOLE_PROGRAM
 endif
 
-# Do a whole file compile - three methods are supported.
-ifeq "$(COMPSTRAT)" "1"
-# First method - use -fwhole-program without -combine.
+# Do a whole file compile by textually including all C code.
 define whole-compile
 @echo "  Compiling whole program $3"
 $(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
-$(Q)$(CC) $1 -fwhole-program -DWHOLE_PROGRAM -c $3.tmp.c -o $3
+$(Q)$(CC) $1 $(CFLAGSWHOLE) -c $3.tmp.c -o $3
 endef
-else
-ifeq "$(COMPSTRAT)" "2"
-# Second menthod - don't use -fwhole-program at all.
-define whole-compile
-@echo "  Compiling whole program $3"
-$(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
-$(Q)$(CC) $1 -c $3.tmp.c -o $3
-endef
-else
-# Third (and preferred) method - use -fwhole-program with -combine
-define whole-compile
-@echo "  Compiling whole program $3"
-$(Q)$(CC) $1 -fwhole-program -DWHOLE_PROGRAM -combine -c $2 -o $3
-endef
-endif
-endif
 
 %.strip.o: %.o
 	@echo "  Stripping $@"

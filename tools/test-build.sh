@@ -87,45 +87,7 @@ if [ $? -ne 0 ]; then
     exit 0
 fi
 
-# Test if "-combine" works.  On Ubuntu 8.04 the compiler doesn't work
-# correctly with combine and the "struct bregs" register due to the
-# anonymous unions and structs.  On Fedora Core 12 the compiler throws
-# an internal compiler error when multiple files access global
-# variables with debugging enabled.
-cat - > $TMPFILE1 <<EOF
-// Look for anonymous union/struct failure
-struct ts { union { int u1; struct { int u2; }; }; };
-void func1(struct ts *r);
-
-// Look for global variable failure.
-struct s1_s { int v; } g1;
-void __attribute__((externally_visible)) func2() {
-    struct s1_s *l1 = &g1;
-    l1->v=0;
-}
-EOF
-cat - > $TMPFILE2 <<EOF
-struct ts { union { int u1; struct { int u2; }; }; };
-void func1(struct ts *r);
-
-extern struct s1_s g1;
-void func3() {
-    &g1;
-}
-EOF
-$CC -O -g -fwhole-program -combine -c $TMPFILE1 $TMPFILE2 -o $TMPFILE1o > /dev/null 2>&1
-if [ $? -eq 0 ]; then
-    echo 0
-else
-    echo "  Working around non-functional -combine" >&2
-    echo 1
-fi
-
-# Also, on several compilers, -combine fails if code is emitted with a
-# reference to an extern variable that is later found to be externally
-# visible - the compiler does not mark those variables as global.
-# This is being worked around by ordering the compile objects to avoid
-# this case.
+echo 0
 
 # Also, the Ubuntu 8.04 compiler has a bug causing corruption when the
 # "ebp" register is clobberred in an "asm" statement.  The code has
