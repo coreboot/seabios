@@ -109,6 +109,10 @@ $(OUT)%.s: %.c
 	@echo "  Compiling to assembler $@"
 	$(Q)$(CC) $(CFLAGS16) -S -c $< -o $@
 
+$(OUT)%.o: %.c $(OUT)autoconf.h
+	@echo "  Compile checking $@"
+	$(Q)$(CC) $(CFLAGS32FLAT) -c $< -o $@
+
 $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $@"
 	$(Q)$(CPP) -P -D__ASSEMBLY__ $< -o $@
@@ -122,11 +126,11 @@ $(OUT)asm-offsets.h: $(OUT)asm-offsets.s
 	@echo "  Generating offset file $@"
 	$(Q)./tools/gen-offsets.sh $< $@
 
-$(OUT)ccode16.o: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16), $(addprefix src/, $(SRC16)),$@)
+$(OUT)ccode16.o: $(OUT)autoconf.h $(patsubst %.c, out/%.o,$(SRC16)) ; $(call whole-compile, $(CFLAGS16), $(addprefix src/, $(SRC16)),$@)
 
-$(OUT)code32seg.o: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
+$(OUT)code32seg.o: $(OUT)autoconf.h $(patsubst %.c, out/%.o,$(SRC32SEG)) ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
 
-$(OUT)ccode32flat.o: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
+$(OUT)ccode32flat.o: $(OUT)autoconf.h $(patsubst %.c, out/%.o,$(SRC32FLAT)) ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
 
 $(OUT)romlayout.o: romlayout.S $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
@@ -216,7 +220,7 @@ $(OUT)%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.p
 	$(Q)$(PYTHON) ./tools/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
-$(OUT)ccode32flat.o: $(OUT)acpi-dsdt.hex $(OUT)ssdt-proc.hex $(OUT)ssdt-pcihp.hex $(OUT)ssdt-susp.hex $(OUT)q35-acpi-dsdt.hex
+$(OUT)acpi.o: $(OUT)acpi-dsdt.hex $(OUT)ssdt-proc.hex $(OUT)ssdt-pcihp.hex $(OUT)ssdt-susp.hex $(OUT)q35-acpi-dsdt.hex
 
 ################ Kconfig rules
 
