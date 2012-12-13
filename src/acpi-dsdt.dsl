@@ -187,7 +187,7 @@ DefinitionBlock (
 
                 prt_slot0(0x0000),
                 /* Device 1 is power mgmt device, and can only use irq 9 */
-                Package() { 0x1ffff, 0,    0, 9 },
+                Package() { 0x1ffff, 0, LNKS, 0 },
                 Package() { 0x1ffff, 1, LNKB, 0 },
                 Package() { 0x1ffff, 2, LNKC, 0 },
                 Package() { 0x1ffff, 3, LNKD, 0 },
@@ -278,6 +278,22 @@ DefinitionBlock (
         define_link(LNKB, 1, PRQ1)
         define_link(LNKC, 2, PRQ2)
         define_link(LNKD, 3, PRQ3)
+
+        Device(LNKS) {
+            Name(_HID, EISAID("PNP0C0F"))
+            Name(_UID, 4)
+            Name(_PRS, ResourceTemplate() {
+                Interrupt(, Level, ActiveHigh, Shared) { 9 }
+            })
+
+            // The SCI cannot be disabled and is always attached to GSI 9,
+            // so these are no-ops.  We only need this link to override the
+            // polarity to active high and match the content of the MADT.
+            Method(_STA, 0, NotSerialized) { Return (0x0b) }
+            Method(_DIS, 0, NotSerialized) { }
+            Method(_CRS, 0, NotSerialized) { Return (_PRS) }
+            Method(_SRS, 1, NotSerialized) { }
+        }
     }
 
 #include "acpi-dsdt-cpu-hotplug.dsl"
