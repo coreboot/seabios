@@ -521,3 +521,71 @@ smbios_init(void)
     smbios_entry_point_init(max_struct_size, p - start, start, nr_structs);
     free(start);
 }
+
+void
+display_uuid(void)
+{
+    u32 addr, end;
+    u8 *uuid;
+    u8 empty_uuid[16] = { 0 };
+
+    if (SMBiosAddr == NULL)
+        return;
+
+    addr =        SMBiosAddr->structure_table_address;
+    end  = addr + SMBiosAddr->structure_table_length;
+
+    /* the following takes care of any initial wraparound too */
+    while (addr < end) {
+        const struct smbios_structure_header *hdr;
+
+        /* partial structure header */
+        if (end - addr < sizeof(struct smbios_structure_header))
+            return;
+
+        hdr = (struct smbios_structure_header *)addr;
+
+        /* partial structure */
+        if (end - addr < hdr->length)
+            return;
+
+        /* any Type 1 structure version will do that has the UUID */
+        if (hdr->type == 1 &&
+            hdr->length >= offsetof(struct smbios_type_1, uuid) + 16)
+            break;
+
+        /* done with formatted area, skip string-set */
+        addr += hdr->length;
+
+        while (end - addr >= 2 &&
+               (*(u8 *)addr     != '\0' ||
+                *(u8 *)(addr+1) != '\0'))
+            ++addr;
+
+        /* structure terminator not found */
+        if (end - addr < 2)
+            return;
+
+        addr += 2;
+    }
+
+    /* parsing finished, UUID not found */
+    if (addr == end)
+        return;
+
+    uuid = (u8 *)(addr + offsetof(struct smbios_type_1, uuid));
+    if (memcmp(uuid, empty_uuid, sizeof empty_uuid) == 0)
+        return;
+
+    printf("Machine UUID"
+             " %02x%02x%02x%02x"
+             "-%02x%02x"
+             "-%02x%02x"
+             "-%02x%02x"
+             "-%02x%02x%02x%02x%02x%02x\n"
+           , uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3]
+           , uuid[ 4], uuid[ 5]
+           , uuid[ 6], uuid[ 7]
+           , uuid[ 8], uuid[ 9]
+           , uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+}

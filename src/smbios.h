@@ -165,4 +165,5 @@ struct smbios_type_127 {
     struct smbios_structure_header header;
 } PACKED;
 
+void display_uuid(void);
 #endif // smbios.h

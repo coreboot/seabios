@@ -261,6 +261,9 @@ maininit(void)
     // Run vga option rom
     vga_setup();
 
+    // SMBIOS tables and VGA console are ready, print UUID
+    display_uuid();
+
     // Do hardware initialization (if running synchronously)
     if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS) {
         init_hw();
