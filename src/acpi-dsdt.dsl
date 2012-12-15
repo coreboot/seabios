@@ -187,10 +187,7 @@ DefinitionBlock (
 
                 prt_slot0(0x0000),
                 /* Device 1 is power mgmt device, and can only use irq 9 */
-                Package() { 0x1ffff, 0, LNKS, 0 },
-                Package() { 0x1ffff, 1, LNKB, 0 },
-                Package() { 0x1ffff, 2, LNKC, 0 },
-                Package() { 0x1ffff, 3, LNKD, 0 },
+                prt_slot(0x0001, LNKS, LNKB, LNKC, LNKD),
                 prt_slot2(0x0002),
                 prt_slot3(0x0003),
                 prt_slot0(0x0004),
