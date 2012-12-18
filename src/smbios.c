@@ -569,8 +569,8 @@ display_uuid(void)
         addr += 2;
     }
 
-    /* parsing finished, UUID not found */
-    if (addr == end)
+    /* parsing finished or skipped entirely, UUID not found */
+    if (addr >= end)
         return;
 
     uuid = (u8 *)(addr + offsetof(struct smbios_type_1, uuid));
