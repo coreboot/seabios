@@ -382,18 +382,17 @@ megasas_setup(void)
         if (pci->vendor != PCI_VENDOR_ID_LSI_LOGIC &&
             pci->vendor != PCI_VENDOR_ID_DELL)
             continue;
-        if (pci->device != PCI_DEVICE_ID_LSI_SAS1064R ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS1078 ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS1078DE ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS2108 ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS2108E ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS2004 ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS2008 ||
-            pci->device != PCI_DEVICE_ID_LSI_VERDE_ZCR ||
-            pci->device != PCI_DEVICE_ID_DELL_PERC5 ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS2208 ||
-            pci->device != PCI_DEVICE_ID_LSI_SAS3108)
-            continue;
-        init_megasas(pci);
+        if (pci->device == PCI_DEVICE_ID_LSI_SAS1064R ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS1078 ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS1078DE ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS2108 ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS2108E ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS2004 ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS2008 ||
+            pci->device == PCI_DEVICE_ID_LSI_VERDE_ZCR ||
+            pci->device == PCI_DEVICE_ID_DELL_PERC5 ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS2208 ||
+            pci->device == PCI_DEVICE_ID_LSI_SAS3108)
+            init_megasas(pci);
     }
 }
