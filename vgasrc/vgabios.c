@@ -797,6 +797,61 @@ handle_101114(struct bregs *regs)
 }
 
 static void
+handle_101120(struct bregs *regs)
+{
+    SET_IVT(0x1f, SEGOFF(regs->es, regs->bp));
+}
+
+void
+load_gfx_font(u16 seg, u16 off, u8 height, u8 bl, u8 dl)
+{
+    u8 rows;
+
+    SET_IVT(0x43, SEGOFF(seg, off));
+    switch(bl) {
+    case 0:
+        rows = dl;
+        break;
+    case 1:
+        rows = 14;
+        break;
+    case 3:
+        rows = 43;
+        break;
+    case 2:
+    default:
+        rows = 25;
+        break;
+    }
+    SET_BDA(video_rows, rows - 1);
+    SET_BDA(char_height, height);
+}
+
+static void
+handle_101121(struct bregs *regs)
+{
+    load_gfx_font(regs->es, regs->bp, regs->cx, regs->bl, regs->dl);
+}
+
+static void
+handle_101122(struct bregs *regs)
+{
+    load_gfx_font(get_global_seg(), (u32)vgafont14, 14, regs->bl, regs->dl);
+}
+
+static void
+handle_101123(struct bregs *regs)
+{
+    load_gfx_font(get_global_seg(), (u32)vgafont8, 8, regs->bl, regs->dl);
+}
+
+static void
+handle_101124(struct bregs *regs)
+{
+    load_gfx_font(get_global_seg(), (u32)vgafont16, 16, regs->bl, regs->dl);
+}
+
+static void
 handle_101130(struct bregs *regs)
 {
     switch (regs->bh) {
@@ -867,6 +922,11 @@ handle_1011(struct bregs *regs)
     case 0x12: handle_101112(regs); break;
     case 0x14: handle_101114(regs); break;
     case 0x30: handle_101130(regs); break;
+    case 0x20: handle_101120(regs); break;
+    case 0x21: handle_101121(regs); break;
+    case 0x22: handle_101122(regs); break;
+    case 0x23: handle_101123(regs); break;
+    case 0x24: handle_101124(regs); break;
     default:   handle_1011XX(regs); break;
     }
 }
