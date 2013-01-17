@@ -8,6 +8,17 @@
 import sys
 import layoutrom
 
+def subst(data, offset, new):
+    return data[:offset] + new + data[offset + len(new):]
+
+def checksum(data, start, size, csum):
+    sumbyte = 0
+    while size:
+        sumbyte = sumbyte + ord(data[start + size - 1])
+        size = size - 1
+    sumbyte = (0x100 - sumbyte) & 0xff
+    return subst(data, start+csum, chr(sumbyte))
+
 def main():
     # Get args
     objinfo, rawfile, outfile = sys.argv[1:]
@@ -44,6 +55,22 @@ def main():
         print "Error!  Unknown extra data (0x%x vs 0x%x)" % (
             datasize, expdatasize)
         sys.exit(1)
+
+    # Fix up CSM Compatibility16 table
+    if 'csm_compat_table' in symbols and 'entry_csm' in symbols:
+        # Field offsets within EFI_COMPATIBILITY16_TABLE
+        ENTRY_FIELD_OFS = 14 # Compatibility16CallOffset (UINT16)
+        SIZE_FIELD_OFS = 5   # TableLength (UINT8)
+        CSUM_FIELD_OFS = 4   # TableChecksum (UINT8)
+
+        tableofs = symbols['csm_compat_table'].offset - symbols['code32flat_start'].offset
+        entry_addr = symbols['entry_csm'].offset - layoutrom.BUILD_BIOS_ADDR
+        byte1 = chr(entry_addr & 0xff)
+        byte2 = chr(entry_addr >> 8)
+        rawdata = subst(rawdata, tableofs+ENTRY_FIELD_OFS, byte1+byte2)
+
+        tablesize = ord(rawdata[tableofs+SIZE_FIELD_OFS])
+        rawdata = checksum(rawdata, tableofs, tablesize, CSUM_FIELD_OFS)
 
     # Print statistics
     runtimesize = datasize
