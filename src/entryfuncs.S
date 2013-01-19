@@ -9,6 +9,30 @@
  * Entry macros
  ****************************************************************/
 
+        .macro PUSHBREGS
+        pushl %eax              // Save registers (matches struct bregs)
+        pushl %ecx
+        pushl %edx
+        pushl %ebx
+        pushl %ebp
+        pushl %esi
+        pushl %edi
+        pushw %es
+        pushw %ds
+        .endm
+
+        .macro POPBREGS
+        popw %ds                // Restore registers (from struct bregs)
+        popw %es
+        popl %edi
+        popl %esi
+        popl %ebp
+        popl %ebx
+        popl %edx
+        popl %ecx
+        popl %eax
+        .endm
+
         // Call a C function - this does the minimal work necessary to
         // call into C.  It sets up %ds, backs up %es, and backs up
         // those registers that are call clobbered by the C compiler.
@@ -63,15 +87,7 @@
         .macro ENTRY_ARG cfunc
         cli
         cld
-        pushl %eax              // Save registers (matches struct bregs)
-        pushl %ecx
-        pushl %edx
-        pushl %ebx
-        pushl %ebp
-        pushl %esi
-        pushl %edi
-        pushw %es
-        pushw %ds
+        PUSHBREGS
         movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
         movl %esp, %ebx         // Backup %esp, then zero high bits
@@ -79,15 +95,7 @@
         movl %esp, %eax         // First arg is pointer to struct bregs
         calll \cfunc
         movl %ebx, %esp         // Restore %esp (including high bits)
-        popw %ds                // Restore registers (from struct bregs)
-        popw %es
-        popl %edi
-        popl %esi
-        popl %ebp
-        popl %ebx
-        popl %edx
-        popl %ecx
-        popl %eax
+        POPBREGS
         .endm
 
         // As above, but get calling function from stack.
@@ -111,43 +119,19 @@
         movl %esp, %eax         // First arg is pointer to struct bregs
         calll *%ecx
         movl %ebx, %esp         // Restore %esp (including high bits)
-        popw %ds                // Restore registers (from struct bregs)
-        popw %es
-        popl %edi
-        popl %esi
-        popl %ebp
-        popl %ebx
-        popl %edx
-        popl %ecx
-        popl %eax
+        POPBREGS
         .endm
 
         // Same as ENTRY_ARG, but don't mangle %esp
         .macro ENTRY_ARG_ESP cfunc
         cli
         cld
-        pushl %eax              // Save registers (matches struct bregs)
-        pushl %ecx
-        pushl %edx
-        pushl %ebx
-        pushl %ebp
-        pushl %esi
-        pushl %edi
-        pushw %es
-        pushw %ds
+        PUSHBREGS
         movw %ss, %ax           // Move %ss to %ds
         movw %ax, %ds
         movl %esp, %eax         // First arg is pointer to struct bregs
         calll \cfunc
-        popw %ds                // Restore registers (from struct bregs)
-        popw %es
-        popl %edi
-        popl %esi
-        popl %ebp
-        popl %ebx
-        popl %edx
-        popl %ecx
-        popl %eax
+        POPBREGS
         .endm
 
         // Reset stack, transition to 32bit mode, and call a C function.
