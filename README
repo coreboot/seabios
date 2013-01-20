@@ -103,14 +103,13 @@ Global variables defined in the C code can be read in 16bit mode if
 the variable declaration is marked with VAR16, VAR16VISIBLE,
 VAR16EXPORT, or VAR16FIXED.  The GET_GLOBAL macro will then allow read
 access to the variable.  Global variables are stored in the 0xf000
-segment, and their values are persistent across soft resets.  Because
-the f-segment is marked read-only during run-time, the 16bit code is
-not permitted to change the value of 16bit variables (use of the
-SET_GLOBAL macro from 16bit mode will cause a link error).  Code
-running in 32bit mode can not access variables with VAR16, but can
-access variables marked with VAR16VISIBLE, VAR16EXPORT, VAR16FIXED, or
-with no marking at all.  The 32bit code can use the GET/SET_GLOBAL
-macros, but they are not required.
+segment.  Because the f-segment is marked read-only during run-time,
+the 16bit code is not permitted to change the value of 16bit variables
+(use of the SET_GLOBAL macro from 16bit mode will cause a link error).
+Code running in 32bit mode can not access variables with VAR16, but
+can access variables marked with VAR16VISIBLE, VAR16EXPORT,
+VAR16FIXED, or with no marking at all.  The 32bit code can use the
+GET/SET_GLOBAL macros, but they are not required.
 
 
 GCC 16 bit stack limitations:
