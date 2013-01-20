@@ -416,8 +416,7 @@ struct pmmheader {
     u8 version;
     u8 length;
     u8 checksum;
-    u16 entry_offset;
-    u16 entry_seg;
+    struct segoff_s entry;
     u8 reserved[5];
 } PACKED;
 
@@ -427,9 +426,9 @@ extern struct pmmheader PMMHEADER;
 
 #if CONFIG_PMM
 struct pmmheader PMMHEADER __aligned(16) VAR16EXPORT = {
+    .signature = PMM_SIGNATURE,
     .version = 0x01,
     .length = sizeof(PMMHEADER),
-    .entry_seg = SEG_BIOS,
 };
 #endif
 
@@ -545,9 +544,6 @@ handle_pmm(u16 *args)
     return ret;
 }
 
-// romlayout.S
-extern void entry_pmm(void);
-
 void
 pmm_setup(void)
 {
@@ -556,8 +552,7 @@ pmm_setup(void)
 
     dprintf(3, "init PMM\n");
 
-    PMMHEADER.signature = PMM_SIGNATURE;
-    PMMHEADER.entry_offset = (u32)entry_pmm - BUILD_BIOS_ADDR;
+    PMMHEADER.entry = FUNC16(entry_pmm);
     PMMHEADER.checksum -= checksum(&PMMHEADER, sizeof(PMMHEADER));
 }
 
@@ -570,5 +565,5 @@ pmm_finalize(void)
     dprintf(3, "finalize PMM\n");
 
     PMMHEADER.signature = 0;
-    PMMHEADER.entry_offset = 0;
+    PMMHEADER.entry.segoff = 0;
 }
