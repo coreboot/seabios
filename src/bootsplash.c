@@ -12,6 +12,7 @@
 #include "jpeg.h" // splash
 #include "vbe.h" // struct vbe_info
 #include "bmp.h" // bmp_alloc
+#include "smbios.h" // display_uuid
 
 
 /****************************************************************
@@ -46,6 +47,7 @@ enable_vga_console(void)
 
     // Write to screen.
     printf("SeaBIOS (version %s)\n", VERSION);
+    display_uuid();
 }
 
 static int

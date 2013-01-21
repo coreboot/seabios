@@ -1,6 +1,6 @@
 // 32bit code to Power On Self Test (POST) a machine.
 //
-// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -30,9 +30,67 @@
 #include "esp-scsi.h" // esp_scsi_setup
 #include "megasas.h" // megasas_setup
 
+
 /****************************************************************
  * BIOS init
  ****************************************************************/
+
+static void
+ramsize_preinit(void)
+{
+    dprintf(3, "Find memory size\n");
+    if (CONFIG_COREBOOT) {
+        coreboot_preinit();
+    } else if (usingXen()) {
+        xen_ramsize_preinit();
+    } else {
+        // On emulators, get memory size from nvram.
+        u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
+                  | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 24));
+        if (rs)
+            rs += 16 * 1024 * 1024;
+        else
+            rs = (((inb_cmos(CMOS_MEM_EXTMEM_LOW) << 10)
+                   | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 18))
+                  + 1 * 1024 * 1024);
+        RamSize = rs;
+        add_e820(0, rs, E820_RAM);
+
+        // Check for memory over 4Gig
+        u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
+                    | ((u32)inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
+                    | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
+        RamSizeOver4G = high;
+        add_e820(0x100000000ull, high, E820_RAM);
+
+        /* reserve 256KB BIOS area at the end of 4 GB */
+        add_e820(0xfffc0000, 256*1024, E820_RESERVED);
+    }
+
+    // Don't declare any memory between 0xa0000 and 0x100000
+    add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
+
+    // Mark known areas as reserved.
+    add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
+
+    u32 count = qemu_cfg_e820_entries();
+    if (count) {
+        struct e820_reservation entry;
+        int i;
+
+        for (i = 0; i < count; i++) {
+            qemu_cfg_e820_load_next(&entry);
+            add_e820(entry.address, entry.length, entry.type);
+        }
+    } else if (kvm_para_available()) {
+        // Backwards compatibility - provide hard coded range.
+        // 4 pages before the bios, 3 pages for vmx tss pages, the
+        // other page for EPT real mode pagetable
+        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
+    }
+
+    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
+}
 
 static void
 ivt_init(void)
@@ -100,81 +158,27 @@ bda_init(void)
 }
 
 static void
-ramsize_preinit(void)
+interface_init(void)
 {
-    dprintf(3, "Find memory size\n");
-    if (CONFIG_COREBOOT) {
-        coreboot_preinit();
-    } else if (usingXen()) {
-        xen_ramsize_preinit();
-    } else {
-        // On emulators, get memory size from nvram.
-        u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
-                  | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 24));
-        if (rs)
-            rs += 16 * 1024 * 1024;
-        else
-            rs = (((inb_cmos(CMOS_MEM_EXTMEM_LOW) << 10)
-                   | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 18))
-                  + 1 * 1024 * 1024);
-        RamSize = rs;
-        add_e820(0, rs, E820_RAM);
+    // Running at new code address - do code relocation fixups
+    malloc_fixupreloc_init();
 
-        // Check for memory over 4Gig
-        u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
-                    | ((u32)inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
-                    | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
-        RamSizeOver4G = high;
-        add_e820(0x100000000ull, high, E820_RAM);
+    // Setup romfile items.
+    qemu_romfile_init();
+    coreboot_cbfs_init();
 
-        /* reserve 256KB BIOS area at the end of 4 GB */
-        add_e820(0xfffc0000, 256*1024, E820_RESERVED);
-    }
+    // Setup ivt/bda/ebda
+    ivt_init();
+    bda_init();
 
-    // Don't declare any memory between 0xa0000 and 0x100000
-    add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
-
-    // Mark known areas as reserved.
-    add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
-
-    u32 count = qemu_cfg_e820_entries();
-    if (count) {
-        struct e820_reservation entry;
-        int i;
-
-        for (i = 0; i < count; i++) {
-            qemu_cfg_e820_load_next(&entry);
-            add_e820(entry.address, entry.length, entry.type);
-        }
-    } else if (kvm_para_available()) {
-        // Backwards compatibility - provide hard coded range.
-        // 4 pages before the bios, 3 pages for vmx tss pages, the
-        // other page for EPT real mode pagetable
-        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
-    }
-
-    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
-}
-
-static void
-biostable_setup(void)
-{
-    if (CONFIG_COREBOOT) {
-        coreboot_biostable_setup();
-        return;
-    }
-    if (usingXen()) {
-        xen_biostable_setup();
-        return;
-    }
-
-    pirtable_setup();
-
-    mptable_setup();
-
-    smbios_setup();
-
-    acpi_setup();
+    // Other interfaces
+    mathcp_init();
+    boot_init();
+    bios32_init();
+    pmm_init();
+    pnp_init();
+    kbd_init();
+    mouse_init();
 }
 
 // Initialize hardware devices
@@ -198,6 +202,71 @@ device_hardware_setup(void)
     megasas_setup();
 }
 
+static void
+biostable_setup(void)
+{
+    if (CONFIG_COREBOOT) {
+        coreboot_biostable_setup();
+        return;
+    }
+    if (usingXen()) {
+        xen_biostable_setup();
+        return;
+    }
+
+    pirtable_setup();
+
+    mptable_setup();
+
+    smbios_setup();
+
+    acpi_setup();
+}
+
+static void
+platform_hardware_setup(void)
+{
+    // Init base pc hardware.
+    pic_setup();
+    timer_setup();
+
+    // Initialize pci
+    pci_setup();
+    smm_setup();
+
+    // Initialize mtrr
+    mtrr_setup();
+
+    // Setup Xen hypercalls
+    xen_hypercall_setup();
+
+    // Start hardware initialization (if optionrom threading)
+    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
+        device_hardware_setup();
+
+    // Find and initialize other cpus
+    smp_setup();
+
+    // Setup external BIOS interface tables
+    biostable_setup();
+}
+
+static void
+prepareboot(void)
+{
+    // Run BCVs
+    bcv_prepboot();
+
+    // Finalize data structures before boot
+    cdrom_prepboot();
+    pmm_prepboot();
+    malloc_prepboot();
+    memmap_prepboot();
+
+    // Setup bios checksum.
+    BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
+}
+
 // Begin the boot process by invoking an int0x19 in 16bit mode.
 void VISIBLE32FLAT
 startBoot(void)
@@ -216,52 +285,14 @@ startBoot(void)
 static void
 maininit(void)
 {
-    // Setup romfile items.
-    qemu_romfile_init();
-    coreboot_cbfs_init();
+    // Initialize internal interfaces.
+    interface_init();
 
-    // Setup ivt/bda/ebda
-    ivt_init();
-    bda_init();
-
-    // Init base pc hardware.
-    pic_setup();
-    timer_setup();
-    mathcp_init();
-
-    // Initialize pci
-    pci_setup();
-    smm_setup();
-
-    // Initialize mtrr
-    mtrr_setup();
-
-    // Setup Xen hypercalls
-    xen_hypercall_setup();
-
-    // Initialize internal tables
-    boot_init();
-
-    // Start hardware initialization (if optionrom threading)
-    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
-        device_hardware_setup();
-
-    // Find and initialize other cpus
-    smp_setup();
-
-    // Setup interfaces that option roms may need
-    bios32_init();
-    pmm_init();
-    pnp_init();
-    kbd_init();
-    mouse_init();
-    biostable_setup();
+    // Setup platform devices.
+    platform_hardware_setup();
 
     // Run vga option rom
     vgarom_setup();
-
-    // SMBIOS tables and VGA console are ready, print UUID
-    display_uuid();
 
     // Do hardware initialization (if running synchronously)
     if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS) {
@@ -272,17 +303,12 @@ maininit(void)
     // Run option roms
     optionrom_setup();
 
-    // Run BCVs and show optional boot menu
-    boot_prepboot();
+    // Allow user to modify overall boot order.
+    interactive_bootmenu();
+    wait_threads();
 
-    // Finalize data structures before boot
-    cdrom_prepboot();
-    pmm_prepboot();
-    malloc_prepboot();
-    memmap_prepboot();
-
-    // Setup bios checksum.
-    BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
+    // Prepare for boot.
+    prepareboot();
 
     // Write protect bios memory.
     make_bios_readonly();
@@ -295,21 +321,6 @@ maininit(void)
 /****************************************************************
  * POST entry and code relocation
  ****************************************************************/
-
-// Relocation fixup code that runs at new address after relocation complete.
-static void
-afterReloc(void)
-{
-    // Running at new code address - do code relocation fixups
-    malloc_fixupreloc_init();
-
-    // Move low-memory initial variable content to new location.
-    extern u8 datalow_start[], datalow_end[], final_datalow_start[];
-    memmove(final_datalow_start, datalow_start, datalow_end - datalow_start);
-
-    // Run main code
-    maininit();
-}
 
 // Update given relocs for the code at 'dest' with a given 'delta'
 static void
@@ -359,7 +370,7 @@ reloc_preinit(void)
     updateRelocs(code32flat_start, _reloc_init_start, _reloc_init_end, delta);
 
     // Call maininit() in relocated code.
-    void (*func)(void) = (void*)afterReloc + delta;
+    void (*func)(void) = (void*)maininit + delta;
     barrier();
     func();
 }

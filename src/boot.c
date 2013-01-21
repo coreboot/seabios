@@ -392,9 +392,11 @@ boot_add_cbfs(void *data, const char *desc, int prio)
 #define DEFAULT_BOOTMENU_WAIT 2500
 
 // Show IPL option menu.
-static void
+void
 interactive_bootmenu(void)
 {
+    // XXX - show available drives?
+
     if (! CONFIG_BOOTMENU || ! qemu_cfg_show_boot_menu())
         return;
 
@@ -476,18 +478,10 @@ add_bev(int type, u32 vector)
 
 // Prepare for boot - show menu and run bcvs.
 void
-boot_prepboot(void)
+bcv_prepboot(void)
 {
-    if (! CONFIG_BOOT) {
-        wait_threads();
+    if (! CONFIG_BOOT)
         return;
-    }
-
-    // XXX - show available drives?
-
-    // Allow user to modify BCV/IPL order.
-    interactive_bootmenu();
-    wait_threads();
 
     int haltprio = find_prio("HALT");
     if (haltprio >= 0)
