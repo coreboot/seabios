@@ -222,6 +222,14 @@ malloc_preinit(void)
     ASSERT32FLAT();
     dprintf(3, "malloc setup\n");
 
+    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
+
+    // Don't declare any memory between 0xa0000 and 0x100000
+    add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
+
+    // Mark known areas as reserved.
+    add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
+
     // Populate temp high ram
     u32 highram = 0;
     int i;

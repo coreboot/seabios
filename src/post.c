@@ -29,28 +29,8 @@
 
 
 /****************************************************************
- * BIOS init
+ * BIOS initialization and hardware setup
  ****************************************************************/
-
-static void
-ramsize_preinit(void)
-{
-    dprintf(3, "Find memory size\n");
-    if (CONFIG_COREBOOT)
-        coreboot_preinit();
-    else if (usingXen())
-        xen_ramsize_preinit();
-    else
-        qemu_ramsize_preinit();
-
-    // Don't declare any memory between 0xa0000 and 0x100000
-    add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
-
-    // Mark known areas as reserved.
-    add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
-
-    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
-}
 
 static void
 ivt_init(void)
@@ -321,41 +301,61 @@ reloc_preinit(void *f, void *arg)
     func(arg);
 }
 
-// Setup for code relocation and then call reloc_init
+// Setup for code relocation and then relocate.
 void VISIBLE32INIT
 dopost(void)
 {
+    // Set reboot flags.
     HaveRunPost = 1;
-
-    // Detect ram and setup internal malloc.
-    qemu_cfg_preinit();
-    ramsize_preinit();
-    malloc_preinit();
-
-    // Relocate initialization code and call maininit().
-    reloc_preinit(maininit, NULL);
-}
-
-// Entry point for Power On Self Test (POST) - the BIOS initilization
-// phase.  This function makes the memory at 0xc0000-0xfffff
-// read/writable and then calls dopost().
-void VISIBLE32FLAT
-handle_post(void)
-{
-    debug_serial_preinit();
-    dprintf(1, "Start bios (version %s)\n", VERSION);
+    outb_cmos(0, CMOS_RESET_CODE);
 
     // Enable CPU caching
     setcr0(getcr0() & ~(CR0_CD|CR0_NW));
-
-    // Clear CMOS reboot flag.
-    outb_cmos(0, CMOS_RESET_CODE);
 
     // Make sure legacy DMA isn't running.
     dma_preinit();
 
     // Check if we are running under Xen.
     xen_preinit();
+
+    // Detect ram and setup internal malloc.
+    qemu_cfg_preinit();
+    if (CONFIG_COREBOOT)
+        coreboot_preinit();
+    else if (usingXen())
+        xen_ramsize_preinit();
+    else
+        qemu_ramsize_preinit();
+    malloc_preinit();
+
+    // Relocate initialization code and call maininit().
+    reloc_preinit(maininit, NULL);
+}
+
+// Startup debug output and display software version.
+static void
+debug_splash(void)
+{
+    debug_serial_preinit();
+    dprintf(1, "Start bios (version %s)\n", VERSION);
+}
+
+// Entry point for Power On Self Test (POST) when running under
+// xen/coreboot.
+void VISIBLE32INIT
+handle_elf(void)
+{
+    debug_splash();
+    dopost();
+}
+
+// Entry point for Power On Self Test (POST) when running under
+// qemu/kvm/bochs.  Under qemu the memory at 0xc0000-0xfffff may be
+// read-only, so unlock the ram as the first step of booting.
+void VISIBLE32FLAT
+handle_post(void)
+{
+    debug_splash();
 
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();
