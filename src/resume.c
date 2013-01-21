@@ -19,7 +19,7 @@ int HaveRunPost VAR16VISIBLE;
 
 // Reset DMA controller
 void
-dma_preinit(void)
+dma_setup(void)
 {
     // first reset the DMA controllers
     outb(0, PORT_DMA1_MASTER_CLEAR);
@@ -40,7 +40,7 @@ handle_resume(void)
     outb_cmos(0, CMOS_RESET_CODE);
     dprintf(1, "In resume (status=%d)\n", status);
 
-    dma_preinit();
+    dma_setup();
 
     switch (status) {
     case 0x01 ... 0x04:

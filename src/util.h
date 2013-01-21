@@ -355,7 +355,7 @@ void disable_bootsplash(void);
 
 // resume.c
 extern int HaveRunPost;
-void dma_preinit(void);
+void dma_setup(void);
 
 // pnpbios.c
 #define PNP_SIGNATURE 0x506e5024 // $PnP

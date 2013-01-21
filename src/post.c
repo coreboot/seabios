@@ -37,6 +37,10 @@ ivt_init(void)
 {
     dprintf(3, "init ivt\n");
 
+    // Setup reset-vector entry point (controls legacy reboots).
+    HaveRunPost = 1;
+    outb_cmos(0, CMOS_RESET_CODE);
+
     // Initialize all vectors to the default handler.
     int i;
     for (i=0; i<256; i++)
@@ -145,6 +149,12 @@ device_hardware_setup(void)
 static void
 platform_hardware_setup(void)
 {
+    // Enable CPU caching
+    setcr0(getcr0() & ~(CR0_CD|CR0_NW));
+
+    // Make sure legacy DMA isn't running.
+    dma_setup();
+
     // Init base pc hardware.
     pic_setup();
     timer_setup();
@@ -305,16 +315,6 @@ reloc_preinit(void *f, void *arg)
 void VISIBLE32INIT
 dopost(void)
 {
-    // Set reboot flags.
-    HaveRunPost = 1;
-    outb_cmos(0, CMOS_RESET_CODE);
-
-    // Enable CPU caching
-    setcr0(getcr0() & ~(CR0_CD|CR0_NW));
-
-    // Make sure legacy DMA isn't running.
-    dma_preinit();
-
     // Check if we are running under Xen.
     xen_preinit();
 
