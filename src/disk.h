@@ -266,7 +266,7 @@ void map_hd_drive(struct drive_s *drive_g);
 void map_cd_drive(struct drive_s *drive_g);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
-int bounce_buf_init(void);
+int create_bounce_buf(void);
 
 // floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
@@ -281,7 +281,7 @@ extern u8 CDRom_locks[];
 extern struct cdemu_s CDEmu;
 extern struct drive_s *cdemu_drive_gf;
 int process_cdemu_op(struct disk_op_s *op);
-void cdemu_setup(void);
+void cdrom_prepboot(void);
 void cdemu_134b(struct bregs *regs);
 int cdrom_boot(struct drive_s *drive_g);
 

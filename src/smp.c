@@ -82,7 +82,7 @@ int apic_id_is_present(u8 apic_id)
 
 // find and initialize the CPUs by launching a SIPI to them
 void
-smp_probe(void)
+smp_setup(void)
 {
     ASSERT32FLAT();
     u32 eax, ebx, ecx, cpuid_features;

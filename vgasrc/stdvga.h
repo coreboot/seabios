@@ -107,6 +107,6 @@ int stdvga_size_state(int states);
 int stdvga_save_state(u16 seg, void *data, int states);
 int stdvga_restore_state(u16 seg, void *data, int states);
 void stdvga_enable_video_addressing(u8 disable);
-int stdvga_init(void);
+int stdvga_setup(void);
 
 #endif // stdvga.h

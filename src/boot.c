@@ -238,7 +238,7 @@ static int DefaultHDPrio     = 103;
 static int DefaultBEVPrio    = 104;
 
 void
-boot_setup(void)
+boot_init(void)
 {
     if (! CONFIG_BOOT)
         return;
@@ -476,7 +476,7 @@ add_bev(int type, u32 vector)
 
 // Prepare for boot - show menu and run bcvs.
 void
-boot_prep(void)
+boot_prepboot(void)
 {
     if (! CONFIG_BOOT) {
         wait_threads();
@@ -695,7 +695,7 @@ int BootSequence VARLOW = -1;
 void VISIBLE32FLAT
 handle_18(void)
 {
-    debug_serial_setup();
+    debug_serial_preinit();
     debug_enter(NULL, DEBUG_HDL_18);
     int seq = BootSequence + 1;
     BootSequence = seq;
@@ -706,7 +706,7 @@ handle_18(void)
 void VISIBLE32FLAT
 handle_19(void)
 {
-    debug_serial_setup();
+    debug_serial_preinit();
     debug_enter(NULL, DEBUG_HDL_19);
     BootSequence = 0;
     do_boot(0);

@@ -329,9 +329,9 @@ bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
  ****************************************************************/
 
 int
-bochsvga_init(void)
+bochsvga_setup(void)
 {
-    int ret = stdvga_init();
+    int ret = stdvga_setup();
     if (ret)
         return ret;
 

@@ -262,7 +262,7 @@ free:
 }
 
 void
-ohci_init(struct pci_device *pci, int busid)
+ohci_setup(struct pci_device *pci, int busid)
 {
     if (! CONFIG_USB_OHCI)
         return;

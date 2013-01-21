@@ -40,7 +40,7 @@ int getDriveId(u8 exttype, struct drive_s *drive_g)
     return -1;
 }
 
-int bounce_buf_init(void)
+int create_bounce_buf(void)
 {
     if (bounce_buf_fl)
         return 0;

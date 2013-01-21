@@ -133,7 +133,7 @@ u16 pmtimer_ioport VAR16VISIBLE;
 u32 pmtimer_wraps VARLOW;
 u32 pmtimer_last VARLOW;
 
-void pmtimer_init(u16 ioport, u32 khz)
+void pmtimer_setup(u16 ioport, u32 khz)
 {
     if (!CONFIG_PMTIMER)
         return;
@@ -266,7 +266,7 @@ pit_setup(void)
 }
 
 static void
-init_rtc(void)
+rtc_setup(void)
 {
     outb_cmos(0x26, CMOS_STATUS_A);    // 32,768Khz src, 976.5625us updates
     u8 regB = inb_cmos(CMOS_STATUS_B);
@@ -288,7 +288,7 @@ timer_setup(void)
     calibrate_tsc();
     pit_setup();
 
-    init_rtc();
+    rtc_setup();
     rtc_updating();
     u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
     u32 minutes = bcd2bin(inb_cmos(CMOS_RTC_MINUTES));
@@ -393,7 +393,7 @@ handle_1a03(struct bregs *regs)
     // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
     // My assumption: RegB = ((RegB & 01100000b) | 00000010b)
     if (rtc_updating()) {
-        init_rtc();
+        rtc_setup();
         // fall through as if an update were not in progress
     }
     outb_cmos(regs->dh, CMOS_RTC_SECONDS);
@@ -447,7 +447,7 @@ handle_1a05(struct bregs *regs)
     // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
     // My assumption: RegB = (RegB & 01111111b)
     if (rtc_updating()) {
-        init_rtc();
+        rtc_setup();
         set_invalid(regs);
         return;
     }
@@ -486,7 +486,7 @@ handle_1a06(struct bregs *regs)
         return;
     }
     if (rtc_updating()) {
-        init_rtc();
+        rtc_setup();
         // fall through as if an update were not in progress
     }
     outb_cmos(regs->dh, CMOS_RTC_SECONDS_ALARM);

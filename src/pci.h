@@ -118,7 +118,7 @@ u32 pci_readl(u32 addr);
 void pci_writel(u32 addr, u32 val);
 
 // pirtable.c
-void create_pirtable(void);
+void pirtable_setup(void);
 
 
 /****************************************************************

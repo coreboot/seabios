@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "vgabios.h" // struct vgamode_s
-#include "stdvga.h" // stdvga_init
+#include "stdvga.h" // stdvga_setup
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_GLOBAL
@@ -490,7 +490,7 @@ stdvga_enable_video_addressing(u8 disable)
 }
 
 int
-stdvga_init(void)
+stdvga_setup(void)
 {
     // switch to color mode and enable CPU access 480 lines
     stdvga_misc_write(0xc3);

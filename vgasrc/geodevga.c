@@ -6,7 +6,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "geodevga.h" // geodevga_init
+#include "geodevga.h" // geodevga_setup
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
 #include "vgabios.h" // VGAREG_*
@@ -369,16 +369,16 @@ static u8 geode_crtc_13[] VAR16 = {
     0x9b, 0x8d, 0x8f, 0x28, 0x40, 0x98, 0xb9, 0xa3,
     0xff };
 
-int geodevga_init(void)
+int geodevga_setup(void)
 {
-    int ret = stdvga_init();
+    int ret = stdvga_setup();
     if (ret)
         return ret;
 
-    dprintf(1,"GEODEVGA_INIT\n");
+    dprintf(1,"GEODEVGA_SETUP\n");
 
     if ((ret=legacyio_check())) {
-        dprintf(1,"GEODEVGA_INIT legacyio_check=0x%x\n",ret);
+        dprintf(1,"GEODEVGA_SETUP legacyio_check=0x%x\n",ret);
     }
 
     // Updated timings from geode datasheets, table 6-53 in particular

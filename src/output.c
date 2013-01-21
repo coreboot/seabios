@@ -26,7 +26,7 @@ struct putcinfo {
 u16 DebugOutputPort VAR16VISIBLE = 0x402;
 
 void
-debug_serial_setup(void)
+debug_serial_preinit(void)
 {
     if (!CONFIG_DEBUG_SERIAL)
         return;

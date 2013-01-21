@@ -35,7 +35,7 @@
 #define KF2_101KBD     (1<<4)
 
 void
-kbd_setup(void)
+kbd_init(void)
 {
     dprintf(3, "init keyboard\n");
     u16 x = offsetof(struct bios_data_area_s, kbd_buf);

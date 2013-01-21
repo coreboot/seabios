@@ -47,7 +47,7 @@ static void validate_info(struct xen_seabios_info *t)
         panic("Bad Xen info checksum\n");
 }
 
-void xen_probe(void)
+void xen_preinit(void)
 {
     u32 base, eax, ebx, ecx, edx;
     char signature[13];
@@ -86,7 +86,7 @@ static int hypercall_xen_version( int cmd, void *arg)
 }
 
 /* Fill in hypercall transfer pages. */
-void xen_init_hypercalls(void)
+void xen_hypercall_setup(void)
 {
     u32 eax, ebx, ecx, edx;
     xen_extraversion_t extraversion;
@@ -111,7 +111,7 @@ void xen_init_hypercalls(void)
     dprintf(1, "Detected Xen v%u.%u%s\n", eax >> 16, eax & 0xffff, extraversion);
 }
 
-void xen_copy_biostables(void)
+void xen_biostable_setup(void)
 {
     struct xen_seabios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
     void **tables = (void*)info->tables;
@@ -122,7 +122,7 @@ void xen_copy_biostables(void)
         copy_table(tables[i]);
 }
 
-void xen_setup(void)
+void xen_ramsize_preinit(void)
 {
     u64 maxram = 0, maxram_over4G = 0;
     int i;

@@ -5,25 +5,24 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "ioport.h" // PORT_*
 #include "config.h" // CONFIG_*
 #include "cmos.h" // CMOS_*
 #include "util.h" // memset
 #include "biosvar.h" // struct bios_data_area_s
-#include "disk.h" // floppy_drive_setup
+#include "disk.h" // floppy_setup
 #include "ata.h" // ata_setup
 #include "ahci.h" // ahci_setup
 #include "memmap.h" // add_e820
 #include "pic.h" // pic_setup
-#include "pci.h" // create_pirtable
-#include "acpi.h" // acpi_bios_init
+#include "pci.h" // pirtable_setup
+#include "acpi.h" // acpi_setup
 #include "bregs.h" // struct bregs
-#include "mptable.h" // mptable_init
-#include "boot.h" // IPL
+#include "mptable.h" // mptable_setup
+#include "boot.h" // boot_init
 #include "usb.h" // usb_setup
-#include "smbios.h" // smbios_init
-#include "paravirt.h" // qemu_cfg_port_probe
-#include "xen.h" // xen_probe_hvm_info
+#include "smbios.h" // smbios_setup
+#include "paravirt.h" // qemu_cfg_preinit
+#include "xen.h" // xen_preinit
 #include "ps2port.h" // ps2port_setup
 #include "virtio-blk.h" // virtio_blk_setup
 #include "virtio-scsi.h" // virtio_scsi_setup
@@ -36,7 +35,7 @@
  ****************************************************************/
 
 static void
-init_ivt(void)
+ivt_init(void)
 {
     dprintf(3, "init ivt\n");
 
@@ -76,7 +75,7 @@ init_ivt(void)
 }
 
 static void
-init_bda(void)
+bda_init(void)
 {
     dprintf(3, "init bda\n");
 
@@ -101,13 +100,13 @@ init_bda(void)
 }
 
 static void
-ram_probe(void)
+ramsize_preinit(void)
 {
     dprintf(3, "Find memory size\n");
     if (CONFIG_COREBOOT) {
-        coreboot_setup();
+        coreboot_preinit();
     } else if (usingXen()) {
-        xen_setup();
+        xen_ramsize_preinit();
     } else {
         // On emulators, get memory size from nvram.
         u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
@@ -158,29 +157,29 @@ ram_probe(void)
 }
 
 static void
-init_bios_tables(void)
+biostable_setup(void)
 {
     if (CONFIG_COREBOOT) {
-        coreboot_copy_biostable();
+        coreboot_biostable_setup();
         return;
     }
     if (usingXen()) {
-        xen_copy_biostables();
+        xen_biostable_setup();
         return;
     }
 
-    create_pirtable();
+    pirtable_setup();
 
-    mptable_init();
+    mptable_setup();
 
-    smbios_init();
+    smbios_setup();
 
-    acpi_bios_init();
+    acpi_setup();
 }
 
 // Initialize hardware devices
 static void
-init_hw(void)
+device_hardware_setup(void)
 {
     usb_setup();
     ps2port_setup();
@@ -218,55 +217,55 @@ static void
 maininit(void)
 {
     // Setup romfile items.
-    qemu_cfg_romfile_setup();
-    coreboot_cbfs_setup();
+    qemu_romfile_init();
+    coreboot_cbfs_init();
 
     // Setup ivt/bda/ebda
-    init_ivt();
-    init_bda();
+    ivt_init();
+    bda_init();
 
     // Init base pc hardware.
     pic_setup();
     timer_setup();
-    mathcp_setup();
+    mathcp_init();
 
     // Initialize pci
     pci_setup();
-    smm_init();
+    smm_setup();
 
     // Initialize mtrr
     mtrr_setup();
 
     // Setup Xen hypercalls
-    xen_init_hypercalls();
+    xen_hypercall_setup();
 
     // Initialize internal tables
-    boot_setup();
+    boot_init();
 
     // Start hardware initialization (if optionrom threading)
     if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
-        init_hw();
+        device_hardware_setup();
 
     // Find and initialize other cpus
-    smp_probe();
+    smp_setup();
 
     // Setup interfaces that option roms may need
-    bios32_setup();
-    pmm_setup();
-    pnp_setup();
-    kbd_setup();
-    mouse_setup();
-    init_bios_tables();
+    bios32_init();
+    pmm_init();
+    pnp_init();
+    kbd_init();
+    mouse_init();
+    biostable_setup();
 
     // Run vga option rom
-    vga_setup();
+    vgarom_setup();
 
     // SMBIOS tables and VGA console are ready, print UUID
     display_uuid();
 
     // Do hardware initialization (if running synchronously)
     if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS) {
-        init_hw();
+        device_hardware_setup();
         wait_threads();
     }
 
@@ -274,13 +273,13 @@ maininit(void)
     optionrom_setup();
 
     // Run BCVs and show optional boot menu
-    boot_prep();
+    boot_prepboot();
 
     // Finalize data structures before boot
-    cdemu_setup();
-    pmm_finalize();
-    malloc_finalize();
-    memmap_finalize();
+    cdrom_prepboot();
+    pmm_prepboot();
+    malloc_prepboot();
+    memmap_prepboot();
 
     // Setup bios checksum.
     BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
@@ -302,7 +301,7 @@ static void
 afterReloc(void)
 {
     // Running at new code address - do code relocation fixups
-    malloc_fixupreloc();
+    malloc_fixupreloc_init();
 
     // Move low-memory initial variable content to new location.
     extern u8 datalow_start[], datalow_end[], final_datalow_start[];
@@ -323,7 +322,7 @@ updateRelocs(void *dest, u32 *rstart, u32 *rend, u32 delta)
 
 // Relocate init code and then call maininit() at new address.
 static void
-reloc_init(void)
+reloc_preinit(void)
 {
     if (!CONFIG_RELOCATE_INIT) {
         maininit();
@@ -372,12 +371,12 @@ dopost(void)
     HaveRunPost = 1;
 
     // Detect ram and setup internal malloc.
-    qemu_cfg_port_probe();
-    ram_probe();
-    malloc_setup();
+    qemu_cfg_preinit();
+    ramsize_preinit();
+    malloc_preinit();
 
     // Relocate initialization code and call maininit().
-    reloc_init();
+    reloc_preinit();
 }
 
 // Entry point for Power On Self Test (POST) - the BIOS initilization
@@ -386,7 +385,7 @@ dopost(void)
 void VISIBLE32FLAT
 handle_post(void)
 {
-    debug_serial_setup();
+    debug_serial_preinit();
     dprintf(1, "Start bios (version %s)\n", VERSION);
 
     // Enable CPU caching
@@ -396,10 +395,10 @@ handle_post(void)
     outb_cmos(0, CMOS_RESET_CODE);
 
     // Make sure legacy DMA isn't running.
-    init_dma();
+    dma_preinit();
 
     // Check if we are running under Xen.
-    xen_probe();
+    xen_preinit();
 
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();

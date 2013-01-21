@@ -75,6 +75,6 @@ struct mpt_intsrc {
 } PACKED;
 
 // mptable.c
-void mptable_init(void);
+void mptable_setup(void);
 
 #endif // mptable.h

@@ -14,7 +14,7 @@
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "boot.h" // bootprio_find_scsi_device
-#include "blockcmd.h" // scsi_init_drive
+#include "blockcmd.h" // scsi_drive_setup
 #include "virtio-pci.h"
 #include "virtio-ring.h"
 #include "virtio-scsi.h"
@@ -114,7 +114,7 @@ virtio_scsi_add_lun(struct pci_device *pci, u16 ioaddr,
     vlun->lun = lun;
 
     int prio = bootprio_find_scsi_device(pci, target, lun);
-    int ret = scsi_init_drive(&vlun->drive, "virtio-scsi", prio);
+    int ret = scsi_drive_setup(&vlun->drive, "virtio-scsi", prio);
     if (ret)
         goto fail;
     return 0;

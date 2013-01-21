@@ -113,6 +113,6 @@ int cdb_write(struct disk_op_s *op);
 
 int scsi_is_ready(struct disk_op_s *op);
 struct drive_s;
-int scsi_init_drive(struct drive_s *drive, const char *s, int prio);
+int scsi_drive_setup(struct drive_s *drive, const char *s, int prio);
 
 #endif // blockcmd.h

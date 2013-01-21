@@ -164,10 +164,10 @@ fail:
 }
 
 static int
-uas_init_lun(struct usbdevice_s *usbdev,
-             struct usb_pipe *command, struct usb_pipe *status,
-             struct usb_pipe *data_in, struct usb_pipe *data_out,
-             int lun)
+uas_lun_setup(struct usbdevice_s *usbdev,
+              struct usb_pipe *command, struct usb_pipe *status,
+              struct usb_pipe *data_in, struct usb_pipe *data_out,
+              int lun)
 {
     // Allocate drive structure.
     struct uasdrive_s *drive = malloc_fseg(sizeof(*drive));
@@ -184,7 +184,7 @@ uas_init_lun(struct usbdevice_s *usbdev,
     drive->lun = lun;
 
     int prio = bootprio_find_usb(usbdev, lun);
-    int ret = scsi_init_drive(&drive->drive, "USB UAS", prio);
+    int ret = scsi_drive_setup(&drive->drive, "USB UAS", prio);
     if (ret) {
         free(drive);
         return -1;
@@ -193,7 +193,7 @@ uas_init_lun(struct usbdevice_s *usbdev,
 }
 
 int
-usb_uas_init(struct usbdevice_s *usbdev)
+usb_uas_setup(struct usbdevice_s *usbdev)
 {
     if (!CONFIG_USB_UAS)
         return -1;
@@ -247,7 +247,7 @@ usb_uas_init(struct usbdevice_s *usbdev)
         goto fail;
 
     /* TODO: send REPORT LUNS.  For now, only LUN 0 is recognized.  */
-    int ret = uas_init_lun(usbdev, command, status, data_in, data_out, 0);
+    int ret = uas_lun_setup(usbdev, command, status, data_in, data_out, 0);
     if (ret < 0) {
         dprintf(1, "Unable to configure UAS drive.\n");
         goto fail;

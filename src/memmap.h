@@ -17,7 +17,7 @@ struct e820entry {
 };
 
 void add_e820(u64 start, u64 size, u32 type);
-void memmap_finalize(void);
+void memmap_prepboot(void);
 
 // A typical OS page size
 #define PAGE_SIZE 4096

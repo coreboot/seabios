@@ -1281,7 +1281,7 @@ int HaveRunInit VAR16;
 void VISIBLE16
 vga_post(struct bregs *regs)
 {
-    debug_serial_setup();
+    debug_serial_preinit();
     dprintf(1, "Start SeaVGABIOS (version %s)\n", VERSION);
     debug_enter(regs, DEBUG_VGA_POST);
 
@@ -1294,7 +1294,7 @@ vga_post(struct bregs *regs)
             SET_VGA(VgaBDF, bdf);
     }
 
-    int ret = vgahw_init();
+    int ret = vgahw_setup();
     if (ret) {
         dprintf(1, "Failed to initialize VGA hardware.  Exiting.\n");
         return;

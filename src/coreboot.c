@@ -123,7 +123,7 @@ const char *CBvendor = "", *CBpart = "";
 
 // Populate max ram and e820 map info by scanning for a coreboot table.
 void
-coreboot_setup(void)
+coreboot_preinit(void)
 {
     dprintf(3, "Attempting to find coreboot table\n");
 
@@ -204,7 +204,7 @@ scan_tables(u32 start, u32 size)
 }
 
 void
-coreboot_copy_biostable(void)
+coreboot_biostable_setup(void)
 {
     struct cb_memory *cbm = CBMemTable;
     if (! CONFIG_COREBOOT || !cbm)
@@ -324,7 +324,7 @@ cbfs_copyfile(struct romfile_s *file, void *dst, u32 maxlen)
 }
 
 void
-coreboot_cbfs_setup(void)
+coreboot_cbfs_init(void)
 {
     if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
         return;

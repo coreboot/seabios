@@ -19,7 +19,7 @@ int HaveRunPost VAR16VISIBLE;
 
 // Reset DMA controller
 void
-init_dma(void)
+dma_preinit(void)
 {
     // first reset the DMA controllers
     outb(0, PORT_DMA1_MASTER_CLEAR);
@@ -35,12 +35,12 @@ void VISIBLE16
 handle_resume(void)
 {
     ASSERT16();
-    debug_serial_setup();
+    debug_serial_preinit();
     int status = inb_cmos(CMOS_RESET_CODE);
     outb_cmos(0, CMOS_RESET_CODE);
     dprintf(1, "In resume (status=%d)\n", status);
 
-    init_dma();
+    dma_preinit();
 
     switch (status) {
     case 0x01 ... 0x04:
@@ -109,9 +109,9 @@ s3_resume(void)
     }
 
     pic_setup();
-    smm_init();
+    smm_setup();
 
-    s3_resume_vga_init();
+    s3_resume_vga();
 
     make_bios_readonly();
 

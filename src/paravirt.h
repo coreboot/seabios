@@ -43,7 +43,7 @@ static inline int kvm_para_available(void)
 
 extern int qemu_cfg_present;
 
-void qemu_cfg_port_probe(void);
+void qemu_cfg_preinit(void);
 int qemu_cfg_show_boot_menu(void);
 void qemu_cfg_get_uuid(u8 *uuid);
 int qemu_cfg_irq0_override(void);
@@ -64,6 +64,6 @@ struct e820_reservation {
 };
 u32 qemu_cfg_e820_entries(void);
 void* qemu_cfg_e820_load_next(void *addr);
-void qemu_cfg_romfile_setup(void);
+void qemu_romfile_init(void);
 
 #endif

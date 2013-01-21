@@ -11,7 +11,7 @@
 #include "util.h" // dprintf
 #include "byteorder.h" // be32_to_cpu
 #include "ioport.h" // outw
-#include "paravirt.h" // qemu_cfg_port_probe
+#include "paravirt.h" // qemu_cfg_preinit
 #include "smbios.h" // struct smbios_structure_header
 
 int qemu_cfg_present;
@@ -42,7 +42,7 @@ qemu_cfg_read_entry(void *buf, int e, int len)
     qemu_cfg_read(buf, len);
 }
 
-void qemu_cfg_port_probe(void)
+void qemu_cfg_preinit(void)
 {
     char *sig = "QEMU";
     int i;
@@ -321,7 +321,7 @@ struct QemuCfgFile {
     char name[56];
 };
 
-void qemu_cfg_romfile_setup(void)
+void qemu_romfile_init(void)
 {
     if (CONFIG_COREBOOT || !qemu_cfg_present)
         return;

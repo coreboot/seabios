@@ -417,7 +417,7 @@ done:
  ****************************************************************/
 
 static void
-keyboard_init(void *data)
+ps2_keyboard_setup(void *data)
 {
     /* flush incoming keys */
     int ret = i8042_flush();
@@ -500,5 +500,5 @@ ps2port_setup(void)
     enable_hwirq(1, FUNC16(entry_09));
     enable_hwirq(12, FUNC16(entry_74));
 
-    run_thread(keyboard_init, NULL);
+    run_thread(ps2_keyboard_setup, NULL);
 }

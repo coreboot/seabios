@@ -107,13 +107,13 @@ process_cdemu_op(struct disk_op_s *op)
 }
 
 void
-cdemu_setup(void)
+cdrom_prepboot(void)
 {
     if (!CONFIG_CDROM_EMU)
         return;
     if (!CDCount)
         return;
-    if (bounce_buf_init() < 0)
+    if (create_bounce_buf() < 0)
         return;
 
     struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));

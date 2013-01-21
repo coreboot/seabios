@@ -7,7 +7,7 @@
 #include "clext.h" // clext_set_mode
 #include "bochsvga.h" // bochsvga_set_mode
 #include "stdvga.h" // stdvga_set_mode
-#include "geodevga.h" // geodevga_init
+#include "geodevga.h" // geodevga_setup
 
 static inline struct vgamode_s *vgahw_find_mode(int mode) {
     if (CONFIG_VGA_CIRRUS)
@@ -34,14 +34,14 @@ static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
         stdvga_list_modes(seg, dest, last);
 }
 
-static inline int vgahw_init(void) {
+static inline int vgahw_setup(void) {
     if (CONFIG_VGA_CIRRUS)
-        return clext_init();
+        return clext_setup();
     if (CONFIG_VGA_BOCHS)
-        return bochsvga_init();
+        return bochsvga_setup();
     if (CONFIG_VGA_GEODEGX2 || CONFIG_VGA_GEODELX)
-        return geodevga_init();
-    return stdvga_init();
+        return geodevga_setup();
+    return stdvga_setup();
 }
 
 static inline int vgahw_get_window(struct vgamode_s *vmode_g, int window) {

@@ -236,7 +236,7 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 
 #define PIIX4_PM_INTRRUPT       9       // irq 9
 
-static void piix4_fadt_init(struct pci_device *pci, void *arg)
+static void piix4_fadt_setup(struct pci_device *pci, void *arg)
 {
     struct fadt_descriptor_rev1 *fadt = arg;
 
@@ -262,7 +262,7 @@ static void piix4_fadt_init(struct pci_device *pci, void *arg)
 }
 
 /* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
-void ich9_lpc_fadt_init(struct pci_device *dev, void *arg)
+void ich9_lpc_fadt_setup(struct pci_device *dev, void *arg)
 {
     struct fadt_descriptor_rev1 *fadt = arg;
 
@@ -290,9 +290,9 @@ void ich9_lpc_fadt_init(struct pci_device *dev, void *arg)
 static const struct pci_device_id fadt_init_tbl[] = {
     /* PIIX4 Power Management device (for ACPI) */
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
-               piix4_fadt_init),
+               piix4_fadt_setup),
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC,
-               ich9_lpc_fadt_init),
+               ich9_lpc_fadt_setup),
     PCI_DEVICE_END
 };
 
@@ -325,7 +325,7 @@ build_fadt(struct pci_device *pci)
     /* FADT */
     memset(fadt, 0, sizeof(*fadt));
     fadt->firmware_ctrl = cpu_to_le32((u32)facs);
-    fadt->dsdt = 0;  /* dsdt will be filled later in acpi_bios_init()
+    fadt->dsdt = 0;  /* dsdt will be filled later in acpi_setup()
                         by fill_dsdt() */
     pci_init_device(fadt_init_tbl, pci, fadt);
 
@@ -796,7 +796,7 @@ struct rsdp_descriptor *RsdpAddr;
 
 #define MAX_ACPI_TABLES 20
 void
-acpi_bios_init(void)
+acpi_setup(void)
 {
     if (! CONFIG_ACPI)
         return;

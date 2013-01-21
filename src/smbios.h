@@ -2,7 +2,7 @@
 #define __SMBIOS_H
 
 // smbios.c
-void smbios_init(void);
+void smbios_setup(void);
 
 /* SMBIOS entry point -- must be written to a 16-bit aligned address
    between 0xf0000 and 0xfffff.

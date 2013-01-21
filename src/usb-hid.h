@@ -3,7 +3,7 @@
 
 // usb-hid.c
 struct usbdevice_s;
-int usb_hid_init(struct usbdevice_s *usbdev);
+int usb_hid_setup(struct usbdevice_s *usbdev);
 inline int usb_kbd_active(void);
 inline int usb_kbd_command(int command, u8 *param);
 inline int usb_mouse_active(void);

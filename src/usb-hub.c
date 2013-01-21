@@ -158,7 +158,7 @@ static struct usbhub_op_s HubOp = {
 
 // Configure a usb hub and then find devices connected to it.
 int
-usb_hub_init(struct usbdevice_s *usbdev)
+usb_hub_setup(struct usbdevice_s *usbdev)
 {
     ASSERT32FLAT();
     if (!CONFIG_USB_HUB)

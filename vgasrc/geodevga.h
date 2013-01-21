@@ -84,6 +84,6 @@
 /* Mask */
 #define DC_CFG_MSK                      0xf000a6
 
-int geodevga_init();
+int geodevga_setup();
 
 #endif

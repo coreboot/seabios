@@ -17,6 +17,6 @@ int clext_restore_state(u16 seg, void *data, int states);
 int clext_set_mode(struct vgamode_s *vmode_g, int flags);
 struct bregs;
 void clext_1012(struct bregs *regs);
-int clext_init(void);
+int clext_setup(void);
 
 #endif // clext.h

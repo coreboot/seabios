@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "clext.h" // clext_init
+#include "clext.h" // clext_setup
 #include "vgabios.h" // VBE_VENDOR_STRING
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
@@ -603,9 +603,9 @@ cirrus_get_memsize(void)
 }
 
 int
-clext_init(void)
+clext_setup(void)
 {
-    int ret = stdvga_init();
+    int ret = stdvga_setup();
     if (ret)
         return ret;
 

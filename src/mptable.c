@@ -13,7 +13,7 @@
 #include "pci_regs.h"
 
 void
-mptable_init(void)
+mptable_setup(void)
 {
     if (! CONFIG_MPTABLE)
         return;

@@ -49,8 +49,8 @@ set_idle(struct usb_pipe *pipe, int ms)
 #define KEYREPEATMS 33
 
 static int
-usb_kbd_init(struct usbdevice_s *usbdev
-             , struct usb_endpoint_descriptor *epdesc)
+usb_kbd_setup(struct usbdevice_s *usbdev
+              , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_KEYBOARD)
         return -1;
@@ -79,8 +79,8 @@ usb_kbd_init(struct usbdevice_s *usbdev
 }
 
 static int
-usb_mouse_init(struct usbdevice_s *usbdev
-               , struct usb_endpoint_descriptor *epdesc)
+usb_mouse_setup(struct usbdevice_s *usbdev
+                , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_MOUSE)
         return -1;
@@ -106,11 +106,11 @@ usb_mouse_init(struct usbdevice_s *usbdev
 
 // Initialize a found USB HID device (if applicable).
 int
-usb_hid_init(struct usbdevice_s *usbdev)
+usb_hid_setup(struct usbdevice_s *usbdev)
 {
     if (! CONFIG_USB_KEYBOARD || ! CONFIG_USB_MOUSE)
         return -1;
-    dprintf(2, "usb_hid_init %p\n", usbdev->defpipe);
+    dprintf(2, "usb_hid_setup %p\n", usbdev->defpipe);
 
     struct usb_interface_descriptor *iface = usbdev->iface;
     if (iface->bInterfaceSubClass != USB_INTERFACE_SUBCLASS_BOOT)
@@ -126,9 +126,9 @@ usb_hid_init(struct usbdevice_s *usbdev)
     }
 
     if (iface->bInterfaceProtocol == USB_INTERFACE_PROTOCOL_KEYBOARD)
-        return usb_kbd_init(usbdev, epdesc);
+        return usb_kbd_setup(usbdev, epdesc);
     if (iface->bInterfaceProtocol == USB_INTERFACE_PROTOCOL_MOUSE)
-        return usb_mouse_init(usbdev, epdesc);
+        return usb_mouse_setup(usbdev, epdesc);
     return -1;
 }
 

@@ -202,7 +202,7 @@ void check_preempt(void);
 
 // output.c
 extern u16 DebugOutputPort;
-void debug_serial_setup(void);
+void debug_serial_preinit(void);
 void panic(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2))) __noreturn;
 void printf(const char *fmt, ...)
@@ -262,18 +262,13 @@ void hexdump(const void *d, int len);
     __set_code_unimplemented((regs), (code) | (__LINE__ << 8), __func__)
 
 // kbd.c
-void kbd_setup(void);
+void kbd_init(void);
 void handle_15c2(struct bregs *regs);
 void process_key(u8 key);
 
 // mouse.c
-void mouse_setup(void);
+void mouse_init(void);
 void process_mouse(u8 data);
-
-// system.c
-extern u32 RamSize;
-extern u64 RamSizeOver4G;
-void mathcp_setup(void);
 
 // serial.c
 void serial_setup(void);
@@ -282,7 +277,7 @@ void lpt_setup(void);
 // clock.c
 #define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
 #define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
-void pmtimer_init(u16 ioport, u32 khz);
+void pmtimer_setup(u16 ioport, u32 khz);
 int check_tsc(u64 end);
 void timer_setup(void);
 void ndelay(u32 count);
@@ -307,7 +302,7 @@ void handle_1553(struct bregs *regs);
 
 // pcibios.c
 void handle_1ab1(struct bregs *regs);
-void bios32_setup(void);
+void bios32_init(void);
 
 // shadow.c
 void make_bios_writable(void);
@@ -319,23 +314,23 @@ extern const u8 pci_irqs[4];
 void pci_setup(void);
 
 // smm.c
-void smm_init(void);
+void smm_setup(void);
 
 // smp.c
 extern u32 CountCPUs;
 extern u32 MaxCountCPUs;
 void wrmsr_smp(u32 index, u64 val);
-void smp_probe(void);
+void smp_setup(void);
 int apic_id_is_present(u8 apic_id);
 
 // coreboot.c
 extern const char *CBvendor, *CBpart;
 struct cbfs_file;
 void cbfs_run_payload(struct cbfs_file *file);
-void coreboot_copy_biostable(void);
+void coreboot_biostable_setup(void);
 void cbfs_payload_setup(void);
-void coreboot_setup(void);
-void coreboot_cbfs_setup(void);
+void coreboot_preinit(void);
+void coreboot_cbfs_init(void);
 
 // biostable.c
 void copy_table(void *pos);
@@ -348,8 +343,8 @@ void vgahook_setup(struct pci_device *pci);
 // optionroms.c
 void call_bcv(u16 seg, u16 ip);
 void optionrom_setup(void);
-void vga_setup(void);
-void s3_resume_vga_init(void);
+void vgarom_setup(void);
+void s3_resume_vga(void);
 extern int ScreenAndDebug;
 
 // bootsplash.c
@@ -359,12 +354,12 @@ void disable_bootsplash(void);
 
 // resume.c
 extern int HaveRunPost;
-void init_dma(void);
+void dma_preinit(void);
 
 // pnpbios.c
 #define PNP_SIGNATURE 0x506e5024 // $PnP
 u16 get_pnp_offset(void);
-void pnp_setup(void);
+void pnp_init(void);
 
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
@@ -372,13 +367,13 @@ u32 rom_get_top(void);
 u32 rom_get_last(void);
 struct rom_header *rom_reserve(u32 size);
 int rom_confirm(u32 size);
-void malloc_setup(void);
-void malloc_fixupreloc(void);
-void malloc_finalize(void);
+void malloc_preinit(void);
+void malloc_fixupreloc_init(void);
+void malloc_prepboot(void);
 void *pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align);
 int pmm_free(void *data);
-void pmm_setup(void);
-void pmm_finalize(void);
+void pmm_init(void);
+void pmm_prepboot(void);
 #define PMM_DEFAULT_HANDLE 0xFFFFFFFF
 // Minimum alignment of malloc'd memory
 #define MALLOC_MIN_ALIGN 16
@@ -451,6 +446,9 @@ u64 romfile_loadint(const char *name, u64 defval);
 void reset_vector(void) __noreturn;
 
 // misc.c
+void mathcp_init(void);
+extern u32 RamSize;
+extern u64 RamSizeOver4G;
 extern u8 BiosChecksum;
 
 // version (auto generated file out/version.c)

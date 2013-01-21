@@ -12,10 +12,10 @@
 struct smbios_entry_point *SMBiosAddr;
 
 static void
-smbios_entry_point_init(u16 max_structure_size,
-                        u16 structure_table_length,
-                        void *structure_table_address,
-                        u16 number_of_structures)
+smbios_entry_point_setup(u16 max_structure_size,
+                         u16 structure_table_length,
+                         void *structure_table_address,
+                         u16 number_of_structures)
 {
     struct smbios_entry_point *ep = malloc_fseg(sizeof(*ep));
     void *finaltable;
@@ -441,7 +441,7 @@ smbios_init_type_127(void *start)
 #define TEMPSMBIOSSIZE (32 * 1024)
 
 void
-smbios_init(void)
+smbios_setup(void)
 {
     if (! CONFIG_SMBIOS)
         return;
@@ -518,7 +518,7 @@ smbios_init(void)
 
 #undef add_struct
 
-    smbios_entry_point_init(max_struct_size, p - start, start, nr_structs);
+    smbios_entry_point_setup(max_struct_size, p - start, start, nr_structs);
     free(start);
 }
 

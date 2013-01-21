@@ -422,7 +422,7 @@ static void ahci_port_release(struct ahci_port_s *port)
 #define MAXMODEL 40
 
 /* See ahci spec chapter 10.1 "Software Initialization of HBA" */
-static int ahci_port_init(struct ahci_port_s *port)
+static int ahci_port_setup(struct ahci_port_s *port)
 {
     struct ahci_ctrl_s *ctrl = port->ctrl;
     u32 pnr = port->pnr;
@@ -549,7 +549,7 @@ ahci_port_detect(void *data)
 
     dprintf(2, "AHCI/%d: probing\n", port->pnr);
     ahci_port_reset(port->ctrl, port->pnr);
-    rc = ahci_port_init(port);
+    rc = ahci_port_setup(port);
     if (rc < 0)
         ahci_port_release(port);
     else {
@@ -567,7 +567,7 @@ ahci_port_detect(void *data)
 
 // Initialize an ata controller and detect its drives.
 static void
-ahci_init_controller(struct pci_device *pci)
+ahci_controller_setup(struct pci_device *pci)
 {
     struct ahci_ctrl_s *ctrl = malloc_fseg(sizeof(*ctrl));
     struct ahci_port_s *port;
@@ -579,7 +579,7 @@ ahci_init_controller(struct pci_device *pci)
         return;
     }
 
-    if (bounce_buf_init() < 0) {
+    if (create_bounce_buf() < 0) {
         warn_noalloc();
         free(ctrl);
         return;
@@ -616,7 +616,7 @@ ahci_init_controller(struct pci_device *pci)
 
 // Locate and init ahci controllers.
 static void
-ahci_init(void)
+ahci_scan(void)
 {
     // Scan PCI bus for ATA adapters
     struct pci_device *pci;
@@ -625,7 +625,7 @@ ahci_init(void)
             continue;
         if (pci->prog_if != 1 /* AHCI rev 1 */)
             continue;
-        ahci_init_controller(pci);
+        ahci_controller_setup(pci);
     }
 }
 
@@ -637,5 +637,5 @@ ahci_setup(void)
         return;
 
     dprintf(3, "init ahci\n");
-    ahci_init();
+    ahci_scan();
 }

@@ -40,7 +40,7 @@ __callrom(struct rom_header *rom, u16 offset, u16 bdf)
     farcall16big(&br);
     finish_preempt();
 
-    debug_serial_setup();
+    debug_serial_preinit();
 }
 
 // Execute a given option rom at the standard entry vector.
@@ -410,13 +410,13 @@ optionrom_setup(void)
  * VGA init
  ****************************************************************/
 
-static int S3ResumeVgaInit;
+static int S3ResumeVga;
 int ScreenAndDebug;
 struct rom_header *VgaROM;
 
 // Call into vga code to turn on console.
 void
-vga_setup(void)
+vgarom_setup(void)
 {
     if (! CONFIG_OPTIONROMS)
         return;
@@ -425,7 +425,7 @@ vga_setup(void)
 
     // Load some config settings that impact VGA.
     EnforceChecksum = romfile_loadint("etc/optionroms-checksum", 1);
-    S3ResumeVgaInit = romfile_loadint("etc/s3-resume-vga-init", !CONFIG_COREBOOT);
+    S3ResumeVga = romfile_loadint("etc/s3-resume-vga-init", !CONFIG_COREBOOT);
     ScreenAndDebug = romfile_loadint("etc/screen-and-debug", 1);
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
@@ -459,9 +459,9 @@ vga_setup(void)
 }
 
 void
-s3_resume_vga_init(void)
+s3_resume_vga(void)
 {
-    if (!S3ResumeVgaInit)
+    if (!S3ResumeVga)
         return;
     if (!VgaROM || ! is_valid_rom(VgaROM))
         return;

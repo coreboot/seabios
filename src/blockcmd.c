@@ -101,7 +101,7 @@ scsi_is_ready(struct disk_op_s *op)
 
 // Validate drive, find block size / sector count, and register drive.
 int
-scsi_init_drive(struct drive_s *drive, const char *s, int prio)
+scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
 {
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));

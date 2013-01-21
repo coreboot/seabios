@@ -235,7 +235,7 @@ fail:
 }
 
 void
-uhci_init(struct pci_device *pci, int busid)
+uhci_setup(struct pci_device *pci, int busid)
 {
     if (! CONFIG_USB_UHCI)
         return;

@@ -229,7 +229,7 @@ struct bios32_s BIOS32HEADER __aligned(16) VAR16EXPORT = {
 };
 
 void
-bios32_setup(void)
+bios32_init(void)
 {
     dprintf(3, "init bios32\n");
 

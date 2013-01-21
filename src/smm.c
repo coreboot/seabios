@@ -112,7 +112,7 @@ smm_relocate_and_restore(void)
 #define PIIX_APMC_EN    (1 << 25)
 
 // This code is hardcoded for PIIX4 Power Management device.
-static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
+static void piix4_apmc_smm_setup(struct pci_device *pci, void *arg)
 {
     struct pci_device *i440_pci = pci_find_device(PCI_VENDOR_ID_INTEL
                                                   , PCI_DEVICE_ID_INTEL_82441);
@@ -139,7 +139,7 @@ static void piix4_apmc_smm_init(struct pci_device *pci, void *arg)
 }
 
 /* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
-void ich9_lpc_apmc_smm_init(struct pci_device *dev, void *arg)
+void ich9_lpc_apmc_smm_setup(struct pci_device *dev, void *arg)
 {
     struct pci_device *mch_dev;
     int mch_bdf;
@@ -174,15 +174,15 @@ void ich9_lpc_apmc_smm_init(struct pci_device *dev, void *arg)
 
 static const struct pci_device_id smm_init_tbl[] = {
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3,
-               piix4_apmc_smm_init),
+               piix4_apmc_smm_setup),
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH9_LPC,
-               ich9_lpc_apmc_smm_init),
+               ich9_lpc_apmc_smm_setup),
 
     PCI_DEVICE_END,
 };
 
 void
-smm_init(void)
+smm_setup(void)
 {
     if (CONFIG_COREBOOT)
         // SMM only supported on emulators.

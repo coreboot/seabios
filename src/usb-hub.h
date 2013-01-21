@@ -3,7 +3,7 @@
 
 // usb-hub.c
 struct usbdevice_s;
-int usb_hub_init(struct usbdevice_s *usbdev);
+int usb_hub_setup(struct usbdevice_s *usbdev);
 
 
 /****************************************************************

@@ -6,7 +6,7 @@
 
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_USB_MSC
-#include "usb-msc.h" // usb_msc_init
+#include "usb-msc.h" // usb_msc_setup
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // cdb_read
@@ -135,8 +135,8 @@ usb_msc_maxlun(struct usb_pipe *pipe)
 }
 
 static int
-usb_msc_init_lun(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
-                 struct usbdevice_s *usbdev, int lun)
+usb_msc_lun_setup(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
+                  struct usbdevice_s *usbdev, int lun)
 {
     // Allocate drive structure.
     struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
@@ -151,7 +151,7 @@ usb_msc_init_lun(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
     udrive_g->lun = lun;
 
     int prio = bootprio_find_usb(usbdev, lun);
-    int ret = scsi_init_drive(&udrive_g->drive, "USB MSC", prio);
+    int ret = scsi_drive_setup(&udrive_g->drive, "USB MSC", prio);
     if (ret) {
         dprintf(1, "Unable to configure USB MSC drive.\n");
         free(udrive_g);
@@ -166,7 +166,7 @@ usb_msc_init_lun(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
 
 // Configure a usb msc device.
 int
-usb_msc_init(struct usbdevice_s *usbdev)
+usb_msc_setup(struct usbdevice_s *usbdev)
 {
     if (!CONFIG_USB_MSC)
         return -1;
@@ -198,7 +198,7 @@ usb_msc_init(struct usbdevice_s *usbdev)
     int maxlun = usb_msc_maxlun(usbdev->defpipe);
     int lun, pipesused = 0;
     for (lun = 0; lun < maxlun + 1; lun++) {
-        int ret = usb_msc_init_lun(inpipe, outpipe, usbdev, lun);
+        int ret = usb_msc_lun_setup(inpipe, outpipe, usbdev, lun);
         if (!ret)
             pipesused = 1;
     }

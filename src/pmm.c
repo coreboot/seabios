@@ -217,7 +217,7 @@ rom_confirm(u32 size)
  ****************************************************************/
 
 void
-malloc_setup(void)
+malloc_preinit(void)
 {
     ASSERT32FLAT();
     dprintf(3, "malloc setup\n");
@@ -258,7 +258,7 @@ malloc_setup(void)
 
 // Update pointers after code relocation.
 void
-malloc_fixupreloc(void)
+malloc_fixupreloc_init(void)
 {
     ASSERT32FLAT();
     if (!CONFIG_RELOCATE_INIT)
@@ -281,7 +281,7 @@ malloc_fixupreloc(void)
 }
 
 void
-malloc_finalize(void)
+malloc_prepboot(void)
 {
     ASSERT32FLAT();
     dprintf(3, "malloc finalize\n");
@@ -545,7 +545,7 @@ handle_pmm(u16 *args)
 }
 
 void
-pmm_setup(void)
+pmm_init(void)
 {
     if (! CONFIG_PMM)
         return;
@@ -557,7 +557,7 @@ pmm_setup(void)
 }
 
 void
-pmm_finalize(void)
+pmm_prepboot(void)
 {
     if (! CONFIG_PMM)
         return;

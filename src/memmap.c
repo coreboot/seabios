@@ -133,7 +133,7 @@ add_e820(u64 start, u64 size, u32 type)
 
 // Report on final memory locations.
 void
-memmap_finalize(void)
+memmap_prepboot(void)
 {
     dump_map();
 }

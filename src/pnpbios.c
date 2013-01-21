@@ -90,7 +90,7 @@ extern void entry_pnp_real(void);
 extern void entry_pnp_prot(void);
 
 void
-pnp_setup(void)
+pnp_init(void)
 {
     if (! CONFIG_PNPBIOS)
         return;

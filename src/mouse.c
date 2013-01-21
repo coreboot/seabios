@@ -12,7 +12,7 @@
 #include "usb-hid.h" // usb_mouse_command
 
 void
-mouse_setup(void)
+mouse_init(void)
 {
     if (! CONFIG_MOUSE)
         return;

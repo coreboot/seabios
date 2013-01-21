@@ -6,10 +6,10 @@
 
 extern u32 xen_cpuid_base;
 
-void xen_probe(void);
-void xen_setup(void);
-void xen_init_hypercalls(void);
-void xen_copy_biostables(void);
+void xen_preinit(void);
+void xen_ramsize_preinit(void);
+void xen_hypercall_setup(void);
+void xen_biostable_setup(void);
 
 static inline int usingXen(void) {
     if (!CONFIG_XEN)

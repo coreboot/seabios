@@ -13,8 +13,8 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_LOWFLAT
-#include "usb-uhci.h" // init_uhci
-#include "usb-ohci.h" // init_ohci
+#include "usb-uhci.h" // uhci_setup
+#include "usb-ohci.h" // ohci_setup
 
 struct usb_ehci_s {
     struct usb_s usb;
@@ -58,13 +58,13 @@ ehci_note_port(struct usb_ehci_s *cntl)
         if (!pci)
             break;
 
-        // ohci/uhci_init call pci_config_XXX - don't run from irq handler.
+        // ohci/uhci_setup call pci_config_X - don't run from irq handler.
         wait_preempt();
 
         if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
-            uhci_init(pci, cntl->usb.busid + i);
+            uhci_setup(pci, cntl->usb.busid + i);
         else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
-            ohci_init(pci, cntl->usb.busid + i);
+            ohci_setup(pci, cntl->usb.busid + i);
     }
 }
 
@@ -327,7 +327,7 @@ fail:
 }
 
 int
-ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
+ehci_setup(struct pci_device *pci, int busid, struct pci_device *comppci)
 {
     if (! CONFIG_USB_EHCI)
         return -1;
