@@ -14,13 +14,9 @@
 #include "ahci.h" // ahci_setup
 #include "memmap.h" // add_e820
 #include "pic.h" // pic_setup
-#include "pci.h" // pirtable_setup
-#include "acpi.h" // acpi_setup
 #include "bregs.h" // struct bregs
-#include "mptable.h" // mptable_setup
 #include "boot.h" // boot_init
 #include "usb.h" // usb_setup
-#include "smbios.h" // smbios_setup
 #include "paravirt.h" // qemu_cfg_preinit
 #include "xen.h" // xen_preinit
 #include "ps2port.h" // ps2port_setup
@@ -40,55 +36,18 @@ static void
 ramsize_preinit(void)
 {
     dprintf(3, "Find memory size\n");
-    if (CONFIG_COREBOOT) {
+    if (CONFIG_COREBOOT)
         coreboot_preinit();
-    } else if (usingXen()) {
+    else if (usingXen())
         xen_ramsize_preinit();
-    } else {
-        // On emulators, get memory size from nvram.
-        u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
-                  | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 24));
-        if (rs)
-            rs += 16 * 1024 * 1024;
-        else
-            rs = (((inb_cmos(CMOS_MEM_EXTMEM_LOW) << 10)
-                   | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 18))
-                  + 1 * 1024 * 1024);
-        RamSize = rs;
-        add_e820(0, rs, E820_RAM);
-
-        // Check for memory over 4Gig
-        u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
-                    | ((u32)inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
-                    | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
-        RamSizeOver4G = high;
-        add_e820(0x100000000ull, high, E820_RAM);
-
-        /* reserve 256KB BIOS area at the end of 4 GB */
-        add_e820(0xfffc0000, 256*1024, E820_RESERVED);
-    }
+    else
+        qemu_ramsize_preinit();
 
     // Don't declare any memory between 0xa0000 and 0x100000
     add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
 
     // Mark known areas as reserved.
     add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
-
-    u32 count = qemu_cfg_e820_entries();
-    if (count) {
-        struct e820_reservation entry;
-        int i;
-
-        for (i = 0; i < count; i++) {
-            qemu_cfg_e820_load_next(&entry);
-            add_e820(entry.address, entry.length, entry.type);
-        }
-    } else if (kvm_para_available()) {
-        // Backwards compatibility - provide hard coded range.
-        // 4 pages before the bios, 3 pages for vmx tss pages, the
-        // other page for EPT real mode pagetable
-        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
-    }
 
     dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
 }
@@ -204,27 +163,6 @@ device_hardware_setup(void)
 }
 
 static void
-biostable_setup(void)
-{
-    if (CONFIG_COREBOOT) {
-        coreboot_biostable_setup();
-        return;
-    }
-    if (usingXen()) {
-        xen_biostable_setup();
-        return;
-    }
-
-    pirtable_setup();
-
-    mptable_setup();
-
-    smbios_setup();
-
-    acpi_setup();
-}
-
-static void
 platform_hardware_setup(void)
 {
     // Init base pc hardware.
@@ -249,7 +187,12 @@ platform_hardware_setup(void)
     smp_setup();
 
     // Setup external BIOS interface tables
-    biostable_setup();
+    if (CONFIG_COREBOOT)
+        coreboot_biostable_setup();
+    else if (usingXen())
+        xen_biostable_setup();
+    else
+        qemu_biostable_setup();
 }
 
 void

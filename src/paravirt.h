@@ -43,6 +43,8 @@ static inline int kvm_para_available(void)
 
 extern int qemu_cfg_present;
 
+void qemu_ramsize_preinit(void);
+void qemu_biostable_setup(void);
 void qemu_cfg_preinit(void);
 int qemu_cfg_show_boot_menu(void);
 void qemu_cfg_get_uuid(u8 *uuid);

@@ -13,8 +13,64 @@
 #include "ioport.h" // outw
 #include "paravirt.h" // qemu_cfg_preinit
 #include "smbios.h" // struct smbios_structure_header
+#include "memmap.h" // add_e820
+#include "cmos.h" // CMOS_*
+#include "acpi.h" // acpi_setup
+#include "mptable.h" // mptable_setup
+#include "pci.h" // create_pirtable
 
 int qemu_cfg_present;
+
+void
+qemu_ramsize_preinit(void)
+{
+    // On emulators, get memory size from nvram.
+    u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
+              | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 24));
+    if (rs)
+        rs += 16 * 1024 * 1024;
+    else
+        rs = (((inb_cmos(CMOS_MEM_EXTMEM_LOW) << 10)
+               | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 18))
+              + 1 * 1024 * 1024);
+    RamSize = rs;
+    add_e820(0, rs, E820_RAM);
+
+    // Check for memory over 4Gig
+    u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
+                | ((u32)inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
+                | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
+    RamSizeOver4G = high;
+    add_e820(0x100000000ull, high, E820_RAM);
+
+    /* reserve 256KB BIOS area at the end of 4 GB */
+    add_e820(0xfffc0000, 256*1024, E820_RESERVED);
+
+    u32 count = qemu_cfg_e820_entries();
+    if (count) {
+        struct e820_reservation entry;
+        int i;
+
+        for (i = 0; i < count; i++) {
+            qemu_cfg_e820_load_next(&entry);
+            add_e820(entry.address, entry.length, entry.type);
+        }
+    } else if (kvm_para_available()) {
+        // Backwards compatibility - provide hard coded range.
+        // 4 pages before the bios, 3 pages for vmx tss pages, the
+        // other page for EPT real mode pagetable
+        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
+    }
+}
+
+void
+qemu_biostable_setup(void)
+{
+    pirtable_setup();
+    mptable_setup();
+    smbios_setup();
+    acpi_setup();
+}
 
 static void
 qemu_cfg_select(u16 f)
