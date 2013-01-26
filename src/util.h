@@ -333,6 +333,7 @@ void coreboot_preinit(void);
 void coreboot_cbfs_init(void);
 
 // biostable.c
+void copy_smbios(void *pos);
 void copy_table(void *pos);
 
 // vgahooks.c

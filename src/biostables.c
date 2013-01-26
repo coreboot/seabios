@@ -83,7 +83,7 @@ copy_acpi_rsdp(void *pos)
     RsdpAddr = newpos;
 }
 
-static void
+void
 copy_smbios(void *pos)
 {
     if (SMBiosAddr)
