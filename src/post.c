@@ -29,6 +29,7 @@
 #include "lsi-scsi.h" // lsi_scsi_setup
 #include "esp-scsi.h" // esp_scsi_setup
 #include "megasas.h" // megasas_setup
+#include "post.h" // interface_init
 
 
 /****************************************************************
@@ -157,7 +158,7 @@ bda_init(void)
     StackPos = (void*)(&ExtraStack[BUILD_EXTRA_STACK_SIZE] - datalow_base);
 }
 
-static void
+void
 interface_init(void)
 {
     // Running at new code address - do code relocation fixups
@@ -182,7 +183,7 @@ interface_init(void)
 }
 
 // Initialize hardware devices
-static void
+void
 device_hardware_setup(void)
 {
     usb_setup();
@@ -251,7 +252,7 @@ platform_hardware_setup(void)
     biostable_setup();
 }
 
-static void
+void
 prepareboot(void)
 {
     // Run BCVs
@@ -334,7 +335,7 @@ updateRelocs(void *dest, u32 *rstart, u32 *rend, u32 delta)
 // Relocate init code and then call a function at its new address.
 // The passed function should be in the "init" section and must not
 // return.
-static void __noreturn
+void __noreturn
 reloc_preinit(void *f, void *arg)
 {
     void (*func)(void *) __noreturn = f;
