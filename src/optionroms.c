@@ -44,7 +44,7 @@ __callrom(struct rom_header *rom, u16 offset, u16 bdf)
 }
 
 // Execute a given option rom at the standard entry vector.
-static void
+void
 callrom(struct rom_header *rom, u16 bdf)
 {
     __callrom(rom, OPTION_ROM_INITVECTOR, bdf);
