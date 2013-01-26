@@ -18,6 +18,12 @@ choice
         help
             Configure as QEMU bios.
 
+    config CSM
+       bool "Build as Compatibilty Support Module for EFI BIOS"
+       help
+           Configure to be used by EFI firmware as Compatibility Support
+           module (CSM) to provide legacy BIOS services.
+
 endchoice
 
     config XEN

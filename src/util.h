@@ -368,6 +368,8 @@ u32 rom_get_top(void);
 u32 rom_get_last(void);
 struct rom_header *rom_reserve(u32 size);
 int rom_confirm(u32 size);
+void csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm,
+                        u32 hi_pmm_size);
 void malloc_preinit(void);
 void malloc_fixupreloc_init(void);
 void malloc_prepboot(void);

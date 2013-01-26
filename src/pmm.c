@@ -256,6 +256,25 @@ malloc_preinit(void)
     }
 }
 
+void
+csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm, u32 hi_pmm_size)
+{
+    ASSERT32FLAT();
+
+    if (hi_pmm_size > CONFIG_MAX_HIGHTABLE) {
+        void *hi_pmm_end = (void *)hi_pmm + hi_pmm_size;
+        addSpace(&ZoneTmpHigh, (void *)hi_pmm, hi_pmm_end - CONFIG_MAX_HIGHTABLE);
+        addSpace(&ZoneHigh, hi_pmm_end - CONFIG_MAX_HIGHTABLE, hi_pmm_end);
+    } else {
+        addSpace(&ZoneTmpHigh, (void *)hi_pmm, (void *)hi_pmm + hi_pmm_size);
+    }
+    addSpace(&ZoneTmpLow, (void *)low_pmm, (void *)low_pmm + low_pmm_size);
+    addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
+    extern u8 final_datalow_start[];
+    addSpace(&ZoneLow, datalow_base + OPROM_HEADER_RESERVE, final_datalow_start);
+    RomBase = findLast(&ZoneLow);
+}
+
 // Update pointers after code relocation.
 void
 malloc_fixupreloc_init(void)

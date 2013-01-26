@@ -14,6 +14,7 @@
 #include "paravirt.h" // qemu_cfg_show_boot_menu
 #include "pci.h" // pci_bdf_to_*
 #include "usb.h" // struct usbdevice_s
+#include "csm.h" // csm_bootprio_*
 
 
 /****************************************************************
@@ -120,6 +121,8 @@ build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
 
 int bootprio_find_pci_device(struct pci_device *pci)
 {
+    if (CONFIG_CSM)
+        return csm_bootprio_pci(pci);
     if (!CONFIG_BOOTORDER)
         return -1;
     // Find pci device - for example: /pci@i0cf8/ethernet@5
@@ -144,6 +147,8 @@ int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun)
 
 int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave)
 {
+    if (CONFIG_CSM)
+        return csm_bootprio_ata(pci, chanid, slave);
     if (!CONFIG_BOOTORDER)
         return -1;
     if (!pci)
@@ -158,6 +163,8 @@ int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave)
 
 int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid)
 {
+    if (CONFIG_CSM)
+        return csm_bootprio_fdc(pci, port, fdid);
     if (!CONFIG_BOOTORDER)
         return -1;
     if (!pci)

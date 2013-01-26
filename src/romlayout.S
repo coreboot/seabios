@@ -384,6 +384,56 @@ entry_elf:
 
         .code16gcc
 
+        EXPORTFUNC entry_csm
+entry_csm:
+        // Backup register state
+        pushfw
+        cli
+        cld
+        pushl %eax                      // dummy
+        PUSHBREGS
+
+        // Backup stack location and convert to a "flat pointer"
+        movl %ss, %ebx
+        movw %bx, BREGS_code+2(%esp)    // Store %ss in bregs->code.seg
+        shll $4, %ebx
+        addl %esp, %ebx
+
+        // Change to BUILD_STACK_ADDR stack
+        xorl %eax, %eax
+        movw %ax, %ss
+        movl $BUILD_STACK_ADDR, %esp
+
+        // Jump to 32bit mode and call handle_csm(bregs)
+        movl $(1f + BUILD_BIOS_ADDR), %edx
+        jmp transition32
+        .code32
+1:      movl %ebx, %eax
+        calll _cfunc32flat_handle_csm - BUILD_BIOS_ADDR
+        movl $2f, %edx
+        jmp transition16big
+
+        .global csm_return
+csm_return:
+        movl %eax, %ebx
+        movl $2f, %edx
+        jmp transition16big
+        .code16gcc
+
+        // Switch back to original stack
+2:      movzwl BREGS_code+2(%ebx), %eax
+        movl %eax, %ecx
+        shll $4, %ecx
+        subl %ecx, %ebx
+        movl %eax, %ss
+        movl %ebx, %esp
+
+        // Restore register state and return.
+        POPBREGS
+        addw $4, %sp                    // pop dummy
+        popfw
+        lretw
+
 
 /****************************************************************
  * Interrupt entry points
