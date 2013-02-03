@@ -889,16 +889,16 @@ acpi_setup(void)
     dprintf(1, "ACPI tables: RSDP=%p RSDT=%p\n", rsdp, rsdt);
 }
 
-u32
-find_resume_vector(void)
+static struct fadt_descriptor_rev1 *
+find_fadt(void)
 {
     dprintf(4, "rsdp=%p\n", RsdpAddr);
     if (!RsdpAddr || RsdpAddr->signature != RSDP_SIGNATURE)
-        return 0;
+        return NULL;
     struct rsdt_descriptor_rev1 *rsdt = (void*)RsdpAddr->rsdt_physical_address;
     dprintf(4, "rsdt=%p\n", rsdt);
     if (!rsdt || rsdt->signature != RSDT_SIGNATURE)
-        return 0;
+        return NULL;
     void *end = (void*)rsdt + rsdt->length;
     int i;
     for (i=0; (void*)&rsdt->table_offset_entry[i] < end; i++) {
@@ -906,13 +906,37 @@ find_resume_vector(void)
         if (!fadt || fadt->signature != FACP_SIGNATURE)
             continue;
         dprintf(4, "fadt=%p\n", fadt);
-        struct facs_descriptor_rev1 *facs = (void*)fadt->firmware_ctrl;
-        dprintf(4, "facs=%p\n", facs);
-        if (! facs || facs->signature != FACS_SIGNATURE)
-            return 0;
-        // Found it.
-        dprintf(4, "resume addr=%d\n", facs->firmware_waking_vector);
-        return facs->firmware_waking_vector;
+        return fadt;
     }
-    return 0;
+    dprintf(4, "no fadt found\n");
+    return NULL;
+}
+
+u32
+find_resume_vector(void)
+{
+    struct fadt_descriptor_rev1 *fadt = find_fadt();
+    if (!fadt)
+        return 0;
+    struct facs_descriptor_rev1 *facs = (void*)fadt->firmware_ctrl;
+    dprintf(4, "facs=%p\n", facs);
+    if (! facs || facs->signature != FACS_SIGNATURE)
+        return 0;
+    // Found it.
+    dprintf(4, "resume addr=%d\n", facs->firmware_waking_vector);
+    return facs->firmware_waking_vector;
+}
+
+void
+find_pmtimer(void)
+{
+    struct fadt_descriptor_rev1 *fadt = find_fadt();
+    if (!fadt)
+        return;
+    u32 pm_tmr = fadt->pm_tmr_blk;
+    dprintf(4, "pm_tmr_blk=%x\n", pm_tmr);
+    if (!pm_tmr)
+        return;
+
+    pmtimer_setup(pm_tmr, 3579);
 }

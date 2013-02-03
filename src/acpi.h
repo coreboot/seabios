@@ -5,6 +5,7 @@
 
 void acpi_setup(void);
 u32 find_resume_vector(void);
+void find_pmtimer(void);
 
 #define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
 
