@@ -12,7 +12,7 @@
 #include "boot.h" // boot_add_cbfs
 #include "disk.h" // MAXDESCSIZE
 #include "config.h" // CONFIG_*
-
+#include "acpi.h" // find_pmtimer
 
 /****************************************************************
  * Memory map
@@ -219,6 +219,8 @@ coreboot_biostable_setup(void)
         if (m->type == CB_MEM_TABLE)
             scan_tables(m->start, m->size);
     }
+
+    find_pmtimer();
 }
 
 
