@@ -93,5 +93,7 @@ enable_hwirq(int hwirq, struct segoff_s func)
 
 void set_pics(u8 irq0, u8 irq8);
 void pic_setup(void);
+void pic_save_mask(void);
+void pic_restore_mask(void);
 
 #endif // pic.h
