@@ -17,7 +17,7 @@ struct pir_table {
 } PACKED;
 
 extern struct pir_table PIR_TABLE;
-#if CONFIG_PIRTABLE && !CONFIG_COREBOOT
+#if CONFIG_PIRTABLE
 struct pir_table PIR_TABLE __aligned(16) VAR16EXPORT = {
     .pir = {
         .version = 0x0100,
@@ -89,7 +89,7 @@ struct pir_table PIR_TABLE __aligned(16) VAR16EXPORT = {
         },
     }
 };
-#endif // CONFIG_PIRTABLE && !CONFIG_COREBOOT
+#endif // CONFIG_PIRTABLE
 
 void
 pirtable_setup(void)
