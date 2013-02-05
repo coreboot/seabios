@@ -10,6 +10,7 @@
 #include "memmap.h" // add_e820
 #include "types.h" // ASM32FLAT
 #include "util.h" // copy_acpi_rsdp
+#include "acpi.h" // find_pmtimer
 
 #define INFO_PHYSICAL_ADDRESS 0x00001000
 
@@ -123,6 +124,8 @@ void xen_biostable_setup(void)
     dprintf(1, "xen: copy BIOS tables...\n");
     for (i=0; i<info->tables_nr; i++)
         copy_table(tables[i]);
+
+    find_pmtimer();
 }
 
 void xen_ramsize_preinit(void)
