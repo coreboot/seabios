@@ -331,14 +331,15 @@ updateRelocs(void *dest, u32 *rstart, u32 *rend, u32 delta)
         *((u32*)(dest + *reloc)) += delta;
 }
 
-// Relocate init code and then call maininit() at new address.
-static void
-reloc_preinit(void)
+// Relocate init code and then call a function at its new address.
+// The passed function should be in the "init" section and must not
+// return.
+static void __noreturn
+reloc_preinit(void *f, void *arg)
 {
-    if (!CONFIG_RELOCATE_INIT) {
-        maininit();
-        return;
-    }
+    void (*func)(void *) __noreturn = f;
+    if (!CONFIG_RELOCATE_INIT)
+        func(arg);
     // Symbols populated by the build.
     extern u8 code32flat_start[];
     extern u8 _reloc_min_align;
@@ -368,11 +369,12 @@ reloc_preinit(void)
     updateRelocs(codedest, _reloc_abs_start, _reloc_abs_end, delta);
     updateRelocs(codedest, _reloc_rel_start, _reloc_rel_end, -delta);
     updateRelocs(code32flat_start, _reloc_init_start, _reloc_init_end, delta);
+    if (f >= (void*)code32init_start && f < (void*)code32init_end)
+        func = f + delta;
 
-    // Call maininit() in relocated code.
-    void (*func)(void) = (void*)maininit + delta;
+    // Call function in relocated code.
     barrier();
-    func();
+    func(arg);
 }
 
 // Setup for code relocation and then call reloc_init
@@ -387,7 +389,7 @@ dopost(void)
     malloc_preinit();
 
     // Relocate initialization code and call maininit().
-    reloc_preinit();
+    reloc_preinit(maininit, NULL);
 }
 
 // Entry point for Power On Self Test (POST) - the BIOS initilization
