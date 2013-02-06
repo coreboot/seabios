@@ -248,22 +248,21 @@ def doLayout(sections, genreloc):
 ######################################################################
 
 # Write LD script includes for the given cross references
-def outXRefs(sections, useseg=0):
-    xrefs = {}
+def outXRefs(sections, useseg=0, exportsyms=[]):
+    xrefs = dict([(symbol.name, symbol) for symbol in exportsyms])
     out = ""
     for section in sections:
         for reloc in section.relocs:
             symbol = reloc.symbol
-            if (symbol.section is None
-                or (symbol.section.fileid == section.fileid
-                    and symbol.name == reloc.symbolname)
-                or reloc.symbolname in xrefs):
-                continue
-            xrefs[reloc.symbolname] = 1
-            loc = symbol.section.finalloc
-            if useseg:
-                loc = symbol.section.finalsegloc
-            out += "%s = 0x%x ;\n" % (reloc.symbolname, loc + symbol.offset)
+            if (symbol.section is not None
+                and (symbol.section.fileid != section.fileid
+                     or symbol.name != reloc.symbolname)):
+                xrefs[reloc.symbolname] = symbol
+    for symbolname, symbol in xrefs.items():
+        loc = symbol.section.finalloc
+        if useseg:
+            loc = symbol.section.finalsegloc
+        out += "%s = 0x%x ;\n" % (symbolname, loc + symbol.offset)
     return out
 
 # Write LD script includes for the given sections using relative offsets
@@ -310,7 +309,7 @@ def getSectionsStart(sections, defaddr=0):
                 if section.finalloc is not None] or [defaddr])
 
 # Output the linker scripts for all required sections.
-def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
+def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
     # Write 16bit linker script
     out = outXRefs(li.sections16, useseg=1) + """
     datalow_base = 0x%x ;
@@ -343,7 +342,6 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
     # Write 32flat linker script
     sections32all = li.sections32flat + li.sections32init + li.sections32low
     sec32all_start = li.sec32low_start
-    entrysympos = entrysym.section.finalloc + entrysym.offset
     relocstr = ""
     if genreloc:
         # Generate relocations
@@ -361,8 +359,7 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
                     + strRelocs("_reloc_datalow", "code32flat_start", lowrelocs))
         numrelocs = len(absrelocs + relrelocs + initrelocs + lowrelocs)
         sec32all_start -= numrelocs * 4
-    out = outXRefs(sections32all) + """
-    %s = 0x%x ;
+    out = outXRefs(sections32all, exportsyms=exportsyms) + """
     _reloc_min_align = 0x%x ;
     datalow_base = 0x%x ;
     final_datalow_start = 0x%x ;
@@ -383,8 +380,7 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
         *(.text16)
         code32flat_end = ABSOLUTE(.) ;
     } :text
-""" % (entrysym.name, entrysympos,
-       li.sec32init_align,
+""" % (li.sec32init_align,
        li.datalow_base,
        li.final_sec32low_start,
        sec32all_start,
@@ -395,12 +391,12 @@ def writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat):
        li.sec32seg_start,
        li.sec16_start)
     out = COMMONHEADER + out + COMMONTRAILER + """
-ENTRY(%s)
+ENTRY(entry_elf)
 PHDRS
 {
         text PT_LOAD AT ( code32flat_start ) ;
 }
-""" % (entrysym.name,)
+"""
     outfile = open(out32flat, 'wb')
     outfile.write(out)
     outfile.close()
@@ -622,9 +618,14 @@ def main():
     genreloc = '_reloc_abs_start' in info32flat[1]
     li = doLayout(sections, genreloc)
 
+    # Exported symbols
+    exportsyms = [symbol for symbol in info16[1].values()
+                 if (symbol.section is not None
+                     and '.export.' in symbol.section.name
+                     and symbol.name != symbol.section.name)]
+
     # Write out linker script files.
-    entrysym = info16[1]['entry_elf']
-    writeLinkerScripts(li, entrysym, genreloc, out16, out32seg, out32flat)
+    writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat)
 
 if __name__ == '__main__':
     main()
