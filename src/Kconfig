@@ -245,7 +245,7 @@ menu "Hardware support"
         help
             Initialize the Memory Type Range Registers (on emulators).
     config PMTIMER
-        depends on QEMU
+        depends on !COREBOOT
         bool "Use ACPI timer"
         default y
         help

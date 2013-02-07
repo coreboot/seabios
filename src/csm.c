@@ -151,6 +151,8 @@ handle_csm_0002(struct bregs *regs)
     bda->hdcount = 0;
 
     timer_setup();
+    // This has to set cpu_khz *after* calibrate_tsc() does it
+    find_pmtimer();
     device_hardware_setup();
     wait_threads();
     interactive_bootmenu();
