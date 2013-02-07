@@ -272,6 +272,10 @@ malloc_fixupreloc_init(void)
             zone->info->pprev = &zone->info;
     }
 
+    // Move low-memory initial variable content to new location.
+    extern u8 datalow_start[], datalow_end[], final_datalow_start[];
+    memmove(final_datalow_start, datalow_start, datalow_end - datalow_start);
+
     // Add space free'd during relocation in f-segment to ZoneFSeg
     extern u8 code32init_end[];
     if ((u32)code32init_end > BUILD_BIOS_ADDR) {
