@@ -1,0 +1,21 @@
+Enabling CONFIG_CSM allows SeaBIOS to be built as a Compatibility Support
+Module for use with the OMVF/EDK-II UEFI firmware.
+
+It will provide "legacy" BIOS services for booting non-EFI operating
+systems and will also allow OVMF to display on otherwise unsupported
+video hardware by using the traditional VGA BIOS.
+
+Windows 2008r2 is known to use INT 10h BIOS calls even when booted via
+EFI, and the presence of a CSM makes this work as expected too.
+
+Having built SeaBIOS with CONFIG_CSM, you should be able to drop the
+result into your OVMF build tree at OvmfPkg/Csm/Csm16/Csm16.bin and
+then build OVMF with 'build -D CSM_ENABLE'. The SeaBIOS binary will be
+included as a discrete file within the 'Flash Volume' which is
+created, and there are tools which will extract it and allow it to be
+replaced; satisfying the requirements of the LGPL licence.
+
+A patch to OVMF is required, to prevent it from marking the region from
+0xC0000-0xFFFFF as read-only before invoking our Legacy16Boot method. See
+http://www.sourceforge.net/mailarchive/forum.php?thread_name=50FD7290.9060003%40redhat.com&forum_name=edk2-devel
+
