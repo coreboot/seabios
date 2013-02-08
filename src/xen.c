@@ -6,7 +6,7 @@
 
 #include "config.h"
 #include "xen.h"
-
+#include "paravirt.h" // PlatformRunningOn
 #include "memmap.h" // add_e820
 #include "types.h" // ASM32FLAT
 #include "util.h" // copy_acpi_rsdp
@@ -76,8 +76,11 @@ void xen_preinit(void)
             break;
         }
     }
-    if (!xen_cpuid_base)
+    if (!xen_cpuid_base) {
         dprintf(1, "No Xen hypervisor found.\n");
+        return;
+    }
+    PlatformRunningOn = PF_QEMU|PF_XEN;
 }
 
 static int hypercall_xen_version( int cmd, void *arg)

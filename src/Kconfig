@@ -14,9 +14,10 @@ choice
             Configure as a coreboot payload.
 
     config QEMU
-        bool "Build for QEMU"
+        bool "Build for QEMU/Xen/KVM/Bochs"
+        select QEMU_HARDWARE
         help
-            Configure as QEMU bios.
+            Configure for an emulated machine (QEMU, Xen, KVM, or Bochs).
 
     config CSM
        bool "Build as Compatibilty Support Module for EFI BIOS"
@@ -26,9 +27,16 @@ choice
 
 endchoice
 
+    config QEMU_HARDWARE
+        bool "Support hardware found on emulators (QEMU/Xen/KVM/Bochs)" if !QEMU
+        default n
+        help
+            Support virtual hardware when the code detects it is
+            running on an emulator.
+
     config XEN
         depends on QEMU
-        bool "Build for Xen HVM"
+        bool "Support Xen HVM"
         default y
         help
             Configure to be used by xen hvmloader, for a HVM guest.

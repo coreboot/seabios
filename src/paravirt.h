@@ -1,8 +1,24 @@
 #ifndef __PV_H
 #define __PV_H
 
-#include "config.h" // CONFIG_COREBOOT
-#include "util.h"
+#include "config.h" // CONFIG_*
+#include "util.h" // memcpy
+#include "biosvar.h" // GET_GLOBAL
+
+// Types of paravirtualized platforms.
+#define PF_QEMU     (1<<0)
+#define PF_XEN      (1<<1)
+
+// misc.c
+extern int PlatformRunningOn;
+
+static inline int runningOnQEMU(void) {
+    return CONFIG_QEMU || (
+        CONFIG_QEMU_HARDWARE && GET_GLOBAL(PlatformRunningOn) & PF_QEMU);
+}
+static inline int runningOnXen(void) {
+    return CONFIG_XEN && GET_GLOBAL(PlatformRunningOn) & PF_XEN;
+}
 
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
  * should be used to determine that a VM is running under KVM.

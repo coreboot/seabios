@@ -24,6 +24,11 @@ int qemu_cfg_present;
 void
 qemu_ramsize_preinit(void)
 {
+    if (!CONFIG_QEMU)
+        return;
+
+    PlatformRunningOn = PF_QEMU;
+
     // On emulators, get memory size from nvram.
     u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
               | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 24));

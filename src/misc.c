@@ -16,6 +16,8 @@ u32 RamSize VAR16VISIBLE;
 u64 RamSizeOver4G;
 // Space for bios tables built an run-time.
 char BiosTableSpace[CONFIG_MAX_BIOSTABLE] __aligned(MALLOC_MIN_ALIGN) VAR16VISIBLE;
+// Type of emulator platform.
+int PlatformRunningOn VAR16VISIBLE;
 
 
 /****************************************************************
