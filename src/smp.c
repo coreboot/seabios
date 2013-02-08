@@ -113,7 +113,7 @@ smp_setup(void)
     u32 val = readl(APIC_SVR);
     writel(APIC_SVR, val | APIC_ENABLED);
 
-    if (! CONFIG_COREBOOT) {
+    if (CONFIG_QEMU) {
         /* Set LINT0 as Ext_INT, level triggered */
         writel(APIC_LINT0, 0x8700);
 
@@ -128,12 +128,12 @@ smp_setup(void)
     writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
 
     // Wait for other CPUs to process the SIPI.
-    if (CONFIG_COREBOOT) {
-        msleep(10);
-    } else {
+    if (CONFIG_QEMU) {
         u8 cmos_smp_count = inb_cmos(CMOS_BIOS_SMP_COUNT);
         while (cmos_smp_count + 1 != readl(&CountCPUs))
             yield();
+    } else {
+        msleep(10);
     }
 
     // Restore memory.

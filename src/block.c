@@ -62,7 +62,7 @@ static u8
 get_translation(struct drive_s *drive_g)
 {
     u8 type = GET_GLOBAL(drive_g->type);
-    if (! CONFIG_COREBOOT && type == DTYPE_ATA) {
+    if (CONFIG_QEMU && type == DTYPE_ATA) {
         // Emulators pass in the translation info via nvram.
         u8 ataid = GET_GLOBAL(drive_g->cntl_id);
         u8 channel = ataid / 2;

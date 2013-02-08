@@ -250,7 +250,7 @@ boot_init(void)
     if (! CONFIG_BOOT)
         return;
 
-    if (!CONFIG_COREBOOT) {
+    if (CONFIG_QEMU) {
         // On emulators, get boot order from nvram.
         if (inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1)
             CheckFloppySig = 0;
@@ -609,7 +609,7 @@ boot_cdrom(struct drive_s *drive_g)
 static void
 boot_cbfs(struct cbfs_file *file)
 {
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT_FLASH)
         return;
     printf("Booting from CBFS...\n");
     cbfs_run_payload(file);

@@ -294,7 +294,7 @@ struct cbfs_file {
 static int
 cbfs_copyfile(struct romfile_s *file, void *dst, u32 maxlen)
 {
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT_FLASH)
         return -1;
 
     u32 size = file->rawsize;
@@ -326,7 +326,7 @@ cbfs_copyfile(struct romfile_s *file, void *dst, u32 maxlen)
 void
 coreboot_cbfs_init(void)
 {
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT_FLASH)
         return;
 
     struct cbfs_header *hdr = *(void **)CBFS_HEADPTR_ADDR;
@@ -392,7 +392,7 @@ struct cbfs_payload {
 void
 cbfs_run_payload(struct cbfs_file *file)
 {
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH || !file)
+    if (!CONFIG_COREBOOT_FLASH || !file)
         return;
     dprintf(1, "Run %s\n", file->filename);
     struct cbfs_payload *pay = (void*)file + be32_to_cpu(file->offset);
@@ -443,7 +443,7 @@ cbfs_run_payload(struct cbfs_file *file)
 void
 cbfs_payload_setup(void)
 {
-    if (!CONFIG_COREBOOT || !CONFIG_COREBOOT_FLASH)
+    if (!CONFIG_COREBOOT_FLASH)
         return;
     struct romfile_s *file = NULL;
     for (;;) {

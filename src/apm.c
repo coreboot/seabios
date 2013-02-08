@@ -11,11 +11,12 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
+#include "paravirt.h" // runningOnQEMU
 
 static void
 out_str(const char *str_cs)
 {
-    if (CONFIG_COREBOOT) {
+    if (!runningOnQEMU()) {
         dprintf(1, "APM request '%s'\n", str_cs);
         return;
     }

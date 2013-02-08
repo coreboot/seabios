@@ -95,7 +95,7 @@ void xen_hypercall_setup(void)
     xen_extraversion_t extraversion;
     unsigned long i;
 
-    if (!usingXen())
+    if (!runningOnXen())
         return;
 
     cpuid(xen_cpuid_base + 2, &eax, &ebx, &ecx, &edx);

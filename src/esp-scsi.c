@@ -18,6 +18,7 @@
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "boot.h" // bootprio_find_scsi_device
 #include "blockcmd.h" // scsi_drive_setup
+#include "paravirt.h" // runningOnQEMU
 #include "disk.h"
 
 #define ESP_TCLO      0x00
@@ -218,7 +219,7 @@ void
 esp_scsi_setup(void)
 {
     ASSERT32FLAT();
-    if (!CONFIG_ESP_SCSI)
+    if (!CONFIG_ESP_SCSI || !runningOnQEMU())
         return;
 
     dprintf(3, "init esp\n");

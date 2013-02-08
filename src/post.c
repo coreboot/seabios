@@ -179,7 +179,7 @@ platform_hardware_setup(void)
     // Setup external BIOS interface tables
     if (CONFIG_COREBOOT)
         coreboot_biostable_setup();
-    else if (usingXen())
+    else if (runningOnXen())
         xen_biostable_setup();
     else
         qemu_biostable_setup();
@@ -319,7 +319,7 @@ dopost(void)
     qemu_cfg_preinit();
     if (CONFIG_COREBOOT)
         coreboot_preinit();
-    else if (usingXen())
+    else if (runningOnXen())
         xen_ramsize_preinit();
     else
         qemu_ramsize_preinit();

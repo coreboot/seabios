@@ -132,25 +132,25 @@ menu "Hardware support"
         help
             Support for AHCI disk code.
     config VIRTIO_BLK
-        depends on DRIVES && QEMU
+        depends on DRIVES && QEMU_HARDWARE
         bool "virtio-blk controllers"
         default y
         help
             Support boot from virtio-blk storage.
     config VIRTIO_SCSI
-        depends on DRIVES && QEMU
+        depends on DRIVES && QEMU_HARDWARE
         bool "virtio-scsi controllers"
         default y
         help
             Support boot from virtio-scsi storage.
     config ESP_SCSI
-        depends on DRIVES && QEMU
+        depends on DRIVES && QEMU_HARDWARE
         bool "AMD PCscsi controllers"
         default y
         help
             Support boot from AMD PCscsi storage.
     config LSI_SCSI
-        depends on DRIVES && QEMU
+        depends on DRIVES && QEMU_HARDWARE
         bool "lsi53c895a scsi controllers"
         default y
         help

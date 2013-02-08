@@ -10,7 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_VENDOR_ID
-#include "xen.h" // usingXen
+#include "paravirt.h" // runningOnXen
 #include "dev-q35.h" // PCI_VENDOR_ID_INTEL
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
@@ -119,7 +119,7 @@ static const struct pci_device_id dram_controller_make_readonly_tbl[] = {
 void
 make_bios_writable(void)
 {
-    if (CONFIG_COREBOOT || usingXen())
+    if (!CONFIG_QEMU || runningOnXen())
         return;
 
     dprintf(3, "enabling shadow ram\n");
@@ -148,7 +148,7 @@ make_bios_writable(void)
 void
 make_bios_readonly(void)
 {
-    if (CONFIG_COREBOOT || usingXen())
+    if (!CONFIG_QEMU || runningOnXen())
         return;
 
     dprintf(3, "locking shadow ram\n");
@@ -161,7 +161,7 @@ make_bios_readonly(void)
 void
 qemu_prep_reset(void)
 {
-    if (CONFIG_COREBOOT)
+    if (!CONFIG_QEMU || runningOnXen())
         return;
     // QEMU doesn't map 0xc0000-0xfffff back to the original rom on a
     // reset, so do that manually before invoking a hard reset.
@@ -169,4 +169,8 @@ qemu_prep_reset(void)
     extern u8 code32flat_start[], code32flat_end[];
     memcpy(code32flat_start, code32flat_start + BIOS_SRC_OFFSET
            , code32flat_end - code32flat_start);
+
+    if (HaveRunPost)
+        // Memory copy failed to work - try to halt the machine.
+        apm_shutdown();
 }

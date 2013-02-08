@@ -7,7 +7,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h" // CONFIG_COREBOOT
+#include "config.h" // CONFIG_QEMU
 #include "util.h" // dprintf
 #include "byteorder.h" // be32_to_cpu
 #include "ioport.h" // outw
@@ -108,7 +108,7 @@ void qemu_cfg_preinit(void)
     char *sig = "QEMU";
     int i;
 
-    if (CONFIG_COREBOOT)
+    if (!CONFIG_QEMU)
         return;
 
     qemu_cfg_present = 1;
@@ -384,7 +384,7 @@ struct QemuCfgFile {
 
 void qemu_romfile_init(void)
 {
-    if (CONFIG_COREBOOT || !qemu_cfg_present)
+    if (!CONFIG_QEMU || !qemu_cfg_present)
         return;
 
     u32 count;

@@ -1,21 +1,10 @@
 #ifndef __XEN_H
 #define __XEN_H
 
-#include "config.h" // CONFIG_*
-#include "types.h" // u32
-
-extern u32 xen_cpuid_base;
-
 void xen_preinit(void);
 void xen_ramsize_preinit(void);
 void xen_hypercall_setup(void);
 void xen_biostable_setup(void);
-
-static inline int usingXen(void) {
-    if (!CONFIG_XEN)
-        return 0;
-    return (xen_cpuid_base != 0);
-}
 
 extern unsigned long xen_hypercall_page;
 

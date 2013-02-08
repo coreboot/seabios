@@ -130,11 +130,7 @@ tryReboot(void)
     dprintf(1, "Attempting a hard reboot\n");
 
     // Setup for reset on qemu.
-    if (! CONFIG_COREBOOT) {
-        qemu_prep_reset();
-        if (HaveRunPost)
-            apm_shutdown();
-    }
+    qemu_prep_reset();
 
     // Try keyboard controller reboot.
     i8042_reboot();

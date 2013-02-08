@@ -166,7 +166,7 @@ void
 virtio_scsi_setup(void)
 {
     ASSERT32FLAT();
-    if (! CONFIG_VIRTIO_SCSI || CONFIG_COREBOOT)
+    if (! CONFIG_VIRTIO_SCSI)
         return;
 
     dprintf(3, "init virtio-scsi\n");

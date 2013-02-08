@@ -125,19 +125,19 @@ floppy_setup(void)
         return;
     dprintf(3, "init floppy drives\n");
 
-    if (CONFIG_COREBOOT) {
+    if (CONFIG_QEMU) {
+        u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
+        if (type & 0xf0)
+            addFloppy(0, type >> 4);
+        if (type & 0x0f)
+            addFloppy(1, type & 0x0f);
+    } else {
         u8 type = romfile_loadint("etc/floppy0", 0);
         if (type)
             addFloppy(0, type);
         type = romfile_loadint("etc/floppy1", 0);
         if (type)
             addFloppy(1, type);
-    } else {
-        u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
-        if (type & 0xf0)
-            addFloppy(0, type >> 4);
-        if (type & 0x0f)
-            addFloppy(1, type & 0x0f);
     }
 
     outb(0x02, PORT_DMA1_MASK_REG);

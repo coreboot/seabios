@@ -18,6 +18,7 @@
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "boot.h" // bootprio_find_scsi_device
 #include "blockcmd.h" // scsi_drive_setup
+#include "paravirt.h" // runningOnQEMU
 #include "disk.h"
 
 #define LSI_REG_DSTAT     0x0c
@@ -197,7 +198,7 @@ void
 lsi_scsi_setup(void)
 {
     ASSERT32FLAT();
-    if (!CONFIG_LSI_SCSI)
+    if (!CONFIG_LSI_SCSI || !runningOnQEMU())
         return;
 
     dprintf(3, "init lsi53c895a\n");

@@ -425,7 +425,7 @@ vgarom_setup(void)
 
     // Load some config settings that impact VGA.
     EnforceChecksum = romfile_loadint("etc/optionroms-checksum", 1);
-    S3ResumeVga = romfile_loadint("etc/s3-resume-vga-init", !CONFIG_COREBOOT);
+    S3ResumeVga = romfile_loadint("etc/s3-resume-vga-init", CONFIG_QEMU);
     ScreenAndDebug = romfile_loadint("etc/screen-and-debug", 1);
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
