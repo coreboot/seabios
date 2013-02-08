@@ -431,7 +431,7 @@ static u32 PreemptCount;
 void
 start_preempt(void)
 {
-    if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS)
+    if (! CONFIG_THREAD_OPTIONROMS)
         return;
     CanPreempt = 1;
     PreemptCount = 0;
@@ -442,7 +442,7 @@ start_preempt(void)
 void
 finish_preempt(void)
 {
-    if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS) {
+    if (! CONFIG_THREAD_OPTIONROMS) {
         yield();
         return;
     }
@@ -456,8 +456,7 @@ finish_preempt(void)
 int
 wait_preempt(void)
 {
-    if (MODESEGMENT || !CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS
-        || !CanPreempt)
+    if (MODESEGMENT || !CONFIG_THREAD_OPTIONROMS || !CanPreempt)
         return 0;
     while (CanPreempt)
         yield();
@@ -476,8 +475,7 @@ yield_preempt(void)
 void
 check_preempt(void)
 {
-    if (! CONFIG_THREADS || ! CONFIG_THREAD_OPTIONROMS
-        || !GET_GLOBAL(CanPreempt)
+    if (! CONFIG_THREAD_OPTIONROMS || !GET_GLOBAL(CanPreempt)
         || GET_FLATPTR(MainThread.next) == &MainThread)
         return;
 

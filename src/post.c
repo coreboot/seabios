@@ -170,7 +170,7 @@ platform_hardware_setup(void)
     xen_hypercall_setup();
 
     // Start hardware initialization (if optionrom threading)
-    if (CONFIG_THREADS && CONFIG_THREAD_OPTIONROMS)
+    if (CONFIG_THREAD_OPTIONROMS)
         device_hardware_setup();
 
     // Find and initialize other cpus
@@ -229,7 +229,7 @@ maininit(void)
     vgarom_setup();
 
     // Do hardware initialization (if running synchronously)
-    if (!CONFIG_THREADS || !CONFIG_THREAD_OPTIONROMS) {
+    if (!CONFIG_THREAD_OPTIONROMS) {
         device_hardware_setup();
         wait_threads();
     }
