@@ -193,10 +193,12 @@ handle_csm_0005(struct bregs *regs)
     rom = MAKE_FLATPTR(table->OpromSegment, 0);
     bdf = pci_bus_devfn_to_bdf(table->PciBus, table->PciDeviceFunction);
 
-    rom_confirm(rom->size * 512);
+    rom_reserve(rom->size * 512);
 
     // XX PnP seg/ofs should never be other than default
     callrom(rom, bdf);
+
+    rom_confirm(rom->size * 512);
 
     regs->bx = 0; // FIXME
     regs->ax = 0;
