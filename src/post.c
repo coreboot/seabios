@@ -315,9 +315,6 @@ reloc_preinit(void *f, void *arg)
 void VISIBLE32INIT
 dopost(void)
 {
-    // Check if we are running under Xen.
-    xen_preinit();
-
     // Detect ram and setup internal malloc.
     qemu_cfg_preinit();
     if (CONFIG_COREBOOT)
@@ -332,30 +329,17 @@ dopost(void)
     reloc_preinit(maininit, NULL);
 }
 
-// Startup debug output and display software version.
-static void
-debug_splash(void)
-{
-    debug_serial_preinit();
-    dprintf(1, "Start bios (version %s)\n", VERSION);
-}
-
-// Entry point for Power On Self Test (POST) when running under
-// xen/coreboot.
-void VISIBLE32INIT
-handle_elf(void)
-{
-    debug_splash();
-    dopost();
-}
-
-// Entry point for Power On Self Test (POST) when running under
-// qemu/kvm/bochs.  Under qemu the memory at 0xc0000-0xfffff may be
-// read-only, so unlock the ram as the first step of booting.
+// Entry point for Power On Self Test (POST) - the BIOS initilization
+// phase.  This function makes the memory at 0xc0000-0xfffff
+// read/writable and then calls dopost().
 void VISIBLE32FLAT
 handle_post(void)
 {
-    debug_splash();
+    debug_serial_preinit();
+    dprintf(1, "Start bios (version %s)\n", VERSION);
+
+    // Check if we are running under Xen.
+    xen_preinit();
 
     // Allow writes to modify bios area (0xf0000)
     make_bios_writable();

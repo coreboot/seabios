@@ -380,7 +380,7 @@ entry_elf:
         movw %ax, %gs
         movw %ax, %ss
         movl $BUILD_STACK_ADDR, %esp
-        ljmpl $SEG32_MODE32_CS, $_cfunc32flat_handle_elf
+        ljmpl $SEG32_MODE32_CS, $_cfunc32flat_handle_post
 
         .code16gcc
 
