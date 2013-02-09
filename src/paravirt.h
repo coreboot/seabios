@@ -2,12 +2,12 @@
 #define __PV_H
 
 #include "config.h" // CONFIG_*
-#include "util.h" // memcpy
 #include "biosvar.h" // GET_GLOBAL
 
 // Types of paravirtualized platforms.
 #define PF_QEMU     (1<<0)
 #define PF_XEN      (1<<1)
+#define PF_KVM      (1<<2)
 
 // misc.c
 extern int PlatformRunningOn;
@@ -19,31 +19,11 @@ static inline int runningOnQEMU(void) {
 static inline int runningOnXen(void) {
     return CONFIG_XEN && GET_GLOBAL(PlatformRunningOn) & PF_XEN;
 }
-
-/* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
- * should be used to determine that a VM is running under KVM.
- */
-#define KVM_CPUID_SIGNATURE     0x40000000
-
-static inline int kvm_para_available(void)
-{
-    if (!CONFIG_QEMU)
-        return 0;
-    unsigned int eax, ebx, ecx, edx;
-    char signature[13];
-
-    cpuid(KVM_CPUID_SIGNATURE, &eax, &ebx, &ecx, &edx);
-    memcpy(signature + 0, &ebx, 4);
-    memcpy(signature + 4, &ecx, 4);
-    memcpy(signature + 8, &edx, 4);
-    signature[12] = 0;
-
-    if (strcmp(signature, "KVMKVMKVM") == 0)
-        return 1;
-
-    return 0;
+static inline int runningOnKVM(void) {
+    return CONFIG_QEMU && GET_GLOBAL(PlatformRunningOn) & PF_KVM;
 }
 
+// QEMU "firmware config (fw_cfg)" interface
 #define QEMU_CFG_SIGNATURE              0x00
 #define QEMU_CFG_ID                     0x01
 #define QEMU_CFG_UUID                   0x02

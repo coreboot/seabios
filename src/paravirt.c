@@ -21,6 +21,30 @@
 
 int qemu_cfg_present;
 
+/* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
+ * should be used to determine that a VM is running under KVM.
+ */
+#define KVM_CPUID_SIGNATURE     0x40000000
+
+static void kvm_preinit(void)
+{
+    if (!CONFIG_QEMU)
+        return;
+    unsigned int eax, ebx, ecx, edx;
+    char signature[13];
+
+    cpuid(KVM_CPUID_SIGNATURE, &eax, &ebx, &ecx, &edx);
+    memcpy(signature + 0, &ebx, 4);
+    memcpy(signature + 4, &ecx, 4);
+    memcpy(signature + 8, &edx, 4);
+    signature[12] = 0;
+
+    if (strcmp(signature, "KVMKVMKVM") == 0) {
+        dprintf(1, "Running on KVM\n");
+        PlatformRunningOn |= PF_KVM;
+    }
+}
+
 void
 qemu_ramsize_preinit(void)
 {
@@ -28,6 +52,7 @@ qemu_ramsize_preinit(void)
         return;
 
     PlatformRunningOn = PF_QEMU;
+    kvm_preinit();
 
     // On emulators, get memory size from nvram.
     u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
@@ -60,7 +85,7 @@ qemu_ramsize_preinit(void)
             qemu_cfg_e820_load_next(&entry);
             add_e820(entry.address, entry.length, entry.type);
         }
-    } else if (kvm_para_available()) {
+    } else if (runningOnKVM()) {
         // Backwards compatibility - provide hard coded range.
         // 4 pages before the bios, 3 pages for vmx tss pages, the
         // other page for EPT real mode pagetable
