@@ -828,23 +828,25 @@ acpi_setup(void)
     if (pci->device == PCI_DEVICE_ID_INTEL_ICH9_LPC)
         ACPI_INIT_TABLE(build_mcfg_q35());
 
-    u16 i, external_tables = qemu_cfg_acpi_additional_tables();
-
-    for (i = 0; i < external_tables; i++) {
-        u16 len = qemu_cfg_next_acpi_table_len();
-        void *addr = malloc_high(len);
-        if (!addr) {
+    struct romfile_s *file = NULL;
+    for (;;) {
+        file = romfile_findprefix("acpi/", file);
+        if (!file)
+            break;
+        struct acpi_table_header *table = malloc_high(file->size);
+        if (!table) {
             warn_noalloc();
             continue;
         }
-        struct acpi_table_header *header =
-            qemu_cfg_next_acpi_table_load(addr, len);
-        if (header->signature == DSDT_SIGNATURE) {
+        int ret = file->copy(file, table, file->size);
+        if (ret <= sizeof(*table))
+            continue;
+        if (table->signature == DSDT_SIGNATURE) {
             if (fadt) {
-                fill_dsdt(fadt, addr);
+                fill_dsdt(fadt, table);
             }
         } else {
-            ACPI_INIT_TABLE(header);
+            ACPI_INIT_TABLE(table);
         }
         if (tbl_idx == MAX_ACPI_TABLES) {
             warn_noalloc();

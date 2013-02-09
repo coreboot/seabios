@@ -203,33 +203,6 @@ int qemu_cfg_irq0_override(void)
     return v;
 }
 
-u16 qemu_cfg_acpi_additional_tables(void)
-{
-    u16 cnt;
-
-    if (!qemu_cfg_present)
-        return 0;
-
-    qemu_cfg_read_entry(&cnt, QEMU_CFG_ACPI_TABLES, sizeof(cnt));
-
-    return cnt;
-}
-
-u16 qemu_cfg_next_acpi_table_len(void)
-{
-    u16 len;
-
-    qemu_cfg_read((u8*)&len, sizeof(len));
-
-    return len;
-}
-
-void* qemu_cfg_next_acpi_table_load(void *addr, u16 len)
-{
-    qemu_cfg_read(addr, len);
-    return addr;
-}
-
 u16 qemu_cfg_smbios_entries(void)
 {
     u16 cnt;
@@ -444,6 +417,27 @@ qemu_romfile_add(char *name, int select, int skip, int size)
     romfile_add(file);
 }
 
+// Populate romfile entries for legacy fw_cfg ports (that predate the
+// "file" interface).
+static void
+qemu_cfg_legacy(void)
+{
+    // ACPI tables
+    char name[128];
+    u16 cnt;
+    qemu_cfg_read_entry(&cnt, QEMU_CFG_ACPI_TABLES, sizeof(cnt));
+    int i, offset = sizeof(cnt);
+    for (i = 0; i < cnt; i++) {
+        u16 len;
+        qemu_cfg_read(&len, sizeof(len));
+        offset += sizeof(len);
+        snprintf(name, sizeof(name), "acpi/table%d", i);
+        qemu_romfile_add(name, QEMU_CFG_ACPI_TABLES, offset, len);
+        qemu_cfg_skip(len);
+        offset += len;
+    }
+}
+
 struct QemuCfgFile {
     u32  size;        /* file size */
     u16  select;      /* write this to 0x510 to read it */
@@ -456,6 +450,10 @@ void qemu_romfile_init(void)
     if (!CONFIG_QEMU || !qemu_cfg_present)
         return;
 
+    // Populate romfiles for legacy fw_cfg entries
+    qemu_cfg_legacy();
+
+    // Load files found in the fw_cfg file directory
     u32 count;
     qemu_cfg_read_entry(&count, QEMU_CFG_FILE_DIR, sizeof(count));
     count = be32_to_cpu(count);

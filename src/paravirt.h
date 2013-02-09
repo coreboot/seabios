@@ -29,9 +29,6 @@ void qemu_cfg_preinit(void);
 int qemu_cfg_show_boot_menu(void);
 void qemu_cfg_get_uuid(u8 *uuid);
 int qemu_cfg_irq0_override(void);
-u16 qemu_cfg_acpi_additional_tables(void);
-u16 qemu_cfg_next_acpi_table_len(void);
-void *qemu_cfg_next_acpi_table_load(void *addr, u16 len);
 u16 qemu_cfg_smbios_entries(void);
 size_t qemu_cfg_smbios_load_field(int type, size_t offset, void *addr);
 int qemu_cfg_smbios_load_external(int type, char **p, unsigned *nr_structs,
