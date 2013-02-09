@@ -354,7 +354,6 @@ coreboot_cbfs_init(void)
         }
         memset(file, 0, sizeof(*file));
         strtcpy(file->name, cfile->filename, sizeof(file->name));
-        dprintf(3, "Found CBFS file: %s\n", file->name);
         file->size = file->rawsize = be32_to_cpu(cfile->len);
         file->id = (u32)cfile;
         file->copy = cbfs_copyfile;

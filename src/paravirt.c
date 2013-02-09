@@ -133,7 +133,7 @@ qemu_cfg_select(u16 f)
 }
 
 static void
-qemu_cfg_read(u8 *buf, int len)
+qemu_cfg_read(void *buf, int len)
 {
     insb(PORT_QEMU_CFG_DATA, buf, len);
 }
@@ -416,12 +416,32 @@ u16 qemu_cfg_get_max_cpus(void)
     return cnt;
 }
 
-int qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
+static int
+qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
 {
     if (file->size > maxlen)
         return -1;
-    qemu_cfg_read_entry(dst, file->id, file->size);
+    qemu_cfg_select(file->id);
+    qemu_cfg_skip(file->rawsize);
+    qemu_cfg_read(dst, file->size);
     return file->size;
+}
+
+static void
+qemu_romfile_add(char *name, int select, int skip, int size)
+{
+    struct romfile_s *file = malloc_tmp(sizeof(*file));
+    if (!file) {
+        warn_noalloc();
+        return;
+    }
+    memset(file, 0, sizeof(*file));
+    strtcpy(file->name, name, sizeof(file->name));
+    file->id = select;
+    file->rawsize = skip; // Use rawsize to indicate skip length.
+    file->size = size;
+    file->copy = qemu_cfg_read_file;
+    romfile_add(file);
 }
 
 struct QemuCfgFile {
@@ -442,18 +462,8 @@ void qemu_romfile_init(void)
     u32 e;
     for (e = 0; e < count; e++) {
         struct QemuCfgFile qfile;
-        qemu_cfg_read((void*)&qfile, sizeof(qfile));
-        struct romfile_s *file = malloc_tmp(sizeof(*file));
-        if (!file) {
-            warn_noalloc();
-            return;
-        }
-        memset(file, 0, sizeof(*file));
-        strtcpy(file->name, qfile.name, sizeof(file->name));
-        file->size = be32_to_cpu(qfile.size);
-        file->id = be16_to_cpu(qfile.select);
-        file->copy = qemu_cfg_read_file;
-        romfile_add(file);
-        dprintf(3, "Found fw_cfg file: %s (size=%d)\n", file->name, file->size);
+        qemu_cfg_read(&qfile, sizeof(qfile));
+        qemu_romfile_add(qfile.name, be16_to_cpu(qfile.select)
+                         , 0, be32_to_cpu(qfile.size));
     }
 }

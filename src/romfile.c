@@ -12,6 +12,7 @@ static struct romfile_s *RomfileRoot;
 void
 romfile_add(struct romfile_s *file)
 {
+    dprintf(3, "Add romfile: %s (size=%d)\n", file->name, file->size);
     file->next = RomfileRoot;
     RomfileRoot = file;
 }
