@@ -394,27 +394,24 @@ entry_csm:
         PUSHBREGS
 
         // Backup stack location and convert to a "flat pointer"
-        movl %ss, %ebx
-        movw %bx, BREGS_code+2(%esp)    // Store %ss in bregs->code.seg
-        shll $4, %ebx
-        addl %esp, %ebx
+        movl %ss, %eax
+        movw %ax, BREGS_code+2(%esp)    // Store %ss in bregs->code.seg
+        shll $4, %eax
+        addl %esp, %eax
 
         // Change to BUILD_STACK_ADDR stack
-        xorl %eax, %eax
-        movw %ax, %ss
+        xorl %ebx, %ebx
+        movw %bx, %ss
         movl $BUILD_STACK_ADDR, %esp
 
         // Jump to 32bit mode and call handle_csm(bregs)
-        movl $(1f + BUILD_BIOS_ADDR), %edx
+        movl $_cfunc32flat_handle_csm, %edx
         jmp transition32
-        .code32
-1:      movl %ebx, %eax
-        calll _cfunc32flat_handle_csm - BUILD_BIOS_ADDR
-        movl $2f, %edx
-        jmp transition16big
 
-        .global csm_return
-csm_return:
+        .code32
+
+        EXPORTFUNC __csm_return
+__csm_return:
         movl %eax, %ebx
         movl $2f, %edx
         jmp transition16big

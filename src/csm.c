@@ -34,7 +34,16 @@ EFI_COMPATIBILITY16_TABLE csm_compat_table VAR32FLATVISIBLE __aligned(16) = {
 EFI_TO_COMPATIBILITY16_INIT_TABLE *csm_init_table;
 EFI_TO_COMPATIBILITY16_BOOT_TABLE *csm_boot_table;
 
-extern void csm_return(struct bregs *regs) __noreturn;
+extern void __csm_return(struct bregs *regs) __noreturn;
+
+static void
+csm_return(struct bregs *regs)
+{
+    dprintf(3, "handle_csm returning AX=%04x\n", regs->ax);
+
+    pic_save_mask();
+    __csm_return(regs);
+}
 
 static void
 csm_maininit(struct bregs *regs)
@@ -47,9 +56,6 @@ csm_maininit(struct bregs *regs)
 
     regs->ax = 0;
 
-    // Return directly to UEFI instead of unwinding stack.
-    pic_save_mask();
-    dprintf(3, "csm_maininit fast returning AX=%04x\n", regs->ax);
     csm_return(regs);
 }
 
@@ -243,7 +249,7 @@ handle_csm(struct bregs *regs)
     if (!CONFIG_CSM)
         return;
 
-    dprintf(3, "handle_csm16 regs %p AX=%04x\n", regs, regs->ax);
+    dprintf(3, "handle_csm regs %p AX=%04x\n", regs, regs->ax);
 
     pic_restore_mask();
 
@@ -260,9 +266,7 @@ handle_csm(struct bregs *regs)
     default: regs->al = 1;
     }
 
-    pic_save_mask();
-
-    dprintf(3, "handle_csm16 returning AX=%04x\n", regs->ax);
+    csm_return(regs);
 }
 
 int csm_bootprio_ata(struct pci_device *pci, int chanid, int slave)
