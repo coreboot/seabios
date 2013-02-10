@@ -8,7 +8,6 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "cmos.h" // CMOS_BIOS_SMP_COUNT
-#include "paravirt.h"
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
@@ -136,7 +135,7 @@ smp_setup(void)
     // Restore memory.
     *(u64*)BUILD_AP_BOOT_ADDR = old;
 
-    MaxCountCPUs = qemu_cfg_get_max_cpus();
+    MaxCountCPUs = romfile_loadint("etc/max-cpus", 0);
     if (!MaxCountCPUs || MaxCountCPUs < CountCPUs)
         MaxCountCPUs = CountCPUs;
 

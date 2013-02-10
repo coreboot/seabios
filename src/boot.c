@@ -404,7 +404,7 @@ interactive_bootmenu(void)
 {
     // XXX - show available drives?
 
-    if (! CONFIG_BOOTMENU || ! qemu_cfg_show_boot_menu())
+    if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
 
     while (get_keystroke(0) >= 0)

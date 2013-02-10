@@ -372,7 +372,7 @@ build_madt(void)
     io_apic->interrupt = cpu_to_le32(0);
 
     struct madt_intsrcovr *intsrcovr = (void*)&io_apic[1];
-    if (qemu_cfg_irq0_override()) {
+    if (romfile_loadint("etc/irq0-override", 0)) {
         memset(intsrcovr, 0, sizeof(*intsrcovr));
         intsrcovr->type   = APIC_XRUPT_OVERRIDE;
         intsrcovr->length = sizeof(*intsrcovr);

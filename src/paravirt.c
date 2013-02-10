@@ -172,37 +172,6 @@ void qemu_cfg_preinit(void)
     dprintf(4, "qemu_cfg_present=%d\n", qemu_cfg_present);
 }
 
-void qemu_cfg_get_uuid(u8 *uuid)
-{
-    if (!qemu_cfg_present)
-        return;
-
-    qemu_cfg_read_entry(uuid, QEMU_CFG_UUID, 16);
-}
-
-int qemu_cfg_show_boot_menu(void)
-{
-    u16 v;
-    if (!qemu_cfg_present)
-        return 1;
-
-    qemu_cfg_read_entry(&v, QEMU_CFG_BOOT_MENU, sizeof(v));
-
-    return v;
-}
-
-int qemu_cfg_irq0_override(void)
-{
-    u8 v;
-
-    if (!qemu_cfg_present)
-        return 0;
-
-    qemu_cfg_read_entry(&v, QEMU_CFG_IRQ0_OVERRIDE, sizeof(v));
-
-    return v;
-}
-
 u32 qemu_cfg_e820_entries(void)
 {
     u32 cnt;
@@ -235,18 +204,6 @@ void qemu_cfg_get_numa_data(u64 *data, int n)
 
     for (i = 0; i < n; i++)
         qemu_cfg_read((u8*)(data + i), sizeof(u64));
-}
-
-u16 qemu_cfg_get_max_cpus(void)
-{
-    u16 cnt;
-
-    if (!qemu_cfg_present)
-        return 0;
-
-    qemu_cfg_read_entry(&cnt, QEMU_CFG_MAX_CPUS, sizeof(cnt));
-
-    return cnt;
 }
 
 static int
@@ -292,6 +249,11 @@ struct qemu_smbios_header {
 static void
 qemu_cfg_legacy(void)
 {
+    // Misc config items.
+    qemu_romfile_add("etc/show-boot-menu", QEMU_CFG_BOOT_MENU, 0, 2);
+    qemu_romfile_add("etc/irq0-override", QEMU_CFG_IRQ0_OVERRIDE, 0, 1);
+    qemu_romfile_add("etc/max-cpus", QEMU_CFG_MAX_CPUS, 0, 2);
+
     // ACPI tables
     char name[128];
     u16 cnt;
