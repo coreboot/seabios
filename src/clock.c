@@ -65,10 +65,20 @@
 u32 cpu_khz VAR16VISIBLE;
 u8 no_tsc VAR16VISIBLE;
 
+u16 pmtimer_ioport VAR16VISIBLE;
+u32 pmtimer_wraps VARLOW;
+u32 pmtimer_last VARLOW;
+
 static void
 calibrate_tsc(void)
 {
     u32 eax, ebx, ecx, edx, cpuid_features = 0;
+
+    if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport)) {
+        dprintf(3, "pmtimer already configured; will not calibrate TSC\n");
+        return;
+    }
+
     cpuid(0, &eax, &ebx, &ecx, &edx);
     if (eax > 0)
         cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
@@ -128,10 +138,6 @@ emulate_tsc(void)
     SET_LOW(TSC_8254, ret);
     return ret;
 }
-
-u16 pmtimer_ioport VAR16VISIBLE;
-u32 pmtimer_wraps VARLOW;
-u32 pmtimer_last VARLOW;
 
 void pmtimer_setup(u16 ioport, u32 khz)
 {
