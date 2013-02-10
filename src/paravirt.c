@@ -1,5 +1,6 @@
 // Paravirtualization support.
 //
+// Copyright (C) 2013  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2009 Red Hat Inc.
 //
 // Authors:
@@ -89,8 +90,8 @@ qemu_biostable_setup(void)
  * QEMU firmware config (fw_cfg) interface
  ****************************************************************/
 
-int qemu_cfg_present;
-
+// List of QEMU fw_cfg entries.  DO NOT ADD MORE.  (All new content
+// should be passed via the fw_cfg "file" interface.)
 #define QEMU_CFG_SIGNATURE              0x00
 #define QEMU_CFG_ID                     0x01
 #define QEMU_CFG_UUID                   0x02
@@ -128,26 +129,6 @@ qemu_cfg_read_entry(void *buf, int e, int len)
 {
     qemu_cfg_select(e);
     qemu_cfg_read(buf, len);
-}
-
-void qemu_cfg_preinit(void)
-{
-    char *sig = "QEMU";
-    int i;
-
-    if (!CONFIG_QEMU)
-        return;
-
-    qemu_cfg_present = 1;
-
-    qemu_cfg_select(QEMU_CFG_SIGNATURE);
-
-    for (i = 0; i < 4; i++)
-        if (inb(PORT_QEMU_CFG_DATA) != sig[i]) {
-            qemu_cfg_present = 0;
-            break;
-        }
-    dprintf(4, "qemu_cfg_present=%d\n", qemu_cfg_present);
 }
 
 static int
@@ -273,10 +254,19 @@ struct QemuCfgFile {
     char name[56];
 };
 
-void qemu_romfile_init(void)
+void qemu_cfg_init(void)
 {
-    if (!CONFIG_QEMU || !qemu_cfg_present)
+    if (!CONFIG_QEMU)
         return;
+
+    // Detect fw_cfg interface.
+    qemu_cfg_select(QEMU_CFG_SIGNATURE);
+    char *sig = "QEMU";
+    int i;
+    for (i = 0; i < 4; i++)
+        if (inb(PORT_QEMU_CFG_DATA) != sig[i])
+            return;
+    dprintf(1, "Found QEMU fw_cfg\n");
 
     // Populate romfiles for legacy fw_cfg entries
     qemu_cfg_legacy();

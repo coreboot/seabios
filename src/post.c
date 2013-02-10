@@ -108,7 +108,7 @@ interface_init(void)
     malloc_fixupreloc_init();
 
     // Setup romfile items.
-    qemu_romfile_init();
+    qemu_cfg_init();
     coreboot_cbfs_init();
 
     // Setup ivt/bda/ebda
@@ -314,7 +314,6 @@ void VISIBLE32INIT
 dopost(void)
 {
     // Detect ram and setup internal malloc.
-    qemu_cfg_preinit();
     if (CONFIG_COREBOOT)
         coreboot_preinit();
     else if (runningOnXen())
