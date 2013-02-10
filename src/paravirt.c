@@ -19,12 +19,6 @@
 #include "mptable.h" // mptable_setup
 #include "pci.h" // create_pirtable
 
-struct e820_reservation {
-    u64 address;
-    u64 length;
-    u32 type;
-};
-
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
  * should be used to determine that a VM is running under KVM.
  */
@@ -79,22 +73,6 @@ qemu_ramsize_preinit(void)
 
     /* reserve 256KB BIOS area at the end of 4 GB */
     add_e820(0xfffc0000, 256*1024, E820_RESERVED);
-
-    u32 count = qemu_cfg_e820_entries();
-    if (count) {
-        struct e820_reservation entry;
-        int i;
-
-        for (i = 0; i < count; i++) {
-            qemu_cfg_e820_load_next(&entry);
-            add_e820(entry.address, entry.length, entry.type);
-        }
-    } else if (runningOnKVM()) {
-        // Backwards compatibility - provide hard coded range.
-        // 4 pages before the bios, 3 pages for vmx tss pages, the
-        // other page for EPT real mode pagetable
-        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
-    }
 }
 
 void
@@ -172,23 +150,6 @@ void qemu_cfg_preinit(void)
     dprintf(4, "qemu_cfg_present=%d\n", qemu_cfg_present);
 }
 
-u32 qemu_cfg_e820_entries(void)
-{
-    u32 cnt;
-
-    if (!qemu_cfg_present)
-        return 0;
-
-    qemu_cfg_read_entry(&cnt, QEMU_CFG_E820_TABLE, sizeof(cnt));
-    return cnt;
-}
-
-void* qemu_cfg_e820_load_next(void *addr)
-{
-    qemu_cfg_read(addr, sizeof(struct e820_reservation));
-    return addr;
-}
-
 static int
 qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
 {
@@ -217,6 +178,12 @@ qemu_romfile_add(char *name, int select, int skip, int size)
     romfile_add(file);
 }
 
+struct e820_reservation {
+    u64 address;
+    u64 length;
+    u32 type;
+};
+
 #define SMBIOS_FIELD_ENTRY 0
 #define SMBIOS_TABLE_ENTRY 1
 
@@ -243,6 +210,23 @@ qemu_cfg_legacy(void)
     numacount += romfile_loadint("etc/max-cpus", 0);
     qemu_romfile_add("etc/numa-nodes", QEMU_CFG_NUMA, sizeof(numacount)
                      , numacount*sizeof(u64));
+
+    // e820 data
+    u32 count32;
+    qemu_cfg_read_entry(&count32, QEMU_CFG_E820_TABLE, sizeof(count32));
+    if (count32) {
+        struct e820_reservation entry;
+        int i;
+        for (i = 0; i < count32; i++) {
+            qemu_cfg_read(&entry, sizeof(entry));
+            add_e820(entry.address, entry.length, entry.type);
+        }
+    } else if (runningOnKVM()) {
+        // Backwards compatibility - provide hard coded range.
+        // 4 pages before the bios, 3 pages for vmx tss pages, the
+        // other page for EPT real mode pagetable
+        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
+    }
 
     // ACPI tables
     char name[128];

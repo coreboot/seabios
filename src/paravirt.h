@@ -26,8 +26,6 @@ static inline int runningOnKVM(void) {
 void qemu_ramsize_preinit(void);
 void qemu_biostable_setup(void);
 void qemu_cfg_preinit(void);
-u32 qemu_cfg_e820_entries(void);
-void* qemu_cfg_e820_load_next(void *addr);
 void qemu_romfile_init(void);
 
 #endif
