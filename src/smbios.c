@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "paravirt.h" // qemu_cfg_smbios_load_field
+#include "config.h" // CONFIG_*
 #include "smbios.h" // struct smbios_entry_point
 
 struct smbios_entry_point *SMBiosAddr;
@@ -56,11 +56,77 @@ smbios_entry_point_setup(u16 max_structure_size,
             , ep, finaltable, structure_table_length);
 }
 
+static int
+get_field(int type, int offset, void *dest)
+{
+    char name[128];
+    snprintf(name, sizeof(name), "smbios/field%d-%d", type, offset);
+    struct romfile_s *file = romfile_find(name);
+    if (!file)
+        return 0;
+    file->copy(file, dest, file->size);
+    return file->size;
+}
+
+static int
+get_external(int type, char **p, unsigned *nr_structs,
+             unsigned *max_struct_size, char *end)
+{
+    static u64 used_bitmap[4] = { 0 };
+    char *start = *p;
+
+    /* Check if we've already reported these tables */
+    if (used_bitmap[(type >> 6) & 0x3] & (1ULL << (type & 0x3f)))
+        return 1;
+
+    /* Don't introduce spurious end markers */
+    if (type == 127)
+        return 0;
+
+    char prefix[128];
+    snprintf(prefix, sizeof(prefix), "smbios/table%d-", type);
+    struct romfile_s *file = NULL;
+    for (;;) {
+        file = romfile_findprefix(prefix, file);
+        if (!file)
+            break;
+
+        if (end - *p < file->size) {
+            warn_noalloc();
+            break;
+        }
+
+        struct smbios_structure_header *header = (void*)*p;
+        file->copy(file, header, file->size);
+        *p += file->size;
+
+        /* Entries end with a double NULL char, if there's a string at
+         * the end (length is greater than formatted length), the string
+         * terminator provides the first NULL. */
+        *((u8*)*p) = 0;
+        (*p)++;
+        if (header->length >= file->size) {
+            *((u8*)*p) = 0;
+            (*p)++;
+        }
+
+        (*nr_structs)++;
+        if (*p - (char*)header > *max_struct_size)
+            *max_struct_size = *p - (char*)header;
+    }
+
+    if (start == *p)
+        return 0;
+
+    /* Mark that we've reported on this type */
+    used_bitmap[(type >> 6) & 0x3] |= (1ULL << (type & 0x3f));
+    return 1;
+}
+
 #define load_str_field_with_default(type, field, def)                   \
     do {                                                                \
-        size = qemu_cfg_smbios_load_field(type,                         \
-                                 offsetof(struct smbios_type_##type,    \
-                                          field), end);                 \
+        size = get_field(type, offsetof(struct smbios_type_##type,      \
+                                        field), end);                   \
         if (size > 0) {                                                 \
             end += size;                                                \
         } else {                                                        \
@@ -72,9 +138,8 @@ smbios_entry_point_setup(u16 max_structure_size,
 
 #define load_str_field_or_skip(type, field)                             \
     do {                                                                \
-        size = qemu_cfg_smbios_load_field(type,                         \
-                                 offsetof(struct smbios_type_##type,    \
-                                          field), end);                 \
+        size = get_field(type, offsetof(struct smbios_type_##type,      \
+                                        field), end);                   \
         if (size > 0) {                                                 \
             end += size;                                                \
             p->field = ++str_index;                                     \
@@ -85,9 +150,8 @@ smbios_entry_point_setup(u16 max_structure_size,
 
 #define set_field_with_default(type, field, def)                        \
     do {                                                                \
-        if (!qemu_cfg_smbios_load_field(type,                           \
-                                 offsetof(struct smbios_type_##type,    \
-                                          field), &p->field)) {         \
+        if (!get_field(type, offsetof(struct smbios_type_##type,        \
+                                      field), &p->field)) {             \
             p->field = def;                                             \
         }                                                               \
     } while (0)
@@ -115,17 +179,16 @@ smbios_init_type_0(void *start)
 
     p->bios_rom_size = 0; /* FIXME */
 
-    if (!qemu_cfg_smbios_load_field(0, offsetof(struct smbios_type_0,
-                                                bios_characteristics),
-                                    &p->bios_characteristics)) {
+    if (!get_field(0, offsetof(struct smbios_type_0, bios_characteristics),
+                   &p->bios_characteristics)) {
         memset(p->bios_characteristics, 0, 8);
         /* BIOS characteristics not supported */
         p->bios_characteristics[0] = 0x08;
     }
 
-    if (!qemu_cfg_smbios_load_field(0, offsetof(struct smbios_type_0,
-                                    bios_characteristics_extension_bytes),
-                                    &p->bios_characteristics_extension_bytes)) {
+    if (!get_field(0, offsetof(struct smbios_type_0,
+                               bios_characteristics_extension_bytes),
+                   &p->bios_characteristics_extension_bytes)) {
         p->bios_characteristics_extension_bytes[0] = 0;
         /* Enable targeted content distribution. Needed for SVVP */
         p->bios_characteristics_extension_bytes[1] = 4;
@@ -160,10 +223,8 @@ smbios_init_type_1(void *start)
     load_str_field_or_skip(1, version_str);
     load_str_field_or_skip(1, serial_number_str);
 
-    if (!qemu_cfg_smbios_load_field(1, offsetof(struct smbios_type_1,
-                                                  uuid), &p->uuid)) {
+    if (!get_field(1, offsetof(struct smbios_type_1, uuid), &p->uuid))
         memset(p->uuid, 0, 16);
-    }
 
     set_field_with_default(1, wake_up_type, 0x06); /* power switch */
 
@@ -234,9 +295,8 @@ smbios_init_type_4(void *start, unsigned int cpu_number)
     p->header.length = sizeof(struct smbios_type_4);
     p->header.handle = 0x400 + cpu_number;
 
-    size = qemu_cfg_smbios_load_field(4, offsetof(struct smbios_type_4,
-                                                  socket_designation_str),
-                                                  name);
+    size = get_field(4, offsetof(struct smbios_type_4, socket_designation_str),
+                     name);
     if (size)
         snprintf(name + size - 1, sizeof(name) - size, "%2x", cpu_number);
     else
@@ -251,8 +311,8 @@ smbios_init_type_4(void *start, unsigned int cpu_number)
 
     load_str_field_with_default(4, processor_manufacturer_str, CONFIG_APPNAME);
 
-    if (!qemu_cfg_smbios_load_field(4, offsetof(struct smbios_type_4,
-                                    processor_id), p->processor_id)) {
+    if (!get_field(4, offsetof(struct smbios_type_4, processor_id)
+                   , p->processor_id)) {
         u32 cpuid_signature, ebx, ecx, cpuid_features;
         cpuid(1, &cpuid_signature, &ebx, &ecx, &cpuid_features);
         p->processor_id[0] = cpuid_signature;
@@ -332,9 +392,8 @@ smbios_init_type_17(void *start, u32 size_mb, int instance)
     set_field_with_default(17, form_factor, 0x09); /* DIMM */
     p->device_set = 0;
 
-    size = qemu_cfg_smbios_load_field(17, offsetof(struct smbios_type_17,
-                                                   device_locator_str),
-                                                   name);
+    size = get_field(17, offsetof(struct smbios_type_17, device_locator_str),
+                     name);
     if (size)
         snprintf(name + size - 1, sizeof(name) - size, "%d", instance);
     else
@@ -460,8 +519,7 @@ smbios_setup(void)
 
 #define add_struct(type, args...)                                       \
     do {                                                                \
-        if (!qemu_cfg_smbios_load_external(type, &p, &nr_structs,       \
-                                           &max_struct_size, end)) {    \
+        if (!get_external(type, &p, &nr_structs, &max_struct_size, end)) { \
             q = smbios_init_type_##type(args);                          \
             nr_structs++;                                               \
             if ((q - p) > max_struct_size)                              \
@@ -512,8 +570,7 @@ smbios_setup(void)
     add_struct(32, p);
     /* Add any remaining provided entries before the end marker */
     for (i = 0; i < 256; i++)
-        qemu_cfg_smbios_load_external(i, &p, &nr_structs, &max_struct_size,
-                                      end);
+        get_external(i, &p, &nr_structs, &max_struct_size, end);
     add_struct(127, p);
 
 #undef add_struct
