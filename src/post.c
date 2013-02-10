@@ -163,18 +163,12 @@ platform_hardware_setup(void)
     pci_setup();
     smm_setup();
 
-    // Initialize mtrr
+    // Initialize mtrr and smp
     mtrr_setup();
+    smp_setup();
 
     // Setup Xen hypercalls
     xen_hypercall_setup();
-
-    // Start hardware initialization (if optionrom threading)
-    if (CONFIG_THREAD_OPTIONROMS)
-        device_hardware_setup();
-
-    // Find and initialize other cpus
-    smp_setup();
 
     // Setup external BIOS interface tables
     if (CONFIG_COREBOOT)
@@ -224,6 +218,10 @@ maininit(void)
 
     // Setup platform devices.
     platform_hardware_setup();
+
+    // Start hardware initialization (if optionrom threading)
+    if (CONFIG_THREAD_OPTIONROMS)
+        device_hardware_setup();
 
     // Run vga option rom
     vgarom_setup();
