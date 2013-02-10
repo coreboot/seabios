@@ -63,7 +63,7 @@ handle_02(void)
 }
 
 void
-mathcp_init(void)
+mathcp_setup(void)
 {
     dprintf(3, "math cp init\n");
     // 80x87 coprocessor installed

@@ -116,7 +116,6 @@ interface_init(void)
     bda_init();
 
     // Other interfaces
-    mathcp_init();
     boot_init();
     bios32_init();
     pmm_init();
@@ -157,6 +156,7 @@ platform_hardware_setup(void)
 
     // Init base pc hardware.
     pic_setup();
+    mathcp_setup();
     timer_setup();
 
     // Initialize pci

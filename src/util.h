@@ -449,7 +449,7 @@ u64 romfile_loadint(const char *name, u64 defval);
 void reset_vector(void) __noreturn;
 
 // misc.c
-void mathcp_init(void);
+void mathcp_setup(void);
 extern u32 RamSize;
 extern u64 RamSizeOver4G;
 extern u8 BiosChecksum;
