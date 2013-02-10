@@ -134,6 +134,8 @@ handle_csm_0002(struct bregs *regs)
     if (csm_rsdp.signature == RSDP_SIGNATURE) {
         RsdpAddr = &csm_rsdp;
         dprintf(3, "CSM ACPI RSDP at %p\n", RsdpAddr);
+
+        find_pmtimer();
     }
 
     // SMBIOS table needs to be copied into the f-seg
@@ -151,8 +153,6 @@ handle_csm_0002(struct bregs *regs)
     bda->hdcount = 0;
 
     timer_setup();
-    // This has to set cpu_khz *after* calibrate_tsc() does it
-    find_pmtimer();
     device_hardware_setup();
     wait_threads();
     interactive_bootmenu();
