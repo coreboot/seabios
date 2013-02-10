@@ -189,23 +189,6 @@ void* qemu_cfg_e820_load_next(void *addr)
     return addr;
 }
 
-int qemu_cfg_get_numa_nodes(void)
-{
-    u64 cnt;
-
-    qemu_cfg_read_entry(&cnt, QEMU_CFG_NUMA, sizeof(cnt));
-
-    return (int)cnt;
-}
-
-void qemu_cfg_get_numa_data(u64 *data, int n)
-{
-    int i;
-
-    for (i = 0; i < n; i++)
-        qemu_cfg_read((u8*)(data + i), sizeof(u64));
-}
-
 static int
 qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
 {
@@ -253,6 +236,13 @@ qemu_cfg_legacy(void)
     qemu_romfile_add("etc/show-boot-menu", QEMU_CFG_BOOT_MENU, 0, 2);
     qemu_romfile_add("etc/irq0-override", QEMU_CFG_IRQ0_OVERRIDE, 0, 1);
     qemu_romfile_add("etc/max-cpus", QEMU_CFG_MAX_CPUS, 0, 2);
+
+    // NUMA data
+    u64 numacount;
+    qemu_cfg_read_entry(&numacount, QEMU_CFG_NUMA, sizeof(numacount));
+    numacount += romfile_loadint("etc/max-cpus", 0);
+    qemu_romfile_add("etc/numa-nodes", QEMU_CFG_NUMA, sizeof(numacount)
+                     , numacount*sizeof(u64));
 
     // ACPI tables
     char name[128];

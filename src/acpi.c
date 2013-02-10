@@ -12,8 +12,8 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "ioport.h" // inl
-#include "paravirt.h" // qemu_cfg_irq0_override
-#include "dev-q35.h" // qemu_cfg_irq0_override
+#include "config.h" // CONFIG_*
+#include "dev-q35.h"
 
 /****************************************************/
 /* ACPI tables init */
@@ -672,22 +672,16 @@ acpi_build_srat_memory(struct srat_memory_affinity *numamem,
 static void *
 build_srat(void)
 {
-    int nb_numa_nodes = qemu_cfg_get_numa_nodes();
-
-    if (nb_numa_nodes == 0)
+    int filesize;
+    u64 *numadata = romfile_loadfile("etc/numa-nodes", &filesize);
+    if (!numadata)
         return NULL;
-
-    u64 *numadata = malloc_tmphigh(sizeof(u64) * (MaxCountCPUs + nb_numa_nodes));
-    if (!numadata) {
-        warn_noalloc();
-        return NULL;
-    }
-
-    qemu_cfg_get_numa_data(numadata, MaxCountCPUs + nb_numa_nodes);
+    int max_cpu = romfile_loadint("etc/max-cpus", 0);
+    int nb_numa_nodes = (filesize / sizeof(u64)) - max_cpu;
 
     struct system_resource_affinity_table *srat;
     int srat_size = sizeof(*srat) +
-        sizeof(struct srat_processor_affinity) * MaxCountCPUs +
+        sizeof(struct srat_processor_affinity) * max_cpu +
         sizeof(struct srat_memory_affinity) * (nb_numa_nodes + 2);
 
     srat = malloc_high(srat_size);
@@ -703,7 +697,7 @@ build_srat(void)
     int i;
     u64 curnode;
 
-    for (i = 0; i < MaxCountCPUs; ++i) {
+    for (i = 0; i < max_cpu; ++i) {
         core->type = SRAT_PROCESSOR;
         core->length = sizeof(*core);
         core->local_apic_id = i;
