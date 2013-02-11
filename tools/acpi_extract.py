@@ -225,12 +225,12 @@ for line in fileinput.input():
     lineno = lineno + 1
     debug = "input line %d: %s" % (lineno, line)
     #ASL listing: space, then line#, then ...., then code
-    pasl = re.compile('^\s+([0-9]+)\.\.\.\.\s*')
+    pasl = re.compile('^\s+([0-9]+)(:\s\s|\.\.\.\.)\s*')
     m = pasl.search(line)
     if (m):
         add_asl(lineno, pasl.sub("", line));
     # AML listing: offset in hex, then ...., then code
-    paml = re.compile('^([0-9A-Fa-f]+)\.\.\.\.\s*')
+    paml = re.compile('^([0-9A-Fa-f]+)(:\s\s|\.\.\.\.)\s*')
     m = paml.search(line)
     if (m):
         add_aml(m.group(1), paml.sub("", line))
