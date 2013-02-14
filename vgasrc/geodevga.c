@@ -258,7 +258,7 @@ static void dc_setup(void)
     geode_dc_write(DC_CURS_ST_OFFSET, 0x0);
 
     geode_dc_mask(DC_DISPLAY_CFG, ~DC_CFG_MSK, DC_DISPLAY_CFG_GDEN|DC_DISPLAY_CFG_TRUP);
-    geode_dc_write(DC_GENERAL_CFG, DC_DISPLAY_CFG_VGAE);
+    geode_dc_write(DC_GENERAL_CFG, DC_GENERAL_CFG_VGAE);
 
     geode_dc_write(DC_UNLOCK, DC_LOCK_LOCK);
 }

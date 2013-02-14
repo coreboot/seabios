@@ -65,7 +65,7 @@
 
 
 /* DC bits */
-#define DC_DISPLAY_CFG_VGAE             (1 << 7)
+#define DC_GENERAL_CFG_VGAE             (1 << 7)
 #define DC_DISPLAY_CFG_GDEN             (1 << 3)
 #define DC_DISPLAY_CFG_TRUP             (1 << 6)
 
