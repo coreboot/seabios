@@ -91,6 +91,11 @@ handle_csm_0000(struct bregs *regs)
 static void
 handle_csm_0001(struct bregs *regs)
 {
+    if (!CONFIG_BOOT) {
+        regs->ax = 1;
+        return;
+    }
+
     dprintf(3, "Legacy16UpdateBbs table %04x:%04x\n", regs->es, regs->bx);
 
     csm_boot_table = MAKE_FLATPTR(regs->es, regs->bx);
@@ -117,6 +122,11 @@ handle_csm_0001(struct bregs *regs)
 static void
 handle_csm_0002(struct bregs *regs)
 {
+    if (!CONFIG_BOOT) {
+        regs->ax = 1;
+        return;
+    }
+
     dprintf(3, "PrepareToBoot table %04x:%04x\n", regs->es, regs->bx);
 
     struct e820entry *p = (void *)csm_compat_table.E820Pointer;
@@ -172,6 +182,11 @@ handle_csm_0002(struct bregs *regs)
 static void
 handle_csm_0003(struct bregs *regs)
 {
+    if (!CONFIG_BOOT) {
+        regs->ax = 1;
+        return;
+    }
+
     dprintf(3, "Boot\n");
 
     startBoot();
