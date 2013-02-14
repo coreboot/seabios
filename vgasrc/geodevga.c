@@ -218,22 +218,10 @@ static void dc_setup(void)
     geode_dc_write(DC_CB_ST_OFFSET, 0x0);
     geode_dc_write(DC_CURS_ST_OFFSET, 0x0);
 
-    /* read fb-bar from pci, then point dc to the fb base */
-    u32 fb = GET_GLOBAL(GeodeFB);
-    if (geode_dc_read(DC_GLIU0_MEM_OFFSET) != fb)
-        geode_dc_write(DC_GLIU0_MEM_OFFSET, fb);
-
     geode_dc_mask(DC_DISPLAY_CFG, ~DC_CFG_MSK, DC_DISPLAY_CFG_GDEN|DC_DISPLAY_CFG_TRUP);
     geode_dc_write(DC_GENERAL_CFG, DC_DISPLAY_CFG_VGAE);
 
     geode_dc_write(DC_UNLOCK, DC_LOCK_LOCK);
-
-    u32 fb_size = framebuffer_size(); // in byte
-    dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, fb);
-
-    /* update VBE variables */
-    SET_VGA(VBE_framebuffer, fb);
-    SET_VGA(VBE_total_memory, fb_size / 1024 / 64); // number of 64K blocks
 }
 
 /* Setup the vp (video processor) portion of the geodelx
@@ -407,6 +395,23 @@ int geodevga_setup(void)
     dprintf(1, "fb addr: 0x%08x\n", GET_GLOBAL(GeodeFB));
     dprintf(1, "dc addr: 0x%08x\n", GET_GLOBAL(GeodeDC));
     dprintf(1, "vp addr: 0x%08x\n", GET_GLOBAL(GeodeVP));
+
+    /* setup framebuffer */
+    geode_dc_write(DC_UNLOCK, DC_LOCK_UNLOCK);
+
+    /* read fb-bar from pci, then point dc to the fb base */
+    u32 fb = GET_GLOBAL(GeodeFB);
+    if (geode_dc_read(DC_GLIU0_MEM_OFFSET) != fb)
+        geode_dc_write(DC_GLIU0_MEM_OFFSET, fb);
+
+    geode_dc_write(DC_UNLOCK, DC_LOCK_LOCK);
+
+    u32 fb_size = framebuffer_size(); // in byte
+    dprintf(1, "%d KB of video memory at 0x%08x\n", fb_size / 1024, fb);
+
+    /* update VBE variables */
+    SET_VGA(VBE_framebuffer, fb);
+    SET_VGA(VBE_total_memory, fb_size / 1024 / 64); // number of 64K blocks
 
     vp_setup();
     dc_setup();
