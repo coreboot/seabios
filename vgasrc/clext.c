@@ -433,6 +433,7 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
     else if (memmodel != MM_TEXT)
         on = 0x01;
     stdvga_attr_mask(0x10, 0x01, on);
+    stdvga_attrindex_write(0x20);
 }
 
 static void
