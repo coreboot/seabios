@@ -33,6 +33,9 @@ static u64 geode_msr_read(u32 msrAddr)
         : "c"(msrAddr)
         : "cc"
     );
+
+    dprintf(4, "%s(0x%08x) = 0x%08x-0x%08x\n"
+            , __func__, msrAddr, val.hi, val.lo);
     return val.val;
 }
 
@@ -41,6 +44,10 @@ static void geode_msr_mask(u32 msrAddr, u64 off, u64 on)
     union u64_u32_u uand, uor;
     uand.val = ~off;
     uor.val = on;
+
+    dprintf(4, "%s(0x%08x, 0x%016llx, 0x%016llx)\n"
+            , __func__, msrAddr, off, on);
+
     asm __volatile__ (
         "push   %%eax                   \n"
         "movw   $0x0AC1C, %%dx          \n"
