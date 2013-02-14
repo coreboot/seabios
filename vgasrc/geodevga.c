@@ -140,7 +140,7 @@ static u32 geode_fp_read(int reg)
 {
     u32 val = geode_mem_read(GET_GLOBAL(GeodeVP) + VP_FP_START + reg);
     dprintf(4, "%s(0x%08x) = 0x%08x\n"
-            , __func__, GET_GLOBAL(GeodeVP) + reg, val);
+            , __func__, GET_GLOBAL(GeodeVP) + VP_FP_START + reg, val);
     return val;
 }
 
@@ -148,7 +148,7 @@ static void geode_fp_write(int reg, u32 val)
 {
     dprintf(4, "%s(0x%08x, 0x%08x)\n"
             , __func__, GET_GLOBAL(GeodeVP) + VP_FP_START + reg, val);
-    geode_mem_mask(GET_GLOBAL(GeodeVP) + reg, ~0, val);
+    geode_mem_mask(GET_GLOBAL(GeodeVP) + VP_FP_START + reg, ~0, val);
 }
 
 /****************************************************************
