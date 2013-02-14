@@ -347,9 +347,9 @@ ehci_init(struct pci_device *pci, int busid, struct pci_device *comppci)
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_EHCI;
     cntl->caps = caps;
+    cntl->regs = (void*)caps + readb(&caps->caplength);
     if (hcc_params & HCC_64BIT_ADDR)
         cntl->regs->ctrldssegment = 0;
-    cntl->regs = (void*)caps + readb(&caps->caplength);
 
     dprintf(1, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
