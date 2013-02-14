@@ -187,6 +187,11 @@ handle_csm_0005(struct bregs *regs)
     struct rom_header *rom;
     u16 bdf;
 
+    if (!CONFIG_OPTIONROMS) {
+        regs->ax = 1;
+        return;
+    }
+
     dprintf(3, "Legacy16DispatchOprom rom %p\n", table);
 
     dprintf(3, "OpromSegment   %04x\n", table->OpromSegment);
