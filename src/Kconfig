@@ -47,7 +47,7 @@ endchoice
         help
             Support running hardware initialization in parallel.
     config THREAD_OPTIONROMS
-        depends on THREADS
+        depends on THREADS && !CSM
         bool "Hardware init during option ROM execution"
         default n
         help
