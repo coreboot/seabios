@@ -10,7 +10,6 @@
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outb
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
-#include "paravirt.h" // runningOnXen
 #include "dev-q35.h"
 
 ASM32FLAT(
@@ -184,7 +183,7 @@ static const struct pci_device_id smm_init_tbl[] = {
 void
 smm_setup(void)
 {
-    if (!CONFIG_USE_SMM || runningOnXen())
+    if (!CONFIG_USE_SMM)
 	return;
 
     dprintf(3, "init smm\n");

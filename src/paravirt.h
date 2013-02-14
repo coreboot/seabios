@@ -23,8 +23,8 @@ static inline int runningOnKVM(void) {
     return CONFIG_QEMU && GET_GLOBAL(PlatformRunningOn) & PF_KVM;
 }
 
-void qemu_ramsize_preinit(void);
-void qemu_biostable_setup(void);
+void qemu_preinit(void);
+void qemu_platform_setup(void);
 void qemu_cfg_init(void);
 
 #endif

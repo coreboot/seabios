@@ -11,7 +11,6 @@
 #include "pci_regs.h" // PCI_COMMAND
 #include "ioport.h" // PORT_ATA1_CMD_BASE
 #include "config.h" // CONFIG_*
-#include "paravirt.h" // runningOnXen
 #include "memmap.h" // add_e820
 #include "dev-q35.h"
 
@@ -734,11 +733,8 @@ static void pci_bios_map_devices(struct pci_bus *busses)
 void
 pci_setup(void)
 {
-    if (!CONFIG_QEMU || runningOnXen()) {
-        // PCI setup already done by coreboot or Xen - just do probe.
-        pci_probe_devices();
+    if (!CONFIG_QEMU)
         return;
-    }
 
     dprintf(3, "pci setup\n");
 

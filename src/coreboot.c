@@ -13,6 +13,8 @@
 #include "disk.h" // MAXDESCSIZE
 #include "config.h" // CONFIG_*
 #include "acpi.h" // find_pmtimer
+#include "pci.h" // pci_probe_devices
+
 
 /****************************************************************
  * Memory map
@@ -125,6 +127,9 @@ const char *CBvendor = "", *CBpart = "";
 void
 coreboot_preinit(void)
 {
+    if (!CONFIG_COREBOOT)
+        return;
+
     dprintf(3, "Attempting to find coreboot table\n");
 
     // Find coreboot table.
@@ -204,10 +209,14 @@ scan_tables(u32 start, u32 size)
 }
 
 void
-coreboot_biostable_setup(void)
+coreboot_platform_setup(void)
 {
+    if (!CONFIG_COREBOOT)
+        return;
+    pci_probe_devices();
+
     struct cb_memory *cbm = CBMemTable;
-    if (! CONFIG_COREBOOT || !cbm)
+    if (!cbm)
         return;
 
     dprintf(3, "Relocating coreboot bios tables\n");

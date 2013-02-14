@@ -327,7 +327,7 @@ int apic_id_is_present(u8 apic_id);
 extern const char *CBvendor, *CBpart;
 struct cbfs_file;
 void cbfs_run_payload(struct cbfs_file *file);
-void coreboot_biostable_setup(void);
+void coreboot_platform_setup(void);
 void cbfs_payload_setup(void);
 void coreboot_preinit(void);
 void coreboot_cbfs_init(void);

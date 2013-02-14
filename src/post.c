@@ -159,24 +159,9 @@ platform_hardware_setup(void)
     mathcp_setup();
     timer_setup();
 
-    // Initialize pci
-    pci_setup();
-    smm_setup();
-
-    // Initialize mtrr and smp
-    mtrr_setup();
-    smp_setup();
-
-    // Setup Xen hypercalls
-    xen_hypercall_setup();
-
-    // Setup external BIOS interface tables
-    if (CONFIG_COREBOOT)
-        coreboot_biostable_setup();
-    else if (runningOnXen())
-        xen_biostable_setup();
-    else
-        qemu_biostable_setup();
+    // Platform specific setup
+    qemu_platform_setup();
+    coreboot_platform_setup();
 }
 
 void
@@ -314,12 +299,8 @@ void VISIBLE32INIT
 dopost(void)
 {
     // Detect ram and setup internal malloc.
-    if (CONFIG_COREBOOT)
-        coreboot_preinit();
-    else if (runningOnXen())
-        xen_ramsize_preinit();
-    else
-        qemu_ramsize_preinit();
+    qemu_preinit();
+    coreboot_preinit();
     malloc_preinit();
 
     // Relocate initialization code and call maininit().

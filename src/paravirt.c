@@ -19,6 +19,7 @@
 #include "acpi.h" // acpi_setup
 #include "mptable.h" // mptable_setup
 #include "pci.h" // create_pirtable
+#include "xen.h" // xen_biostable_setup
 
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
  * should be used to determine that a VM is running under KVM.
@@ -45,10 +46,15 @@ static void kvm_preinit(void)
 }
 
 void
-qemu_ramsize_preinit(void)
+qemu_preinit(void)
 {
     if (!CONFIG_QEMU)
         return;
+
+    if (runningOnXen()) {
+        xen_ramsize_preinit();
+        return;
+    }
 
     PlatformRunningOn = PF_QEMU;
     kvm_preinit();
@@ -77,8 +83,27 @@ qemu_ramsize_preinit(void)
 }
 
 void
-qemu_biostable_setup(void)
+qemu_platform_setup(void)
 {
+    if (!CONFIG_QEMU)
+        return;
+
+    if (runningOnXen()) {
+        pci_probe_devices();
+        xen_hypercall_setup();
+        xen_biostable_setup();
+        return;
+    }
+
+    // Initialize pci
+    pci_setup();
+    smm_setup();
+
+    // Initialize mtrr and smp
+    mtrr_setup();
+    smp_setup();
+
+    // Create bios tables
     pirtable_setup();
     mptable_setup();
     smbios_setup();
