@@ -300,7 +300,7 @@ menu "BIOS interfaces"
         help
             Support finding and running option roms during POST.
     config OPTIONROMS_DEPLOYED
-        depends on OPTIONROMS
+        depends on OPTIONROMS && QEMU
         bool "Option roms are already at 0xc0000-0xf0000"
         default n
         help
