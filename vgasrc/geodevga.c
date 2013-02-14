@@ -204,6 +204,38 @@ static u32 framebuffer_size(void)
 * Init Functions
 ****************************************************************/
 
+static void geodevga_set_output_mode(void)
+{
+    u64 msr_addr;
+    u64 msr;
+
+    /* set output to crt and RGB/YUV */
+    if (CONFIG_VGA_GEODEGX2)
+        msr_addr = VP_MSR_CONFIG_GX2;
+    else
+        msr_addr = VP_MSR_CONFIG_LX;
+
+    /* set output mode (RGB/YUV) */
+    msr = geode_msr_read(msr_addr);
+    msr &= ~VP_MSR_CONFIG_FMT;         // mask out FMT (bits 5:3)
+
+    if (CONFIG_VGA_OUTPUT_PANEL || CONFIG_VGA_OUTPUT_CRT_PANEL) {
+        msr |= VP_MSR_CONFIG_FMT_FP;   // flat panel
+
+        if (CONFIG_VGA_OUTPUT_CRT_PANEL) {
+            msr |= VP_MSR_CONFIG_FPC;  // simultaneous Flat Panel and CRT
+            dprintf(1, "output: simultaneous Flat Panel and CRT\n");
+        } else {
+            msr &= ~VP_MSR_CONFIG_FPC; // no simultaneous Flat Panel and CRT
+            dprintf(1, "ouput: flat panel\n");
+        }
+    } else {
+        msr |= VP_MSR_CONFIG_FMT_CRT;  // CRT only
+       dprintf(1, "output: CRT\n");
+    }
+    geode_msr_mask(msr_addr, ~msr, msr);
+}
+
 /* Set up the dc (display controller) portion of the geodelx
 *  The dc provides hardware support for VGA graphics.
 */
@@ -232,37 +264,9 @@ static void dc_setup(void)
 */
 static void vp_setup(void)
 {
-    u32 msr_addr;
-    u64 msr;
-
     dprintf(2,"VP_SETUP\n");
 
-    /* set output to crt and RGB/YUV */
-    if (CONFIG_VGA_GEODEGX2)
-        msr_addr = VP_MSR_CONFIG_GX2;
-    else
-        msr_addr = VP_MSR_CONFIG_LX;
-
-    /* set output mode (RGB/YUV) */
-    msr = geode_msr_read(msr_addr);
-    msr &= ~VP_MSR_CONFIG_FMT;         // mask out FMT (bits 5:3)
-
-    if (CONFIG_VGA_OUTPUT_PANEL || CONFIG_VGA_OUTPUT_CRT_PANEL) {
-        msr |= VP_MSR_CONFIG_FMT_FP;   // flat panel
-
-        if (CONFIG_VGA_OUTPUT_CRT_PANEL) {
-            msr |= VP_MSR_CONFIG_FPC;  // simultaneous Flat Panel and CRT
-            dprintf(1, "output: simultaneous Flat Panel and CRT\n");
-        } else {
-            msr &= ~VP_MSR_CONFIG_FPC; // no simultaneous Flat Panel and CRT
-            dprintf(1, "ouput: flat panel\n");
-        }
-    } else {
-        msr |= VP_MSR_CONFIG_FMT_CRT;  // CRT only
-       dprintf(1, "output: CRT\n");
-    }
-    geode_msr_mask(msr_addr, ~msr, msr);
-
+    geodevga_set_output_mode();
 
     /* Set mmio registers
     * there may be some timing issues here, the reads seem
@@ -283,6 +287,8 @@ static void vp_setup(void)
 
     /* setup flat panel */
     if (CONFIG_VGA_OUTPUT_PANEL || CONFIG_VGA_OUTPUT_CRT_PANEL) {
+        u64 msr;
+
         dprintf(1, "Setting up flat panel\n");
         /* write timing register */
         geode_fp_write(FP_PT1, 0x0);
