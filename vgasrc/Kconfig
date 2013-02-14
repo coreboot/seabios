@@ -11,14 +11,14 @@ menu "VGA ROM"
                 Do not build a VGA BIOS.
 
         config VGA_STANDARD_VGA
-            depends on !COREBOOT
+            depends on QEMU
             bool "QEMU/Bochs Original IBM 256K VGA"
             help
                 Build basic VGA BIOS support (pre Super-VGA) for use
                 on emulators.
 
         config VGA_CIRRUS
-            depends on !COREBOOT
+            depends on QEMU
             bool "QEMU/Bochs Cirrus SVGA"
             help
                 Build support for Cirrus VGA emulation found on QEMU
@@ -26,7 +26,7 @@ menu "VGA ROM"
                 intended for use on real Cirrus hardware.
 
         config VGA_BOCHS
-            depends on !COREBOOT
+            depends on QEMU
             bool "QEMU/Bochs VBE SVGA"
             help
                 Build support for Bochs DISPI interface (a custom VBE
