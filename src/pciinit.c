@@ -143,11 +143,9 @@ void mch_isa_bridge_init(struct pci_device *dev, void *arg)
         /* activate irq remapping in LPC */
 
         /* PIRQ[A-D] routing */
-        pci_config_writeb(bdf, ICH9_LPC_PIRQA_ROUT + i,
-                          irq | ICH9_LPC_PIRQ_ROUT_IRQEN);
+        pci_config_writeb(bdf, ICH9_LPC_PIRQA_ROUT + i, irq);
         /* PIRQ[E-H] routing */
-        pci_config_writeb(bdf, ICH9_LPC_PIRQE_ROUT + i,
-                          irq | ICH9_LPC_PIRQ_ROUT_IRQEN);
+        pci_config_writeb(bdf, ICH9_LPC_PIRQE_ROUT + i, irq);
     }
     outb(elcr[0], ICH9_LPC_PORT_ELCR1);
     outb(elcr[1], ICH9_LPC_PORT_ELCR2);
