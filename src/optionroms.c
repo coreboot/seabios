@@ -109,6 +109,9 @@ get_pci_rom(struct rom_header *rom)
     struct pci_data *pd = (void*)((u32)rom + rom->pcioffset);
     if (pd->signature != PCI_ROM_SIGNATURE)
         return NULL;
+    if (rom->pcioffset & 3)
+        dprintf(1, "WARNING! Found unaligned PCI rom (vd=%04x:%04x)\n"
+                , pd->vendor, pd->device);
     return pd;
 }
 
