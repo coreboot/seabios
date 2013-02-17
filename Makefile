@@ -126,11 +126,11 @@ $(OUT)asm-offsets.h: $(OUT)asm-offsets.s
 	@echo "  Generating offset file $@"
 	$(Q)./tools/gen-offsets.sh $< $@
 
-$(OUT)ccode16.o: $(OUT)autoconf.h $(patsubst %.c, out/%.o,$(SRC16)) ; $(call whole-compile, $(CFLAGS16), $(addprefix src/, $(SRC16)),$@)
+$(OUT)ccode16.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRC16)) ; $(call whole-compile, $(CFLAGS16), $(addprefix src/, $(SRC16)),$@)
 
-$(OUT)code32seg.o: $(OUT)autoconf.h $(patsubst %.c, out/%.o,$(SRC32SEG)) ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
+$(OUT)code32seg.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRC32SEG)) ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
 
-$(OUT)ccode32flat.o: $(OUT)autoconf.h $(patsubst %.c, out/%.o,$(SRC32FLAT)) ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
+$(OUT)ccode32flat.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRC32FLAT)) ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
 
 $(OUT)romlayout.o: romlayout.S $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
