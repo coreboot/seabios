@@ -84,7 +84,7 @@ vpath %.S src vgasrc
 ################ Common build rules
 
 # Verify the build environment works.
-TESTGCC:=$(shell CC="$(CC)" LD="$(LD)" IASL="$(IASL)" tools/test-build.sh)
+TESTGCC:=$(shell OUT="$(OUT)" CC="$(CC)" LD="$(LD)" IASL="$(IASL)" tools/test-build.sh)
 ifeq "$(TESTGCC)" "-1"
 $(error "Please upgrade the build environment")
 endif
@@ -97,7 +97,7 @@ endif
 # Do a whole file compile by textually including all C code.
 define whole-compile
 @echo "  Compiling whole program $3"
-$(Q)printf '$(foreach i,$2,#include "../$i"\n)' > $3.tmp.c
+$(Q)printf '$(foreach i,$2,#include "$(CURDIR)/$i"\n)' > $3.tmp.c
 $(Q)$(CC) $1 $(CFLAGSWHOLE) -c $3.tmp.c -o $3
 endef
 
