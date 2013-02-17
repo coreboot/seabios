@@ -364,7 +364,7 @@ void pnp_init(void);
 
 // pmm.c
 extern struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
-u32 rom_get_top(void);
+u32 rom_get_max(void);
 u32 rom_get_last(void);
 struct rom_header *rom_reserve(u32 size);
 int rom_confirm(u32 size);

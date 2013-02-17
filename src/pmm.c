@@ -170,15 +170,15 @@ static struct allocinfo_s *RomBase;
 
 #define OPROM_HEADER_RESERVE 16
 
-// Return the memory position up to which roms may be located.
+// Return the maximum memory position option roms may use.
 u32
-rom_get_top(void)
+rom_get_max(void)
 {
     return ALIGN_DOWN((u32)RomBase->allocend - OPROM_HEADER_RESERVE
                       , OPTION_ROM_ALIGN);
 }
 
-// Return the end of the last deployed rom.
+// Return the end of the last deployed option rom.
 u32
 rom_get_last(void)
 {
@@ -318,7 +318,7 @@ malloc_prepboot(void)
     dprintf(3, "malloc finalize\n");
 
     // Place an optionrom signature around used low mem area.
-    u32 base = rom_get_top();
+    u32 base = rom_get_max();
     struct rom_header *dummyrom = (void*)base;
     dummyrom->signature = OPTION_ROM_SIGNATURE;
     int size = (BUILD_BIOS_ADDR - base) / 512;

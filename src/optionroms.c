@@ -354,7 +354,7 @@ optionrom_setup(void)
     if (CONFIG_OPTIONROMS_DEPLOYED) {
         // Option roms are already deployed on the system.
         u32 pos = post_vga;
-        while (pos < rom_get_top()) {
+        while (pos < rom_get_max()) {
             int ret = init_optionrom((void*)pos, 0, 0);
             if (ret)
                 pos += OPTION_ROM_ALIGN;
@@ -436,7 +436,7 @@ vgarom_setup(void)
         init_optionrom((void*)BUILD_ROM_START, 0, 1);
     } else {
         // Clear option rom memory
-        memset((void*)BUILD_ROM_START, 0, rom_get_top() - BUILD_ROM_START);
+        memset((void*)BUILD_ROM_START, 0, rom_get_max() - BUILD_ROM_START);
 
         // Find and deploy PCI VGA rom.
         struct pci_device *pci;
