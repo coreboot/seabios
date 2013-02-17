@@ -98,7 +98,7 @@ bda_init(void)
              , E820_RESERVED);
 
     // Init extra stack
-    StackPos = (void*)(&ExtraStack[BUILD_EXTRA_STACK_SIZE] - datalow_base);
+    StackPos = (void*)(&ExtraStack[BUILD_EXTRA_STACK_SIZE] - zonelow_base);
 }
 
 void
@@ -264,8 +264,8 @@ reloc_preinit(void *f, void *arg)
     extern u32 _reloc_rel_start[], _reloc_rel_end[];
     extern u32 _reloc_init_start[], _reloc_init_end[];
     extern u8 code32init_start[], code32init_end[];
-    extern u32 _reloc_datalow_start[], _reloc_datalow_end[];
-    extern u8 datalow_start[], datalow_end[], final_datalow_start[];
+    extern u32 _reloc_varlow_start[], _reloc_varlow_end[];
+    extern u8 varlow_start[], varlow_end[], final_varlow_start[];
 
     // Allocate space for init code.
     u32 initsize = code32init_end - code32init_start;
@@ -276,9 +276,9 @@ reloc_preinit(void *f, void *arg)
 
     // Copy code and update relocs (init absolute, init relative, and runtime)
     dprintf(1, "Relocating low data from %p to %p (size %d)\n"
-            , datalow_start, final_datalow_start, datalow_end - datalow_start);
-    updateRelocs(code32flat_start, _reloc_datalow_start, _reloc_datalow_end
-                 , final_datalow_start - datalow_start);
+            , varlow_start, final_varlow_start, varlow_end - varlow_start);
+    updateRelocs(code32flat_start, _reloc_varlow_start, _reloc_varlow_end
+                 , final_varlow_start - varlow_start);
     dprintf(1, "Relocating init from %p to %p (size %d)\n"
             , code32init_start, codedest, initsize);
     s32 delta = codedest - (void*)code32init_start;

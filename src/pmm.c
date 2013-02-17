@@ -192,8 +192,8 @@ rom_reserve(u32 size)
     u32 newend = ALIGN(RomEnd + size, OPTION_ROM_ALIGN) + OPROM_HEADER_RESERVE;
     if (newend > (u32)RomBase->allocend)
         return NULL;
-    if (newend < (u32)datalow_base + OPROM_HEADER_RESERVE)
-        newend = (u32)datalow_base + OPROM_HEADER_RESERVE;
+    if (newend < (u32)zonelow_base + OPROM_HEADER_RESERVE)
+        newend = (u32)zonelow_base + OPROM_HEADER_RESERVE;
     RomBase->data = RomBase->dataend = (void*)newend;
     return (void*)RomEnd;
 }
@@ -254,8 +254,8 @@ malloc_preinit(void)
     // Populate other regions
     addSpace(&ZoneTmpLow, (void*)BUILD_STACK_ADDR, (void*)BUILD_EBDA_MINIMUM);
     addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
-    extern u8 final_datalow_start[];
-    addSpace(&ZoneLow, datalow_base + OPROM_HEADER_RESERVE, final_datalow_start);
+    extern u8 final_varlow_start[];
+    addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE, final_varlow_start);
     RomBase = findLast(&ZoneLow);
     if (highram) {
         addSpace(&ZoneHigh, (void*)highram
@@ -278,8 +278,8 @@ csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm, u32 hi_pmm_size)
     }
     addSpace(&ZoneTmpLow, (void *)low_pmm, (void *)low_pmm + low_pmm_size);
     addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
-    extern u8 final_datalow_start[];
-    addSpace(&ZoneLow, datalow_base + OPROM_HEADER_RESERVE, final_datalow_start);
+    extern u8 final_varlow_start[];
+    addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE, final_varlow_start);
     RomBase = findLast(&ZoneLow);
 }
 
@@ -300,8 +300,8 @@ malloc_fixupreloc_init(void)
     }
 
     // Move low-memory initial variable content to new location.
-    extern u8 datalow_start[], datalow_end[], final_datalow_start[];
-    memmove(final_datalow_start, datalow_start, datalow_end - datalow_start);
+    extern u8 varlow_start[], varlow_end[], final_varlow_start[];
+    memmove(final_varlow_start, varlow_start, varlow_end - varlow_start);
 
     // Add space free'd during relocation in f-segment to ZoneFSeg
     extern u8 code32init_end[];

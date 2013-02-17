@@ -251,13 +251,13 @@ static inline u16 get_global_seg(void) {
  * "Low" memory variables
  ****************************************************************/
 
-extern u8 _datalow_seg, datalow_base[];
-#define SEG_LOW ((u32)&_datalow_seg)
+extern u8 _zonelow_seg, zonelow_base[];
+#define SEG_LOW ((u32)&_zonelow_seg)
 
 #if MODESEGMENT
 #define GET_LOW(var)            GET_FARVAR(SEG_LOW, (var))
 #define SET_LOW(var, val)       SET_FARVAR(SEG_LOW, (var), (val))
-#define LOWFLAT2LOW(var) ((typeof(var))((void*)(var) - (u32)datalow_base))
+#define LOWFLAT2LOW(var) ((typeof(var))((void*)(var) - (u32)zonelow_base))
 #else
 #define GET_LOW(var)            (var)
 #define SET_LOW(var, val)       do { (var) = (val); } while (0)

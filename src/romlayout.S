@@ -241,7 +241,7 @@ entry_resume:
         cli
         cld
         // Use the ExtraStack in low mem.
-        movl $_datalow_seg, %eax
+        movl $_zonelow_seg, %eax
         movw %ax, %ds
         movw %ax, %ss
         movl $ExtraStack + BUILD_EXTRA_STACK_SIZE, %esp
@@ -443,7 +443,7 @@ irqentry_extrastack:
         cld
         pushw %ds               // Set %ds:%eax to space on ExtraStack
         pushl %eax
-        movl $_datalow_seg, %eax
+        movl $_zonelow_seg, %eax
         movl %eax, %ds
         movl StackPos, %eax
         subl $24, %eax
