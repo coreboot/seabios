@@ -367,7 +367,7 @@ menu "BIOS Tables"
             Support generation of ACPI tables.
 endmenu
 
-source ../vgasrc/Kconfig
+source vgasrc/Kconfig
 
 menu "Debugging"
     config DEBUG_LEVEL
