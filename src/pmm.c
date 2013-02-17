@@ -324,11 +324,12 @@ malloc_prepboot(void)
     int size = (BUILD_BIOS_ADDR - base) / 512;
     dummyrom->size = (size > 255) ? 255 : size;
     memset((void*)RomEnd, 0, base-RomEnd);
-    dprintf(1, "Space available for UMB: %08x-%08x\n", RomEnd, base);
 
     // Clear unused f-seg ram.
     struct allocinfo_s *info = findLast(&ZoneFSeg);
     memset(info->dataend, 0, info->allocend - info->dataend);
+    dprintf(1, "Space available for UMB: %x-%x, %x-%x\n"
+            , RomEnd, base, (u32)info->dataend, (u32)info->allocend);
 
     // Give back unused high ram.
     info = findLast(&ZoneHigh);
