@@ -41,9 +41,16 @@ SECTIONS
 }
 EOF
 $CC -O -g -c $TMPFILE1 -o $TMPFILE1o > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "Unable to execute the C compiler ($CC)." >&2
+    echo "" >&2
+    echo "Please install a working compiler and retry." >&2
+    echo -1
+    exit 0
+fi
 $LD -T $TMPFILE1_ld $TMPFILE1o -o $TMPFILE2o > /dev/null 2>&1
 if [ $? -ne 0 ]; then
-    echo "The version of LD on this system does not properly handle" >&2
+    echo "The version of LD on this system ($LD) does not properly handle" >&2
     echo "alignments.  As a result, this project can not be built." >&2
     echo "" >&2
     echo "The problem may be the result of this LD bug report:" >&2
