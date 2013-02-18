@@ -313,6 +313,9 @@ dopost(void)
 void VISIBLE32FLAT
 handle_post(void)
 {
+    if (!CONFIG_QEMU && !CONFIG_COREBOOT)
+        return;
+
     debug_serial_preinit();
     dprintf(1, "Start bios (version %s)\n", VERSION);
 
