@@ -347,7 +347,7 @@ entry_pcibios32:
         lretl
 
 // BIOS32 support
-        EXPORTFUNC entry_bios32
+        DECLFUNC entry_bios32
 entry_bios32:
         pushfl
 #if CONFIG_PCIBIOS
@@ -410,7 +410,7 @@ entry_csm:
 
         .code32
 
-        EXPORTFUNC __csm_return
+        DECLFUNC __csm_return
 __csm_return:
         movl %eax, %ebx
         movl $2f, %edx
