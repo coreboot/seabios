@@ -254,12 +254,8 @@ malloc_preinit(void)
         addSpace(&ZoneTmpHigh, (void*)s, (void*)e);
     }
 
-    // Populate other regions
+    // Populate regions
     addSpace(&ZoneTmpLow, (void*)BUILD_STACK_ADDR, (void*)BUILD_EBDA_MINIMUM);
-    addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
-    extern u8 final_varlow_start[];
-    addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE, final_varlow_start);
-    RomBase = findLast(&ZoneLow);
     if (highram) {
         addSpace(&ZoneHigh, (void*)highram
                  , (void*)highram + CONFIG_MAX_HIGHTABLE);
@@ -280,10 +276,6 @@ csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm, u32 hi_pmm_size)
         addSpace(&ZoneTmpHigh, (void *)hi_pmm, (void *)hi_pmm + hi_pmm_size);
     }
     addSpace(&ZoneTmpLow, (void *)low_pmm, (void *)low_pmm + low_pmm_size);
-    addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
-    extern u8 final_varlow_start[];
-    addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE, final_varlow_start);
-    RomBase = findLast(&ZoneLow);
 }
 
 // Update pointers after code relocation.
@@ -303,11 +295,14 @@ malloc_init(void)
         }
     }
 
-    // Move low-memory initial variable content to new location.
+    // Initialize low-memory region
     extern u8 varlow_start[], varlow_end[], final_varlow_start[];
     memmove(final_varlow_start, varlow_start, varlow_end - varlow_start);
+    addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE, final_varlow_start);
+    RomBase = findLast(&ZoneLow);
 
     // Add space available in f-segment to ZoneFSeg
+    addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
     extern u8 code32init_end[];
     if ((u32)code32init_end > BUILD_BIOS_ADDR) {
         memset((void*)BUILD_BIOS_ADDR, 0, (u32)code32init_end - BUILD_BIOS_ADDR);
