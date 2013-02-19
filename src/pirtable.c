@@ -9,7 +9,7 @@
 #include "config.h" // CONFIG_*
 #include "util.h" // checksum
 
-struct pir_header *PirAddr VAR16VISIBLE;
+struct pir_header *PirAddr VARFSEG;
 
 struct pir_table {
     struct pir_header pir;
@@ -18,7 +18,7 @@ struct pir_table {
 
 extern struct pir_table PIR_TABLE;
 #if CONFIG_PIRTABLE
-struct pir_table PIR_TABLE __aligned(16) VAR16EXPORT = {
+struct pir_table PIR_TABLE __aligned(16) VARFSEG = {
     .pir = {
         .version = 0x0100,
         .size = sizeof(struct pir_table),

@@ -11,8 +11,8 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "ps2port.h" // ATKBD_CMD_GETID
 
-struct usb_pipe *keyboard_pipe VAR16VISIBLE;
-struct usb_pipe *mouse_pipe VAR16VISIBLE;
+struct usb_pipe *keyboard_pipe VARFSEG;
+struct usb_pipe *mouse_pipe VARFSEG;
 
 
 /****************************************************************

@@ -86,7 +86,7 @@ pci_next(int bdf, int bus)
 }
 
 struct pci_device *PCIDevices;
-int MaxPCIBus VAR16VISIBLE;
+int MaxPCIBus VARFSEG;
 
 // Check if PCI is available at all
 int

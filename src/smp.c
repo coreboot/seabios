@@ -16,8 +16,8 @@
 
 #define APIC_ENABLED 0x0100
 
-struct { u32 ecx, eax, edx; } smp_mtrr[32] VAR16VISIBLE;
-u32 smp_mtrr_count VAR16VISIBLE;
+struct { u32 ecx, eax, edx; } smp_mtrr[32] VARFSEG;
+u32 smp_mtrr_count VARFSEG;
 
 void
 wrmsr_smp(u32 index, u64 val)
@@ -33,10 +33,10 @@ wrmsr_smp(u32 index, u64 val)
     smp_mtrr_count++;
 }
 
-u32 CountCPUs VAR16VISIBLE;
-u32 MaxCountCPUs VAR16VISIBLE;
+u32 CountCPUs VARFSEG;
+u32 MaxCountCPUs VARFSEG;
 // 256 bits for the found APIC IDs
-u32 FoundAPICIDs[256/32] VAR16VISIBLE;
+u32 FoundAPICIDs[256/32] VARFSEG;
 extern void smp_ap_boot_code(void);
 ASM16(
     "  .global smp_ap_boot_code\n"

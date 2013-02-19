@@ -18,9 +18,9 @@
 #include "smbios.h"
 #include "pic.h"
 
-struct rsdp_descriptor VAR32FLATVISIBLE __aligned(16) csm_rsdp;
+struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
 
-EFI_COMPATIBILITY16_TABLE csm_compat_table VAR32FLATVISIBLE __aligned(16) = {
+EFI_COMPATIBILITY16_TABLE csm_compat_table VARFSEG __aligned(16) = {
     .Signature = 0x24454649,
     .TableChecksum = 0 /* Filled in by checkrom.py */,
     .TableLength = sizeof(csm_compat_table),

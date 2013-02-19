@@ -37,7 +37,7 @@ struct VideoParam_s video_param_table[29] VAR16;
  * PCI Data
  ****************************************************************/
 
-struct pci_data rom_pci_data VAR16VISIBLE = {
+struct pci_data rom_pci_data VAR16 VISIBLE16 = {
     .signature = PCI_ROM_SIGNATURE,
     .vendor = CONFIG_VGA_VID,
     .device = CONFIG_VGA_DID,

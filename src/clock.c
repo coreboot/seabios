@@ -62,10 +62,10 @@
 
 #define CALIBRATE_COUNT 0x800   // Approx 1.7ms
 
-u32 cpu_khz VAR16VISIBLE;
-u8 no_tsc VAR16VISIBLE;
+u32 cpu_khz VARFSEG;
+u8 no_tsc VARFSEG;
 
-u16 pmtimer_ioport VAR16VISIBLE;
+u16 pmtimer_ioport VARFSEG;
 u32 pmtimer_wraps VARLOW;
 u32 pmtimer_last VARLOW;
 

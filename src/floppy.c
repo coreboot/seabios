@@ -28,7 +28,7 @@
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M
 // floppy here
-struct floppy_ext_dbt_s diskette_param_table2 VAR16VISIBLE = {
+struct floppy_ext_dbt_s diskette_param_table2 VARFSEG = {
     .dbt = {
         .specify1       = 0xAF, // step rate 12ms, head unload 240ms
         .specify2       = 0x02, // head load time 4ms, DMA used
@@ -55,7 +55,7 @@ struct floppyinfo_s {
     u8 media_state;
 };
 
-struct floppyinfo_s FloppyInfo[] VAR16VISIBLE = {
+struct floppyinfo_s FloppyInfo[] VARFSEG = {
     // Unknown
     { {0, 0, 0}, 0x00, 0x00},
     // 1 - 360KB, 5.25" - 2 heads, 40 tracks, 9 sectors

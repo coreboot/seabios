@@ -223,7 +223,7 @@ struct bios32_s {
     u8 reserved[5];
 } PACKED;
 
-struct bios32_s BIOS32HEADER __aligned(16) VAR16EXPORT = {
+struct bios32_s BIOS32HEADER __aligned(16) VARFSEG = {
     .signature = 0x5f32335f, // _32_
     .length = sizeof(BIOS32HEADER) / 16,
 };

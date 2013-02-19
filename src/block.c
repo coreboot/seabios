@@ -14,10 +14,10 @@
 #include "virtio-blk.h" // process_virtio_blk_op
 #include "blockcmd.h" // cdb_*
 
-u8 FloppyCount VAR16VISIBLE;
+u8 FloppyCount VARFSEG;
 u8 CDCount;
-struct drive_s *IDMap[3][CONFIG_MAX_EXTDRIVE] VAR16VISIBLE;
-u8 *bounce_buf_fl VAR16VISIBLE;
+struct drive_s *IDMap[3][CONFIG_MAX_EXTDRIVE] VARFSEG;
+u8 *bounce_buf_fl VARFSEG;
 struct dpte_s DefaultDPTE VARLOW;
 
 struct drive_s *

@@ -28,7 +28,7 @@ extern struct pnpheader PNPHEADER;
 extern char pnp_string[];
 
 #if CONFIG_PNPBIOS
-struct pnpheader PNPHEADER __aligned(16) VAR16EXPORT = {
+struct pnpheader PNPHEADER __aligned(16) VARFSEG = {
     .signature = PNP_SIGNATURE,
     .version = 0x10,
     .length = sizeof(PNPHEADER),
@@ -41,7 +41,7 @@ struct pnpheader PNPHEADER __aligned(16) VAR16EXPORT = {
 // We need a copy of this string in the 0xf000 segment, but we are not
 // actually a PnP BIOS, so make sure it is *not* aligned, so OSes will
 // not see it if they scan.
-char pnp_string[] __aligned(2) VAR16VISIBLE = " $PnP";
+char pnp_string[] __aligned(2) VARFSEG = " $PnP";
 #endif
 
 #define FUNCTION_NOT_SUPPORTED 0x82

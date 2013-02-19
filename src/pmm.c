@@ -216,6 +216,9 @@ rom_confirm(u32 size)
  * Setup
  ****************************************************************/
 
+// Space for bios tables built an run-time.
+char BiosTableSpace[CONFIG_MAX_BIOSTABLE] __aligned(MALLOC_MIN_ALIGN) VARFSEG;
+
 void
 malloc_preinit(void)
 {
@@ -457,7 +460,7 @@ extern struct pmmheader PMMHEADER;
 #define PMM_SIGNATURE 0x4d4d5024 // $PMM
 
 #if CONFIG_PMM
-struct pmmheader PMMHEADER __aligned(16) VAR16EXPORT = {
+struct pmmheader PMMHEADER __aligned(16) VARFSEG = {
     .signature = PMM_SIGNATURE,
     .version = 0x01,
     .length = sizeof(PMMHEADER),

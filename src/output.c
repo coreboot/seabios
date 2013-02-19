@@ -23,7 +23,7 @@ struct putcinfo {
 
 #define DEBUG_TIMEOUT 100000
 
-u16 DebugOutputPort VAR16VISIBLE = 0x402;
+u16 DebugOutputPort VARFSEG = 0x402;
 
 void
 debug_serial_preinit(void)

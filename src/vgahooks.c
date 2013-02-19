@@ -15,7 +15,7 @@
 #define VH_VIA 1
 #define VH_INTEL 2
 
-int VGAHookHandlerType VAR16VISIBLE;
+int VGAHookHandlerType VARFSEG;
 
 static void
 handle_155fXX(struct bregs *regs)
@@ -28,7 +28,7 @@ handle_155fXX(struct bregs *regs)
  * Via hooks
  ****************************************************************/
 
-int ViaFBsize VAR16VISIBLE, ViaRamSpeed VAR16VISIBLE;
+int ViaFBsize VARFSEG, ViaRamSpeed VARFSEG;
 
 static void
 via_155f01(struct bregs *regs)
@@ -167,7 +167,7 @@ via_setup(struct pci_device *pci)
  * Intel VGA hooks
  ****************************************************************/
 
-u8 IntelDisplayType VAR16VISIBLE, IntelDisplayId VAR16VISIBLE;
+u8 IntelDisplayType VARFSEG, IntelDisplayId VARFSEG;
 
 static void
 intel_155f35(struct bregs *regs)

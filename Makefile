@@ -8,15 +8,15 @@
 OUT=out/
 
 # Source files
-SRCBOTH=misc.c stacks.c pmm.c output.c util.c block.c floppy.c ata.c mouse.c \
+SRCBOTH=misc.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
     kbd.c pci.c serial.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
-    pnpbios.c pirtable.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
+    pnpbios.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
     usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
     virtio-ring.c virtio-pci.c virtio-blk.c virtio-scsi.c apm.c ahci.c \
     usb-uas.c lsi-scsi.c esp-scsi.c megasas.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
-SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c coreboot.c boot.c \
-    acpi.c smm.c mptable.c smbios.c pciinit.c optionroms.c mtrr.c \
+SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c pmm.c coreboot.c boot.c \
+    acpi.c smm.c mptable.c pirtable.c smbios.c pciinit.c optionroms.c mtrr.c \
     lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c \
     biostables.c xen.c bmp.c romfile.c csm.c
 SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c

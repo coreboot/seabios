@@ -15,7 +15,7 @@
 #include "cmos.h" // inb_cmos
 
 // Indicator if POST phase has been run.
-int HaveRunPost VAR16VISIBLE;
+int HaveRunPost VARFSEG;
 
 // Reset DMA controller
 void

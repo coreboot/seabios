@@ -21,7 +21,7 @@ u8 CDRom_locks[CONFIG_MAX_EXTDRIVE] VARLOW;
  ****************************************************************/
 
 struct cdemu_s CDEmu VARLOW;
-struct drive_s *cdemu_drive_gf VAR16VISIBLE;
+struct drive_s *cdemu_drive_gf VARFSEG;
 
 static int
 cdemu_read(struct disk_op_s *op)

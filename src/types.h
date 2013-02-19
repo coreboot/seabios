@@ -51,16 +51,10 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32SEG
 // Designate a variable as (only) visible to 16bit code.
 # define VAR16 __section(".data16." UNIQSEC)
-// Designate a variable as visible to 16bit, 32bit, and assembler code.
-# define VAR16VISIBLE VAR16 __VISIBLE
-// Designate a variable as externally visible (in addition to all internal code).
-# define VAR16EXPORT __section(".data16.export." UNIQSEC) __VISIBLE
 // Designate a variable at a specific 16bit address
 # define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
 // Designate a variable as (only) visible to 32bit segmented code.
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
-// Designate a 32bit variable also available in 16bit "big real" mode.
-# define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
 // Designate a variable as visible and located in the e-segment.
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 // Designate a variable as visible and located in the f-segment.
@@ -79,11 +73,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32INIT
 # define VISIBLE32SEG __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
-# define VAR16VISIBLE VAR16 __VISIBLE __weak
-# define VAR16EXPORT VAR16VISIBLE
-# define VAR16FIXED(addr) VAR16VISIBLE
+# define VAR16FIXED(addr) VAR16 __VISIBLE __weak
 # define VAR32SEG __section(".data32seg." UNIQSEC)
-# define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
 # define ASM16(code)
@@ -97,11 +88,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32INIT __section(".text.init." UNIQSEC) __VISIBLE
 # define VISIBLE32SEG
 # define VAR16 __section(".discard.var16." UNIQSEC)
-# define VAR16VISIBLE VAR16 __VISIBLE __weak
-# define VAR16EXPORT VAR16VISIBLE
-# define VAR16FIXED(addr) VAR16VISIBLE
+# define VAR16FIXED(addr) VAR16 __VISIBLE __weak
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
-# define VAR32FLATVISIBLE __section(".data.runtime." UNIQSEC) __VISIBLE
 # define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE
 # define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
 # define ASM16(code)

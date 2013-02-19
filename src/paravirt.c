@@ -21,6 +21,9 @@
 #include "pci.h" // create_pirtable
 #include "xen.h" // xen_biostable_setup
 
+// Type of emulator platform.
+int PlatformRunningOn VARFSEG;
+
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
  * should be used to determine that a VM is running under KVM.
  */

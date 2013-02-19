@@ -13,6 +13,10 @@
  * e820 memory map
  ****************************************************************/
 
+// Info on e820 map location and size.
+struct e820entry e820_list[CONFIG_MAX_E820] VARFSEG;
+int e820_count VARFSEG;
+
 // Remove an entry from the e820_list.
 static void
 remove_e820(int i)

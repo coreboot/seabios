@@ -243,7 +243,7 @@ struct thread_info {
     void *stackpos;
     struct thread_info **pprev;
 };
-struct thread_info VAR32FLATVISIBLE MainThread = {
+struct thread_info MainThread VARFSEG = {
     &MainThread, NULL, &MainThread.next
 };
 #define THREADSTACKSIZE 4096
@@ -424,7 +424,7 @@ mutex_unlock(struct mutex_s *mutex)
  * Thread preemption
  ****************************************************************/
 
-int VAR16VISIBLE CanPreempt;
+int CanPreempt VARFSEG;
 static u32 PreemptCount;
 
 // Turn on RTC irqs and arrange for them to check the 32bit threads.

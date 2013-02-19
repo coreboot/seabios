@@ -9,7 +9,6 @@
 #define PF_XEN      (1<<1)
 #define PF_KVM      (1<<2)
 
-// misc.c
 extern int PlatformRunningOn;
 
 static inline int runningOnQEMU(void) {

@@ -290,10 +290,6 @@ handle_15e801(struct bregs *regs)
     set_success(regs);
 }
 
-// Info on e820 map location and size.
-struct e820entry e820_list[CONFIG_MAX_E820] VAR16VISIBLE;
-int e820_count VAR16VISIBLE;
-
 static void
 handle_15e820(struct bregs *regs)
 {
