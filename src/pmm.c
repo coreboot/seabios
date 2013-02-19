@@ -223,7 +223,7 @@ void
 malloc_preinit(void)
 {
     ASSERT32FLAT();
-    dprintf(3, "malloc setup\n");
+    dprintf(3, "malloc preinit\n");
 
     dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
 
@@ -288,25 +288,26 @@ csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm, u32 hi_pmm_size)
 
 // Update pointers after code relocation.
 void
-malloc_fixupreloc_init(void)
+malloc_init(void)
 {
     ASSERT32FLAT();
-    if (!CONFIG_RELOCATE_INIT)
-        return;
-    dprintf(3, "malloc fixup reloc\n");
+    dprintf(3, "malloc init\n");
 
-    int i;
-    for (i=0; i<ARRAY_SIZE(Zones); i++) {
-        struct zone_s *zone = Zones[i];
-        if (zone->info)
-            zone->info->pprev = &zone->info;
+    if (CONFIG_RELOCATE_INIT) {
+        // Fixup malloc pointers after relocation
+        int i;
+        for (i=0; i<ARRAY_SIZE(Zones); i++) {
+            struct zone_s *zone = Zones[i];
+            if (zone->info)
+                zone->info->pprev = &zone->info;
+        }
     }
 
     // Move low-memory initial variable content to new location.
     extern u8 varlow_start[], varlow_end[], final_varlow_start[];
     memmove(final_varlow_start, varlow_start, varlow_end - varlow_start);
 
-    // Add space free'd during relocation in f-segment to ZoneFSeg
+    // Add space available in f-segment to ZoneFSeg
     extern u8 code32init_end[];
     if ((u32)code32init_end > BUILD_BIOS_ADDR) {
         memset((void*)BUILD_BIOS_ADDR, 0, (u32)code32init_end - BUILD_BIOS_ADDR);

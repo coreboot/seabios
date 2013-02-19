@@ -152,6 +152,7 @@ def getSectionsPrefix(sections, prefix):
 
 # The sections (and associated information) to be placed in output rom
 class LayoutInfo:
+    genreloc = None
     sections16 = sec16_start = sec16_align = None
     sections32seg = sec32seg_start = sec32seg_align = None
     sections32flat = sec32flat_start = sec32flat_align = None
@@ -159,9 +160,10 @@ class LayoutInfo:
     sections32low = sec32low_start = sec32low_align = None
     sections32fseg = sec32fseg_start = sec32fseg_align = None
     zonelow_base = final_sec32low_start = None
+    exportsyms = varlowsyms = None
 
 # Determine final memory addresses for sections
-def doLayout(sections, genreloc):
+def doLayout(sections):
     li = LayoutInfo()
     # Determine 16bit positions
     li.sections16 = getSectionsCategory(sections, '16')
@@ -223,17 +225,13 @@ def doLayout(sections, genreloc):
 
     # Determine "low memory" data positions
     li.sections32low = getSectionsCategory(sections, '32low')
-    if genreloc:
-        sec32low_top = li.sec32init_start
-        final_sec32low_top = min(BUILD_BIOS_ADDR, li.sec32flat_start)
-    else:
-        sec32low_top = min(BUILD_BIOS_ADDR, li.sec32init_start)
-        final_sec32low_top = sec32low_top
-    relocdelta = final_sec32low_top - sec32low_top
-    zonelow_base = final_sec32low_top - 64*1024
+    sec32low_end = li.sec32init_start
+    final_sec32low_start = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+    relocdelta = final_sec32low_start - sec32low_end
+    zonelow_base = final_sec32low_start - 64*1024
     li.zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
     li.sec32low_start, li.sec32low_align = setSectionsStart(
-        li.sections32low, sec32low_top, 16
+        li.sections32low, sec32low_end, 16
         , segoffset=li.zonelow_base - relocdelta)
     li.final_sec32low_start = li.sec32low_start + relocdelta
 
@@ -243,7 +241,7 @@ def doLayout(sections, genreloc):
     size32fseg = li.sec32seg_start - li.sec32fseg_start
     size32flat = li.sec32fseg_start - li.sec32flat_start
     size32init = li.sec32flat_start - li.sec32init_start
-    sizelow = sec32low_top - li.sec32low_start
+    sizelow = sec32low_end - li.sec32low_start
     print "16bit size:           %d" % size16
     print "32bit segmented size: %d" % size32seg
     print "32bit flat size:      %d" % size32flat
@@ -258,7 +256,7 @@ def doLayout(sections, genreloc):
 ######################################################################
 
 # Write LD script includes for the given cross references
-def outXRefs(sections, useseg=0, exportsyms=[]):
+def outXRefs(sections, useseg=0, exportsyms=[], forcedelta=0):
     xrefs = dict([(symbol.name, symbol) for symbol in exportsyms])
     out = ""
     for section in sections:
@@ -272,7 +270,7 @@ def outXRefs(sections, useseg=0, exportsyms=[]):
         loc = symbol.section.finalloc
         if useseg:
             loc = symbol.section.finalsegloc
-        out += "%s = 0x%x ;\n" % (symbolname, loc + symbol.offset)
+        out += "%s = 0x%x ;\n" % (symbolname, loc + forcedelta + symbol.offset)
     return out
 
 # Write LD script includes for the given sections using relative offsets
@@ -319,7 +317,7 @@ def getSectionsStart(sections, defaddr=0):
                 if section.finalloc is not None] or [defaddr])
 
 # Output the linker scripts for all required sections.
-def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
+def writeLinkerScripts(li, out16, out32seg, out32flat):
     # Write 16bit linker script
     out = outXRefs(li.sections16, useseg=1) + """
     zonelow_base = 0x%x ;
@@ -350,11 +348,10 @@ def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
     outfile.close()
 
     # Write 32flat linker script
-    sections32all = (li.sections32flat + li.sections32init + li.sections32low
-                     + li.sections32fseg)
+    sections32all = (li.sections32flat + li.sections32init + li.sections32fseg)
     sec32all_start = li.sec32low_start
     relocstr = ""
-    if genreloc:
+    if li.genreloc:
         # Generate relocations
         absrelocs = getRelocs(
             li.sections32init, type='R_386_32', category='32init')
@@ -363,14 +360,14 @@ def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
         initrelocs = getRelocs(
             li.sections32flat + li.sections32low + li.sections16
             + li.sections32seg + li.sections32fseg, category='32init')
-        lowrelocs = getRelocs(sections32all, category='32low')
         relocstr = (strRelocs("_reloc_abs", "code32init_start", absrelocs)
                     + strRelocs("_reloc_rel", "code32init_start", relrelocs)
-                    + strRelocs("_reloc_init", "code32flat_start", initrelocs)
-                    + strRelocs("_reloc_varlow", "code32flat_start", lowrelocs))
-        numrelocs = len(absrelocs + relrelocs + initrelocs + lowrelocs)
+                    + strRelocs("_reloc_init", "code32flat_start", initrelocs))
+        numrelocs = len(absrelocs + relrelocs + initrelocs)
         sec32all_start -= numrelocs * 4
-    out = outXRefs(sections32all, exportsyms=exportsyms) + """
+    out = outXRefs(li.sections32low, exportsyms=li.varlowsyms
+                   , forcedelta=li.final_sec32low_start-li.sec32low_start)
+    out += outXRefs(sections32all, exportsyms=li.exportsyms) + """
     _reloc_min_align = 0x%x ;
     zonelow_base = 0x%x ;
     final_varlow_start = 0x%x ;
@@ -621,7 +618,12 @@ def main():
     sections = gc(info16, info32seg, info32flat)
 
     # Separate 32bit flat into runtime and init parts
-    findInit(sections)
+    genreloc = '_reloc_abs_start' in info32flat[1]
+    if genreloc:
+        findInit(sections)
+    else:
+        for section in sections:
+            section.category = section.fileid
 
     # Note "low memory" and "fseg memory" parts
     for section in getSectionsPrefix(sections, '.data.varlow.'):
@@ -630,17 +632,22 @@ def main():
         section.category = '32fseg'
 
     # Determine the final memory locations of each kept section.
-    genreloc = '_reloc_abs_start' in info32flat[1]
-    li = doLayout(sections, genreloc)
+    li = doLayout(sections)
+    li.genreloc = genreloc
 
     # Exported symbols
-    exportsyms = [symbol for symbol in info16[1].values()
-                 if (symbol.section is not None
-                     and '.export.' in symbol.section.name
-                     and symbol.name != symbol.section.name)]
+    li.exportsyms = [symbol for symbol in info16[1].values()
+                     if (symbol.section is not None
+                         and '.export.' in symbol.section.name
+                         and symbol.name != symbol.section.name)]
+    li.varlowsyms = [symbol for symbol in info32flat[1].values()
+                     if (symbol.section is not None
+                         and symbol.section.finalloc is not None
+                         and '.data.varlow.' in symbol.section.name
+                         and symbol.name != symbol.section.name)]
 
     # Write out linker script files.
-    writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat)
+    writeLinkerScripts(li, out16, out32seg, out32flat)
 
 if __name__ == '__main__':
     main()

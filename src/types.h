@@ -90,7 +90,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VAR16 __section(".discard.var16." UNIQSEC)
 # define VAR16FIXED(addr) VAR16 __VISIBLE __weak
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
-# define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE
+# define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)

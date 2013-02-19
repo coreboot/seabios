@@ -105,7 +105,7 @@ void
 interface_init(void)
 {
     // Running at new code address - do code relocation fixups
-    malloc_fixupreloc_init();
+    malloc_init();
 
     // Setup romfile items.
     qemu_cfg_init();
@@ -264,8 +264,6 @@ reloc_preinit(void *f, void *arg)
     extern u32 _reloc_rel_start[], _reloc_rel_end[];
     extern u32 _reloc_init_start[], _reloc_init_end[];
     extern u8 code32init_start[], code32init_end[];
-    extern u32 _reloc_varlow_start[], _reloc_varlow_end[];
-    extern u8 varlow_start[], varlow_end[], final_varlow_start[];
 
     // Allocate space for init code.
     u32 initsize = code32init_end - code32init_start;
@@ -275,10 +273,6 @@ reloc_preinit(void *f, void *arg)
         panic("No space for init relocation.\n");
 
     // Copy code and update relocs (init absolute, init relative, and runtime)
-    dprintf(1, "Relocating low data from %p to %p (size %d)\n"
-            , varlow_start, final_varlow_start, varlow_end - varlow_start);
-    updateRelocs(code32flat_start, _reloc_varlow_start, _reloc_varlow_end
-                 , final_varlow_start - varlow_start);
     dprintf(1, "Relocating init from %p to %p (size %d)\n"
             , code32init_start, codedest, initsize);
     s32 delta = codedest - (void*)code32init_start;

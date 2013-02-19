@@ -73,9 +73,7 @@ def main():
         rawdata = checksum(rawdata, tableofs, tablesize, CSUM_FIELD_OFS)
 
     # Print statistics
-    runtimesize = datasize
-    if '_reloc_abs_start' in symbols:
-        runtimesize = end - symbols['code32init_end'].offset
+    runtimesize = end - symbols['code32init_end'].offset
     print "Total size: %d  Fixed: %d  Free: %d (used %.1f%% of %dKiB rom)" % (
         datasize, runtimesize, finalsize - datasize
         , (datasize / float(finalsize)) * 100.0

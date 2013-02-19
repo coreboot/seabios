@@ -371,7 +371,7 @@ int rom_confirm(u32 size);
 void csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm,
                         u32 hi_pmm_size);
 void malloc_preinit(void);
-void malloc_fixupreloc_init(void);
+void malloc_init(void);
 void malloc_prepboot(void);
 void *pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align);
 int pmm_free(void *data);
