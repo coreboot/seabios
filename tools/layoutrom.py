@@ -157,6 +157,7 @@ class LayoutInfo:
     sections32flat = sec32flat_start = sec32flat_align = None
     sections32init = sec32init_start = sec32init_align = None
     sections32low = sec32low_start = sec32low_align = None
+    sections32fseg = sec32fseg_start = sec32fseg_align = None
     zonelow_base = final_sec32low_start = None
 
 # Determine final memory addresses for sections
@@ -191,6 +192,13 @@ def doLayout(sections, genreloc):
         textsections + rodatasections + datasections, li.sec16_start
         , segoffset=BUILD_BIOS_ADDR)
 
+    # Determine "fseg memory" data positions
+    li.sections32fseg = getSectionsCategory(sections, '32fseg')
+
+    li.sec32fseg_start, li.sec32fseg_align = setSectionsStart(
+        li.sections32fseg, li.sec32seg_start, 16
+        , segoffset=BUILD_BIOS_ADDR)
+
     # Determine 32flat runtime positions
     li.sections32flat = getSectionsCategory(sections, '32flat')
     textsections = getSectionsPrefix(li.sections32flat, '.text.')
@@ -200,7 +208,7 @@ def doLayout(sections, genreloc):
 
     li.sec32flat_start, li.sec32flat_align = setSectionsStart(
         textsections + rodatasections + datasections + bsssections
-        , li.sec32seg_start, 16)
+        , li.sec32fseg_start, 16)
 
     # Determine 32flat init positions
     li.sections32init = getSectionsCategory(sections, '32init')
@@ -232,7 +240,8 @@ def doLayout(sections, genreloc):
     # Print statistics
     size16 = BUILD_BIOS_ADDR + BUILD_BIOS_SIZE - li.sec16_start
     size32seg = li.sec16_start - li.sec32seg_start
-    size32flat = li.sec32seg_start - li.sec32flat_start
+    size32fseg = li.sec32seg_start - li.sec32fseg_start
+    size32flat = li.sec32fseg_start - li.sec32flat_start
     size32init = li.sec32flat_start - li.sec32init_start
     sizelow = sec32low_top - li.sec32low_start
     print "16bit size:           %d" % size16
@@ -240,6 +249,7 @@ def doLayout(sections, genreloc):
     print "32bit flat size:      %d" % size32flat
     print "32bit flat init size: %d" % size32init
     print "Lowmem size:          %d" % sizelow
+    print "f-segment var size:   %d" % size32fseg
     return li
 
 
@@ -340,7 +350,8 @@ def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
     outfile.close()
 
     # Write 32flat linker script
-    sections32all = li.sections32flat + li.sections32init + li.sections32low
+    sections32all = (li.sections32flat + li.sections32init + li.sections32low
+                     + li.sections32fseg)
     sec32all_start = li.sec32low_start
     relocstr = ""
     if genreloc:
@@ -351,7 +362,7 @@ def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
             li.sections32init, type='R_386_PC32', notcategory='32init')
         initrelocs = getRelocs(
             li.sections32flat + li.sections32low + li.sections16
-            + li.sections32seg, category='32init')
+            + li.sections32seg + li.sections32fseg, category='32init')
         lowrelocs = getRelocs(sections32all, category='32low')
         relocstr = (strRelocs("_reloc_abs", "code32init_start", absrelocs)
                     + strRelocs("_reloc_rel", "code32init_start", relrelocs)
@@ -374,6 +385,7 @@ def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
 %s
         code32init_end = ABSOLUTE(.) ;
 %s
+%s
         . = ( 0x%x - code32flat_start ) ;
         *(.text32seg)
         . = ( 0x%x - code32flat_start ) ;
@@ -388,6 +400,7 @@ def writeLinkerScripts(li, exportsyms, genreloc, out16, out32seg, out32flat):
        outRelSections(li.sections32low, 'code32flat_start'),
        outRelSections(li.sections32init, 'code32flat_start'),
        outRelSections(li.sections32flat, 'code32flat_start'),
+       outRelSections(li.sections32fseg, 'code32flat_start'),
        li.sec32seg_start,
        li.sec16_start)
     out = COMMONHEADER + out + COMMONTRAILER + """
@@ -418,8 +431,8 @@ def markRuntime(section, sections):
 def findInit(sections):
     # Recursively find and mark all "runtime" sections.
     for section in sections:
-        if ('.data.varlow.' in section.name or '.runtime.' in section.name
-            or '.export.' in section.name):
+        if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
+            or '.runtime.' in section.name or '.export.' in section.name):
             markRuntime(section, sections)
     for section in sections:
         if section.category is not None:
@@ -610,9 +623,11 @@ def main():
     # Separate 32bit flat into runtime and init parts
     findInit(sections)
 
-    # Note "low memory" parts
+    # Note "low memory" and "fseg memory" parts
     for section in getSectionsPrefix(sections, '.data.varlow.'):
         section.category = '32low'
+    for section in getSectionsPrefix(sections, '.data.varfseg.'):
+        section.category = '32fseg'
 
     # Determine the final memory locations of each kept section.
     genreloc = '_reloc_abs_start' in info32flat[1]

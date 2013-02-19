@@ -63,6 +63,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
 // Designate a variable as visible and located in the e-segment.
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
+// Designate a variable as visible and located in the f-segment.
+# define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) __ASM(code)
 // Designate top-level assembler as 32bit flat only.
@@ -83,6 +85,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VAR32SEG __section(".data32seg." UNIQSEC)
 # define VAR32FLATVISIBLE __section(".discard.var32flat." UNIQSEC) __VISIBLE __weak
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
+# define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
 # define ASM16(code)
 # define ASM32FLAT(code)
 # define ASSERT16() __force_link_error__only_in_16bit()
@@ -100,6 +103,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 # define VAR32FLATVISIBLE __section(".data.runtime." UNIQSEC) __VISIBLE
 # define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE
+# define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)
 # define ASSERT16() __force_link_error__only_in_16bit()
