@@ -384,6 +384,7 @@ entry_elf:
 
         .code16gcc
 
+// UEFI Compatibility Support Module (CSM) entry point
         EXPORTFUNC entry_csm
 entry_csm:
         // Backup register state
@@ -408,22 +409,20 @@ entry_csm:
         movl $_cfunc32flat_handle_csm, %edx
         jmp transition32
 
-        .code32
-
         DECLFUNC __csm_return
+        .code32
 __csm_return:
-        movl %eax, %ebx
-        movl $2f, %edx
+        movl $1f, %edx
         jmp transition16big
         .code16gcc
 
         // Switch back to original stack
-2:      movzwl BREGS_code+2(%ebx), %eax
-        movl %eax, %ecx
+1:      movzwl BREGS_code+2(%eax), %edx
+        movl %edx, %ecx
         shll $4, %ecx
-        subl %ecx, %ebx
-        movl %eax, %ss
-        movl %ebx, %esp
+        subl %ecx, %eax
+        movl %edx, %ss
+        movl %eax, %esp
 
         // Restore register state and return.
         POPBREGS
