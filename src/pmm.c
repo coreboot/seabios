@@ -225,8 +225,6 @@ malloc_preinit(void)
     ASSERT32FLAT();
     dprintf(3, "malloc preinit\n");
 
-    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
-
     // Don't declare any memory between 0xa0000 and 0x100000
     add_e820(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END, E820_HOLE);
 
@@ -278,6 +276,26 @@ csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm, u32 hi_pmm_size)
     addSpace(&ZoneTmpLow, (void *)low_pmm, (void *)low_pmm + low_pmm_size);
 }
 
+u32 LegacyRamSize VARFSEG;
+
+// Calculate the maximum ramsize (less than 4gig) from e820 map.
+static void
+calcRamSize(void)
+{
+    u32 rs = 0;
+    int i;
+    for (i=e820_count-1; i>=0; i--) {
+        struct e820entry *en = &e820_list[i];
+        u64 end = en->start + en->size;
+        u32 type = en->type;
+        if (end <= 0xffffffff && (type == E820_ACPI || type == E820_RAM)) {
+            rs = end;
+            break;
+        }
+    }
+    LegacyRamSize = rs >= 1024*1024 ? rs : 1024*1024;
+}
+
 // Update pointers after code relocation.
 void
 malloc_init(void)
@@ -308,6 +326,8 @@ malloc_init(void)
         memset((void*)BUILD_BIOS_ADDR, 0, (u32)code32init_end - BUILD_BIOS_ADDR);
         addSpace(&ZoneFSeg, (void*)BUILD_BIOS_ADDR, code32init_end);
     }
+
+    calcRamSize();
 }
 
 void
@@ -337,6 +357,8 @@ malloc_prepboot(void)
         add_e820((u32)info->dataend, giveback, E820_RAM);
         dprintf(1, "Returned %d bytes of ZoneHigh\n", giveback);
     }
+
+    calcRamSize();
 }
 
 

@@ -12,6 +12,7 @@
 #include "ioport.h" // PORT_ATA1_CMD_BASE
 #include "config.h" // CONFIG_*
 #include "memmap.h" // add_e820
+#include "paravirt.h" // RamSize
 #include "dev-q35.h"
 
 /* PM Timer ticks per second (HZ) */

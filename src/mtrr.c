@@ -7,6 +7,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "pci.h" // pcimem_start
+#include "paravirt.h" // RamSize
 
 #define MSR_MTRRcap                    0x000000fe
 #define MSR_MTRRfix64K_00000           0x00000250

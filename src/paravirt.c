@@ -21,6 +21,10 @@
 #include "pci.h" // create_pirtable
 #include "xen.h" // xen_biostable_setup
 
+// Amount of continuous ram under 4Gig
+u32 RamSize;
+// Amount of continuous ram >4Gig
+u64 RamSizeOver4G;
 // Type of emulator platform.
 int PlatformRunningOn VARFSEG;
 
@@ -83,6 +87,8 @@ qemu_preinit(void)
 
     /* reserve 256KB BIOS area at the end of 4 GB */
     add_e820(0xfffc0000, 256*1024, E820_RESERVED);
+
+    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
 }
 
 void

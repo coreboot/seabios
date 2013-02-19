@@ -13,6 +13,7 @@
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "ioport.h" // inl
 #include "config.h" // CONFIG_*
+#include "paravirt.h" // RamSize
 #include "dev-q35.h"
 
 /****************************************************/

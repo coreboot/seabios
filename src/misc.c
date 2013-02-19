@@ -10,11 +10,6 @@
 #include "util.h" // debug_enter
 #include "pic.h" // enable_hwirq
 
-// Amount of continuous ram under 4Gig
-u32 RamSize VARFSEG;
-// Amount of continuous ram >4Gig
-u64 RamSizeOver4G;
-
 
 /****************************************************************
  * Misc 16bit ISRs

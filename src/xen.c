@@ -130,7 +130,6 @@ void xen_biostable_setup(void)
 
 void xen_ramsize_preinit(void)
 {
-    u64 maxram = 0, maxram_over4G = 0;
     int i;
     struct xen_seabios_info *info = (void *)INFO_PHYSICAL_ADDRESS;
     struct e820entry *e820 = (struct e820entry *)info->e820;
@@ -140,18 +139,6 @@ void xen_ramsize_preinit(void)
 
     for (i = 0; i < info->e820_nr; i++) {
         struct e820entry *e = &e820[i];
-        if (e->type == E820_ACPI || e->type == E820_RAM) {
-            u64 end = e->start + e->size;
-            if (end > 0x100000000ull) {
-                end -= 0x100000000ull;
-                if (end > maxram_over4G)
-                    maxram_over4G = end;
-            } else if (end > maxram)
-                maxram = end;
-        }
         add_e820(e->start, e->size, e->type);
     }
-
-    RamSize = maxram;
-    RamSizeOver4G = maxram_over4G;
 }

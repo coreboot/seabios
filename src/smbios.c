@@ -7,6 +7,7 @@
 
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
+#include "paravirt.h" // RamSize
 #include "smbios.h" // struct smbios_entry_point
 
 struct smbios_entry_point *SMBiosAddr;

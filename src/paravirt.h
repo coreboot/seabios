@@ -9,6 +9,8 @@
 #define PF_XEN      (1<<1)
 #define PF_KVM      (1<<2)
 
+extern u32 RamSize;
+extern u64 RamSizeOver4G;
 extern int PlatformRunningOn;
 
 static inline int runningOnQEMU(void) {
