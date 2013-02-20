@@ -216,9 +216,6 @@ rom_confirm(u32 size)
  * Setup
  ****************************************************************/
 
-// Space for bios tables built an run-time.
-char BiosTableSpace[CONFIG_MAX_BIOSTABLE] __aligned(MALLOC_MIN_ALIGN) VARFSEG;
-
 void
 malloc_preinit(void)
 {
@@ -320,12 +317,9 @@ malloc_init(void)
     RomBase = findLast(&ZoneLow);
 
     // Add space available in f-segment to ZoneFSeg
-    addSpace(&ZoneFSeg, BiosTableSpace, &BiosTableSpace[CONFIG_MAX_BIOSTABLE]);
-    extern u8 code32init_end[];
-    if ((u32)code32init_end > BUILD_BIOS_ADDR) {
-        memset((void*)BUILD_BIOS_ADDR, 0, (u32)code32init_end - BUILD_BIOS_ADDR);
-        addSpace(&ZoneFSeg, (void*)BUILD_BIOS_ADDR, code32init_end);
-    }
+    extern u8 zonefseg_start[], zonefseg_end[];
+    memset(zonefseg_start, 0, zonefseg_end - zonefseg_start);
+    addSpace(&ZoneFSeg, zonefseg_start, zonefseg_end);
 
     calcRamSize();
 }

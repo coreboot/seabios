@@ -59,6 +59,8 @@ def setSectionsStart(sections, endaddr, minalign=1, segoffset=0):
 BUILD_BIOS_ADDR = 0xf0000
 BUILD_BIOS_SIZE = 0x10000
 BUILD_ROM_START = 0xc0000
+# Space to reserve in f-segment for dynamic allocations
+BUILD_MIN_BIOSTABLE = 2048
 
 # Layout the 16bit code.  This ensures sections with fixed offset
 # requirements are placed in the correct location.  It also places the
@@ -159,6 +161,7 @@ class LayoutInfo:
     sections32init = sec32init_start = sec32init_align = None
     sections32low = sec32low_start = sec32low_align = None
     sections32fseg = sec32fseg_start = sec32fseg_align = None
+    zonefseg_start = zonefseg_end = None
     zonelow_base = final_sec32low_start = None
     exportsyms = varlowsyms = None
 
@@ -211,6 +214,15 @@ def doLayout(sections):
     li.sec32flat_start, li.sec32flat_align = setSectionsStart(
         textsections + rodatasections + datasections + bsssections
         , li.sec32fseg_start, 16)
+    li.zonefseg_end = li.sec32flat_start
+    li.zonefseg_start = BUILD_BIOS_ADDR
+    if li.zonefseg_start + BUILD_MIN_BIOSTABLE > li.zonefseg_end:
+        # Not enough ZoneFSeg space - force a minimum space.
+        li.zonefseg_end = li.sec32fseg_start
+        li.zonefseg_start = li.zonefseg_end - BUILD_MIN_BIOSTABLE
+        li.sec32flat_start, li.sec32flat_align = setSectionsStart(
+            textsections + rodatasections + datasections + bsssections
+            , li.zonefseg_start, 16)
 
     # Determine 32flat init positions
     li.sections32init = getSectionsCategory(sections, '32init')
@@ -369,6 +381,8 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
                    , forcedelta=li.final_sec32low_start-li.sec32low_start)
     out += outXRefs(sections32all, exportsyms=li.exportsyms) + """
     _reloc_min_align = 0x%x ;
+    zonefseg_start = 0x%x ;
+    zonefseg_end = 0x%x ;
     zonelow_base = 0x%x ;
     final_varlow_start = 0x%x ;
 
@@ -390,6 +404,8 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
         code32flat_end = ABSOLUTE(.) ;
     } :text
 """ % (li.sec32init_align,
+       li.zonefseg_start,
+       li.zonefseg_end,
        li.zonelow_base,
        li.final_sec32low_start,
        sec32all_start,
