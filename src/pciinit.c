@@ -91,7 +91,15 @@ const u8 pci_irqs[4] = {
     10, 10, 11, 11
 };
 
-static int (*pci_slot_get_irq)(struct pci_device *pci, int pin);
+static int dummy_pci_slot_get_irq(struct pci_device *pci, int pin)
+{
+    dprintf(1, "pci_slot_get_irq called with unknown routing\n");
+
+    return 0xff; /* PCI defined "unknown" or "no connection" for x86 */
+}
+
+static int (*pci_slot_get_irq)(struct pci_device *pci, int pin) =
+    dummy_pci_slot_get_irq;
 
 // Return the global irq number corresponding to a host bus device irq pin.
 static int piix_pci_slot_get_irq(struct pci_device *pci, int pin)
