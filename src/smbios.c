@@ -171,8 +171,8 @@ smbios_init_type_0(void *start)
     p->header.length = sizeof(struct smbios_type_0);
     p->header.handle = 0;
 
-    load_str_field_with_default(0, vendor_str, CONFIG_APPNAME);
-    load_str_field_with_default(0, bios_version_str, CONFIG_APPNAME);
+    load_str_field_with_default(0, vendor_str, BUILD_APPNAME);
+    load_str_field_with_default(0, bios_version_str, BUILD_APPNAME);
 
     p->bios_starting_address_segment = 0xe800;
 
@@ -219,8 +219,8 @@ smbios_init_type_1(void *start)
     p->header.length = sizeof(struct smbios_type_1);
     p->header.handle = 0x100;
 
-    load_str_field_with_default(1, manufacturer_str, CONFIG_APPNAME);
-    load_str_field_with_default(1, product_name_str, CONFIG_APPNAME);
+    load_str_field_with_default(1, manufacturer_str, BUILD_APPNAME);
+    load_str_field_with_default(1, product_name_str, BUILD_APPNAME);
     load_str_field_or_skip(1, version_str);
     load_str_field_or_skip(1, serial_number_str);
 
@@ -255,7 +255,7 @@ smbios_init_type_3(void *start)
     p->header.length = sizeof(struct smbios_type_3);
     p->header.handle = 0x300;
 
-    load_str_field_with_default(3, manufacturer_str, CONFIG_APPNAME);
+    load_str_field_with_default(3, manufacturer_str, BUILD_APPNAME);
     set_field_with_default(3, type, 0x01); /* other */
 
     load_str_field_or_skip(3, version_str);
@@ -310,7 +310,7 @@ smbios_init_type_4(void *start, unsigned int cpu_number)
     set_field_with_default(4, processor_type, 0x03); /* CPU */
     set_field_with_default(4, processor_family, 0x01); /* other */
 
-    load_str_field_with_default(4, processor_manufacturer_str, CONFIG_APPNAME);
+    load_str_field_with_default(4, processor_manufacturer_str, BUILD_APPNAME);
 
     if (!get_field(4, offsetof(struct smbios_type_4, processor_id)
                    , p->processor_id)) {

@@ -134,9 +134,9 @@ handle_csm_0002(struct bregs *regs)
     for (i=0; i < csm_compat_table.E820Length / sizeof(struct e820entry); i++)
         add_e820(p[i].start, p[i].size, p[i].type);
 
-    if (csm_init_table->HiPmmMemorySizeInBytes > CONFIG_MAX_HIGHTABLE) {
+    if (csm_init_table->HiPmmMemorySizeInBytes > BUILD_MAX_HIGHTABLE) {
         u32 hi_pmm_end = csm_init_table->HiPmmMemory + csm_init_table->HiPmmMemorySizeInBytes;
-        add_e820(hi_pmm_end - CONFIG_MAX_HIGHTABLE, CONFIG_MAX_HIGHTABLE, E820_RESERVED);
+        add_e820(hi_pmm_end - BUILD_MAX_HIGHTABLE, BUILD_MAX_HIGHTABLE, E820_RESERVED);
     }
 
     // For PCIBIOS 1ab10e

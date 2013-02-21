@@ -240,7 +240,7 @@ malloc_preinit(void)
             continue;
         u32 s = en->start, e = end;
         if (!highram) {
-            u32 newe = ALIGN_DOWN(e - CONFIG_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);
+            u32 newe = ALIGN_DOWN(e - BUILD_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);
             if (newe <= e && newe >= s) {
                 highram = newe;
                 e = newe;
@@ -253,8 +253,8 @@ malloc_preinit(void)
     addSpace(&ZoneTmpLow, (void*)BUILD_STACK_ADDR, (void*)BUILD_EBDA_MINIMUM);
     if (highram) {
         addSpace(&ZoneHigh, (void*)highram
-                 , (void*)highram + CONFIG_MAX_HIGHTABLE);
-        add_e820(highram, CONFIG_MAX_HIGHTABLE, E820_RESERVED);
+                 , (void*)highram + BUILD_MAX_HIGHTABLE);
+        add_e820(highram, BUILD_MAX_HIGHTABLE, E820_RESERVED);
     }
 }
 
@@ -263,10 +263,10 @@ csm_malloc_preinit(u32 low_pmm, u32 low_pmm_size, u32 hi_pmm, u32 hi_pmm_size)
 {
     ASSERT32FLAT();
 
-    if (hi_pmm_size > CONFIG_MAX_HIGHTABLE) {
+    if (hi_pmm_size > BUILD_MAX_HIGHTABLE) {
         void *hi_pmm_end = (void *)hi_pmm + hi_pmm_size;
-        addSpace(&ZoneTmpHigh, (void *)hi_pmm, hi_pmm_end - CONFIG_MAX_HIGHTABLE);
-        addSpace(&ZoneHigh, hi_pmm_end - CONFIG_MAX_HIGHTABLE, hi_pmm_end);
+        addSpace(&ZoneTmpHigh, (void *)hi_pmm, hi_pmm_end - BUILD_MAX_HIGHTABLE);
+        addSpace(&ZoneHigh, hi_pmm_end - BUILD_MAX_HIGHTABLE, hi_pmm_end);
     } else {
         addSpace(&ZoneTmpHigh, (void *)hi_pmm, (void *)hi_pmm + hi_pmm_size);
     }

@@ -106,9 +106,9 @@ handle_75(void)
 
 struct bios_config_table_s BIOS_CONFIG_TABLE VAR16FIXED(0xe6f5) = {
     .size     = sizeof(BIOS_CONFIG_TABLE) - 2,
-    .model    = CONFIG_MODEL_ID,
-    .submodel = CONFIG_SUBMODEL_ID,
-    .biosrev  = CONFIG_BIOS_REVISION,
+    .model    = BUILD_MODEL_ID,
+    .submodel = BUILD_SUBMODEL_ID,
+    .biosrev  = BUILD_BIOS_REVISION,
     .feature1 = (
         CBT_F1_2NDPIC | CBT_F1_RTC | CBT_F1_EBDA
         | (CONFIG_KBD_CALL_INT15_4F ? CBT_F1_INT154F : 0)),
@@ -174,7 +174,7 @@ char BiosCopyright[] VAR16FIXED(0xff00) =
 // BIOS build date
 char BiosDate[] VAR16FIXED(0xfff5) = "06/23/99";
 
-u8 BiosModelId VAR16FIXED(0xfffe) = CONFIG_MODEL_ID;
+u8 BiosModelId VAR16FIXED(0xfffe) = BUILD_MODEL_ID;
 
 u8 BiosChecksum VAR16FIXED(0xffff);
 

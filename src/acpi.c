@@ -221,11 +221,11 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
     h->signature = sig;
     h->length = cpu_to_le32(len);
     h->revision = rev;
-    memcpy(h->oem_id, CONFIG_APPNAME6, 6);
-    memcpy(h->oem_table_id, CONFIG_APPNAME4, 4);
+    memcpy(h->oem_id, BUILD_APPNAME6, 6);
+    memcpy(h->oem_table_id, BUILD_APPNAME4, 4);
     memcpy(h->oem_table_id + 4, (void*)&sig, 4);
     h->oem_revision = cpu_to_le32(1);
-    memcpy(h->asl_compiler_id, CONFIG_APPNAME4, 4);
+    memcpy(h->asl_compiler_id, BUILD_APPNAME4, 4);
     h->asl_compiler_revision = cpu_to_le32(1);
     h->checksum -= checksum(h, len);
 }
@@ -879,7 +879,7 @@ acpi_setup(void)
     }
     memset(rsdp, 0, sizeof(*rsdp));
     rsdp->signature = RSDP_SIGNATURE;
-    memcpy(rsdp->oem_id, CONFIG_APPNAME6, 6);
+    memcpy(rsdp->oem_id, BUILD_APPNAME6, 6);
     rsdp->rsdt_physical_address = cpu_to_le32((u32)rsdt);
     rsdp->checksum -= checksum(rsdp, 20);
     RsdpAddr = rsdp;

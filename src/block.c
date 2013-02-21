@@ -16,7 +16,7 @@
 
 u8 FloppyCount VARFSEG;
 u8 CDCount;
-struct drive_s *IDMap[3][CONFIG_MAX_EXTDRIVE] VARFSEG;
+struct drive_s *IDMap[3][BUILD_MAX_EXTDRIVE] VARFSEG;
 u8 *bounce_buf_fl VARFSEG;
 struct dpte_s DefaultDPTE VARLOW;
 

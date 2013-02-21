@@ -5,27 +5,27 @@
 
 // Configuration definitions.
 
-//#define CONFIG_APPNAME  "QEMU"
-//#define CONFIG_CPUNAME8 "QEMUCPU "
-//#define CONFIG_APPNAME6 "QEMU  "
-//#define CONFIG_APPNAME4 "QEMU"
-#define CONFIG_APPNAME  "Bochs"
-#define CONFIG_CPUNAME8 "BOCHSCPU"
-#define CONFIG_APPNAME6 "BOCHS "
-#define CONFIG_APPNAME4 "BXPC"
+//#define BUILD_APPNAME  "QEMU"
+//#define BUILD_CPUNAME8 "QEMUCPU "
+//#define BUILD_APPNAME6 "QEMU  "
+//#define BUILD_APPNAME4 "QEMU"
+#define BUILD_APPNAME  "Bochs"
+#define BUILD_CPUNAME8 "BOCHSCPU"
+#define BUILD_APPNAME6 "BOCHS "
+#define BUILD_APPNAME4 "BXPC"
 
 // Maximum number of map entries in the e820 map
-#define CONFIG_MAX_E820 32
+#define BUILD_MAX_E820 32
 // Space to reserve in high-memory for tables
-#define CONFIG_MAX_HIGHTABLE (64*1024)
+#define BUILD_MAX_HIGHTABLE (64*1024)
 // Largest supported externaly facing drive id
-#define CONFIG_MAX_EXTDRIVE 16
+#define BUILD_MAX_EXTDRIVE 16
 // Number of bytes the smbios may be and still live in the f-segment
 #define BUILD_MAX_SMBIOS_FSEG     600
 
-#define CONFIG_MODEL_ID      0xFC
-#define CONFIG_SUBMODEL_ID   0x00
-#define CONFIG_BIOS_REVISION 0x01
+#define BUILD_MODEL_ID      0xFC
+#define BUILD_SUBMODEL_ID   0x00
+#define BUILD_BIOS_REVISION 0x01
 
 // Various memory addresses used by the code.
 #define BUILD_STACK_ADDR          0x7000

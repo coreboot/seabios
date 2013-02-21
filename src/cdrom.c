@@ -13,7 +13,7 @@
 #include "blockcmd.h" // CDB_CMD_REQUEST_SENSE
 
 // Locks for removable devices
-u8 CDRom_locks[CONFIG_MAX_EXTDRIVE] VARLOW;
+u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;
 
 
 /****************************************************************
