@@ -151,17 +151,6 @@ struct madt_local_nmi {
 
 
 /*
- * ACPI 2.0 Generic Address Space definition.
- */
-struct acpi_20_generic_address {
-    u8  address_space_id;
-    u8  register_bit_width;
-    u8  register_bit_offset;
-    u8  reserved;
-    u64 address;
-} PACKED;
-
-/*
  * HPET Description Table
  */
 struct acpi_20_hpet {
@@ -934,4 +923,51 @@ find_acpi_features(void)
     dprintf(4, "pm_tmr_blk=%x\n", pm_tmr);
     if (pm_tmr)
         pmtimer_setup(pm_tmr, 3579);
+
+    // Theoretically we should check the 'reset_reg_sup' flag, but Windows
+    // doesn't and thus nobody seems to *set* it. If the table is large enough
+    // to include it, let the sanity checks in acpi_set_reset_reg() suffice.
+    if (fadt->length >= 129) {
+        void *p = fadt;
+        acpi_set_reset_reg(p + 116, *(u8 *)(p + 128));
+    }
+}
+
+static struct acpi_20_generic_address acpi_reset_reg;
+static u8 acpi_reset_val;
+
+void
+acpi_reboot(void)
+{
+    // Check it passed the sanity checks in acpi_set_reset_reg() and was set
+    if (acpi_reset_reg.register_bit_width != 8)
+        return;
+
+    u64 addr = le64_to_cpu(acpi_reset_reg.address);
+
+    dprintf(1, "ACPI hard reset %d:%llx (%x)\n",
+            acpi_reset_reg.address_space_id, addr, acpi_reset_val);
+
+    switch (acpi_reset_reg.address_space_id) {
+    case 0: // System Memory
+	writeb((void *)(u32)addr, acpi_reset_val);
+        break;
+    case 1: // System I/O
+        outb(acpi_reset_val, addr);
+        break;
+    case 2: // PCI config space
+        pci_config_writeb(acpi_ga_to_bdf(addr), addr & 0xffff, acpi_reset_val);
+        break;
+    }
+}
+
+void
+acpi_set_reset_reg(struct acpi_20_generic_address *reg, u8 val)
+{
+    if (!reg || reg->address_space_id > 2 ||
+        reg->register_bit_width != 8 || reg->register_bit_offset)
+        return;
+
+    acpi_reset_reg = *reg;
+    acpi_reset_val = val;
 }

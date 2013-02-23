@@ -132,6 +132,9 @@ tryReboot(void)
     // Setup for reset on qemu.
     qemu_prep_reset();
 
+    // Reboot using ACPI RESET_REG
+    acpi_reboot();
+
     // Try keyboard controller reboot.
     i8042_reboot();
 
