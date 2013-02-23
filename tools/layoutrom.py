@@ -238,9 +238,9 @@ def doLayout(sections):
     # Determine "low memory" data positions
     li.sections32low = getSectionsCategory(sections, '32low')
     sec32low_end = li.sec32init_start
-    final_sec32low_start = min(BUILD_BIOS_ADDR, li.sec32flat_start)
-    relocdelta = final_sec32low_start - sec32low_end
-    zonelow_base = final_sec32low_start - 64*1024
+    final_sec32low_end = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+    relocdelta = final_sec32low_end - sec32low_end
+    zonelow_base = final_sec32low_end - 64*1024
     li.zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
     li.sec32low_start, li.sec32low_align = setSectionsStart(
         li.sections32low, sec32low_end, 16
