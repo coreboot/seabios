@@ -12,7 +12,7 @@
 #include "boot.h" // boot_add_cbfs
 #include "disk.h" // MAXDESCSIZE
 #include "config.h" // CONFIG_*
-#include "acpi.h" // find_pmtimer
+#include "acpi.h" // find_acpi_features
 #include "pci.h" // pci_probe_devices
 
 
@@ -214,7 +214,7 @@ coreboot_platform_setup(void)
             scan_tables(m->start, m->size);
     }
 
-    find_pmtimer();
+    find_acpi_features();
 }
 
 

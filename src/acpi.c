@@ -925,15 +925,13 @@ find_resume_vector(void)
 }
 
 void
-find_pmtimer(void)
+find_acpi_features(void)
 {
     struct fadt_descriptor_rev1 *fadt = find_fadt();
     if (!fadt)
         return;
-    u32 pm_tmr = fadt->pm_tmr_blk;
+    u32 pm_tmr = le32_to_cpu(fadt->pm_tmr_blk);
     dprintf(4, "pm_tmr_blk=%x\n", pm_tmr);
-    if (!pm_tmr)
-        return;
-
-    pmtimer_setup(pm_tmr, 3579);
+    if (pm_tmr)
+        pmtimer_setup(pm_tmr, 3579);
 }

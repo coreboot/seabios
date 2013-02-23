@@ -146,12 +146,12 @@ handle_csm_0002(struct bregs *regs)
         dprintf(3, "CSM PIRQ table at %p\n", PirAddr);
     }
 
-    // For find_resume_vector()... and find_pmtimer()
+    // For find_resume_vector()... and find_acpi_features()
     if (csm_rsdp.signature == RSDP_SIGNATURE) {
         RsdpAddr = &csm_rsdp;
         dprintf(3, "CSM ACPI RSDP at %p\n", RsdpAddr);
 
-        find_pmtimer();
+        find_acpi_features();
     }
 
     // SMBIOS table needs to be copied into the f-seg
