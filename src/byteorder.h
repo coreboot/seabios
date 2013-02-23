@@ -43,7 +43,7 @@ static inline u16 le16_to_cpu(u16 x) {
 static inline u32 le32_to_cpu(u32 x) {
     return x;
 }
-static inline u32 le64_to_cpu(u64 x) {
+static inline u64 le64_to_cpu(u64 x) {
     return x;
 }
 
@@ -62,7 +62,7 @@ static inline u16 be16_to_cpu(u16 x) {
 static inline u32 be32_to_cpu(u32 x) {
     return swab32(x);
 }
-static inline u32 be64_to_cpu(u64 x) {
+static inline u64 be64_to_cpu(u64 x) {
     return swab64(x);
 }
 
