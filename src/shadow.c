@@ -169,8 +169,4 @@ qemu_prep_reset(void)
     extern u8 code32flat_start[], code32flat_end[];
     memcpy(code32flat_start, code32flat_start + BIOS_SRC_OFFSET
            , code32flat_end - code32flat_start);
-
-    if (HaveRunPost)
-        // Memory copy failed to work - try to halt the machine.
-        apm_shutdown();
 }
