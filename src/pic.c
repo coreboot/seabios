@@ -33,7 +33,7 @@ void
 pic_setup(void)
 {
     dprintf(3, "init pic\n");
-    set_pics(0x08, 0x70);
+    set_pics(BIOS_HWIRQ0_VECTOR, BIOS_HWIRQ8_VECTOR);
 }
 
 // Handler for otherwise unused hardware irqs.

@@ -22,6 +22,9 @@
 #define PIC2_IRQ13 (1<<5)
 #define PIC2_IRQ14 (1<<6)
 
+#define BIOS_HWIRQ0_VECTOR 0x08
+#define BIOS_HWIRQ8_VECTOR 0x70
+
 static inline void
 eoi_pic1(void)
 {
@@ -83,10 +86,10 @@ enable_hwirq(int hwirq, struct segoff_s func)
     int vector;
     if (hwirq < 8) {
         unmask_pic1(1 << hwirq);
-        vector = 0x08 + hwirq;
+        vector = BIOS_HWIRQ0_VECTOR + hwirq;
     } else {
         unmask_pic2(1 << (hwirq - 8));
-        vector = 0x70 + hwirq - 8;
+        vector = BIOS_HWIRQ8_VECTOR + hwirq - 8;
     }
     SET_IVT(vector, func);
 }

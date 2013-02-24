@@ -47,9 +47,9 @@ ivt_init(void)
         SET_IVT(i, FUNC16(entry_iret_official));
 
     // Initialize all hw vectors to a default hw handler.
-    for (i=0x08; i<=0x0f; i++)
+    for (i=BIOS_HWIRQ0_VECTOR; i<BIOS_HWIRQ0_VECTOR+8; i++)
         SET_IVT(i, FUNC16(entry_hwpic1));
-    for (i=0x70; i<=0x77; i++)
+    for (i=BIOS_HWIRQ8_VECTOR; i<BIOS_HWIRQ8_VECTOR+8; i++)
         SET_IVT(i, FUNC16(entry_hwpic2));
 
     // Initialize software handlers.
