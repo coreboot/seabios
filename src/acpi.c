@@ -439,7 +439,7 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 #define SSDT_HEADER_LENGTH 36
 
-#include "ssdt-susp.hex"
+#include "ssdt-misc.hex"
 #include "ssdt-pcihp.hex"
 
 #define PCI_RMV_BASE 0xae0c
@@ -496,7 +496,7 @@ static void*
 build_ssdt(void)
 {
     int acpi_cpus = MaxCountCPUs > 0xff ? 0xff : MaxCountCPUs;
-    int length = (sizeof(ssdp_susp_aml)                     // _S3_ / _S4_ / _S5_
+    int length = (sizeof(ssdp_misc_aml)                     // _S3_ / _S4_ / _S5_
                   + (1+3+4)                                 // Scope(_SB_)
                   + (acpi_cpus * PROC_SIZEOF)               // procs
                   + (1+2+5+(12*acpi_cpus))                  // NTFY
@@ -518,14 +518,14 @@ build_ssdt(void)
     if (!sys_states || sys_state_size != 6)
         sys_states = (char[]){128, 0, 0, 129, 128, 128};
 
-    memcpy(ssdt_ptr, ssdp_susp_aml, sizeof(ssdp_susp_aml));
+    memcpy(ssdt_ptr, ssdp_misc_aml, sizeof(ssdp_misc_aml));
     if (!(sys_states[3] & 128))
         ssdt_ptr[acpi_s3_name[0]] = 'X';
     if (!(sys_states[4] & 128))
         ssdt_ptr[acpi_s4_name[0]] = 'X';
     else
         ssdt_ptr[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
-    ssdt_ptr += sizeof(ssdp_susp_aml);
+    ssdt_ptr += sizeof(ssdp_misc_aml);
 
     // build Scope(_SB_) header
     *(ssdt_ptr++) = 0x10; // ScopeOp
