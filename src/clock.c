@@ -562,8 +562,7 @@ handle_08(void)
 {
     debug_isr(DEBUG_ISR_08);
 
-    floppy_tick();
-
+    // Update counter
     u32 counter = GET_BDA(timer_counter);
     counter++;
     // compare to one days worth of timer ticks at 18.2 hz
@@ -572,9 +571,10 @@ handle_08(void)
         counter = 0;
         SET_BDA(timer_rollover, GET_BDA(timer_rollover) + 1);
     }
-
     SET_BDA(timer_counter, counter);
 
+    // Check for internal events.
+    floppy_tick();
     usb_check_event();
 
     // chain to user timer tick INT #0x1c
