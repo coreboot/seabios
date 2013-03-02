@@ -201,18 +201,18 @@ handle_1ab1(struct bregs *regs)
     }
 }
 
+// Entry point for pci bios functions.
+void VISIBLE16 VISIBLE32SEG
+handle_pcibios(struct bregs *regs)
+{
+    debug_enter(regs, DEBUG_HDL_pcibios);
+    handle_1ab1(regs);
+}
+
 
 /****************************************************************
  * 32bit interface
  ****************************************************************/
-
-// Entry point for 32bit pci bios functions.
-void VISIBLE32SEG
-handle_pcibios32(struct bregs *regs)
-{
-    debug_enter(regs, DEBUG_HDL_pcibios32);
-    handle_1ab1(regs);
-}
 
 struct bios32_s {
     u32 signature;

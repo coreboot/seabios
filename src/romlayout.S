@@ -334,19 +334,26 @@ entry_apm32:
         popfl
         lretl
 
-// PCI-BIOS 32bit entry point
+// PCI-BIOS entry points
         DECLFUNC entry_pcibios32
 entry_pcibios32:
         pushfl
         pushl %gs               // Backup %gs and set %gs=%ds
         pushl %ds
         popl %gs
-        ENTRY_ARG_ESP _cfunc32seg_handle_pcibios32
+        ENTRY_ARG_ESP _cfunc32seg_handle_pcibios
         popl %gs
         popfl
         lretl
 
+        .code16gcc
+        DECLFUNC entry_pcibios16
+entry_pcibios16:
+        ENTRY_ARG handle_pcibios
+        iretw
+
 // BIOS32 support
+        .code32
         DECLFUNC entry_bios32
 entry_bios32:
         pushfl
@@ -600,6 +607,10 @@ entry_10_0x0f:
         // 0xfa6e - vgafont8 in font.c
 
         ORG 0xfe6e
+        .global entry_1a_official
+entry_1a_official:
+        cmpb $0xb1, %ah
+        je entry_pcibios16      // PCIBIOS calls can be in protected mode
         IRQ_ENTRY_ARG 1a
 
         ORG 0xfea5
