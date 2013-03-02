@@ -480,6 +480,60 @@ irqentry_extrastack:
         popw %ds
         iretw
 
+        // Main entry point for interrupts handled on extra stack
+        DECLFUNC irqentry_arg_extrastack
+irqentry_arg_extrastack:
+        cli
+        cld
+        pushw %ds               // Set %ds:%eax to space on ExtraStack
+        pushl %eax
+        movl $_zonelow_seg, %eax
+        movl %eax, %ds
+        movl StackPos, %eax
+        subl $BREGS_size+8, %eax
+        popl BREGS_eax(%eax)    // Backup registers
+        popw BREGS_ds(%eax)
+        movl %edi, BREGS_edi(%eax)
+        movl %esi, BREGS_esi(%eax)
+        movl %ebp, BREGS_ebp(%eax)
+        movl %ebx, BREGS_ebx(%eax)
+        movl %edx, BREGS_edx(%eax)
+        movl %ecx, BREGS_ecx(%eax)
+        popl %ecx
+        movw %es, BREGS_es(%eax)
+        movl %esp, BREGS_size+0(%eax)
+        movzwl %sp, %esp
+        movw %ss, BREGS_size+4(%eax)
+        movl (%esp), %edx
+        movl %edx, BREGS_code(%eax)
+        movw 4(%esp), %dx
+        movw %dx, BREGS_flags(%eax)
+
+        movw %ds, %dx           // Setup %ss/%esp and call function
+        movw %dx, %ss
+        movl %eax, %esp
+        calll *%ecx
+
+        movl %esp, %eax         // Restore registers and return
+        movw BREGS_size+4(%eax), %ss
+        movl BREGS_size+0(%eax), %esp
+        popl %edx
+        popw %dx
+        pushw BREGS_flags(%eax)
+        pushl BREGS_code(%eax)
+        movl BREGS_edi(%eax), %edi
+        movl BREGS_esi(%eax), %esi
+        movl BREGS_ebp(%eax), %ebp
+        movl BREGS_ebx(%eax), %ebx
+        movl BREGS_edx(%eax), %edx
+        movl BREGS_ecx(%eax), %ecx
+        movw BREGS_es(%eax), %es
+        pushw BREGS_ds(%eax)
+        pushl BREGS_eax(%eax)
+        popl %eax
+        popw %ds
+        iretw
+
         // Main entry point for interrupts with args
         DECLFUNC irqentryarg
 irqentryarg:
@@ -504,7 +558,11 @@ irqentryarg:
         .global entry_\num
         entry_\num :
         pushl $ handle_\num
+#if CONFIG_ENTRY_EXTRASTACK
+        jmp irqentry_arg_extrastack
+#else
         jmp irqentryarg
+#endif
         .endm
 
         .macro DECL_IRQ_ENTRY_ARG num

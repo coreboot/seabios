@@ -103,6 +103,15 @@ endchoice
         default y
         help
             Support floppy images in coreboot flash.
+    config ENTRY_EXTRASTACK
+        bool "Use internal stack for 16bit interrupt entry points"
+        default y
+        help
+            Utilize an internal stack for all the legacy 16bit
+            interrupt entry points.  This reduces the amount of space
+            on the caller's stack that SeaBIOS uses.  This may
+            adversely impact any legacy operating systems that call
+            the BIOS in 16bit protected mode.
 
 endmenu
 
