@@ -191,34 +191,6 @@ floppy_wait_irq(void)
     return DISK_RET_SUCCESS;
 }
 
-static int
-floppy_enable_controller(void)
-{
-    outb(inb(PORT_FD_DOR) | 0x04, PORT_FD_DOR);
-    return floppy_wait_irq();
-}
-
-static int
-floppy_select_drive(u8 floppyid)
-{
-    // reset the disk motor timeout value of INT 08
-    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
-
-    // Enable controller if it isn't running.
-    u8 dor = inb(PORT_FD_DOR);
-    if (!(dor & 0x04)) {
-        int ret = floppy_enable_controller();
-        if (ret)
-            return ret;
-    }
-
-    // Turn on motor of selected drive, DMA & int enabled, normal operation
-    dor = (floppyid ? 0x20 : 0x10) | 0x0c | floppyid;
-    outb(dor, PORT_FD_DOR);
-
-    return DISK_RET_SUCCESS;
-}
-
 struct floppy_pio_s {
     u8 cmdlen;
     u8 resplen;
@@ -229,10 +201,6 @@ struct floppy_pio_s {
 static int
 floppy_pio(struct floppy_pio_s *pio)
 {
-    int ret = floppy_select_drive(pio->data[1] & 1);
-    if (ret)
-        return ret;
-
     // wait for drive readiness
     while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
         ;
@@ -258,6 +226,43 @@ floppy_pio(struct floppy_pio_s *pio)
     // read return status bytes from controller
     for (i=0; i<pio->resplen; i++)
         pio->data[i] = inb(PORT_FD_DATA);
+
+    return DISK_RET_SUCCESS;
+}
+
+static int
+floppy_enable_controller(void)
+{
+    outb(inb(PORT_FD_DOR) | 0x04, PORT_FD_DOR);
+    int ret = floppy_wait_irq();
+    if (ret)
+        return ret;
+
+    struct floppy_pio_s pio;
+    pio.cmdlen = 1;
+    pio.resplen = 2;
+    pio.waitirq = 0;
+    pio.data[0] = 0x08;  // 08: Check Interrupt Status
+    return floppy_pio(&pio);
+}
+
+static int
+floppy_select_drive(u8 floppyid)
+{
+    // reset the disk motor timeout value of INT 08
+    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
+
+    // Enable controller if it isn't running.
+    u8 dor = inb(PORT_FD_DOR);
+    if (!(dor & 0x04)) {
+        int ret = floppy_enable_controller();
+        if (ret)
+            return ret;
+    }
+
+    // Turn on motor of selected drive, DMA & int enabled, normal operation
+    dor = (floppyid ? 0x20 : 0x10) | 0x0c | floppyid;
+    outb(dor, PORT_FD_DOR);
 
     return DISK_RET_SUCCESS;
 }
@@ -298,9 +303,12 @@ floppy_cmd(struct disk_op_s *op, int count, struct floppy_pio_s *pio)
 
     outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
 
+    int ret = floppy_select_drive(pio->data[1] & 1);
+    if (ret)
+        return ret;
     pio->resplen = 7;
     pio->waitirq = 1;
-    int ret = floppy_pio(pio);
+    ret = floppy_pio(pio);
     if (ret)
         return ret;
 
@@ -323,9 +331,13 @@ set_diskette_current_cyl(u8 floppyid, u8 cyl)
     SET_BDA(floppy_track[floppyid], cyl);
 }
 
-static void
+static int
 floppy_drive_recal(u8 floppyid)
 {
+    int ret = floppy_select_drive(floppyid);
+    if (ret)
+        return ret;
+
     // send Recalibrate command (2 bytes) to controller
     struct floppy_pio_s pio;
     pio.cmdlen = 2;
@@ -333,11 +345,22 @@ floppy_drive_recal(u8 floppyid)
     pio.waitirq = 1;
     pio.data[0] = 0x07;  // 07: Recalibrate
     pio.data[1] = floppyid; // 0=drive0, 1=drive1
-    floppy_pio(&pio);
+    ret = floppy_pio(&pio);
+    if (ret)
+        return ret;
+
+    pio.cmdlen = 1;
+    pio.resplen = 2;
+    pio.waitirq = 0;
+    pio.data[0] = 0x08;  // 08: Check Interrupt Status
+    ret = floppy_pio(&pio);
+    if (ret)
+        return ret;
 
     u8 frs = GET_BDA(floppy_recalibration_status);
     SET_BDA(floppy_recalibration_status, frs | (1<<floppyid));
     set_diskette_current_cyl(floppyid, 0);
+    return DISK_RET_SUCCESS;
 }
 
 static int
@@ -392,7 +415,9 @@ check_recal_drive(struct drive_s *drive_g)
         return DISK_RET_SUCCESS;
 
     // Recalibrate drive.
-    floppy_drive_recal(floppyid);
+    int ret = floppy_drive_recal(floppyid);
+    if (ret)
+        return ret;
 
     // Sense media.
     return floppy_media_sense(drive_g);
@@ -607,14 +632,6 @@ handle_0e(void)
         return;
     debug_isr(DEBUG_ISR_0e);
 
-    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0) {
-        outb(0x08, PORT_FD_DATA); // sense interrupt status
-        while ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
-            ;
-        do {
-            inb(PORT_FD_DATA);
-        } while ((inb(PORT_FD_STATUS) & 0xc0) == 0xc0);
-    }
     // diskette interrupt has occurred
     u8 frs = GET_BDA(floppy_recalibration_status);
     SET_BDA(floppy_recalibration_status, frs | FRS_IRQ);
