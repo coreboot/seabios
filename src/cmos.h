@@ -6,6 +6,7 @@
 #ifndef __CMOS_H
 #define __CMOS_H
 
+// Standard BIOS RTC chip entries
 #define CMOS_RTC_SECONDS         0x00
 #define CMOS_RTC_SECONDS_ALARM   0x01
 #define CMOS_RTC_MINUTES         0x02
@@ -21,6 +22,9 @@
 #define CMOS_STATUS_C            0x0c
 #define CMOS_STATUS_D            0x0d
 #define CMOS_RESET_CODE          0x0f
+
+// QEMU cmos config fields.  DO NOT ADD MORE.  (All new content should
+// be passed via the fw_cfg "file" interface.)
 #define CMOS_FLOPPY_DRIVE_TYPE   0x10
 #define CMOS_DISK_DATA           0x12
 #define CMOS_EQUIPMENT_INFO      0x14
