@@ -529,8 +529,14 @@ static int
 floppy_reset(struct disk_op_s *op)
 {
     u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
-    set_diskette_current_cyl(floppyid, 0); // current cylinder
-    return DISK_RET_SUCCESS;
+    SET_BDA(floppy_recalibration_status, 0);
+    SET_BDA(floppy_media_state[0], 0);
+    SET_BDA(floppy_media_state[1], 0);
+    SET_BDA(floppy_track[0], 0);
+    SET_BDA(floppy_track[1], 0);
+    SET_BDA(floppy_last_data_rate, 0);
+    floppy_disable_controller();
+    return floppy_select_drive(floppyid);
 }
 
 // Read Diskette Sectors
