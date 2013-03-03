@@ -267,59 +267,6 @@ floppy_select_drive(u8 floppyid)
     return DISK_RET_SUCCESS;
 }
 
-// Perform a floppy transfer command (setup DMA and issue PIO).
-static int
-floppy_cmd(struct disk_op_s *op, int count, struct floppy_pio_s *pio)
-{
-    // es:bx = pointer to where to place information from diskette
-    u32 addr = (u32)op->buf_fl;
-
-    // check for 64K boundary overrun
-    u16 end = count - 1;
-    u32 last_addr = addr + end;
-    if ((addr >> 16) != (last_addr >> 16))
-        return DISK_RET_EBOUNDARY;
-
-    u8 mode_register = 0x4a; // single mode, increment, autoinit disable,
-    if (pio->data[0] == 0xe6)
-        // read
-        mode_register = 0x46;
-
-    //DEBUGF("floppy dma c2\n");
-    outb(0x06, PORT_DMA1_MASK_REG);
-    outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
-    outb(addr, PORT_DMA_ADDR_2);
-    outb(addr>>8, PORT_DMA_ADDR_2);
-    outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
-    outb(end, PORT_DMA_CNT_2);
-    outb(end>>8, PORT_DMA_CNT_2);
-
-    // port 0b: DMA-1 Mode Register
-    // transfer type=write, channel 2
-    outb(mode_register, PORT_DMA1_MODE_REG);
-
-    // port 81: DMA-1 Page Register, channel 2
-    outb(addr>>16, PORT_DMA_PAGE_2);
-
-    outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
-
-    int ret = floppy_select_drive(pio->data[1] & 1);
-    if (ret)
-        return ret;
-    pio->resplen = 7;
-    pio->waitirq = 1;
-    ret = floppy_pio(pio);
-    if (ret)
-        return ret;
-
-    // Populate floppy_return_status in BDA
-    int i;
-    for (i=0; i<7; i++)
-        SET_BDA(floppy_return_status[i], pio->data[i]);
-
-    return DISK_RET_SUCCESS;
-}
-
 
 /****************************************************************
  * Floppy media sense
@@ -425,6 +372,81 @@ check_recal_drive(struct drive_s *drive_g)
 
 
 /****************************************************************
+ * Floppy DMA
+ ****************************************************************/
+
+// Perform a floppy transfer command (setup DMA and issue PIO).
+static int
+floppy_cmd(struct disk_op_s *op, int blocksize, struct floppy_pio_s *pio)
+{
+    int ret = check_recal_drive(op->drive_g);
+    if (ret)
+        return ret;
+
+    // es:bx = pointer to where to place information from diskette
+    u32 addr = (u32)op->buf_fl;
+    int count = op->count * blocksize;
+
+    // check for 64K boundary overrun
+    u16 end = count - 1;
+    u32 last_addr = addr + end;
+    if ((addr >> 16) != (last_addr >> 16))
+        return DISK_RET_EBOUNDARY;
+
+    u8 mode_register = 0x4a; // single mode, increment, autoinit disable,
+    if (pio->data[0] == 0xe6)
+        // read
+        mode_register = 0x46;
+
+    //DEBUGF("floppy dma c2\n");
+    outb(0x06, PORT_DMA1_MASK_REG);
+    outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
+    outb(addr, PORT_DMA_ADDR_2);
+    outb(addr>>8, PORT_DMA_ADDR_2);
+    outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
+    outb(end, PORT_DMA_CNT_2);
+    outb(end>>8, PORT_DMA_CNT_2);
+
+    // port 0b: DMA-1 Mode Register
+    // transfer type=write, channel 2
+    outb(mode_register, PORT_DMA1_MODE_REG);
+
+    // port 81: DMA-1 Page Register, channel 2
+    outb(addr>>16, PORT_DMA_PAGE_2);
+
+    outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
+
+    ret = floppy_select_drive(pio->data[1] & 1);
+    if (ret)
+        return ret;
+    pio->resplen = 7;
+    pio->waitirq = 1;
+    ret = floppy_pio(pio);
+    if (ret)
+        return ret;
+
+    // Populate floppy_return_status in BDA
+    int i;
+    for (i=0; i<7; i++)
+        SET_BDA(floppy_return_status[i], pio->data[i]);
+
+    if (pio->data[0] & 0xc0) {
+        if (pio->data[1] & 0x02)
+            return DISK_RET_EWRITEPROTECT;
+        dprintf(1, "floppy error: %02x %02x %02x %02x %02x %02x %02x"
+                , pio->data[0], pio->data[1], pio->data[2], pio->data[3]
+                , pio->data[4], pio->data[5], pio->data[6]);
+        return DISK_RET_ECONTROLLER;
+    }
+
+    u8 track = (pio->cmdlen == 9 ? pio->data[3] : 0);
+    set_diskette_current_cyl(pio->data[0] & 1, track);
+
+    return DISK_RET_SUCCESS;
+}
+
+
+/****************************************************************
  * Floppy handlers
  ****************************************************************/
 
@@ -458,10 +480,6 @@ floppy_reset(struct disk_op_s *op)
 static int
 floppy_read(struct disk_op_s *op)
 {
-    int res = check_recal_drive(op->drive_g);
-    if (res)
-        goto fail;
-
     u8 track, sector, head;
     lba2chs(op, &track, &sector, &head);
 
@@ -479,17 +497,9 @@ floppy_read(struct disk_op_s *op)
     pio.data[7] = FLOPPY_GAPLEN;
     pio.data[8] = FLOPPY_DATALEN;
 
-    res = floppy_cmd(op, op->count * DISK_SECTOR_SIZE, &pio);
+    int res = floppy_cmd(op, DISK_SECTOR_SIZE, &pio);
     if (res)
         goto fail;
-
-    if (pio.data[0] & 0xc0) {
-        res = DISK_RET_ECONTROLLER;
-        goto fail;
-    }
-
-    // ??? should track be new val from return_status[3] ?
-    set_diskette_current_cyl(floppyid, track);
     return DISK_RET_SUCCESS;
 fail:
     op->count = 0; // no sectors read
@@ -500,10 +510,6 @@ fail:
 static int
 floppy_write(struct disk_op_s *op)
 {
-    int res = check_recal_drive(op->drive_g);
-    if (res)
-        goto fail;
-
     u8 track, sector, head;
     lba2chs(op, &track, &sector, &head);
 
@@ -521,20 +527,9 @@ floppy_write(struct disk_op_s *op)
     pio.data[7] = FLOPPY_GAPLEN;
     pio.data[8] = FLOPPY_DATALEN;
 
-    res = floppy_cmd(op, op->count * DISK_SECTOR_SIZE, &pio);
+    int res = floppy_cmd(op, DISK_SECTOR_SIZE, &pio);
     if (res)
         goto fail;
-
-    if (pio.data[0] & 0xc0) {
-        if (pio.data[1] & 0x02)
-            res = DISK_RET_EWRITEPROTECT;
-        else
-            res = DISK_RET_ECONTROLLER;
-        goto fail;
-    }
-
-    // ??? should track be new val from return_status[3] ?
-    set_diskette_current_cyl(floppyid, track);
     return DISK_RET_SUCCESS;
 fail:
     op->count = 0; // no sectors read
@@ -565,10 +560,6 @@ fail:
 static int
 floppy_format(struct disk_op_s *op)
 {
-    int ret = check_recal_drive(op->drive_g);
-    if (ret)
-        return ret;
-
     u8 head = op->lba;
 
     // send format-track command (6 bytes) to controller
@@ -582,18 +573,7 @@ floppy_format(struct disk_op_s *op)
     pio.data[4] = FLOPPY_FORMAT_GAPLEN;
     pio.data[5] = FLOPPY_FILLBYTE;
 
-    ret = floppy_cmd(op, op->count * 4, &pio);
-    if (ret)
-        return ret;
-
-    if (pio.data[0] & 0xc0) {
-        if (pio.data[1] & 0x02)
-            return DISK_RET_EWRITEPROTECT;
-        return DISK_RET_ECONTROLLER;
-    }
-
-    set_diskette_current_cyl(floppyid, 0);
-    return DISK_RET_SUCCESS;
+    return floppy_cmd(op, 4, &pio);
 }
 
 int
