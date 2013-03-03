@@ -23,6 +23,7 @@
 #define FLOPPY_FILLBYTE 0xf6
 #define FLOPPY_GAPLEN 0x1B
 #define FLOPPY_FORMAT_GAPLEN 0x6c
+#define FLOPPY_PIO_TIMEOUT 1000
 
 // New diskette parameter table adding 3 parameters from IBM
 // Since no provisions are made for multiple drive types, most
@@ -201,31 +202,54 @@ struct floppy_pio_s {
 static int
 floppy_pio(struct floppy_pio_s *pio)
 {
-    // wait for drive readiness
-    while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
-        ;
+    // Send command to controller.
+    u64 end = calc_future_tsc(FLOPPY_PIO_TIMEOUT);
+    int i = 0;
+    for (;;) {
+        u8 sts = inb(PORT_FD_STATUS);
+        if (!(sts & 0x80)) {
+            if (check_tsc(end)) {
+                floppy_disable_controller();
+                return DISK_RET_ETIMEOUT;
+            }
+            continue;
+        }
+        if (sts & 0x40) {
+            floppy_disable_controller();
+            return DISK_RET_ECONTROLLER;
+        }
+        outb(pio->data[i++], PORT_FD_DATA);
+        if (i >= pio->cmdlen)
+            break;
+    }
 
-    // send command to controller
-    int i;
-    for (i=0; i<pio->cmdlen; i++)
-        outb(pio->data[i], PORT_FD_DATA);
-
+    // Wait for command to complete.
     if (pio->waitirq) {
         int ret = floppy_wait_irq();
         if (ret)
             return ret;
     }
 
-    if (!pio->resplen)
-        return DISK_RET_SUCCESS;
-
-    // check port 3f4 for accessibility to status bytes
-    if ((inb(PORT_FD_STATUS) & 0xc0) != 0xc0)
-        return DISK_RET_ECONTROLLER;
-
-    // read return status bytes from controller
-    for (i=0; i<pio->resplen; i++)
-        pio->data[i] = inb(PORT_FD_DATA);
+    // Read response from controller.
+    end = calc_future_tsc(FLOPPY_PIO_TIMEOUT);
+    i = 0;
+    for (;;) {
+        u8 sts = inb(PORT_FD_STATUS);
+        if (!(sts & 0x80)) {
+            if (check_tsc(end)) {
+                floppy_disable_controller();
+                return DISK_RET_ETIMEOUT;
+            }
+            continue;
+        }
+        if (i >= pio->resplen)
+            break;
+        if (!(sts & 0x40)) {
+            floppy_disable_controller();
+            return DISK_RET_ECONTROLLER;
+        }
+        pio->data[i++] = inb(PORT_FD_DATA);
+    }
 
     return DISK_RET_SUCCESS;
 }
