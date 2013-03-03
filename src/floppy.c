@@ -52,29 +52,37 @@ struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7);
 
 struct floppyinfo_s {
     struct chs_s chs;
-    u8 config_data;
-    u8 media_state;
+    u8 floppy_size;
+    u8 data_rate;
 };
+
+#define FLOPPY_SIZE_525 0x01
+#define FLOPPY_SIZE_350 0x02
+
+#define FLOPPY_RATE_500K 0x00
+#define FLOPPY_RATE_300K 0x01
+#define FLOPPY_RATE_250K 0x02
+#define FLOPPY_RATE_1M   0x03
 
 struct floppyinfo_s FloppyInfo[] VARFSEG = {
     // Unknown
     { {0, 0, 0}, 0x00, 0x00},
     // 1 - 360KB, 5.25" - 2 heads, 40 tracks, 9 sectors
-    { {2, 40, 9}, 0x00, 0x25},
+    { {2, 40, 9}, FLOPPY_SIZE_525, FLOPPY_RATE_300K},
     // 2 - 1.2MB, 5.25" - 2 heads, 80 tracks, 15 sectors
-    { {2, 80, 15}, 0x00, 0x25},
+    { {2, 80, 15}, FLOPPY_SIZE_525, FLOPPY_RATE_500K},
     // 3 - 720KB, 3.5"  - 2 heads, 80 tracks, 9 sectors
-    { {2, 80, 9}, 0x00, 0x17},
+    { {2, 80, 9}, FLOPPY_SIZE_350, FLOPPY_RATE_250K},
     // 4 - 1.44MB, 3.5" - 2 heads, 80 tracks, 18 sectors
-    { {2, 80, 18}, 0x00, 0x17},
+    { {2, 80, 18}, FLOPPY_SIZE_350, FLOPPY_RATE_500K},
     // 5 - 2.88MB, 3.5" - 2 heads, 80 tracks, 36 sectors
-    { {2, 80, 36}, 0xCC, 0xD7},
+    { {2, 80, 36}, FLOPPY_SIZE_350, FLOPPY_RATE_1M},
     // 6 - 160k, 5.25"  - 1 heads, 40 tracks, 8 sectors
-    { {1, 40, 8}, 0x00, 0x27},
+    { {1, 40, 8}, FLOPPY_SIZE_525, FLOPPY_RATE_250K},
     // 7 - 180k, 5.25"  - 1 heads, 40 tracks, 9 sectors
-    { {1, 40, 9}, 0x00, 0x27},
+    { {1, 40, 9}, FLOPPY_SIZE_525, FLOPPY_RATE_300K},
     // 8 - 320k, 5.25"  - 2 heads, 40 tracks, 8 sectors
-    { {2, 40, 8}, 0x00, 0x27},
+    { {2, 40, 8}, FLOPPY_SIZE_525, FLOPPY_RATE_250K},
 };
 
 struct drive_s *
@@ -335,44 +343,69 @@ floppy_drive_recal(u8 floppyid)
 }
 
 static int
+floppy_drive_readid(u8 floppyid, u8 data_rate, u8 head)
+{
+    int ret = floppy_select_drive(floppyid);
+    if (ret)
+        return ret;
+
+    // Set data rate.
+    outb(data_rate, PORT_FD_DIR);
+
+    // send Read Sector Id command
+    struct floppy_pio_s pio;
+    pio.cmdlen = 2;
+    pio.resplen = 7;
+    pio.waitirq = 1;
+    pio.data[0] = 0x4a;  // 0a: Read Sector Id
+    pio.data[1] = (head << 2) | floppyid; // HD DR1 DR2
+    ret = floppy_pio(&pio);
+    if (ret)
+        return ret;
+    if (pio.data[0] & 0xc0)
+        return -1;
+    return 0;
+}
+
+static int
 floppy_media_sense(struct drive_s *drive_g)
 {
-    // for now cheat and get drive type from CMOS,
-    // assume media is same as drive type
-
-    // ** config_data **
-    // Bitfields for diskette media control:
-    // Bit(s)  Description (Table M0028)
-    //  7-6  last data rate set by controller
-    //        00=500kbps, 01=300kbps, 10=250kbps, 11=1Mbps
-    //  5-4  last diskette drive step rate selected
-    //        00=0Ch, 01=0Dh, 10=0Eh, 11=0Ah
-    //  3-2  {data rate at start of operation}
-    //  1-0  reserved
-
-    // ** media_state **
-    // Bitfields for diskette drive media state:
-    // Bit(s)  Description (Table M0030)
-    //  7-6  data rate
-    //    00=500kbps, 01=300kbps, 10=250kbps, 11=1Mbps
-    //  5  double stepping required (e.g. 360kB in 1.2MB)
-    //  4  media type established
-    //  3  drive capable of supporting 4MB media
-    //  2-0  on exit from BIOS, contains
-    //    000 trying 360kB in 360kB
-    //    001 trying 360kB in 1.2MB
-    //    010 trying 1.2MB in 1.2MB
-    //    011 360kB in 360kB established
-    //    100 360kB in 1.2MB established
-    //    101 1.2MB in 1.2MB established
-    //    110 reserved
-    //    111 all other formats/drives
-
-    u8 ftype = GET_GLOBAL(drive_g->floppy_type);
-    SET_BDA(floppy_last_data_rate, GET_GLOBAL(FloppyInfo[ftype].config_data));
+    u8 ftype = GET_GLOBAL(drive_g->floppy_type), stype = ftype;
     u8 floppyid = GET_GLOBAL(drive_g->cntl_id);
-    SET_BDA(floppy_media_state[floppyid]
-            , GET_GLOBAL(FloppyInfo[ftype].media_state));
+
+    u8 data_rate = GET_GLOBAL(FloppyInfo[stype].data_rate);
+    int ret = floppy_drive_readid(floppyid, data_rate, 0);
+    if (ret) {
+        // Attempt media sense.
+        for (stype=1; ; stype++) {
+            if (stype >= ARRAY_SIZE(FloppyInfo))
+                return DISK_RET_EMEDIA;
+            if (stype==ftype
+                || (GET_GLOBAL(FloppyInfo[stype].floppy_size)
+                    != GET_GLOBAL(FloppyInfo[ftype].floppy_size))
+                || (GET_GLOBAL(FloppyInfo[stype].chs.heads)
+                    > GET_GLOBAL(FloppyInfo[ftype].chs.heads))
+                || (GET_GLOBAL(FloppyInfo[stype].chs.cylinders)
+                    > GET_GLOBAL(FloppyInfo[ftype].chs.cylinders))
+                || (GET_GLOBAL(FloppyInfo[stype].chs.spt)
+                    > GET_GLOBAL(FloppyInfo[ftype].chs.spt)))
+                continue;
+            data_rate = GET_GLOBAL(FloppyInfo[stype].data_rate);
+            ret = floppy_drive_readid(floppyid, data_rate, 0);
+            if (!ret)
+                break;
+        }
+    }
+
+    u8 old_data_rate = GET_BDA(floppy_media_state[floppyid]) >> 6;
+    SET_BDA(floppy_last_data_rate, (old_data_rate<<2) | (data_rate<<6));
+    u8 media = (stype == 1 ? 0x04 : (stype == 2 ? 0x05 : 0x07));
+    u8 fms = (data_rate<<6) | FMS_MEDIA_DRIVE_ESTABLISHED | media;
+    if (GET_GLOBAL(FloppyInfo[stype].chs.cylinders)
+        < GET_GLOBAL(FloppyInfo[ftype].chs.cylinders))
+        fms |= FMS_DOUBLE_STEPPING;
+    SET_BDA(floppy_media_state[floppyid], fms);
+
     return DISK_RET_SUCCESS;
 }
 
