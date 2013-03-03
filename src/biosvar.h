@@ -120,7 +120,7 @@ struct bios_data_area_s {
 } PACKED;
 
 // BDA floppy_recalibration_status bitdefs
-#define FRS_TIMEOUT (1<<7)
+#define FRS_IRQ (1<<7)
 
 // BDA rtc_wait_flag bitdefs
 #define RWS_WAIT_PENDING (1<<0)

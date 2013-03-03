@@ -164,63 +164,59 @@ find_floppy_type(u32 size)
  ****************************************************************/
 
 static void
-floppy_reset_controller(void)
+floppy_disable_controller(void)
 {
-    // Reset controller
-    u8 val8 = inb(PORT_FD_DOR);
-    outb(val8 & ~0x04, PORT_FD_DOR);
-    outb(val8 | 0x04, PORT_FD_DOR);
-
-    // Wait for controller to come out of reset
-    while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
-        ;
+    outb(inb(PORT_FD_DOR) & ~0x04, PORT_FD_DOR);
 }
 
 static int
-wait_floppy_irq(void)
+floppy_wait_irq(void)
 {
-    ASSERT16();
-    u8 frs;
+    u8 frs = GET_BDA(floppy_recalibration_status);
+    SET_BDA(floppy_recalibration_status, frs & ~FRS_IRQ);
     for (;;) {
-        if (!GET_BDA(floppy_motor_counter))
-            return -1;
+        if (!GET_BDA(floppy_motor_counter)) {
+            floppy_disable_controller();
+            return DISK_RET_ETIMEOUT;
+        }
         frs = GET_BDA(floppy_recalibration_status);
-        if (frs & FRS_TIMEOUT)
+        if (frs & FRS_IRQ)
             break;
         // Could use yield_toirq() here, but that causes issues on
         // bochs, so use yield() instead.
         yield();
     }
 
-    frs &= ~FRS_TIMEOUT;
-    SET_BDA(floppy_recalibration_status, frs);
-    return 0;
+    SET_BDA(floppy_recalibration_status, frs & ~FRS_IRQ);
+    return DISK_RET_SUCCESS;
 }
 
-static void
-floppy_prepare_controller(u8 floppyid)
+static int
+floppy_enable_controller(void)
 {
-    u8 frs = GET_BDA(floppy_recalibration_status);
-    SET_BDA(floppy_recalibration_status, frs & ~FRS_TIMEOUT);
+    outb(inb(PORT_FD_DOR) | 0x04, PORT_FD_DOR);
+    return floppy_wait_irq();
+}
 
-    // turn on motor of selected drive, DMA & int enabled, normal operation
-    u8 prev_reset = inb(PORT_FD_DOR) & 0x04;
-    u8 dor = 0x10;
-    if (floppyid)
-        dor = 0x20;
-    dor |= 0x0c;
-    dor |= floppyid;
-    outb(dor, PORT_FD_DOR);
-
+static int
+floppy_select_drive(u8 floppyid)
+{
     // reset the disk motor timeout value of INT 08
     SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
 
-    // wait for drive readiness
-    while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
-        ;
+    // Enable controller if it isn't running.
+    u8 dor = inb(PORT_FD_DOR);
+    if (!(dor & 0x04)) {
+        int ret = floppy_enable_controller();
+        if (ret)
+            return ret;
+    }
 
-    if (!prev_reset)
-        wait_floppy_irq();
+    // Turn on motor of selected drive, DMA & int enabled, normal operation
+    dor = (floppyid ? 0x20 : 0x10) | 0x0c | floppyid;
+    outb(dor, PORT_FD_DOR);
+
+    return DISK_RET_SUCCESS;
 }
 
 struct floppy_pio_s {
@@ -233,7 +229,13 @@ struct floppy_pio_s {
 static int
 floppy_pio(struct floppy_pio_s *pio)
 {
-    floppy_prepare_controller(pio->data[1] & 1);
+    int ret = floppy_select_drive(pio->data[1] & 1);
+    if (ret)
+        return ret;
+
+    // wait for drive readiness
+    while ((inb(PORT_FD_STATUS) & 0xc0) != 0x80)
+        ;
 
     // send command to controller
     int i;
@@ -241,11 +243,9 @@ floppy_pio(struct floppy_pio_s *pio)
         outb(pio->data[i], PORT_FD_DATA);
 
     if (pio->waitirq) {
-        int ret = wait_floppy_irq();
-        if (ret) {
-            floppy_reset_controller();
-            return DISK_RET_ETIMEOUT;
-        }
+        int ret = floppy_wait_irq();
+        if (ret)
+            return ret;
     }
 
     if (!pio->resplen)
@@ -330,7 +330,7 @@ floppy_drive_recal(u8 floppyid)
     struct floppy_pio_s pio;
     pio.cmdlen = 2;
     pio.resplen = 0;
-    pio.waitirq = 0;
+    pio.waitirq = 1;
     pio.data[0] = 0x07;  // 07: Recalibrate
     pio.data[1] = floppyid; // 0=drive0, 1=drive1
     floppy_pio(&pio);
@@ -617,7 +617,7 @@ handle_0e(void)
     }
     // diskette interrupt has occurred
     u8 frs = GET_BDA(floppy_recalibration_status);
-    SET_BDA(floppy_recalibration_status, frs | FRS_TIMEOUT);
+    SET_BDA(floppy_recalibration_status, frs | FRS_IRQ);
 
     eoi_pic1();
 }
