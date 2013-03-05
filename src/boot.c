@@ -228,6 +228,7 @@ int bootprio_find_usb(struct usbdevice_s *usbdev, int lun)
  * Boot setup
  ****************************************************************/
 
+static int BootRetryTime;
 static int CheckFloppySig = 1;
 
 #define DEFAULT_PRIO           9999
@@ -263,6 +264,8 @@ boot_setup(void)
             }
         }
     }
+
+    BootRetryTime = romfile_loadint("etc/boot-fail-wait", 60*1000);
 
     loadBootOrder();
 }
@@ -628,15 +631,15 @@ boot_rom(u32 vector)
 static void
 boot_fail(void)
 {
-    u32 retrytime = romfile_loadint("etc/boot-fail-wait", 60*1000);
-    if (retrytime == (u32)-1)
+    if (BootRetryTime == (u32)-1)
         printf("No bootable device.\n");
     else
-        printf("No bootable device.  Retrying in %d seconds.\n", retrytime/1000);
-    // Wait for 'retrytime' milliseconds and then reboot.
-    u32 end = calc_future_timer(retrytime);
+        printf("No bootable device.  Retrying in %d seconds.\n"
+               , BootRetryTime/1000);
+    // Wait for 'BootRetryTime' milliseconds and then reboot.
+    u32 end = calc_future_timer(BootRetryTime);
     for (;;) {
-        if (retrytime != (u32)-1 && check_timer(end))
+        if (BootRetryTime != (u32)-1 && check_timer(end))
             break;
         yield_toirq();
     }
