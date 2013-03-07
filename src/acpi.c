@@ -501,7 +501,6 @@ build_ssdt(void)
                   + (acpi_cpus * PROC_SIZEOF)               // procs
                   + (1+2+5+(12*acpi_cpus))                  // NTFY
                   + (6+2+1+(1*acpi_cpus))                   // CPON
-                  + 17                                      // BDAT
                   + (1+3+4)                                 // Scope(PCI0)
                   + ((PCI_SLOTS - 1) * PCIHP_SIZEOF)        // slots
                   + (1+2+5+(12*(PCI_SLOTS - 1))));          // PCNT
@@ -525,6 +524,19 @@ build_ssdt(void)
         ssdt_ptr[acpi_s4_name[0]] = 'X';
     else
         ssdt_ptr[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
+
+    // store pci io windows
+    *(u32*)&ssdt_ptr[acpi_pci32_start[0]] = pcimem_start;
+    *(u32*)&ssdt_ptr[acpi_pci32_end[0]] = pcimem_end - 1;
+    if (pcimem64_start) {
+        ssdt_ptr[acpi_pci64_valid[0]] = 1;
+        *(u64*)&ssdt_ptr[acpi_pci64_start[0]] = pcimem64_start;
+        *(u64*)&ssdt_ptr[acpi_pci64_end[0]] = pcimem64_end - 1;
+        *(u64*)&ssdt_ptr[acpi_pci64_length[0]] = pcimem64_end - pcimem64_start;
+    } else {
+        ssdt_ptr[acpi_pci64_valid[0]] = 0;
+    }
+
     ssdt_ptr += sizeof(ssdp_misc_aml);
 
     // build Scope(_SB_) header
@@ -561,31 +573,6 @@ build_ssdt(void)
     *(ssdt_ptr++) = acpi_cpus;
     for (i=0; i<acpi_cpus; i++)
         *(ssdt_ptr++) = (apic_id_is_present(i)) ? 0x01 : 0x00;
-
-    // store pci io windows: start, end, length
-    // this way we don't have to do the math in the dsdt
-    struct bfld *bfld = malloc_high(sizeof(struct bfld));
-    bfld->p0s = pcimem_start;
-    bfld->p0e = pcimem_end - 1;
-    bfld->p0l = pcimem_end - pcimem_start;
-    bfld->p1s = pcimem64_start;
-    bfld->p1e = pcimem64_end - 1;
-    bfld->p1l = pcimem64_end - pcimem64_start;
-
-    // build "OperationRegion(BDAT, SystemMemory, 0x12345678, 0x87654321)"
-    *(ssdt_ptr++) = 0x5B; // ExtOpPrefix
-    *(ssdt_ptr++) = 0x80; // OpRegionOp
-    *(ssdt_ptr++) = 'B';
-    *(ssdt_ptr++) = 'D';
-    *(ssdt_ptr++) = 'A';
-    *(ssdt_ptr++) = 'T';
-    *(ssdt_ptr++) = 0x00; // SystemMemory
-    *(ssdt_ptr++) = 0x0C; // DWordPrefix
-    *(u32*)ssdt_ptr = (u32)bfld;
-    ssdt_ptr += 4;
-    *(ssdt_ptr++) = 0x0C; // DWordPrefix
-    *(u32*)ssdt_ptr = sizeof(struct bfld);
-    ssdt_ptr += 4;
 
     // build Scope(PCI0) opcode
     *(ssdt_ptr++) = 0x10; // ScopeOp
