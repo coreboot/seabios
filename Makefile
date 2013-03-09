@@ -25,6 +25,8 @@ SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
 cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
     ; then echo "$(2)"; else echo "$(3)"; fi ;)
 
+CPPFLAGS = -P -MD -MT $@
+
 COMMONCFLAGS := -I$(OUT) -Os -MD -g \
     -Wall -Wno-strict-aliasing -Wold-style-definition \
     $(call cc-option,$(CC),-Wtype-limits,) \
@@ -63,6 +65,7 @@ OBJCOPY=objcopy
 OBJDUMP=objdump
 STRIP=strip
 PYTHON=python
+CPP=cpp
 IASL:=iasl
 
 # Default targets
@@ -115,7 +118,7 @@ $(OUT)%.o: %.c $(OUT)autoconf.h
 
 $(OUT)%.lds: %.lds.S
 	@echo "  Precompiling $@"
-	$(Q)$(CPP) -P -D__ASSEMBLY__ $< -o $@
+	$(Q)$(CPP) $(CPPFLAGS) -D__ASSEMBLY__ $< -o $@
 
 
 ################ Main BIOS build rules
@@ -214,7 +217,7 @@ iasl-option=$(shell if test -z "`$(1) $(2) 2>&1 > /dev/null`" \
 
 $(OUT)%.hex: src/%.dsl ./tools/acpi_extract_preprocess.py ./tools/acpi_extract.py
 	@echo "  Compiling IASL $@"
-	$(Q)cpp -P $< > $(OUT)$*.dsl.i.orig
+	$(Q)$(CPP) $(CPPFLAGS) $< -o $(OUT)$*.dsl.i.orig
 	$(Q)$(PYTHON) ./tools/acpi_extract_preprocess.py $(OUT)$*.dsl.i.orig > $(OUT)$*.dsl.i
 	$(Q)$(IASL) $(call iasl-option,$(IASL),-Pn,) -vs -l -tc -p $(OUT)$* $(OUT)$*.dsl.i
 	$(Q)$(PYTHON) ./tools/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
@@ -231,7 +234,7 @@ $(Q)$(MAKE) -C $(OUT) -f $(CURDIR)/tools/kconfig/Makefile srctree=$(CURDIR) src=
 endef
 
 $(OUT)autoconf.h : $(KCONFIG_CONFIG) ; $(call do-kconfig, silentoldconfig)
-$(KCONFIG_CONFIG): ; $(call do-kconfig, defconfig)
+$(KCONFIG_CONFIG): src/Kconfig vgasrc/Kconfig ; $(call do-kconfig, defconfig)
 %onfig: ; $(call do-kconfig, $@)
 help: ; $(call do-kconfig, $@)
 
