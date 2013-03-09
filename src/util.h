@@ -314,6 +314,7 @@ extern const u8 pci_irqs[4];
 void pci_setup(void);
 
 // smm.c
+void smm_device_setup(void);
 void smm_setup(void);
 
 // smp.c

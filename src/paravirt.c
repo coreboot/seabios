@@ -106,6 +106,7 @@ qemu_platform_setup(void)
 
     // Initialize pci
     pci_setup();
+    smm_device_setup();
     smm_setup();
 
     // Initialize mtrr and smp
