@@ -85,7 +85,7 @@ pci_next(int bdf, int bus)
     }
 }
 
-struct pci_device *PCIDevices;
+struct pci_device *PCIDevices VARVERIFY32INIT;
 int MaxPCIBus VARFSEG;
 
 // Check if PCI is available at all

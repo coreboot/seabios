@@ -21,7 +21,7 @@
  * Boot priority ordering
  ****************************************************************/
 
-static char **Bootorder;
+static char **Bootorder VARVERIFY32INIT;
 static int BootorderCount;
 
 static void
@@ -293,7 +293,7 @@ struct bootentry_s {
     const char *description;
     struct bootentry_s *next;
 };
-static struct bootentry_s *BootList;
+static struct bootentry_s *BootList VARVERIFY32INIT;
 
 #define IPL_TYPE_FLOPPY      0x01
 #define IPL_TYPE_HARDDISK    0x02

@@ -29,9 +29,11 @@ struct zone_s {
     struct allocinfo_s *info;
 };
 
-struct zone_s ZoneLow, ZoneHigh, ZoneFSeg, ZoneTmpLow, ZoneTmpHigh;
+struct zone_s ZoneLow VARVERIFY32INIT, ZoneHigh VARVERIFY32INIT;
+struct zone_s ZoneFSeg VARVERIFY32INIT;
+struct zone_s ZoneTmpLow VARVERIFY32INIT, ZoneTmpHigh VARVERIFY32INIT;
 
-static struct zone_s *Zones[] = {
+static struct zone_s *Zones[] VARVERIFY32INIT = {
     &ZoneTmpLow, &ZoneLow, &ZoneFSeg, &ZoneTmpHigh, &ZoneHigh
 };
 
