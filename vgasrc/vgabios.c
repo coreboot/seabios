@@ -420,7 +420,7 @@ handle_1000(struct bregs *regs)
     else
         regs->al = 0x30;
 
-    int flags = GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM);
+    int flags = MF_LEGACY | (GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM));
     if (regs->al & 0x80)
         flags |= MF_NOCLEARMEM;
 

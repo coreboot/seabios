@@ -443,14 +443,14 @@ cirrus_enable_16k_granularity(void)
 }
 
 static void
-cirrus_clear_vram(void)
+cirrus_clear_vram(u16 fill)
 {
     cirrus_enable_16k_granularity();
-    u8 count = GET_GLOBAL(VBE_total_memory) / (16 * 1024);
-    u8 i;
+    int count = GET_GLOBAL(VBE_total_memory) / (16 * 1024);
+    int i;
     for (i=0; i<count; i++) {
         stdvga_grdc_write(0x09, i);
-        memset16_far(SEG_GRAPH, 0, 0, 16 * 1024);
+        memset16_far(SEG_GRAPH, 0, fill, 16 * 1024);
     }
     stdvga_grdc_write(0x09, 0x00);
 }
@@ -469,7 +469,8 @@ clext_set_mode(struct vgamode_s *vmode_g, int flags)
     if (!(flags & MF_LINEARFB))
         cirrus_enable_16k_granularity();
     if (!(flags & MF_NOCLEARMEM))
-        cirrus_clear_vram();
+        // fill with 0xff to keep win 2K happy
+        cirrus_clear_vram(flags & MF_LEGACY ? 0xffff : 0x0000);
     return 0;
 }
 
