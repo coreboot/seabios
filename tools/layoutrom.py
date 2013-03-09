@@ -432,16 +432,20 @@ PHDRS
 # Detection of init code
 ######################################################################
 
-def markRuntime(section, sections):
+def markRuntime(section, sections, chain=[]):
     if (section is None or not section.keep or section.category is not None
         or '.init.' in section.name or section.fileid != '32flat'):
         return
+    if '.data.varinit.' in section.name:
+        print "ERROR: %s is VARVERIFY32INIT but used from %s" % (
+            section.name, chain)
+        sys.exit(1)
     section.category = '32flat'
     # Recursively mark all sections this section points to
     for reloc in section.relocs:
-        markRuntime(reloc.symbol.section, sections)
+        markRuntime(reloc.symbol.section, sections, chain + [section.name])
 
-def findInit(sections):
+def findInit(sections, genreloc):
     # Recursively find and mark all "runtime" sections.
     for section in sections:
         if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
@@ -450,7 +454,7 @@ def findInit(sections):
     for section in sections:
         if section.category is not None:
             continue
-        if section.fileid == '32flat':
+        if section.fileid == '32flat' and genreloc:
             section.category = '32init'
         else:
             section.category = section.fileid
@@ -635,11 +639,7 @@ def main():
 
     # Separate 32bit flat into runtime and init parts
     genreloc = '_reloc_abs_start' in info32flat[1]
-    if genreloc:
-        findInit(sections)
-    else:
-        for section in sections:
-            section.category = section.fileid
+    findInit(sections, genreloc)
 
     # Note "low memory" and "fseg memory" parts
     for section in getSectionsPrefix(sections, '.data.varlow.'):

@@ -59,6 +59,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 // Designate a variable as visible and located in the f-segment.
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
+// Verify a variable is only accessable via 32bit "init" functions
+# define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 // Designate top-level assembler as 16bit only.
 # define ASM16(code) __ASM(code)
 // Designate top-level assembler as 32bit flat only.
@@ -77,6 +79,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VAR32SEG __section(".data32seg." UNIQSEC)
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
+# define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 # define ASM16(code)
 # define ASM32FLAT(code)
 # define ASSERT16() __force_link_error__only_in_16bit()
@@ -92,6 +95,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 # define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
+# define VARVERIFY32INIT __section(".data.varinit." UNIQSEC)
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)
 # define ASSERT16() __force_link_error__only_in_16bit()
