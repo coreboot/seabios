@@ -21,10 +21,8 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
 
-#define BUG() do {                                      \
-        dprintf(1, "BUG: failure at %s:%d/%s()!\n",     \
-                __FILE__, __LINE__, __func__);          \
-                while(1);                               \
+#define BUG() do {                                                      \
+            panic("BUG: failure at %d/%s()!\n", __LINE__, __func__);    \
         } while (0)
 #define BUG_ON(condition) do { if (condition) BUG(); } while (0)
 
