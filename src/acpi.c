@@ -655,6 +655,8 @@ build_srat(void)
         return NULL;
     int max_cpu = romfile_loadint("etc/max-cpus", 0);
     int nb_numa_nodes = (filesize / sizeof(u64)) - max_cpu;
+    if (!nb_numa_nodes)
+        return NULL;
 
     struct system_resource_affinity_table *srat;
     int srat_size = sizeof(*srat) +
