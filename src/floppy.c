@@ -490,7 +490,7 @@ floppy_cmd(struct disk_op_s *op, int blocksize, struct floppy_pio_s *pio)
     if (pio->data[0] & 0xc0) {
         if (pio->data[1] & 0x02)
             return DISK_RET_EWRITEPROTECT;
-        dprintf(1, "floppy error: %02x %02x %02x %02x %02x %02x %02x"
+        dprintf(1, "floppy error: %02x %02x %02x %02x %02x %02x %02x\n"
                 , pio->data[0], pio->data[1], pio->data[2], pio->data[3]
                 , pio->data[4], pio->data[5], pio->data[6]);
         return DISK_RET_ECONTROLLER;
