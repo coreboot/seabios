@@ -147,6 +147,9 @@ init_virtio_scsi(struct pci_device *pci)
         goto fail;
     }
 
+    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
+                  VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
+
     int i, tot;
     for (tot = 0, i = 0; i < 256; i++)
         tot += virtio_scsi_scan_target(pci, ioaddr, vq, i);
@@ -154,8 +157,6 @@ init_virtio_scsi(struct pci_device *pci)
     if (!tot)
         goto fail;
 
-    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
-                  VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
     return;
 
 fail:
