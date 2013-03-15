@@ -26,7 +26,7 @@ struct virtio_scsi_req_cmd {
     u8 prio;
     u8 crn;
     char cdb[VIRTIO_SCSI_CDB_SIZE];
-};
+} __attribute__((packed));
 
 /* This is the first element of the "in" scatter-gather list. */
 struct virtio_scsi_resp_cmd {
@@ -36,7 +36,7 @@ struct virtio_scsi_resp_cmd {
     u8 status;
     u8 response;
     u8 sense[VIRTIO_SCSI_SENSE_SIZE];
-};
+} __attribute__((packed));
 
 #define VIRTIO_SCSI_S_OK            0
 
