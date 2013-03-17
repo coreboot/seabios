@@ -260,7 +260,7 @@ check_for_keystroke(void)
 {
     struct bregs br;
     memset(&br, 0, sizeof(br));
-    br.flags = F_IF;
+    br.flags = F_IF|F_ZF;
     br.ah = 1;
     call16_int(0x16, &br);
     return !(br.flags & F_ZF);
