@@ -17,6 +17,7 @@ bios images and then overwrite the main bios image.  For example:
 
 cp /usr/share/qemu/*.bin mybiosdir/
 cp out/bios.bin mybiosdir/
+cp out/*.aml mybiosdir/
 
 Once this is setup, one can instruct qemu to use the newly created
 directory for rom images.  For example:
