@@ -139,7 +139,7 @@ $(OUT)romlayout.o: romlayout.S $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)ccode16.o $(OUT)romlayout.o tools/layoutrom.py
+$(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)ccode16.o $(OUT)romlayout.o tools/layoutrom.py tools/buildversion.sh
 	@echo "  Building ld scripts"
 	$(Q)./tools/buildversion.sh $(OUT)version.c
 	$(Q)$(CC) $(CFLAGS32FLAT) -c $(OUT)version.c -o $(OUT)version.o
@@ -186,7 +186,7 @@ CFLAGS16VGA = $(CFLAGS16INC) -Isrc
 
 $(OUT)vgaccode16.raw.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16VGA) -S, $(SRCVGA),$@)
 
-$(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s
+$(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s tools/vgafixup.py
 	@echo "  Fixup VGA rom assembler"
 	$(Q)$(PYTHON) ./tools/vgafixup.py $< $(OUT)vgaccode16.s
 	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.s -o $@
@@ -195,7 +195,7 @@ $(OUT)vgaentry.o: vgaentry.S $(OUT)autoconf.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16VGA) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgalayout.lds
+$(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgalayout.lds tools/buildversion.sh
 	@echo "  Linking $@"
 	$(Q)./tools/buildversion.sh $(OUT)vgaversion.c VAR16
 	$(Q)$(CC) $(CFLAGS16VGA) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
