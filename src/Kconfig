@@ -387,6 +387,16 @@ menu "BIOS Tables"
         default y
         help
             Support generation of ACPI tables.
+    config ACPI_DSDT
+        bool "Include default ACPI DSDT"
+        default y
+        depends on ACPI
+        help
+            Include default DSDT ACPI table in BIOS.
+            Required for QEMU 1.3 and older.
+            This option can be disabled for QEMU 1.4 and newer
+            to save some space in the ROM file.
+            If unsure, say Y.
 endmenu
 
 source vgasrc/Kconfig

@@ -823,7 +823,8 @@ acpi_setup(void)
             break;
         }
     }
-    if (fadt && !fadt->dsdt) {
+
+    if (CONFIG_ACPI_DSDT && fadt && !fadt->dsdt) {
         /* default DSDT */
         void *dsdt = malloc_high(sizeof(AmlCode));
         if (!dsdt) {
