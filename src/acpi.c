@@ -131,9 +131,6 @@ struct madt_io_apic
                                  * lines start */
 } PACKED;
 
-/* IRQs 5,9,10,11 */
-#define PCI_ISA_IRQ_MASK    0x0e20
-
 struct madt_intsrcovr {
     ACPI_SUB_HEADER_DEF
     u8  bus;
@@ -372,7 +369,7 @@ build_madt(void)
         intsrcovr++;
     }
     for (i = 1; i < 16; i++) {
-        if (!(PCI_ISA_IRQ_MASK & (1 << i)))
+        if (!(BUILD_PCI_IRQS & (1 << i)))
             /* No need for a INT source override structure. */
             continue;
         memset(intsrcovr, 0, sizeof(*intsrcovr));

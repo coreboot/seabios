@@ -53,6 +53,9 @@
 #define BUILD_HPET_ADDRESS        0xfed00000
 #define BUILD_APIC_ADDR           0xfee00000
 
+// PCI IRQS
+#define BUILD_PCI_IRQS	        ((1<<5) | (1<<9) | (1<<10) | (1<<11))
+
 // Important real-mode segments
 #define SEG_IVT      0x0000
 #define SEG_BDA      0x0040
