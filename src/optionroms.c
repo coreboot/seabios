@@ -213,7 +213,7 @@ run_file_roms(const char *prefix, int isvga, u64 *sources)
  ****************************************************************/
 
 // Verify device is a vga device with legacy address decoding enabled.
-static int
+int
 is_pci_vga(struct pci_device *pci)
 {
     if (pci->class != PCI_CLASS_DISPLAY_VGA)

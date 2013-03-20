@@ -344,6 +344,7 @@ void vgahook_setup(struct pci_device *pci);
 
 // optionroms.c
 void call_bcv(u16 seg, u16 ip);
+int is_pci_vga(struct pci_device *pci);
 void optionrom_setup(void);
 void vgarom_setup(void);
 void s3_resume_vga(void);

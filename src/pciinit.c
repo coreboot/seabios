@@ -316,6 +316,44 @@ static void pci_bios_init_devices(void)
     }
 }
 
+static void pci_enable_default_vga(void)
+{
+    struct pci_device *pci;
+
+    foreachpci(pci) {
+        if (is_pci_vga(pci)) {
+            dprintf(1, "PCI: Using %02x:%02x.%x for primary VGA\n",
+                    pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
+                    pci_bdf_to_fn(pci->bdf));
+            return;
+        }
+    }
+
+    pci = pci_find_class(PCI_CLASS_DISPLAY_VGA);
+    if (!pci) {
+        dprintf(1, "PCI: No VGA devices found\n");
+        return;
+    }
+
+    dprintf(1, "PCI: Enabling %02x:%02x.%x for primary VGA\n",
+            pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
+            pci_bdf_to_fn(pci->bdf));
+
+    pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
+                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
+
+    while (pci->parent) {
+        pci = pci->parent;
+
+        dprintf(1, "PCI: Setting VGA enable on bridge %02x:%02x.%x\n",
+                pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
+                pci_bdf_to_fn(pci->bdf));
+
+        pci_config_maskw(pci->bdf, PCI_BRIDGE_CONTROL, 0, PCI_BRIDGE_CTL_VGA);
+        pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
+                         PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
+    }
+}
 
 /****************************************************************
  * Platform device initialization
@@ -804,4 +842,6 @@ pci_setup(void)
     pci_bios_init_devices();
 
     free(busses);
+
+    pci_enable_default_vga();
 }
