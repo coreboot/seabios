@@ -223,8 +223,11 @@ qemu_cfg_legacy(void)
     // NUMA data
     u64 numacount;
     qemu_cfg_read_entry(&numacount, QEMU_CFG_NUMA, sizeof(numacount));
-    numacount += romfile_loadint("etc/max-cpus", 0);
-    qemu_romfile_add("etc/numa-nodes", QEMU_CFG_NUMA, sizeof(numacount)
+    int max_cpu = romfile_loadint("etc/max-cpus", 0);
+    qemu_romfile_add("etc/numa-cpu-map", QEMU_CFG_NUMA, sizeof(numacount)
+                     , max_cpu*sizeof(u64));
+    qemu_romfile_add("etc/numa-nodes", QEMU_CFG_NUMA
+                     , sizeof(numacount) + max_cpu*sizeof(u64)
                      , numacount*sizeof(u64));
 
     // e820 data

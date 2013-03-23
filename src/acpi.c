@@ -646,14 +646,13 @@ acpi_build_srat_memory(struct srat_memory_affinity *numamem,
 static void *
 build_srat(void)
 {
-    int filesize;
-    u64 *numadata = romfile_loadfile("etc/numa-nodes", &filesize);
-    if (!numadata)
-        return NULL;
-    int max_cpu = romfile_loadint("etc/max-cpus", 0);
-    int nb_numa_nodes = (filesize / sizeof(u64)) - max_cpu;
-    if (!nb_numa_nodes)
-        return NULL;
+    int numadatasize, numacpusize;
+    u64 *numadata = romfile_loadfile("etc/numa-nodes", &numadatasize);
+    u64 *numacpumap = romfile_loadfile("etc/numa-cpu-map", &numacpusize);
+    if (!numadata || !numacpumap)
+        goto fail;
+    int max_cpu = numacpusize / sizeof(u64);
+    int nb_numa_nodes = numadatasize / sizeof(u64);
 
     struct system_resource_affinity_table *srat;
     int srat_size = sizeof(*srat) +
@@ -663,8 +662,7 @@ build_srat(void)
     srat = malloc_high(srat_size);
     if (!srat) {
         warn_noalloc();
-        free(numadata);
-        return NULL;
+        goto fail;
     }
 
     memset(srat, 0, srat_size);
@@ -677,7 +675,7 @@ build_srat(void)
         core->type = SRAT_PROCESSOR;
         core->length = sizeof(*core);
         core->local_apic_id = i;
-        curnode = *numadata++;
+        curnode = *numacpumap++;
         core->proximity_lo = curnode;
         memset(core->proximity_hi, 0, 3);
         core->local_sapic_eid = 0;
@@ -731,7 +729,12 @@ build_srat(void)
     build_header((void*)srat, SRAT_SIGNATURE, srat_size, 1);
 
     free(numadata);
+    free(numacpumap);
     return srat;
+fail:
+    free(numadata);
+    free(numacpumap);
+    return NULL;
 }
 
 static void *
