@@ -97,20 +97,7 @@ struct fadt_descriptor_rev1
     u8  reserved4;              /* Reserved */
     u8  reserved4a;             /* Reserved */
     u8  reserved4b;             /* Reserved */
-#if 0
-    u32 wb_invd         : 1;    /* The wbinvd instruction works properly */
-    u32 wb_invd_flush   : 1;    /* The wbinvd flushes but does not invalidate */
-    u32 proc_c1         : 1;    /* All processors support C1 state */
-    u32 plvl2_up        : 1;    /* C2 state works on MP system */
-    u32 pwr_button      : 1;    /* Power button is handled as a generic feature */
-    u32 sleep_button    : 1;    /* Sleep button is handled as a generic feature, or not present */
-    u32 fixed_rTC       : 1;    /* RTC wakeup stat not in fixed register space */
-    u32 rtcs4           : 1;    /* RTC wakeup stat not possible from S4 */
-    u32 tmr_val_ext     : 1;    /* The tmr_val width is 32 bits (0 = 24 bits) */
-    u32 reserved5       : 23;   /* Reserved - must be zero */
-#else
     u32 flags;
-#endif
 } PACKED;
 
 struct acpi_table_header         /* ACPI common table header */
@@ -140,8 +127,7 @@ struct facs_descriptor_rev1
     u32 hardware_signature;     /* Hardware configuration signature */
     u32 firmware_waking_vector; /* ACPI OS waking vector */
     u32 global_lock;            /* Global Lock */
-    u32 S4bios_f        : 1;    /* Indicates if S4BIOS support is present */
-    u32 reserved1       : 31;   /* Must be 0 */
+    u32 flags;
     u8  resverved3 [40];        /* Reserved - must be zero */
 } PACKED;
 
@@ -166,12 +152,7 @@ struct multiple_apic_table
 {
     ACPI_TABLE_HEADER_DEF     /* ACPI common table header */
     u32 local_apic_address;     /* Physical address of local APIC */
-#if 0
-    u32 PCATcompat      : 1;    /* A one indicates system also has dual 8259s */
-    u32 reserved1       : 31;
-#else
     u32 flags;
-#endif
 } PACKED;
 
 /* Values for Type in APIC sub-headers */
@@ -201,12 +182,7 @@ struct madt_processor_apic
     ACPI_SUB_HEADER_DEF
     u8  processor_id;           /* ACPI processor id */
     u8  local_apic_id;          /* Processor's local APIC id */
-#if 0
-    u32 processor_enabled: 1;   /* Processor is usable if set */
-    u32 reserved2       : 31;   /* Reserved, must be zero */
-#else
     u32 flags;
-#endif
 } PACKED;
 
 struct madt_io_apic
