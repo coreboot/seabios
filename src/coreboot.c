@@ -286,6 +286,13 @@ struct cbfs_file {
     char filename[0];
 } PACKED;
 
+struct cbfs_romfile_s {
+    struct romfile_s file;
+    struct cbfs_file *fhdr;
+    void *data;
+    u32 rawsize, flags;
+};
+
 // Copy a file to memory (uncompressing if necessary)
 static int
 cbfs_copyfile(struct romfile_s *file, void *dst, u32 maxlen)
@@ -293,9 +300,11 @@ cbfs_copyfile(struct romfile_s *file, void *dst, u32 maxlen)
     if (!CONFIG_COREBOOT_FLASH)
         return -1;
 
-    u32 size = file->rawsize;
-    void *src = file->data;
-    if (file->flags) {
+    struct cbfs_romfile_s *cfile;
+    cfile = container_of(file, struct cbfs_romfile_s, file);
+    u32 size = cfile->rawsize;
+    void *src = cfile->data;
+    if (cfile->flags) {
         // Compressed - copy to temp ram and uncompress it.
         void *temp = malloc_tmphigh(size);
         if (!temp) {
@@ -333,35 +342,36 @@ coreboot_cbfs_init(void)
     }
     dprintf(1, "Found CBFS header at %p\n", hdr);
 
-    struct cbfs_file *cfile = (void *)(0 - be32_to_cpu(hdr->romsize)
-                                       + be32_to_cpu(hdr->offset));
+    struct cbfs_file *fhdr = (void *)(0 - be32_to_cpu(hdr->romsize)
+                                      + be32_to_cpu(hdr->offset));
     for (;;) {
-        if (cfile < (struct cbfs_file *)(0xFFFFFFFF - be32_to_cpu(hdr->romsize)))
+        if (fhdr < (struct cbfs_file *)(0xFFFFFFFF - be32_to_cpu(hdr->romsize)))
             break;
-        u64 magic = cfile->magic;
+        u64 magic = fhdr->magic;
         if (magic != CBFS_FILE_MAGIC)
             break;
-        struct romfile_s *file = malloc_tmp(sizeof(*file));
-        if (!file) {
+        struct cbfs_romfile_s *cfile = malloc_tmp(sizeof(*cfile));
+        if (!cfile) {
             warn_noalloc();
             break;
         }
-        memset(file, 0, sizeof(*file));
-        strtcpy(file->name, cfile->filename, sizeof(file->name));
-        file->size = file->rawsize = be32_to_cpu(cfile->len);
-        file->id = (u32)cfile;
-        file->copy = cbfs_copyfile;
-        file->data = (void*)cfile + be32_to_cpu(cfile->offset);
-        int len = strlen(file->name);
-        if (len > 5 && strcmp(&file->name[len-5], ".lzma") == 0) {
+        memset(cfile, 0, sizeof(*cfile));
+        strtcpy(cfile->file.name, fhdr->filename, sizeof(cfile->file.name));
+        cfile->file.size = cfile->rawsize = be32_to_cpu(fhdr->len);
+        cfile->fhdr = fhdr;
+        cfile->file.copy = cbfs_copyfile;
+        cfile->data = (void*)fhdr + be32_to_cpu(fhdr->offset);
+        int len = strlen(cfile->file.name);
+        if (len > 5 && strcmp(&cfile->file.name[len-5], ".lzma") == 0) {
             // Using compression.
-            file->flags = 1;
-            file->name[len-5] = '\0';
-            file->size = *(u32*)(file->data + LZMA_PROPERTIES_SIZE);
+            cfile->flags = 1;
+            cfile->file.name[len-5] = '\0';
+            cfile->file.size = *(u32*)(cfile->data + LZMA_PROPERTIES_SIZE);
         }
-        romfile_add(file);
+        romfile_add(&cfile->file);
 
-        cfile = (void*)ALIGN((u32)file->data + file->size, be32_to_cpu(hdr->align));
+        fhdr = (void*)ALIGN((u32)cfile->data + cfile->file.size
+                            , be32_to_cpu(hdr->align));
     }
 }
 
@@ -385,12 +395,12 @@ struct cbfs_payload {
 };
 
 void
-cbfs_run_payload(struct cbfs_file *file)
+cbfs_run_payload(struct cbfs_file *fhdr)
 {
-    if (!CONFIG_COREBOOT_FLASH || !file)
+    if (!CONFIG_COREBOOT_FLASH || !fhdr)
         return;
-    dprintf(1, "Run %s\n", file->filename);
-    struct cbfs_payload *pay = (void*)file + be32_to_cpu(file->offset);
+    dprintf(1, "Run %s\n", fhdr->filename);
+    struct cbfs_payload *pay = (void*)fhdr + be32_to_cpu(fhdr->offset);
     struct cbfs_payload_segment *seg = pay->segments;
     for (;;) {
         void *src = (void*)pay + be32_to_cpu(seg->offset);
@@ -445,9 +455,10 @@ cbfs_payload_setup(void)
         file = romfile_findprefix("img/", file);
         if (!file)
             break;
+        struct cbfs_romfile_s *cfile;
+        cfile = container_of(file, struct cbfs_romfile_s, file);
         const char *filename = file->name;
         char *desc = znprintf(MAXDESCSIZE, "Payload [%s]", &filename[4]);
-        boot_add_cbfs((void*)file->id, desc
-                      , bootprio_find_named_rom(filename, 0));
+        boot_add_cbfs(cfile->fhdr, desc, bootprio_find_named_rom(filename, 0));
     }
 }
