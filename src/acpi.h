@@ -254,8 +254,8 @@ struct srat_memory_affinity
     ACPI_SUB_HEADER_DEF
     u8     proximity[4];
     u16    reserved1;
-    u32    base_addr_low,base_addr_high;
-    u32    length_low,length_high;
+    u64    base_addr;
+    u64    range_length;
     u32    reserved2;
     u32    flags;
     u32    reserved3[2];

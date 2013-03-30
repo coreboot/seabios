@@ -21,7 +21,7 @@
 static void
 build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 {
-    h->signature = sig;
+    h->signature = cpu_to_le32(sig);
     h->length = cpu_to_le32(len);
     h->revision = rev;
     memcpy(h->oem_id, BUILD_APPNAME6, 6);
@@ -123,7 +123,7 @@ build_fadt(struct pci_device *pci)
 
     /* FACS */
     memset(facs, 0, sizeof(*facs));
-    facs->signature = FACS_SIGNATURE;
+    facs->signature = cpu_to_le32(FACS_SIGNATURE);
     facs->length = cpu_to_le32(sizeof(*facs));
 
     /* FADT */
@@ -181,8 +181,8 @@ build_madt(void)
         intsrcovr->type   = APIC_XRUPT_OVERRIDE;
         intsrcovr->length = sizeof(*intsrcovr);
         intsrcovr->source = 0;
-        intsrcovr->gsi    = 2;
-        intsrcovr->flags  = 0; /* conforms to bus specifications */
+        intsrcovr->gsi    = cpu_to_le32(2);
+        intsrcovr->flags  = cpu_to_le16(0); /* conforms to bus specifications */
         intsrcovr++;
     }
     for (i = 1; i < 16; i++) {
@@ -193,8 +193,8 @@ build_madt(void)
         intsrcovr->type   = APIC_XRUPT_OVERRIDE;
         intsrcovr->length = sizeof(*intsrcovr);
         intsrcovr->source = i;
-        intsrcovr->gsi    = i;
-        intsrcovr->flags  = 0xd; /* active high, level triggered */
+        intsrcovr->gsi    = cpu_to_le32(i);
+        intsrcovr->flags  = cpu_to_le16(0xd); /* active high, level triggered */
         intsrcovr++;
     }
 
@@ -202,7 +202,7 @@ build_madt(void)
     local_nmi->type         = APIC_LOCAL_NMI;
     local_nmi->length       = sizeof(*local_nmi);
     local_nmi->processor_id = 0xff; /* all processors */
-    local_nmi->flags        = 0;
+    local_nmi->flags        = cpu_to_le16(0);
     local_nmi->lint         = 1; /* LINT1 */
     local_nmi++;
 
@@ -340,13 +340,14 @@ build_ssdt(void)
         ssdt_ptr[acpi_s4_pkg[0] + 1] = ssdt[acpi_s4_pkg[0] + 3] = sys_states[4] & 127;
 
     // store pci io windows
-    *(u32*)&ssdt_ptr[acpi_pci32_start[0]] = pcimem_start;
-    *(u32*)&ssdt_ptr[acpi_pci32_end[0]] = pcimem_end - 1;
+    *(u32*)&ssdt_ptr[acpi_pci32_start[0]] = cpu_to_le32(pcimem_start);
+    *(u32*)&ssdt_ptr[acpi_pci32_end[0]] = cpu_to_le32(pcimem_end - 1);
     if (pcimem64_start) {
         ssdt_ptr[acpi_pci64_valid[0]] = 1;
-        *(u64*)&ssdt_ptr[acpi_pci64_start[0]] = pcimem64_start;
-        *(u64*)&ssdt_ptr[acpi_pci64_end[0]] = pcimem64_end - 1;
-        *(u64*)&ssdt_ptr[acpi_pci64_length[0]] = pcimem64_end - pcimem64_start;
+        *(u64*)&ssdt_ptr[acpi_pci64_start[0]] = cpu_to_le64(pcimem64_start);
+        *(u64*)&ssdt_ptr[acpi_pci64_end[0]] = cpu_to_le64(pcimem64_end - 1);
+        *(u64*)&ssdt_ptr[acpi_pci64_length[0]] = cpu_to_le64(
+            pcimem64_end - pcimem64_start);
     } else {
         ssdt_ptr[acpi_pci64_valid[0]] = 0;
     }
@@ -440,7 +441,7 @@ build_hpet(void)
      * emulated hpet
      */
     hpet->timer_block_id = cpu_to_le32(0x8086a201);
-    hpet->addr.address = cpu_to_le32(BUILD_HPET_ADDRESS);
+    hpet->addr.address = cpu_to_le64(BUILD_HPET_ADDRESS);
     build_header((void*)hpet, HPET_SIGNATURE, sizeof(*hpet), 1);
 
     return hpet;
@@ -452,13 +453,11 @@ acpi_build_srat_memory(struct srat_memory_affinity *numamem,
 {
     numamem->type = SRAT_MEMORY;
     numamem->length = sizeof(*numamem);
-    memset(numamem->proximity, 0 ,4);
+    memset(numamem->proximity, 0, 4);
     numamem->proximity[0] = node;
     numamem->flags = cpu_to_le32(!!enabled);
-    numamem->base_addr_low = base & 0xFFFFFFFF;
-    numamem->base_addr_high = base >> 32;
-    numamem->length_low = len & 0xFFFFFFFF;
-    numamem->length_high = len >> 32;
+    numamem->base_addr = cpu_to_le64(base);
+    numamem->range_length = cpu_to_le64(len);
 }
 
 static void *
@@ -484,7 +483,7 @@ build_srat(void)
     }
 
     memset(srat, 0, srat_size);
-    srat->reserved1=1;
+    srat->reserved1=cpu_to_le32(1);
     struct srat_processor_affinity *core = (void*)(srat + 1);
     int i;
     u64 curnode;
@@ -567,8 +566,8 @@ build_mcfg_q35(void)
         return NULL;
     }
     memset(mcfg, 0, len);
-    mcfg->allocation[0].address = Q35_HOST_BRIDGE_PCIEXBAR_ADDR;
-    mcfg->allocation[0].pci_segment = Q35_HOST_PCIE_PCI_SEGMENT;
+    mcfg->allocation[0].address = cpu_to_le64(Q35_HOST_BRIDGE_PCIEXBAR_ADDR);
+    mcfg->allocation[0].pci_segment = cpu_to_le16(Q35_HOST_PCIE_PCI_SEGMENT);
     mcfg->allocation[0].start_bus_number = Q35_HOST_PCIE_START_BUS_NUMBER;
     mcfg->allocation[0].end_bus_number = Q35_HOST_PCIE_END_BUS_NUMBER;
 
@@ -605,8 +604,8 @@ acpi_setup(void)
 
 #define ACPI_INIT_TABLE(X)                                   \
     do {                                                     \
-        tables[tbl_idx] = (u32)(X);                          \
-        if (tables[tbl_idx])                                 \
+        tables[tbl_idx] = cpu_to_le32((u32)(X));             \
+        if (le32_to_cpu(tables[tbl_idx]))                    \
             tbl_idx++;                                       \
     } while(0)
 
@@ -675,7 +674,7 @@ acpi_setup(void)
         return;
     }
     memset(rsdp, 0, sizeof(*rsdp));
-    rsdp->signature = RSDP_SIGNATURE;
+    rsdp->signature = cpu_to_le64(RSDP_SIGNATURE);
     memcpy(rsdp->oem_id, BUILD_APPNAME6, 6);
     rsdp->rsdt_physical_address = cpu_to_le32((u32)rsdt);
     rsdp->checksum -= checksum(rsdp, 20);
