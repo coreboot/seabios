@@ -113,6 +113,178 @@ struct fadt_descriptor_rev1
 #endif
 } PACKED;
 
+struct acpi_table_header         /* ACPI common table header */
+{
+    ACPI_TABLE_HEADER_DEF
+} PACKED;
+
+/*
+ * ACPI 1.0 Root System Description Table (RSDT)
+ */
+#define RSDT_SIGNATURE 0x54445352 // RSDT
+struct rsdt_descriptor_rev1
+{
+    ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
+    u32 table_offset_entry[0];  /* Array of pointers to other */
+    /* ACPI tables */
+} PACKED;
+
+/*
+ * ACPI 1.0 Firmware ACPI Control Structure (FACS)
+ */
+#define FACS_SIGNATURE 0x53434146 // FACS
+struct facs_descriptor_rev1
+{
+    u32 signature;           /* ACPI Signature */
+    u32 length;                 /* Length of structure, in bytes */
+    u32 hardware_signature;     /* Hardware configuration signature */
+    u32 firmware_waking_vector; /* ACPI OS waking vector */
+    u32 global_lock;            /* Global Lock */
+    u32 S4bios_f        : 1;    /* Indicates if S4BIOS support is present */
+    u32 reserved1       : 31;   /* Must be 0 */
+    u8  resverved3 [40];        /* Reserved - must be zero */
+} PACKED;
+
+/*
+ * Differentiated System Description Table (DSDT)
+ */
+#define DSDT_SIGNATURE 0x54445344 // DSDT
+
+/*
+ * MADT values and structures
+ */
+
+/* Values for MADT PCATCompat */
+
+#define DUAL_PIC                0
+#define MULTIPLE_APIC           1
+
+/* Master MADT */
+
+#define APIC_SIGNATURE 0x43495041 // APIC
+struct multiple_apic_table
+{
+    ACPI_TABLE_HEADER_DEF     /* ACPI common table header */
+    u32 local_apic_address;     /* Physical address of local APIC */
+#if 0
+    u32 PCATcompat      : 1;    /* A one indicates system also has dual 8259s */
+    u32 reserved1       : 31;
+#else
+    u32 flags;
+#endif
+} PACKED;
+
+/* Values for Type in APIC sub-headers */
+
+#define APIC_PROCESSOR          0
+#define APIC_IO                 1
+#define APIC_XRUPT_OVERRIDE     2
+#define APIC_NMI                3
+#define APIC_LOCAL_NMI          4
+#define APIC_ADDRESS_OVERRIDE   5
+#define APIC_IO_SAPIC           6
+#define APIC_LOCAL_SAPIC        7
+#define APIC_XRUPT_SOURCE       8
+#define APIC_RESERVED           9           /* 9 and greater are reserved */
+
+/*
+ * MADT sub-structures (Follow MULTIPLE_APIC_DESCRIPTION_TABLE)
+ */
+#define ACPI_SUB_HEADER_DEF   /* Common ACPI sub-structure header */\
+    u8  type;                               \
+    u8  length;
+
+/* Sub-structures for MADT */
+
+struct madt_processor_apic
+{
+    ACPI_SUB_HEADER_DEF
+    u8  processor_id;           /* ACPI processor id */
+    u8  local_apic_id;          /* Processor's local APIC id */
+#if 0
+    u32 processor_enabled: 1;   /* Processor is usable if set */
+    u32 reserved2       : 31;   /* Reserved, must be zero */
+#else
+    u32 flags;
+#endif
+} PACKED;
+
+struct madt_io_apic
+{
+    ACPI_SUB_HEADER_DEF
+    u8  io_apic_id;             /* I/O APIC ID */
+    u8  reserved;               /* Reserved - must be zero */
+    u32 address;                /* APIC physical address */
+    u32 interrupt;              /* Global system interrupt where INTI
+                                 * lines start */
+} PACKED;
+
+struct madt_intsrcovr {
+    ACPI_SUB_HEADER_DEF
+    u8  bus;
+    u8  source;
+    u32 gsi;
+    u16 flags;
+} PACKED;
+
+struct madt_local_nmi {
+    ACPI_SUB_HEADER_DEF
+    u8  processor_id;           /* ACPI processor id */
+    u16 flags;                  /* MPS INTI flags */
+    u8  lint;                   /* Local APIC LINT# */
+} PACKED;
+
+/*
+ * HPET Description Table
+ */
+#define HPET_SIGNATURE 0x54455048 // HPET
+struct acpi_20_hpet {
+    ACPI_TABLE_HEADER_DEF                    /* ACPI common table header */
+    u32           timer_block_id;
+    struct acpi_20_generic_address addr;
+    u8            hpet_number;
+    u16           min_tick;
+    u8            page_protect;
+} PACKED;
+
+/*
+ * SRAT (NUMA topology description) table
+ */
+
+#define SRAT_SIGNATURE 0x54415253 // SRAT
+struct system_resource_affinity_table
+{
+    ACPI_TABLE_HEADER_DEF
+    u32    reserved1;
+    u32    reserved2[2];
+} PACKED;
+
+#define SRAT_PROCESSOR          0
+#define SRAT_MEMORY             1
+
+struct srat_processor_affinity
+{
+    ACPI_SUB_HEADER_DEF
+    u8     proximity_lo;
+    u8     local_apic_id;
+    u32    flags;
+    u8     local_sapic_eid;
+    u8     proximity_hi[3];
+    u32    reserved;
+} PACKED;
+
+struct srat_memory_affinity
+{
+    ACPI_SUB_HEADER_DEF
+    u8     proximity[4];
+    u16    reserved1;
+    u32    base_addr_low,base_addr_high;
+    u32    length_low,length_high;
+    u32    reserved2;
+    u32    flags;
+    u32    reserved3[2];
+} PACKED;
+
 /* PCI fw r3.0 MCFG table. */
 /* Subtable */
 struct acpi_mcfg_allocation {
