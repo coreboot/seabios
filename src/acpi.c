@@ -352,6 +352,9 @@ build_ssdt(void)
         ssdt_ptr[acpi_pci64_valid[0]] = 0;
     }
 
+    int pvpanic_port = romfile_loadint("etc/pvpanic-port", 0x0);
+    *(u16 *)(ssdt_ptr + *ssdt_isa_pest) = pvpanic_port;
+
     ssdt_ptr += sizeof(ssdp_misc_aml);
 
     // build Scope(_SB_) header
