@@ -22,6 +22,7 @@ def main():
     # Read data in
     f = open(inname, 'rb')
     data = f.read()
+    f.close()
     count = len(data)
 
     # Pad to a 512 byte boundary
@@ -43,6 +44,7 @@ def main():
     # Write new rom
     f = open(outname, 'wb')
     f.write(data)
+    f.close()
 
 if __name__ == '__main__':
     main()
