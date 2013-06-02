@@ -164,6 +164,104 @@ findLast(struct zone_s *zone)
 
 
 /****************************************************************
+ * tracked memory allocations
+ ****************************************************************/
+
+// Allocate memory from the given zone and track it as a PMM allocation
+void * __malloc
+pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
+{
+    ASSERT32FLAT();
+    if (!size)
+        return NULL;
+
+    // Find and reserve space for bookkeeping.
+    struct allocdetail_s *detail = allocSpace(
+        &ZoneTmpHigh, sizeof(*detail), MALLOC_MIN_ALIGN, NULL);
+    if (!detail) {
+        detail = allocSpace(&ZoneTmpLow, sizeof(*detail)
+                            , MALLOC_MIN_ALIGN, NULL);
+        if (!detail)
+            return NULL;
+    }
+
+    // Find and reserve space for main allocation
+    void *data = allocSpace(zone, size, align, &detail->datainfo);
+    if (!data) {
+        freeSpace(&detail->detailinfo);
+        return NULL;
+    }
+
+    dprintf(8, "pmm_malloc zone=%p handle=%x size=%d align=%x"
+            " ret=%p (detail=%p)\n"
+            , zone, handle, size, align
+            , data, detail);
+    detail->handle = handle;
+
+    return data;
+}
+
+// Free a data block allocated with pmm_malloc
+int
+pmm_free(void *data)
+{
+    ASSERT32FLAT();
+    struct allocinfo_s *info = findAlloc(data);
+    if (!info || data == (void*)info || data == info->dataend)
+        return -1;
+    struct allocdetail_s *detail = container_of(
+        info, struct allocdetail_s, datainfo);
+    dprintf(8, "pmm_free %p (detail=%p)\n", data, detail);
+    freeSpace(info);
+    freeSpace(&detail->detailinfo);
+    return 0;
+}
+
+// Find the amount of free space in a given zone.
+static u32
+pmm_getspace(struct zone_s *zone)
+{
+    // XXX - doesn't account for ZoneLow being able to grow.
+    // XXX - results not reliable when CONFIG_THREAD_OPTIONROMS
+    u32 maxspace = 0;
+    struct allocinfo_s *info;
+    for (info = zone->info; info; info = info->next) {
+        u32 space = info->allocend - info->dataend;
+        if (space > maxspace)
+            maxspace = space;
+    }
+
+    if (zone != &ZoneTmpHigh && zone != &ZoneTmpLow)
+        return maxspace;
+    // Account for space needed for PMM tracking.
+    u32 reserve = ALIGN(sizeof(struct allocdetail_s), MALLOC_MIN_ALIGN);
+    if (maxspace <= reserve)
+        return 0;
+    return maxspace - reserve;
+}
+
+// Find the data block allocated with pmm_malloc with a given handle.
+static void *
+pmm_find(u32 handle)
+{
+    int i;
+    for (i=0; i<ARRAY_SIZE(Zones); i++) {
+        struct zone_s *zone = Zones[i];
+        struct allocinfo_s *info;
+        for (info = zone->info; info; info = info->next) {
+            if (info->data != (void*)info)
+                continue;
+            struct allocdetail_s *detail = container_of(
+                info, struct allocdetail_s, detailinfo);
+            if (detail->handle == handle)
+                return detail->datainfo.data;
+        }
+    }
+    return NULL;
+}
+
+
+/****************************************************************
  * 0xc0000-0xf0000 management
  ****************************************************************/
 
@@ -355,104 +453,6 @@ malloc_prepboot(void)
     }
 
     calcRamSize();
-}
-
-
-/****************************************************************
- * tracked memory allocations
- ****************************************************************/
-
-// Allocate memory from the given zone and track it as a PMM allocation
-void * __malloc
-pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
-{
-    ASSERT32FLAT();
-    if (!size)
-        return NULL;
-
-    // Find and reserve space for bookkeeping.
-    struct allocdetail_s *detail = allocSpace(
-        &ZoneTmpHigh, sizeof(*detail), MALLOC_MIN_ALIGN, NULL);
-    if (!detail) {
-        detail = allocSpace(&ZoneTmpLow, sizeof(*detail)
-                            , MALLOC_MIN_ALIGN, NULL);
-        if (!detail)
-            return NULL;
-    }
-
-    // Find and reserve space for main allocation
-    void *data = allocSpace(zone, size, align, &detail->datainfo);
-    if (!data) {
-        freeSpace(&detail->detailinfo);
-        return NULL;
-    }
-
-    dprintf(8, "pmm_malloc zone=%p handle=%x size=%d align=%x"
-            " ret=%p (detail=%p)\n"
-            , zone, handle, size, align
-            , data, detail);
-    detail->handle = handle;
-
-    return data;
-}
-
-// Free a data block allocated with pmm_malloc
-int
-pmm_free(void *data)
-{
-    ASSERT32FLAT();
-    struct allocinfo_s *info = findAlloc(data);
-    if (!info || data == (void*)info || data == info->dataend)
-        return -1;
-    struct allocdetail_s *detail = container_of(
-        info, struct allocdetail_s, datainfo);
-    dprintf(8, "pmm_free %p (detail=%p)\n", data, detail);
-    freeSpace(info);
-    freeSpace(&detail->detailinfo);
-    return 0;
-}
-
-// Find the amount of free space in a given zone.
-static u32
-pmm_getspace(struct zone_s *zone)
-{
-    // XXX - doesn't account for ZoneLow being able to grow.
-    // XXX - results not reliable when CONFIG_THREAD_OPTIONROMS
-    u32 maxspace = 0;
-    struct allocinfo_s *info;
-    for (info = zone->info; info; info = info->next) {
-        u32 space = info->allocend - info->dataend;
-        if (space > maxspace)
-            maxspace = space;
-    }
-
-    if (zone != &ZoneTmpHigh && zone != &ZoneTmpLow)
-        return maxspace;
-    // Account for space needed for PMM tracking.
-    u32 reserve = ALIGN(sizeof(struct allocdetail_s), MALLOC_MIN_ALIGN);
-    if (maxspace <= reserve)
-        return 0;
-    return maxspace - reserve;
-}
-
-// Find the data block allocated with pmm_malloc with a given handle.
-static void *
-pmm_find(u32 handle)
-{
-    int i;
-    for (i=0; i<ARRAY_SIZE(Zones); i++) {
-        struct zone_s *zone = Zones[i];
-        struct allocinfo_s *info;
-        for (info = zone->info; info; info = info->next) {
-            if (info->data != (void*)info)
-                continue;
-            struct allocdetail_s *detail = container_of(
-                info, struct allocdetail_s, detailinfo);
-            if (detail->handle == handle)
-                return detail->datainfo.data;
-        }
-    }
-    return NULL;
 }
 
 
