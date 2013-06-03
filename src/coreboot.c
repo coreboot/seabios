@@ -14,6 +14,7 @@
 #include "config.h" // CONFIG_*
 #include "acpi.h" // find_acpi_features
 #include "pci.h" // pci_probe_devices
+#include "paravirt.h" // PlatformRunningOn
 
 
 /****************************************************************
@@ -165,6 +166,10 @@ coreboot_preinit(void)
     if (cbmb) {
         CBvendor = &cbmb->strings[cbmb->vendor_idx];
         CBpart = &cbmb->strings[cbmb->part_idx];
+        if (strcmp(CBvendor, "Emulation") == 0 &&
+            strcmp(CBpart, "QEMU x86") == 0) {
+            PlatformRunningOn |= PF_QEMU;
+        }
         dprintf(1, "Found mainboard %s %s\n", CBvendor, CBpart);
     }
 
