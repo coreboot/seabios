@@ -60,15 +60,17 @@ struct usbhub_op_s {
     void (*disconnect)(struct usbhub_s *hub, u32 port);
 };
 
-#define USB_TYPE_UHCI 1
-#define USB_TYPE_OHCI 2
-#define USB_TYPE_EHCI 3
+#define USB_TYPE_UHCI  1
+#define USB_TYPE_OHCI  2
+#define USB_TYPE_EHCI  3
+#define USB_TYPE_XHCI  4
 
-#define USB_FULLSPEED 0
-#define USB_LOWSPEED  1
-#define USB_HIGHSPEED 2
+#define USB_FULLSPEED  0
+#define USB_LOWSPEED   1
+#define USB_HIGHSPEED  2
+#define USB_SUPERSPEED 3
 
-#define USB_MAXADDR 127
+#define USB_MAXADDR  127
 
 
 /****************************************************************

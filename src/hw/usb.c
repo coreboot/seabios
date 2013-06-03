@@ -14,6 +14,7 @@
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
 #include "usb-ehci.h" // ehci_setup
+#include "usb-xhci.h" // xhci_setup
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb-hub.h" // usb_hub_setup
 #include "usb-msc.h" // usb_msc_setup
@@ -41,6 +42,8 @@ usb_alloc_pipe(struct usbdevice_s *usbdev
         return ohci_alloc_pipe(usbdev, epdesc);
     case USB_TYPE_EHCI:
         return ehci_alloc_pipe(usbdev, epdesc);
+    case USB_TYPE_XHCI:
+        return xhci_alloc_pipe(usbdev, epdesc);
     }
 }
 
@@ -50,6 +53,8 @@ usb_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
                 , struct usb_endpoint_descriptor *epdesc)
 {
     switch (usbdev->hub->cntl->type) {
+    case USB_TYPE_XHCI:
+        return xhci_update_pipe(usbdev, pipe, epdesc);
     default:
         free_pipe(pipe);
         return usb_alloc_pipe(usbdev, epdesc);
@@ -70,6 +75,8 @@ send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
         return ohci_control(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_EHCI:
         return ehci_control(pipe, dir, cmd, cmdsize, data, datasize);
+    case USB_TYPE_XHCI:
+        return xhci_control(pipe, dir, cmd, cmdsize, data, datasize);
     }
 }
 
@@ -84,6 +91,8 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
         return ohci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_EHCI:
         return ehci_send_bulk(pipe_fl, dir, data, datasize);
+    case USB_TYPE_XHCI:
+        return xhci_send_bulk(pipe_fl, dir, data, datasize);
     }
 }
 
@@ -98,6 +107,8 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
         return ohci_poll_intr(pipe_fl, data);
     case USB_TYPE_EHCI:
         return ehci_poll_intr(pipe_fl, data);
+    case USB_TYPE_XHCI:
+        return xhci_poll_intr(pipe_fl, data);
     }
 }
 
@@ -473,5 +484,7 @@ usb_setup(void)
             uhci_setup(pci, count++);
         else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
             ohci_setup(pci, count++);
+        else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_XHCI)
+            xhci_setup(pci, count++);
     }
 }
