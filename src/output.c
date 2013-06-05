@@ -11,6 +11,7 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
+#include "paravirt.h" // PlatformRunningOn
 
 struct putcinfo {
     void (*func)(struct putcinfo *info, char c);
@@ -77,7 +78,7 @@ putc_debug(struct putcinfo *action, char c)
 {
     if (! CONFIG_DEBUG_LEVEL)
         return;
-    if (CONFIG_DEBUG_IO)
+    if (CONFIG_DEBUG_IO && runningOnQEMU())
         // Send character to debug port.
         outb(c, GET_GLOBAL(DebugOutputPort));
     if (c == '\n')

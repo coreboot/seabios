@@ -425,7 +425,7 @@ menu "Debugging"
             Base port for serial - generally 0x3f8, 0x2f8, 0x3e8, or 0x2e8.
 
     config DEBUG_IO
-        depends on QEMU && DEBUG_LEVEL != 0
+        depends on QEMU_HARDWARE && DEBUG_LEVEL != 0
         bool "Special IO port debugging"
         default y
         help
