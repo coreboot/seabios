@@ -279,58 +279,6 @@ switch_next(struct thread_info *cur)
         : "ebx", "edx", "esi", "edi", "cc", "memory");
 }
 
-// Low-level irq enable.
-void VISIBLE16
-check_irqs(void)
-{
-    asm volatile("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
-}
-
-// Briefly permit irqs to occur.
-void
-yield(void)
-{
-    if (MODESEGMENT) {
-        stack_hop_back(0, 0, check_irqs);
-        return;
-    }
-    extern void _cfunc16_check_irqs(void);
-    if (!CONFIG_THREADS) {
-        call16big(0, _cfunc16_check_irqs);
-        return;
-    }
-    struct thread_info *cur = getCurThread();
-    if (cur == &MainThread)
-        // Permit irqs to fire
-        call16big(0, _cfunc16_check_irqs);
-
-    // Switch to the next thread
-    switch_next(cur);
-}
-
-void VISIBLE16
-wait_irq(void)
-{
-    asm volatile("sti ; hlt ; cli ; cld": : :"memory");
-}
-
-// Wait for next irq to occur.
-void
-yield_toirq(void)
-{
-    if (MODESEGMENT) {
-        stack_hop_back(0, 0, wait_irq);
-        return;
-    }
-    if (CONFIG_THREADS && MainThread.next != &MainThread) {
-        // Threads still active - do a yield instead.
-        yield();
-        return;
-    }
-    extern void _cfunc16_wait_irq(void);
-    call16big(0, _cfunc16_wait_irq);
-}
-
 // Last thing called from a thread (called on "next" stack).
 static void
 __end_thread(struct thread_info *old)
@@ -386,6 +334,63 @@ run_thread(void (*func)(void*), void *data)
 
 fail:
     func(data);
+}
+
+
+/****************************************************************
+ * Thread helpers
+ ****************************************************************/
+
+// Low-level irq enable.
+void VISIBLE16
+check_irqs(void)
+{
+    asm volatile("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
+}
+
+// Briefly permit irqs to occur.
+void
+yield(void)
+{
+    if (MODESEGMENT) {
+        stack_hop_back(0, 0, check_irqs);
+        return;
+    }
+    extern void _cfunc16_check_irqs(void);
+    if (!CONFIG_THREADS) {
+        call16big(0, _cfunc16_check_irqs);
+        return;
+    }
+    struct thread_info *cur = getCurThread();
+    if (cur == &MainThread)
+        // Permit irqs to fire
+        call16big(0, _cfunc16_check_irqs);
+
+    // Switch to the next thread
+    switch_next(cur);
+}
+
+void VISIBLE16
+wait_irq(void)
+{
+    asm volatile("sti ; hlt ; cli ; cld": : :"memory");
+}
+
+// Wait for next irq to occur.
+void
+yield_toirq(void)
+{
+    if (MODESEGMENT) {
+        stack_hop_back(0, 0, wait_irq);
+        return;
+    }
+    if (CONFIG_THREADS && MainThread.next != &MainThread) {
+        // Threads still active - do a yield instead.
+        yield();
+        return;
+    }
+    extern void _cfunc16_wait_irq(void);
+    call16big(0, _cfunc16_wait_irq);
 }
 
 // Wait for all threads (other than the main thread) to complete.
