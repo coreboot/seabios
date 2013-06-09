@@ -117,6 +117,9 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 #define container_of(ptr, type, member) ({                      \
         const typeof( ((type *)0)->member ) *__mptr = (ptr);    \
         (type *)( (char *)__mptr - offsetof(type,member) );})
+#define container_of_or_null(ptr, type, member) ({              \
+        const typeof( ((type *)0)->member ) *___mptr = (ptr);   \
+        ___mptr ? container_of(___mptr, type, member) : NULL; })
 
 #define likely(x)       __builtin_expect(!!(x), 1)
 #define unlikely(x)     __builtin_expect(!!(x), 0)

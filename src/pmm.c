@@ -10,10 +10,11 @@
 #include "farptr.h" // GET_FARVAR
 #include "biosvar.h" // GET_BDA
 #include "optionroms.h" // OPTION_ROM_ALIGN
+#include "list.h" // hlist_node
 
 // Information on a reserved area.
 struct allocinfo_s {
-    struct allocinfo_s *next, **pprev;
+    struct hlist_node node;
     void *data, *dataend, *allocend;
 };
 
@@ -26,7 +27,7 @@ struct allocdetail_s {
 
 // The various memory zones.
 struct zone_s {
-    struct allocinfo_s *info;
+    struct hlist_head head;
 };
 
 struct zone_s ZoneLow VARVERIFY32INIT, ZoneHigh VARVERIFY32INIT;
@@ -47,24 +48,20 @@ static void *
 allocSpace(struct zone_s *zone, u32 size, u32 align, struct allocinfo_s *fill)
 {
     struct allocinfo_s *info;
-    for (info = zone->info; info; info = info->next) {
+    hlist_for_each_entry(info, &zone->head, node) {
         void *dataend = info->dataend;
         void *allocend = info->allocend;
         void *newallocend = (void*)ALIGN_DOWN((u32)allocend - size, align);
         if (newallocend >= dataend && newallocend <= allocend) {
             // Found space - now reserve it.
-            struct allocinfo_s **pprev = info->pprev;
             if (!fill)
                 fill = newallocend;
-            fill->next = info;
-            fill->pprev = pprev;
             fill->data = newallocend;
             fill->dataend = newallocend + size;
             fill->allocend = allocend;
 
             info->allocend = newallocend;
-            info->pprev = &fill->next;
-            *pprev = fill;
+            hlist_add_before(&fill->node, &info->node);
             return newallocend;
         }
     }
@@ -75,14 +72,11 @@ allocSpace(struct zone_s *zone, u32 size, u32 align, struct allocinfo_s *fill)
 static void
 freeSpace(struct allocinfo_s *info)
 {
-    struct allocinfo_s *next = info->next;
-    struct allocinfo_s **pprev = info->pprev;
-    *pprev = next;
-    if (next) {
-        if (next->allocend == info->data)
-            next->allocend = info->allocend;
-        next->pprev = pprev;
-    }
+    struct allocinfo_s *next = container_of_or_null(
+        info->node.next, struct allocinfo_s, node);
+    if (next && next->allocend == info->data)
+        next->allocend = info->allocend;
+    hlist_del(&info->node);
 }
 
 // Add new memory to a zone
@@ -90,23 +84,18 @@ static void
 addSpace(struct zone_s *zone, void *start, void *end)
 {
     // Find position to add space
-    struct allocinfo_s **pprev = &zone->info, *info;
-    for (;;) {
-        info = *pprev;
-        if (!info || info->data < start)
+    struct allocinfo_s *info;
+    struct hlist_node **pprev;
+    hlist_for_each_entry_safe(info, pprev, &zone->head, node) {
+        if (info->data < start)
             break;
-        pprev = &info->next;
     }
 
     // Add space using temporary allocation info.
     struct allocdetail_s tempdetail;
-    tempdetail.datainfo.next = info;
-    tempdetail.datainfo.pprev = pprev;
     tempdetail.datainfo.data = tempdetail.datainfo.dataend = start;
     tempdetail.datainfo.allocend = end;
-    *pprev = &tempdetail.datainfo;
-    if (info)
-        info->pprev = &tempdetail.datainfo.next;
+    hlist_add(&tempdetail.datainfo.node, pprev);
 
     // Allocate final allocation info.
     struct allocdetail_s *detail = allocSpace(
@@ -115,21 +104,18 @@ addSpace(struct zone_s *zone, void *start, void *end)
         detail = allocSpace(&ZoneTmpLow, sizeof(*detail)
                             , MALLOC_MIN_ALIGN, NULL);
         if (!detail) {
-            *tempdetail.datainfo.pprev = tempdetail.datainfo.next;
-            if (tempdetail.datainfo.next)
-                tempdetail.datainfo.next->pprev = tempdetail.datainfo.pprev;
+            hlist_del(&tempdetail.datainfo.node);
             warn_noalloc();
             return;
         }
     }
 
     // Replace temp alloc space with final alloc space
+    pprev = tempdetail.datainfo.node.pprev;
+    hlist_del(&tempdetail.datainfo.node);
     memcpy(&detail->datainfo, &tempdetail.datainfo, sizeof(detail->datainfo));
     detail->handle = PMM_DEFAULT_HANDLE;
-
-    *tempdetail.datainfo.pprev = &detail->datainfo;
-    if (tempdetail.datainfo.next)
-        tempdetail.datainfo.next->pprev = &detail->datainfo.next;
+    hlist_add(&detail->datainfo.node, pprev);
 }
 
 // Search all zones for an allocation obtained from allocSpace()
@@ -138,11 +124,11 @@ findAlloc(void *data)
 {
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {
-        struct zone_s *zone = Zones[i];
         struct allocinfo_s *info;
-        for (info = zone->info; info; info = info->next)
+        hlist_for_each_entry(info, &Zones[i]->head, node) {
             if (info->data == data)
                 return info;
+        }
     }
     return NULL;
 }
@@ -151,15 +137,11 @@ findAlloc(void *data)
 static struct allocinfo_s *
 findLast(struct zone_s *zone)
 {
-    struct allocinfo_s *info = zone->info;
-    if (!info)
-        return NULL;
-    for (;;) {
-        struct allocinfo_s *next = info->next;
-        if (!next)
-            return info;
-        info = next;
+    struct allocinfo_s *info, *last = NULL;
+    hlist_for_each_entry(info, &zone->head, node) {
+        last = info;
     }
+    return last;
 }
 
 
@@ -225,7 +207,7 @@ pmm_getspace(struct zone_s *zone)
     // XXX - results not reliable when CONFIG_THREAD_OPTIONROMS
     u32 maxspace = 0;
     struct allocinfo_s *info;
-    for (info = zone->info; info; info = info->next) {
+    hlist_for_each_entry(info, &zone->head, node) {
         u32 space = info->allocend - info->dataend;
         if (space > maxspace)
             maxspace = space;
@@ -246,9 +228,8 @@ pmm_find(u32 handle)
 {
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {
-        struct zone_s *zone = Zones[i];
         struct allocinfo_s *info;
-        for (info = zone->info; info; info = info->next) {
+        hlist_for_each_entry(info, &Zones[i]->head, node) {
             if (info->data != (void*)info)
                 continue;
             struct allocdetail_s *detail = container_of(
@@ -405,8 +386,8 @@ malloc_init(void)
         int i;
         for (i=0; i<ARRAY_SIZE(Zones); i++) {
             struct zone_s *zone = Zones[i];
-            if (zone->info)
-                zone->info->pprev = &zone->info;
+            if (zone->head.first)
+                zone->head.first->pprev = &zone->head.first;
         }
     }
 
