@@ -7,6 +7,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
+#include "list.h" // hlist_node
 
 
 /****************************************************************
@@ -239,12 +240,11 @@ __call16_int(struct bregs *callregs, u16 offset)
 // Thread info - stored at bottom of each thread stack - don't change
 // without also updating the inline assembler below.
 struct thread_info {
-    struct thread_info *next;
     void *stackpos;
-    struct thread_info **pprev;
+    struct hlist_node node;
 };
 struct thread_info MainThread VARFSEG = {
-    &MainThread, NULL, &MainThread.next
+    NULL, { &MainThread.node, &MainThread.node.next }
 };
 #define THREADSTACKSIZE 4096
 
@@ -252,7 +252,8 @@ struct thread_info MainThread VARFSEG = {
 static int
 have_threads(void)
 {
-    return CONFIG_THREADS && GET_FLATPTR(MainThread.next) != &MainThread;
+    return (CONFIG_THREADS
+            && GET_FLATPTR(MainThread.node.next) != &MainThread.node);
 }
 
 // Return the 'struct thread_info' for the currently running thread.
@@ -269,15 +270,16 @@ getCurThread(void)
 static void
 switch_next(struct thread_info *cur)
 {
-    struct thread_info *next = cur->next;
+    struct thread_info *next = container_of(
+        cur->node.next, struct thread_info, node);
     if (cur == next)
         // Nothing to do.
         return;
     asm volatile(
         "  pushl $1f\n"                 // store return pc
         "  pushl %%ebp\n"               // backup %ebp
-        "  movl %%esp, 4(%%eax)\n"      // cur->stackpos = %esp
-        "  movl 4(%%ecx), %%esp\n"      // %esp = next->stackpos
+        "  movl %%esp, (%%eax)\n"       // cur->stackpos = %esp
+        "  movl (%%ecx), %%esp\n"       // %esp = next->stackpos
         "  popl %%ebp\n"                // restore %ebp
         "  retl\n"                      // restore pc
         "1:\n"
@@ -290,8 +292,7 @@ switch_next(struct thread_info *cur)
 static void
 __end_thread(struct thread_info *old)
 {
-    old->next->pprev = old->pprev;
-    *old->pprev = old->next;
+    hlist_del(&old->node);
     free(old);
     dprintf(DEBUG_thread, "\\%08x/ End thread\n", (u32)old);
     if (!have_threads())
@@ -312,23 +313,20 @@ run_thread(void (*func)(void*), void *data)
 
     thread->stackpos = (void*)thread + THREADSTACKSIZE;
     struct thread_info *cur = getCurThread();
-    thread->next = cur;
-    thread->pprev = cur->pprev;
-    cur->pprev = &thread->next;
-    *thread->pprev = thread;
+    hlist_add_after(&thread->node, &cur->node);
 
     dprintf(DEBUG_thread, "/%08x\\ Start thread\n", (u32)thread);
     asm volatile(
         // Start thread
         "  pushl $1f\n"                 // store return pc
         "  pushl %%ebp\n"               // backup %ebp
-        "  movl %%esp, 4(%%edx)\n"      // cur->stackpos = %esp
-        "  movl 4(%%ebx), %%esp\n"      // %esp = thread->stackpos
+        "  movl %%esp, (%%edx)\n"       // cur->stackpos = %esp
+        "  movl (%%ebx), %%esp\n"       // %esp = thread->stackpos
         "  calll *%%ecx\n"              // Call func
 
         // End thread
-        "  movl (%%ebx), %%ecx\n"       // %ecx = thread->next
-        "  movl 4(%%ecx), %%esp\n"      // %esp = next->stackpos
+        "  movl 4(%%ebx), %%ecx\n"      // %ecx = thread->node.next
+        "  movl -4(%%ecx), %%esp\n"     // %esp = next->stackpos
         "  movl %%ebx, %%eax\n"
         "  calll %4\n"                  // call __end_thread(thread)
         "  popl %%ebp\n"                // restore %ebp
