@@ -15,6 +15,7 @@
 #include "pci.h" // pci_bdf_to_*
 #include "usb.h" // struct usbdevice_s
 #include "csm.h" // csm_bootprio_*
+#include "list.h" // hlist_node
 
 
 /****************************************************************
@@ -291,9 +292,9 @@ struct bootentry_s {
     };
     int priority;
     const char *description;
-    struct bootentry_s *next;
+    struct hlist_node node;
 };
-static struct bootentry_s *BootList VARVERIFY32INIT;
+static struct hlist_head BootList VARVERIFY32INIT;
 
 #define IPL_TYPE_FLOPPY      0x01
 #define IPL_TYPE_HARDDISK    0x02
@@ -321,9 +322,9 @@ bootentry_add(int type, int prio, u32 data, const char *desc)
             , be->description, type, prio, data);
 
     // Add entry in sorted order.
-    struct bootentry_s **pprev;
-    for (pprev = &BootList; *pprev; pprev = &(*pprev)->next) {
-        struct bootentry_s *pos = *pprev;
+    struct hlist_node **pprev;
+    struct bootentry_s *pos;
+    hlist_for_each_entry_safe(pos, pprev, &BootList, node) {
         if (be->priority < pos->priority)
             break;
         if (be->priority > pos->priority)
@@ -338,8 +339,7 @@ bootentry_add(int type, int prio, u32 data, const char *desc)
                     && be->drive->cntl_id < pos->drive->cntl_id)))
             break;
     }
-    be->next = *pprev;
-    *pprev = be;
+    hlist_add(&be->node, pprev);
 }
 
 // Return the given priority if it's set - defaultprio otherwise.
@@ -430,14 +430,13 @@ interactive_bootmenu(void)
     wait_threads();
 
     // Show menu items
-    struct bootentry_s *pos = BootList;
     int maxmenu = 0;
-    while (pos) {
+    struct bootentry_s *pos;
+    hlist_for_each_entry(pos, &BootList, node) {
         char desc[60];
         maxmenu++;
         printf("%d. %s\n", maxmenu
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
-        pos = pos->next;
     }
 
     // Get key press
@@ -453,14 +452,13 @@ interactive_bootmenu(void)
 
     // Find entry and make top priority.
     int choice = scan_code - 1;
-    struct bootentry_s **pprev = &BootList;
-    while (--choice)
-        pprev = &(*pprev)->next;
-    pos = *pprev;
-    *pprev = pos->next;
-    pos->next = BootList;
-    BootList = pos;
+    hlist_for_each_entry(pos, &BootList, node) {
+        if (! --choice)
+            break;
+    }
+    hlist_del(&pos->node);
     pos->priority = 0;
+    hlist_add_head(&pos->node, &BootList);
 }
 
 // BEV (Boot Execution Vector) list
@@ -498,8 +496,8 @@ bcv_prepboot(void)
         bootentry_add(IPL_TYPE_HALT, haltprio, 0, "HALT");
 
     // Map drives and populate BEV list
-    struct bootentry_s *pos = BootList;
-    while (pos) {
+    struct bootentry_s *pos;
+    hlist_for_each_entry(pos, &BootList, node) {
         switch (pos->type) {
         case IPL_TYPE_BCV:
             call_bcv(pos->vector.seg, pos->vector.offset);
@@ -520,7 +518,6 @@ bcv_prepboot(void)
             add_bev(pos->type, pos->data);
             break;
         }
-        pos = pos->next;
     }
 
     // If nothing added a floppy/hd boot - add it manually.
