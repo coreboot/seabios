@@ -13,7 +13,8 @@
 #include "config.h" // CONFIG_*
 #include "memmap.h" // add_e820
 #include "paravirt.h" // RamSize
-#include "dev-q35.h"
+#include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
+#include "list.h" // struct hlist_node
 
 /* PM Timer ticks per second (HZ) */
 #define PM_TIMER_FREQUENCY  3579545
@@ -47,13 +48,13 @@ struct pci_region_entry {
     u64 align;
     int is64;
     enum pci_region_type type;
-    struct pci_region_entry *next;
+    struct hlist_node node;
 };
 
 struct pci_region {
     /* pci region assignments */
     u64 base;
-    struct pci_region_entry *list;
+    struct hlist_head list;
 };
 
 struct pci_bus {
@@ -539,30 +540,30 @@ static int pci_bios_bridge_region_is64(struct pci_region *r,
     }
     if ((pmem & PCI_PREF_RANGE_TYPE_MASK) != PCI_PREF_RANGE_TYPE_64)
        return 0;
-    struct pci_region_entry *entry = r->list;
-    while (entry) {
+    struct pci_region_entry *entry;
+    hlist_for_each_entry(entry, &r->list, node) {
         if (!entry->is64)
             return 0;
-        entry = entry->next;
     }
     return 1;
 }
 
 static u64 pci_region_align(struct pci_region *r)
 {
-    if (!r->list)
-        return 1;
-    // The first entry in the sorted list has the largest alignment
-    return r->list->align;
+    struct pci_region_entry *entry;
+    hlist_for_each_entry(entry, &r->list, node) {
+        // The first entry in the sorted list has the largest alignment
+        return entry->align;
+    }
+    return 1;
 }
 
 static u64 pci_region_sum(struct pci_region *r)
 {
-    struct pci_region_entry *entry = r->list;
     u64 sum = 0;
-    while (entry) {
+    struct pci_region_entry *entry;
+    hlist_for_each_entry(entry, &r->list, node) {
         sum += entry->size;
-        entry = entry->next;
     }
     return sum;
 }
@@ -570,18 +571,14 @@ static u64 pci_region_sum(struct pci_region *r)
 static void pci_region_migrate_64bit_entries(struct pci_region *from,
                                              struct pci_region *to)
 {
-    struct pci_region_entry **pprev = &from->list, **last = &to->list;
-    while (*pprev) {
-        struct pci_region_entry *entry = *pprev;
-        if (!entry->is64) {
-            pprev = &entry->next;
+    struct hlist_node **pprev, **last = &to->list.first;
+    struct pci_region_entry *entry;
+    hlist_for_each_entry_safe(entry, pprev, &from->list, node) {
+        if (!entry->is64)
             continue;
-        }
         // Move from source list to destination list.
-        *pprev = entry->next;
-        entry->next = NULL;
-        *last = entry;
-        last = &entry->next;
+        hlist_del(&entry->node);
+        hlist_add(&entry->node, last);
     }
 }
 
@@ -602,14 +599,13 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     entry->is64 = is64;
     entry->type = type;
     // Insert into list in sorted order.
-    struct pci_region_entry **pprev;
-    for (pprev = &bus->r[type].list; *pprev; pprev = &(*pprev)->next) {
-        struct pci_region_entry *pos = *pprev;
+    struct hlist_node **pprev;
+    struct pci_region_entry *pos;
+    hlist_for_each_entry_safe(pos, pprev, &bus->r[type].list, node) {
         if (pos->align < align || (pos->align == align && pos->size < size))
             break;
     }
-    entry->next = *pprev;
-    *pprev = entry;
+    hlist_add(&entry->node, pprev);
     return entry;
 }
 
@@ -748,17 +744,17 @@ pci_region_map_one_entry(struct pci_region_entry *entry, u64 addr)
 
 static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 {
-    struct pci_region_entry *entry = r->list;
-    while (entry) {
+    struct hlist_node **pprev;
+    struct pci_region_entry *entry;
+    hlist_for_each_entry_safe(entry, pprev, &r->list, node) {
         u64 addr = r->base;
         r->base += entry->size;
         if (entry->bar == -1)
             // Update bus base address if entry is a bridge region
             busses[entry->dev->secondary_bus].r[entry->type].base = addr;
         pci_region_map_one_entry(entry, addr);
-        struct pci_region_entry *next = entry->next;
+        hlist_del(&entry->node);
         free(entry);
-        entry = next;
     }
 }
 
@@ -766,8 +762,8 @@ static void pci_bios_map_devices(struct pci_bus *busses)
 {
     if (pci_bios_init_root_regions(busses)) {
         struct pci_region r64_mem, r64_pref;
-        r64_mem.list = NULL;
-        r64_pref.list = NULL;
+        r64_mem.list.first = NULL;
+        r64_pref.list.first = NULL;
         pci_region_migrate_64bit_entries(&busses[0].r[PCI_REGION_TYPE_MEM],
                                          &r64_mem);
         pci_region_migrate_64bit_entries(&busses[0].r[PCI_REGION_TYPE_PREFMEM],
