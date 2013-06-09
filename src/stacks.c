@@ -248,6 +248,13 @@ struct thread_info MainThread VARFSEG = {
 };
 #define THREADSTACKSIZE 4096
 
+// Check if any threads are running.
+static int
+have_threads(void)
+{
+    return CONFIG_THREADS && GET_FLATPTR(MainThread.next) != &MainThread;
+}
+
 // Return the 'struct thread_info' for the currently running thread.
 struct thread_info *
 getCurThread(void)
@@ -287,7 +294,7 @@ __end_thread(struct thread_info *old)
     *old->pprev = old->next;
     free(old);
     dprintf(DEBUG_thread, "\\%08x/ End thread\n", (u32)old);
-    if (MainThread.next == &MainThread)
+    if (!have_threads())
         dprintf(1, "All threads complete.\n");
 }
 
@@ -384,7 +391,7 @@ yield_toirq(void)
         stack_hop_back(0, 0, wait_irq);
         return;
     }
-    if (CONFIG_THREADS && MainThread.next != &MainThread) {
+    if (have_threads()) {
         // Threads still active - do a yield instead.
         yield();
         return;
@@ -398,9 +405,7 @@ void
 wait_threads(void)
 {
     ASSERT32FLAT();
-    if (! CONFIG_THREADS)
-        return;
-    while (MainThread.next != &MainThread)
+    while (have_threads())
         yield();
 }
 
@@ -480,10 +485,7 @@ yield_preempt(void)
 void
 check_preempt(void)
 {
-    if (! CONFIG_THREAD_OPTIONROMS || !GET_GLOBAL(CanPreempt)
-        || GET_FLATPTR(MainThread.next) == &MainThread)
-        return;
-
     extern void _cfunc32flat_yield_preempt(void);
-    call32(_cfunc32flat_yield_preempt, 0, 0);
+    if (CONFIG_THREAD_OPTIONROMS && GET_GLOBAL(CanPreempt) && have_threads())
+        call32(_cfunc32flat_yield_preempt, 0, 0);
 }
