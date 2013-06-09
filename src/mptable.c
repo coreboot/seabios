@@ -67,7 +67,7 @@ mptable_setup(void)
 
     // PCI bus
     struct mpt_bus *buses = (void*)cpu, *bus = buses;
-    if (PCIDevices) {
+    if (!hlist_empty(&PCIDevices)) {
         memset(bus, 0, sizeof(*bus));
         bus->type = MPT_TYPE_BUS;
         bus->busid = 0;

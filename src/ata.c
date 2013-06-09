@@ -1008,7 +1008,7 @@ static const struct pci_device_id pci_ata_tbl[] = {
 static void
 ata_scan(void)
 {
-    if (CONFIG_QEMU && !PCIDevices) {
+    if (CONFIG_QEMU && hlist_empty(&PCIDevices)) {
         // No PCI devices found - probably a QEMU "-M isapc" machine.
         // Try using ISA ports for ATA controllers.
         init_controller(NULL, IRQ_ATA1

@@ -85,7 +85,7 @@ pci_next(int bdf, int bus)
     }
 }
 
-struct pci_device *PCIDevices VARVERIFY32INIT;
+struct hlist_head PCIDevices VARVERIFY32INIT;
 int MaxPCIBus VARFSEG;
 
 // Check if PCI is available at all
@@ -107,7 +107,7 @@ pci_probe_devices(void)
     dprintf(3, "PCI probe\n");
     struct pci_device *busdevs[256];
     memset(busdevs, 0, sizeof(busdevs));
-    struct pci_device **pprev = &PCIDevices;
+    struct hlist_node **pprev = &PCIDevices.first;
     int extraroots = romfile_loadint("etc/extra-pci-roots", 0);
     int bus = -1, lastbus = 0, rootbuses = 0, count=0;
     while (bus < 0xff && (bus < MaxPCIBus || rootbuses < extraroots)) {
@@ -121,8 +121,7 @@ pci_probe_devices(void)
                 return;
             }
             memset(dev, 0, sizeof(*dev));
-            *pprev = dev;
-            pprev = &dev->next;
+            hlist_add(&dev->node, pprev);
             count++;
 
             // Find parent device.

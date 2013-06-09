@@ -2,6 +2,7 @@
 #define __PCI_H
 
 #include "types.h" // u32
+#include "list.h" // hlist_node
 
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
@@ -43,7 +44,7 @@ struct pci_device *pci_find_class(u16 classid);
 struct pci_device {
     u16 bdf;
     u8 rootbus;
-    struct pci_device *next;
+    struct hlist_node node;
     struct pci_device *parent;
 
     // Configuration space device information
@@ -58,7 +59,7 @@ struct pci_device {
 };
 extern u64 pcimem_start, pcimem_end;
 extern u64 pcimem64_start, pcimem64_end;
-extern struct pci_device *PCIDevices;
+extern struct hlist_head PCIDevices;
 extern int MaxPCIBus;
 int pci_probe_host(void);
 void pci_probe_devices(void);
@@ -66,8 +67,8 @@ static inline u32 pci_classprog(struct pci_device *pci) {
     return (pci->class << 8) | pci->prog_if;
 }
 
-#define foreachpci(PCI)                         \
-    for (PCI=PCIDevices; PCI; PCI=PCI->next)
+#define foreachpci(PCI)                                 \
+    hlist_for_each_entry(PCI, &PCIDevices, node)
 
 int pci_next(int bdf, int bus);
 #define foreachbdf(BDF, BUS)                                    \

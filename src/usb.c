@@ -422,13 +422,12 @@ usb_setup(void)
 
     // Look for USB controllers
     int count = 0;
-    struct pci_device *ehcipci = PCIDevices;
-    struct pci_device *pci;
+    struct pci_device *pci, *ehcipci = NULL;
     foreachpci(pci) {
         if (pci->class != PCI_CLASS_SERIAL_USB)
             continue;
 
-        if (pci->bdf >= ehcipci->bdf) {
+        if (!ehcipci || pci->bdf >= ehcipci->bdf) {
             // Check to see if this device has an ehci controller
             int found = 0;
             ehcipci = pci;
@@ -445,7 +444,8 @@ usb_setup(void)
                 }
                 if (ehcipci->class == PCI_CLASS_SERIAL_USB)
                     found++;
-                ehcipci = ehcipci->next;
+                ehcipci = container_of(
+                    ehcipci->node.next, struct pci_device, node);
                 if (!ehcipci || (pci_bdf_to_busdev(ehcipci->bdf)
                                  != pci_bdf_to_busdev(pci->bdf)))
                     // No ehci controller found.

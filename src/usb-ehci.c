@@ -368,7 +368,7 @@ ehci_setup(struct pci_device *pci, int busid, struct pci_device *comppci)
             cntl->companion[count++] = comppci;
         else if (pci_classprog(comppci) == PCI_CLASS_SERIAL_USB_OHCI)
             cntl->companion[count++] = comppci;
-        comppci = comppci->next;
+        comppci = container_of(comppci->node.next, struct pci_device, node);
     }
 
     run_thread(configure_ehci, cntl);
