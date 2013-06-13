@@ -223,6 +223,10 @@ usb_uas_setup(struct usbdevice_s *usbdev)
         case USB_DT_ENDPOINT:
             ep = (void*)desc;
             break;
+        case USB_DT_ENDPOINT_COMPANION:
+            /* No support (yet) for usb3 streams */
+            dprintf(1, "Superspeed UAS devices not supported (yet)\n");
+            goto fail;
         case 0x24:
             switch (desc[2]) {
             case UAS_PIPE_ID_COMMAND:

@@ -130,6 +130,7 @@ struct usb_ctrlrequest {
 #define USB_DT_ENDPOINT                 0x05
 #define USB_DT_DEVICE_QUALIFIER         0x06
 #define USB_DT_OTHER_SPEED_CONFIG       0x07
+#define USB_DT_ENDPOINT_COMPANION       0x30
 
 struct usb_device_descriptor {
     u8  bLength;
