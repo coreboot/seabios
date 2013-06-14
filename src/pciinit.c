@@ -606,8 +606,6 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
             break;
     }
     hlist_add(&entry->node, pprev);
-    dprintf(1, "Add %p to %p (bus=%p dev=%p bar=%d size=%llx align=%lld type=%d is64=%d\n"
-            , entry, pprev, bus, dev, bar, size, align, type, is64);
     return entry;
 }
 
