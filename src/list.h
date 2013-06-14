@@ -66,7 +66,13 @@ hlist_add_after(struct hlist_node *n, struct hlist_node *prev)
          ; pos != container_of(NULL, typeof(*pos), member)              \
          ; pos = container_of(pos->member.next, typeof(*pos), member))
 
-#define hlist_for_each_entry_safe(pos, pprev, head, member)             \
+#define hlist_for_each_entry_safe(pos, n, head, member)                 \
+    for (pos = container_of((head)->first, typeof(*pos), member)        \
+         ; pos != container_of(NULL, typeof(*pos), member)              \
+             && ({ n = pos->member.next; 1; })                          \
+         ; pos = container_of(n, typeof(*pos), member))
+
+#define hlist_for_each_entry_pprev(pos, pprev, head, member)            \
     for (pprev = &(head)->first                                         \
          ; *pprev && ({ pos=container_of(*pprev, typeof(*pos), member); 1; }) \
          ; pprev = &(*pprev)->next)

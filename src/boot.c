@@ -324,7 +324,7 @@ bootentry_add(int type, int prio, u32 data, const char *desc)
     // Add entry in sorted order.
     struct hlist_node **pprev;
     struct bootentry_s *pos;
-    hlist_for_each_entry_safe(pos, pprev, &BootList, node) {
+    hlist_for_each_entry_pprev(pos, pprev, &BootList, node) {
         if (be->priority < pos->priority)
             break;
         if (be->priority > pos->priority)

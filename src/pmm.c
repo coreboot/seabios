@@ -86,7 +86,7 @@ addSpace(struct zone_s *zone, void *start, void *end)
     // Find position to add space
     struct allocinfo_s *info;
     struct hlist_node **pprev;
-    hlist_for_each_entry_safe(info, pprev, &zone->head, node) {
+    hlist_for_each_entry_pprev(info, pprev, &zone->head, node) {
         if (info->data < start)
             break;
     }

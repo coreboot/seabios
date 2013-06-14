@@ -571,9 +571,9 @@ static u64 pci_region_sum(struct pci_region *r)
 static void pci_region_migrate_64bit_entries(struct pci_region *from,
                                              struct pci_region *to)
 {
-    struct hlist_node **pprev, **last = &to->list.first;
+    struct hlist_node *n, **last = &to->list.first;
     struct pci_region_entry *entry;
-    hlist_for_each_entry_safe(entry, pprev, &from->list, node) {
+    hlist_for_each_entry_safe(entry, n, &from->list, node) {
         if (!entry->is64)
             continue;
         // Move from source list to destination list.
@@ -601,11 +601,13 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     // Insert into list in sorted order.
     struct hlist_node **pprev;
     struct pci_region_entry *pos;
-    hlist_for_each_entry_safe(pos, pprev, &bus->r[type].list, node) {
+    hlist_for_each_entry_pprev(pos, pprev, &bus->r[type].list, node) {
         if (pos->align < align || (pos->align == align && pos->size < size))
             break;
     }
     hlist_add(&entry->node, pprev);
+    dprintf(1, "Add %p to %p (bus=%p dev=%p bar=%d size=%llx align=%lld type=%d is64=%d\n"
+            , entry, pprev, bus, dev, bar, size, align, type, is64);
     return entry;
 }
 
@@ -744,9 +746,9 @@ pci_region_map_one_entry(struct pci_region_entry *entry, u64 addr)
 
 static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 {
-    struct hlist_node **pprev;
+    struct hlist_node *n;
     struct pci_region_entry *entry;
-    hlist_for_each_entry_safe(entry, pprev, &r->list, node) {
+    hlist_for_each_entry_safe(entry, n, &r->list, node) {
         u64 addr = r->base;
         r->base += entry->size;
         if (entry->bar == -1)
