@@ -68,8 +68,7 @@ hlist_add_after(struct hlist_node *n, struct hlist_node *prev)
 
 #define hlist_for_each_entry_safe(pos, pprev, head, member)             \
     for (pprev = &(head)->first                                         \
-         ; *pprev                                                       \
-           && ({ pos=container_of((*pprev)->next, typeof(*pos), member); 1; }) \
+         ; *pprev && ({ pos=container_of(*pprev, typeof(*pos), member); 1; }) \
          ; pprev = &(*pprev)->next)
 
 
