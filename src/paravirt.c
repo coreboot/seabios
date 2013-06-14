@@ -222,6 +222,9 @@ struct qemu_smbios_header {
 static void
 qemu_cfg_legacy(void)
 {
+    if (!CONFIG_QEMU)
+        return;
+
     // Misc config items.
     qemu_romfile_add("etc/show-boot-menu", QEMU_CFG_BOOT_MENU, 0, 2);
     qemu_romfile_add("etc/irq0-override", QEMU_CFG_IRQ0_OVERRIDE, 0, 1);
@@ -301,7 +304,7 @@ struct QemuCfgFile {
 
 void qemu_cfg_init(void)
 {
-    if (!CONFIG_QEMU)
+    if (!runningOnQEMU())
         return;
 
     // Detect fw_cfg interface.
