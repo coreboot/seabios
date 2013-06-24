@@ -81,6 +81,8 @@ putc_debug(struct putcinfo *action, char c)
     if (CONFIG_DEBUG_IO && runningOnQEMU())
         // Send character to debug port.
         outb(c, GET_GLOBAL(DebugOutputPort));
+    if (!MODESEGMENT)
+        debug_cbmem(c);
     if (c == '\n')
         debug_serial('\r');
     debug_serial(c);

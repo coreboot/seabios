@@ -69,6 +69,21 @@ struct cb_forward {
 
 #define CB_TAG_FORWARD 0x11
 
+struct cb_cbmem_ref {
+    u32 tag;
+    u32 size;
+    u64 cbmem_addr;
+};
+
+#define CB_TAG_CBMEM_CONSOLE 0x17
+
+struct cbmem_console {
+	u32 buffer_size;
+	u32 buffer_cursor;
+	u8  buffer_body[0];
+} PACKED;
+static struct cbmem_console *cbcon = NULL;
+
 static u16
 ipchksum(char *buf, int count)
 {
@@ -162,6 +177,13 @@ coreboot_preinit(void)
     // confuses grub.  So, override it.
     add_e820(0, 16*1024, E820_RAM);
 
+    struct cb_cbmem_ref *cbref = find_cb_subtable(cbh, CB_TAG_CBMEM_CONSOLE);
+    if (cbref) {
+        cbcon = (void*)(u32)cbref->cbmem_addr;
+        dprintf(1, "----- [ seabios log starts here ] -----\n");
+        dprintf(1, "Found coreboot cbmem console @ %llx\n", cbref->cbmem_addr);
+    }
+
     struct cb_mainboard *cbmb = find_cb_subtable(cbh, CB_TAG_MAINBOARD);
     if (cbmb) {
         CBvendor = &cbmb->strings[cbmb->vendor_idx];
@@ -182,6 +204,16 @@ fail:
     return;
 }
 
+void debug_cbmem(char c)
+{
+    if (!CONFIG_COREBOOT)
+        return;
+    if (!cbcon)
+        return;
+    if (cbcon->buffer_cursor == cbcon->buffer_size)
+        return;
+    cbcon->buffer_body[cbcon->buffer_cursor++] = c;
+}
 
 /****************************************************************
  * BIOS table copying
