@@ -433,4 +433,14 @@ menu "Debugging"
             information by outputing strings in a special port present in the
             IO space.
 
+    config DEBUG_COREBOOT
+        depends on COREBOOT && DEBUG_LEVEL != 0
+        bool "coreboot cbmem debug logging"
+        default y
+        help
+            Send debugging information to the coreboot cbmem console buffer.
+            Needs CONFIG_CONSOLE_CBMEM in coreboot.  You can read the log
+            after boot using 'cbmem -c'.  Only 32bit code (basically every-
+            thing before booting the OS) writes to the log buffer.
+
 endmenu

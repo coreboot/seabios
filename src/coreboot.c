@@ -206,7 +206,7 @@ fail:
 
 void debug_cbmem(char c)
 {
-    if (!CONFIG_COREBOOT)
+    if (!CONFIG_DEBUG_COREBOOT)
         return;
     if (!cbcon)
         return;
