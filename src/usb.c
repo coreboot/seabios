@@ -444,7 +444,7 @@ usb_setup(void)
                 }
                 if (ehcipci->class == PCI_CLASS_SERIAL_USB)
                     found++;
-                ehcipci = container_of(
+                ehcipci = container_of_or_null(
                     ehcipci->node.next, struct pci_device, node);
                 if (!ehcipci || (pci_bdf_to_busdev(ehcipci->bdf)
                                  != pci_bdf_to_busdev(pci->bdf)))
