@@ -122,6 +122,7 @@ pci_probe_devices(void)
             }
             memset(dev, 0, sizeof(*dev));
             hlist_add(&dev->node, pprev);
+            pprev = &dev->node.next;
             count++;
 
             // Find parent device.
