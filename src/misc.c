@@ -71,7 +71,7 @@ handle_75(void)
     // clear irq13
     outb(0, PORT_MATH_CLEAR);
     // clear interrupt
-    eoi_pic2();
+    pic_eoi2();
     // legacy nmi call
     struct bregs br;
     memset(&br, 0, sizeof(br));

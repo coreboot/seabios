@@ -11,7 +11,7 @@
 #include "biosvar.h" // SET_BDA
 #include "util.h" // dprintf
 #include "cmos.h" // inb_cmos
-#include "pic.h" // eoi_pic1
+#include "pic.h" // pic_eoi1
 #include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
 #include "pci.h" // pci_to_bdf
@@ -679,7 +679,7 @@ handle_0e(void)
     u8 frs = GET_BDA(floppy_recalibration_status);
     SET_BDA(floppy_recalibration_status, frs | FRS_IRQ);
 
-    eoi_pic1();
+    pic_eoi1();
 }
 
 // Called from int08 handler.

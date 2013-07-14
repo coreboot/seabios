@@ -8,7 +8,7 @@
 #define __PIC_H
 
 #include "ioport.h" // PORT_PIC*
-#include "biosvar.h" // SET_IVT
+#include "farptr.h" // struct segoff_s
 
 // PORT_PIC1 bitdefs
 #define PIC1_IRQ0  (1<<0)
@@ -17,86 +17,36 @@
 #define PIC1_IRQ5  (1<<5)
 #define PIC1_IRQ6  (1<<6)
 // PORT_PIC2 bitdefs
-#define PIC2_IRQ8  (1<<0)
-#define PIC2_IRQ12 (1<<4)
-#define PIC2_IRQ13 (1<<5)
-#define PIC2_IRQ14 (1<<6)
+#define PIC2_IRQ8  (1<<8)
+#define PIC2_IRQ12 (1<<12)
+#define PIC2_IRQ13 (1<<13)
+#define PIC2_IRQ14 (1<<14)
+
+#define PIC_IRQMASK_DEFAULT ((u16)~PIC1_IRQ2)
 
 #define BIOS_HWIRQ0_VECTOR 0x08
 #define BIOS_HWIRQ8_VECTOR 0x70
 
 static inline void
-eoi_pic1(void)
+pic_eoi1(void)
 {
     // Send eoi (select OCW2 + eoi)
     outb(0x20, PORT_PIC1_CMD);
 }
 
 static inline void
-eoi_pic2(void)
+pic_eoi2(void)
 {
     // Send eoi (select OCW2 + eoi)
     outb(0x20, PORT_PIC2_CMD);
-    eoi_pic1();
+    pic_eoi1();
 }
 
-static inline void
-unmask_pic1(u8 irq)
-{
-    outb(inb(PORT_PIC1_DATA) & ~irq, PORT_PIC1_DATA);
-}
-
-static inline void
-unmask_pic2(u8 irq)
-{
-    outb(inb(PORT_PIC2_DATA) & ~irq, PORT_PIC2_DATA);
-}
-
-static inline void
-mask_pic1(u8 irq)
-{
-    outb(inb(PORT_PIC1_DATA) | irq, PORT_PIC1_DATA);
-}
-
-static inline void
-mask_pic2(u8 irq)
-{
-    outb(inb(PORT_PIC2_DATA) | irq, PORT_PIC2_DATA);
-}
-
-static inline u8
-get_pic1_isr(void)
-{
-    // 0x0b == select OCW1 + read ISR
-    outb(0x0b, PORT_PIC1_CMD);
-    return inb(PORT_PIC1_CMD);
-}
-
-static inline u8
-get_pic2_isr(void)
-{
-    // 0x0b == select OCW1 + read ISR
-    outb(0x0b, PORT_PIC2_CMD);
-    return inb(PORT_PIC2_CMD);
-}
-
-static inline void
-enable_hwirq(int hwirq, struct segoff_s func)
-{
-    int vector;
-    if (hwirq < 8) {
-        unmask_pic1(1 << hwirq);
-        vector = BIOS_HWIRQ0_VECTOR + hwirq;
-    } else {
-        unmask_pic2(1 << (hwirq - 8));
-        vector = BIOS_HWIRQ8_VECTOR + hwirq - 8;
-    }
-    SET_IVT(vector, func);
-}
-
-void set_pics(u8 irq0, u8 irq8);
+u16 pic_irqmask_read(void);
+void pic_irqmask_write(u16 mask);
+void pic_irqmask_mask(u16 off, u16 on);
+void pic_reset(u8 irq0, u8 irq8);
 void pic_setup(void);
-void pic_save_mask(void);
-void pic_restore_mask(void);
+void enable_hwirq(int hwirq, struct segoff_s func);
 
 #endif // pic.h

@@ -5,12 +5,34 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "pic.h" // get_pic1_isr
+#include "pic.h" // pic_*
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
+#include "biosvar.h" // SET_IVT
+
+u16
+pic_irqmask_read(void)
+{
+    return inb(PORT_PIC1_DATA) | (inb(PORT_PIC2_DATA) << 8);
+}
 
 void
-set_pics(u8 irq0, u8 irq8)
+pic_irqmask_write(u16 mask)
+{
+    outb(mask, PORT_PIC1_DATA);
+    outb(mask >> 8, PORT_PIC2_DATA);
+}
+
+void
+pic_irqmask_mask(u16 off, u16 on)
+{
+    u8 pic1off = off, pic1on = on, pic2off = off>>8, pic2on = on>>8;
+    outb((inb(PORT_PIC1_DATA) & ~pic1off) | pic1on, PORT_PIC1_DATA);
+    outb((inb(PORT_PIC2_DATA) & ~pic2off) | pic2on, PORT_PIC2_DATA);
+}
+
+void
+pic_reset(u8 irq0, u8 irq8)
 {
     // Send ICW1 (select OCW1 + will send ICW4)
     outb(0x11, PORT_PIC1_CMD);
@@ -25,44 +47,55 @@ set_pics(u8 irq0, u8 irq8)
     outb(0x01, PORT_PIC1_DATA);
     outb(0x01, PORT_PIC2_DATA);
     // Mask all irqs (except cascaded PIC2 irq)
-    outb(~PIC1_IRQ2, PORT_PIC1_DATA);
-    outb(~0, PORT_PIC2_DATA);
+    pic_irqmask_write(PIC_IRQMASK_DEFAULT);
 }
 
 void
 pic_setup(void)
 {
     dprintf(3, "init pic\n");
-    set_pics(BIOS_HWIRQ0_VECTOR, BIOS_HWIRQ8_VECTOR);
+    pic_reset(BIOS_HWIRQ0_VECTOR, BIOS_HWIRQ8_VECTOR);
+}
+
+void
+enable_hwirq(int hwirq, struct segoff_s func)
+{
+    pic_irqmask_mask(1 << hwirq, 0);
+    int vector;
+    if (hwirq < 8)
+        vector = BIOS_HWIRQ0_VECTOR + hwirq;
+    else
+        vector = BIOS_HWIRQ8_VECTOR + hwirq - 8;
+    SET_IVT(vector, func);
+}
+
+static u8
+pic_isr1_read(void)
+{
+    // 0x0b == select OCW1 + read ISR
+    outb(0x0b, PORT_PIC1_CMD);
+    return inb(PORT_PIC1_CMD);
+}
+
+static u8
+pic_isr2_read(void)
+{
+    // 0x0b == select OCW1 + read ISR
+    outb(0x0b, PORT_PIC2_CMD);
+    return inb(PORT_PIC2_CMD);
 }
 
 // Handler for otherwise unused hardware irqs.
 void VISIBLE16
 handle_hwpic1(struct bregs *regs)
 {
-    dprintf(DEBUG_ISR_hwpic1, "handle_hwpic1 irq=%x\n", get_pic1_isr());
-    eoi_pic1();
+    dprintf(DEBUG_ISR_hwpic1, "handle_hwpic1 irq=%x\n", pic_isr1_read());
+    pic_eoi1();
 }
 
 void VISIBLE16
 handle_hwpic2(struct bregs *regs)
 {
-    dprintf(DEBUG_ISR_hwpic2, "handle_hwpic2 irq=%x\n", get_pic2_isr());
-    eoi_pic2();
-}
-
-u8 saved_pic_mask[2] = { ~PIC1_IRQ2, ~0 };
-
-void
-pic_save_mask(void)
-{
-    saved_pic_mask[0] = inb(PORT_PIC1_DATA);
-    saved_pic_mask[1] = inb(PORT_PIC2_DATA);
-}
-
-void
-pic_restore_mask(void)
-{
-    outb(saved_pic_mask[0], PORT_PIC1_DATA);
-    outb(saved_pic_mask[1], PORT_PIC2_DATA);
+    dprintf(DEBUG_ISR_hwpic2, "handle_hwpic2 irq=%x\n", pic_isr2_read());
+    pic_eoi2();
 }

@@ -6,7 +6,7 @@
 
 #include "util.h" // dprintf
 #include "ioport.h" // outb
-#include "pic.h" // eoi_pic2
+#include "pic.h" // pic_eoi2
 #include "biosvar.h" // struct bios_data_area_s
 #include "bregs.h" // struct bregs
 #include "acpi.h" // find_resume_vector
@@ -49,7 +49,7 @@ handle_resume(void)
 
     case 0x05:
         // flush keyboard (issue EOI) and jump via 40h:0067h
-        eoi_pic2();
+        pic_eoi2();
         // NO BREAK
     case 0x0a:
 #define BDA_JUMP (((struct bios_data_area_s *)0)->jump)

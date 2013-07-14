@@ -9,7 +9,7 @@
 #include "util.h" // debug_enter
 #include "disk.h" // floppy_tick
 #include "cmos.h" // inb_cmos
-#include "pic.h" // eoi_pic1
+#include "pic.h" // pic_eoi1
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
 #include "usb-hid.h" // usb_check_event
@@ -583,7 +583,7 @@ handle_08(void)
     br.flags = F_IF;
     call16_int(0x1c, &br);
 
-    eoi_pic1();
+    pic_eoi1();
 }
 
 
@@ -746,5 +746,5 @@ handle_70(void)
     }
 
 done:
-    eoi_pic2();
+    pic_eoi2();
 }

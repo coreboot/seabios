@@ -9,7 +9,7 @@
 #include "biosvar.h" // SET_BDA
 #include "config.h" // CONFIG_*
 #include "util.h" // debug_enter
-#include "pic.h" // eoi_pic2
+#include "pic.h" // pic_eoi2
 #include "bregs.h" // struct bregs
 #include "pci.h" // pci_bdf_to_bus
 #include "ata.h" // ATA_CB_DC
@@ -889,7 +889,7 @@ handle_76(void)
 {
     debug_isr(DEBUG_ISR_76);
     SET_BDA(disk_interrupt_flag, 0xff);
-    eoi_pic2();
+    pic_eoi2();
 }
 
 // Old Fixed Disk Parameter Table (newer tables are in the ebda).

@@ -9,7 +9,7 @@
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
 #include "memmap.h" // E820_RAM
-#include "pic.h" // eoi_pic2
+#include "pic.h" // pic_reset
 #include "bregs.h" // struct bregs
 
 // Use PS2 System Control port A to set A20 enable
@@ -191,7 +191,7 @@ handle_1589(struct bregs *regs)
 {
     set_a20(1);
 
-    set_pics(regs->bl, regs->bh);
+    pic_reset(regs->bl, regs->bh);
 
     u64 *gdt_far = (void*)(regs->si + 0);
     u16 gdt_seg = regs->es;

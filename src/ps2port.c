@@ -9,7 +9,7 @@
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_LOW
 #include "ps2port.h" // ps2_kbd_command
-#include "pic.h" // eoi_pic1
+#include "pic.h" // pic_eoi1
 
 
 /****************************************************************
@@ -378,7 +378,7 @@ handle_74(void)
     process_mouse(v);
 
 done:
-    eoi_pic2();
+    pic_eoi2();
 }
 
 // INT09h : Keyboard Hardware Service Entry Point
@@ -408,7 +408,7 @@ handle_09(void)
     i8042_command(I8042_CMD_KBD_ENABLE, NULL);
 
 done:
-    eoi_pic1();
+    pic_eoi1();
 }
 
 

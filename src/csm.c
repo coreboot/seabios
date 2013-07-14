@@ -30,9 +30,10 @@ EFI_COMPATIBILITY16_TABLE csm_compat_table VARFSEG __aligned(16) = {
     .AcpiRsdPtrPointer = (u32)&csm_rsdp,
 };
 
-
 EFI_TO_COMPATIBILITY16_INIT_TABLE *csm_init_table;
 EFI_TO_COMPATIBILITY16_BOOT_TABLE *csm_boot_table;
+
+static u16 PICMask = PIC_IRQMASK_DEFAULT;
 
 extern void __csm_return(struct bregs *regs) __noreturn;
 
@@ -41,7 +42,7 @@ csm_return(struct bregs *regs)
 {
     dprintf(3, "handle_csm returning AX=%04x\n", regs->ax);
 
-    pic_save_mask();
+    PICMask = pic_irqmask_read();
     __csm_return(regs);
 }
 
@@ -271,7 +272,7 @@ handle_csm(struct bregs *regs)
 
     dprintf(3, "handle_csm regs %p AX=%04x\n", regs, regs->ax);
 
-    pic_restore_mask();
+    pic_irqmask_write(PICMask);
 
     switch(regs->ax) {
     case 0000: handle_csm_0000(regs); break;
