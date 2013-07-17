@@ -86,9 +86,9 @@ void ich9_lpc_fadt_setup(struct pci_device *dev, void *arg)
     fadt->gpe0_blk_len = ICH9_PMIO_GPE0_BLK_LEN;
     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
-    /* WBINVD + PROC_C1 + SLP_BUTTON + FIX_RTC + RTC_S4 */
-    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 6) |
-                              (1 << 7));
+    /* WBINVD + PROC_C1 + SLP_BUTTON + RTC_S4 + USE_PLATFORM_CLOCK */
+    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 7) |
+                              (1 << 15));
 }
 
 static const struct pci_device_id fadt_init_tbl[] = {
