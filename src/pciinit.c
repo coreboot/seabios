@@ -16,9 +16,6 @@
 #include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "list.h" // struct hlist_node
 
-/* PM Timer ticks per second (HZ) */
-#define PM_TIMER_FREQUENCY  3579545
-
 #define PCI_DEVICE_MEM_MIN     0x1000
 #define PCI_BRIDGE_IO_MIN      0x1000
 #define PCI_BRIDGE_MEM_MIN   0x100000
@@ -194,7 +191,7 @@ void mch_isa_bridge_setup(struct pci_device *dev, void *arg)
     /* acpi enable, SCI: IRQ9 000b = irq9*/
     pci_config_writeb(bdf, ICH9_LPC_ACPI_CTRL, ICH9_LPC_ACPI_CTRL_ACPI_EN);
 
-    pmtimer_setup(PORT_ACPI_PM_BASE + 0x08, PM_TIMER_FREQUENCY / 1000);
+    pmtimer_setup(PORT_ACPI_PM_BASE + 0x08);
 }
 
 static void storage_ide_setup(struct pci_device *pci, void *arg)
@@ -238,7 +235,7 @@ static void piix4_pm_setup(struct pci_device *pci, void *arg)
     pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
     pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
 
-    pmtimer_setup(PORT_ACPI_PM_BASE + 0x08, PM_TIMER_FREQUENCY / 1000);
+    pmtimer_setup(PORT_ACPI_PM_BASE + 0x08);
 }
 
 /* ICH9 SMBUS */

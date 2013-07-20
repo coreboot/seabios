@@ -732,7 +732,7 @@ find_acpi_features(void)
     u32 pm_tmr = le32_to_cpu(fadt->pm_tmr_blk);
     dprintf(4, "pm_tmr_blk=%x\n", pm_tmr);
     if (pm_tmr)
-        pmtimer_setup(pm_tmr, 3579);
+        pmtimer_setup(pm_tmr);
 
     // Theoretically we should check the 'reset_reg_sup' flag, but Windows
     // doesn't and thus nobody seems to *set* it. If the table is large enough

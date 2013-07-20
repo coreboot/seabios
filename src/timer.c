@@ -99,10 +99,11 @@ emulate_tsc(void)
     return ret;
 }
 
-void pmtimer_setup(u16 ioport, u32 khz)
+void pmtimer_setup(u16 ioport)
 {
     if (!CONFIG_PMTIMER)
         return;
+    u32 khz = PM_TIMER_FREQUENCY / 1000;
     dprintf(1, "Using pmtimer, ioport 0x%x, freq %d kHz\n", ioport, khz);
     SET_GLOBAL(pmtimer_ioport, ioport);
     SET_GLOBAL(cpu_khz, khz);

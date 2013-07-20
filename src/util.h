@@ -282,7 +282,7 @@ void useRTC(void);
 void releaseRTC(void);
 
 // timer.c
-void pmtimer_setup(u16 ioport, u32 khz);
+void pmtimer_setup(u16 ioport);
 int check_tsc(u64 end);
 void timer_setup(void);
 void ndelay(u32 count);
