@@ -17,15 +17,9 @@
 
 #define PMTIMER_HZ 3579545      // Underlying Hz of the PM Timer
 #define PMTIMER_TO_PIT 3        // Ratio of pmtimer rate to pit rate
-#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
 
 u32 TimerKHz VARFSEG;
-u8 no_tsc VARFSEG;
-
-u16 pmtimer_ioport VARFSEG;
-u32 pmtimer_wraps VARLOW;
-u32 pmtimer_last VARLOW;
-
+u16 TimerPort VARFSEG;
 u8 ShiftTSC VARFSEG;
 
 
@@ -75,7 +69,7 @@ tsctimer_setup(void)
 void
 timer_setup(void)
 {
-    if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport)) {
+    if (CONFIG_PMTIMER && TimerPort) {
         dprintf(3, "pmtimer already configured; will not calibrate TSC\n");
         return;
     }
@@ -86,7 +80,7 @@ timer_setup(void)
         cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
 
     if (!(cpuid_features & CPUID_TSC)) {
-        no_tsc = 1;
+        TimerPort = PORT_PIT_COUNTER0;
         TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
         dprintf(3, "386/486 class CPU. Using TSC emulation\n");
         return;
@@ -101,7 +95,7 @@ pmtimer_setup(u16 ioport)
     if (!CONFIG_PMTIMER)
         return;
     dprintf(1, "Using pmtimer, ioport 0x%x\n", ioport);
-    pmtimer_ioport = ioport;
+    TimerPort = ioport;
     TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
 }
 
@@ -110,54 +104,38 @@ pmtimer_setup(u16 ioport)
  * Internal timer reading
  ****************************************************************/
 
-/* TSC emulation timekeepers */
-u32 TSC_8254 VARLOW;
-int Last_TSC_8254 VARLOW;
+u32 TimerLast VARLOW;
 
+// Add extra high bits to timers that have less than 32bits of precision.
 static u32
-pittimer_read(void)
+timer_adjust_bits(u32 value, u32 validbits)
 {
-    /* read timer 0 current count */
-    u32 ret = GET_LOW(TSC_8254);
-    /* readback mode has slightly shifted registers, works on all
-     * 8254, readback PIT0 latch */
-    outb(PM_SEL_READBACK | PM_READ_VALUE | PM_READ_COUNTER0, PORT_PIT_MODE);
-    int cnt = (inb(PORT_PIT_COUNTER0) | (inb(PORT_PIT_COUNTER0) << 8));
-    int d = GET_LOW(Last_TSC_8254) - cnt;
-    /* Determine the ticks count from last invocation of this function */
-    ret += (d > 0) ? d : (PIT_TICK_INTERVAL + d);
-    SET_LOW(Last_TSC_8254, cnt);
-    SET_LOW(TSC_8254, ret);
-    return ret;
+    u32 last = GET_LOW(TimerLast);
+    value = (last & ~validbits) | (value & validbits);
+    if (value < last)
+        value += validbits + 1;
+    SET_LOW(TimerLast, value);
+    return value;
 }
 
-static u32
-pmtimer_read(void)
-{
-    u16 ioport = GET_GLOBAL(pmtimer_ioport);
-    u32 wraps = GET_LOW(pmtimer_wraps);
-    u32 pmtimer = inl(ioport) & 0xffffff;
-
-    if (pmtimer < GET_LOW(pmtimer_last)) {
-        wraps++;
-        SET_LOW(pmtimer_wraps, wraps);
-    }
-    SET_LOW(pmtimer_last, pmtimer);
-
-    dprintf(9, "pmtimer: %u:%u\n", wraps, pmtimer);
-    return wraps << 24 | pmtimer;
-}
-
+// Sample the current timer value.
 static u32
 timer_read(void)
 {
-    if (unlikely(GET_GLOBAL(no_tsc)))
-        return pittimer_read();
-    if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport))
-        return pmtimer_read();
-    return rdtscll() >> GET_GLOBAL(ShiftTSC);
+    u16 port = GET_GLOBAL(TimerPort);
+    if (!port)
+        // Read from CPU TSC
+        return rdtscll() >> GET_GLOBAL(ShiftTSC);
+    if (CONFIG_PMTIMER && port != PORT_PIT_COUNTER0)
+        // Read from PMTIMER
+        return timer_adjust_bits(inl(port), 0xffffff);
+    // Read from PIT.
+    outb(PM_SEL_READBACK | PM_READ_VALUE | PM_READ_COUNTER0, PORT_PIT_MODE);
+    u16 v = inb(PORT_PIT_COUNTER0) | (inb(PORT_PIT_COUNTER0) << 8);
+    return timer_adjust_bits(v, 0xffff);
 }
 
+// Check if the current time is past a previously calculated end time.
 int
 timer_check(u32 end)
 {
@@ -218,6 +196,8 @@ timer_calc_usec(u32 usecs)
 /****************************************************************
  * IRQ based timer
  ****************************************************************/
+
+#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
 
 // Return the number of milliseconds in 'ticks' number of timer irqs.
 u32
