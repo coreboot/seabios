@@ -33,6 +33,8 @@ u16 pmtimer_ioport VARFSEG;
 u32 pmtimer_wraps VARLOW;
 u32 pmtimer_last VARLOW;
 
+u8 ShiftTSC VARFSEG;
+
 void
 timer_setup(void)
 {
@@ -76,21 +78,25 @@ timer_setup(void)
     u64 diff = end - start;
     dprintf(6, "tsc calibrate start=%u end=%u diff=%u\n"
             , (u32)start, (u32)end, (u32)diff);
-    u32 t = DIV_ROUND_UP(diff * PMTIMER_HZ, CALIBRATE_COUNT);
-    TimerKHz = DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
+    u64 t = DIV_ROUND_UP(diff * PMTIMER_HZ, CALIBRATE_COUNT);
+    while (t >= (1<<24)) {
+        ShiftTSC++;
+        t = (t + 1) >> 1;
+    }
+    TimerKHz = DIV_ROUND_UP((u32)t, 1000 * PMTIMER_TO_PIT);
 
-    dprintf(1, "CPU Mhz=%u\n", t / (1000000 * PMTIMER_TO_PIT));
+    dprintf(1, "CPU Mhz=%u\n", (TimerKHz << ShiftTSC) / 1000);
 }
 
 /* TSC emulation timekeepers */
-u64 TSC_8254 VARLOW;
+u32 TSC_8254 VARLOW;
 int Last_TSC_8254 VARLOW;
 
-static u64
+static u32
 emulate_tsc(void)
 {
     /* read timer 0 current count */
-    u64 ret = GET_LOW(TSC_8254);
+    u32 ret = GET_LOW(TSC_8254);
     /* readback mode has slightly shifted registers, works on all
      * 8254, readback PIT0 latch */
     outb(PM_SEL_READBACK | PM_READ_VALUE | PM_READ_COUNTER0, PORT_PIT_MODE);
@@ -112,7 +118,7 @@ void pmtimer_setup(u16 ioport)
     TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
 }
 
-static u64 pmtimer_get(void)
+static u32 pmtimer_get(void)
 {
     u16 ioport = GET_GLOBAL(pmtimer_ioport);
     u32 wraps = GET_LOW(pmtimer_wraps);
@@ -125,39 +131,39 @@ static u64 pmtimer_get(void)
     SET_LOW(pmtimer_last, pmtimer);
 
     dprintf(9, "pmtimer: %u:%u\n", wraps, pmtimer);
-    return (u64)wraps << 24 | pmtimer;
+    return wraps << 24 | pmtimer;
 }
 
-static u64
+static u32
 get_tsc(void)
 {
     if (unlikely(GET_GLOBAL(no_tsc)))
         return emulate_tsc();
     if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport))
         return pmtimer_get();
-    return rdtscll();
+    return rdtscll() >> GET_GLOBAL(ShiftTSC);
 }
 
 int
-check_tsc(u64 end)
+check_tsc(u32 end)
 {
-    return (s64)(get_tsc() - end) > 0;
+    return (s32)(get_tsc() - end) > 0;
 }
 
 static void
-tscdelay(u64 diff)
+tscdelay(u32 diff)
 {
-    u64 start = get_tsc();
-    u64 end = start + diff;
+    u32 start = get_tsc();
+    u32 end = start + diff;
     while (!check_tsc(end))
         cpu_relax();
 }
 
 static void
-tscsleep(u64 diff)
+tscsleep(u32 diff)
 {
-    u64 start = get_tsc();
-    u64 end = start + diff;
+    u32 start = get_tsc();
+    u32 end = start + diff;
     while (!check_tsc(end))
         yield();
 }
@@ -183,17 +189,15 @@ void msleep(u32 count) {
 }
 
 // Return the TSC value that is 'msecs' time in the future.
-u64
+u32
 calc_future_tsc(u32 msecs)
 {
-    u32 khz = GET_GLOBAL(TimerKHz);
-    return get_tsc() + ((u64)khz * msecs);
+    return get_tsc() + (GET_GLOBAL(TimerKHz) * msecs);
 }
-u64
+u32
 calc_future_tsc_usec(u32 usecs)
 {
-    u32 khz = GET_GLOBAL(TimerKHz);
-    return get_tsc() + ((u64)DIV_ROUND_UP(khz, 1000) * usecs);
+    return get_tsc() + DIV_ROUND_UP(GET_GLOBAL(TimerKHz) * usecs, 1000);
 }
 
 
