@@ -26,7 +26,7 @@
 
 #define CALIBRATE_COUNT 0x800   // Approx 1.7ms
 
-u32 cpu_khz VARFSEG;
+u32 TimerKHz VARFSEG;
 u8 no_tsc VARFSEG;
 
 u16 pmtimer_ioport VARFSEG;
@@ -49,7 +49,7 @@ timer_setup(void)
 
     if (!(cpuid_features & CPUID_TSC)) {
         no_tsc = 1;
-        cpu_khz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
+        TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
         dprintf(3, "386/486 class CPU. Using TSC emulation\n");
         return;
     }
@@ -77,7 +77,7 @@ timer_setup(void)
     dprintf(6, "tsc calibrate start=%u end=%u diff=%u\n"
             , (u32)start, (u32)end, (u32)diff);
     u32 t = DIV_ROUND_UP(diff * PMTIMER_HZ, CALIBRATE_COUNT);
-    cpu_khz = DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
+    TimerKHz = DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
 
     dprintf(1, "CPU Mhz=%u\n", t / (1000000 * PMTIMER_TO_PIT));
 }
@@ -109,7 +109,7 @@ void pmtimer_setup(u16 ioport)
         return;
     dprintf(1, "Using pmtimer, ioport 0x%x\n", ioport);
     pmtimer_ioport = ioport;
-    cpu_khz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
+    TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
 }
 
 static u64 pmtimer_get(void)
@@ -163,36 +163,36 @@ tscsleep(u64 diff)
 }
 
 void ndelay(u32 count) {
-    tscdelay(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000000));
+    tscdelay(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000000));
 }
 void udelay(u32 count) {
-    tscdelay(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000));
+    tscdelay(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000));
 }
 void mdelay(u32 count) {
-    tscdelay(count * GET_GLOBAL(cpu_khz));
+    tscdelay(count * GET_GLOBAL(TimerKHz));
 }
 
 void nsleep(u32 count) {
-    tscsleep(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000000));
+    tscsleep(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000000));
 }
 void usleep(u32 count) {
-    tscsleep(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000));
+    tscsleep(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000));
 }
 void msleep(u32 count) {
-    tscsleep(count * GET_GLOBAL(cpu_khz));
+    tscsleep(count * GET_GLOBAL(TimerKHz));
 }
 
 // Return the TSC value that is 'msecs' time in the future.
 u64
 calc_future_tsc(u32 msecs)
 {
-    u32 khz = GET_GLOBAL(cpu_khz);
+    u32 khz = GET_GLOBAL(TimerKHz);
     return get_tsc() + ((u64)khz * msecs);
 }
 u64
 calc_future_tsc_usec(u32 usecs)
 {
-    u32 khz = GET_GLOBAL(cpu_khz);
+    u32 khz = GET_GLOBAL(TimerKHz);
     return get_tsc() + ((u64)DIV_ROUND_UP(khz, 1000) * usecs);
 }
 
