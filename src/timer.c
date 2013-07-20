@@ -19,13 +19,6 @@
 #define PMTIMER_TO_PIT 3        // Ratio of pmtimer rate to pit rate
 #define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
 
-
-/****************************************************************
- * Internal timers
- ****************************************************************/
-
-#define CALIBRATE_COUNT 0x800   // Approx 1.7ms
-
 u32 TimerKHz VARFSEG;
 u8 no_tsc VARFSEG;
 
@@ -35,27 +28,17 @@ u32 pmtimer_last VARLOW;
 
 u8 ShiftTSC VARFSEG;
 
-void
-timer_setup(void)
+
+/****************************************************************
+ * Timer setup
+ ****************************************************************/
+
+#define CALIBRATE_COUNT 0x800   // Approx 1.7ms
+
+// Calibrate the CPU time-stamp-counter
+static void
+tsctimer_setup(void)
 {
-    u32 eax, ebx, ecx, edx, cpuid_features = 0;
-
-    if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport)) {
-        dprintf(3, "pmtimer already configured; will not calibrate TSC\n");
-        return;
-    }
-
-    cpuid(0, &eax, &ebx, &ecx, &edx);
-    if (eax > 0)
-        cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
-
-    if (!(cpuid_features & CPUID_TSC)) {
-        no_tsc = 1;
-        TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
-        dprintf(3, "386/486 class CPU. Using TSC emulation\n");
-        return;
-    }
-
     // Setup "timer2"
     u8 orig = inb(PORT_PS2_CTRLB);
     outb((orig & ~PPCB_SPKR) | PPCB_T2GATE, PORT_PS2_CTRLB);
@@ -88,6 +71,45 @@ timer_setup(void)
     dprintf(1, "CPU Mhz=%u\n", (TimerKHz << ShiftTSC) / 1000);
 }
 
+// Setup internal timers.
+void
+timer_setup(void)
+{
+    if (CONFIG_PMTIMER && GET_GLOBAL(pmtimer_ioport)) {
+        dprintf(3, "pmtimer already configured; will not calibrate TSC\n");
+        return;
+    }
+
+    u32 eax, ebx, ecx, edx, cpuid_features = 0;
+    cpuid(0, &eax, &ebx, &ecx, &edx);
+    if (eax > 0)
+        cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
+
+    if (!(cpuid_features & CPUID_TSC)) {
+        no_tsc = 1;
+        TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
+        dprintf(3, "386/486 class CPU. Using TSC emulation\n");
+        return;
+    }
+
+    tsctimer_setup();
+}
+
+void
+pmtimer_setup(u16 ioport)
+{
+    if (!CONFIG_PMTIMER)
+        return;
+    dprintf(1, "Using pmtimer, ioport 0x%x\n", ioport);
+    pmtimer_ioport = ioport;
+    TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
+}
+
+
+/****************************************************************
+ * Internal timer reading
+ ****************************************************************/
+
 /* TSC emulation timekeepers */
 u32 TSC_8254 VARLOW;
 int Last_TSC_8254 VARLOW;
@@ -109,16 +131,8 @@ pittimer_read(void)
     return ret;
 }
 
-void pmtimer_setup(u16 ioport)
-{
-    if (!CONFIG_PMTIMER)
-        return;
-    dprintf(1, "Using pmtimer, ioport 0x%x\n", ioport);
-    pmtimer_ioport = ioport;
-    TimerKHz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
-}
-
-static u32 pmtimer_read(void)
+static u32
+pmtimer_read(void)
 {
     u16 ioport = GET_GLOBAL(pmtimer_ioport);
     u32 wraps = GET_LOW(pmtimer_wraps);
