@@ -635,9 +635,9 @@ boot_fail(void)
         printf("No bootable device.  Retrying in %d seconds.\n"
                , BootRetryTime/1000);
     // Wait for 'BootRetryTime' milliseconds and then reboot.
-    u32 end = calc_future_timer(BootRetryTime);
+    u32 end = irqtimer_calc(BootRetryTime);
     for (;;) {
-        if (BootRetryTime != (u32)-1 && check_timer(end))
+        if (BootRetryTime != (u32)-1 && irqtimer_check(end))
             break;
         yield_toirq();
     }

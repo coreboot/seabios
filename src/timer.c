@@ -224,23 +224,23 @@ ticks_from_ms(u32 ms)
 // Calculate the timer value at 'count' number of full timer ticks in
 // the future.
 u32
-calc_future_timer_ticks(u32 count)
+irqtimer_calc_ticks(u32 count)
 {
     return (GET_BDA(timer_counter) + count + 1) % TICKS_PER_DAY;
 }
 
 // Return the timer value that is 'msecs' time in the future.
 u32
-calc_future_timer(u32 msecs)
+irqtimer_calc(u32 msecs)
 {
     if (!msecs)
         return GET_BDA(timer_counter);
-    return calc_future_timer_ticks(ticks_from_ms(msecs));
+    return irqtimer_calc_ticks(ticks_from_ms(msecs));
 }
 
 // Check if the given timer value has passed.
 int
-check_timer(u32 end)
+irqtimer_check(u32 end)
 {
     return (((GET_BDA(timer_counter) + TICKS_PER_DAY - end) % TICKS_PER_DAY)
             < (TICKS_PER_DAY/2));

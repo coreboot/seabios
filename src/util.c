@@ -281,11 +281,11 @@ get_raw_keystroke(void)
 int
 get_keystroke(int msec)
 {
-    u32 end = calc_future_timer(msec);
+    u32 end = irqtimer_calc(msec);
     for (;;) {
         if (check_for_keystroke())
             return get_raw_keystroke();
-        if (check_timer(end))
+        if (irqtimer_check(end))
             return -1;
         yield_toirq();
     }

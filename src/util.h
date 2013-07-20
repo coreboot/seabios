@@ -295,9 +295,9 @@ void usleep(u32 count);
 void msleep(u32 count);
 u32 calc_future_tsc(u32 msecs);
 u32 calc_future_tsc_usec(u32 usecs);
-u32 calc_future_timer_ticks(u32 count);
-u32 calc_future_timer(u32 msecs);
-int check_timer(u32 end);
+u32 irqtimer_calc_ticks(u32 count);
+u32 irqtimer_calc(u32 msecs);
+int irqtimer_check(u32 end);
 
 // apm.c
 void apm_shutdown(void);
