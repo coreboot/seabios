@@ -198,6 +198,21 @@ calc_future_tsc_usec(u32 usecs)
  * IRQ based timer
  ****************************************************************/
 
+// Return the number of milliseconds in 'ticks' number of timer irqs.
+u32
+ticks_to_ms(u32 ticks)
+{
+    return DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * ticks, PIT_TICK_RATE);
+}
+
+// Return the number of timer irqs in 'ms' number of milliseconds.
+u32
+ticks_from_ms(u32 ms)
+{
+    u32 kticks = DIV_ROUND_UP((u64)ms * PIT_TICK_RATE, PIT_TICK_INTERVAL);
+    return DIV_ROUND_UP(kticks, 1000);
+}
+
 // Calculate the timer value at 'count' number of full timer ticks in
 // the future.
 u32
@@ -212,9 +227,7 @@ calc_future_timer(u32 msecs)
 {
     if (!msecs)
         return GET_BDA(timer_counter);
-    u32 kticks = DIV_ROUND_UP((u64)msecs * PIT_TICK_RATE, PIT_TICK_INTERVAL);
-    u32 ticks = DIV_ROUND_UP(kticks, 1000);
-    return calc_future_timer_ticks(ticks);
+    return calc_future_timer_ticks(ticks_from_ms(msecs));
 }
 
 // Check if the given timer value has passed.

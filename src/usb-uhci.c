@@ -12,7 +12,6 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_LOWFLAT
-#include "pit.h" // PIT_TICK_RATE
 
 struct usb_uhci_s {
     struct usb_s usb;
@@ -283,7 +282,7 @@ uhci_alloc_intr_pipe(struct usbdevice_s *usbdev
     int maxpacket = epdesc->wMaxPacketSize;
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
-    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
+    int count = DIV_ROUND_UP(ticks_to_ms(2), ms);
     count = ALIGN(count, 2);
     struct uhci_pipe *pipe = malloc_low(sizeof(*pipe));
     struct uhci_td *tds = malloc_low(sizeof(*tds) * count);

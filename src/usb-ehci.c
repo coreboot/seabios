@@ -15,7 +15,6 @@
 #include "biosvar.h" // GET_LOWFLAT
 #include "usb-uhci.h" // uhci_setup
 #include "usb-ohci.h" // ohci_setup
-#include "pit.h" // PIT_TICK_RATE
 
 struct usb_ehci_s {
     struct usb_s usb;
@@ -427,7 +426,7 @@ ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
     int maxpacket = epdesc->wMaxPacketSize;
     // Determine number of entries needed for 2 timer ticks.
     int ms = 1<<frameexp;
-    int count = DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * 2, PIT_TICK_RATE * ms);
+    int count = DIV_ROUND_UP(ticks_to_ms(2), ms);
     struct ehci_pipe *pipe = memalign_low(EHCI_QH_ALIGN, sizeof(*pipe));
     struct ehci_qtd *tds = memalign_low(EHCI_QTD_ALIGN, sizeof(*tds) * count);
     void *data = malloc_low(maxpacket * count);
