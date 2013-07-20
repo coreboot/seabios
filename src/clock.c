@@ -95,7 +95,7 @@ clock_setup(void)
     u32 minutes = bcd2bin(inb_cmos(CMOS_RTC_MINUTES));
     u32 hours = bcd2bin(inb_cmos(CMOS_RTC_HOURS));
     u32 ticks = ticks_from_ms(((hours * 60 + minutes) * 60 + seconds) * 1000);
-    SET_BDA(timer_counter, ticks);
+    SET_BDA(timer_counter, ticks % TICKS_PER_DAY);
 
     // Setup Century storage
     if (CONFIG_QEMU) {

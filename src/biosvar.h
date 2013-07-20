@@ -132,6 +132,9 @@ struct bios_data_area_s {
 #define FMS_DOUBLE_STEPPING         (1<<5)
 #define FMS_DATA_RATE_MASK          (0xc0)
 
+// Limit of BDA timer_counter field
+#define TICKS_PER_DAY 1573040
+
 // Accessor functions
 #define GET_BDA(var) \
     GET_FARVAR(SEG_BDA, ((struct bios_data_area_s *)0)->var)

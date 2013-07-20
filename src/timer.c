@@ -15,6 +15,10 @@
 #define PPCB_SPKR   (1<<1)
 #define PPCB_T2OUT  (1<<5)
 
+#define PMTIMER_HZ 3579545      // Underlying Hz of the PM Timer
+#define PMTIMER_TO_PIT 3        // Ratio of pmtimer rate to pit rate
+#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
+
 
 /****************************************************************
  * TSC timer
@@ -44,8 +48,8 @@ timer_setup(void)
         cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
 
     if (!(cpuid_features & CPUID_TSC)) {
-        SET_GLOBAL(no_tsc, 1);
-        SET_GLOBAL(cpu_khz, PIT_TICK_RATE / 1000);
+        no_tsc = 1;
+        cpu_khz = DIV_ROUND_UP(PMTIMER_HZ, 1000 * PMTIMER_TO_PIT);
         dprintf(3, "386/486 class CPU. Using TSC emulation\n");
         return;
     }
@@ -72,10 +76,10 @@ timer_setup(void)
     u64 diff = end - start;
     dprintf(6, "tsc calibrate start=%u end=%u diff=%u\n"
             , (u32)start, (u32)end, (u32)diff);
-    u32 hz = diff * PIT_TICK_RATE / CALIBRATE_COUNT;
-    SET_GLOBAL(cpu_khz, hz / 1000);
+    u32 t = DIV_ROUND_UP(diff * PMTIMER_HZ, CALIBRATE_COUNT);
+    cpu_khz = DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
 
-    dprintf(1, "CPU Mhz=%u\n", hz / 1000000);
+    dprintf(1, "CPU Mhz=%u\n", t / (1000000 * PMTIMER_TO_PIT));
 }
 
 /* TSC emulation timekeepers */
@@ -103,10 +107,9 @@ void pmtimer_setup(u16 ioport)
 {
     if (!CONFIG_PMTIMER)
         return;
-    u32 khz = PM_TIMER_FREQUENCY / 1000;
-    dprintf(1, "Using pmtimer, ioport 0x%x, freq %d kHz\n", ioport, khz);
-    SET_GLOBAL(pmtimer_ioport, ioport);
-    SET_GLOBAL(cpu_khz, khz);
+    dprintf(1, "Using pmtimer, ioport 0x%x\n", ioport);
+    pmtimer_ioport = ioport;
+    cpu_khz = DIV_ROUND_UP(PMTIMER_HZ, 1000);
 }
 
 static u64 pmtimer_get(void)
@@ -160,20 +163,20 @@ tscsleep(u64 diff)
 }
 
 void ndelay(u32 count) {
-    tscdelay(count * GET_GLOBAL(cpu_khz) / 1000000);
+    tscdelay(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000000));
 }
 void udelay(u32 count) {
-    tscdelay(count * GET_GLOBAL(cpu_khz) / 1000);
+    tscdelay(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000));
 }
 void mdelay(u32 count) {
     tscdelay(count * GET_GLOBAL(cpu_khz));
 }
 
 void nsleep(u32 count) {
-    tscsleep(count * GET_GLOBAL(cpu_khz) / 1000000);
+    tscsleep(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000000));
 }
 void usleep(u32 count) {
-    tscsleep(count * GET_GLOBAL(cpu_khz) / 1000);
+    tscsleep(DIV_ROUND_UP(count * GET_GLOBAL(cpu_khz), 1000));
 }
 void msleep(u32 count) {
     tscsleep(count * GET_GLOBAL(cpu_khz));
@@ -190,7 +193,7 @@ u64
 calc_future_tsc_usec(u32 usecs)
 {
     u32 khz = GET_GLOBAL(cpu_khz);
-    return get_tsc() + ((u64)(khz/1000) * usecs);
+    return get_tsc() + ((u64)DIV_ROUND_UP(khz, 1000) * usecs);
 }
 
 
@@ -202,15 +205,16 @@ calc_future_tsc_usec(u32 usecs)
 u32
 ticks_to_ms(u32 ticks)
 {
-    return DIV_ROUND_UP(PIT_TICK_INTERVAL * 1000 * ticks, PIT_TICK_RATE);
+    u32 t = PIT_TICK_INTERVAL * 1000 * PMTIMER_TO_PIT * ticks;
+    return DIV_ROUND_UP(t, PMTIMER_HZ);
 }
 
 // Return the number of timer irqs in 'ms' number of milliseconds.
 u32
 ticks_from_ms(u32 ms)
 {
-    u32 kticks = DIV_ROUND_UP((u64)ms * PIT_TICK_RATE, PIT_TICK_INTERVAL);
-    return DIV_ROUND_UP(kticks, 1000);
+    u32 t = DIV_ROUND_UP((u64)ms * PMTIMER_HZ, PIT_TICK_INTERVAL);
+    return DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
 }
 
 // Calculate the timer value at 'count' number of full timer ticks in

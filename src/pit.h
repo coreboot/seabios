@@ -2,13 +2,6 @@
 #ifndef __PIT_H
 #define __PIT_H
 
-/* PM Timer ticks per second (HZ) */
-#define PM_TIMER_FREQUENCY  3579545
-
-#define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
-#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
-#define TICKS_PER_DAY (u32)((u64)60*60*24*PIT_TICK_RATE / PIT_TICK_INTERVAL)
-
 // Bits for PORT_PIT_MODE
 #define PM_SEL_TIMER0   (0<<6)
 #define PM_SEL_TIMER1   (1<<6)
