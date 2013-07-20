@@ -158,6 +158,7 @@ platform_hardware_setup(void)
     pic_setup();
     mathcp_setup();
     timer_setup();
+    clock_setup();
 
     // Platform specific setup
     qemu_platform_setup();

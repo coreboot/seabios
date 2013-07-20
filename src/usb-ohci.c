@@ -11,6 +11,7 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_LOWFLAT
+#include "pit.h" // PIT_TICK_RATE
 
 #define FIT                     (1 << 31)
 

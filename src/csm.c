@@ -170,6 +170,7 @@ handle_csm_0002(struct bregs *regs)
     bda->hdcount = 0;
 
     timer_setup();
+    clock_setup();
     device_hardware_setup();
     wait_threads();
     interactive_bootmenu();

@@ -275,8 +275,13 @@ void serial_setup(void);
 void lpt_setup(void);
 
 // clock.c
-#define PIT_TICK_RATE 1193180   // Underlying HZ of PIT
-#define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
+void clock_setup(void);
+void handle_1583(struct bregs *regs);
+void handle_1586(struct bregs *regs);
+void useRTC(void);
+void releaseRTC(void);
+
+// timer.c
 void pmtimer_setup(u16 ioport, u32 khz);
 int check_tsc(u64 end);
 void timer_setup(void);
@@ -291,10 +296,6 @@ u64 calc_future_tsc_usec(u32 usecs);
 u32 calc_future_timer_ticks(u32 count);
 u32 calc_future_timer(u32 msecs);
 int check_timer(u32 end);
-void handle_1583(struct bregs *regs);
-void handle_1586(struct bregs *regs);
-void useRTC(void);
-void releaseRTC(void);
 
 // apm.c
 void apm_shutdown(void);
