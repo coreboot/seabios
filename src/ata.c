@@ -31,12 +31,12 @@
 static inline int
 await_ide(u8 mask, u8 flags, u16 base, u16 timeout)
 {
-    u64 end = calc_future_tsc(timeout);
+    u32 end = timer_calc(timeout);
     for (;;) {
         u8 status = inb(base+ATA_CB_STAT);
         if ((status & mask) == flags)
             return status;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             return -1;
         }
@@ -98,7 +98,7 @@ ata_reset(struct atadrive_s *adrive_g)
         goto done;
     if (slave) {
         // Change device.
-        u64 end = calc_future_tsc(IDE_TIMEOUT);
+        u32 end = timer_calc(IDE_TIMEOUT);
         for (;;) {
             outb(ATA_CB_DH_DEV1, iobase1 + ATA_CB_DH);
             status = ndelay_await_not_bsy(iobase1);
@@ -107,7 +107,7 @@ ata_reset(struct atadrive_s *adrive_g)
             if (inb(iobase1 + ATA_CB_DH) == ATA_CB_DH_DEV1)
                 break;
             // Change drive request failed to take effect - retry.
-            if (check_tsc(end)) {
+            if (timer_check(end)) {
                 warn_timeout();
                 goto done;
             }
@@ -421,14 +421,14 @@ ata_dma_transfer(struct disk_op_s *op)
     u8 oldcmd = inb(iomaster + BM_CMD);
     outb(oldcmd | BM_CMD_START, iomaster + BM_CMD);
 
-    u64 end = calc_future_tsc(IDE_TIMEOUT);
+    u32 end = timer_calc(IDE_TIMEOUT);
     u8 status;
     for (;;) {
         status = inb(iomaster + BM_STATUS);
         if (status & BM_STATUS_IRQ)
             break;
         // Transfer in progress
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             // Timeout.
             warn_timeout();
             break;
@@ -807,7 +807,7 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
     return adrive_g;
 }
 
-static u64 SpinupEnd;
+static u32 SpinupEnd;
 
 // Wait for non-busy status and check for "floating bus" condition.
 static int
@@ -824,7 +824,7 @@ powerup_await_non_bsy(u16 base)
             dprintf(4, "powerup IDE floating\n");
             return orstatus;
         }
-        if (check_tsc(SpinupEnd)) {
+        if (timer_check(SpinupEnd)) {
             warn_timeout();
             return -1;
         }
@@ -1034,7 +1034,7 @@ ata_setup(void)
 
     dprintf(3, "init hard drives\n");
 
-    SpinupEnd = calc_future_tsc(IDE_TIMEOUT);
+    SpinupEnd = timer_calc(IDE_TIMEOUT);
     ata_scan();
 
     SET_BDA(disk_control_byte, 0xc0);

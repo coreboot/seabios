@@ -44,11 +44,11 @@ rtc_updating(void)
 
     if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
         return 0;
-    u64 end = calc_future_tsc(15);
+    u32 end = timer_calc(15);
     for (;;) {
         if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
             return 0;
-        if (check_tsc(end))
+        if (timer_check(end))
             // update-in-progress never transitioned to 0
             return -1;
         yield();

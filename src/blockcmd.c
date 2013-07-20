@@ -64,9 +64,9 @@ scsi_is_ready(struct disk_op_s *op)
      * reported by the device.  If the device reports "IN PROGRESS",
      * 30 seconds is added. */
     int in_progress = 0;
-    u64 end = calc_future_tsc(5000);
+    u32 end = timer_calc(5000);
     for (;;) {
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             dprintf(1, "test unit ready failed\n");
             return -1;
         }
@@ -92,7 +92,7 @@ scsi_is_ready(struct disk_op_s *op)
             /* IN PROGRESS OF BECOMING READY */
             printf("Waiting for device to detect medium... ");
             /* Allow 30 seconds more */
-            end = calc_future_tsc(30000);
+            end = timer_calc(30000);
             in_progress = 1;
         }
     }

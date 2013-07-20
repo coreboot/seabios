@@ -282,19 +282,19 @@ void useRTC(void);
 void releaseRTC(void);
 
 // timer.c
-u32 ticks_to_ms(u32 ticks);
-u32 ticks_from_ms(u32 ms);
-void pmtimer_setup(u16 ioport);
-int check_tsc(u32 end);
 void timer_setup(void);
+void pmtimer_setup(u16 ioport);
+u32 timer_calc(u32 msecs);
+u32 timer_calc_usec(u32 usecs);
+int timer_check(u32 end);
 void ndelay(u32 count);
 void udelay(u32 count);
 void mdelay(u32 count);
 void nsleep(u32 count);
 void usleep(u32 count);
 void msleep(u32 count);
-u32 calc_future_tsc(u32 msecs);
-u32 calc_future_tsc_usec(u32 usecs);
+u32 ticks_to_ms(u32 ticks);
+u32 ticks_from_ms(u32 ms);
 u32 irqtimer_calc_ticks(u32 count);
 u32 irqtimer_calc(u32 msecs);
 int irqtimer_check(u32 end);

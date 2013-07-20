@@ -111,11 +111,11 @@ uhci_waittick(u16 iobase)
 {
     barrier();
     u16 startframe = inw(iobase + USBFRNUM);
-    u64 end = calc_future_tsc(1000 * 5);
+    u32 end = timer_calc(1000 * 5);
     for (;;) {
         if (inw(iobase + USBFRNUM) != startframe)
             break;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             return;
         }
@@ -386,12 +386,12 @@ uhci_alloc_pipe(struct usbdevice_s *usbdev
 static int
 wait_pipe(struct uhci_pipe *pipe, int timeout)
 {
-    u64 end = calc_future_tsc(timeout);
+    u32 end = timer_calc(timeout);
     for (;;) {
         u32 el_link = GET_LOWFLAT(pipe->qh.element);
         if (el_link & UHCI_PTR_TERM)
             return 0;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             u16 iobase = GET_LOWFLAT(pipe->iobase);
             struct uhci_td *td = (void*)(el_link & ~UHCI_PTR_BITS);
@@ -410,13 +410,13 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
 static int
 wait_td(struct uhci_td *td)
 {
-    u64 end = calc_future_tsc(5000); // XXX - lookup real time.
+    u32 end = timer_calc(5000); // XXX - lookup real time.
     u32 status;
     for (;;) {
         status = td->status;
         if (!(status & TD_CTRL_ACTIVE))
             break;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             return -1;
         }

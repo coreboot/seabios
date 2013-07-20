@@ -153,7 +153,7 @@ i8042_reboot(void)
 static int
 ps2_recvbyte(int aux, int needack, int timeout)
 {
-    u64 end = calc_future_tsc(timeout);
+    u32 end = timer_calc(timeout);
     for (;;) {
         u8 status = inb(PORT_PS2_STATUS);
         if (status & I8042_STR_OBF) {
@@ -175,7 +175,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
             dprintf(1, "Discarding ps2 data %02x (status=%02x)\n", data, status);
         }
 
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             // Don't warn on second byte of a reset
             if (timeout > 100)
                 warn_timeout();
@@ -450,12 +450,12 @@ ps2_keyboard_setup(void *data)
     /* ------------------- keyboard side ------------------------*/
     /* reset keyboard and self test  (keyboard side) */
     int spinupdelay = romfile_loadint("etc/ps2-keyboard-spinup", 0);
-    u64 end = calc_future_tsc(spinupdelay);
+    u32 end = timer_calc(spinupdelay);
     for (;;) {
         ret = ps2_kbd_command(ATKBD_CMD_RESET_BAT, param);
         if (!ret)
             break;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             if (spinupdelay)
                 warn_timeout();
             return;

@@ -189,7 +189,7 @@ ehci_waittick(struct usb_ehci_s *cntl)
     // Wait for access to "doorbell"
     barrier();
     u32 cmd, sts;
-    u64 end = calc_future_tsc(100);
+    u32 end = timer_calc(100);
     for (;;) {
         sts = readl(&cntl->regs->usbsts);
         if (!(sts & STS_IAA)) {
@@ -197,7 +197,7 @@ ehci_waittick(struct usb_ehci_s *cntl)
             if (!(cmd & CMD_IAAD))
                 break;
         }
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             return;
         }
@@ -210,7 +210,7 @@ ehci_waittick(struct usb_ehci_s *cntl)
         sts = readl(&cntl->regs->usbsts);
         if (sts & STS_IAA)
             break;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             return;
         }
@@ -267,12 +267,12 @@ configure_ehci(void *data)
     // Reset the HC
     u32 cmd = readl(&cntl->regs->usbcmd);
     writel(&cntl->regs->usbcmd, (cmd & ~(CMD_ASE | CMD_PSE)) | CMD_HCRESET);
-    u64 end = calc_future_tsc(250);
+    u32 end = timer_calc(250);
     for (;;) {
         cmd = readl(&cntl->regs->usbcmd);
         if (!(cmd & CMD_HCRESET))
             break;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             warn_timeout();
             goto fail;
         }
@@ -529,13 +529,13 @@ ehci_reset_pipe(struct ehci_pipe *pipe)
 static int
 ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
 {
-    u64 end = calc_future_tsc(timeout);
+    u32 end = timer_calc(timeout);
     u32 status;
     for (;;) {
         status = td->token;
         if (!(status & QTD_STS_ACTIVE))
             break;
-        if (check_tsc(end)) {
+        if (timer_check(end)) {
             u32 cur = GET_LOWFLAT(pipe->qh.current);
             u32 tok = GET_LOWFLAT(pipe->qh.token);
             u32 next = GET_LOWFLAT(pipe->qh.qtd_next);

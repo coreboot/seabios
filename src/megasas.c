@@ -118,7 +118,6 @@ static int megasas_fire_cmd(u16 pci_id, u32 ioaddr,
     u32 frame_addr = (u32)frame;
     int frame_count = 1;
     u8 cmd_state;
-    u64 end;
 
     dprintf(2, "Frame 0x%x\n", frame_addr);
     if (pci_id == PCI_DEVICE_ID_LSI_SAS2004 ||
@@ -133,13 +132,13 @@ static int megasas_fire_cmd(u16 pci_id, u32 ioaddr,
         outl(frame_addr | frame_count << 1 | 1, ioaddr + MFI_IQP);
     }
 
-    end = calc_future_tsc(MEGASAS_POLL_TIMEOUT);
+    u32 end = timer_calc(MEGASAS_POLL_TIMEOUT);
     do {
         for (;;) {
             cmd_state = GET_LOWFLAT(frame->cmd_status);
             if (cmd_state != 0xff)
                 break;
-            if (check_tsc(end)) {
+            if (timer_check(end)) {
                 warn_timeout();
                 return -1;
             }
@@ -270,7 +269,6 @@ static void megasas_scan_target(struct pci_device *pci, u32 iobase)
 static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
 {
     u32 fw_state = 0, new_state, mfi_flags = 0;
-    u64 end;
 
     if (pci->device == PCI_DEVICE_ID_LSI_SAS1064R ||
         pci->device == PCI_DEVICE_ID_DELL_PERC5)
@@ -327,9 +325,9 @@ static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
             return 0;
         }
         // The current state should not last longer than poll timeout
-        end = calc_future_tsc(MEGASAS_POLL_TIMEOUT);
+        u32 end = timer_calc(MEGASAS_POLL_TIMEOUT);
         for (;;) {
-            if (check_tsc(end)) {
+            if (timer_check(end)) {
                 break;
             }
             yield();

@@ -211,12 +211,12 @@ static int
 floppy_pio(struct floppy_pio_s *pio)
 {
     // Send command to controller.
-    u64 end = calc_future_tsc(FLOPPY_PIO_TIMEOUT);
+    u32 end = timer_calc(FLOPPY_PIO_TIMEOUT);
     int i = 0;
     for (;;) {
         u8 sts = inb(PORT_FD_STATUS);
         if (!(sts & 0x80)) {
-            if (check_tsc(end)) {
+            if (timer_check(end)) {
                 floppy_disable_controller();
                 return DISK_RET_ETIMEOUT;
             }
@@ -239,12 +239,12 @@ floppy_pio(struct floppy_pio_s *pio)
     }
 
     // Read response from controller.
-    end = calc_future_tsc(FLOPPY_PIO_TIMEOUT);
+    end = timer_calc(FLOPPY_PIO_TIMEOUT);
     i = 0;
     for (;;) {
         u8 sts = inb(PORT_FD_STATUS);
         if (!(sts & 0x80)) {
-            if (check_tsc(end)) {
+            if (timer_check(end)) {
                 floppy_disable_controller();
                 return DISK_RET_ETIMEOUT;
             }
