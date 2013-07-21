@@ -362,6 +362,18 @@ menu "BIOS interfaces"
         default n
         help
             Disable A20 on 16bit boot.
+
+    config WRITABLE_UPPERMEMORY
+        depends on QEMU
+        bool "Make unused UMB memory read/writeable."
+        default n
+        help
+            When selected, the "Upper Memory Block" area
+            (0x90000-0xa0000) that is not used for option roms will be
+            made writable.  This allows the ram to be directly
+            modified by programs.  However, some old DOS high memory
+            managers may require the UMB region to be read-only.
+
 endmenu
 
 menu "BIOS Tables"

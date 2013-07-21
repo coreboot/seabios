@@ -80,13 +80,15 @@ make_bios_readonly_intel(u16 bdf, u32 pam0)
     wbinvd();
 
     // Write protect roms from 0xc0000-0xf0000
-    u32 romend = rom_get_last(), romtop = rom_get_max();
+    u32 romlast = BUILD_BIOS_ADDR, rommax = rom_get_max();
+    if (CONFIG_WRITABLE_UPPERMEMORY)
+        romlast = rom_get_last();
     int i;
     for (i=0; i<6; i++) {
         u32 mem = BUILD_ROM_START + i * 32*1024;
         u32 pam = pam0 + 1 + i;
-        if (romend <= mem + 16*1024 || romtop <= mem + 32*1024) {
-            if (romend > mem && romtop > mem + 16*1024)
+        if (romlast < mem + 16*1024 || rommax < mem + 32*1024) {
+            if (romlast >= mem && rommax >= mem + 16*1024)
                 pci_config_writeb(bdf, pam, 0x31);
             break;
         }
