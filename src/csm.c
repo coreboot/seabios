@@ -169,6 +169,7 @@ handle_csm_0002(struct bregs *regs)
     struct bios_data_area_s *bda = MAKE_FLATPTR(SEG_BDA, 0);
     bda->hdcount = 0;
 
+    mathcp_setup();
     timer_setup();
     clock_setup();
     device_hardware_setup();
