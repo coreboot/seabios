@@ -12,6 +12,7 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "paravirt.h" // runningOnQEMU
+#include "acpi.h" // acpi_pm_ctl
 
 static void
 out_str(const char *str_cs)
@@ -108,7 +109,11 @@ handle_155306(struct bregs *regs)
 void
 apm_shutdown(void)
 {
+    u16 pm1a_cnt = GET_GLOBAL(acpi_pm1a_cnt);
+
     irq_disable();
+    if (pm1a_cnt)
+        outw(0x2000, pm1a_cnt);
     out_str("Shutdown");
     for (;;)
         hlt();

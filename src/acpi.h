@@ -36,6 +36,7 @@ struct rsdp_descriptor {        /* Root System Descriptor Pointer */
 };
 
 extern struct rsdp_descriptor *RsdpAddr;
+extern u32 acpi_pm1a_cnt;
 
 /* Table structure from Linux kernel (the ACPI tables are under the
    BSD license) */
