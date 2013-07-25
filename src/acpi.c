@@ -18,6 +18,8 @@
 
 #include "acpi-dsdt.hex"
 
+u32 acpi_pm1a_cnt VARFSEG;
+
 static void
 build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
 {
@@ -730,9 +732,12 @@ find_acpi_features(void)
     if (!fadt)
         return;
     u32 pm_tmr = le32_to_cpu(fadt->pm_tmr_blk);
+    u32 pm1a_cnt = le32_to_cpu(fadt->pm1a_cnt_blk);
     dprintf(4, "pm_tmr_blk=%x\n", pm_tmr);
     if (pm_tmr)
         pmtimer_setup(pm_tmr, 3579);
+    if (pm1a_cnt)
+        acpi_pm1a_cnt = pm1a_cnt;
 
     // Theoretically we should check the 'reset_reg_sup' flag, but Windows
     // doesn't and thus nobody seems to *set* it. If the table is large enough

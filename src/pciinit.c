@@ -15,6 +15,7 @@
 #include "paravirt.h" // RamSize
 #include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "list.h" // struct hlist_node
+#include "acpi.h" // acpi_pm1a_cnt
 
 /* PM Timer ticks per second (HZ) */
 #define PM_TIMER_FREQUENCY  3579545
@@ -194,6 +195,7 @@ void mch_isa_bridge_setup(struct pci_device *dev, void *arg)
     /* acpi enable, SCI: IRQ9 000b = irq9*/
     pci_config_writeb(bdf, ICH9_LPC_ACPI_CTRL, ICH9_LPC_ACPI_CTRL_ACPI_EN);
 
+    acpi_pm1a_cnt = PORT_ACPI_PM_BASE + 0x04;
     pmtimer_setup(PORT_ACPI_PM_BASE + 0x08, PM_TIMER_FREQUENCY / 1000);
 }
 
@@ -238,6 +240,7 @@ static void piix4_pm_setup(struct pci_device *pci, void *arg)
     pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
     pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
 
+    acpi_pm1a_cnt = PORT_ACPI_PM_BASE + 0x04;
     pmtimer_setup(PORT_ACPI_PM_BASE + 0x08, PM_TIMER_FREQUENCY / 1000);
 }
 
