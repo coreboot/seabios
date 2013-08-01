@@ -29,6 +29,9 @@
 # ACPI_EXTRACT_PROCESSOR_START - start of Processor() block
 # ACPI_EXTRACT_PROCESSOR_STRING - extract a NameString from Processor()
 # ACPI_EXTRACT_PROCESSOR_END - offset at last byte of Processor() + 1
+# ACPI_EXTRACT_DEVICE_START - start of Device() block
+# ACPI_EXTRACT_DEVICE_STRING - extract a NameString from Device()
+# ACPI_EXTRACT_DEVICE_END - offset at last byte of Device() + 1
 # ACPI_EXTRACT_PKG_START - start of Package block
 #
 # ACPI_EXTRACT_ALL_CODE - create an array storing the generated AML bytecode
