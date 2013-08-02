@@ -413,14 +413,16 @@ interactive_bootmenu(void)
     while (get_keystroke(0) >= 0)
         ;
 
-    printf("\nPress F12 for boot menu.\n\n");
+    char *bootmsg = romfile_loadfile("etc/boot-menu-message", NULL);
+    int menukey = romfile_loadint("etc/boot-menu-key", 0x86);
+    printf("%s", bootmsg ?: "\nPress F12 for boot menu.\n\n");
+    free(bootmsg);
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
     enable_bootsplash();
     int scan_code = get_keystroke(menutime);
     disable_bootsplash();
-    if (scan_code != 0x86)
-        /* not F12 */
+    if (scan_code != menukey)
         return;
 
     while (get_keystroke(0) >= 0)
