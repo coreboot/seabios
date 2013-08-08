@@ -146,6 +146,78 @@ findLast(struct zone_s *zone)
 
 
 /****************************************************************
+ * ebda movement
+ ****************************************************************/
+
+// Move ebda
+static int
+relocate_ebda(u32 newebda, u32 oldebda, u8 ebda_size)
+{
+    u32 lowram = GET_BDA(mem_size_kb) * 1024;
+    if (oldebda != lowram)
+        // EBDA isn't at end of ram - give up.
+        return -1;
+
+    // Do copy
+    memmove((void*)newebda, (void*)oldebda, ebda_size * 1024);
+
+    // Update indexes
+    dprintf(1, "ebda moved from %x to %x\n", oldebda, newebda);
+    SET_BDA(mem_size_kb, newebda / 1024);
+    SET_BDA(ebda_seg, FLATPTR_TO_SEG(newebda));
+    return 0;
+}
+
+// Support expanding the ZoneLow dynamically.
+static void *
+zonelow_expand(u32 size, u32 align, struct allocinfo_s *fill)
+{
+    // Make sure to not move ebda while an optionrom is running.
+    if (unlikely(wait_preempt())) {
+        void *data = allocSpace(&ZoneLow, size, align, fill);
+        if (data)
+            return data;
+    }
+
+    struct allocinfo_s *info = findLast(&ZoneLow);
+    if (!info)
+        return NULL;
+    u32 oldpos = (u32)info->allocend;
+    u32 newpos = ALIGN_DOWN(oldpos - size, align);
+    u32 bottom = (u32)info->dataend;
+    if (newpos >= bottom && newpos <= oldpos)
+        // Space already present.
+        return allocSpace(&ZoneLow, size, align, fill);
+    u16 ebda_seg = get_ebda_seg();
+    u32 ebda_pos = (u32)MAKE_FLATPTR(ebda_seg, 0);
+    u8 ebda_size = GET_EBDA(ebda_seg, size);
+    u32 ebda_end = ebda_pos + ebda_size * 1024;
+    if (ebda_end != bottom)
+        // Something else is after ebda - can't use any existing space.
+        newpos = ALIGN_DOWN(ebda_end - size, align);
+    u32 newbottom = ALIGN_DOWN(newpos, 1024);
+    u32 newebda = ALIGN_DOWN(newbottom - ebda_size * 1024, 1024);
+    if (newebda < BUILD_EBDA_MINIMUM)
+        // Not enough space.
+        return NULL;
+
+    // Move ebda
+    int ret = relocate_ebda(newebda, ebda_pos, ebda_size);
+    if (ret)
+        return NULL;
+
+    // Update zone
+    if (ebda_end == bottom) {
+        info->data = (void*)newbottom;
+        info->dataend = (void*)newbottom;
+    } else
+        addSpace(&ZoneLow, (void*)newbottom, (void*)ebda_end);
+
+    return allocSpace(&ZoneLow, size, align, fill);
+}
+
+
+/****************************************************************
  * tracked memory allocations
  ****************************************************************/
 
@@ -169,6 +241,8 @@ pmm_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
 
     // Find and reserve space for main allocation
     void *data = allocSpace(zone, size, align, &detail->datainfo);
+    if (!CONFIG_MALLOC_UPPERMEMORY && !data && zone == &ZoneLow)
+        data = zonelow_expand(size, align, &detail->datainfo);
     if (!data) {
         freeSpace(&detail->detailinfo);
         return NULL;
@@ -255,8 +329,12 @@ static struct allocinfo_s *RomBase;
 u32
 rom_get_max(void)
 {
-    return ALIGN_DOWN((u32)RomBase->allocend - OPROM_HEADER_RESERVE
-                      , OPTION_ROM_ALIGN);
+    if (CONFIG_MALLOC_UPPERMEMORY)
+        return ALIGN_DOWN((u32)RomBase->allocend - OPROM_HEADER_RESERVE
+                          , OPTION_ROM_ALIGN);
+    extern u8 code32init_end[];
+    u32 end = (u32)code32init_end;
+    return end > BUILD_BIOS_ADDR ? BUILD_BIOS_ADDR : end;
 }
 
 // Return the end of the last deployed option rom.
@@ -270,6 +348,11 @@ rom_get_last(void)
 struct rom_header *
 rom_reserve(u32 size)
 {
+    if (!CONFIG_MALLOC_UPPERMEMORY) {
+        if (RomEnd + size > rom_get_max())
+            return NULL;
+        return (void*)RomEnd;
+    }
     u32 newend = ALIGN(RomEnd + size, OPTION_ROM_ALIGN) + OPROM_HEADER_RESERVE;
     if (newend > (u32)RomBase->allocend)
         return NULL;
@@ -394,8 +477,14 @@ malloc_init(void)
     // Initialize low-memory region
     extern u8 varlow_start[], varlow_end[], final_varlow_start[];
     memmove(final_varlow_start, varlow_start, varlow_end - varlow_start);
-    addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE, final_varlow_start);
-    RomBase = findLast(&ZoneLow);
+    if (CONFIG_MALLOC_UPPERMEMORY) {
+        addSpace(&ZoneLow, zonelow_base + OPROM_HEADER_RESERVE
+                 , final_varlow_start);
+        RomBase = findLast(&ZoneLow);
+    } else {
+        addSpace(&ZoneLow, (void*)ALIGN_DOWN((u32)final_varlow_start, 1024)
+                 , final_varlow_start);
+    }
 
     // Add space available in f-segment to ZoneFSeg
     extern u8 zonefseg_start[], zonefseg_end[];
@@ -411,13 +500,19 @@ malloc_prepboot(void)
     ASSERT32FLAT();
     dprintf(3, "malloc finalize\n");
 
-    // Place an optionrom signature around used low mem area.
     u32 base = rom_get_max();
-    struct rom_header *dummyrom = (void*)base;
-    dummyrom->signature = OPTION_ROM_SIGNATURE;
-    int size = (BUILD_BIOS_ADDR - base) / 512;
-    dummyrom->size = (size > 255) ? 255 : size;
     memset((void*)RomEnd, 0, base-RomEnd);
+    if (CONFIG_MALLOC_UPPERMEMORY) {
+        // Place an optionrom signature around used low mem area.
+        struct rom_header *dummyrom = (void*)base;
+        dummyrom->signature = OPTION_ROM_SIGNATURE;
+        int size = (BUILD_BIOS_ADDR - base) / 512;
+        dummyrom->size = (size > 255) ? 255 : size;
+    }
+
+    // Reserve more low-mem if needed.
+    u32 endlow = GET_BDA(mem_size_kb)*1024;
+    add_e820(endlow, BUILD_LOWRAM_END-endlow, E820_RESERVED);
 
     // Clear unused f-seg ram.
     struct allocinfo_s *info = findLast(&ZoneFSeg);

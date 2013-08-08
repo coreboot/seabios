@@ -59,6 +59,7 @@ def setSectionsStart(sections, endaddr, minalign=1, segoffset=0):
 BUILD_BIOS_ADDR = 0xf0000
 BUILD_BIOS_SIZE = 0x10000
 BUILD_ROM_START = 0xc0000
+BUILD_LOWRAM_END = 0xa0000
 # Space to reserve in f-segment for dynamic allocations
 BUILD_MIN_BIOSTABLE = 2048
 
@@ -166,7 +167,7 @@ class LayoutInfo:
     exportsyms = varlowsyms = None
 
 # Determine final memory addresses for sections
-def doLayout(sections):
+def doLayout(sections, config):
     li = LayoutInfo()
     # Determine 16bit positions
     li.sections16 = getSectionsCategory(sections, '16')
@@ -238,10 +239,14 @@ def doLayout(sections):
     # Determine "low memory" data positions
     li.sections32low = getSectionsCategory(sections, '32low')
     sec32low_end = li.sec32init_start
-    final_sec32low_end = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+    if config.get('CONFIG_MALLOC_UPPERMEMORY'):
+        final_sec32low_end = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+        zonelow_base = final_sec32low_end - 64*1024
+        li.zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
+    else:
+        final_sec32low_end = BUILD_LOWRAM_END
+        li.zonelow_base = final_sec32low_end - 64*1024
     relocdelta = final_sec32low_end - sec32low_end
-    zonelow_base = final_sec32low_end - 64*1024
-    li.zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
     li.sec32low_start, li.sec32low_align = setSectionsStart(
         li.sections32low, sec32low_end, 16
         , segoffset=li.zonelow_base - relocdelta)
@@ -620,9 +625,25 @@ def parseObjDump(file, fileid):
                 pass
     return sections, symbols
 
+# Parser for constants in simple C header files.
+def scanconfig(file):
+    f = open(file, 'rb')
+    opts = {}
+    for l in f.readlines():
+        parts = l.split()
+        if len(parts) != 3:
+            continue
+        if parts[0] != '#define':
+            continue
+        value = parts[2]
+        if value.isdigit() or (value.startswith('0x') and value[2:].isdigit()):
+            value = int(value, 0)
+        opts[parts[1]] = value
+    return opts
+
 def main():
     # Get output name
-    in16, in32seg, in32flat, out16, out32seg, out32flat = sys.argv[1:]
+    in16, in32seg, in32flat, cfgfile, out16, out32seg, out32flat = sys.argv[1:]
 
     # Read in the objdump information
     infile16 = open(in16, 'rb')
@@ -633,6 +654,9 @@ def main():
     info16 = parseObjDump(infile16, '16')
     info32seg = parseObjDump(infile32seg, '32seg')
     info32flat = parseObjDump(infile32flat, '32flat')
+
+    # Read kconfig config file
+    config = scanconfig(cfgfile)
 
     # Figure out which sections to keep.
     sections = gc(info16, info32seg, info32flat)
@@ -648,7 +672,7 @@ def main():
         section.category = '32fseg'
 
     # Determine the final memory locations of each kept section.
-    li = doLayout(sections)
+    li = doLayout(sections, config)
     li.genreloc = genreloc
 
     # Exported symbols

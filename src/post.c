@@ -85,17 +85,21 @@ bda_init(void)
     memset(bda, 0, sizeof(*bda));
 
     int esize = EBDA_SIZE_START;
-    SET_BDA(mem_size_kb, BUILD_LOWRAM_END/1024 - esize);
     u16 ebda_seg = EBDA_SEGMENT_START;
+    extern u8 final_varlow_start[];
+    if (!CONFIG_MALLOC_UPPERMEMORY)
+        ebda_seg = FLATPTR_TO_SEG(ALIGN_DOWN((u32)final_varlow_start, 1024)
+                                  - EBDA_SIZE_START*1024);
     SET_BDA(ebda_seg, ebda_seg);
+
+    SET_BDA(mem_size_kb, ebda_seg / (1024/16));
 
     // Init ebda
     struct extended_bios_data_area_s *ebda = get_ebda_ptr();
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = esize;
 
-    add_e820((u32)MAKE_FLATPTR(ebda_seg, 0), GET_EBDA(ebda_seg, size) * 1024
-             , E820_RESERVED);
+    add_e820((u32)ebda, BUILD_LOWRAM_END-(u32)ebda, E820_RESERVED);
 
     // Init extra stack
     StackPos = (void*)(&ExtraStack[BUILD_EXTRA_STACK_SIZE] - zonelow_base);

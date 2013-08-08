@@ -113,6 +113,15 @@ endchoice
             adversely impact any legacy operating systems that call
             the BIOS in 16bit protected mode.
 
+    config MALLOC_UPPERMEMORY
+        bool "Allocate memory that needs to be in first Meg above 0xc0000"
+        default y
+        help
+            Use the "Upper Memory Block" area (0xc0000-0xf0000) for
+            internal "low memory" allocations.  If this is not
+            selected, the memory is instead allocated from the
+            "9-segment" (0x90000-0xa0000).
+
 endmenu
 
 menu "Hardware support"

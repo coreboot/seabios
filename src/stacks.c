@@ -464,7 +464,8 @@ finish_preempt(void)
 int
 wait_preempt(void)
 {
-    if (MODESEGMENT || !CONFIG_THREAD_OPTIONROMS || !CanPreempt)
+    if (MODESEGMENT || !CONFIG_THREAD_OPTIONROMS || !CanPreempt
+        || getesp() < 1024*1024)
         return 0;
     while (CanPreempt)
         yield();

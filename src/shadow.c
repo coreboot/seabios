@@ -80,9 +80,11 @@ make_bios_readonly_intel(u16 bdf, u32 pam0)
     wbinvd();
 
     // Write protect roms from 0xc0000-0xf0000
-    u32 romlast = BUILD_BIOS_ADDR, rommax = rom_get_max();
+    u32 romlast = BUILD_BIOS_ADDR, rommax = BUILD_BIOS_ADDR;
     if (CONFIG_WRITABLE_UPPERMEMORY)
         romlast = rom_get_last();
+    if (CONFIG_MALLOC_UPPERMEMORY)
+        rommax = rom_get_max();
     int i;
     for (i=0; i<6; i++) {
         u32 mem = BUILD_ROM_START + i * 32*1024;
