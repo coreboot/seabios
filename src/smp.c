@@ -34,7 +34,7 @@ wrmsr_smp(u32 index, u64 val)
 }
 
 u32 CountCPUs VARFSEG;
-u32 MaxCountCPUs VARFSEG;
+u32 MaxCountCPUs;
 // 256 bits for the found APIC IDs
 u32 FoundAPICIDs[256/32] VARFSEG;
 extern void smp_ap_boot_code(void);
