@@ -13,42 +13,46 @@
 #include "pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "dev-q35.h"
 
+extern u8 smm_relocation_start, smm_relocation_end;
 ASM32FLAT(
-    ".global smm_relocation_start\n"
-    ".global smm_relocation_end\n"
-    ".global smm_code_start\n"
-    ".global smm_code_end\n"
-    "  .code16\n"
+    ".global smm_relocation_start, smm_relocation_end\n"
+    "  .code16gcc\n"
 
     /* code to relocate SMBASE to 0xa0000 */
     "smm_relocation_start:\n"
-    "  mov $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7efc, %ebx\n"
-    "  addr32 mov (%ebx), %al\n"  /* revision ID to see if x86_64 or x86 */
-    "  cmp $0x64, %al\n"
+    "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7efc, %ebx\n"
+    "  addr32 movb (%ebx), %al\n"  /* revision ID to see if x86_64 or x86 */
+    "  cmpb $0x64, %al\n"
     "  je 1f\n"
-    "  mov $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7ef8, %ebx\n"
+    "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7ef8, %ebx\n"
     "  jmp 2f\n"
     "1:\n"
-    "  mov $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7f00, %ebx\n"
+    "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7f00, %ebx\n"
     "2:\n"
     "  movl $" __stringify(BUILD_SMM_ADDR) " - 0x8000, %eax\n"
     "  addr32 movl %eax, (%ebx)\n"
     /* indicate to the BIOS that the SMM code was executed */
-    "  mov $0x00, %al\n"
+    "  movb $0x00, %al\n"
     "  movw $" __stringify(PORT_SMI_STATUS) ", %dx\n"
     "  outb %al, %dx\n"
     "  rsm\n"
     "smm_relocation_end:\n"
+    "  .code32\n"
+    );
 
+extern u8 smm_code_start, smm_code_end;
+ASM32FLAT(
     /* minimal SMM code to enable or disable ACPI */
+    ".global smm_code_start, smm_code_end\n"
+    "  .code16gcc\n"
     "smm_code_start:\n"
     "  movw $" __stringify(PORT_SMI_CMD) ", %dx\n"
     "  inb %dx, %al\n"
-    "  cmp $0xf0, %al\n"
+    "  cmpb $0xf0, %al\n"
     "  jne 1f\n"
 
     /* ACPI disable */
-    "  mov $" __stringify(PORT_ACPI_PM_BASE) " + 0x04, %dx\n" /* PMCNTRL */
+    "  movw $" __stringify(PORT_ACPI_PM_BASE) " + 0x04, %dx\n" /* PMCNTRL */
     "  inw %dx, %ax\n"
     "  andw $~1, %ax\n"
     "  outw %ax, %dx\n"
@@ -56,11 +60,11 @@ ASM32FLAT(
     "  jmp 2f\n"
 
     "1:\n"
-    "  cmp $0xf1, %al\n"
+    "  cmpb $0xf1, %al\n"
     "  jne 2f\n"
 
     /* ACPI enable */
-    "  mov $" __stringify(PORT_ACPI_PM_BASE) " + 0x04, %dx\n" /* PMCNTRL */
+    "  movw $" __stringify(PORT_ACPI_PM_BASE) " + 0x04, %dx\n" /* PMCNTRL */
     "  inw %dx, %ax\n"
     "  orw $1, %ax\n"
     "  outw %ax, %dx\n"
@@ -70,9 +74,6 @@ ASM32FLAT(
     "smm_code_end:\n"
     "  .code32\n"
     );
-
-extern u8 smm_relocation_start, smm_relocation_end;
-extern u8 smm_code_start, smm_code_end;
 
 static void
 smm_save_and_copy(void)
