@@ -348,17 +348,14 @@ rom_get_last(void)
 struct rom_header *
 rom_reserve(u32 size)
 {
-    if (!CONFIG_MALLOC_UPPERMEMORY) {
-        if (RomEnd + size > rom_get_max())
-            return NULL;
-        return (void*)RomEnd;
-    }
-    u32 newend = ALIGN(RomEnd + size, OPTION_ROM_ALIGN) + OPROM_HEADER_RESERVE;
-    if (newend > (u32)RomBase->allocend)
+    u32 newend = ALIGN(RomEnd + size, OPTION_ROM_ALIGN);
+    if (newend > rom_get_max())
         return NULL;
-    if (newend < (u32)zonelow_base + OPROM_HEADER_RESERVE)
-        newend = (u32)zonelow_base + OPROM_HEADER_RESERVE;
-    RomBase->data = RomBase->dataend = (void*)newend;
+    if (CONFIG_MALLOC_UPPERMEMORY) {
+        if (newend < (u32)zonelow_base)
+            newend = (u32)zonelow_base;
+        RomBase->data = RomBase->dataend = (void*)newend + OPROM_HEADER_RESERVE;
+    }
     return (void*)RomEnd;
 }
 
