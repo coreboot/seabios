@@ -44,6 +44,18 @@ usb_alloc_pipe(struct usbdevice_s *usbdev
     }
 }
 
+// Update an pipe (used for control only)
+struct usb_pipe *
+usb_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
+                , struct usb_endpoint_descriptor *epdesc)
+{
+    switch (usbdev->hub->cntl->type) {
+    default:
+        free_pipe(pipe);
+        return usb_alloc_pipe(usbdev, epdesc);
+    }
+}
+
 // Send a message on a control pipe using the default control descriptor.
 static int
 send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
@@ -262,15 +274,16 @@ usb_set_address(struct usbdevice_s *usbdev)
     req.wIndex = 0;
     req.wLength = 0;
     int ret = send_default_control(usbdev->defpipe, &req, NULL);
-    free_pipe(usbdev->defpipe);
-    if (ret)
+    if (ret) {
+        free_pipe(usbdev->defpipe);
         return -1;
+    }
 
     msleep(USB_TIME_SETADDR_RECOVERY);
 
     cntl->maxaddr++;
     usbdev->devaddr = cntl->maxaddr;
-    usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
+    usbdev->defpipe = usb_update_pipe(usbdev, usbdev->defpipe, &epdesc);
     if (!usbdev->defpipe)
         return -1;
     return 0;
@@ -294,12 +307,11 @@ configure_usb_device(struct usbdevice_s *usbdev)
             , dinfo.bDeviceProtocol, dinfo.bMaxPacketSize0);
     if (dinfo.bMaxPacketSize0 < 8 || dinfo.bMaxPacketSize0 > 64)
         return 0;
-    free_pipe(usbdev->defpipe);
     struct usb_endpoint_descriptor epdesc = {
         .wMaxPacketSize = dinfo.bMaxPacketSize0,
         .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
     };
-    usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
+    usbdev->defpipe = usb_update_pipe(usbdev, usbdev->defpipe, &epdesc);
     if (!usbdev->defpipe)
         return -1;
 
