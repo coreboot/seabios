@@ -20,6 +20,7 @@ SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c pmm.c coreboot.c boot.c \
     lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c \
     biostables.c xen.c bmp.c romfile.c csm.c
 SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
+DIRS=src vgasrc
 
 # Default compiler flags
 cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
@@ -71,7 +72,7 @@ IASL:=iasl
 # Default targets
 -include $(KCONFIG_CONFIG)
 
-target-y = $(OUT) $(OUT)bios.bin
+target-y = $(OUT) $(addprefix $(OUT), $(DIRS)) $(OUT)bios.bin
 target-$(CONFIG_BUILD_VGABIOS) += $(OUT)vgabios.bin
 
 all: $(target-y)
@@ -79,9 +80,6 @@ all: $(target-y)
 # Make definitions
 .PHONY : all clean distclean FORCE
 .DELETE_ON_ERROR:
-
-vpath %.c src vgasrc
-vpath %.S src vgasrc
 
 
 ################ Common build rules
@@ -125,17 +123,17 @@ $(OUT)%.lds: %.lds.S
 
 $(OUT)asm-offsets.s: $(OUT)autoconf.h
 
-$(OUT)asm-offsets.h: $(OUT)asm-offsets.s
+$(OUT)asm-offsets.h: $(OUT)src/asm-offsets.s
 	@echo "  Generating offset file $@"
 	$(Q)./scripts/gen-offsets.sh $< $@
 
-$(OUT)ccode16.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRC16)) ; $(call whole-compile, $(CFLAGS16), $(addprefix src/, $(SRC16)),$@)
+$(OUT)ccode16.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)src/%.o,$(SRC16)) ; $(call whole-compile, $(CFLAGS16), $(addprefix src/, $(SRC16)),$@)
 
-$(OUT)code32seg.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRC32SEG)) ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
+$(OUT)code32seg.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)src/%.o,$(SRC32SEG)) ; $(call whole-compile, $(CFLAGS32SEG), $(addprefix src/, $(SRC32SEG)),$@)
 
-$(OUT)ccode32flat.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRC32FLAT)) ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
+$(OUT)ccode32flat.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)src/%.o,$(SRC32FLAT)) ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
 
-$(OUT)romlayout.o: romlayout.S $(OUT)asm-offsets.h
+$(OUT)romlayout.o: src/romlayout.S $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
@@ -191,15 +189,15 @@ $(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s scripts/vgafixup.py
 	$(Q)$(PYTHON) ./scripts/vgafixup.py $< $(OUT)vgaccode16.s
 	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.s -o $@
 
-$(OUT)vgaentry.o: vgaentry.S $(OUT)autoconf.h
+$(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16VGA) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgalayout.lds scripts/buildversion.sh
+$(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgasrc/vgalayout.lds scripts/buildversion.sh
 	@echo "  Linking $@"
 	$(Q)./scripts/buildversion.sh $(OUT)vgaversion.c VAR16
 	$(Q)$(CC) $(CFLAGS16VGA) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
-	$(Q)$(LD) --gc-sections -T $(OUT)vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
+	$(Q)$(LD) --gc-sections -T $(OUT)vgasrc/vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
 
 $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
 	@echo "  Extracting binary $@"
@@ -223,7 +221,7 @@ $(OUT)%.hex: src/%.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extra
 	$(Q)$(PYTHON) ./scripts/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
-$(OUT)acpi.o: $(OUT)acpi-dsdt.hex $(OUT)ssdt-proc.hex $(OUT)ssdt-pcihp.hex $(OUT)ssdt-misc.hex $(OUT)q35-acpi-dsdt.hex
+$(OUT)src/acpi.o: $(OUT)acpi-dsdt.hex $(OUT)ssdt-proc.hex $(OUT)ssdt-pcihp.hex $(OUT)ssdt-misc.hex $(OUT)q35-acpi-dsdt.hex
 
 ################ Kconfig rules
 
@@ -247,7 +245,7 @@ clean:
 distclean: clean
 	$(Q)rm -f .config .config.old
 
-$(OUT):
+$(OUT) $(addprefix $(OUT), $(DIRS)):
 	$(Q)mkdir $@
 
 -include $(OUT)*.d
