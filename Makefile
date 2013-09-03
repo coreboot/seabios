@@ -8,18 +8,23 @@
 OUT=out/
 
 # Source files
-SRCBOTH=misc.c stacks.c output.c util.c block.c hw/floppy.c hw/ata.c mouse.c \
-    kbd.c hw/pci.c serial.c hw/timer.c clock.c hw/pic.c cdrom.c hw/ps2port.c fw/smp.c resume.c \
-    pnpbios.c vgahooks.c hw/ramdisk.c pcibios.c hw/blockcmd.c \
-    hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c hw/usb-hid.c hw/usb-msc.c \
-    hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c apm.c hw/ahci.c \
-    hw/usb-uas.c hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
+SRCBOTH=misc.c stacks.c output.c util.c block.c cdrom.c mouse.c kbd.c \
+    serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
+    fw/smp.c \
+    hw/pci.c hw/timer.c hw/pic.c hw/ps2port.c \
+    hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c \
+    hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \
+    hw/blockcmd.c hw/floppy.c hw/ata.c hw/ahci.c hw/ramdisk.c \
+    hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c \
+    hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
-SRC32FLAT=$(SRCBOTH) post.c fw/shadow.c memmap.c pmm.c fw/coreboot.c boot.c \
-    fw/acpi.c fw/smm.c fw/mptable.c fw/pirtable.c fw/smbios.c fw/pciinit.c optionroms.c fw/mtrr.c \
-    fw/lzmadecode.c bootsplash.c jpeg.c hw/usb-hub.c fw/paravirt.c \
-    fw/biostables.c fw/xen.c bmp.c romfile.c fw/csm.c
-SRC32SEG=util.c output.c hw/pci.c pcibios.c apm.c stacks.c
+SRC32FLAT=$(SRCBOTH) post.c memmap.c pmm.c romfile.c optionroms.c \
+    boot.c bootsplash.c jpeg.c bmp.c \
+    hw/usb-hub.c \
+    fw/coreboot.c fw/lzmadecode.c fw/csm.c fw/biostables.c \
+    fw/paravirt.c fw/shadow.c fw/pciinit.c fw/smm.c fw/mtrr.c fw/xen.c \
+    fw/acpi.c fw/mptable.c fw/pirtable.c fw/smbios.c
+SRC32SEG=util.c output.c pcibios.c apm.c stacks.c hw/pci.c
 DIRS=src src/hw src/fw vgasrc
 
 # Default compiler flags
