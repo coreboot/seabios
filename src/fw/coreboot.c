@@ -190,10 +190,6 @@ coreboot_preinit(void)
     if (cbmb) {
         CBvendor = &cbmb->strings[cbmb->vendor_idx];
         CBpart = &cbmb->strings[cbmb->part_idx];
-        if (strcmp(CBvendor, "Emulation") == 0 &&
-            memcmp(CBpart, "QEMU", 4) == 0) {
-            PlatformRunningOn |= PF_QEMU;
-        }
         dprintf(1, "Found mainboard %s %s\n", CBvendor, CBpart);
     }
 
