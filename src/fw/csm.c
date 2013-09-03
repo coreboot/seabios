@@ -17,6 +17,7 @@
 #include "std/bda.h" // struct bios_data_area_s
 #include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios
+#include "paravirt.h" // qemu_preinit
 
 #define UINT8 u8
 #define UINT16 u16
@@ -69,6 +70,8 @@ csm_maininit(struct bregs *regs)
 static void
 handle_csm_0000(struct bregs *regs)
 {
+    qemu_preinit();
+
     dprintf(3, "Legacy16InitializeYourself table %04x:%04x\n", regs->es,
             regs->bx);
 
