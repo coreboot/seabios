@@ -12,6 +12,7 @@
 #include "config.h" // CONFIG_QEMU
 #include "hw/cmos.h" // CMOS_*
 #include "hw/pci.h" // create_pirtable
+#include "hw/pci_regs.h" // PCI_DEVICE_ID
 #include "ioport.h" // outw
 #include "malloc.h" // malloc_tmp
 #include "memmap.h" // add_e820
@@ -35,10 +36,8 @@ int PlatformRunningOn VARFSEG;
  */
 #define KVM_CPUID_SIGNATURE     0x40000000
 
-static void kvm_preinit(void)
+static void kvm_detect(void)
 {
-    if (!CONFIG_QEMU)
-        return;
     unsigned int eax, ebx, ecx, edx;
     char signature[13];
 
@@ -54,9 +53,43 @@ static void kvm_preinit(void)
     }
 }
 
+static void qemu_detect(void)
+{
+    if (!CONFIG_QEMU_HARDWARE)
+        return;
+
+    // check northbridge @ 00:00.0
+    u16 v = pci_config_readw(0, PCI_VENDOR_ID);
+    if (v == 0x0000 || v == 0xffff)
+        return;
+    u16 d = pci_config_readw(0, PCI_DEVICE_ID);
+    u16 sv = pci_config_readw(0, PCI_SUBSYSTEM_VENDOR_ID);
+    u16 sd = pci_config_readw(0, PCI_SUBSYSTEM_ID);
+
+    if (sv != 0x1af4 || /* Red Hat, Inc */
+        sd != 0x1100)   /* Qemu virtual machine */
+        return;
+
+    PlatformRunningOn |= PF_QEMU;
+    switch (d) {
+    case 0x1237:
+        dprintf(1, "Running on QEMU (i440fx)\n");
+        break;
+    case 0x29c0:
+        dprintf(1, "Running on QEMU (q35)\n");
+        break;
+    default:
+        dprintf(1, "Running on QEMU (unknown nb: %04x:%04x)\n", v, d);
+        break;
+    }
+    kvm_detect();
+}
+
 void
 qemu_preinit(void)
 {
+    qemu_detect();
+
     if (!CONFIG_QEMU)
         return;
 
@@ -65,8 +98,11 @@ qemu_preinit(void)
         return;
     }
 
-    PlatformRunningOn = PF_QEMU;
-    kvm_preinit();
+    if (!runningOnQEMU()) {
+        dprintf(1, "Warning: No QEMU Northbridge found (isapc?)\n");
+        PlatformRunningOn |= PF_QEMU;
+        kvm_detect();
+    }
 
     // On emulators, get memory size from nvram.
     u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
