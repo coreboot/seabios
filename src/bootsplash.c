@@ -12,7 +12,7 @@
 #include "jpeg.h" // splash
 #include "vbe.h" // struct vbe_info
 #include "bmp.h" // bmp_alloc
-#include "smbios.h" // display_uuid
+#include "fw/smbios.h" // display_uuid
 
 
 /****************************************************************

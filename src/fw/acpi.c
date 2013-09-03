@@ -16,7 +16,7 @@
 #include "paravirt.h" // RamSize
 #include "dev-q35.h"
 
-#include "acpi-dsdt.hex"
+#include "src/fw/acpi-dsdt.hex"
 
 u32 acpi_pm1a_cnt VARFSEG;
 
@@ -234,7 +234,7 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
     return ssdt_ptr + bytes;
 }
 
-#include "ssdt-proc.hex"
+#include "src/fw/ssdt-proc.hex"
 
 /* 0x5B 0x83 ProcessorOp PkgLength NameString ProcID */
 #define PROC_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
@@ -255,8 +255,8 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 #define SSDT_HEADER_LENGTH 36
 
-#include "ssdt-misc.hex"
-#include "ssdt-pcihp.hex"
+#include "src/fw/ssdt-misc.hex"
+#include "src/fw/ssdt-pcihp.hex"
 
 #define PCI_RMV_BASE 0xae0c
 

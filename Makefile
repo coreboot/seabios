@@ -9,18 +9,18 @@ OUT=out/
 
 # Source files
 SRCBOTH=misc.c stacks.c output.c util.c block.c hw/floppy.c hw/ata.c mouse.c \
-    kbd.c hw/pci.c serial.c hw/timer.c clock.c hw/pic.c cdrom.c hw/ps2port.c smp.c resume.c \
+    kbd.c hw/pci.c serial.c hw/timer.c clock.c hw/pic.c cdrom.c hw/ps2port.c fw/smp.c resume.c \
     pnpbios.c vgahooks.c hw/ramdisk.c pcibios.c hw/blockcmd.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c hw/usb-hid.c hw/usb-msc.c \
     hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c apm.c hw/ahci.c \
     hw/usb-uas.c hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
-SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c pmm.c coreboot.c boot.c \
-    acpi.c smm.c mptable.c pirtable.c smbios.c pciinit.c optionroms.c mtrr.c \
-    lzmadecode.c bootsplash.c jpeg.c hw/usb-hub.c paravirt.c \
-    biostables.c xen.c bmp.c romfile.c csm.c
+SRC32FLAT=$(SRCBOTH) post.c fw/shadow.c memmap.c pmm.c fw/coreboot.c boot.c \
+    fw/acpi.c fw/smm.c fw/mptable.c fw/pirtable.c fw/smbios.c fw/pciinit.c optionroms.c fw/mtrr.c \
+    fw/lzmadecode.c bootsplash.c jpeg.c hw/usb-hub.c fw/paravirt.c \
+    fw/biostables.c fw/xen.c bmp.c romfile.c fw/csm.c
 SRC32SEG=util.c output.c hw/pci.c pcibios.c apm.c stacks.c
-DIRS=src src/hw vgasrc
+DIRS=src src/hw src/fw vgasrc
 
 # Default compiler flags
 cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
@@ -213,7 +213,7 @@ $(OUT)vgabios.bin: $(OUT)vgabios.bin.raw scripts/buildrom.py
 iasl-option=$(shell if test -z "`$(1) $(2) 2>&1 > /dev/null`" \
     ; then echo "$(2)"; else echo "$(3)"; fi ;)
 
-$(OUT)%.hex: src/%.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extract.py
+$(OUT)%.hex: %.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extract.py
 	@echo "  Compiling IASL $@"
 	$(Q)$(CPP) $(CPPFLAGS) $< -o $(OUT)$*.dsl.i.orig
 	$(Q)$(PYTHON) ./scripts/acpi_extract_preprocess.py $(OUT)$*.dsl.i.orig > $(OUT)$*.dsl.i
@@ -221,7 +221,7 @@ $(OUT)%.hex: src/%.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extra
 	$(Q)$(PYTHON) ./scripts/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
-$(OUT)src/acpi.o: $(OUT)acpi-dsdt.hex $(OUT)ssdt-proc.hex $(OUT)ssdt-pcihp.hex $(OUT)ssdt-misc.hex $(OUT)q35-acpi-dsdt.hex
+$(OUT)src/fw/acpi.o: $(OUT)src/fw/acpi-dsdt.hex $(OUT)src/fw/ssdt-proc.hex $(OUT)src/fw/ssdt-pcihp.hex $(OUT)src/fw/ssdt-misc.hex $(OUT)src/fw/q35-acpi-dsdt.hex
 
 ################ Kconfig rules
 

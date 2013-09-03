@@ -11,7 +11,7 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
-#include "paravirt.h" // PlatformRunningOn
+#include "fw/paravirt.h" // PlatformRunningOn
 
 struct putcinfo {
     void (*func)(struct putcinfo *info, char c);

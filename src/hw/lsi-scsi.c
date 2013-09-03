@@ -18,7 +18,7 @@
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "boot.h" // bootprio_find_scsi_device
 #include "blockcmd.h" // scsi_drive_setup
-#include "paravirt.h" // runningOnQEMU
+#include "fw/paravirt.h" // runningOnQEMU
 #include "disk.h"
 
 #define LSI_REG_DSTAT     0x0c

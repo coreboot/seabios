@@ -307,27 +307,27 @@ void handle_1553(struct bregs *regs);
 void handle_1ab1(struct bregs *regs);
 void bios32_init(void);
 
-// shadow.c
+// fw/shadow.c
 void make_bios_writable(void);
 void make_bios_readonly(void);
 void qemu_prep_reset(void);
 
-// pciinit.c
+// fw/pciinit.c
 extern const u8 pci_irqs[4];
 void pci_setup(void);
 
-// smm.c
+// fw/smm.c
 void smm_device_setup(void);
 void smm_setup(void);
 
-// smp.c
+// fw/smp.c
 extern u32 CountCPUs;
 extern u32 MaxCountCPUs;
 void wrmsr_smp(u32 index, u64 val);
 void smp_setup(void);
 int apic_id_is_present(u8 apic_id);
 
-// coreboot.c
+// fw/coreboot.c
 extern const char *CBvendor, *CBpart;
 struct cbfs_file;
 void debug_cbmem(char c);
@@ -337,7 +337,7 @@ void cbfs_payload_setup(void);
 void coreboot_preinit(void);
 void coreboot_cbfs_init(void);
 
-// biostable.c
+// fw/biostable.c
 void copy_smbios(void *pos);
 void copy_table(void *pos);
 
@@ -431,7 +431,7 @@ static inline void free(void *data) {
     pmm_free(data);
 }
 
-// mtrr.c
+// fw/mtrr.c
 void mtrr_setup(void);
 
 // romfile.c

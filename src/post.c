@@ -17,8 +17,8 @@
 #include "bregs.h" // struct bregs
 #include "boot.h" // boot_init
 #include "hw/usb.h" // usb_setup
-#include "paravirt.h" // qemu_cfg_preinit
-#include "xen.h" // xen_preinit
+#include "fw/paravirt.h" // qemu_cfg_preinit
+#include "fw/xen.h" // xen_preinit
 #include "hw/ps2port.h" // ps2port_setup
 #include "hw/virtio-blk.h" // virtio_blk_setup
 #include "hw/virtio-scsi.h" // virtio_scsi_setup
