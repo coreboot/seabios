@@ -7,12 +7,12 @@
 
 #include "disk.h" // struct ata_s
 #include "biosvar.h" // GET_GLOBAL
-#include "cmos.h" // inb_cmos
+#include "hw/cmos.h" // inb_cmos
 #include "util.h" // dprintf
-#include "ata.h" // process_ata_op
-#include "ahci.h" // process_ahci_op
-#include "virtio-blk.h" // process_virtio_blk_op
-#include "blockcmd.h" // cdb_*
+#include "hw/ata.h" // process_ata_op
+#include "hw/ahci.h" // process_ahci_op
+#include "hw/virtio-blk.h" // process_virtio_blk_op
+#include "hw/blockcmd.h" // cdb_*
 
 u8 FloppyCount VARFSEG;
 u8 CDCount;

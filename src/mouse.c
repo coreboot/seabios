@@ -8,8 +8,8 @@
 #include "biosvar.h" // GET_EBDA
 #include "util.h" // dprintf
 #include "bregs.h" // struct bregs
-#include "ps2port.h" // ps2_mouse_command
-#include "usb-hid.h" // usb_mouse_command
+#include "hw/ps2port.h" // ps2_mouse_command
+#include "hw/usb-hid.h" // usb_mouse_command
 
 void
 mouse_init(void)

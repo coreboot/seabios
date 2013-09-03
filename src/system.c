@@ -9,7 +9,7 @@
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
 #include "memmap.h" // E820_RAM
-#include "pic.h" // pic_reset
+#include "hw/pic.h" // pic_reset
 #include "bregs.h" // struct bregs
 
 // Use PS2 System Control port A to set A20 enable

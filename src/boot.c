@@ -10,10 +10,10 @@
 #include "disk.h" // cdrom_boot
 #include "bregs.h" // struct bregs
 #include "boot.h" // func defs
-#include "cmos.h" // inb_cmos
+#include "hw/cmos.h" // inb_cmos
 #include "paravirt.h" // qemu_cfg_show_boot_menu
-#include "pci.h" // pci_bdf_to_*
-#include "usb.h" // struct usbdevice_s
+#include "hw/pci.h" // pci_bdf_to_*
+#include "hw/usb.h" // struct usbdevice_s
 #include "csm.h" // csm_bootprio_*
 #include "list.h" // hlist_node
 

@@ -9,8 +9,8 @@
 #include "util.h" // memset
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
-#include "ata.h" // ATA_CMD_REQUEST_SENSE
-#include "blockcmd.h" // CDB_CMD_REQUEST_SENSE
+#include "hw/ata.h" // ATA_CMD_REQUEST_SENSE
+#include "hw/blockcmd.h" // CDB_CMD_REQUEST_SENSE
 
 // Locks for removable devices
 u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;

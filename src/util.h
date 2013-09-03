@@ -281,7 +281,7 @@ void handle_1586(struct bregs *regs);
 void useRTC(void);
 void releaseRTC(void);
 
-// timer.c
+// hw/timer.c
 void timer_setup(void);
 void pmtimer_setup(u16 ioport);
 u32 timer_calc(u32 msecs);

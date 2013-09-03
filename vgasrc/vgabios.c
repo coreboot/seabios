@@ -15,8 +15,8 @@
 #include "clext.h" // clext_1012
 #include "vgahw.h" // vgahw_set_mode
 #include "vbe.h" // VBE_RETURN_STATUS_FAILED
-#include "pci.h" // pci_config_readw
-#include "pci_regs.h" // PCI_VENDOR_ID
+#include "hw/pci.h" // pci_config_readw
+#include "hw/pci_regs.h" // PCI_VENDOR_ID
 
 // Standard Video Save Pointer Table
 struct VideoSavePointer_s {

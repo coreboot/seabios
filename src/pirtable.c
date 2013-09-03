@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "pci.h" // struct pir_header
+#include "hw/pci.h" // struct pir_header
 #include "config.h" // CONFIG_*
 #include "util.h" // checksum
 

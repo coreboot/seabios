@@ -9,8 +9,8 @@
 #include "util.h" // debug_enter
 #include "config.h" // CONFIG_*
 #include "bregs.h" // struct bregs
-#include "ps2port.h" // ps2_kbd_command
-#include "usb-hid.h" // usb_kbd_command
+#include "hw/ps2port.h" // ps2_kbd_command
+#include "hw/usb-hid.h" // usb_kbd_command
 
 // Bit definitions for BDA kbd_flag[012]
 #define KF0_RSHIFT       (1<<0)

@@ -5,12 +5,12 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "pci.h" // pci_config_writel
-#include "pci_regs.h" // PCI_DEVICE_ID
+#include "hw/pci.h" // pci_config_writel
+#include "hw/pci_regs.h" // PCI_DEVICE_ID
 #include "util.h" // wbinvd
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outb
-#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "dev-q35.h"
 
 extern u8 smm_relocation_start, smm_relocation_end;

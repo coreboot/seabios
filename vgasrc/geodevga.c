@@ -12,8 +12,8 @@
 #include "vgabios.h" // VGAREG_*
 #include "util.h" // memset
 #include "stdvga.h" // stdvga_crtc_write
-#include "pci.h" // pci_config_readl
-#include "pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "hw/pci.h" // pci_config_readl
+#include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
 
 
 /****************************************************************

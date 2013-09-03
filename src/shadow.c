@@ -6,10 +6,10 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // memcpy
-#include "pci.h" // pci_config_writeb
+#include "hw/pci.h" // pci_config_writeb
 #include "config.h" // CONFIG_*
-#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
-#include "pci_regs.h" // PCI_VENDOR_ID
+#include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "paravirt.h" // runningOnXen
 #include "dev-q35.h" // PCI_VENDOR_ID_INTEL
 

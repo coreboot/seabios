@@ -6,7 +6,7 @@
 
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
-#include "pci.h" // struct pir_header
+#include "hw/pci.h" // struct pir_header
 #include "acpi.h" // struct rsdp_descriptor
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "smbios.h" // struct smbios_entry_point

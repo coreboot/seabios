@@ -9,14 +9,14 @@
 #include "util.h" // checksum
 #include "bregs.h"
 #include "optionroms.h"
-#include "pci.h"
+#include "hw/pci.h"
 #include "memmap.h"
 #include "biosvar.h"
 #include "post.h"
 #include "acpi.h"
 #include "boot.h"
 #include "smbios.h"
-#include "pic.h"
+#include "hw/pic.h"
 
 struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
 

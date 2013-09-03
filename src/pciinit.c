@@ -6,9 +6,9 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "util.h" // dprintf
-#include "pci.h" // pci_config_readl
-#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
-#include "pci_regs.h" // PCI_COMMAND
+#include "hw/pci.h" // pci_config_readl
+#include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "hw/pci_regs.h" // PCI_COMMAND
 #include "ioport.h" // PORT_ATA1_CMD_BASE
 #include "config.h" // CONFIG_*
 #include "memmap.h" // add_e820

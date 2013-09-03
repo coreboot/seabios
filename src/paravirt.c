@@ -15,10 +15,10 @@
 #include "paravirt.h" // qemu_cfg_preinit
 #include "smbios.h" // smbios_setup
 #include "memmap.h" // add_e820
-#include "cmos.h" // CMOS_*
+#include "hw/cmos.h" // CMOS_*
 #include "acpi.h" // acpi_setup
 #include "mptable.h" // mptable_setup
-#include "pci.h" // create_pirtable
+#include "hw/pci.h" // create_pirtable
 #include "xen.h" // xen_biostable_setup
 
 // Amount of continuous ram under 4Gig

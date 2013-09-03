@@ -6,13 +6,13 @@
 
 #include "util.h" // dprintf
 #include "ioport.h" // outb
-#include "pic.h" // pic_eoi2
+#include "hw/pic.h" // pic_eoi2
 #include "biosvar.h" // struct bios_data_area_s
 #include "bregs.h" // struct bregs
 #include "acpi.h" // find_resume_vector
-#include "ps2port.h" // i8042_reboot
-#include "pci.h" // pci_reboot
-#include "cmos.h" // inb_cmos
+#include "hw/ps2port.h" // i8042_reboot
+#include "hw/pci.h" // pci_reboot
+#include "hw/cmos.h" // inb_cmos
 
 // Indicator if POST phase has been run.
 int HaveRunPost VARFSEG;

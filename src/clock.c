@@ -8,12 +8,12 @@
 #include "biosvar.h" // SET_BDA
 #include "util.h" // debug_enter
 #include "disk.h" // floppy_tick
-#include "cmos.h" // inb_cmos
-#include "pic.h" // pic_eoi1
-#include "pit.h" // PM_SEL_TIMER0
+#include "hw/cmos.h" // inb_cmos
+#include "hw/pic.h" // pic_eoi1
+#include "hw/pit.h" // PM_SEL_TIMER0
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
-#include "usb-hid.h" // usb_check_event
+#include "hw/usb-hid.h" // usb_check_event
 
 // RTC register flags
 #define RTC_A_UIP 0x80

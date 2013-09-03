@@ -8,8 +8,8 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "mptable.h" // MPTABLE_SIGNATURE
-#include "pci.h"
-#include "pci_regs.h"
+#include "hw/pci.h"
+#include "hw/pci_regs.h"
 
 void
 mptable_setup(void)

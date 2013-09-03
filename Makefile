@@ -8,19 +8,19 @@
 OUT=out/
 
 # Source files
-SRCBOTH=misc.c stacks.c output.c util.c block.c floppy.c ata.c mouse.c \
-    kbd.c pci.c serial.c timer.c clock.c pic.c cdrom.c ps2port.c smp.c resume.c \
-    pnpbios.c vgahooks.c ramdisk.c pcibios.c blockcmd.c \
-    usb.c usb-uhci.c usb-ohci.c usb-ehci.c usb-hid.c usb-msc.c \
-    virtio-ring.c virtio-pci.c virtio-blk.c virtio-scsi.c apm.c ahci.c \
-    usb-uas.c lsi-scsi.c esp-scsi.c megasas.c
+SRCBOTH=misc.c stacks.c output.c util.c block.c hw/floppy.c hw/ata.c mouse.c \
+    kbd.c hw/pci.c serial.c hw/timer.c clock.c hw/pic.c cdrom.c hw/ps2port.c smp.c resume.c \
+    pnpbios.c vgahooks.c hw/ramdisk.c pcibios.c hw/blockcmd.c \
+    hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c hw/usb-hid.c hw/usb-msc.c \
+    hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c apm.c hw/ahci.c \
+    hw/usb-uas.c hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
 SRC32FLAT=$(SRCBOTH) post.c shadow.c memmap.c pmm.c coreboot.c boot.c \
     acpi.c smm.c mptable.c pirtable.c smbios.c pciinit.c optionroms.c mtrr.c \
-    lzmadecode.c bootsplash.c jpeg.c usb-hub.c paravirt.c \
+    lzmadecode.c bootsplash.c jpeg.c hw/usb-hub.c paravirt.c \
     biostables.c xen.c bmp.c romfile.c csm.c
-SRC32SEG=util.c output.c pci.c pcibios.c apm.c stacks.c
-DIRS=src vgasrc
+SRC32SEG=util.c output.c hw/pci.c pcibios.c apm.c stacks.c
+DIRS=src src/hw vgasrc
 
 # Default compiler flags
 cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
@@ -28,7 +28,7 @@ cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
 
 CPPFLAGS = -P -MD -MT $@
 
-COMMONCFLAGS := -I$(OUT) -Os -MD -g \
+COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
     -Wall -Wno-strict-aliasing -Wold-style-definition \
     $(call cc-option,$(CC),-Wtype-limits,) \
     -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
@@ -175,7 +175,7 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o scripts/checkrom.py
 ################ VGA build rules
 
 # VGA src files
-SRCVGA=src/output.c src/util.c src/pci.c \
+SRCVGA=src/output.c src/util.c src/hw/pci.c \
     vgasrc/vgabios.c vgasrc/vgafb.c vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/stdvgamodes.c vgasrc/stdvgaio.c \
     vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c

@@ -9,9 +9,9 @@
 #include "farptr.h" // FLATPTR_TO_SEG
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
-#include "pci.h" // foreachpci
-#include "pci_regs.h" // PCI_ROM_ADDRESS
-#include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
+#include "hw/pci.h" // foreachpci
+#include "hw/pci_regs.h" // PCI_ROM_ADDRESS
+#include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
 #include "optionroms.h" // struct rom_header
 

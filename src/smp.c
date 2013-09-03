@@ -7,7 +7,7 @@
 
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
-#include "cmos.h" // CMOS_BIOS_SMP_COUNT
+#include "hw/cmos.h" // CMOS_BIOS_SMP_COUNT
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)

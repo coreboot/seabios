@@ -9,10 +9,10 @@
 #include "biosvar.h" // SET_BDA
 #include "config.h" // CONFIG_*
 #include "util.h" // debug_enter
-#include "pic.h" // pic_eoi2
+#include "hw/pic.h" // pic_eoi2
 #include "bregs.h" // struct bregs
-#include "pci.h" // pci_bdf_to_bus
-#include "ata.h" // ATA_CB_DC
+#include "hw/pci.h" // pci_bdf_to_bus
+#include "hw/ata.h" // ATA_CB_DC
 
 
 /****************************************************************

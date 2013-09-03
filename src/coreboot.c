@@ -13,7 +13,7 @@
 #include "disk.h" // MAXDESCSIZE
 #include "config.h" // CONFIG_*
 #include "acpi.h" // find_acpi_features
-#include "pci.h" // pci_probe_devices
+#include "hw/pci.h" // pci_probe_devices
 #include "paravirt.h" // PlatformRunningOn
 
 

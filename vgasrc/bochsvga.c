@@ -13,8 +13,8 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
-#include "pci.h" // pci_config_readl
-#include "pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "hw/pci.h" // pci_config_readl
+#include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
 
 
 /****************************************************************

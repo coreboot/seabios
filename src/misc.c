@@ -8,7 +8,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
 #include "util.h" // debug_enter
-#include "pic.h" // enable_hwirq
+#include "hw/pic.h" // enable_hwirq
 
 
 /****************************************************************

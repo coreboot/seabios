@@ -8,9 +8,9 @@
 #include "acpi.h" // struct rsdp_descriptor
 #include "util.h" // memcpy
 #include "byteorder.h" // cpu_to_le16
-#include "pci.h" // pci_find_init_device
-#include "pci_ids.h" // PCI_VENDOR_ID_INTEL
-#include "pci_regs.h" // PCI_INTERRUPT_LINE
+#include "hw/pci.h" // pci_find_init_device
+#include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
+#include "hw/pci_regs.h" // PCI_INTERRUPT_LINE
 #include "ioport.h" // inl
 #include "config.h" // CONFIG_*
 #include "paravirt.h" // RamSize
