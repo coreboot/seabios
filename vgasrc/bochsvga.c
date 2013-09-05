@@ -91,6 +91,8 @@ static struct bochsvga_mode
     { 0x18c, { MM_DIRECT, 2560, 1600, 32, 8, 16, SEG_GRAPH } },
 };
 
+static int dispi_found VAR16 = 0;
+
 static int is_bochsvga_mode(struct vgamode_s *vmode_g)
 {
     return (vmode_g >= &bochsvga_modes[0].info
@@ -100,9 +102,10 @@ static int is_bochsvga_mode(struct vgamode_s *vmode_g)
 struct vgamode_s *bochsvga_find_mode(int mode)
 {
     struct bochsvga_mode *m = bochsvga_modes;
-    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++)
-        if (GET_GLOBAL(m->mode) == mode)
-            return &m->info;
+    if (GET_GLOBAL(dispi_found))
+        for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)]; m++)
+            if (GET_GLOBAL(m->mode) == mode)
+                return &m->info;
     return stdvga_find_mode(mode);
 }
 
@@ -110,12 +113,14 @@ void
 bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
 {
     struct bochsvga_mode *m = bochsvga_modes;
-    for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)] && dest<last; m++) {
-        u16 mode = GET_GLOBAL(m->mode);
-        if (mode == 0xffff)
-            continue;
-        SET_FARVAR(seg, *dest, mode);
-        dest++;
+    if (GET_GLOBAL(dispi_found)) {
+        for (; m < &bochsvga_modes[ARRAY_SIZE(bochsvga_modes)] && dest<last; m++) {
+            u16 mode = GET_GLOBAL(m->mode);
+            if (mode == 0xffff)
+                continue;
+            SET_FARVAR(seg, *dest, mode);
+            dest++;
+        }
     }
     stdvga_list_modes(seg, dest, last);
 }
@@ -128,6 +133,8 @@ bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
 int
 bochsvga_get_window(struct vgamode_s *vmode_g, int window)
 {
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_get_window(vmode_g, window);
     if (window != 0)
         return -1;
     return dispi_read(VBE_DISPI_INDEX_BANK);
@@ -136,6 +143,8 @@ bochsvga_get_window(struct vgamode_s *vmode_g, int window)
 int
 bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val)
 {
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_set_window(vmode_g, window, val);
     if (window != 0)
         return -1;
     dispi_write(VBE_DISPI_INDEX_BANK, val);
@@ -147,6 +156,8 @@ bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val)
 int
 bochsvga_get_linelength(struct vgamode_s *vmode_g)
 {
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_get_linelength(vmode_g);
     return dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * vga_bpp(vmode_g) / 8;
 }
 
@@ -154,14 +165,18 @@ int
 bochsvga_set_linelength(struct vgamode_s *vmode_g, int val)
 {
     stdvga_set_linelength(vmode_g, val);
-    int pixels = (val * 8) / vga_bpp(vmode_g);
-    dispi_write(VBE_DISPI_INDEX_VIRT_WIDTH, pixels);
+    if (GET_GLOBAL(dispi_found)) {
+        int pixels = (val * 8) / vga_bpp(vmode_g);
+        dispi_write(VBE_DISPI_INDEX_VIRT_WIDTH, pixels);
+    }
     return 0;
 }
 
 int
 bochsvga_get_displaystart(struct vgamode_s *vmode_g)
 {
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_get_displaystart(vmode_g);
     int bpp = vga_bpp(vmode_g);
     int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
     int x = dispi_read(VBE_DISPI_INDEX_X_OFFSET);
@@ -173,16 +188,20 @@ int
 bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
 {
     stdvga_set_displaystart(vmode_g, val);
-    int bpp = vga_bpp(vmode_g);
-    int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
-    dispi_write(VBE_DISPI_INDEX_X_OFFSET, (val % linelength) * 8 / bpp);
-    dispi_write(VBE_DISPI_INDEX_Y_OFFSET, val / linelength);
+    if (GET_GLOBAL(dispi_found)) {
+        int bpp = vga_bpp(vmode_g);
+        int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
+        dispi_write(VBE_DISPI_INDEX_X_OFFSET, (val % linelength) * 8 / bpp);
+        dispi_write(VBE_DISPI_INDEX_Y_OFFSET, val / linelength);
+    }
     return 0;
 }
 
 int
 bochsvga_get_dacformat(struct vgamode_s *vmode_g)
 {
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_get_dacformat(vmode_g);
     u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
     return (en & VBE_DISPI_8BIT_DAC) ? 8 : 6;
 }
@@ -190,6 +209,8 @@ bochsvga_get_dacformat(struct vgamode_s *vmode_g)
 int
 bochsvga_set_dacformat(struct vgamode_s *vmode_g, int val)
 {
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_set_dacformat(vmode_g, val);
     u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
     if (val == 6)
         en &= ~VBE_DISPI_8BIT_DAC;
@@ -207,7 +228,7 @@ bochsvga_size_state(int states)
     int size = stdvga_size_state(states);
     if (size < 0)
         return size;
-    if (states & 8)
+    if (GET_GLOBAL(dispi_found) && (states & 8))
         size += (VBE_DISPI_INDEX_Y_OFFSET-VBE_DISPI_INDEX_XRES+1)*sizeof(u16);
     return size;
 }
@@ -219,6 +240,8 @@ bochsvga_save_state(u16 seg, void *data, int states)
     if (ret < 0)
         return ret;
 
+    if (!GET_GLOBAL(dispi_found))
+        return 0;
     if (!(states & 8))
         return 0;
 
@@ -245,6 +268,8 @@ bochsvga_restore_state(u16 seg, void *data, int states)
     if (ret < 0)
         return ret;
 
+    if (!GET_GLOBAL(dispi_found))
+        return 0;
     if (!(states & 8))
         return 0;
 
@@ -274,9 +299,12 @@ bochsvga_restore_state(u16 seg, void *data, int states)
 int
 bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
-    dispi_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
+    if (GET_GLOBAL(dispi_found))
+        dispi_write(VBE_DISPI_INDEX_ENABLE, VBE_DISPI_DISABLED);
     if (! is_bochsvga_mode(vmode_g))
         return stdvga_set_mode(vmode_g, flags);
+    if (!GET_GLOBAL(dispi_found))
+        return -1;
 
     u8 depth = GET_GLOBAL(vmode_g->depth);
     if (depth == 4)
@@ -339,11 +367,12 @@ bochsvga_setup(void)
     /* Sanity checks */
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID0);
     if (dispi_read(VBE_DISPI_INDEX_ID) != VBE_DISPI_ID0) {
-        dprintf(1, "No VBE DISPI interface detected\n");
-        return -1;
+        dprintf(1, "No VBE DISPI interface detected, falling back to stdvga\n");
+        return 0;
     }
 
     dispi_write(VBE_DISPI_INDEX_ID, VBE_DISPI_ID5);
+    SET_VGA(dispi_found, 1);
 
     if (GET_GLOBAL(HaveRunInit))
         return 0;
