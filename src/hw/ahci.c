@@ -379,12 +379,26 @@ ahci_port_alloc(struct ahci_ctrl_s *ctrl, u32 pnr)
     return port;
 }
 
+static void ahci_port_release(struct ahci_port_s *port)
+{
+    ahci_port_reset(port->ctrl, port->pnr);
+    free(port->list);
+    free(port->fis);
+    free(port->cmd);
+    free(port);
+}
+
 static struct ahci_port_s* ahci_port_realloc(struct ahci_port_s *port)
 {
     struct ahci_port_s *tmp;
     u32 cmd;
 
     tmp = malloc_fseg(sizeof(*port));
+    if (!tmp) {
+        warn_noalloc();
+        ahci_port_release(port);
+        return NULL;
+    }
     *tmp = *port;
     free(port);
     port = tmp;
@@ -406,15 +420,6 @@ static struct ahci_port_s* ahci_port_realloc(struct ahci_port_s *port)
     ahci_port_writel(port->ctrl, port->pnr, PORT_CMD, cmd);
 
     return port;
-}
-
-static void ahci_port_release(struct ahci_port_s *port)
-{
-    ahci_port_reset(port->ctrl, port->pnr);
-    free(port->list);
-    free(port->fis);
-    free(port->cmd);
-    free(port);
 }
 
 #define MAXMODEL 40
@@ -551,6 +556,8 @@ ahci_port_detect(void *data)
         ahci_port_release(port);
     else {
         port = ahci_port_realloc(port);
+        if (port == NULL)
+            return;
         dprintf(1, "AHCI/%d: registering: \"%s\"\n", port->pnr, port->desc);
         if (!port->atapi) {
             // Register with bcv system.
