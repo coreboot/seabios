@@ -412,7 +412,7 @@ bochsvga_setup(void)
         u16 height = GET_GLOBAL(m->info.height);
         u8 depth = GET_GLOBAL(m->info.depth);
         u32 mem = (height * DIV_ROUND_UP(width * vga_bpp(&m->info), 8)
-                   * 4 / stdvga_bpp_factor(&m->info));
+                   * stdvga_vram_ratio(&m->info));
 
         if (width > max_xres || depth > max_bpp || mem > totalmem) {
             dprintf(1, "Removing mode %x\n", GET_GLOBAL(m->mode));

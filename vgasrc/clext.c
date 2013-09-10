@@ -328,17 +328,16 @@ clext_get_linelength(struct vgamode_s *vmode_g)
     u16 crtc_addr = stdvga_get_crtc();
     u8 reg13 = stdvga_crtc_read(crtc_addr, 0x13);
     u8 reg1b = stdvga_crtc_read(crtc_addr, 0x1b);
-    return (((reg1b & 0x10) << 4) + reg13) * stdvga_bpp_factor(vmode_g) * 2;
+    return (((reg1b & 0x10) << 4) + reg13) * 8 / stdvga_vram_ratio(vmode_g);
 }
 
 int
 clext_set_linelength(struct vgamode_s *vmode_g, int val)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    int factor = stdvga_bpp_factor(vmode_g) * 2;
-    int new_line_offset = DIV_ROUND_UP(val, factor);
-    stdvga_crtc_write(crtc_addr, 0x13, new_line_offset);
-    stdvga_crtc_mask(crtc_addr, 0x1b, 0x10, (new_line_offset & 0x100) >> 4);
+    val = DIV_ROUND_UP(val * stdvga_vram_ratio(vmode_g), 8);
+    stdvga_crtc_write(crtc_addr, 0x13, val);
+    stdvga_crtc_mask(crtc_addr, 0x1b, 0x10, (val & 0x100) >> 4);
     return 0;
 }
 
@@ -352,14 +351,14 @@ clext_get_displaystart(struct vgamode_s *vmode_g)
     u8 b4 = stdvga_crtc_read(crtc_addr, 0x1d);
     int val = (b1 | (b2<<8) | ((b3 & 0x01) << 16) | ((b3 & 0x0c) << 15)
                | ((b4 & 0x80) << 12));
-    return val * stdvga_bpp_factor(vmode_g);
+    return val * 4 / stdvga_vram_ratio(vmode_g);
 }
 
 int
 clext_set_displaystart(struct vgamode_s *vmode_g, int val)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    val /= stdvga_bpp_factor(vmode_g);
+    val = val * stdvga_vram_ratio(vmode_g) / 4;
     stdvga_crtc_write(crtc_addr, 0x0d, val);
     stdvga_crtc_write(crtc_addr, 0x0c, val >> 8);
     stdvga_crtc_mask(crtc_addr, 0x1d, 0x80, (val & 0x0800) >> 4);
