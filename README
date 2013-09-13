@@ -32,7 +32,12 @@ files are compiled twice - once for 16bit mode and once for 32bit
 mode.  (The build system will remove code that is not needed for a
 particular mode.)
 
-The tools/ directory contains helper utilities for manipulating and
+The vgasrc/ directory contains code for VGA BIOS implementations.
+This code is separate from the main BIOS code in the src/ directory.
+It produces a VGA BIOS rom in out/vgabios.bin.  The VGA BIOS code is
+always compiled in 16bit mode.
+
+The scripts/ directory contains helper utilities for manipulating and
 building the final rom.
 
 The out/ directory is created by the build process - it contains all
