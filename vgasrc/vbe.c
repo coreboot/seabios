@@ -144,6 +144,10 @@ vbe_104f01(struct bregs *regs)
             mode_attr |= VBE_MODE_ATTRIBUTE_LINEAR_FRAME_BUFFER_MODE;
         break;
     }
+    if (pages > 128)
+        pages = 128;
+    if (pages < 2)
+        pages++;
     SET_FARVAR(seg, info->mode_attributes, mode_attr);
     SET_FARVAR(seg, info->planes, planes);
     SET_FARVAR(seg, info->pages, pages - 1);
