@@ -4,7 +4,7 @@ OUTFILE="$1"
 VAR16MODE="$2"
 
 # Extract version info
-if [ -d .git ]; then
+if [ -d .git -o -f .git ]; then
     VERSION="`git describe --tags --long --dirty`"
 elif [ -f .version ]; then
     VERSION="`cat .version`"
