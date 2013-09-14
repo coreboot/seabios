@@ -1,6 +1,6 @@
 // Code to load disk image and start system boot.
 //
-// Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2002  MandrakeSoft S.A.
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -392,6 +392,48 @@ void
 boot_add_cbfs(void *data, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_CBFS, defPrio(prio, DEFAULT_PRIO), (u32)data, desc);
+}
+
+
+/****************************************************************
+ * Keyboard calls
+ ****************************************************************/
+
+// See if a keystroke is pending in the keyboard buffer.
+static int
+check_for_keystroke(void)
+{
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF|F_ZF;
+    br.ah = 1;
+    call16_int(0x16, &br);
+    return !(br.flags & F_ZF);
+}
+
+// Return a keystroke - waiting forever if necessary.
+static int
+get_raw_keystroke(void)
+{
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    call16_int(0x16, &br);
+    return br.ah;
+}
+
+// Read a keystroke - waiting up to 'msec' milliseconds.
+static int
+get_keystroke(int msec)
+{
+    u32 end = irqtimer_calc(msec);
+    for (;;) {
+        if (check_for_keystroke())
+            return get_raw_keystroke();
+        if (irqtimer_check(end))
+            return -1;
+        yield_toirq();
+    }
 }
 
 
