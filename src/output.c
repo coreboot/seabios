@@ -12,6 +12,7 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "fw/paravirt.h" // PlatformRunningOn
+#include "stacks.h" // call16_int
 #include "string.h" // memset
 
 struct putcinfo {

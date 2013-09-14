@@ -2,7 +2,7 @@
 #ifndef __USB_H
 #define __USB_H
 
-#include "util.h" // struct mutex_s
+#include "stacks.h" // struct mutex_s
 
 // Information on a USB end point.
 struct usb_pipe {

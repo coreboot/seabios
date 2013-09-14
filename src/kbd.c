@@ -11,6 +11,7 @@
 #include "bregs.h" // struct bregs
 #include "hw/ps2port.h" // ps2_kbd_command
 #include "hw/usb-hid.h" // usb_kbd_command
+#include "stacks.h" // stack_hop
 #include "string.h" // memset
 
 // Bit definitions for BDA kbd_flag[012]

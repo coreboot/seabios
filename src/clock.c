@@ -14,6 +14,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
 #include "hw/usb-hid.h" // usb_check_event
+#include "stacks.h" // yield
 #include "string.h" // memset
 
 // RTC register flags

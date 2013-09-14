@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 #include "list.h" // hlist_node
+#include "stacks.h" // struct mutex_s
 
 
 /****************************************************************

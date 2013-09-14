@@ -16,6 +16,7 @@
 #include "ata.h" // ATA_CB_STAT
 #include "ahci.h" // CDB_CMD_READ_10
 #include "blockcmd.h" // CDB_CMD_READ_10
+#include "stacks.h" // yield
 #include "string.h" // memset
 
 #define AHCI_REQUEST_TIMEOUT 32000 // 32 seconds max for IDE ops

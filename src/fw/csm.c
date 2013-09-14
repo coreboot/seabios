@@ -17,6 +17,7 @@
 #include "boot.h"
 #include "smbios.h"
 #include "hw/pic.h"
+#include "stacks.h" // wait_threads
 
 struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
 

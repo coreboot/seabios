@@ -19,6 +19,7 @@
 #include "boot.h" // bootprio_find_scsi_device
 #include "blockcmd.h" // scsi_drive_setup
 #include "disk.h"
+#include "stacks.h" // yield
 #include "string.h" // memset
 
 #define MFI_DB 0x0 // Doorbell

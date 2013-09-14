@@ -13,6 +13,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "fw/paravirt.h" // runningOnQEMU
 #include "fw/acpi.h" // acpi_pm_ctl
+#include "stacks.h" // yield_toirq
 
 static void
 out_str(const char *str_cs)

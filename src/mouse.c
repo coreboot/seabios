@@ -10,6 +10,7 @@
 #include "bregs.h" // struct bregs
 #include "hw/ps2port.h" // ps2_mouse_command
 #include "hw/usb-hid.h" // usb_mouse_command
+#include "stacks.h" // stack_hop
 
 void
 mouse_init(void)

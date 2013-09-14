@@ -8,6 +8,7 @@
 #include "biosvar.h" // SET_BDA
 #include "util.h" // debug_enter
 #include "bregs.h" // struct bregs
+#include "stacks.h" // yield
 
 
 /****************************************************************

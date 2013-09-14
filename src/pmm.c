@@ -11,6 +11,7 @@
 #include "biosvar.h" // GET_BDA
 #include "optionroms.h" // OPTION_ROM_ALIGN
 #include "list.h" // hlist_node
+#include "stacks.h" // wait_preempt
 #include "string.h" // memset
 #include "x86.h" // __ffs
 

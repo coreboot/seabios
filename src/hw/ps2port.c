@@ -10,6 +10,7 @@
 #include "biosvar.h" // GET_LOW
 #include "ps2port.h" // ps2_kbd_command
 #include "pic.h" // pic_eoi1
+#include "stacks.h" // yield
 
 
 /****************************************************************

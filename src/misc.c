@@ -9,6 +9,7 @@
 #include "biosvar.h" // GET_BDA
 #include "util.h" // debug_enter
 #include "hw/pic.h" // enable_hwirq
+#include "stacks.h" // call16_int
 #include "string.h" // memset
 
 

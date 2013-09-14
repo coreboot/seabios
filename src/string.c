@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // yield
+#include "stacks.h" // yield
 #include "string.h" // memcpy
 #include "farptr.h" // SET_SEG
 
