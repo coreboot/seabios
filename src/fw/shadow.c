@@ -12,6 +12,7 @@
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "paravirt.h" // runningOnXen
 #include "dev-q35.h" // PCI_VENDOR_ID_INTEL
+#include "x86.h" // wbinvd
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
 #define BIOS_SRC_OFFSET 0xfff00000

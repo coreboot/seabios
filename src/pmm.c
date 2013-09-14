@@ -11,6 +11,7 @@
 #include "biosvar.h" // GET_BDA
 #include "optionroms.h" // OPTION_ROM_ALIGN
 #include "list.h" // hlist_node
+#include "x86.h" // __ffs
 
 // Information on a reserved area.
 struct allocinfo_s {

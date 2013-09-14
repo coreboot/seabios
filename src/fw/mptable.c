@@ -10,6 +10,7 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "hw/pci.h"
 #include "hw/pci_regs.h"
+#include "x86.h" // cpuid
 
 void
 mptable_setup(void)

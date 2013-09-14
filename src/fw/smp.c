@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "hw/cmos.h" // CMOS_BIOS_SMP_COUNT
+#include "x86.h" // wrmsr
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)

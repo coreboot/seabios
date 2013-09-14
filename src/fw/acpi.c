@@ -15,6 +15,7 @@
 #include "config.h" // CONFIG_*
 #include "paravirt.h" // RamSize
 #include "dev-q35.h"
+#include "x86.h" // readl
 
 #include "src/fw/acpi-dsdt.hex"
 

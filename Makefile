@@ -8,7 +8,7 @@
 OUT=out/
 
 # Source files
-SRCBOTH=misc.c stacks.c output.c util.c block.c cdrom.c mouse.c kbd.c \
+SRCBOTH=misc.c stacks.c output.c util.c x86.c block.c cdrom.c mouse.c kbd.c \
     serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
     fw/smp.c \
     hw/pci.c hw/timer.c hw/pic.c hw/ps2port.c \

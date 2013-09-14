@@ -11,6 +11,7 @@
 #include "types.h" // ASM32FLAT
 #include "util.h" // copy_acpi_rsdp
 #include "acpi.h" // find_acpi_features
+#include "x86.h" // cpuid
 
 #define INFO_PHYSICAL_ADDRESS 0x00001000
 

@@ -7,7 +7,7 @@
 
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_A20
-#include "bregs.h" // CR0_*
+#include "x86.h" // CR0_*
 #include "hw/cmos.h" // CMOS_RESET_CODE
 #include "asm-offsets.h" // BREGS_*
 #include "entryfuncs.S" // ENTRY_*

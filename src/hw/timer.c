@@ -9,6 +9,7 @@
 #include "ioport.h" // PORT_PIT_MODE
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_LOW
+#include "x86.h" // cpuid
 
 // Bits for PORT_PS2_CTRLB
 #define PPCB_T2GATE (1<<0)

@@ -9,6 +9,7 @@
 #include "config.h" // CONFIG_*
 #include "paravirt.h" // RamSize
 #include "smbios.h" // struct smbios_entry_point
+#include "x86.h" // cpuid
 
 struct smbios_entry_point *SMBiosAddr;
 

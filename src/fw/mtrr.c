@@ -8,6 +8,7 @@
 #include "config.h" // CONFIG_*
 #include "hw/pci.h" // pcimem_start
 #include "paravirt.h" // RamSize
+#include "x86.h" // cpuid
 
 #define MSR_MTRRcap                    0x000000fe
 #define MSR_MTRRfix64K_00000           0x00000250
