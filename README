@@ -105,7 +105,7 @@ Most BIOS variables are stored in global variables, the "BDA", or
 macros (GET/SET_GLOBAL, GET/SET_BDA, and GET/SET_EBDA) are available
 to simplify these accesses.  Also, an area in the 0xc0000-0xf0000
 memory range is made available for internal BIOS run-time variables
-that are marked iwth the VARLOW attribute.  These variables can then
+that are marked with the VARLOW attribute.  These variables can then
 be accessed with the GET/SET_LOW macros.
 
 Global variables defined in the C code can be read in 16bit mode if
