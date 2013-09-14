@@ -12,6 +12,7 @@
 #include "farptr.h" // MAKE_FLATPTR
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
+#include "romfile.h" // romfile_loadint
 #include "stacks.h" // call32
 #include "string.h" // memset
 #include "x86.h" // readl

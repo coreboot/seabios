@@ -16,6 +16,7 @@
 #include "boot.h" // boot_add_floppy
 #include "pci.h" // pci_to_bdf
 #include "pci_ids.h" // PCI_CLASS_BRIDGE_ISA
+#include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
 #include "string.h" // memset
 

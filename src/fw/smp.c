@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "hw/cmos.h" // CMOS_BIOS_SMP_COUNT
+#include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
 #include "x86.h" // wrmsr
 

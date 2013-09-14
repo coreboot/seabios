@@ -16,6 +16,7 @@
 #include "hw/usb.h" // struct usbdevice_s
 #include "fw/csm.h" // csm_bootprio_*
 #include "list.h" // hlist_node
+#include "romfile.h" // romfile_loadint
 #include "string.h" // memset
 
 

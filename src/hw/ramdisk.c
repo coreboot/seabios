@@ -10,6 +10,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
+#include "romfile.h" // romfile_findprefix
 #include "stacks.h" // call16_int
 #include "string.h" // memset
 

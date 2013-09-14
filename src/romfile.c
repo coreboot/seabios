@@ -6,6 +6,7 @@
 
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
+#include "romfile.h" // struct romfile_s
 #include "string.h" // memcmp
 
 static struct romfile_s *RomfileRoot VARVERIFY32INIT;
