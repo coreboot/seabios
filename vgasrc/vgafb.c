@@ -7,9 +7,10 @@
 
 #include "vgabios.h" // vgafb_scroll
 #include "biosvar.h" // GET_BDA
-#include "util.h" // memset_far
+#include "util.h" // dprintf
 #include "byteorder.h" // cpu_to_be16
 #include "stdvga.h" // stdvga_planar4_plane
+#include "string.h" // memset_far
 
 
 /****************************************************************

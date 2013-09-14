@@ -14,6 +14,7 @@
 #include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
 #include "optionroms.h" // struct rom_header
+#include "string.h" // memset
 
 
 /****************************************************************

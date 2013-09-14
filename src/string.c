@@ -1,12 +1,12 @@
-// Misc utility functions.
+// String manipulation functions.
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // call16
-#include "bregs.h" // struct bregs
-#include "config.h" // BUILD_STACK_ADDR
+#include "util.h" // yield
+#include "string.h" // memcpy
+#include "farptr.h" // SET_SEG
 
 
 /****************************************************************

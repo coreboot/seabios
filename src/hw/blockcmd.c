@@ -19,6 +19,7 @@
 #include "esp-scsi.h" // esp_scsi_cmd_data
 #include "megasas.h" // megasas_cmd_data
 #include "boot.h" // boot_add_hd
+#include "string.h" // memset
 
 // Route command to low-level handler.
 static int

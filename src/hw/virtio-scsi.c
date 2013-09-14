@@ -19,6 +19,7 @@
 #include "virtio-ring.h"
 #include "virtio-scsi.h"
 #include "disk.h"
+#include "string.h" // memset
 
 struct virtio_lun_s {
     struct drive_s drive;

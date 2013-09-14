@@ -20,6 +20,7 @@
 #include "mptable.h" // mptable_setup
 #include "hw/pci.h" // create_pirtable
 #include "xen.h" // xen_biostable_setup
+#include "string.h" // memset
 #include "x86.h" // cpuid
 
 // Amount of continuous ram under 4Gig

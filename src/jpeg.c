@@ -42,6 +42,7 @@
 #define __LITTLE_ENDIAN
 #include "util.h"
 #include "jpeg.h"
+#include "string.h"
 #define ISHIFT 11
 
 #define IFIX(a) ((int)((a) * (1 << ISHIFT) + .5))

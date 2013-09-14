@@ -7,7 +7,8 @@
 
 #include "hw/pci.h" // struct pir_header
 #include "config.h" // CONFIG_*
-#include "util.h" // checksum
+#include "util.h" // dprintf
+#include "string.h" // checksum
 
 struct pir_header *PirAddr VARFSEG;
 

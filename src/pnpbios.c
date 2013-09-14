@@ -4,9 +4,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // checksum
+#include "util.h" // dprintf
 #include "config.h" // BUILD_BIOS_ADDR
 #include "farptr.h" // SET_FARVAR
+#include "string.h" // checksum
 
 struct pnpheader {
     u32 signature;

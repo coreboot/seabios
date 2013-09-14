@@ -20,6 +20,7 @@
 #include "blockcmd.h" // scsi_drive_setup
 #include "fw/paravirt.h" // runningOnQEMU
 #include "disk.h"
+#include "string.h" // memset
 
 #define ESP_TCLO      0x00
 #define ESP_TCMID     0x04

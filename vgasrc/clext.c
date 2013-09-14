@@ -13,6 +13,7 @@
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "string.h" // memset16_far
 
 
 /****************************************************************

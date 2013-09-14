@@ -18,6 +18,7 @@
 #include "usb-uas.h" // usb_uas_setup
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
+#include "string.h" // memset
 #include "x86.h" // __fls
 
 

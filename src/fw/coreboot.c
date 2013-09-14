@@ -15,6 +15,7 @@
 #include "acpi.h" // find_acpi_features
 #include "hw/pci.h" // pci_probe_devices
 #include "paravirt.h" // PlatformRunningOn
+#include "string.h" // memset
 
 
 /****************************************************************

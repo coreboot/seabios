@@ -4,13 +4,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // checksum
+#include "util.h" // dprintf
 #include "config.h" // BUILD_BIOS_ADDR
 #include "memmap.h" // struct e820entry
 #include "farptr.h" // GET_FARVAR
 #include "biosvar.h" // GET_BDA
 #include "optionroms.h" // OPTION_ROM_ALIGN
 #include "list.h" // hlist_node
+#include "string.h" // memset
 #include "x86.h" // __ffs
 
 // Information on a reserved area.

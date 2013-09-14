@@ -12,6 +12,7 @@
 #include "blockcmd.h" // cdb_read
 #include "disk.h" // DTYPE_USB
 #include "boot.h" // bootprio_find_usb
+#include "string.h" // memset
 
 struct usbdrive_s {
     struct drive_s drive;

@@ -7,7 +7,7 @@
 
 #include "config.h" // CONFIG_*
 #include "hw/cmos.h" // CMOS_*
-#include "util.h" // memset
+#include "util.h" // dprintf
 #include "biosvar.h" // struct bios_data_area_s
 #include "disk.h" // floppy_setup
 #include "hw/ata.h" // ata_setup
@@ -26,6 +26,7 @@
 #include "hw/esp-scsi.h" // esp_scsi_setup
 #include "hw/megasas.h" // megasas_setup
 #include "post.h" // interface_init
+#include "string.h" // memset
 
 
 /****************************************************************

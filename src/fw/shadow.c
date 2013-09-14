@@ -5,13 +5,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // memcpy
+#include "util.h" // dprintf
 #include "hw/pci.h" // pci_config_writeb
 #include "config.h" // CONFIG_*
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "paravirt.h" // runningOnXen
 #include "dev-q35.h" // PCI_VENDOR_ID_INTEL
+#include "string.h" // memset
 #include "x86.h" // wbinvd
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000

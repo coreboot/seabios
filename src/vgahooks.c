@@ -11,6 +11,7 @@
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_VIA
 #include "util.h" // handle_155f
 #include "config.h" // CONFIG_*
+#include "string.h" // strcmp
 
 #define VH_VIA 1
 #define VH_INTEL 2

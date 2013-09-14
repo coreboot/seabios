@@ -8,6 +8,7 @@
 #include "config.h" // CONFIG_USB_HUB
 #include "usb-hub.h" // struct usb_hub_descriptor
 #include "usb.h" // struct usb_s
+#include "string.h" // memset
 
 static int
 get_hub_desc(struct usb_pipe *pipe, struct usb_hub_descriptor *desc)

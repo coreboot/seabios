@@ -10,6 +10,7 @@
 #include "acpi.h" // struct rsdp_descriptor
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "smbios.h" // struct smbios_entry_point
+#include "string.h" // memcpy
 
 static void
 copy_pir(void *pos)

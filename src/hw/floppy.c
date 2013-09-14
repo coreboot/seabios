@@ -16,6 +16,7 @@
 #include "boot.h" // boot_add_floppy
 #include "pci.h" // pci_to_bdf
 #include "pci_ids.h" // PCI_CLASS_BRIDGE_ISA
+#include "string.h" // memset
 
 #define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
 #define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02

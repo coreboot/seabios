@@ -6,7 +6,7 @@
 
 #include "config.h" // CONFIG_*
 #include "csm.h"
-#include "util.h" // checksum
+#include "util.h" // dprintf
 #include "bregs.h"
 #include "optionroms.h"
 #include "hw/pci.h"

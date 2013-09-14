@@ -10,6 +10,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
+#include "string.h" // memset
 
 void
 ramdisk_setup(void)

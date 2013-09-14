@@ -12,6 +12,7 @@
 #include "farptr.h" // MAKE_FLATPTR
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
+#include "string.h" // memset
 #include "x86.h" // readl
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val)

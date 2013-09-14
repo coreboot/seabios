@@ -5,12 +5,13 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // memcpy_far
+#include "util.h" // debug_enter
 #include "biosvar.h" // BIOS_CONFIG_TABLE
 #include "ioport.h" // inb
 #include "memmap.h" // E820_RAM
 #include "hw/pic.h" // pic_reset
 #include "bregs.h" // struct bregs
+#include "string.h" // memcpy_far
 
 // Use PS2 System Control port A to set A20 enable
 static inline u8

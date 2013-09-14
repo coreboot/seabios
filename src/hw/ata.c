@@ -19,6 +19,7 @@
 #include "disk.h" // struct ata_s
 #include "ata.h" // ATA_CB_STAT
 #include "blockcmd.h" // CDB_CMD_READ_10
+#include "string.h" // memset
 
 #define IDE_TIMEOUT 32000 //32 seconds max for IDE ops
 

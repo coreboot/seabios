@@ -8,7 +8,7 @@
 OUT=out/
 
 # Source files
-SRCBOTH=misc.c stacks.c output.c util.c x86.c block.c cdrom.c mouse.c kbd.c \
+SRCBOTH=misc.c stacks.c output.c string.c x86.c block.c cdrom.c mouse.c kbd.c \
     serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
     fw/smp.c \
     hw/pci.c hw/timer.c hw/pic.c hw/ps2port.c \
@@ -24,7 +24,7 @@ SRC32FLAT=$(SRCBOTH) post.c memmap.c pmm.c romfile.c optionroms.c \
     fw/coreboot.c fw/lzmadecode.c fw/csm.c fw/biostables.c \
     fw/paravirt.c fw/shadow.c fw/pciinit.c fw/smm.c fw/mtrr.c fw/xen.c \
     fw/acpi.c fw/mptable.c fw/pirtable.c fw/smbios.c
-SRC32SEG=util.c output.c pcibios.c apm.c stacks.c hw/pci.c
+SRC32SEG=string.c output.c pcibios.c apm.c stacks.c hw/pci.c
 DIRS=src src/hw src/fw vgasrc
 
 # Default compiler flags
@@ -180,7 +180,7 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o scripts/checkrom.py
 ################ VGA build rules
 
 # VGA src files
-SRCVGA=src/output.c src/util.c src/hw/pci.c \
+SRCVGA=src/output.c src/string.c src/hw/pci.c \
     vgasrc/vgabios.c vgasrc/vgafb.c vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/stdvgamodes.c vgasrc/stdvgaio.c \
     vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c

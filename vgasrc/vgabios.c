@@ -7,7 +7,7 @@
 
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
-#include "util.h" // memset
+#include "util.h" // dprintf
 #include "vgabios.h" // calc_page_size
 #include "optionroms.h" // struct pci_data
 #include "config.h" // CONFIG_*
@@ -17,6 +17,7 @@
 #include "vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "hw/pci.h" // pci_config_readw
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
+#include "string.h" // memset_far
 
 // Standard Video Save Pointer Table
 struct VideoSavePointer_s {

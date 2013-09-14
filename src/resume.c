@@ -13,6 +13,7 @@
 #include "hw/ps2port.h" // i8042_reboot
 #include "hw/pci.h" // pci_reboot
 #include "hw/cmos.h" // inb_cmos
+#include "string.h" // memset
 
 // Indicator if POST phase has been run.
 int HaveRunPost VARFSEG;

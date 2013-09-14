@@ -13,6 +13,7 @@
 #include "hw/ahci.h" // process_ahci_op
 #include "hw/virtio-blk.h" // process_virtio_blk_op
 #include "hw/blockcmd.h" // cdb_*
+#include "string.h" // checksum
 
 u8 FloppyCount VARFSEG;
 u8 CDCount;

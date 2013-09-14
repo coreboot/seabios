@@ -13,6 +13,7 @@
 #include "util.h" // dprintf
 #include "biosvar.h" // GET_GLOBAL
 #include "vgahw.h" // vgahw_set_mode
+#include "string.h" // memset_far
 
 u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;

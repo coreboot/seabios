@@ -11,6 +11,7 @@
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
+#include "string.h" // checksum
 
 // romlayout.S
 extern void entry_bios32(void);

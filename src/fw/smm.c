@@ -12,6 +12,7 @@
 #include "ioport.h" // outb
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "dev-q35.h"
+#include "string.h" // memcpy
 #include "x86.h" // wbinvd
 
 extern u8 smm_relocation_start, smm_relocation_end;

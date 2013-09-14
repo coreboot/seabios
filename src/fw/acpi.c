@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "acpi.h" // struct rsdp_descriptor
-#include "util.h" // memcpy
+#include "util.h" // dprintf
 #include "byteorder.h" // cpu_to_le16
 #include "hw/pci.h" // pci_find_init_device
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
@@ -15,6 +15,7 @@
 #include "config.h" // CONFIG_*
 #include "paravirt.h" // RamSize
 #include "dev-q35.h"
+#include "string.h" // memset
 #include "x86.h" // readl
 
 #include "src/fw/acpi-dsdt.hex"

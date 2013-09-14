@@ -10,7 +10,7 @@
 #include "ioport.h" // outb
 #include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_GLOBAL
-#include "util.h" // memcpy_far
+#include "string.h" // memset_far
 
 
 /****************************************************************

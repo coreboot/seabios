@@ -13,6 +13,7 @@
 #include "vbe.h" // struct vbe_info
 #include "bmp.h" // bmp_alloc
 #include "fw/smbios.h" // display_uuid
+#include "string.h" // memset
 
 
 /****************************************************************

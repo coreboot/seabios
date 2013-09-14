@@ -16,6 +16,7 @@
 #include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "list.h" // struct hlist_node
 #include "acpi.h" // acpi_pm1a_cnt
+#include "string.h" // memset
 
 #define PCI_DEVICE_MEM_MIN     0x1000
 #define PCI_BRIDGE_IO_MIN      0x1000

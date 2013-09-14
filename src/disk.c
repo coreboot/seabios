@@ -13,6 +13,7 @@
 #include "bregs.h" // struct bregs
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/ata.h" // ATA_CB_DC
+#include "string.h" // memset
 
 
 /****************************************************************

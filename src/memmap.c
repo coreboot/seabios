@@ -7,6 +7,7 @@
 #include "memmap.h" // struct e820entry
 #include "config.h" // BUILD_MAX_E820
 #include "util.h" // dprintf.h
+#include "string.h" // memmove
 
 
 /****************************************************************

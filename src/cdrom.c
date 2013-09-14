@@ -6,11 +6,12 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "disk.h" // cdrom_13
-#include "util.h" // memset
+#include "util.h" // dprintf
 #include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
 #include "hw/ata.h" // ATA_CMD_REQUEST_SENSE
 #include "hw/blockcmd.h" // CDB_CMD_REQUEST_SENSE
+#include "string.h" // memset
 
 // Locks for removable devices
 u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;
