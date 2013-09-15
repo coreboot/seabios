@@ -13,6 +13,7 @@
 #include "hw/ahci.h" // process_ahci_op
 #include "hw/virtio-blk.h" // process_virtio_blk_op
 #include "hw/blockcmd.h" // cdb_*
+#include "malloc.h" // malloc_low
 #include "stacks.h" // stack_hop
 #include "string.h" // checksum
 

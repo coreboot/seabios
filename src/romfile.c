@@ -6,6 +6,7 @@
 
 #include "config.h" // CONFIG_*
 #include "util.h" // dprintf
+#include "malloc.h" // free
 #include "romfile.h" // struct romfile_s
 #include "string.h" // memcmp
 

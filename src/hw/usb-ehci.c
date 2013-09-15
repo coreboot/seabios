@@ -15,6 +15,7 @@
 #include "biosvar.h" // GET_LOWFLAT
 #include "usb-uhci.h" // uhci_setup
 #include "usb-ohci.h" // ohci_setup
+#include "malloc.h" // free
 #include "string.h" // memset
 #include "x86.h" // readl
 

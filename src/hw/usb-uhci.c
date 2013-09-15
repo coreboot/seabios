@@ -12,6 +12,7 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_LOWFLAT
+#include "malloc.h" // free
 #include "string.h" // memset
 
 struct usb_uhci_s {

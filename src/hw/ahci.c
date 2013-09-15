@@ -16,6 +16,7 @@
 #include "ata.h" // ATA_CB_STAT
 #include "ahci.h" // CDB_CMD_READ_10
 #include "blockcmd.h" // CDB_CMD_READ_10
+#include "malloc.h" // free
 #include "stacks.h" // yield
 #include "string.h" // memset
 

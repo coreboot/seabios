@@ -22,6 +22,7 @@
 #include "disk.h" // DTYPE_UAS
 #include "boot.h" // bootprio_find_usb
 #include "usb-uas.h" // usb_uas_init
+#include "malloc.h" // free
 #include "string.h" // memset
 
 #define UAS_UI_COMMAND              0x01

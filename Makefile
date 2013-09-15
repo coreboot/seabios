@@ -18,7 +18,7 @@ SRCBOTH=misc.c stacks.c output.c string.c x86.c block.c cdrom.c mouse.c kbd.c \
     hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c \
     hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
 SRC16=$(SRCBOTH) system.c disk.c font.c
-SRC32FLAT=$(SRCBOTH) post.c memmap.c pmm.c romfile.c optionroms.c \
+SRC32FLAT=$(SRCBOTH) post.c memmap.c malloc.c pmm.c romfile.c optionroms.c \
     boot.c bootsplash.c jpeg.c bmp.c \
     hw/usb-hub.c \
     fw/coreboot.c fw/lzmadecode.c fw/csm.c fw/biostables.c \

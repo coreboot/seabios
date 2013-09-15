@@ -14,6 +14,7 @@
 #include "config.h" // CONFIG_*
 #include "acpi.h" // find_acpi_features
 #include "hw/pci.h" // pci_probe_devices
+#include "malloc.h" // free
 #include "paravirt.h" // PlatformRunningOn
 #include "romfile.h" // romfile_findprefix
 #include "stacks.h" // yield

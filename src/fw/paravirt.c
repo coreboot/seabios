@@ -20,6 +20,7 @@
 #include "mptable.h" // mptable_setup
 #include "hw/pci.h" // create_pirtable
 #include "xen.h" // xen_biostable_setup
+#include "malloc.h" // malloc_tmp
 #include "romfile.h" // romfile_loadint
 #include "string.h" // memset
 #include "x86.h" // cpuid

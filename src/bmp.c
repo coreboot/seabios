@@ -6,8 +6,8 @@
 *
 * This work is licensed under the terms of the GNU LGPLv3.
 */
-#include "util.h" // malloc_tmphigh
 #include "bmp.h" // struct bmp_decdata
+#include "malloc.h" // malloc_tmphigh
 #include "string.h" // memcpy
 
 #define bmp_load4byte(addr) (*(u32 *)(addr))

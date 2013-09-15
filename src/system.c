@@ -11,6 +11,7 @@
 #include "memmap.h" // E820_RAM
 #include "hw/pic.h" // pic_reset
 #include "bregs.h" // struct bregs
+#include "malloc.h" // LegacyRamSize
 #include "string.h" // memcpy_far
 
 // Use PS2 System Control port A to set A20 enable

@@ -14,6 +14,7 @@
 #include "pic.h" // pic_eoi1
 #include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
+#include "malloc.h" // malloc_fseg
 #include "pci.h" // pci_to_bdf
 #include "pci_ids.h" // PCI_CLASS_BRIDGE_ISA
 #include "romfile.h" // romfile_loadint

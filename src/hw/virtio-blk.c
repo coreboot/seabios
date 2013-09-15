@@ -18,6 +18,7 @@
 #include "virtio-ring.h"
 #include "virtio-blk.h"
 #include "disk.h"
+#include "malloc.h" // free
 #include "string.h" // memset
 
 struct virtiodrive_s {

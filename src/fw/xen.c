@@ -11,6 +11,7 @@
 #include "types.h" // ASM32FLAT
 #include "util.h" // copy_acpi_rsdp
 #include "acpi.h" // find_acpi_features
+#include "malloc.h" // memalign_high
 #include "string.h" // memcpy
 #include "x86.h" // cpuid
 

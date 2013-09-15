@@ -8,6 +8,7 @@
 #include "util.h" // dprintf
 #include "hw/pci.h" // struct pir_header
 #include "acpi.h" // struct rsdp_descriptor
+#include "malloc.h" // malloc_fseg
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "smbios.h" // struct smbios_entry_point
 #include "string.h" // memcpy

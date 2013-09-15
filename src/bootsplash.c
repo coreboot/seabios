@@ -13,6 +13,7 @@
 #include "vbe.h" // struct vbe_info
 #include "bmp.h" // bmp_alloc
 #include "fw/smbios.h" // display_uuid
+#include "malloc.h" // free
 #include "romfile.h" // romfile_loadfile
 #include "stacks.h" // call16_int
 #include "string.h" // memset

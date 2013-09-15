@@ -25,6 +25,7 @@
 #include "hw/lsi-scsi.h" // lsi_scsi_setup
 #include "hw/esp-scsi.h" // esp_scsi_setup
 #include "hw/megasas.h" // megasas_setup
+#include "malloc.h" // malloc_init
 #include "post.h" // interface_init
 #include "string.h" // memset
 

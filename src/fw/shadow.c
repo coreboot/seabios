@@ -12,6 +12,7 @@
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "paravirt.h" // runningOnXen
 #include "dev-q35.h" // PCI_VENDOR_ID_INTEL
+#include "malloc.h" // rom_get_last
 #include "string.h" // memset
 #include "x86.h" // wbinvd
 

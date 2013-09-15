@@ -19,6 +19,7 @@
 #include "disk.h" // struct ata_s
 #include "ata.h" // ATA_CB_STAT
 #include "blockcmd.h" // CDB_CMD_READ_10
+#include "malloc.h" // malloc_fseg
 #include "stacks.h" // yield
 #include "string.h" // memset
 

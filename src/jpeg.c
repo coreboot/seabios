@@ -40,7 +40,7 @@
  */
 
 #define __LITTLE_ENDIAN
-#include "util.h"
+#include "malloc.h"
 #include "jpeg.h"
 #include "string.h"
 #define ISHIFT 11

@@ -19,6 +19,7 @@
 #include "virtio-pci.h"
 #include "config.h" // CONFIG_DEBUG_LEVEL
 #include "util.h" // dprintf
+#include "malloc.h" // free
 #include "pci.h" // pci_config_readl
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset

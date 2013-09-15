@@ -20,6 +20,7 @@
 #include "blockcmd.h" // scsi_drive_setup
 #include "fw/paravirt.h" // runningOnQEMU
 #include "disk.h"
+#include "malloc.h" // free
 #include "string.h" // memset
 
 #define LSI_REG_DSTAT     0x0c

@@ -11,6 +11,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "hw/ata.h" // ATA_CMD_REQUEST_SENSE
 #include "hw/blockcmd.h" // CDB_CMD_REQUEST_SENSE
+#include "malloc.h" // free
 #include "string.h" // memset
 
 // Locks for removable devices

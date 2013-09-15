@@ -15,6 +15,7 @@
 #include "config.h" // CONFIG_*
 #include "paravirt.h" // RamSize
 #include "dev-q35.h"
+#include "malloc.h" // free
 #include "romfile.h" // romfile_loadint
 #include "string.h" // memset
 #include "x86.h" // readl

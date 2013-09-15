@@ -17,6 +17,7 @@
 #include "boot.h"
 #include "smbios.h"
 #include "hw/pic.h"
+#include "malloc.h" // csm_malloc_preinit
 #include "stacks.h" // wait_threads
 
 struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
@@ -250,9 +251,9 @@ handle_csm_0006(struct bregs *regs)
         size, align, region);
 
     if (region & 2)
-        chunk = pmm_malloc(&ZoneLow, PMM_DEFAULT_HANDLE, size, align);
+        chunk = _malloc(&ZoneLow, MALLOC_DEFAULT_HANDLE, size, align);
     if (!chunk && (region & 1))
-        chunk = pmm_malloc(&ZoneFSeg, PMM_DEFAULT_HANDLE, size, align);
+        chunk = _malloc(&ZoneFSeg, MALLOC_DEFAULT_HANDLE, size, align);
 
     dprintf(3, "Legacy16GetTableAddress size %x align %x region %d yields %p\n",
         size, align, region, chunk);

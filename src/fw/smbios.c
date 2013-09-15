@@ -9,6 +9,7 @@
 #include "config.h" // CONFIG_*
 #include "paravirt.h" // RamSize
 #include "smbios.h" // struct smbios_entry_point
+#include "malloc.h" // free
 #include "romfile.h" // romfile_findprefix
 #include "string.h" // memset
 #include "x86.h" // cpuid

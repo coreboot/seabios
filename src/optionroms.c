@@ -13,6 +13,7 @@
 #include "hw/pci_regs.h" // PCI_ROM_ADDRESS
 #include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
+#include "malloc.h" // rom_confirm
 #include "optionroms.h" // struct rom_header
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // farcall16big

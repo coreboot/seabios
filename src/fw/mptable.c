@@ -10,6 +10,7 @@
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "hw/pci.h"
 #include "hw/pci_regs.h"
+#include "malloc.h" // free
 #include "romfile.h" // romfile_loadint
 #include "string.h" // memset
 #include "x86.h" // cpuid

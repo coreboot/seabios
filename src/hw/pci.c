@@ -10,6 +10,7 @@
 #include "ioport.h" // outl
 #include "util.h" // dprintf
 #include "farptr.h" // MAKE_FLATPTR
+#include "malloc.h" // malloc_tmp
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "romfile.h" // romfile_loadint
