@@ -253,4 +253,4 @@ distclean: clean
 $(OUT) $(addprefix $(OUT), $(DIRS)):
 	$(Q)mkdir $@
 
--include $(OUT)*.d
+-include $(patsubst %,$(OUT)%/*.d,$(DIRS))
