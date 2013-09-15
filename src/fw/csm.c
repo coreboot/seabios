@@ -14,11 +14,11 @@
 #include "hw/pic.h"
 #include "malloc.h" // csm_malloc_preinit
 #include "memmap.h"
-#include "optionroms.h"
 #include "output.h" // dprintf
 #include "post.h"
 #include "smbios.h"
 #include "stacks.h" // wait_threads
+#include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios
 
 struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);

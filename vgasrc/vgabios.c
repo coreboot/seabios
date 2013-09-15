@@ -11,8 +11,8 @@
 #include "config.h" // CONFIG_*
 #include "hw/pci.h" // pci_config_readw
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
-#include "optionroms.h" // struct pci_data
 #include "output.h" // dprintf
+#include "std/optionrom.h" // struct pci_data
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "string.h" // memset_far
 #include "util.h" // VERSION

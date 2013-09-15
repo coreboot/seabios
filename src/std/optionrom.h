@@ -56,7 +56,4 @@ struct pnp_data {
 #define OPTION_ROM_INITVECTOR offsetof(struct rom_header, initVector[0])
 #define PCIROM_CODETYPE_X86 0
 
-void
-callrom(struct rom_header *rom, u16 bdf);
-
 #endif

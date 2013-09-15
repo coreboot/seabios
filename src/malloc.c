@@ -9,9 +9,9 @@
 #include "list.h" // hlist_node
 #include "malloc.h" // _malloc
 #include "memmap.h" // struct e820entry
-#include "optionroms.h" // OPTION_ROM_ALIGN
 #include "output.h" // dprintf
 #include "stacks.h" // wait_preempt
+#include "std/optionrom.h" // OPTION_ROM_ALIGN
 #include "string.h" // memset
 
 // Information on a reserved area.

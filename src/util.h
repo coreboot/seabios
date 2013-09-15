@@ -47,6 +47,10 @@ int irqtimer_check(u32 end);
 void apm_shutdown(void);
 void handle_1553(struct bregs *regs);
 
+// optionroms.c
+struct rom_header;
+void callrom(struct rom_header *rom, u16 bdf);
+
 // pcibios.c
 void handle_1ab1(struct bregs *regs);
 void bios32_init(void);

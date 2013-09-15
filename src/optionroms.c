@@ -13,10 +13,10 @@
 #include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "hw/pci_regs.h" // PCI_ROM_ADDRESS
 #include "malloc.h" // rom_confirm
-#include "optionroms.h" // struct rom_header
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // farcall16big
+#include "std/optionrom.h" // struct rom_header
 #include "string.h" // memset
 #include "util.h" // get_pnp_offset
 
