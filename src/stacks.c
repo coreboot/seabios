@@ -6,6 +6,7 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // CR0_PE
+#include "hw/rtc.h" // rtc_use
 #include "list.h" // hlist_node
 #include "malloc.h" // free
 #include "output.h" // dprintf
@@ -446,7 +447,7 @@ start_preempt(void)
         return;
     CanPreempt = 1;
     PreemptCount = 0;
-    useRTC();
+    rtc_use();
 }
 
 // Turn off RTC irqs / stop checking for thread execution.
@@ -458,7 +459,7 @@ finish_preempt(void)
         return;
     }
     CanPreempt = 0;
-    releaseRTC();
+    rtc_release();
     dprintf(9, "Done preempt - %d checks\n", PreemptCount);
     yield();
 }

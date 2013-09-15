@@ -1,10 +1,5 @@
-// Definitions for X86 CMOS non-volatile memory access.
-//
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
-//
-// This file may be distributed under the terms of the GNU LGPLv3 license.
-#ifndef __CMOS_H
-#define __CMOS_H
+#ifndef __RTC_H
+#define __RTC_H
 
 // Standard BIOS RTC chip entries
 #define CMOS_RTC_SECONDS         0x00
@@ -45,34 +40,30 @@
 #define CMOS_MEM_HIGHMEM_HIGH    0x5d
 #define CMOS_BIOS_SMP_COUNT      0x5f
 
-// CMOS_FLOPPY_DRIVE_TYPE bitdefs
-#define CFD_NO_DRIVE 0
-#define CFD_360KB    1
-#define CFD_12MB     2
-#define CFD_720KB    3
-#define CFD_144MB    4
-#define CFD_288MB    5
+// RTC register flags
+#define RTC_A_UIP 0x80
+
+#define RTC_B_SET  0x80
+#define RTC_B_PIE  0x40
+#define RTC_B_AIE  0x20
+#define RTC_B_UIE  0x10
+#define RTC_B_BIN  0x04
+#define RTC_B_24HR 0x02
+#define RTC_B_DSE  0x01
 
 #ifndef __ASSEMBLY__
 
-#include "ioport.h" // inb, outb
+#include "types.h" // u8
 
-static inline u8
-inb_cmos(u8 reg)
-{
-    reg |= NMI_DISABLE_BIT;
-    outb(reg, PORT_CMOS_INDEX);
-    return inb(PORT_CMOS_DATA);
-}
-
-static inline void
-outb_cmos(u8 val, u8 reg)
-{
-    reg |= NMI_DISABLE_BIT;
-    outb(reg, PORT_CMOS_INDEX);
-    outb(val, PORT_CMOS_DATA);
-}
+// rtc.c
+u8 rtc_read(u8 index);
+void rtc_write(u8 index, u8 val);
+void rtc_mask(u8 index, u8 off, u8 on);
+int rtc_updating(void);
+void rtc_setup(void);
+void rtc_use(void);
+void rtc_release(void);
 
 #endif // !__ASSEMBLY__
 
-#endif // cmos.h
+#endif // rtc.h

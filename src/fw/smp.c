@@ -6,7 +6,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_*
-#include "hw/cmos.h" // CMOS_BIOS_SMP_COUNT
+#include "hw/rtc.h" // CMOS_BIOS_SMP_COUNT
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
@@ -132,7 +132,7 @@ smp_setup(void)
     writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
 
     // Wait for other CPUs to process the SIPI.
-    u8 cmos_smp_count = inb_cmos(CMOS_BIOS_SMP_COUNT);
+    u8 cmos_smp_count = rtc_read(CMOS_BIOS_SMP_COUNT);
     while (cmos_smp_count + 1 != readl(&CountCPUs))
         yield();
 

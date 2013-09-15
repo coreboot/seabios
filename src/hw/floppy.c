@@ -8,7 +8,6 @@
 #include "biosvar.h" // SET_BDA
 #include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
-#include "cmos.h" // inb_cmos
 #include "config.h" // CONFIG_FLOPPY
 #include "malloc.h" // malloc_fseg
 #include "output.h" // dprintf
@@ -16,6 +15,7 @@
 #include "pci_ids.h" // PCI_CLASS_BRIDGE_ISA
 #include "pic.h" // pic_eoi1
 #include "romfile.h" // romfile_loadint
+#include "rtc.h" // rtc_read
 #include "stacks.h" // yield
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
@@ -139,7 +139,7 @@ floppy_setup(void)
     dprintf(3, "init floppy drives\n");
 
     if (CONFIG_QEMU) {
-        u8 type = inb_cmos(CMOS_FLOPPY_DRIVE_TYPE);
+        u8 type = rtc_read(CMOS_FLOPPY_DRIVE_TYPE);
         if (type & 0xf0)
             addFloppy(0, type >> 4);
         if (type & 0x0f)

@@ -10,7 +10,6 @@
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // CDB_CMD_READ_10
 #include "byteorder.h" // be16_to_cpu
-#include "cmos.h" // inb_cmos
 #include "ioport.h" // inb
 #include "malloc.h" // malloc_fseg
 #include "output.h" // dprintf

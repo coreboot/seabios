@@ -12,12 +12,12 @@
 #include "fw/xen.h" // xen_preinit
 #include "hw/ahci.h" // ahci_setup
 #include "hw/ata.h" // ata_setup
-#include "hw/cmos.h" // CMOS_*
 #include "hw/esp-scsi.h" // esp_scsi_setup
 #include "hw/lsi-scsi.h" // lsi_scsi_setup
 #include "hw/megasas.h" // megasas_setup
 #include "hw/pic.h" // pic_setup
 #include "hw/ps2port.h" // ps2port_setup
+#include "hw/rtc.h" // rtc_write
 #include "hw/usb.h" // usb_setup
 #include "hw/virtio-blk.h" // virtio_blk_setup
 #include "hw/virtio-scsi.h" // virtio_scsi_setup
@@ -39,7 +39,7 @@ ivt_init(void)
 
     // Setup reset-vector entry point (controls legacy reboots).
     HaveRunPost = 1;
-    outb_cmos(0, CMOS_RESET_CODE);
+    rtc_write(CMOS_RESET_CODE, 0);
 
     // Initialize all vectors to the default handler.
     int i;

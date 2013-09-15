@@ -7,63 +7,18 @@
 
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
-#include "hw/cmos.h" // inb_cmos
 #include "hw/pic.h" // pic_eoi1
+#include "hw/rtc.h" // rtc_read
 #include "hw/usb-hid.h" // usb_check_event
 #include "output.h" // debug_enter
 #include "stacks.h" // yield
 #include "string.h" // memset
 #include "util.h" // clock_setup
 
-// RTC register flags
-#define RTC_A_UIP 0x80
-
-#define RTC_B_SET  0x80
-#define RTC_B_PIE  0x40
-#define RTC_B_AIE  0x20
-#define RTC_B_UIE  0x10
-#define RTC_B_BIN  0x04
-#define RTC_B_24HR 0x02
-#define RTC_B_DSE  0x01
-
 
 /****************************************************************
  * Init
  ****************************************************************/
-
-static int
-rtc_updating(void)
-{
-    // This function checks to see if the update-in-progress bit
-    // is set in CMOS Status Register A.  If not, it returns 0.
-    // If it is set, it tries to wait until there is a transition
-    // to 0, and will return 0 if such a transition occurs.  A -1
-    // is returned only after timing out.  The maximum period
-    // that this bit should be set is constrained to (1984+244)
-    // useconds, but we wait for longer just to be sure.
-
-    if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
-        return 0;
-    u32 end = timer_calc(15);
-    for (;;) {
-        if ((inb_cmos(CMOS_STATUS_A) & RTC_A_UIP) == 0)
-            return 0;
-        if (timer_check(end))
-            // update-in-progress never transitioned to 0
-            return -1;
-        yield();
-    }
-}
-
-static void
-rtc_setup(void)
-{
-    outb_cmos(0x26, CMOS_STATUS_A);    // 32,768Khz src, 976.5625us updates
-    u8 regB = inb_cmos(CMOS_STATUS_B);
-    outb_cmos((regB & RTC_B_DSE) | RTC_B_24HR, CMOS_STATUS_B);
-    inb_cmos(CMOS_STATUS_C);
-    inb_cmos(CMOS_STATUS_D);
-}
 
 static u32
 bcd2bin(u8 val)
@@ -81,18 +36,18 @@ clock_setup(void)
 
     rtc_setup();
     rtc_updating();
-    u32 seconds = bcd2bin(inb_cmos(CMOS_RTC_SECONDS));
-    u32 minutes = bcd2bin(inb_cmos(CMOS_RTC_MINUTES));
-    u32 hours = bcd2bin(inb_cmos(CMOS_RTC_HOURS));
+    u32 seconds = bcd2bin(rtc_read(CMOS_RTC_SECONDS));
+    u32 minutes = bcd2bin(rtc_read(CMOS_RTC_MINUTES));
+    u32 hours = bcd2bin(rtc_read(CMOS_RTC_HOURS));
     u32 ticks = ticks_from_ms(((hours * 60 + minutes) * 60 + seconds) * 1000);
     SET_BDA(timer_counter, ticks % TICKS_PER_DAY);
 
     // Setup Century storage
     if (CONFIG_QEMU) {
-        Century = inb_cmos(CMOS_CENTURY);
+        Century = rtc_read(CMOS_CENTURY);
     } else {
         // Infer current century from the year.
-        u8 year = inb_cmos(CMOS_RTC_YEAR);
+        u8 year = rtc_read(CMOS_RTC_YEAR);
         if (year > 0x80)
             Century = 0x19;
         else
@@ -142,10 +97,10 @@ handle_1a02(struct bregs *regs)
         return;
     }
 
-    regs->dh = inb_cmos(CMOS_RTC_SECONDS);
-    regs->cl = inb_cmos(CMOS_RTC_MINUTES);
-    regs->ch = inb_cmos(CMOS_RTC_HOURS);
-    regs->dl = inb_cmos(CMOS_STATUS_B) & RTC_B_DSE;
+    regs->dh = rtc_read(CMOS_RTC_SECONDS);
+    regs->cl = rtc_read(CMOS_RTC_MINUTES);
+    regs->ch = rtc_read(CMOS_RTC_HOURS);
+    regs->dl = rtc_read(CMOS_STATUS_B) & RTC_B_DSE;
     regs->ah = 0;
     regs->al = regs->ch;
     set_success(regs);
@@ -169,13 +124,13 @@ handle_1a03(struct bregs *regs)
         rtc_setup();
         // fall through as if an update were not in progress
     }
-    outb_cmos(regs->dh, CMOS_RTC_SECONDS);
-    outb_cmos(regs->cl, CMOS_RTC_MINUTES);
-    outb_cmos(regs->ch, CMOS_RTC_HOURS);
+    rtc_write(CMOS_RTC_SECONDS, regs->dh);
+    rtc_write(CMOS_RTC_MINUTES, regs->cl);
+    rtc_write(CMOS_RTC_HOURS, regs->ch);
     // Set Daylight Savings time enabled bit to requested value
-    u8 val8 = ((inb_cmos(CMOS_STATUS_B) & (RTC_B_PIE|RTC_B_AIE))
+    u8 val8 = ((rtc_read(CMOS_STATUS_B) & (RTC_B_PIE|RTC_B_AIE))
                | RTC_B_24HR | (regs->dl & RTC_B_DSE));
-    outb_cmos(val8, CMOS_STATUS_B);
+    rtc_write(CMOS_STATUS_B, val8);
     regs->ah = 0;
     regs->al = val8; // val last written to Reg B
     set_success(regs);
@@ -190,9 +145,9 @@ handle_1a04(struct bregs *regs)
         set_invalid(regs);
         return;
     }
-    regs->cl = inb_cmos(CMOS_RTC_YEAR);
-    regs->dh = inb_cmos(CMOS_RTC_MONTH);
-    regs->dl = inb_cmos(CMOS_RTC_DAY_MONTH);
+    regs->cl = rtc_read(CMOS_RTC_YEAR);
+    regs->dh = rtc_read(CMOS_RTC_MONTH);
+    regs->dl = rtc_read(CMOS_RTC_DAY_MONTH);
     regs->ch = GET_LOW(Century);
     regs->al = regs->ch;
     set_success(regs);
@@ -217,13 +172,13 @@ handle_1a05(struct bregs *regs)
         set_invalid(regs);
         return;
     }
-    outb_cmos(regs->cl, CMOS_RTC_YEAR);
-    outb_cmos(regs->dh, CMOS_RTC_MONTH);
-    outb_cmos(regs->dl, CMOS_RTC_DAY_MONTH);
+    rtc_write(CMOS_RTC_YEAR, regs->cl);
+    rtc_write(CMOS_RTC_MONTH, regs->dh);
+    rtc_write(CMOS_RTC_DAY_MONTH, regs->dl);
     SET_LOW(Century, regs->ch);
     // clear halt-clock bit
-    u8 val8 = inb_cmos(CMOS_STATUS_B) & ~RTC_B_SET;
-    outb_cmos(val8, CMOS_STATUS_B);
+    u8 val8 = rtc_read(CMOS_STATUS_B) & ~RTC_B_SET;
+    rtc_write(CMOS_STATUS_B, val8);
     regs->ah = 0;
     regs->al = val8; // AL = val last written to Reg B
     set_success(regs);
@@ -243,7 +198,7 @@ handle_1a06(struct bregs *regs)
     //
     // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
     // My assumption: RegB = ((RegB & 01111111b) | 00100000b)
-    u8 val8 = inb_cmos(CMOS_STATUS_B); // Get Status Reg B
+    u8 val8 = rtc_read(CMOS_STATUS_B); // Get Status Reg B
     regs->ax = 0;
     if (val8 & RTC_B_AIE) {
         // Alarm interrupt enabled already
@@ -254,11 +209,11 @@ handle_1a06(struct bregs *regs)
         rtc_setup();
         // fall through as if an update were not in progress
     }
-    outb_cmos(regs->dh, CMOS_RTC_SECONDS_ALARM);
-    outb_cmos(regs->cl, CMOS_RTC_MINUTES_ALARM);
-    outb_cmos(regs->ch, CMOS_RTC_HOURS_ALARM);
+    rtc_write(CMOS_RTC_SECONDS_ALARM, regs->dh);
+    rtc_write(CMOS_RTC_MINUTES_ALARM, regs->cl);
+    rtc_write(CMOS_RTC_HOURS_ALARM, regs->ch);
     // enable Status Reg B alarm bit, clear halt clock bit
-    outb_cmos((val8 & ~RTC_B_SET) | RTC_B_AIE, CMOS_STATUS_B);
+    rtc_write(CMOS_STATUS_B, (val8 & ~RTC_B_SET) | RTC_B_AIE);
     set_success(regs);
 }
 
@@ -276,9 +231,9 @@ handle_1a07(struct bregs *regs)
     //
     // Bit4 in try#1 flipped in hardware (forced low) due to bit7=1
     // My assumption: RegB = (RegB & 01010111b)
-    u8 val8 = inb_cmos(CMOS_STATUS_B); // Get Status Reg B
+    u8 val8 = rtc_read(CMOS_STATUS_B); // Get Status Reg B
     // clear clock-halt bit, disable alarm bit
-    outb_cmos(val8 & ~(RTC_B_SET|RTC_B_AIE), CMOS_STATUS_B);
+    rtc_write(CMOS_STATUS_B, val8 & ~(RTC_B_SET|RTC_B_AIE));
     regs->ah = 0;
     regs->al = val8; // val last written to Reg B
     set_success(regs);
@@ -374,32 +329,6 @@ irqtimer_check(u32 end)
  * Periodic timer
  ****************************************************************/
 
-int RTCusers VARLOW;
-
-void
-useRTC(void)
-{
-    int count = GET_LOW(RTCusers);
-    SET_LOW(RTCusers, count+1);
-    if (count)
-        return;
-    // Turn on the Periodic Interrupt timer
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(bRegister | RTC_B_PIE, CMOS_STATUS_B);
-}
-
-void
-releaseRTC(void)
-{
-    int count = GET_LOW(RTCusers);
-    SET_LOW(RTCusers, count-1);
-    if (count != 1)
-        return;
-    // Clear the Periodic Interrupt.
-    u8 bRegister = inb_cmos(CMOS_STATUS_B);
-    outb_cmos(bRegister & ~RTC_B_PIE, CMOS_STATUS_B);
-}
-
 static int
 set_usertimer(u32 usecs, u16 seg, u16 offset)
 {
@@ -410,7 +339,7 @@ set_usertimer(u32 usecs, u16 seg, u16 offset)
     SET_BDA(rtc_wait_flag, RWS_WAIT_PENDING);  // Set status byte.
     SET_BDA(user_wait_complete_flag, SEGOFF(seg, offset));
     SET_BDA(user_wait_timeout, usecs);
-    useRTC();
+    rtc_use();
     return 0;
 }
 
@@ -421,7 +350,7 @@ clear_usertimer(void)
         return;
     // Turn off status byte.
     SET_BDA(rtc_wait_flag, 0);
-    releaseRTC();
+    rtc_release();
 }
 
 #define RET_ECLOCKINUSE  0x83
@@ -489,8 +418,8 @@ handle_70(void)
     debug_isr(DEBUG_ISR_70);
 
     // Check which modes are enabled and have occurred.
-    u8 registerB = inb_cmos(CMOS_STATUS_B);
-    u8 registerC = inb_cmos(CMOS_STATUS_C);
+    u8 registerB = rtc_read(CMOS_STATUS_B);
+    u8 registerC = rtc_read(CMOS_STATUS_C);
 
     if (!(registerB & (RTC_B_PIE|RTC_B_AIE)))
         goto done;

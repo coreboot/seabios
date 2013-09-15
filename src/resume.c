@@ -7,10 +7,10 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "farptr.h" // FLATPTR_TO_SEGOFF
-#include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_reboot
 #include "hw/pic.h" // pic_eoi2
 #include "hw/ps2port.h" // i8042_reboot
+#include "hw/rtc.h" // rtc_read
 #include "ioport.h" // outb
 #include "output.h" // dprintf
 #include "stacks.h" // farcall16big
@@ -40,8 +40,8 @@ handle_resume(void)
 {
     ASSERT16();
     debug_serial_preinit();
-    int status = inb_cmos(CMOS_RESET_CODE);
-    outb_cmos(0, CMOS_RESET_CODE);
+    int status = rtc_read(CMOS_RESET_CODE);
+    rtc_write(CMOS_RESET_CODE, 0);
     dprintf(1, "In resume (status=%d)\n", status);
 
     dma_setup();

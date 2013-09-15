@@ -9,8 +9,8 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "fw/paravirt.h" // qemu_cfg_show_boot_menu
-#include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_bdf_to_*
+#include "hw/rtc.h" // rtc_read
 #include "hw/usb.h" // struct usbdevice_s
 #include "list.h" // hlist_node
 #include "malloc.h" // free
@@ -257,10 +257,10 @@ boot_init(void)
 
     if (CONFIG_QEMU) {
         // On emulators, get boot order from nvram.
-        if (inb_cmos(CMOS_BIOS_BOOTFLAG1) & 1)
+        if (rtc_read(CMOS_BIOS_BOOTFLAG1) & 1)
             CheckFloppySig = 0;
-        u32 bootorder = (inb_cmos(CMOS_BIOS_BOOTFLAG2)
-                         | ((inb_cmos(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
+        u32 bootorder = (rtc_read(CMOS_BIOS_BOOTFLAG2)
+                         | ((rtc_read(CMOS_BIOS_BOOTFLAG1) & 0xf0) << 4));
         DefaultFloppyPrio = DefaultCDPrio = DefaultHDPrio
             = DefaultBEVPrio = DEFAULT_PRIO;
         int i;

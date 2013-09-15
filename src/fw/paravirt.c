@@ -10,9 +10,9 @@
 
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_QEMU
-#include "hw/cmos.h" // CMOS_*
 #include "hw/pci.h" // create_pirtable
 #include "hw/pci_regs.h" // PCI_DEVICE_ID
+#include "hw/rtc.h" // CMOS_*
 #include "ioport.h" // outw
 #include "malloc.h" // malloc_tmp
 #include "memmap.h" // add_e820
@@ -105,21 +105,21 @@ qemu_preinit(void)
     }
 
     // On emulators, get memory size from nvram.
-    u32 rs = ((inb_cmos(CMOS_MEM_EXTMEM2_LOW) << 16)
-              | (inb_cmos(CMOS_MEM_EXTMEM2_HIGH) << 24));
+    u32 rs = ((rtc_read(CMOS_MEM_EXTMEM2_LOW) << 16)
+              | (rtc_read(CMOS_MEM_EXTMEM2_HIGH) << 24));
     if (rs)
         rs += 16 * 1024 * 1024;
     else
-        rs = (((inb_cmos(CMOS_MEM_EXTMEM_LOW) << 10)
-               | (inb_cmos(CMOS_MEM_EXTMEM_HIGH) << 18))
+        rs = (((rtc_read(CMOS_MEM_EXTMEM_LOW) << 10)
+               | (rtc_read(CMOS_MEM_EXTMEM_HIGH) << 18))
               + 1 * 1024 * 1024);
     RamSize = rs;
     add_e820(0, rs, E820_RAM);
 
     // Check for memory over 4Gig
-    u64 high = ((inb_cmos(CMOS_MEM_HIGHMEM_LOW) << 16)
-                | ((u32)inb_cmos(CMOS_MEM_HIGHMEM_MID) << 24)
-                | ((u64)inb_cmos(CMOS_MEM_HIGHMEM_HIGH) << 32));
+    u64 high = ((rtc_read(CMOS_MEM_HIGHMEM_LOW) << 16)
+                | ((u32)rtc_read(CMOS_MEM_HIGHMEM_MID) << 24)
+                | ((u64)rtc_read(CMOS_MEM_HIGHMEM_HIGH) << 32));
     RamSizeOver4G = high;
     add_e820(0x100000000ull, high, E820_RAM);
 

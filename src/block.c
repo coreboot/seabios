@@ -10,8 +10,8 @@
 #include "bregs.h" // struct bregs
 #include "hw/ata.h" // process_ata_op
 #include "hw/ahci.h" // process_ahci_op
-#include "hw/cmos.h" // inb_cmos
 #include "hw/blockcmd.h" // cdb_*
+#include "hw/rtc.h" // rtc_read
 #include "hw/virtio-blk.h" // process_virtio_blk_op
 #include "malloc.h" // malloc_low
 #include "output.h" // dprintf
@@ -72,7 +72,7 @@ get_translation(struct drive_s *drive_g)
         // Emulators pass in the translation info via nvram.
         u8 ataid = GET_GLOBAL(drive_g->cntl_id);
         u8 channel = ataid / 2;
-        u8 translation = inb_cmos(CMOS_BIOS_DISKTRANSFLAG + channel/2);
+        u8 translation = rtc_read(CMOS_BIOS_DISKTRANSFLAG + channel/2);
         translation >>= 2 * (ataid % 4);
         translation &= 0x03;
         return translation;

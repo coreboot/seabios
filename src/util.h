@@ -59,8 +59,6 @@ u32 irqtimer_calc_ticks(u32 count);
 u32 irqtimer_calc(u32 msecs);
 int irqtimer_check(u32 end);
 void handle_1586(struct bregs *regs);
-void useRTC(void);
-void releaseRTC(void);
 
 // fw/acpi.c
 extern struct rsdp_descriptor *RsdpAddr;
