@@ -8,22 +8,12 @@
 #include "config.h" // CONFIG_*
 #include "malloc.h" // _malloc
 #include "output.h" // dprintf
+#include "std/pmm.h" // PMM_SIGNATURE
 #include "string.h" // checksum
 #include "util.h" // pmm_init
 #include "x86.h" // __ffs
 
-struct pmmheader {
-    u32 signature;
-    u8 version;
-    u8 length;
-    u8 checksum;
-    struct segoff_s entry;
-    u8 reserved[5];
-} PACKED;
-
 extern struct pmmheader PMMHEADER;
-
-#define PMM_SIGNATURE 0x4d4d5024 // $PMM
 
 #if CONFIG_PMM
 struct pmmheader PMMHEADER __aligned(16) VARFSEG = {
@@ -32,8 +22,6 @@ struct pmmheader PMMHEADER __aligned(16) VARFSEG = {
     .length = sizeof(PMMHEADER),
 };
 #endif
-
-#define PMM_FUNCTION_NOT_SUPPORTED 0xffffffff
 
 // PMM - allocate
 static u32
