@@ -13,10 +13,10 @@
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "output.h" // dprintf
 #include "std/optionrom.h" // struct pci_data
+#include "std/vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "string.h" // memset_far
 #include "util.h" // VERSION
-#include "vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "vgabios.h" // calc_page_size
 #include "vgahw.h" // vgahw_set_mode
 

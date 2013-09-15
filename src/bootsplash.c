@@ -15,9 +15,9 @@
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadfile
 #include "stacks.h" // call16_int
+#include "std/vbe.h" // struct vbe_info
 #include "string.h" // memset
 #include "util.h" // enable_bootsplash
-#include "vbe.h" // struct vbe_info
 
 
 /****************************************************************

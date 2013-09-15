@@ -12,8 +12,8 @@
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "output.h" // dprintf
+#include "std/vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
-#include "vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "vgabios.h" // struct vbe_modeinfo
 
 

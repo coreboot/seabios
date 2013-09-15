@@ -10,8 +10,8 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "output.h" // dprintf
+#include "std/vbe.h" // struct vbe_info
 #include "string.h" // memset_far
-#include "vbe.h" // struct vbe_info
 #include "vgabios.h" // handle_104f
 #include "vgahw.h" // vgahw_set_mode
 
