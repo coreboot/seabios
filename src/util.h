@@ -175,8 +175,9 @@ void mtrr_setup(void);
 void reset_vector(void) __noreturn;
 
 // misc.c
-void mathcp_setup(void);
+extern struct bios_config_table_s BIOS_CONFIG_TABLE __aligned(1);
 extern u8 BiosChecksum;
+void mathcp_setup(void);
 
 // version (auto generated file out/version.c)
 extern const char VERSION[];

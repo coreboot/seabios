@@ -4,10 +4,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h"
 #include "boot.h"
 #include "bregs.h"
 #include "config.h" // CONFIG_*
+#include "farptr.h" // MAKE_FLATPTR
 #include "hw/pci.h"
 #include "hw/pic.h"
 #include "malloc.h" // csm_malloc_preinit
@@ -16,6 +16,7 @@
 #include "post.h"
 #include "stacks.h" // wait_threads
 #include "std/acpi.h" // RSDP_SIGNATURE
+#include "std/bda.h" // struct bios_data_area_s
 #include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios
 

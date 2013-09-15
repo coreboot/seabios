@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // struct bios_data_area_s
+#include "biosvar.h" // SET_BDA
 #include "boot.h" // boot_init
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*

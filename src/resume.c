@@ -4,8 +4,9 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // struct bios_data_area_s
 #include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
+#include "farptr.h" // FLATPTR_TO_SEGOFF
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_reboot
 #include "hw/pic.h" // pic_eoi2
@@ -13,6 +14,7 @@
 #include "ioport.h" // outb
 #include "output.h" // dprintf
 #include "stacks.h" // farcall16big
+#include "std/bda.h" // struct bios_data_area_s
 #include "string.h" // memset
 #include "util.h" // dma_setup
 

@@ -5,7 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // BIOS_CONFIG_TABLE
+#include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "hw/pic.h" // pic_reset
 #include "ioport.h" // inb

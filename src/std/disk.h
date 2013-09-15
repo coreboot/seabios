@@ -81,6 +81,22 @@ struct int13dpt_s {
     };
 } PACKED;
 
+// Floppy info
+struct fdpt_s {
+    u16 cylinders;
+    u8 heads;
+    u8 a0h_signature;
+    u8 phys_sectors;
+    u16 precompensation;
+    u8 reserved;
+    u8 drive_control_byte;
+    u16 phys_cylinders;
+    u8 phys_heads;
+    u16 landing_zone;
+    u8 sectors;
+    u8 checksum;
+} PACKED;
+
 // Floppy "Disk Base Table"
 struct floppy_dbt_s {
     u8 specify1;
