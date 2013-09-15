@@ -17,6 +17,7 @@
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // farcall16big
 #include "std/optionrom.h" // struct rom_header
+#include "std/pnpbios.h" // PNP_SIGNATURE
 #include "string.h" // memset
 #include "util.h" // get_pnp_offset
 

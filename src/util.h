@@ -139,7 +139,6 @@ extern int HaveRunPost;
 void dma_setup(void);
 
 // pnpbios.c
-#define PNP_SIGNATURE 0x506e5024 // $PnP
 u16 get_pnp_offset(void);
 void pnp_init(void);
 
