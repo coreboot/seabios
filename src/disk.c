@@ -8,43 +8,19 @@
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
-#include "disk.h" // floppy_13
 #include "hw/ata.h" // ATA_CB_DC
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/pic.h" // pic_eoi2
 #include "output.h" // debug_enter
 #include "stacks.h" // call16_int
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
+#include "util.h" // CDRom_locks
 
 
 /****************************************************************
  * Helper functions
  ****************************************************************/
-
-void
-__disk_ret(struct bregs *regs, u32 linecode, const char *fname)
-{
-    u8 code = linecode;
-    if (regs->dl < EXTSTART_HD)
-        SET_BDA(floppy_last_status, code);
-    else
-        SET_BDA(disk_last_status, code);
-    if (code)
-        __set_code_invalid(regs, linecode, fname);
-    else
-        set_code_success(regs);
-}
-
-void
-__disk_ret_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
-{
-    u8 code = linecode;
-    if (regs->dl < EXTSTART_HD)
-        SET_BDA(floppy_last_status, code);
-    else
-        SET_BDA(disk_last_status, code);
-    __set_code_unimplemented(regs, linecode, fname);
-}
 
 static void
 __disk_stub(struct bregs *regs, int lineno, const char *fname)

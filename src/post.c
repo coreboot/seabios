@@ -9,7 +9,6 @@
 #include "boot.h" // boot_init
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
-#include "disk.h" // floppy_setup
 #include "fw/paravirt.h" // qemu_cfg_preinit
 #include "fw/xen.h" // xen_preinit
 #include "hw/ahci.h" // ahci_setup

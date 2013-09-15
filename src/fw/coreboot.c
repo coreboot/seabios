@@ -4,10 +4,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "block.h" // MAXDESCSIZE
 #include "boot.h" // boot_add_cbfs
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_*
-#include "disk.h" // MAXDESCSIZE
 #include "hw/pci.h" // pci_probe_devices
 #include "lzmadecode.h" // LzmaDecode
 #include "malloc.h" // free

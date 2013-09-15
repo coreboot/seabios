@@ -15,12 +15,13 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_GLOBAL
+#include "block.h" // DTYPE_USB
 #include "blockcmd.h" // cdb_read
 #include "boot.h" // bootprio_find_usb
 #include "config.h" // CONFIG_USB_UAS
-#include "disk.h" // DTYPE_UAS
 #include "malloc.h" // free
 #include "output.h" // dprintf
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
 #include "usb-uas.h" // usb_uas_init

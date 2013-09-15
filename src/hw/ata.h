@@ -1,9 +1,9 @@
 #ifndef __ATA_H
 #define __ATA_H
 
-#include "types.h" // u8
+#include "block.h" // struct drive_s
 #include "config.h" // CONFIG_MAX_ATA_INTERFACES
-#include "disk.h" // struct drive_s
+#include "types.h" // u8
 
 struct ata_channel_s {
     u16 iobase1;

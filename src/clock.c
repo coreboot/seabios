@@ -7,7 +7,6 @@
 
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
-#include "disk.h" // floppy_tick
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pic.h" // pic_eoi1
 #include "hw/pit.h" // PM_SEL_TIMER0

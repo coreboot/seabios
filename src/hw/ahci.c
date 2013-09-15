@@ -9,7 +9,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // CDB_CMD_READ_10
 #include "boot.h" // add_bcv_hd
-#include "disk.h" // struct drive_s
 #include "ioport.h" // inb
 #include "malloc.h" // free
 #include "output.h" // dprintf
@@ -17,6 +16,7 @@
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "stacks.h" // yield
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // timer_calc
 

@@ -8,14 +8,15 @@
 #include "ahci.h" // atapi_cmd_data
 #include "ata.h" // atapi_cmd_data
 #include "biosvar.h" // GET_GLOBAL
+#include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "boot.h" // boot_add_hd
 #include "byteorder.h" // be32_to_cpu
-#include "disk.h" // struct disk_op_s
 #include "esp-scsi.h" // esp_scsi_cmd_data
 #include "lsi-scsi.h" // lsi_scsi_cmd_data
 #include "megasas.h" // megasas_cmd_data
 #include "output.h" // dprintf
+#include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
 #include "usb-msc.h" // usb_cmd_data
 #include "usb-uas.h" // usb_cmd_data

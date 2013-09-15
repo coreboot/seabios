@@ -18,12 +18,34 @@ void process_mouse(u8 data);
 void serial_setup(void);
 void lpt_setup(void);
 
+// cdrom.c
+extern u8 CDRom_locks[];
+extern struct cdemu_s CDEmu;
+extern struct drive_s *cdemu_drive_gf;
+struct disk_op_s;
+int process_cdemu_op(struct disk_op_s *op);
+void cdrom_prepboot(void);
+void cdemu_134b(struct bregs *regs);
+int cdrom_boot(struct drive_s *drive_g);
+
 // clock.c
 void clock_setup(void);
 void handle_1583(struct bregs *regs);
 void handle_1586(struct bregs *regs);
 void useRTC(void);
 void releaseRTC(void);
+
+// hw/floppy.c
+extern struct floppy_ext_dbt_s diskette_param_table2;
+void floppy_setup(void);
+struct drive_s *init_floppy(int floppyid, int ftype);
+int find_floppy_type(u32 size);
+int process_floppy_op(struct disk_op_s *op);
+void floppy_tick(void);
+
+// hw/ramdisk.c
+void ramdisk_setup(void);
+int process_ramdisk_op(struct disk_op_s *op);
 
 // hw/timer.c
 void timer_setup(void);

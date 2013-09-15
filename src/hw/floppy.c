@@ -6,11 +6,11 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // SET_BDA
+#include "block.h" // struct drive_s
 #include "boot.h" // boot_add_floppy
 #include "bregs.h" // struct bregs
 #include "cmos.h" // inb_cmos
 #include "config.h" // CONFIG_FLOPPY
-#include "disk.h" // DISK_RET_SUCCESS
 #include "malloc.h" // malloc_fseg
 #include "output.h" // dprintf
 #include "pci.h" // pci_to_bdf
@@ -18,6 +18,7 @@
 #include "pic.h" // pic_eoi1
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // timer_calc
 

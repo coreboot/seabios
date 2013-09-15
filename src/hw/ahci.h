@@ -1,8 +1,8 @@
 #ifndef __AHCI_H
 #define __AHCI_H
 
+#include "block.h" // struct drive_s
 #include "types.h" // u32
-#include "disk.h" // struct drive_s
 
 struct sata_cmd_fis {
     u8 reg;

@@ -10,12 +10,13 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "boot.h" // boot_add_hd
 #include "config.h" // CONFIG_*
-#include "disk.h"
+#include "block.h" // struct drive_s
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
 #include "virtio-pci.h"

@@ -6,9 +6,9 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "boot.h" // boot_init
+#include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
-#include "disk.h" // cdrom_boot
 #include "fw/paravirt.h" // qemu_cfg_show_boot_menu
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_bdf_to_*
@@ -17,6 +17,7 @@
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
+#include "std/disk.h" // struct mbr_s
 #include "string.h" // memset
 #include "util.h" // irqtimer_calc
 

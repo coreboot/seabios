@@ -6,13 +6,15 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_GLOBAL
+#include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
-#include "disk.h" // cdrom_13
 #include "hw/ata.h" // ATA_CMD_REQUEST_SENSE
 #include "hw/blockcmd.h" // CDB_CMD_REQUEST_SENSE
 #include "malloc.h" // free
 #include "output.h" // dprintf
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
+#include "util.h" // cdrom_prepboot
 
 // Locks for removable devices
 u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;
@@ -130,21 +132,6 @@ cdrom_prepboot(void)
     drive_g->blksize = DISK_SECTOR_SIZE;
     drive_g->sectors = (u64)-1;
 }
-
-struct eltorito_s {
-    u8 size;
-    u8 media;
-    u8 emulated_drive;
-    u8 controller_index;
-    u32 ilba;
-    u16 device_spec;
-    u16 buffer_segment;
-    u16 load_segment;
-    u16 sector_count;
-    u8 cylinders;
-    u8 sectors;
-    u8 heads;
-};
 
 #define SET_INT13ET(regs,var,val)                                      \
     SET_FARVAR((regs)->ds, ((struct eltorito_s*)((regs)->si+0))->var, (val))

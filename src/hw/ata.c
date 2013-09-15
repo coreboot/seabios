@@ -7,11 +7,11 @@
 
 #include "ata.h" // ATA_CB_STAT
 #include "biosvar.h" // GET_GLOBAL
+#include "block.h" // struct drive_s
 #include "blockcmd.h" // CDB_CMD_READ_10
 #include "boot.h" // boot_add_hd
 #include "byteorder.h" // be16_to_cpu
 #include "cmos.h" // inb_cmos
-#include "disk.h" // struct ata_s
 #include "ioport.h" // inb
 #include "malloc.h" // malloc_fseg
 #include "output.h" // dprintf
@@ -20,6 +20,7 @@
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
 #include "pic.h" // enable_hwirq
 #include "stacks.h" // yield
+#include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // timer_calc
 
