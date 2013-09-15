@@ -55,6 +55,16 @@ void callrom(struct rom_header *rom, u16 bdf);
 void handle_1ab1(struct bregs *regs);
 void bios32_init(void);
 
+// fw/acpi.c
+extern struct rsdp_descriptor *RsdpAddr;
+extern u32 acpi_pm1a_cnt;
+void acpi_setup(void);
+u32 find_resume_vector(void);
+void find_acpi_features(void);
+struct acpi_20_generic_address;
+void acpi_set_reset_reg(struct acpi_20_generic_address *reg, u8 val);
+void acpi_reboot(void);
+
 // fw/csm.c
 struct pci_device;
 int csm_bootprio_fdc(struct pci_device *pci, int port, int fdid);

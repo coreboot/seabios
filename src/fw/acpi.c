@@ -5,7 +5,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h" // struct rsdp_descriptor
 #include "byteorder.h" // cpu_to_le16
 #include "config.h" // CONFIG_*
 #include "dev-q35.h"
@@ -17,6 +16,7 @@
 #include "output.h" // dprintf
 #include "paravirt.h" // RamSize
 #include "romfile.h" // romfile_loadint
+#include "std/acpi.h" // struct rsdp_descriptor
 #include "string.h" // memset
 #include "util.h" // MaxCountCPUs
 #include "x86.h" // readl
@@ -755,6 +755,8 @@ find_acpi_features(void)
 
 static struct acpi_20_generic_address acpi_reset_reg;
 static u8 acpi_reset_val;
+
+#define acpi_ga_to_bdf(addr) pci_to_bdf(0, (addr >> 32) & 0xffff, (addr >> 16) & 0xffff)
 
 void
 acpi_reboot(void)

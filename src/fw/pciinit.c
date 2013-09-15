@@ -5,7 +5,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h" // acpi_pm1a_cnt
 #include "config.h" // CONFIG_*
 #include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "hw/pci.h" // pci_config_readl

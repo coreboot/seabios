@@ -4,10 +4,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h" // struct rsdp_descriptor
 #include "config.h" // CONFIG_*
 #include "malloc.h" // malloc_fseg
 #include "output.h" // dprintf
+#include "std/acpi.h" // struct rsdp_descriptor
 #include "std/mptable.h" // MPTABLE_SIGNATURE
 #include "std/pirtable.h" // struct pir_header
 #include "std/smbios.h" // struct smbios_entry_point

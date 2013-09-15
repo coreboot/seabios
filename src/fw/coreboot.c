@@ -4,7 +4,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h" // find_acpi_features
 #include "boot.h" // boot_add_cbfs
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_*

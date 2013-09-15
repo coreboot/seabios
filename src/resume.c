@@ -6,7 +6,6 @@
 
 #include "biosvar.h" // struct bios_data_area_s
 #include "bregs.h" // struct bregs
-#include "fw/acpi.h" // find_resume_vector
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_reboot
 #include "hw/pic.h" // pic_eoi2

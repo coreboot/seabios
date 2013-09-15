@@ -4,7 +4,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h" // find_acpi_features
 #include "config.h"
 #include "malloc.h" // memalign_high
 #include "memmap.h" // add_e820

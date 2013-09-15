@@ -13,13 +13,6 @@ struct acpi_20_generic_address {
     u8  reserved;
     u64 address;
 } PACKED;
-#define acpi_ga_to_bdf(addr) pci_to_bdf(0, (addr >> 32) & 0xffff, (addr >> 16) & 0xffff)
-
-void acpi_setup(void);
-u32 find_resume_vector(void);
-void find_acpi_features(void);
-void acpi_set_reset_reg(struct acpi_20_generic_address *reg, u8 val);
-void acpi_reboot(void);
 
 #define RSDP_SIGNATURE 0x2052545020445352LL // "RSD PTR "
 
@@ -34,9 +27,6 @@ struct rsdp_descriptor {        /* Root System Descriptor Pointer */
     u8  extended_checksum;      /* Checksum of entire table */
     u8  reserved [3];           /* Reserved field must be 0 */
 };
-
-extern struct rsdp_descriptor *RsdpAddr;
-extern u32 acpi_pm1a_cnt;
 
 /* Table structure from Linux kernel (the ACPI tables are under the
    BSD license) */

@@ -8,7 +8,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h" // acpi_setup
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_QEMU
 #include "hw/cmos.h" // CMOS_*

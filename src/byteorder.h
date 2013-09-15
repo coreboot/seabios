@@ -1,6 +1,8 @@
 #ifndef __BYTEORDER_H
 #define __BYTEORDER_H
 
+#include "types.h" // u32
+
 static inline u16 __swab16_constant(u16 val) {
     return (val<<8) | (val>>8);
 }

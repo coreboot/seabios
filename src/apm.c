@@ -9,7 +9,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
-#include "fw/acpi.h" // acpi_pm_ctl
 #include "fw/paravirt.h" // runningOnQEMU
 #include "ioport.h" // outb
 #include "output.h" // dprintf

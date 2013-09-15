@@ -4,7 +4,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "acpi.h"
 #include "biosvar.h"
 #include "boot.h"
 #include "bregs.h"
@@ -16,6 +15,7 @@
 #include "output.h" // dprintf
 #include "post.h"
 #include "stacks.h" // wait_threads
+#include "std/acpi.h" // RSDP_SIGNATURE
 #include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios
 
