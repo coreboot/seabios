@@ -17,7 +17,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // DTYPE_USB
 #include "blockcmd.h" // cdb_read
-#include "boot.h" // bootprio_find_usb
 #include "config.h" // CONFIG_USB_UAS
 #include "malloc.h" // free
 #include "output.h" // dprintf
@@ -25,6 +24,7 @@
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
 #include "usb-uas.h" // usb_uas_init
+#include "util.h" // bootprio_find_usb
 
 #define UAS_UI_COMMAND              0x01
 #define UAS_UI_SENSE                0x03

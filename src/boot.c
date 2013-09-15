@@ -5,7 +5,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "boot.h" // boot_init
 #include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*

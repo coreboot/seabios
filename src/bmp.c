@@ -6,9 +6,17 @@
 *
 * This work is licensed under the terms of the GNU LGPLv3.
 */
-#include "bmp.h" // struct bmp_decdata
 #include "malloc.h" // malloc_tmphigh
 #include "string.h" // memcpy
+#include "util.h" // struct bmp_decdata
+
+struct bmp_decdata {
+    struct tagRGBQUAD *quadp;
+    unsigned char *datap;
+    int width;
+    int height;
+    int bpp;
+};
 
 #define bmp_load4byte(addr) (*(u32 *)(addr))
 #define bmp_load2byte(addr) (*(u16 *)(addr))
@@ -59,12 +67,14 @@ static void raw_data_format_adjust_24bpp(u8 *src, u8 *dest, int width,
     }
 }
 
+/* allocate decdata struct */
 struct bmp_decdata *bmp_alloc(void)
 {
     struct bmp_decdata *bmp = malloc_tmphigh(sizeof(*bmp));
     return bmp;
 }
 
+/* extract information from bmp file data */
 int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size)
 {
     if (data_size < 54)
@@ -84,13 +94,14 @@ int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size)
     return 0;
 }
 
+/* get bmp properties */
 void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height)
 {
     *width = bmp->width;
     *height = bmp->height;
 }
 
-
+/* flush flat picture data to *pc */
 int bmp_show(struct bmp_decdata *bmp, unsigned char *pic, int width
              , int height, int depth, int bytes_per_line_dest)
 {

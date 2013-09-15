@@ -7,7 +7,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // DTYPE_USB
 #include "blockcmd.h" // cdb_read
-#include "boot.h" // bootprio_find_usb
 #include "config.h" // CONFIG_USB_MSC
 #include "malloc.h" // free
 #include "output.h" // dprintf
@@ -15,6 +14,7 @@
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
 #include "usb-msc.h" // usb_msc_setup
+#include "util.h" // bootprio_find_usb
 
 struct usbdrive_s {
     struct drive_s drive;

@@ -10,7 +10,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // scsi_drive_setup
-#include "boot.h" // bootprio_find_scsi_device
 #include "config.h" // CONFIG_*
 #include "malloc.h" // free
 #include "output.h" // dprintf

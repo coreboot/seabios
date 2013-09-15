@@ -10,7 +10,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
-#include "boot.h" // boot_add_hd
 #include "byteorder.h" // be32_to_cpu
 #include "esp-scsi.h" // esp_scsi_cmd_data
 #include "lsi-scsi.h" // lsi_scsi_cmd_data

@@ -4,7 +4,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "boot.h"
 #include "bregs.h"
 #include "config.h" // CONFIG_*
 #include "farptr.h" // MAKE_FLATPTR
@@ -13,7 +12,6 @@
 #include "malloc.h" // csm_malloc_preinit
 #include "memmap.h"
 #include "output.h" // dprintf
-#include "post.h"
 #include "stacks.h" // wait_threads
 #include "std/acpi.h" // RSDP_SIGNATURE
 #include "std/bda.h" // struct bios_data_area_s

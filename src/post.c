@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // SET_BDA
-#include "boot.h" // boot_init
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "fw/paravirt.h" // qemu_cfg_preinit
@@ -25,7 +24,6 @@
 #include "malloc.h" // malloc_init
 #include "memmap.h" // add_e820
 #include "output.h" // dprintf
-#include "post.h" // interface_init
 #include "string.h" // memset
 #include "util.h" // kbd_init
 

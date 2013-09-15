@@ -9,7 +9,6 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // CDB_CMD_READ_10
-#include "boot.h" // boot_add_hd
 #include "byteorder.h" // be16_to_cpu
 #include "cmos.h" // inb_cmos
 #include "ioport.h" // inb

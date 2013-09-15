@@ -8,7 +8,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_GLOBAL
-#include "boot.h" // boot_add_hd
 #include "config.h" // CONFIG_*
 #include "block.h" // struct drive_s
 #include "malloc.h" // free

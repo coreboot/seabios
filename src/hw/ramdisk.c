@@ -6,7 +6,6 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // struct drive_s
-#include "boot.h" // boot_add_floppy
 #include "bregs.h" // struct bregs
 #include "malloc.h" // malloc_fseg
 #include "memmap.h" // add_e820

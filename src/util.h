@@ -69,6 +69,40 @@ int irqtimer_check(u32 end);
 void apm_shutdown(void);
 void handle_1553(struct bregs *regs);
 
+// bmp.c
+struct bmp_decdata *bmp_alloc(void);
+int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size);
+void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height);
+int bmp_show(struct bmp_decdata *bmp, unsigned char *pic, int width
+             , int height, int depth, int bytes_per_line_dest);
+
+// boot.c
+void boot_init(void);
+void boot_add_bev(u16 seg, u16 bev, u16 desc, int prio);
+void boot_add_bcv(u16 seg, u16 ip, u16 desc, int prio);
+void boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio);
+void boot_add_hd(struct drive_s *drive_g, const char *desc, int prio);
+void boot_add_cd(struct drive_s *drive_g, const char *desc, int prio);
+void boot_add_cbfs(void *data, const char *desc, int prio);
+void interactive_bootmenu(void);
+void bcv_prepboot(void);
+struct pci_device;
+int bootprio_find_pci_device(struct pci_device *pci);
+int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun);
+int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave);
+int bootprio_find_fdc_device(struct pci_device *pci, int port, int fdid);
+int bootprio_find_pci_rom(struct pci_device *pci, int instance);
+int bootprio_find_named_rom(const char *name, int instance);
+struct usbdevice_s;
+int bootprio_find_usb(struct usbdevice_s *usbdev, int lun);
+
+// jpeg.c
+struct jpeg_decdata *jpeg_alloc(void);
+int jpeg_decode(struct jpeg_decdata *jpeg, unsigned char *buf);
+void jpeg_get_size(struct jpeg_decdata *jpeg, int *width, int *height);
+int jpeg_show(struct jpeg_decdata *jpeg, unsigned char *pic, int width
+              , int height, int depth, int bytes_per_line_dest);
+
 // optionroms.c
 struct rom_header;
 void callrom(struct rom_header *rom, u16 bdf);
@@ -76,6 +110,13 @@ void callrom(struct rom_header *rom, u16 bdf);
 // pcibios.c
 void handle_1ab1(struct bregs *regs);
 void bios32_init(void);
+
+// post.c
+void interface_init(void);
+void device_hardware_setup(void);
+void prepareboot(void);
+void startBoot(void);
+void reloc_preinit(void *f, void *arg);
 
 // fw/acpi.c
 extern struct rsdp_descriptor *RsdpAddr;
@@ -88,7 +129,6 @@ void acpi_set_reset_reg(struct acpi_20_generic_address *reg, u8 val);
 void acpi_reboot(void);
 
 // fw/csm.c
-struct pci_device;
 int csm_bootprio_fdc(struct pci_device *pci, int port, int fdid);
 int csm_bootprio_ata(struct pci_device *pci, int chanid, int slave);
 int csm_bootprio_pci(struct pci_device *pci);

@@ -7,7 +7,6 @@
 
 #include "biosvar.h" // SET_BDA
 #include "block.h" // struct drive_s
-#include "boot.h" // boot_add_floppy
 #include "bregs.h" // struct bregs
 #include "cmos.h" // inb_cmos
 #include "config.h" // CONFIG_FLOPPY

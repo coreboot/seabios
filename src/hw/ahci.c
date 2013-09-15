@@ -8,7 +8,6 @@
 #include "ata.h" // ATA_CB_STAT
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // CDB_CMD_READ_10
-#include "boot.h" // add_bcv_hd
 #include "ioport.h" // inb
 #include "malloc.h" // free
 #include "output.h" // dprintf

@@ -5,11 +5,9 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bmp.h" // bmp_alloc
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "farptr.h" // FLATPTR_TO_SEG
-#include "jpeg.h" // jpeg_alloc
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadfile
