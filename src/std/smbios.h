@@ -1,8 +1,7 @@
 #ifndef __SMBIOS_H
 #define __SMBIOS_H
 
-// smbios.c
-void smbios_setup(void);
+#include "types.h" // u32
 
 /* SMBIOS entry point -- must be written to a 16-bit aligned address
    between 0xf0000 and 0xfffff.
@@ -23,8 +22,6 @@ struct smbios_entry_point {
     u16 number_of_structures;
     u8 smbios_bcd_revision;
 } PACKED;
-
-extern struct smbios_entry_point *SMBiosAddr;
 
 /* This goes at the beginning of every SMBIOS structure. */
 struct smbios_structure_header {
@@ -165,5 +162,4 @@ struct smbios_type_127 {
     struct smbios_structure_header header;
 } PACKED;
 
-void display_uuid(void);
 #endif // smbios.h

@@ -15,7 +15,6 @@
 #include "memmap.h"
 #include "output.h" // dprintf
 #include "post.h"
-#include "smbios.h"
 #include "stacks.h" // wait_threads
 #include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios

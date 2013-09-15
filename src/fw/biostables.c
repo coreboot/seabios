@@ -9,8 +9,8 @@
 #include "malloc.h" // malloc_fseg
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "output.h" // dprintf
-#include "smbios.h" // struct smbios_entry_point
 #include "std/pirtable.h" // struct pir_header
+#include "std/smbios.h" // struct smbios_entry_point
 #include "string.h" // memcpy
 #include "util.h" // copy_table
 

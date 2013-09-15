@@ -66,6 +66,11 @@ void make_bios_writable(void);
 void make_bios_readonly(void);
 void qemu_prep_reset(void);
 
+// fw/smbios.c
+extern struct smbios_entry_point *SMBiosAddr;
+void smbios_setup(void);
+void display_uuid(void);
+
 // fw/pciinit.c
 extern const u8 pci_irqs[4];
 void pci_setup(void);

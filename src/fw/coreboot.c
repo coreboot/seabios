@@ -16,7 +16,6 @@
 #include "output.h" // dprintf
 #include "paravirt.h" // PlatformRunningOn
 #include "romfile.h" // romfile_findprefix
-#include "smbios.h" // smbios_init
 #include "stacks.h" // yield
 #include "string.h" // memset
 #include "util.h" // coreboot_preinit

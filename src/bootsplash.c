@@ -9,7 +9,6 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "farptr.h" // FLATPTR_TO_SEG
-#include "fw/smbios.h" // display_uuid
 #include "jpeg.h" // jpeg_alloc
 #include "malloc.h" // free
 #include "output.h" // dprintf

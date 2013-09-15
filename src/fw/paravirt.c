@@ -20,7 +20,6 @@
 #include "output.h" // dprintf
 #include "paravirt.h" // qemu_cfg_preinit
 #include "romfile.h" // romfile_loadint
-#include "smbios.h" // smbios_setup
 #include "string.h" // memset
 #include "util.h" // pci_setup
 #include "x86.h" // cpuid

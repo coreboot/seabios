@@ -10,7 +10,7 @@
 #include "output.h" // dprintf
 #include "paravirt.h" // RamSize
 #include "romfile.h" // romfile_findprefix
-#include "smbios.h" // struct smbios_entry_point
+#include "std/smbios.h" // struct smbios_entry_point
 #include "string.h" // memset
 #include "util.h" // MaxCountCPUs
 #include "x86.h" // cpuid
