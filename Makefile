@@ -187,7 +187,7 @@ SRCVGA=src/output.c src/string.c src/hw/pci.c \
 
 CFLAGS16VGA = $(CFLAGS16INC) -Isrc
 
-$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h ; $(call whole-compile, $(CFLAGS16VGA) -S, $(SRCVGA),$@)
+$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(CFLAGS16VGA) -S, $(SRCVGA),$@)
 
 $(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s scripts/vgafixup.py
 	@echo "  Fixup VGA rom assembler"
