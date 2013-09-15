@@ -9,7 +9,6 @@
 #include "boot.h"
 #include "bregs.h"
 #include "config.h" // CONFIG_*
-#include "csm.h"
 #include "hw/pci.h"
 #include "hw/pic.h"
 #include "malloc.h" // csm_malloc_preinit
@@ -20,6 +19,11 @@
 #include "stacks.h" // wait_threads
 #include "std/optionrom.h" // struct rom_header
 #include "util.h" // copy_smbios
+
+#define UINT8 u8
+#define UINT16 u16
+#define UINT32 u32
+#include "std/LegacyBios.h"
 
 struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
 

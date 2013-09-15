@@ -9,7 +9,6 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "disk.h" // cdrom_boot
-#include "fw/csm.h" // csm_bootprio_*
 #include "fw/paravirt.h" // qemu_cfg_show_boot_menu
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_bdf_to_*

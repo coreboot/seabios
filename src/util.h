@@ -55,6 +55,12 @@ void callrom(struct rom_header *rom, u16 bdf);
 void handle_1ab1(struct bregs *regs);
 void bios32_init(void);
 
+// fw/csm.c
+struct pci_device;
+int csm_bootprio_fdc(struct pci_device *pci, int port, int fdid);
+int csm_bootprio_ata(struct pci_device *pci, int chanid, int slave);
+int csm_bootprio_pci(struct pci_device *pci);
+
 // fw/shadow.c
 void make_bios_writable(void);
 void make_bios_readonly(void);
@@ -95,7 +101,6 @@ void copy_table(void *pos);
 
 // vgahooks.c
 void handle_155f(struct bregs *regs);
-struct pci_device;
 void vgahook_setup(struct pci_device *pci);
 
 // optionroms.c
