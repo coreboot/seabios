@@ -6,11 +6,11 @@
 
 #include "acpi.h" // struct rsdp_descriptor
 #include "config.h" // CONFIG_*
-#include "hw/pci.h" // struct pir_header
 #include "malloc.h" // malloc_fseg
 #include "mptable.h" // MPTABLE_SIGNATURE
 #include "output.h" // dprintf
 #include "smbios.h" // struct smbios_entry_point
+#include "std/pirtable.h" // struct pir_header
 #include "string.h" // memcpy
 #include "util.h" // copy_table
 

@@ -60,6 +60,10 @@ void qemu_prep_reset(void);
 extern const u8 pci_irqs[4];
 void pci_setup(void);
 
+// fw/pirtable.c
+extern struct pir_header *PirAddr;
+void pirtable_setup(void);
+
 // fw/smm.c
 void smm_device_setup(void);
 void smm_setup(void);

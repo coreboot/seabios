@@ -6,8 +6,8 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_*
-#include "hw/pci.h" // struct pir_header
 #include "output.h" // dprintf
+#include "std/pirtable.h" // struct pir_header
 #include "string.h" // checksum
 
 struct pir_header *PirAddr VARFSEG;

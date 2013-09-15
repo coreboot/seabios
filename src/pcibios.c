@@ -10,6 +10,7 @@
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "output.h" // dprintf
+#include "std/pirtable.h" // struct pir_header
 #include "string.h" // checksum
 #include "util.h" // handle_1ab1
 
