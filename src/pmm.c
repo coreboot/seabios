@@ -6,7 +6,6 @@
 
 #include "biosvar.h" // FUNC16
 #include "config.h" // CONFIG_*
-#include "farptr.h" // struct segoff_s
 #include "malloc.h" // _malloc
 #include "output.h" // dprintf
 #include "string.h" // checksum

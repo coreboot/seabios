@@ -2,7 +2,6 @@
 #define __VBE_H
 
 #include "types.h" // u8
-#include "farptr.h" // struct segoff_s
 
 #define VESA_SIGNATURE 0x41534556 // VESA
 #define VBE2_SIGNATURE 0x32454256 // VBE2

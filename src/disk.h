@@ -7,8 +7,6 @@
 #define __DISK_H
 
 #include "types.h" // u8
-#include "config.h" // CONFIG_*
-#include "farptr.h" // struct segoff_s
 
 #define DISK_RET_SUCCESS       0x00
 #define DISK_RET_EPARAM        0x01

@@ -8,7 +8,6 @@
 #define __BREGS_H
 
 #include "types.h" // u16
-#include "farptr.h" // struct segoff_s
 #include "x86.h" // F_CF
 
 

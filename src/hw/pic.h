@@ -8,7 +8,6 @@
 #define __PIC_H
 
 #include "ioport.h" // PORT_PIC*
-#include "farptr.h" // struct segoff_s
 
 // PORT_PIC1 bitdefs
 #define PIC1_IRQ0  (1<<0)

@@ -21,6 +21,17 @@ union u64_u32_u {
     u64 val;
 };
 
+// Definition for common 16bit segment/offset pointers.
+struct segoff_s {
+    union {
+        struct {
+            u16 offset;
+            u16 seg;
+        };
+        u32 segoff;
+    };
+};
+
 #ifdef MANUAL_NO_JUMP_TABLE
 # define default case 775324556: asm(""); default
 #endif

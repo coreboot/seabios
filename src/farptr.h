@@ -196,16 +196,6 @@ static inline void outsl_fl(u16 port, void *ptr_fl, u16 count) {
 
 #endif
 
-// Definition for common 16bit segment/offset pointers.
-struct segoff_s {
-    union {
-        struct {
-            u16 offset;
-            u16 seg;
-        };
-        u32 segoff;
-    };
-};
 #define SEGOFF(s,o) ({struct segoff_s __so; __so.offset=(o); __so.seg=(s); __so;})
 
 static inline struct segoff_s FLATPTR_TO_SEGOFF(void *p) {
