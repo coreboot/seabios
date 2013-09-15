@@ -8,10 +8,33 @@
 #include "config.h" // CONFIG_*
 #include "ioport.h" // PORT_PIT_MODE
 #include "output.h" // dprintf
-#include "pit.h" // PM_SEL_TIMER0
 #include "stacks.h" // yield
 #include "util.h" // timer_setup
 #include "x86.h" // cpuid
+
+// Bits for PORT_PIT_MODE
+#define PM_SEL_TIMER0   (0<<6)
+#define PM_SEL_TIMER1   (1<<6)
+#define PM_SEL_TIMER2   (2<<6)
+#define PM_SEL_READBACK (3<<6)
+#define PM_ACCESS_LATCH  (0<<4)
+#define PM_ACCESS_LOBYTE (1<<4)
+#define PM_ACCESS_HIBYTE (2<<4)
+#define PM_ACCESS_WORD   (3<<4)
+#define PM_MODE0 (0<<1)
+#define PM_MODE1 (1<<1)
+#define PM_MODE2 (2<<1)
+#define PM_MODE3 (3<<1)
+#define PM_MODE4 (4<<1)
+#define PM_MODE5 (5<<1)
+#define PM_CNT_BINARY (0<<0)
+#define PM_CNT_BCD    (1<<0)
+#define PM_READ_COUNTER0 (1<<1)
+#define PM_READ_COUNTER1 (1<<2)
+#define PM_READ_COUNTER2 (1<<3)
+#define PM_READ_STATUSVALUE (0<<4)
+#define PM_READ_VALUE       (1<<4)
+#define PM_READ_STATUS      (2<<4)
 
 // Bits for PORT_PS2_CTRLB
 #define PPCB_T2GATE (1<<0)
@@ -27,7 +50,7 @@ u8 ShiftTSC VARFSEG;
 
 
 /****************************************************************
- * Timer setup
+ * Internal timer setup
  ****************************************************************/
 
 #define CALIBRATE_COUNT 0x800   // Approx 1.7ms
@@ -197,7 +220,7 @@ timer_calc_usec(u32 usecs)
 
 
 /****************************************************************
- * IRQ based timer
+ * PIT setup
  ****************************************************************/
 
 #define PIT_TICK_INTERVAL 65536 // Default interval for 18.2Hz timer
@@ -218,27 +241,12 @@ ticks_from_ms(u32 ms)
     return DIV_ROUND_UP(t, 1000 * PMTIMER_TO_PIT);
 }
 
-// Calculate the timer value at 'count' number of full timer ticks in
-// the future.
-u32
-irqtimer_calc_ticks(u32 count)
+void
+pit_setup(void)
 {
-    return (GET_BDA(timer_counter) + count + 1) % TICKS_PER_DAY;
-}
-
-// Return the timer value that is 'msecs' time in the future.
-u32
-irqtimer_calc(u32 msecs)
-{
-    if (!msecs)
-        return GET_BDA(timer_counter);
-    return irqtimer_calc_ticks(ticks_from_ms(msecs));
-}
-
-// Check if the given timer value has passed.
-int
-irqtimer_check(u32 end)
-{
-    return (((GET_BDA(timer_counter) + TICKS_PER_DAY - end) % TICKS_PER_DAY)
-            < (TICKS_PER_DAY/2));
+    // timer0: binary count, 16bit count, mode 2
+    outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
+    // maximum count of 0000H = 18.2Hz
+    outb(0x0, PORT_PIT_COUNTER0);
+    outb(0x0, PORT_PIT_COUNTER0);
 }

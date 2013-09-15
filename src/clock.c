@@ -9,7 +9,6 @@
 #include "bregs.h" // struct bregs
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pic.h" // pic_eoi1
-#include "hw/pit.h" // PM_SEL_TIMER0
 #include "hw/usb-hid.h" // usb_check_event
 #include "output.h" // debug_enter
 #include "stacks.h" // yield
@@ -54,16 +53,6 @@ rtc_updating(void)
             return -1;
         yield();
     }
-}
-
-static void
-pit_setup(void)
-{
-    // timer0: binary count, 16bit count, mode 2
-    outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
-    // maximum count of 0000H = 18.2Hz
-    outb(0x0, PORT_PIT_COUNTER0);
-    outb(0x0, PORT_PIT_COUNTER0);
 }
 
 static void
@@ -348,6 +337,36 @@ handle_08(void)
     call16_int(0x1c, &br);
 
     pic_eoi1();
+}
+
+
+/****************************************************************
+ * IRQ based timer
+ ****************************************************************/
+
+// Calculate the timer value at 'count' number of full timer ticks in
+// the future.
+u32
+irqtimer_calc_ticks(u32 count)
+{
+    return (GET_BDA(timer_counter) + count + 1) % TICKS_PER_DAY;
+}
+
+// Return the timer value that is 'msecs' time in the future.
+u32
+irqtimer_calc(u32 msecs)
+{
+    if (!msecs)
+        return GET_BDA(timer_counter);
+    return irqtimer_calc_ticks(ticks_from_ms(msecs));
+}
+
+// Check if the given timer value has passed.
+int
+irqtimer_check(u32 end)
+{
+    return (((GET_BDA(timer_counter) + TICKS_PER_DAY - end) % TICKS_PER_DAY)
+            < (TICKS_PER_DAY/2));
 }
 
 

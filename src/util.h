@@ -55,6 +55,9 @@ int cdrom_boot(struct drive_s *drive_g);
 // clock.c
 void clock_setup(void);
 void handle_1583(struct bregs *regs);
+u32 irqtimer_calc_ticks(u32 count);
+u32 irqtimer_calc(u32 msecs);
+int irqtimer_check(u32 end);
 void handle_1586(struct bregs *regs);
 void useRTC(void);
 void releaseRTC(void);
@@ -149,9 +152,7 @@ void usleep(u32 count);
 void msleep(u32 count);
 u32 ticks_to_ms(u32 ticks);
 u32 ticks_from_ms(u32 ms);
-u32 irqtimer_calc_ticks(u32 count);
-u32 irqtimer_calc(u32 msecs);
-int irqtimer_check(u32 end);
+void pit_setup(void);
 
 // jpeg.c
 struct jpeg_decdata *jpeg_alloc(void);
