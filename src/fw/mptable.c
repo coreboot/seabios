@@ -9,9 +9,9 @@
 #include "hw/pci.h"
 #include "hw/pci_regs.h"
 #include "malloc.h" // free
-#include "mptable.h" // MPTABLE_SIGNATURE
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
+#include "std/mptable.h" // MPTABLE_SIGNATURE
 #include "string.h" // memset
 #include "util.h" // MaxCountCPUs
 #include "x86.h" // cpuid

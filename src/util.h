@@ -61,6 +61,9 @@ int csm_bootprio_fdc(struct pci_device *pci, int port, int fdid);
 int csm_bootprio_ata(struct pci_device *pci, int chanid, int slave);
 int csm_bootprio_pci(struct pci_device *pci);
 
+// fw/mptable.c
+void mptable_setup(void);
+
 // fw/shadow.c
 void make_bios_writable(void);
 void make_bios_readonly(void);

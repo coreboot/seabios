@@ -16,7 +16,6 @@
 #include "ioport.h" // outw
 #include "malloc.h" // malloc_tmp
 #include "memmap.h" // add_e820
-#include "mptable.h" // mptable_setup
 #include "output.h" // dprintf
 #include "paravirt.h" // qemu_cfg_preinit
 #include "romfile.h" // romfile_loadint

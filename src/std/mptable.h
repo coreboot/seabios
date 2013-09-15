@@ -74,7 +74,4 @@ struct mpt_intsrc {
     u8 dstirq;
 } PACKED;
 
-// mptable.c
-void mptable_setup(void);
-
 #endif // mptable.h

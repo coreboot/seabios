@@ -7,8 +7,8 @@
 #include "acpi.h" // struct rsdp_descriptor
 #include "config.h" // CONFIG_*
 #include "malloc.h" // malloc_fseg
-#include "mptable.h" // MPTABLE_SIGNATURE
 #include "output.h" // dprintf
+#include "std/mptable.h" // MPTABLE_SIGNATURE
 #include "std/pirtable.h" // struct pir_header
 #include "std/smbios.h" // struct smbios_entry_point
 #include "string.h" // memcpy
