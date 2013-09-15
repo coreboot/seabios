@@ -4,14 +4,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // set_code_invalid
 #include "biosvar.h" // GET_GLOBAL
-#include "hw/pci.h" // pci_find_device
-#include "hw/pci_regs.h" // PCI_VENDOR_ID
-#include "hw/pci_ids.h" // PCI_VENDOR_ID_VIA
-#include "util.h" // handle_155f
+#include "bregs.h" // set_code_invalid
 #include "config.h" // CONFIG_*
+#include "hw/pci.h" // pci_find_device
+#include "hw/pci_ids.h" // PCI_VENDOR_ID_VIA
+#include "hw/pci_regs.h" // PCI_VENDOR_ID
+#include "output.h" // dprintf
 #include "string.h" // strcmp
+#include "util.h" // handle_155f
 
 #define VH_VIA 1
 #define VH_INTEL 2

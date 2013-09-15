@@ -4,16 +4,16 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h"
-#include "xen.h"
-#include "paravirt.h" // PlatformRunningOn
-#include "memmap.h" // add_e820
-#include "types.h" // ASM32FLAT
-#include "util.h" // copy_acpi_rsdp
 #include "acpi.h" // find_acpi_features
+#include "config.h"
 #include "malloc.h" // memalign_high
+#include "memmap.h" // add_e820
+#include "output.h" // dprintf
+#include "paravirt.h" // PlatformRunningOn
 #include "string.h" // memcpy
+#include "util.h" // copy_acpi_rsdp
 #include "x86.h" // cpuid
+#include "xen.h"
 
 #define INFO_PHYSICAL_ADDRESS 0x00001000
 

@@ -5,15 +5,16 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "hw/pci.h" // pci_config_writeb
 #include "config.h" // CONFIG_*
+#include "dev-q35.h" // PCI_VENDOR_ID_INTEL
+#include "hw/pci.h" // pci_config_writeb
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
-#include "paravirt.h" // runningOnXen
-#include "dev-q35.h" // PCI_VENDOR_ID_INTEL
 #include "malloc.h" // rom_get_last
+#include "output.h" // dprintf
+#include "paravirt.h" // runningOnXen
 #include "string.h" // memset
+#include "util.h" // make_bios_writable
 #include "x86.h" // wbinvd
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000

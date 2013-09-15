@@ -2,6 +2,8 @@
 #ifndef __BOOT_H
 #define __BOOT_H
 
+#include "types.h" // u16
+
 // boot.c
 void boot_init(void);
 void boot_add_bev(u16 seg, u16 bev, u16 desc, int prio);

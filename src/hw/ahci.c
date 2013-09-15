@@ -4,21 +4,21 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "types.h" // u8
-#include "ioport.h" // inb
-#include "util.h" // dprintf
+#include "ahci.h" // CDB_CMD_READ_10
+#include "ata.h" // ATA_CB_STAT
 #include "biosvar.h" // GET_GLOBAL
+#include "blockcmd.h" // CDB_CMD_READ_10
+#include "boot.h" // add_bcv_hd
+#include "disk.h" // struct drive_s
+#include "ioport.h" // inb
+#include "malloc.h" // free
+#include "output.h" // dprintf
 #include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_STORAGE_OTHER
 #include "pci_regs.h" // PCI_INTERRUPT_LINE
-#include "boot.h" // add_bcv_hd
-#include "disk.h" // struct ata_s
-#include "ata.h" // ATA_CB_STAT
-#include "ahci.h" // CDB_CMD_READ_10
-#include "blockcmd.h" // CDB_CMD_READ_10
-#include "malloc.h" // free
 #include "stacks.h" // yield
 #include "string.h" // memset
+#include "util.h" // timer_calc
 
 #define AHCI_REQUEST_TIMEOUT 32000 // 32 seconds max for IDE ops
 #define AHCI_RESET_TIMEOUT     500 // 500 miliseconds

@@ -4,16 +4,16 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "config.h" // CONFIG_USB_MSC
-#include "usb-msc.h" // usb_msc_setup
-#include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // cdb_read
-#include "disk.h" // DTYPE_USB
 #include "boot.h" // bootprio_find_usb
+#include "config.h" // CONFIG_USB_MSC
+#include "disk.h" // DTYPE_USB
 #include "malloc.h" // free
+#include "output.h" // dprintf
 #include "string.h" // memset
+#include "usb.h" // struct usb_s
+#include "usb-msc.h" // usb_msc_setup
 
 struct usbdrive_s {
     struct drive_s drive;

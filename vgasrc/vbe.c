@@ -6,14 +6,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "vgabios.h" // handle_104f
-#include "config.h" // CONFIG_*
-#include "bregs.h" // struct bregs
-#include "vbe.h" // struct vbe_info
-#include "util.h" // dprintf
 #include "biosvar.h" // GET_GLOBAL
-#include "vgahw.h" // vgahw_set_mode
+#include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
+#include "output.h" // dprintf
 #include "string.h" // memset_far
+#include "vbe.h" // struct vbe_info
+#include "vgabios.h" // handle_104f
+#include "vgahw.h" // vgahw_set_mode
 
 u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;

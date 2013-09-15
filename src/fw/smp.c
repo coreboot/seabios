@@ -5,11 +5,12 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "hw/cmos.h" // CMOS_BIOS_SMP_COUNT
+#include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
+#include "util.h" // smp_setup
 #include "x86.h" // wrmsr
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)

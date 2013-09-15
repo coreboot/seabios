@@ -4,22 +4,23 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "pci.h" // foreachpci
+#include "biosvar.h" // GET_GLOBAL
 #include "config.h" // CONFIG_*
-#include "pci_regs.h" // PCI_CLASS_REVISION
+#include "malloc.h" // free
+#include "output.h" // dprintf
+#include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
-#include "usb-uhci.h" // uhci_setup
-#include "usb-ohci.h" // ohci_setup
+#include "pci_regs.h" // PCI_CLASS_REVISION
+#include "string.h" // memset
+#include "usb.h" // struct usb_s
 #include "usb-ehci.h" // ehci_setup
 #include "usb-hid.h" // usb_keyboard_setup
 #include "usb-hub.h" // usb_hub_setup
 #include "usb-msc.h" // usb_msc_setup
+#include "usb-ohci.h" // ohci_setup
 #include "usb-uas.h" // usb_uas_setup
-#include "usb.h" // struct usb_s
-#include "biosvar.h" // GET_GLOBAL
-#include "malloc.h" // free
-#include "string.h" // memset
+#include "usb-uhci.h" // uhci_setup
+#include "util.h" // msleep
 #include "x86.h" // __fls
 
 

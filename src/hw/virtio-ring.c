@@ -16,10 +16,10 @@
  *
  */
 
+#include "biosvar.h" // GET_GLOBAL
+#include "output.h" // panic
 #include "virtio-ring.h"
 #include "virtio-pci.h"
-#include "biosvar.h" // GET_GLOBAL
-#include "util.h" // dprintf
 
 #define BUG() do {                                                      \
             panic("BUG: failure at %d/%s()!\n", __LINE__, __func__);    \

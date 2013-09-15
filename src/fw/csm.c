@@ -4,21 +4,22 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "acpi.h"
+#include "biosvar.h"
+#include "boot.h"
+#include "bregs.h"
 #include "config.h" // CONFIG_*
 #include "csm.h"
-#include "util.h" // dprintf
-#include "bregs.h"
-#include "optionroms.h"
 #include "hw/pci.h"
-#include "memmap.h"
-#include "biosvar.h"
-#include "post.h"
-#include "acpi.h"
-#include "boot.h"
-#include "smbios.h"
 #include "hw/pic.h"
 #include "malloc.h" // csm_malloc_preinit
+#include "memmap.h"
+#include "optionroms.h"
+#include "output.h" // dprintf
+#include "post.h"
+#include "smbios.h"
 #include "stacks.h" // wait_threads
+#include "util.h" // copy_smbios
 
 struct rsdp_descriptor csm_rsdp VARFSEG __aligned(16);
 

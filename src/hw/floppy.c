@@ -5,21 +5,21 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "types.h" // u8
-#include "disk.h" // DISK_RET_SUCCESS
-#include "config.h" // CONFIG_FLOPPY
 #include "biosvar.h" // SET_BDA
-#include "util.h" // dprintf
-#include "cmos.h" // inb_cmos
-#include "pic.h" // pic_eoi1
-#include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
+#include "bregs.h" // struct bregs
+#include "cmos.h" // inb_cmos
+#include "config.h" // CONFIG_FLOPPY
+#include "disk.h" // DISK_RET_SUCCESS
 #include "malloc.h" // malloc_fseg
+#include "output.h" // dprintf
 #include "pci.h" // pci_to_bdf
 #include "pci_ids.h" // PCI_CLASS_BRIDGE_ISA
+#include "pic.h" // pic_eoi1
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
 #include "string.h" // memset
+#include "util.h" // timer_calc
 
 #define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
 #define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02

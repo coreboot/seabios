@@ -6,14 +6,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // struct bregs
-#include "ioport.h" // outb
-#include "util.h" // dprintf
-#include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
-#include "fw/paravirt.h" // runningOnQEMU
+#include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
 #include "fw/acpi.h" // acpi_pm_ctl
+#include "fw/paravirt.h" // runningOnQEMU
+#include "ioport.h" // outb
+#include "output.h" // dprintf
 #include "stacks.h" // yield_toirq
+#include "util.h" // apm_shutdown
 
 static void
 out_str(const char *str_cs)

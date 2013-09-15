@@ -6,15 +6,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "vgabios.h" // struct vbe_modeinfo
-#include "vbe.h" // VBE_CAPABILITY_8BIT_DAC
-#include "bochsvga.h" // bochsvga_set_mode
-#include "util.h" // dprintf
-#include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
-#include "stdvga.h" // VGAREG_SEQU_ADDRESS
+#include "bochsvga.h" // bochsvga_set_mode
+#include "config.h" // CONFIG_*
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "output.h" // dprintf
+#include "stdvga.h" // VGAREG_SEQU_ADDRESS
+#include "vbe.h" // VBE_CAPABILITY_8BIT_DAC
+#include "vgabios.h" // struct vbe_modeinfo
 
 
 /****************************************************************

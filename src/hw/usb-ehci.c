@@ -4,19 +4,20 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "pci.h" // pci_bdf_to_bus
+#include "biosvar.h" // GET_LOWFLAT
 #include "config.h" // CONFIG_*
 #include "ioport.h" // outw
-#include "usb-ehci.h" // struct ehci_qh
+#include "output.h" // dprintf
+#include "malloc.h" // free
+#include "pci.h" // pci_bdf_to_bus
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
-#include "usb.h" // struct usb_s
-#include "biosvar.h" // GET_LOWFLAT
-#include "usb-uhci.h" // uhci_setup
-#include "usb-ohci.h" // ohci_setup
-#include "malloc.h" // free
 #include "string.h" // memset
+#include "usb.h" // struct usb_s
+#include "usb-ehci.h" // struct ehci_qh
+#include "usb-ohci.h" // ohci_setup
+#include "usb-uhci.h" // uhci_setup
+#include "util.h" // msleep
 #include "x86.h" // readl
 
 struct usb_ehci_s {

@@ -5,10 +5,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "pic.h" // pic_*
-#include "util.h" // dprintf
-#include "config.h" // CONFIG_*
 #include "biosvar.h" // SET_IVT
+#include "config.h" // CONFIG_*
+#include "output.h" // dprintf
+#include "pic.h" // pic_*
 
 u16
 pic_irqmask_read(void)

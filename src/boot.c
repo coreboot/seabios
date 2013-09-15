@@ -5,20 +5,21 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
+#include "boot.h" // boot_init
+#include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "disk.h" // cdrom_boot
-#include "bregs.h" // struct bregs
-#include "boot.h" // func defs
-#include "hw/cmos.h" // inb_cmos
+#include "fw/csm.h" // csm_bootprio_*
 #include "fw/paravirt.h" // qemu_cfg_show_boot_menu
+#include "hw/cmos.h" // inb_cmos
 #include "hw/pci.h" // pci_bdf_to_*
 #include "hw/usb.h" // struct usbdevice_s
-#include "fw/csm.h" // csm_bootprio_*
 #include "list.h" // hlist_node
 #include "malloc.h" // free
+#include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "string.h" // memset
+#include "util.h" // irqtimer_calc
 
 
 /****************************************************************

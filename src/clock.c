@@ -6,16 +6,16 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // SET_BDA
-#include "util.h" // debug_enter
+#include "bregs.h" // struct bregs
 #include "disk.h" // floppy_tick
 #include "hw/cmos.h" // inb_cmos
 #include "hw/pic.h" // pic_eoi1
 #include "hw/pit.h" // PM_SEL_TIMER0
-#include "bregs.h" // struct bregs
-#include "biosvar.h" // GET_GLOBAL
 #include "hw/usb-hid.h" // usb_check_event
+#include "output.h" // debug_enter
 #include "stacks.h" // yield
 #include "string.h" // memset
+#include "util.h" // clock_setup
 
 // RTC register flags
 #define RTC_A_UIP 0x80

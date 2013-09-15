@@ -5,14 +5,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "disk.h" // floppy_13
 #include "biosvar.h" // SET_BDA
-#include "config.h" // CONFIG_*
-#include "util.h" // debug_enter
-#include "hw/pic.h" // pic_eoi2
 #include "bregs.h" // struct bregs
-#include "hw/pci.h" // pci_bdf_to_bus
+#include "config.h" // CONFIG_*
+#include "disk.h" // floppy_13
 #include "hw/ata.h" // ATA_CB_DC
+#include "hw/pci.h" // pci_bdf_to_bus
+#include "hw/pic.h" // pic_eoi2
+#include "output.h" // debug_enter
 #include "stacks.h" // call16_int
 #include "string.h" // memset
 

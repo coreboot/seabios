@@ -4,9 +4,9 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "memmap.h" // struct e820entry
 #include "config.h" // BUILD_MAX_E820
-#include "util.h" // dprintf.h
+#include "memmap.h" // struct e820entry
+#include "output.h" // dprintf
 #include "string.h" // memmove
 
 

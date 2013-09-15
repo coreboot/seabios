@@ -6,13 +6,14 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_BDA
-#include "util.h" // debug_enter
-#include "config.h" // CONFIG_*
 #include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
 #include "hw/ps2port.h" // ps2_kbd_command
 #include "hw/usb-hid.h" // usb_kbd_command
+#include "output.h" // debug_enter
 #include "stacks.h" // stack_hop
 #include "string.h" // memset
+#include "util.h" // kbd_init
 
 // Bit definitions for BDA kbd_flag[012]
 #define KF0_RSHIFT       (1<<0)

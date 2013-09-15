@@ -4,11 +4,12 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
 #include "config.h" // CONFIG_USB_HUB
-#include "usb-hub.h" // struct usb_hub_descriptor
-#include "usb.h" // struct usb_s
+#include "output.h" // dprintf
 #include "string.h" // memset
+#include "usb.h" // struct usb_s
+#include "usb-hub.h" // struct usb_hub_descriptor
+#include "util.h" // timer_calc
 
 static int
 get_hub_desc(struct usb_pipe *pipe, struct usb_hub_descriptor *desc)

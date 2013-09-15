@@ -4,10 +4,11 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
 #include "config.h" // BUILD_BIOS_ADDR
 #include "farptr.h" // SET_FARVAR
+#include "output.h" // dprintf
 #include "string.h" // checksum
+#include "util.h" // pnp_init
 
 struct pnpheader {
     u32 signature;

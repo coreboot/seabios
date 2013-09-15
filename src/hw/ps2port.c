@@ -5,13 +5,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "ioport.h" // inb
-#include "util.h" // dprintf
 #include "biosvar.h" // GET_LOW
-#include "ps2port.h" // ps2_kbd_command
+#include "ioport.h" // inb
+#include "output.h" // dprintf
 #include "pic.h" // pic_eoi1
+#include "ps2port.h" // ps2_kbd_command
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
+#include "util.h" // udelay
 
 
 /****************************************************************

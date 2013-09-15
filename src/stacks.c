@@ -5,11 +5,12 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_GLOBAL
-#include "util.h" // dprintf
 #include "bregs.h" // CR0_PE
 #include "list.h" // hlist_node
 #include "malloc.h" // free
+#include "output.h" // dprintf
 #include "stacks.h" // struct mutex_s
+#include "util.h" // useRTC
 
 
 /****************************************************************

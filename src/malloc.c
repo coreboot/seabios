@@ -4,13 +4,13 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "config.h" // BUILD_BIOS_ADDR
-#include "memmap.h" // struct e820entry
 #include "biosvar.h" // GET_BDA
-#include "optionroms.h" // OPTION_ROM_ALIGN
+#include "config.h" // BUILD_BIOS_ADDR
 #include "list.h" // hlist_node
 #include "malloc.h" // _malloc
+#include "memmap.h" // struct e820entry
+#include "optionroms.h" // OPTION_ROM_ALIGN
+#include "output.h" // dprintf
 #include "stacks.h" // wait_preempt
 #include "string.h" // memset
 

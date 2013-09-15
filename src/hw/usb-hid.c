@@ -4,12 +4,13 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "usb-hid.h" // usb_keyboard_setup
-#include "config.h" // CONFIG_*
-#include "usb.h" // usb_ctrlrequest
 #include "biosvar.h" // GET_GLOBAL
+#include "config.h" // CONFIG_*
+#include "output.h" // dprintf
 #include "ps2port.h" // ATKBD_CMD_GETID
+#include "usb.h" // usb_ctrlrequest
+#include "usb-hid.h" // usb_keyboard_setup
+#include "util.h" // process_key
 
 struct usb_pipe *keyboard_pipe VARFSEG;
 struct usb_pipe *mouse_pipe VARFSEG;

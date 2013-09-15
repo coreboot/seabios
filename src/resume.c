@@ -4,17 +4,18 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "ioport.h" // outb
-#include "hw/pic.h" // pic_eoi2
 #include "biosvar.h" // struct bios_data_area_s
 #include "bregs.h" // struct bregs
 #include "fw/acpi.h" // find_resume_vector
-#include "hw/ps2port.h" // i8042_reboot
-#include "hw/pci.h" // pci_reboot
 #include "hw/cmos.h" // inb_cmos
+#include "hw/pci.h" // pci_reboot
+#include "hw/pic.h" // pic_eoi2
+#include "hw/ps2port.h" // i8042_reboot
+#include "ioport.h" // outb
+#include "output.h" // dprintf
 #include "stacks.h" // farcall16big
 #include "string.h" // memset
+#include "util.h" // dma_setup
 
 // Indicator if POST phase has been run.
 int HaveRunPost VARFSEG;

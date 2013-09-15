@@ -10,18 +10,19 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "pci.h" // foreachpci
-#include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
+#include "blockcmd.h" // scsi_drive_setup
+#include "boot.h" // bootprio_find_scsi_device
+#include "config.h" // CONFIG_*
+#include "disk.h"
+#include "fw/paravirt.h" // runningOnQEMU
+#include "malloc.h" // free
+#include "output.h" // dprintf
+#include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
-#include "boot.h" // bootprio_find_scsi_device
-#include "blockcmd.h" // scsi_drive_setup
-#include "fw/paravirt.h" // runningOnQEMU
-#include "disk.h"
-#include "malloc.h" // free
 #include "string.h" // memset
+#include "util.h" // usleep
 
 #define LSI_REG_DSTAT     0x0c
 #define LSI_REG_ISTAT0    0x14

@@ -7,14 +7,15 @@
 #include <stdarg.h> // va_list
 
 #include "farptr.h" // GET_VAR
-#include "util.h" // printf
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "fw/paravirt.h" // PlatformRunningOn
 #include "malloc.h" // malloc_tmp
+#include "output.h" // dprintf
 #include "stacks.h" // call16_int
 #include "string.h" // memset
+#include "util.h" // ScreenAndDebug
 
 struct putcinfo {
     void (*func)(struct putcinfo *info, char c);

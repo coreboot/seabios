@@ -5,29 +5,30 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h" // CONFIG_*
-#include "hw/cmos.h" // CMOS_*
-#include "util.h" // dprintf
 #include "biosvar.h" // struct bios_data_area_s
-#include "disk.h" // floppy_setup
-#include "hw/ata.h" // ata_setup
-#include "hw/ahci.h" // ahci_setup
-#include "memmap.h" // add_e820
-#include "hw/pic.h" // pic_setup
-#include "bregs.h" // struct bregs
 #include "boot.h" // boot_init
-#include "hw/usb.h" // usb_setup
+#include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
+#include "disk.h" // floppy_setup
 #include "fw/paravirt.h" // qemu_cfg_preinit
 #include "fw/xen.h" // xen_preinit
+#include "hw/ahci.h" // ahci_setup
+#include "hw/ata.h" // ata_setup
+#include "hw/cmos.h" // CMOS_*
+#include "hw/esp-scsi.h" // esp_scsi_setup
+#include "hw/lsi-scsi.h" // lsi_scsi_setup
+#include "hw/megasas.h" // megasas_setup
+#include "hw/pic.h" // pic_setup
 #include "hw/ps2port.h" // ps2port_setup
+#include "hw/usb.h" // usb_setup
 #include "hw/virtio-blk.h" // virtio_blk_setup
 #include "hw/virtio-scsi.h" // virtio_scsi_setup
-#include "hw/lsi-scsi.h" // lsi_scsi_setup
-#include "hw/esp-scsi.h" // esp_scsi_setup
-#include "hw/megasas.h" // megasas_setup
 #include "malloc.h" // malloc_init
+#include "memmap.h" // add_e820
+#include "output.h" // dprintf
 #include "post.h" // interface_init
 #include "string.h" // memset
+#include "util.h" // kbd_init
 
 
 /****************************************************************

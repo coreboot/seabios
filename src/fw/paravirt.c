@@ -8,22 +8,23 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h" // CONFIG_QEMU
-#include "util.h" // dprintf
-#include "byteorder.h" // be32_to_cpu
-#include "ioport.h" // outw
-#include "paravirt.h" // qemu_cfg_preinit
-#include "smbios.h" // smbios_setup
-#include "memmap.h" // add_e820
-#include "hw/cmos.h" // CMOS_*
 #include "acpi.h" // acpi_setup
-#include "mptable.h" // mptable_setup
+#include "byteorder.h" // be32_to_cpu
+#include "config.h" // CONFIG_QEMU
+#include "hw/cmos.h" // CMOS_*
 #include "hw/pci.h" // create_pirtable
-#include "xen.h" // xen_biostable_setup
+#include "ioport.h" // outw
 #include "malloc.h" // malloc_tmp
+#include "memmap.h" // add_e820
+#include "mptable.h" // mptable_setup
+#include "output.h" // dprintf
+#include "paravirt.h" // qemu_cfg_preinit
 #include "romfile.h" // romfile_loadint
+#include "smbios.h" // smbios_setup
 #include "string.h" // memset
+#include "util.h" // pci_setup
 #include "x86.h" // cpuid
+#include "xen.h" // xen_biostable_setup
 
 // Amount of continuous ram under 4Gig
 u32 RamSize;

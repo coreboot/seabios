@@ -5,13 +5,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
 #include "config.h" // CONFIG_*
-#include "paravirt.h" // RamSize
-#include "smbios.h" // struct smbios_entry_point
 #include "malloc.h" // free
+#include "output.h" // dprintf
+#include "paravirt.h" // RamSize
 #include "romfile.h" // romfile_findprefix
+#include "smbios.h" // struct smbios_entry_point
 #include "string.h" // memset
+#include "util.h" // MaxCountCPUs
 #include "x86.h" // cpuid
 
 struct smbios_entry_point *SMBiosAddr;

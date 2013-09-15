@@ -5,19 +5,20 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
-#include "util.h" // dprintf
-#include "vgabios.h" // calc_page_size
-#include "optionroms.h" // struct pci_data
-#include "config.h" // CONFIG_*
-#include "stdvga.h" // stdvga_set_cursor_shape
+#include "bregs.h" // struct bregs
 #include "clext.h" // clext_1012
-#include "vgahw.h" // vgahw_set_mode
-#include "vbe.h" // VBE_RETURN_STATUS_FAILED
+#include "config.h" // CONFIG_*
 #include "hw/pci.h" // pci_config_readw
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
+#include "optionroms.h" // struct pci_data
+#include "output.h" // dprintf
+#include "stdvga.h" // stdvga_set_cursor_shape
 #include "string.h" // memset_far
+#include "util.h" // VERSION
+#include "vbe.h" // VBE_RETURN_STATUS_FAILED
+#include "vgabios.h" // calc_page_size
+#include "vgahw.h" // vgahw_set_mode
 
 // Standard Video Save Pointer Table
 struct VideoSavePointer_s {

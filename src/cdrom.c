@@ -5,13 +5,13 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "disk.h" // cdrom_13
-#include "util.h" // dprintf
-#include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_GLOBAL
+#include "bregs.h" // struct bregs
+#include "disk.h" // cdrom_13
 #include "hw/ata.h" // ATA_CMD_REQUEST_SENSE
 #include "hw/blockcmd.h" // CDB_CMD_REQUEST_SENSE
 #include "malloc.h" // free
+#include "output.h" // dprintf
 #include "string.h" // memset
 
 // Locks for removable devices

@@ -4,21 +4,22 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "memmap.h" // add_e820
-#include "util.h" // dprintf
-#include "byteorder.h" // be32_to_cpu
-#include "lzmadecode.h" // LzmaDecode
-#include "smbios.h" // smbios_init
-#include "boot.h" // boot_add_cbfs
-#include "disk.h" // MAXDESCSIZE
-#include "config.h" // CONFIG_*
 #include "acpi.h" // find_acpi_features
+#include "boot.h" // boot_add_cbfs
+#include "byteorder.h" // be32_to_cpu
+#include "config.h" // CONFIG_*
+#include "disk.h" // MAXDESCSIZE
 #include "hw/pci.h" // pci_probe_devices
+#include "lzmadecode.h" // LzmaDecode
 #include "malloc.h" // free
+#include "memmap.h" // add_e820
+#include "output.h" // dprintf
 #include "paravirt.h" // PlatformRunningOn
 #include "romfile.h" // romfile_findprefix
+#include "smbios.h" // smbios_init
 #include "stacks.h" // yield
 #include "string.h" // memset
+#include "util.h" // coreboot_preinit
 
 
 /****************************************************************

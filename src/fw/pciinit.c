@@ -5,19 +5,20 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
+#include "acpi.h" // acpi_pm1a_cnt
+#include "config.h" // CONFIG_*
+#include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_COMMAND
 #include "ioport.h" // PORT_ATA1_CMD_BASE
-#include "config.h" // CONFIG_*
-#include "memmap.h" // add_e820
-#include "paravirt.h" // RamSize
-#include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "list.h" // struct hlist_node
-#include "acpi.h" // acpi_pm1a_cnt
 #include "malloc.h" // free
+#include "memmap.h" // add_e820
+#include "output.h" // dprintf
+#include "paravirt.h" // RamSize
 #include "string.h" // memset
+#include "util.h" // pci_setup
 
 #define PCI_DEVICE_MEM_MIN     0x1000
 #define PCI_BRIDGE_IO_MIN      0x1000

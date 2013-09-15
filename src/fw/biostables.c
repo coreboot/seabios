@@ -4,14 +4,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h" // CONFIG_*
-#include "util.h" // dprintf
-#include "hw/pci.h" // struct pir_header
 #include "acpi.h" // struct rsdp_descriptor
+#include "config.h" // CONFIG_*
+#include "hw/pci.h" // struct pir_header
 #include "malloc.h" // malloc_fseg
 #include "mptable.h" // MPTABLE_SIGNATURE
+#include "output.h" // dprintf
 #include "smbios.h" // struct smbios_entry_point
 #include "string.h" // memcpy
+#include "util.h" // copy_table
 
 static void
 copy_pir(void *pos)

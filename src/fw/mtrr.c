@@ -4,10 +4,11 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
 #include "config.h" // CONFIG_*
 #include "hw/pci.h" // pcimem_start
+#include "output.h" // dprintf
 #include "paravirt.h" // RamSize
+#include "util.h" // mtrr_setup
 #include "x86.h" // cpuid
 
 #define MSR_MTRRcap                    0x000000fe

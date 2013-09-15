@@ -1,6 +1,9 @@
 #ifndef __AHCI_H
 #define __AHCI_H
 
+#include "types.h" // u32
+#include "disk.h" // struct drive_s
+
 struct sata_cmd_fis {
     u8 reg;
     u8 pmp_type;

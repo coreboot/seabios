@@ -6,14 +6,14 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "geodevga.h" // geodevga_setup
-#include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_BDA
-#include "vgabios.h" // VGAREG_*
-#include "util.h" // dprintf
-#include "stdvga.h" // stdvga_crtc_write
+#include "farptr.h" // SET_FARVAR
+#include "geodevga.h" // geodevga_setup
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "output.h" // dprintf
+#include "stdvga.h" // stdvga_crtc_write
+#include "vgabios.h" // VGAREG_*
 
 
 /****************************************************************

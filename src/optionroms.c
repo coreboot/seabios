@@ -5,19 +5,20 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // struct bregs
-#include "farptr.h" // FLATPTR_TO_SEG
-#include "config.h" // CONFIG_*
-#include "util.h" // dprintf
-#include "hw/pci.h" // foreachpci
-#include "hw/pci_regs.h" // PCI_ROM_ADDRESS
-#include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "boot.h" // IPL
+#include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
+#include "farptr.h" // FLATPTR_TO_SEG
+#include "hw/pci.h" // foreachpci
+#include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
+#include "hw/pci_regs.h" // PCI_ROM_ADDRESS
 #include "malloc.h" // rom_confirm
 #include "optionroms.h" // struct rom_header
+#include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // farcall16big
 #include "string.h" // memset
+#include "util.h" // get_pnp_offset
 
 
 /****************************************************************

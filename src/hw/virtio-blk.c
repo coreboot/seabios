@@ -7,19 +7,20 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "pci.h" // foreachpci
-#include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
+#include "boot.h" // boot_add_hd
+#include "config.h" // CONFIG_*
+#include "disk.h"
+#include "malloc.h" // free
+#include "output.h" // dprintf
+#include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
-#include "boot.h" // boot_add_hd
+#include "string.h" // memset
+#include "util.h" // usleep
 #include "virtio-pci.h"
 #include "virtio-ring.h"
 #include "virtio-blk.h"
-#include "disk.h"
-#include "malloc.h" // free
-#include "string.h" // memset
 
 struct virtiodrive_s {
     struct drive_s drive;

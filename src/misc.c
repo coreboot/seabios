@@ -5,10 +5,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // struct bregs
 #include "biosvar.h" // GET_BDA
-#include "util.h" // debug_enter
+#include "bregs.h" // struct bregs
 #include "hw/pic.h" // enable_hwirq
+#include "output.h" // debug_enter
 #include "stacks.h" // call16_int
 #include "string.h" // memset
 

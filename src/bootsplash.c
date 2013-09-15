@@ -5,18 +5,19 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "bregs.h" // struct bregs
-#include "farptr.h" // FLATPTR_TO_SEG
-#include "config.h" // CONFIG_*
-#include "util.h" // dprintf
-#include "jpeg.h" // splash
-#include "vbe.h" // struct vbe_info
 #include "bmp.h" // bmp_alloc
+#include "bregs.h" // struct bregs
+#include "config.h" // CONFIG_*
+#include "farptr.h" // FLATPTR_TO_SEG
 #include "fw/smbios.h" // display_uuid
+#include "jpeg.h" // jpeg_alloc
 #include "malloc.h" // free
+#include "output.h" // dprintf
 #include "romfile.h" // romfile_loadfile
 #include "stacks.h" // call16_int
 #include "string.h" // memset
+#include "util.h" // enable_bootsplash
+#include "vbe.h" // struct vbe_info
 
 
 /****************************************************************

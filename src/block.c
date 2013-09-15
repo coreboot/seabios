@@ -5,15 +5,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "disk.h" // struct ata_s
 #include "biosvar.h" // GET_GLOBAL
-#include "hw/cmos.h" // inb_cmos
-#include "util.h" // dprintf
+#include "disk.h" // struct ata_s
 #include "hw/ata.h" // process_ata_op
 #include "hw/ahci.h" // process_ahci_op
-#include "hw/virtio-blk.h" // process_virtio_blk_op
+#include "hw/cmos.h" // inb_cmos
 #include "hw/blockcmd.h" // cdb_*
+#include "hw/virtio-blk.h" // process_virtio_blk_op
 #include "malloc.h" // malloc_low
+#include "output.h" // dprintf
 #include "stacks.h" // stack_hop
 #include "string.h" // checksum
 

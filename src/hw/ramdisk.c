@@ -4,13 +4,13 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "disk.h" // process_ramdisk_op
-#include "util.h" // dprintf
-#include "memmap.h" // add_e820
 #include "biosvar.h" // GET_GLOBAL
-#include "bregs.h" // struct bregs
 #include "boot.h" // boot_add_floppy
+#include "bregs.h" // struct bregs
+#include "disk.h" // process_ramdisk_op
 #include "malloc.h" // malloc_fseg
+#include "memmap.h" // add_e820
+#include "output.h" // dprintf
 #include "romfile.h" // romfile_findprefix
 #include "stacks.h" // call16_int
 #include "string.h" // memset

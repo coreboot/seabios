@@ -5,14 +5,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
 #include "config.h" // CONFIG_*
-#include "mptable.h" // MPTABLE_SIGNATURE
 #include "hw/pci.h"
 #include "hw/pci_regs.h"
 #include "malloc.h" // free
+#include "mptable.h" // MPTABLE_SIGNATURE
+#include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "string.h" // memset
+#include "util.h" // MaxCountCPUs
 #include "x86.h" // cpuid
 
 void

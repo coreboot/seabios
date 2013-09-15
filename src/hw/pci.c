@@ -6,16 +6,17 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_*
-#include "pci.h" // pci_config_writel
-#include "ioport.h" // outl
-#include "util.h" // dprintf
 #include "farptr.h" // MAKE_FLATPTR
+#include "ioport.h" // outl
 #include "malloc.h" // malloc_tmp
-#include "pci_regs.h" // PCI_VENDOR_ID
+#include "output.h" // dprintf
+#include "pci.h" // pci_config_writel
 #include "pci_ids.h" // PCI_CLASS_DISPLAY_VGA
+#include "pci_regs.h" // PCI_VENDOR_ID
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // call32
 #include "string.h" // memset
+#include "util.h" // udelay
 #include "x86.h" // readl
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val)

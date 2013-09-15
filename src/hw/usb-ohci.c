@@ -4,15 +4,16 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "pci.h" // pci_bdf_to_bus
-#include "config.h" // CONFIG_*
-#include "usb-ohci.h" // struct ohci_hcca
-#include "pci_regs.h" // PCI_BASE_ADDRESS_0
-#include "usb.h" // struct usb_s
 #include "biosvar.h" // GET_LOWFLAT
+#include "config.h" // CONFIG_*
 #include "malloc.h" // free
+#include "output.h" // dprintf
+#include "pci.h" // pci_bdf_to_bus
+#include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
+#include "usb.h" // struct usb_s
+#include "usb-ohci.h" // struct ohci_hcca
+#include "util.h" // msleep
 #include "x86.h" // readl
 
 #define FIT                     (1 << 31)

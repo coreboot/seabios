@@ -4,12 +4,13 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "util.h" // dprintf
-#include "pit.h" // PM_SEL_TIMER0
-#include "ioport.h" // PORT_PIT_MODE
-#include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_LOW
+#include "config.h" // CONFIG_*
+#include "ioport.h" // PORT_PIT_MODE
+#include "output.h" // dprintf
+#include "pit.h" // PM_SEL_TIMER0
 #include "stacks.h" // yield
+#include "util.h" // timer_setup
 #include "x86.h" // cpuid
 
 // Bits for PORT_PS2_CTRLB

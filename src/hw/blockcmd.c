@@ -5,21 +5,22 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "ahci.h" // atapi_cmd_data
+#include "ata.h" // atapi_cmd_data
 #include "biosvar.h" // GET_GLOBAL
-#include "util.h" // dprintf
+#include "blockcmd.h" // struct cdb_request_sense
+#include "boot.h" // boot_add_hd
 #include "byteorder.h" // be32_to_cpu
 #include "disk.h" // struct disk_op_s
-#include "blockcmd.h" // struct cdb_request_sense
-#include "ata.h" // atapi_cmd_data
-#include "ahci.h" // atapi_cmd_data
+#include "esp-scsi.h" // esp_scsi_cmd_data
+#include "lsi-scsi.h" // lsi_scsi_cmd_data
+#include "megasas.h" // megasas_cmd_data
+#include "output.h" // dprintf
+#include "string.h" // memset
 #include "usb-msc.h" // usb_cmd_data
 #include "usb-uas.h" // usb_cmd_data
+#include "util.h" // timer_calc
 #include "virtio-scsi.h" // virtio_scsi_cmd_data
-#include "lsi-scsi.h" // lsi_scsi_cmd_data
-#include "esp-scsi.h" // esp_scsi_cmd_data
-#include "megasas.h" // megasas_cmd_data
-#include "boot.h" // boot_add_hd
-#include "string.h" // memset
 
 // Route command to low-level handler.
 static int

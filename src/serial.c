@@ -6,9 +6,10 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // SET_BDA
-#include "util.h" // debug_enter
 #include "bregs.h" // struct bregs
+#include "output.h" // debug_enter
 #include "stacks.h" // yield
+#include "util.h" // serial_setup
 
 
 /****************************************************************

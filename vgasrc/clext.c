@@ -5,15 +5,15 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "clext.h" // clext_setup
-#include "vgabios.h" // VBE_VENDOR_STRING
 #include "biosvar.h" // GET_GLOBAL
-#include "util.h" // dprintf
 #include "bregs.h" // struct bregs
-#include "stdvga.h" // VGAREG_SEQU_ADDRESS
+#include "clext.h" // clext_setup
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "output.h" // dprintf
+#include "stdvga.h" // VGAREG_SEQU_ADDRESS
 #include "string.h" // memset16_far
+#include "vgabios.h" // VBE_VENDOR_STRING
 
 
 /****************************************************************
