@@ -11,6 +11,7 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "fw/paravirt.h" // PlatformRunningOn
+#include "hw/serialio.h" // SEROFF_IER
 #include "malloc.h" // malloc_tmp
 #include "output.h" // dprintf
 #include "stacks.h" // call16_int

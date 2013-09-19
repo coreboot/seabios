@@ -6,10 +6,10 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_LOW
-#include "ioport.h" // inb
 #include "rtc.h" // rtc_read
 #include "stacks.h" // yield
 #include "util.h" // timer_calc
+#include "x86.h" // inb
 
 u8
 rtc_read(u8 index)

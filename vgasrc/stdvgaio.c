@@ -4,9 +4,9 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "stdvga.h" // stdvga_pelmask_read
 #include "farptr.h" // GET_FARVAR
-#include "ioport.h" // inb
+#include "stdvga.h" // stdvga_pelmask_read
+#include "x86.h" // inb
 
 u8
 stdvga_pelmask_read(void)

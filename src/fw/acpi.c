@@ -11,7 +11,6 @@
 #include "hw/pci.h" // pci_find_init_device
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_INTERRUPT_LINE
-#include "ioport.h" // inl
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "paravirt.h" // RamSize

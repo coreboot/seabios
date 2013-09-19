@@ -10,10 +10,10 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "fw/paravirt.h" // runningOnQEMU
-#include "ioport.h" // outb
 #include "output.h" // dprintf
 #include "stacks.h" // yield_toirq
 #include "util.h" // apm_shutdown
+#include "x86.h" // outb
 
 static void
 out_str(const char *str_cs)

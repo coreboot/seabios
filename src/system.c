@@ -8,12 +8,13 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "hw/pic.h" // pic_reset
-#include "ioport.h" // inb
+#include "hw/ps2port.h" // PORT_A20
 #include "malloc.h" // LegacyRamSize
 #include "memmap.h" // E820_RAM
 #include "output.h" // debug_enter
 #include "string.h" // memcpy_far
 #include "util.h" // handle_1553
+#include "x86.h" // inb
 
 // Use PS2 System Control port A to set A20 enable
 static inline u8

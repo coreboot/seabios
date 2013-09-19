@@ -6,7 +6,6 @@
 
 #include "biosvar.h" // GET_LOWFLAT
 #include "config.h" // CONFIG_*
-#include "ioport.h" // outw
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // pci_bdf_to_bus
@@ -15,6 +14,7 @@
 #include "usb.h" // struct usb_s
 #include "usb-uhci.h" // USBLEGSUP
 #include "util.h" // msleep
+#include "x86.h" // outw
 
 struct usb_uhci_s {
     struct usb_s usb;

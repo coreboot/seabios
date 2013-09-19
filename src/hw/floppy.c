@@ -21,6 +21,12 @@
 #include "string.h" // memset
 #include "util.h" // timer_calc
 
+#define PORT_FD_BASE           0x03f0
+#define PORT_FD_DOR            0x03f2
+#define PORT_FD_STATUS         0x03f4
+#define PORT_FD_DATA           0x03f5
+#define PORT_FD_DIR            0x03f7
+
 #define FLOPPY_SIZE_CODE 0x02 // 512 byte sectors
 #define FLOPPY_DATALEN 0xff   // Not used - because size code is 0x02
 #define FLOPPY_MOTOR_TICKS 37 // ~2 seconds

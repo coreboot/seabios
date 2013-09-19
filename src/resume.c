@@ -11,7 +11,6 @@
 #include "hw/pic.h" // pic_eoi2
 #include "hw/ps2port.h" // i8042_reboot
 #include "hw/rtc.h" // rtc_read
-#include "ioport.h" // outb
 #include "output.h" // dprintf
 #include "stacks.h" // farcall16big
 #include "std/bda.h" // struct bios_data_area_s

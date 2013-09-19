@@ -10,7 +10,6 @@
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // CDB_CMD_READ_10
 #include "byteorder.h" // be16_to_cpu
-#include "ioport.h" // inb
 #include "malloc.h" // malloc_fseg
 #include "output.h" // dprintf
 #include "pci.h" // foreachpci
@@ -21,6 +20,7 @@
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // timer_calc
+#include "x86.h" // inb
 
 #define IDE_TIMEOUT 32000 //32 seconds max for IDE ops
 

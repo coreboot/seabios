@@ -15,6 +15,7 @@
 #include "std/vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
 #include "vgabios.h" // struct vbe_modeinfo
+#include "x86.h" // outw
 
 
 /****************************************************************
@@ -129,6 +130,17 @@ bochsvga_list_modes(u16 seg, u16 *dest, u16 *last)
 /****************************************************************
  * Helper functions
  ****************************************************************/
+
+static inline u16 dispi_read(u16 reg)
+{
+    outw(reg, VBE_DISPI_IOPORT_INDEX);
+    return inw(VBE_DISPI_IOPORT_DATA);
+}
+static inline void dispi_write(u16 reg, u16 val)
+{
+    outw(reg, VBE_DISPI_IOPORT_INDEX);
+    outw(val, VBE_DISPI_IOPORT_DATA);
+}
 
 int
 bochsvga_get_window(struct vgamode_s *vmode_g, int window)

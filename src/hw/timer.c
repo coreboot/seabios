@@ -1,4 +1,4 @@
-// Internal timer support.
+// Internal timer and Intel 8253 Programmable Interrupt Timer (PIT) support.
 //
 // Copyright (C) 2008-2013  Kevin O'Connor <kevin@koconnor.net>
 //
@@ -6,11 +6,16 @@
 
 #include "biosvar.h" // GET_LOW
 #include "config.h" // CONFIG_*
-#include "ioport.h" // PORT_PIT_MODE
 #include "output.h" // dprintf
+#include "ps2port.h" // PORT_PS2_CTRLB
 #include "stacks.h" // yield
 #include "util.h" // timer_setup
 #include "x86.h" // cpuid
+
+#define PORT_PIT_COUNTER0      0x0040
+#define PORT_PIT_COUNTER1      0x0041
+#define PORT_PIT_COUNTER2      0x0042
+#define PORT_PIT_MODE          0x0043
 
 // Bits for PORT_PIT_MODE
 #define PM_SEL_TIMER0   (0<<6)

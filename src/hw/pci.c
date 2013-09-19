@@ -7,7 +7,6 @@
 
 #include "config.h" // CONFIG_*
 #include "farptr.h" // MAKE_FLATPTR
-#include "ioport.h" // outl
 #include "malloc.h" // malloc_tmp
 #include "output.h" // dprintf
 #include "pci.h" // pci_config_writel

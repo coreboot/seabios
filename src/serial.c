@@ -7,6 +7,7 @@
 
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
+#include "hw/serialio.h" // SEROFF_IER
 #include "output.h" // debug_enter
 #include "stacks.h" // yield
 #include "util.h" // serial_setup

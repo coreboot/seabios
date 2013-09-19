@@ -5,8 +5,19 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "ioport.h" // PORT_DMA1_MASK_REG
 #include "util.h" // dma_setup
+#include "x86.h" // outb
+
+#define PORT_DMA_ADDR_2        0x0004
+#define PORT_DMA_CNT_2         0x0005
+#define PORT_DMA1_MASK_REG     0x000a
+#define PORT_DMA1_MODE_REG     0x000b
+#define PORT_DMA1_CLEAR_FF_REG 0x000c
+#define PORT_DMA1_MASTER_CLEAR 0x000d
+#define PORT_DMA_PAGE_2        0x0081
+#define PORT_DMA2_MASK_REG     0x00d4
+#define PORT_DMA2_MODE_REG     0x00d6
+#define PORT_DMA2_MASTER_CLEAR 0x00da
 
 // Setup the DMA controller for a floppy transfer.
 int

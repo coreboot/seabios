@@ -29,6 +29,11 @@ int atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
 void ata_setup(void);
 int process_ata_op(struct disk_op_s *op);
 
+#define PORT_ATA2_CMD_BASE     0x0170
+#define PORT_ATA1_CMD_BASE     0x01f0
+#define PORT_ATA2_CTRL_BASE    0x0374
+#define PORT_ATA1_CTRL_BASE    0x03f4
+
 // Global defines -- ATA register and register bits.
 // command block & control block regs
 #define ATA_CB_DATA  0   // data reg         in/out pio_base_addr1+0

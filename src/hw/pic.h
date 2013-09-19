@@ -7,7 +7,12 @@
 #ifndef __PIC_H
 #define __PIC_H
 
-#include "ioport.h" // PORT_PIC*
+#include "x86.h" // outb
+
+#define PORT_PIC1_CMD          0x0020
+#define PORT_PIC1_DATA         0x0021
+#define PORT_PIC2_CMD          0x00a0
+#define PORT_PIC2_DATA         0x00a1
 
 // PORT_PIC1 bitdefs
 #define PIC1_IRQ0  (1<<0)

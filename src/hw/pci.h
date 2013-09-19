@@ -4,6 +4,10 @@
 #include "types.h" // u32
 #include "list.h" // hlist_node
 
+#define PORT_PCI_CMD           0x0cf8
+#define PORT_PCI_REBOOT        0x0cf9
+#define PORT_PCI_DATA          0x0cfc
+
 #define PCI_ROM_SLOT 6
 #define PCI_NUM_REGIONS 7
 #define PCI_BRIDGE_NUM_REGIONS 2

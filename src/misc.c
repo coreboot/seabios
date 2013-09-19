@@ -12,6 +12,8 @@
 #include "stacks.h" // call16_int
 #include "string.h" // memset
 
+#define PORT_MATH_CLEAR        0x00f0
+
 
 /****************************************************************
  * Misc 16bit ISRs

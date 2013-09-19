@@ -1,6 +1,12 @@
 #ifndef __RTC_H
 #define __RTC_H
 
+#define PORT_CMOS_INDEX        0x0070
+#define PORT_CMOS_DATA         0x0071
+
+// PORT_CMOS_INDEX nmi disable bit
+#define NMI_DISABLE_BIT 0x80
+
 // Standard BIOS RTC chip entries
 #define CMOS_RTC_SECONDS         0x00
 #define CMOS_RTC_SECONDS_ALARM   0x01

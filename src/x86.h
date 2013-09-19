@@ -120,6 +120,57 @@ static inline u32 getesp(void) {
     return esp;
 }
 
+static inline void outb(u8 value, u16 port) {
+    __asm__ __volatile__("outb %b0, %w1" : : "a"(value), "Nd"(port));
+}
+static inline void outw(u16 value, u16 port) {
+    __asm__ __volatile__("outw %w0, %w1" : : "a"(value), "Nd"(port));
+}
+static inline void outl(u32 value, u16 port) {
+    __asm__ __volatile__("outl %0, %w1" : : "a"(value), "Nd"(port));
+}
+static inline u8 inb(u16 port) {
+    u8 value;
+    __asm__ __volatile__("inb %w1, %b0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+static inline u16 inw(u16 port) {
+    u16 value;
+    __asm__ __volatile__("inw %w1, %w0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+static inline u32 inl(u16 port) {
+    u32 value;
+    __asm__ __volatile__("inl %w1, %0" : "=a"(value) : "Nd"(port));
+    return value;
+}
+
+static inline void insb(u16 port, u8 *data, u32 count) {
+    asm volatile("rep insb (%%dx), %%es:(%%edi)"
+                 : "+c"(count), "+D"(data) : "d"(port) : "memory");
+}
+static inline void insw(u16 port, u16 *data, u32 count) {
+    asm volatile("rep insw (%%dx), %%es:(%%edi)"
+                 : "+c"(count), "+D"(data) : "d"(port) : "memory");
+}
+static inline void insl(u16 port, u32 *data, u32 count) {
+    asm volatile("rep insl (%%dx), %%es:(%%edi)"
+                 : "+c"(count), "+D"(data) : "d"(port) : "memory");
+}
+// XXX - outs not limited to es segment
+static inline void outsb(u16 port, u8 *data, u32 count) {
+    asm volatile("rep outsb %%es:(%%esi), (%%dx)"
+                 : "+c"(count), "+S"(data) : "d"(port) : "memory");
+}
+static inline void outsw(u16 port, u16 *data, u32 count) {
+    asm volatile("rep outsw %%es:(%%esi), (%%dx)"
+                 : "+c"(count), "+S"(data) : "d"(port) : "memory");
+}
+static inline void outsl(u16 port, u32 *data, u32 count) {
+    asm volatile("rep outsl %%es:(%%esi), (%%dx)"
+                 : "+c"(count), "+S"(data) : "d"(port) : "memory");
+}
+
 static inline void writel(void *addr, u32 val) {
     *(volatile u32 *)addr = val;
 }

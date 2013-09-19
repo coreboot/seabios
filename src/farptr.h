@@ -6,7 +6,7 @@
 #ifndef __FARPTR_H
 #define __FARPTR_H
 
-#include "ioport.h" // insb
+#include "x86.h" // insb
 
 // Dummy definitions used to make sure gcc understands dependencies
 // between SET_SEG and GET/READ/WRITE_SEG macros.

@@ -5,12 +5,12 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "vgabios.h" // struct vgamode_s
-#include "stdvga.h" // stdvga_setup
-#include "ioport.h" // outb
-#include "farptr.h" // SET_FARVAR
 #include "biosvar.h" // GET_GLOBAL
+#include "farptr.h" // SET_FARVAR
+#include "stdvga.h" // stdvga_setup
 #include "string.h" // memset_far
+#include "vgabios.h" // struct vgamode_s
+#include "x86.h" // outb
 
 
 /****************************************************************

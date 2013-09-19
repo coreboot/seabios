@@ -5,12 +5,12 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "config.h" // CONFIG_*
-#include "ioport.h" // PORT_A20
-#include "x86.h" // CR0_*
-#include "hw/rtc.h" // CMOS_RESET_CODE
 #include "asm-offsets.h" // BREGS_*
+#include "config.h" // CONFIG_*
 #include "entryfuncs.S" // ENTRY_*
+#include "hw/ps2port.h" // PORT_A20
+#include "hw/rtc.h" // CMOS_RESET_CODE
+#include "x86.h" // CR0_*
 
 
 /****************************************************************

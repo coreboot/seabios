@@ -6,7 +6,6 @@
 
 #include "biosvar.h" // GET_LOWFLAT
 #include "config.h" // CONFIG_*
-#include "ioport.h" // outw
 #include "output.h" // dprintf
 #include "malloc.h" // free
 #include "pci.h" // pci_bdf_to_bus

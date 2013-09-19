@@ -13,7 +13,6 @@
 #include "hw/pci.h" // create_pirtable
 #include "hw/pci_regs.h" // PCI_DEVICE_ID
 #include "hw/rtc.h" // CMOS_*
-#include "ioport.h" // outw
 #include "malloc.h" // malloc_tmp
 #include "memmap.h" // add_e820
 #include "output.h" // dprintf

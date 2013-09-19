@@ -8,7 +8,6 @@
 #include "ata.h" // ATA_CB_STAT
 #include "biosvar.h" // GET_GLOBAL
 #include "blockcmd.h" // CDB_CMD_READ_10
-#include "ioport.h" // inb
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // foreachpci
@@ -18,6 +17,7 @@
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // timer_calc
+#include "x86.h" // inb
 
 #define AHCI_REQUEST_TIMEOUT 32000 // 32 seconds max for IDE ops
 #define AHCI_RESET_TIMEOUT     500 // 500 miliseconds
