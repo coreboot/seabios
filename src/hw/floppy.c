@@ -153,8 +153,6 @@ floppy_setup(void)
             addFloppy(1, type);
     }
 
-    outb(0x02, PORT_DMA1_MASK_REG);
-
     enable_hwirq(6, FUNC16(entry_0e));
 }
 
@@ -433,7 +431,7 @@ check_recal_drive(struct drive_s *drive_g)
 
 
 /****************************************************************
- * Floppy DMA
+ * Floppy DMA transfer
  ****************************************************************/
 
 // Perform a floppy transfer command (setup DMA and issue PIO).
@@ -444,39 +442,13 @@ floppy_cmd(struct disk_op_s *op, int blocksize, struct floppy_pio_s *pio)
     if (ret)
         return ret;
 
-    // es:bx = pointer to where to place information from diskette
-    u32 addr = (u32)op->buf_fl;
-    int count = op->count * blocksize;
-
-    // check for 64K boundary overrun
-    u16 end = count - 1;
-    u32 last_addr = addr + end;
-    if ((addr >> 16) != (last_addr >> 16))
+    // Setup DMA controller
+    int isWrite = pio->data[0] != 0xe6;
+    ret = dma_floppy((u32)op->buf_fl, op->count * blocksize, isWrite);
+    if (ret)
         return DISK_RET_EBOUNDARY;
 
-    u8 mode_register = 0x4a; // single mode, increment, autoinit disable,
-    if (pio->data[0] == 0xe6)
-        // read
-        mode_register = 0x46;
-
-    //DEBUGF("floppy dma c2\n");
-    outb(0x06, PORT_DMA1_MASK_REG);
-    outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
-    outb(addr, PORT_DMA_ADDR_2);
-    outb(addr>>8, PORT_DMA_ADDR_2);
-    outb(0x00, PORT_DMA1_CLEAR_FF_REG); // clear flip-flop
-    outb(end, PORT_DMA_CNT_2);
-    outb(end>>8, PORT_DMA_CNT_2);
-
-    // port 0b: DMA-1 Mode Register
-    // transfer type=write, channel 2
-    outb(mode_register, PORT_DMA1_MODE_REG);
-
-    // port 81: DMA-1 Page Register, channel 2
-    outb(addr>>16, PORT_DMA_PAGE_2);
-
-    outb(0x02, PORT_DMA1_MASK_REG); // unmask channel 2
-
+    // Invoke floppy controller
     ret = floppy_select_drive(pio->data[1] & 1);
     if (ret)
         return ret;

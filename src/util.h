@@ -124,6 +124,10 @@ void wrmsr_smp(u32 index, u64 val);
 void smp_setup(void);
 int apic_id_is_present(u8 apic_id);
 
+// hw/dma.c
+int dma_floppy(u32 addr, int count, int isWrite);
+void dma_setup(void);
+
 // hw/floppy.c
 extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup(void);
@@ -204,7 +208,6 @@ void reloc_preinit(void *f, void *arg);
 
 // resume.c
 extern int HaveRunPost;
-void dma_setup(void);
 
 // romlayout.S
 void reset_vector(void) __noreturn;

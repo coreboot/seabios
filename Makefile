@@ -29,7 +29,7 @@ IASL:=iasl
 SRCBOTH=misc.c stacks.c output.c string.c x86.c block.c cdrom.c mouse.c kbd.c \
     serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
     fw/smp.c \
-    hw/pci.c hw/timer.c hw/rtc.c hw/pic.c hw/ps2port.c \
+    hw/pci.c hw/timer.c hw/rtc.c hw/dma.c hw/pic.c hw/ps2port.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c hw/usb-xhci.c \
     hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \
     hw/blockcmd.c hw/floppy.c hw/ata.c hw/ahci.c hw/ramdisk.c \

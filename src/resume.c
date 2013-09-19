@@ -21,19 +21,6 @@
 // Indicator if POST phase has been run.
 int HaveRunPost VARFSEG;
 
-// Reset DMA controller
-void
-dma_setup(void)
-{
-    // first reset the DMA controllers
-    outb(0, PORT_DMA1_MASTER_CLEAR);
-    outb(0, PORT_DMA2_MASTER_CLEAR);
-
-    // then initialize the DMA controllers
-    outb(0xc0, PORT_DMA2_MODE_REG);
-    outb(0x00, PORT_DMA2_MASK_REG);
-}
-
 // Handler for post calls that look like a resume.
 void VISIBLE16
 handle_resume(void)
