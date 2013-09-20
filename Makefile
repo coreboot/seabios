@@ -7,6 +7,24 @@
 # Output directory
 OUT=out/
 
+# Common command definitions
+export HOSTCC             := $(CC)
+export CONFIG_SHELL       := sh
+export KCONFIG_AUTOHEADER := autoconf.h
+export KCONFIG_CONFIG     := $(CURDIR)/.config
+CROSS_PREFIX=
+ifneq ($(CROSS_PREFIX),)
+CC=$(CROSS_PREFIX)gcc
+endif
+AS=$(CROSS_PREFIX)as
+LD=$(CROSS_PREFIX)ld
+OBJCOPY=$(CROSS_PREFIX)objcopy
+OBJDUMP=$(CROSS_PREFIX)objdump
+STRIP=$(CROSS_PREFIX)strip
+PYTHON=python
+CPP=cpp
+IASL:=iasl
+
 # Source files
 SRCBOTH=misc.c stacks.c output.c string.c x86.c block.c cdrom.c mouse.c kbd.c \
     serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
@@ -60,19 +78,6 @@ else
 Q=@
 MAKEFLAGS += --no-print-directory
 endif
-
-# Common command definitions
-export HOSTCC             := $(CC)
-export CONFIG_SHELL       := sh
-export KCONFIG_AUTOHEADER := autoconf.h
-export KCONFIG_CONFIG     := $(CURDIR)/.config
-AS=as
-OBJCOPY=objcopy
-OBJDUMP=objdump
-STRIP=strip
-PYTHON=python
-CPP=cpp
-IASL:=iasl
 
 # Default targets
 -include $(KCONFIG_CONFIG)
