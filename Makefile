@@ -178,7 +178,8 @@ $(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o scripts/checkrom.py
 	@echo "  Prepping $@"
 	$(Q)$(OBJDUMP) -thr $< > $<.objdump
 	$(Q)$(OBJCOPY) -O binary $< $(OUT)bios.bin.raw
-	$(Q)$(PYTHON) ./scripts/checkrom.py $<.objdump $(OUT)bios.bin.raw $(OUT)bios.bin
+	$(Q)$(PYTHON) ./scripts/checkrom.py $<.objdump $(CONFIG_ROM_SIZE) \
+		$(OUT)bios.bin.raw $(OUT)bios.bin
 	$(Q)$(STRIP) -R .comment $< -o $(OUT)bios.bin.elf
 
 

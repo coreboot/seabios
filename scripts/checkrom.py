@@ -21,7 +21,7 @@ def checksum(data, start, size, csum):
 
 def main():
     # Get args
-    objinfo, rawfile, outfile = sys.argv[1:]
+    objinfo, finalsize, rawfile, outfile = sys.argv[1:]
 
     # Read in symbols
     objinfofile = open(objinfo, 'rb')
@@ -32,11 +32,20 @@ def main():
     rawdata = f.read()
     f.close()
     datasize = len(rawdata)
-    finalsize = 64*1024
-    if datasize > 64*1024:
-        finalsize = 128*1024
-        if datasize > 128*1024:
-            finalsize = 256*1024
+    finalsize = int(finalsize) * 1024
+    if finalsize == 0:
+        finalsize = 64*1024
+        if datasize > 64*1024:
+            finalsize = 128*1024
+            if datasize > 128*1024:
+                finalsize = 256*1024
+    if datasize > finalsize:
+        print "Error!  ROM doesn't fit (%d > %d)" % (datasize, finalsize)
+        print "   You have to either increate the size (CONFIG_ROM_SIZE)"
+        print "   or turn off some features (such as hardware support not"
+        print "   needed) to make it fit.  Trying a more recent gcc version"
+        print "   might work too."
+        sys.exit(1)
 
     # Sanity checks
     start = symbols['code32flat_start'].offset

@@ -122,6 +122,17 @@ endchoice
             selected, the memory is instead allocated from the
             "9-segment" (0x90000-0xa0000).
 
+    config ROM_SIZE
+        int "ROM size (in KB)"
+        default 0
+        help
+            Set the ROM size.  Say '0' here to make seabios figure the
+            needed size automatically.
+
+            Currently SeaBIOS will easily fit into 256 KB. To make it fit
+            it into 128 KB (which was big enouth for a long time) you'll
+            probably have to disable some featues such as xhci support.
+
 endmenu
 
 menu "Hardware support"
