@@ -82,7 +82,7 @@ endif
 # Default targets
 -include $(KCONFIG_CONFIG)
 
-target-y = $(OUT) $(addprefix $(OUT), $(DIRS)) $(OUT)bios.bin
+target-y = $(OUT)bios.bin
 target-$(CONFIG_BUILD_VGABIOS) += $(OUT)vgabios.bin
 
 all: $(target-y)
@@ -238,6 +238,7 @@ $(OUT)src/fw/acpi.o: $(OUT)src/fw/acpi-dsdt.hex $(OUT)src/fw/ssdt-proc.hex $(OUT
 define do-kconfig
 $(Q)mkdir -p $(OUT)/scripts/kconfig/lxdialog
 $(Q)mkdir -p $(OUT)/include/config
+$(Q)mkdir -p $(addprefix $(OUT), $(DIRS))
 $(Q)$(MAKE) -C $(OUT) -f $(CURDIR)/scripts/kconfig/Makefile srctree=$(CURDIR) src=scripts/kconfig obj=scripts/kconfig Q=$(Q) Kconfig=$(CURDIR)/src/Kconfig $1
 endef
 
@@ -254,8 +255,5 @@ clean:
 
 distclean: clean
 	$(Q)rm -f .config .config.old
-
-$(OUT) $(addprefix $(OUT), $(DIRS)):
-	$(Q)mkdir $@
 
 -include $(patsubst %,$(OUT)%/*.d,$(DIRS))
