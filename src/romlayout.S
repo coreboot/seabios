@@ -14,7 +14,7 @@
 
 
 /****************************************************************
- * Call trampolines
+ * 16bit / 32bit call trampolines
  ****************************************************************/
 
 // Place CPU into 32bit mode from 16bit mode.
@@ -127,9 +127,37 @@ transition16big:
         movl %ecx, %eax
         jmpl *%edx
 
+// Call a 16bit SeaBIOS function from SeaBIOS 32bit C code.
+// %ebx = calling function
+// Clobbers: %ecx, %edx, flags, segment registers, idt/gdt
+        DECLFUNC __call16
+        .global __call16big
+        .code32
+__call16:
+        movl $1f, %edx
+        jmp transition16
+__call16big:
+        movl $1f, %edx
+        jmp transition16big
+
+        // Make call.
+        .code16gcc
+1:      calll *%ebx
+        // Return via transition32
+        movl $(2f + BUILD_BIOS_ADDR), %edx
+        jmp transition32
+        .code32
+2:      retl
+
+
+/****************************************************************
+ * External calling trampolines
+ ****************************************************************/
+
 // Far call a 16bit function from 16bit mode with a specified cpu register state
 // %es:%eax = address of struct bregs
 // Clobbers: %e[bcd]x, %e[ds]i, flags
+        .code16gcc
         DECLFUNC __farcall16
 __farcall16:
         // Save %eax, %ebp
@@ -188,29 +216,6 @@ __farcall16:
 
         retl
 
-// Call a 16bit SeaBIOS function from SeaBIOS 32bit C code.
-// %ebx = calling function
-// Clobbers: %ecx, %edx, flags, segment registers, idt/gdt
-        DECLFUNC __call16
-        .global __call16big
-        .code32
-__call16:
-        movl $1f, %edx
-        jmp transition16
-__call16big:
-        movl $1f, %edx
-        jmp transition16big
-
-        // Make call.
-        .code16gcc
-1:      calll *%ebx
-        // Return via transition32
-        movl $(2f + BUILD_BIOS_ADDR), %edx
-        jmp transition32
-        .code32
-2:      retl
-
-        .code16gcc
 // IRQ trampolines
         .macro IRQ_TRAMPOLINE num
         DECLFUNC irq_trampoline_0x\num
