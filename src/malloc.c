@@ -1,6 +1,6 @@
-// Post memory manager (PMM) calls
+// Internal dynamic memory allocations.
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2013  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
