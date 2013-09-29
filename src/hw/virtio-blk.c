@@ -141,9 +141,9 @@ init_virtio_blk(struct pci_device *pci)
         goto fail;
     }
 
-    vdrive_g->drive.pchs.cylinders = cfg.cylinders;
-    vdrive_g->drive.pchs.heads = cfg.heads;
-    vdrive_g->drive.pchs.spt = cfg.sectors;
+    vdrive_g->drive.pchs.cylinder = cfg.cylinders;
+    vdrive_g->drive.pchs.head = cfg.heads;
+    vdrive_g->drive.pchs.sector = cfg.sectors;
     char *desc = znprintf(MAXDESCSIZE, "Virtio disk PCI:%x:%x",
                           pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
 

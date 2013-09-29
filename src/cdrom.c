@@ -154,9 +154,9 @@ cdemu_134b(struct bregs *regs)
     SET_INT13ET(regs, buffer_segment, GET_LOW(CDEmu.buffer_segment));
     SET_INT13ET(regs, load_segment, GET_LOW(CDEmu.load_segment));
     SET_INT13ET(regs, sector_count, GET_LOW(CDEmu.sector_count));
-    SET_INT13ET(regs, cylinders, GET_LOW(CDEmu.lchs.cylinders));
-    SET_INT13ET(regs, sectors, GET_LOW(CDEmu.lchs.spt));
-    SET_INT13ET(regs, heads, GET_LOW(CDEmu.lchs.heads));
+    SET_INT13ET(regs, cylinders, GET_LOW(CDEmu.lchs.cylinder));
+    SET_INT13ET(regs, sectors, GET_LOW(CDEmu.lchs.sector));
+    SET_INT13ET(regs, heads, GET_LOW(CDEmu.lchs.head));
 
     // If we have to terminate emulation
     if (regs->al == 0x00) {
@@ -273,19 +273,19 @@ cdrom_boot(struct drive_s *drive_g)
 
         switch (media) {
         case 0x01:  // 1.2M floppy
-            CDEmu.lchs.spt = 15;
-            CDEmu.lchs.cylinders = 80;
-            CDEmu.lchs.heads = 2;
+            CDEmu.lchs.sector = 15;
+            CDEmu.lchs.cylinder = 80;
+            CDEmu.lchs.head = 2;
             break;
         case 0x02:  // 1.44M floppy
-            CDEmu.lchs.spt = 18;
-            CDEmu.lchs.cylinders = 80;
-            CDEmu.lchs.heads = 2;
+            CDEmu.lchs.sector = 18;
+            CDEmu.lchs.cylinder = 80;
+            CDEmu.lchs.head = 2;
             break;
         case 0x03:  // 2.88M floppy
-            CDEmu.lchs.spt = 36;
-            CDEmu.lchs.cylinders = 80;
-            CDEmu.lchs.heads = 2;
+            CDEmu.lchs.sector = 36;
+            CDEmu.lchs.cylinder = 80;
+            CDEmu.lchs.head = 2;
             break;
         }
     } else {
@@ -299,9 +299,9 @@ cdrom_boot(struct drive_s *drive_g)
         u8 cyllow = GET_FARVAR(boot_segment, mbr->partitions[0].last.cyllow);
         u8 heads = GET_FARVAR(boot_segment, mbr->partitions[0].last.heads);
 
-        CDEmu.lchs.spt = sptcyl & 0x3f;
-        CDEmu.lchs.cylinders = ((sptcyl<<2)&0x300) + cyllow + 1;
-        CDEmu.lchs.heads = heads + 1;
+        CDEmu.lchs.sector = sptcyl & 0x3f;
+        CDEmu.lchs.cylinder = ((sptcyl<<2)&0x300) + cyllow + 1;
+        CDEmu.lchs.head = heads + 1;
     }
 
     // everything is ok, so from now on, the emulation is active

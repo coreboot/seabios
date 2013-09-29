@@ -178,9 +178,9 @@ scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
             if (cylinders && geomdata.heads &&
                 drive->sectors <= 0xFFFFFFFFULL &&
                 ((u32)drive->sectors % (geomdata.heads * cylinders) == 0)) {
-                drive->pchs.cylinders = cylinders;
-                drive->pchs.heads = geomdata.heads;
-                drive->pchs.spt = (u32)drive->sectors / (geomdata.heads * cylinders);
+                drive->pchs.cylinder = cylinders;
+                drive->pchs.head = geomdata.heads;
+                drive->pchs.sector = (u32)drive->sectors / (geomdata.heads * cylinders);
             }
         }
     }

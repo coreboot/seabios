@@ -169,7 +169,7 @@ find_floppy_type(u32 size)
     int i;
     for (i=1; i<ARRAY_SIZE(FloppyInfo); i++) {
         struct chs_s *c = &FloppyInfo[i].chs;
-        if (c->cylinders * c->heads * c->spt * DISK_SECTOR_SIZE == size)
+        if (c->cylinder * c->head * c->sector * DISK_SECTOR_SIZE == size)
             return i;
     }
     return -1;
@@ -391,12 +391,12 @@ floppy_media_sense(struct drive_s *drive_g)
             if (stype==ftype
                 || (GET_GLOBAL(FloppyInfo[stype].floppy_size)
                     != GET_GLOBAL(FloppyInfo[ftype].floppy_size))
-                || (GET_GLOBAL(FloppyInfo[stype].chs.heads)
-                    > GET_GLOBAL(FloppyInfo[ftype].chs.heads))
-                || (GET_GLOBAL(FloppyInfo[stype].chs.cylinders)
-                    > GET_GLOBAL(FloppyInfo[ftype].chs.cylinders))
-                || (GET_GLOBAL(FloppyInfo[stype].chs.spt)
-                    > GET_GLOBAL(FloppyInfo[ftype].chs.spt)))
+                || (GET_GLOBAL(FloppyInfo[stype].chs.head)
+                    > GET_GLOBAL(FloppyInfo[ftype].chs.head))
+                || (GET_GLOBAL(FloppyInfo[stype].chs.cylinder)
+                    > GET_GLOBAL(FloppyInfo[ftype].chs.cylinder))
+                || (GET_GLOBAL(FloppyInfo[stype].chs.sector)
+                    > GET_GLOBAL(FloppyInfo[ftype].chs.sector)))
                 continue;
             data_rate = GET_GLOBAL(FloppyInfo[stype].data_rate);
             ret = floppy_drive_readid(floppyid, data_rate, 0);
@@ -409,8 +409,8 @@ floppy_media_sense(struct drive_s *drive_g)
     SET_BDA(floppy_last_data_rate, (old_data_rate<<2) | (data_rate<<6));
     u8 media = (stype == 1 ? 0x04 : (stype == 2 ? 0x05 : 0x07));
     u8 fms = (data_rate<<6) | FMS_MEDIA_DRIVE_ESTABLISHED | media;
-    if (GET_GLOBAL(FloppyInfo[stype].chs.cylinders)
-        < GET_GLOBAL(FloppyInfo[ftype].chs.cylinders))
+    if (GET_GLOBAL(FloppyInfo[stype].chs.cylinder)
+        < GET_GLOBAL(FloppyInfo[ftype].chs.cylinder))
         fms |= FMS_DOUBLE_STEPPING;
     SET_BDA(floppy_media_state[floppyid], fms);
 
@@ -489,21 +489,24 @@ floppy_cmd(struct disk_op_s *op, int blocksize, struct floppy_pio_s *pio)
  * Floppy handlers
  ****************************************************************/
 
-static void
-lba2chs(struct disk_op_s *op, u8 *track, u8 *sector, u8 *head)
+static struct chs_s
+lba2chs(struct disk_op_s *op)
 {
+    struct chs_s res = { };
     u32 lba = op->lba;
 
     u32 tmp = lba + 1;
-    u16 nlspt = GET_GLOBAL(op->drive_g->lchs.spt);
-    *sector = tmp % nlspt;
+    u16 nls = GET_GLOBAL(op->drive_g->lchs.sector);
+    res.sector = tmp % nls;
 
-    tmp /= nlspt;
-    u16 nlh = GET_GLOBAL(op->drive_g->lchs.heads);
-    *head = tmp % nlh;
+    tmp /= nls;
+    u16 nlh = GET_GLOBAL(op->drive_g->lchs.head);
+    res.head = tmp % nlh;
 
     tmp /= nlh;
-    *track = tmp;
+    res.cylinder = tmp;
+
+    return res;
 }
 
 // diskette controller reset
@@ -525,20 +528,19 @@ floppy_reset(struct disk_op_s *op)
 static int
 floppy_read(struct disk_op_s *op)
 {
-    u8 track, sector, head;
-    lba2chs(op, &track, &sector, &head);
+    struct chs_s chs = lba2chs(op);
 
     // send read-normal-data command (9 bytes) to controller
     u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     struct floppy_pio_s pio;
     pio.cmdlen = 9;
     pio.data[0] = 0xe6; // e6: read normal data
-    pio.data[1] = (head << 2) | floppyid; // HD DR1 DR2
-    pio.data[2] = track;
-    pio.data[3] = head;
-    pio.data[4] = sector;
+    pio.data[1] = (chs.head << 2) | floppyid; // HD DR1 DR2
+    pio.data[2] = chs.cylinder;
+    pio.data[3] = chs.head;
+    pio.data[4] = chs.sector;
     pio.data[5] = FLOPPY_SIZE_CODE;
-    pio.data[6] = sector + op->count - 1; // last sector to read on track
+    pio.data[6] = chs.sector + op->count - 1; // last sector to read on track
     pio.data[7] = FLOPPY_GAPLEN;
     pio.data[8] = FLOPPY_DATALEN;
 
@@ -555,20 +557,19 @@ fail:
 static int
 floppy_write(struct disk_op_s *op)
 {
-    u8 track, sector, head;
-    lba2chs(op, &track, &sector, &head);
+    struct chs_s chs = lba2chs(op);
 
     // send write-normal-data command (9 bytes) to controller
     u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
     struct floppy_pio_s pio;
     pio.cmdlen = 9;
     pio.data[0] = 0xc5; // c5: write normal data
-    pio.data[1] = (head << 2) | floppyid; // HD DR1 DR2
-    pio.data[2] = track;
-    pio.data[3] = head;
-    pio.data[4] = sector;
+    pio.data[1] = (chs.head << 2) | floppyid; // HD DR1 DR2
+    pio.data[2] = chs.cylinder;
+    pio.data[3] = chs.head;
+    pio.data[4] = chs.sector;
     pio.data[5] = FLOPPY_SIZE_CODE;
-    pio.data[6] = sector + op->count - 1; // last sector to write on track
+    pio.data[6] = chs.sector + op->count - 1; // last sector to write on track
     pio.data[7] = FLOPPY_GAPLEN;
     pio.data[8] = FLOPPY_DATALEN;
 
@@ -589,12 +590,11 @@ floppy_verify(struct disk_op_s *op)
     if (res)
         goto fail;
 
-    u8 track, sector, head;
-    lba2chs(op, &track, &sector, &head);
+    struct chs_s chs = lba2chs(op);
 
     // ??? should track be new val from return_status[3] ?
     u8 floppyid = GET_GLOBAL(op->drive_g->cntl_id);
-    set_diskette_current_cyl(floppyid, track);
+    set_diskette_current_cyl(floppyid, chs.cylinder);
     return DISK_RET_SUCCESS;
 fail:
     op->count = 0; // no sectors read

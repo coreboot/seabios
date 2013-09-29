@@ -79,9 +79,9 @@ get_translation(struct drive_s *drive_g)
     }
 
     // Otherwise use a heuristic to determine translation type.
-    u16 heads = GET_GLOBAL(drive_g->pchs.heads);
-    u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
-    u16 spt = GET_GLOBAL(drive_g->pchs.spt);
+    u16 heads = GET_GLOBAL(drive_g->pchs.head);
+    u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinder);
+    u16 spt = GET_GLOBAL(drive_g->pchs.sector);
     u64 sectors = GET_GLOBAL(drive_g->sectors);
     u64 psectors = (u64)heads * cylinders * spt;
     if (!heads || !cylinders || !spt || psectors > sectors)
@@ -101,9 +101,9 @@ setup_translation(struct drive_s *drive_g)
     u8 translation = get_translation(drive_g);
     SET_GLOBAL(drive_g->translation, translation);
 
-    u16 heads = GET_GLOBAL(drive_g->pchs.heads);
-    u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinders);
-    u16 spt = GET_GLOBAL(drive_g->pchs.spt);
+    u16 heads = GET_GLOBAL(drive_g->pchs.head);
+    u16 cylinders = GET_GLOBAL(drive_g->pchs.cylinder);
+    u16 spt = GET_GLOBAL(drive_g->pchs.sector);
     u64 sectors = GET_GLOBAL(drive_g->sectors);
     const char *desc = NULL;
 
@@ -162,14 +162,14 @@ setup_translation(struct drive_s *drive_g)
         cylinders = 1024;
     dprintf(1, "drive %p: PCHS=%u/%d/%d translation=%s LCHS=%d/%d/%d s=%d\n"
             , drive_g
-            , drive_g->pchs.cylinders, drive_g->pchs.heads, drive_g->pchs.spt
+            , drive_g->pchs.cylinder, drive_g->pchs.head, drive_g->pchs.sector
             , desc
             , cylinders, heads, spt
             , (u32)sectors);
 
-    SET_GLOBAL(drive_g->lchs.heads, heads);
-    SET_GLOBAL(drive_g->lchs.cylinders, cylinders);
-    SET_GLOBAL(drive_g->lchs.spt, spt);
+    SET_GLOBAL(drive_g->lchs.head, heads);
+    SET_GLOBAL(drive_g->lchs.cylinder, cylinders);
+    SET_GLOBAL(drive_g->lchs.sector, spt);
 }
 
 
@@ -184,13 +184,13 @@ fill_fdpt(struct drive_s *drive_g, int hdid)
     if (hdid > 1)
         return;
 
-    u16 nlc   = GET_GLOBAL(drive_g->lchs.cylinders);
-    u16 nlh   = GET_GLOBAL(drive_g->lchs.heads);
-    u16 nlspt = GET_GLOBAL(drive_g->lchs.spt);
+    u16 nlc = GET_GLOBAL(drive_g->lchs.cylinder);
+    u16 nlh = GET_GLOBAL(drive_g->lchs.head);
+    u16 nls = GET_GLOBAL(drive_g->lchs.sector);
 
-    u16 npc   = GET_GLOBAL(drive_g->pchs.cylinders);
-    u16 nph   = GET_GLOBAL(drive_g->pchs.heads);
-    u16 npspt = GET_GLOBAL(drive_g->pchs.spt);
+    u16 npc = GET_GLOBAL(drive_g->pchs.cylinder);
+    u16 nph = GET_GLOBAL(drive_g->pchs.head);
+    u16 nps = GET_GLOBAL(drive_g->pchs.sector);
 
     struct fdpt_s *fdpt = &get_ebda_ptr()->fdpt[hdid];
     fdpt->precompensation = 0xffff;
@@ -198,16 +198,16 @@ fill_fdpt(struct drive_s *drive_g, int hdid)
     fdpt->landing_zone = npc;
     fdpt->cylinders = nlc;
     fdpt->heads = nlh;
-    fdpt->sectors = nlspt;
+    fdpt->sectors = nls;
 
-    if (nlc != npc || nlh != nph || nlspt != npspt) {
+    if (nlc != npc || nlh != nph || nls != nps) {
         // Logical mapping present - use extended structure.
 
         // complies with Phoenix style Translated Fixed Disk Parameter
         // Table (FDPT)
         fdpt->phys_cylinders = npc;
         fdpt->phys_heads = nph;
-        fdpt->phys_sectors = npspt;
+        fdpt->phys_sectors = nps;
         fdpt->a0h_signature = 0xa0;
 
         // Checksum structure.

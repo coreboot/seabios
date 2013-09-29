@@ -501,9 +501,9 @@ static int ahci_port_setup(struct ahci_port_s *port)
         // found disk (ata)
         port->drive.type = DTYPE_AHCI;
         port->drive.blksize = DISK_SECTOR_SIZE;
-        port->drive.pchs.cylinders = buffer[1];
-        port->drive.pchs.heads = buffer[3];
-        port->drive.pchs.spt = buffer[6];
+        port->drive.pchs.cylinder = buffer[1];
+        port->drive.pchs.head = buffer[3];
+        port->drive.pchs.sector = buffer[6];
 
         u64 sectors;
         if (buffer[83] & (1 << 10)) // word 83 - lba48 support

@@ -30,9 +30,9 @@ struct disk_op_s {
  ****************************************************************/
 
 struct chs_s {
-    u16 heads;      // # heads
-    u16 cylinders;  // # cylinders
-    u16 spt;        // # sectors / track
+    u16 head;
+    u16 cylinder;
+    u16 sector;
     u16 pad;
 };
 

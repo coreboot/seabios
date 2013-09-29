@@ -775,9 +775,9 @@ init_drive_ata(struct atadrive_s *dummy, u16 *buffer)
     adrive_g->drive.type = DTYPE_ATA;
     adrive_g->drive.blksize = DISK_SECTOR_SIZE;
 
-    adrive_g->drive.pchs.cylinders = buffer[1];
-    adrive_g->drive.pchs.heads = buffer[3];
-    adrive_g->drive.pchs.spt = buffer[6];
+    adrive_g->drive.pchs.cylinder = buffer[1];
+    adrive_g->drive.pchs.head = buffer[3];
+    adrive_g->drive.pchs.sector = buffer[6];
 
     u64 sectors;
     if (buffer[83] & (1 << 10)) // word 83 - lba48 support

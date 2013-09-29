@@ -43,14 +43,14 @@ getLCHS(struct drive_s *drive_g)
         // populate the geometry directly in the driveid because the
         // geometry is only known after the bios segment is made
         // read-only).
-        res.cylinders = GET_LOW(CDEmu.lchs.cylinders);
-        res.heads = GET_LOW(CDEmu.lchs.heads);
-        res.spt = GET_LOW(CDEmu.lchs.spt);
+        res.cylinder = GET_LOW(CDEmu.lchs.cylinder);
+        res.head = GET_LOW(CDEmu.lchs.head);
+        res.sector = GET_LOW(CDEmu.lchs.sector);
         return res;
     }
-    res.cylinders = GET_GLOBAL(drive_g->lchs.cylinders);
-    res.heads = GET_GLOBAL(drive_g->lchs.heads);
-    res.spt = GET_GLOBAL(drive_g->lchs.spt);
+    res.cylinder = GET_GLOBAL(drive_g->lchs.cylinder);
+    res.head = GET_GLOBAL(drive_g->lchs.head);
+    res.sector = GET_GLOBAL(drive_g->lchs.sector);
     return res;
 }
 
@@ -75,17 +75,17 @@ basic_access(struct bregs *regs, struct drive_s *drive_g, u16 command)
     dop.count = count;
 
     struct chs_s chs = getLCHS(drive_g);
-    u16 nlc=chs.cylinders, nlh=chs.heads, nlspt=chs.spt;
+    u16 nlc=chs.cylinder, nlh=chs.head, nls=chs.sector;
 
     // sanity check on cyl heads, sec
-    if (cylinder >= nlc || head >= nlh || sector > nlspt) {
+    if (cylinder >= nlc || head >= nlh || sector > nls) {
         warn_invalid(regs);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
 
     // translate lchs to lba
-    dop.lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nlspt)
+    dop.lba = (((((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nls)
                + (u32)sector - 1);
 
     dop.buf_fl = MAKE_FLATPTR(regs->es, regs->bx);
@@ -187,12 +187,12 @@ disk_1305(struct bregs *regs, struct drive_s *drive_g)
     debug_stub(regs);
 
     struct chs_s chs = getLCHS(drive_g);
-    u16 nlh=chs.heads, nlspt=chs.spt;
+    u16 nlh=chs.head, nls=chs.sector;
 
     u8 num_sectors = regs->al;
     u8 head        = regs->dh;
 
-    if (head >= nlh || num_sectors == 0 || num_sectors > nlspt) {
+    if (head >= nlh || num_sectors == 0 || num_sectors > nls) {
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
@@ -213,7 +213,7 @@ disk_1308(struct bregs *regs, struct drive_s *drive_g)
 {
     // Get logical geometry from table
     struct chs_s chs = getLCHS(drive_g);
-    u16 nlc=chs.cylinders, nlh=chs.heads, nlspt=chs.spt;
+    u16 nlc=chs.cylinder, nlh=chs.head, nls=chs.sector;
     nlc--;
     nlh--;
     u8 count;
@@ -252,7 +252,7 @@ disk_1308(struct bregs *regs, struct drive_s *drive_g)
 
     regs->al = 0;
     regs->ch = nlc & 0xff;
-    regs->cl = ((nlc >> 2) & 0xc0) | (nlspt & 0x3f);
+    regs->cl = ((nlc >> 2) & 0xc0) | (nls & 0x3f);
     regs->dh = nlh;
 
     disk_ret(regs, DISK_RET_SUCCESS);
@@ -321,10 +321,10 @@ disk_1315(struct bregs *regs, struct drive_s *drive_g)
 
     // Get logical geometry from table
     struct chs_s chs = getLCHS(drive_g);
-    u16 nlc=chs.cylinders, nlh=chs.heads, nlspt=chs.spt;
+    u16 nlc=chs.cylinder, nlh=chs.head, nls=chs.sector;
 
     // Compute sector count seen by int13
-    u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nlspt;
+    u32 lba = (u32)(nlc - 1) * (u32)nlh * (u32)nls;
     regs->cx = lba >> 16;
     regs->dx = lba & 0xffff;
     regs->ah = 3; // hard disk accessible
@@ -498,14 +498,14 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
     // EDD 1.x
 
     u8  type    = GET_GLOBAL(drive_g->type);
-    u16 npc     = GET_GLOBAL(drive_g->pchs.cylinders);
-    u16 nph     = GET_GLOBAL(drive_g->pchs.heads);
-    u16 npspt   = GET_GLOBAL(drive_g->pchs.spt);
+    u16 npc     = GET_GLOBAL(drive_g->pchs.cylinder);
+    u16 nph     = GET_GLOBAL(drive_g->pchs.head);
+    u16 nps     = GET_GLOBAL(drive_g->pchs.sector);
     u64 lba     = GET_GLOBAL(drive_g->sectors);
     u16 blksize = GET_GLOBAL(drive_g->blksize);
 
     dprintf(DEBUG_HDL_13, "disk_1348 size=%d t=%d chs=%d,%d,%d lba=%d bs=%d\n"
-            , size, type, npc, nph, npspt, (u32)lba, blksize);
+            , size, type, npc, nph, nps, (u32)lba, blksize);
 
     SET_FARVAR(seg, param_far->size, 26);
     if (type == DTYPE_ATA_ATAPI) {
@@ -516,7 +516,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
         SET_FARVAR(seg, param_far->spt, 0xffffffff);
         SET_FARVAR(seg, param_far->sector_count, (u64)-1);
     } else {
-        if (lba > (u64)npspt*nph*0x3fff) {
+        if (lba > (u64)nps*nph*0x3fff) {
             SET_FARVAR(seg, param_far->infos, 0x00); // geometry is invalid
             SET_FARVAR(seg, param_far->cylinders, 0x3fff);
         } else {
@@ -524,7 +524,7 @@ disk_1348(struct bregs *regs, struct drive_s *drive_g)
             SET_FARVAR(seg, param_far->cylinders, (u32)npc);
         }
         SET_FARVAR(seg, param_far->heads, (u32)nph);
-        SET_FARVAR(seg, param_far->spt, (u32)npspt);
+        SET_FARVAR(seg, param_far->spt, (u32)nps);
         SET_FARVAR(seg, param_far->sector_count, lba);
     }
     SET_FARVAR(seg, param_far->blksize, blksize);
