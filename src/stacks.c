@@ -193,11 +193,20 @@ call16big(u32 eax, void *func)
     return eax;
 }
 
+
+/****************************************************************
+ * External 16bit interface calling
+ ****************************************************************/
+
 // Far call 16bit code with a specified register state.
 void VISIBLE16
 _farcall16(struct bregs *callregs)
 {
     ASSERT16();
+    if (on_extra_stack()) {
+        stack_hop_back((u32)callregs, 0, _farcall16);
+        return;
+    }
     asm volatile(
         "calll __farcall16\n"
         : "+a" (callregs), "+m" (*callregs)
@@ -210,7 +219,7 @@ farcall16(struct bregs *callregs)
 {
     if (MODE16) {
         SET_SEG(ES, GET_SEG(SS));
-        stack_hop_back((u32)callregs, 0, _farcall16);
+        _farcall16(callregs);
         return;
     }
     extern void _cfunc16__farcall16(void);
@@ -354,6 +363,10 @@ fail:
 void VISIBLE16
 check_irqs(void)
 {
+    if (on_extra_stack()) {
+        stack_hop_back(0, 0, check_irqs);
+        return;
+    }
     asm volatile("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
 }
 
@@ -362,7 +375,7 @@ void
 yield(void)
 {
     if (MODESEGMENT) {
-        stack_hop_back(0, 0, check_irqs);
+        check_irqs();
         return;
     }
     extern void _cfunc16_check_irqs(void);
@@ -382,6 +395,10 @@ yield(void)
 void VISIBLE16
 wait_irq(void)
 {
+    if (on_extra_stack()) {
+        stack_hop_back(0, 0, wait_irq);
+        return;
+    }
     asm volatile("sti ; hlt ; cli ; cld": : :"memory");
 }
 
@@ -390,7 +407,7 @@ void
 yield_toirq(void)
 {
     if (MODESEGMENT) {
-        stack_hop_back(0, 0, wait_irq);
+        wait_irq();
         return;
     }
     if (have_threads()) {
