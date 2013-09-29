@@ -128,21 +128,27 @@ transition16big:
         jmpl *%edx
 
 // Call a 16bit SeaBIOS function from SeaBIOS 32bit C code.
-// %ebx = calling function
+// %ecx = calling function
 // Clobbers: %ecx, %edx, flags, segment registers, idt/gdt
         DECLFUNC __call16
         .global __call16big
         .code32
 __call16:
+        pushl %edx
+        pushl %ecx
         movl $1f, %edx
         jmp transition16
 __call16big:
+        pushl %edx
+        pushl %ecx
         movl $1f, %edx
         jmp transition16big
 
         // Make call.
         .code16gcc
-1:      calll *%ebx
+1:      popl %ecx
+        popl %edx
+        calll *%ecx
         // Return via transition32
         movl $(2f + BUILD_BIOS_ADDR), %edx
         jmp transition32

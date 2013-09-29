@@ -166,31 +166,23 @@ call32(void *func, u32 eax, u32 errret)
 
 // Call a 16bit SeaBIOS function from a 32bit SeaBIOS function.
 static inline u32
-call16(u32 eax, void *func)
+call16(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
     if (getesp() > BUILD_STACK_ADDR)
         panic("call16 with invalid stack\n");
-    asm volatile(
-        "calll __call16"
-        : "+a" (eax)
-        : "b" ((u32)func - BUILD_BIOS_ADDR)
-        : "ecx", "edx", "cc", "memory");
-    return eax;
+    extern u32 __call16(u32 eax, u32 edx, void *func);
+    return __call16(eax, edx, func - BUILD_BIOS_ADDR);
 }
 
 static inline u32
-call16big(u32 eax, void *func)
+call16big(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
     if (getesp() > BUILD_STACK_ADDR)
         panic("call16big with invalid stack\n");
-    asm volatile(
-        "calll __call16big"
-        : "+a" (eax)
-        : "b" ((u32)func - BUILD_BIOS_ADDR)
-        : "ecx", "edx", "cc", "memory");
-    return eax;
+    extern u32 __call16big(u32 eax, u32 edx, void *func);
+    return __call16big(eax, edx, func - BUILD_BIOS_ADDR);
 }
 
 
@@ -223,14 +215,14 @@ farcall16(struct bregs *callregs)
         return;
     }
     extern void _cfunc16__farcall16(void);
-    call16((u32)callregs, _cfunc16__farcall16);
+    call16((u32)callregs, 0, _cfunc16__farcall16);
 }
 
 inline void
 farcall16big(struct bregs *callregs)
 {
     extern void _cfunc16__farcall16(void);
-    call16big((u32)callregs, _cfunc16__farcall16);
+    call16big((u32)callregs, 0, _cfunc16__farcall16);
 }
 
 // Invoke a 16bit software interrupt.
@@ -380,13 +372,13 @@ yield(void)
     }
     extern void _cfunc16_check_irqs(void);
     if (!CONFIG_THREADS) {
-        call16big(0, _cfunc16_check_irqs);
+        call16big(0, 0, _cfunc16_check_irqs);
         return;
     }
     struct thread_info *cur = getCurThread();
     if (cur == &MainThread)
         // Permit irqs to fire
-        call16big(0, _cfunc16_check_irqs);
+        call16big(0, 0, _cfunc16_check_irqs);
 
     // Switch to the next thread
     switch_next(cur);
@@ -416,7 +408,7 @@ yield_toirq(void)
         return;
     }
     extern void _cfunc16_wait_irq(void);
-    call16big(0, _cfunc16_wait_irq);
+    call16big(0, 0, _cfunc16_wait_irq);
 }
 
 // Wait for all threads (other than the main thread) to complete.
