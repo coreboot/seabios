@@ -192,26 +192,25 @@ call16big(u32 eax, u32 edx, void *func)
 
 // Far call 16bit code with a specified register state.
 void VISIBLE16
-_farcall16(struct bregs *callregs)
+_farcall16(struct bregs *callregs, u16 callregseg)
 {
     ASSERT16();
     if (on_extra_stack()) {
-        stack_hop_back((u32)callregs, 0, _farcall16);
+        stack_hop_back((u32)callregs, callregseg, _farcall16);
         return;
     }
     asm volatile(
         "calll __farcall16\n"
-        : "+a" (callregs), "+m" (*callregs)
-        : "m" (__segment_ES)
-        : "ebx", "ecx", "edx", "esi", "edi", "cc", "memory");
+        : "+a" (callregs), "+m" (*callregs), "+d" (callregseg)
+        :
+        : "ebx", "ecx", "esi", "edi", "cc", "memory");
 }
 
 inline void
 farcall16(struct bregs *callregs)
 {
     if (MODE16) {
-        SET_SEG(ES, GET_SEG(SS));
-        _farcall16(callregs);
+        _farcall16(callregs, GET_SEG(SS));
         return;
     }
     extern void _cfunc16__farcall16(void);

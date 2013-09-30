@@ -161,32 +161,33 @@ __call16big:
  ****************************************************************/
 
 // Far call a 16bit function from 16bit mode with a specified cpu register state
-// %es:%eax = address of struct bregs
-// Clobbers: %e[bcd]x, %e[ds]i, flags
+// %eax = address of struct bregs, %edx = segment of struct bregs
+// Clobbers: %e[bc]x, %e[ds]i, flags
         .code16gcc
         DECLFUNC __farcall16
 __farcall16:
-        // Save %eax, %ebp
+        // Save %edx/%eax, %ebp
         pushl %ebp
         pushl %eax
-        pushl %es
+        pushl %edx
 
         // Setup for iretw call
+        movl %edx, %ds
         pushw %cs
         pushw $1f                       // return point
-        pushw %es:BREGS_flags(%eax)     // flags
-        pushl %es:BREGS_code(%eax)      // CS:IP
+        pushw BREGS_flags(%eax)         // flags
+        pushl BREGS_code(%eax)          // CS:IP
 
         // Load calling registers.
-        movl %es:BREGS_edi(%eax), %edi
-        movl %es:BREGS_esi(%eax), %esi
-        movl %es:BREGS_ebp(%eax), %ebp
-        movl %es:BREGS_ebx(%eax), %ebx
-        movl %es:BREGS_edx(%eax), %edx
-        movl %es:BREGS_ecx(%eax), %ecx
-        movw %es:BREGS_ds(%eax), %ds
-        pushl %es:BREGS_eax(%eax)
-        movw %es:BREGS_es(%eax), %es
+        movl BREGS_edi(%eax), %edi
+        movl BREGS_esi(%eax), %esi
+        movl BREGS_ebp(%eax), %ebp
+        movl BREGS_ebx(%eax), %ebx
+        movl BREGS_edx(%eax), %edx
+        movl BREGS_ecx(%eax), %ecx
+        movw BREGS_es(%eax), %es
+        pushl BREGS_eax(%eax)
+        movw BREGS_ds(%eax), %ds
         popl %eax
 
         // Invoke call
@@ -196,27 +197,27 @@ __farcall16:
         pushfw
         cli
         cld
-        pushw %es
+        pushw %ds
         pushl %eax
-        movw 0x08(%esp), %es
+        movw 0x08(%esp), %ds
         movl 0x0c(%esp), %eax
-        popl %es:BREGS_eax(%eax)
-        popw %es:BREGS_es(%eax)
-        popw %es:BREGS_flags(%eax)
+        popl BREGS_eax(%eax)
+        popw BREGS_es(%eax)
+        popw BREGS_flags(%eax)
 
         // Store remaining registers
-        movl %edi, %es:BREGS_edi(%eax)
-        movl %esi, %es:BREGS_esi(%eax)
-        movl %ebp, %es:BREGS_ebp(%eax)
-        movl %ebx, %es:BREGS_ebx(%eax)
-        movl %edx, %es:BREGS_edx(%eax)
-        movl %ecx, %es:BREGS_ecx(%eax)
-        movw %ds, %es:BREGS_ds(%eax)
+        movl %edi, BREGS_edi(%eax)
+        movl %esi, BREGS_esi(%eax)
+        movl %ebp, BREGS_ebp(%eax)
+        movl %ebx, BREGS_ebx(%eax)
+        movl %edx, BREGS_edx(%eax)
+        movl %ecx, BREGS_ecx(%eax)
+        movw %es, BREGS_ds(%eax)
         movw %ss, %cx
         movw %cx, %ds                   // Restore %ds == %ss
 
-        // Remove %es/%eax, restore %ebp
-        popl %eax
+        // Remove %edx/%eax, restore %ebp
+        popl %edx
         popl %eax
         popl %ebp
 
