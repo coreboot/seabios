@@ -60,22 +60,35 @@ copy_mptable(void *pos)
     memcpy((void*)newpos + length, (void*)p->physaddr, mpclength);
 }
 
+static int
+get_acpi_rsdp_length(void *pos, unsigned size)
+{
+    struct rsdp_descriptor *p = pos;
+    if (p->signature != RSDP_SIGNATURE)
+        return -1;
+    u32 length = 20;
+    if (length > size)
+        return -1;
+    if (checksum(pos, length) != 0)
+        return -1;
+    if (p->revision > 1) {
+        length = p->length;
+        if (length > size)
+            return -1;
+        if (checksum(pos, length) != 0)
+            return -1;
+    }
+    return length;
+}
+
 static void
 copy_acpi_rsdp(void *pos)
 {
     if (RsdpAddr)
         return;
-    struct rsdp_descriptor *p = pos;
-    if (p->signature != RSDP_SIGNATURE)
+    int length = get_acpi_rsdp_length(pos, -1);
+    if (length < 0)
         return;
-    u32 length = 20;
-    if (checksum(pos, length) != 0)
-        return;
-    if (p->revision > 1) {
-        length = p->length;
-        if (checksum(pos, length) != 0)
-            return;
-    }
     void *newpos = malloc_fseg(length);
     if (!newpos) {
         warn_noalloc();
@@ -117,4 +130,18 @@ copy_table(void *pos)
     copy_mptable(pos);
     copy_acpi_rsdp(pos);
     copy_smbios(pos);
+}
+
+void *find_acpi_rsdp(void)
+{
+    extern u8 zonefseg_start[], zonefseg_end[];
+    unsigned long start = (unsigned long)zonefseg_start;
+    unsigned long end = (unsigned long)zonefseg_end;
+    unsigned long pos;
+
+    for (pos = ALIGN(start, 0x10); pos <= ALIGN_DOWN(end, 0x10); pos += 0x10)
+        if (get_acpi_rsdp_length((void *)pos, end - pos) >= 0)
+            return (void *)pos;
+
+    return NULL;
 }

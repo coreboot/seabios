@@ -73,6 +73,7 @@ void acpi_reboot(void);
 // fw/biostable.c
 void copy_smbios(void *pos);
 void copy_table(void *pos);
+void *find_acpi_rsdp(void);
 
 // fw/coreboot.c
 extern const char *CBvendor, *CBpart;
