@@ -277,11 +277,12 @@ static const char *speed_name[16] = {
 };
 
 static const int speed_from_xhci[16] = {
-    [ 0 ... 15 ] = -1,
+    [ 0 ] = -1,
     [ 1 ] = USB_FULLSPEED,
     [ 2 ] = USB_LOWSPEED,
     [ 3 ] = USB_HIGHSPEED,
     [ 4 ] = USB_SUPERSPEED,
+    [ 5 ... 15 ] = -1,
 };
 
 static const int speed_to_xhci[] = {
