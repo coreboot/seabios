@@ -146,9 +146,23 @@ __call16big:
 
         // Make call.
         .code16gcc
-1:      popl %ecx
+1:      movl $_zonelow_seg, %edx        // Adjust %ds, %ss, and %esp
+        movl %edx, %ds
+        movzwl StackSeg, %edx
+        movl %edx, %ecx
+        shll $4, %ecx
+        movl %edx, %ss
+        subl %ecx, %esp
+        movl %edx, %ds
+
+        popl %ecx                       // Call function
         popl %edx
         calll *%ecx
+
+        movl %ss, %edx                  // Readjust %esp
+        shll $4, %edx
+        addl %edx, %esp
+
         // Return via transition32
         movl $(2f + BUILD_BIOS_ADDR), %edx
         jmp transition32

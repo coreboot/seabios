@@ -13,6 +13,8 @@
 #include "stacks.h" // struct mutex_s
 #include "util.h" // useRTC
 
+#define MAIN_STACK_MAX (1024*1024)
+
 
 /****************************************************************
  * Extra 16bit stack
@@ -107,6 +109,8 @@ static inline void lgdt(struct descloc_s *desc) {
     asm("lgdtl %0" : : "m"(*desc) : "memory");
 }
 
+u16 StackSeg VARLOW;
+
 // Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
 u32 VISIBLE16
 call32(void *func, u32 eax, u32 errret)
@@ -127,6 +131,8 @@ call32(void *func, u32 eax, u32 errret)
     struct descloc_s gdt;
     sgdt(&gdt);
 
+    u16 oldstackseg = GET_LOW(StackSeg);
+    SET_LOW(StackSeg, GET_SEG(SS));
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
@@ -153,6 +159,8 @@ call32(void *func, u32 eax, u32 errret)
         : "r" (func)
         : "ecx", "edx", "cc", "memory");
 
+    SET_LOW(StackSeg, oldstackseg);
+
     // Restore gdt and fs/gs
     lgdt(&gdt);
     SET_SEG(FS, fs);
@@ -169,7 +177,7 @@ static inline u32
 call16(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
-    if (getesp() > BUILD_STACK_ADDR)
+    if (getesp() > MAIN_STACK_MAX)
         panic("call16 with invalid stack\n");
     extern u32 __call16(u32 eax, u32 edx, void *func);
     return __call16(eax, edx, func - BUILD_BIOS_ADDR);
@@ -179,7 +187,7 @@ static inline u32
 call16big(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
-    if (getesp() > BUILD_STACK_ADDR)
+    if (getesp() > MAIN_STACK_MAX)
         panic("call16big with invalid stack\n");
     extern u32 __call16big(u32 eax, u32 edx, void *func);
     return __call16big(eax, edx, func - BUILD_BIOS_ADDR);
@@ -214,14 +222,14 @@ farcall16(struct bregs *callregs)
         return;
     }
     extern void _cfunc16__farcall16(void);
-    call16((u32)callregs, 0, _cfunc16__farcall16);
+    call16((u32)callregs - StackSeg * 16, StackSeg, _cfunc16__farcall16);
 }
 
 inline void
 farcall16big(struct bregs *callregs)
 {
     extern void _cfunc16__farcall16(void);
-    call16big((u32)callregs, 0, _cfunc16__farcall16);
+    call16big((u32)callregs - StackSeg * 16, StackSeg, _cfunc16__farcall16);
 }
 
 // Invoke a 16bit software interrupt.
@@ -265,7 +273,7 @@ struct thread_info *
 getCurThread(void)
 {
     u32 esp = getesp();
-    if (esp <= BUILD_STACK_ADDR)
+    if (esp <= MAIN_STACK_MAX)
         return &MainThread;
     return (void*)ALIGN_DOWN(esp, THREADSTACKSIZE);
 }
@@ -477,7 +485,7 @@ int
 wait_preempt(void)
 {
     if (MODESEGMENT || !CONFIG_THREAD_OPTIONROMS || !CanPreempt
-        || getesp() < 1024*1024)
+        || getesp() < MAIN_STACK_MAX)
         return 0;
     while (CanPreempt)
         yield();
