@@ -676,13 +676,16 @@ acpi_setup(void)
 
     if (CONFIG_ACPI_DSDT && fadt && !fadt->dsdt) {
         /* default DSDT */
-        void *dsdt = malloc_high(sizeof(AmlCode));
+        struct acpi_table_header *dsdt = malloc_high(sizeof(AmlCode));
         if (!dsdt) {
             warn_noalloc();
             return;
         }
         memcpy(dsdt, AmlCode, sizeof(AmlCode));
         fill_dsdt(fadt, dsdt);
+        /* Strip out compiler-generated header if any */
+        memset(dsdt, 0, sizeof *dsdt);
+        build_header(dsdt, DSDT_SIGNATURE, sizeof(AmlCode), 1);
     }
 
     // Build final rsdt table
