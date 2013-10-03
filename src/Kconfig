@@ -447,6 +447,17 @@ menu "BIOS Tables"
             This option can be disabled for QEMU 1.4 and newer
             to save some space in the ROM file.
             If unsure, say Y.
+    config FW_ROMFILE_LOAD
+        bool "Load BIOS tables from ROM files"
+        depends on QEMU_HARDWARE
+        default y
+        help
+            Support loading BIOS firmware tables from ROM files.
+            At the moment, only ACPI tables can be loaded in this way.
+            Required for QEMU 1.7 and newer.
+            This option can be disabled for QEMU 1.6 and older
+            to save some space in the ROM file.
+            If unsure, say Y.
 endmenu
 
 source vgasrc/Kconfig
