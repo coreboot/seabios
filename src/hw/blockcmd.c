@@ -34,8 +34,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return usb_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_UAS:
         return uas_cmd_data(op, cdbcmd, blocksize);
-    case DTYPE_AHCI_ATAPI:
-        return ahci_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_VIRTIO_SCSI:
         return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_LSI_SCSI:
@@ -44,6 +42,9 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return esp_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_MEGASAS:
         return megasas_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_AHCI_ATAPI:
+        if (!MODESEGMENT)
+            return ahci_cmd_data(op, cdbcmd, blocksize);
     default:
         op->count = 0;
         return DISK_RET_EPARAM;

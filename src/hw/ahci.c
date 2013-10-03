@@ -23,10 +23,6 @@
 #define AHCI_RESET_TIMEOUT     500 // 500 miliseconds
 #define AHCI_LINK_TIMEOUT       10 // 10 miliseconds
 
-/****************************************************************
- * these bits must run in both 16bit and 32bit modes
- ****************************************************************/
-
 // prepare sata command fis
 static void sata_prep_simple(struct sata_cmd_fis *fis, u8 command)
 {
@@ -76,13 +72,13 @@ static void sata_prep_atapi(struct sata_cmd_fis *fis, u16 blocksize)
 static u32 ahci_ctrl_readl(struct ahci_ctrl_s *ctrl, u32 reg)
 {
     u32 addr = GET_GLOBALFLAT(ctrl->iobase) + reg;
-    return pci_readl(addr);
+    return readl((void*)addr);
 }
 
 static void ahci_ctrl_writel(struct ahci_ctrl_s *ctrl, u32 reg, u32 val)
 {
     u32 addr = GET_GLOBALFLAT(ctrl->iobase) + reg;
-    pci_writel(addr, val);
+    writel((void*)addr, val);
 }
 
 static u32 ahci_port_to_ctrl(u32 pnr, u32 port_reg)
@@ -300,7 +296,8 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
 }
 
 // command demuxer
-int process_ahci_op(struct disk_op_s *op)
+int VISIBLE32FLAT
+process_ahci_op(struct disk_op_s *op)
 {
     if (!CONFIG_AHCI)
         return 0;
@@ -321,10 +318,6 @@ int process_ahci_op(struct disk_op_s *op)
         return DISK_RET_EPARAM;
     }
 }
-
-/****************************************************************
- * everything below is pure 32bit code
- ****************************************************************/
 
 static void
 ahci_port_reset(struct ahci_ctrl_s *ctrl, u32 pnr)

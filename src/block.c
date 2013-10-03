@@ -333,7 +333,7 @@ process_scsi_op(struct disk_op_s *op)
     }
 }
 
-static int
+int VISIBLE32FLAT
 process_atapi_op(struct disk_op_s *op)
 {
     switch (op->command) {
@@ -363,10 +363,17 @@ process_op(struct disk_op_s *op)
     case DTYPE_VIRTIO_BLK:
         return process_virtio_blk_op(op);
     case DTYPE_AHCI:
-        return process_ahci_op(op);
+        op->drive_g = (void*)op->drive_g + BUILD_BIOS_ADDR;
+        extern void _cfunc32flat_process_ahci_op(void);
+        return call32(_cfunc32flat_process_ahci_op
+                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
     case DTYPE_ATA_ATAPI:
-    case DTYPE_AHCI_ATAPI:
         return process_atapi_op(op);
+    case DTYPE_AHCI_ATAPI:
+        op->drive_g = (void*)op->drive_g + BUILD_BIOS_ADDR;
+        extern void _cfunc32flat_process_atapi_op(void);
+        return call32(_cfunc32flat_process_atapi_op
+                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
     case DTYPE_USB:
     case DTYPE_UAS:
     case DTYPE_VIRTIO_SCSI:
