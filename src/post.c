@@ -15,6 +15,7 @@
 #include "hw/esp-scsi.h" // esp_scsi_setup
 #include "hw/lsi-scsi.h" // lsi_scsi_setup
 #include "hw/megasas.h" // megasas_setup
+#include "hw/pvscsi.h" // pvscsi_setup
 #include "hw/pic.h" // pic_setup
 #include "hw/ps2port.h" // ps2port_setup
 #include "hw/rtc.h" // rtc_write
@@ -147,6 +148,7 @@ device_hardware_setup(void)
     lsi_scsi_setup();
     esp_scsi_setup();
     megasas_setup();
+    pvscsi_setup();
 }
 
 static void

@@ -172,6 +172,18 @@ menu "Hardware support"
         default y
         help
             Support boot from virtio-scsi storage.
+    config PVSCSI
+        depends on DRIVES && QEMU_HARDWARE
+        bool "PVSCSI controllers"
+        default y
+        help
+            Support boot from Paravirtualized SCSI storage. This kind of storage
+            is mainly supported by VMware ESX hypervisor. It is commonly used
+            to allow fast storage access by communicating directly with the
+            underlying hypervisor. Enabling this type of boot will allow
+            booting directly from images imported from an ESX platform,
+            without the need to use slower emulation of storage controllers
+            such as IDE.
     config ESP_SCSI
         depends on DRIVES && QEMU_HARDWARE
         bool "AMD PCscsi controllers"

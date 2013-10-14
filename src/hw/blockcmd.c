@@ -14,6 +14,7 @@
 #include "esp-scsi.h" // esp_scsi_cmd_data
 #include "lsi-scsi.h" // lsi_scsi_cmd_data
 #include "megasas.h" // megasas_cmd_data
+#include "pvscsi.h" // pvscsi_cmd_data
 #include "output.h" // dprintf
 #include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
@@ -42,6 +43,8 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return esp_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_MEGASAS:
         return megasas_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_PVSCSI:
+        return pvscsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_AHCI_ATAPI:
         if (!MODESEGMENT)
             return ahci_cmd_data(op, cdbcmd, blocksize);
