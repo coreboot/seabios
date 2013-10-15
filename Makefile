@@ -82,7 +82,10 @@ endif
 # Default targets
 -include $(KCONFIG_CONFIG)
 
-target-y = $(OUT)bios.bin
+target-y :=
+target-$(CONFIG_QEMU) += $(OUT)bios.bin
+target-$(CONFIG_CSM) += $(OUT)Csm16.bin
+target-$(CONFIG_COREBOOT) += $(OUT)bios.bin.elf
 target-$(CONFIG_BUILD_VGABIOS) += $(OUT)vgabios.bin
 
 all: $(target-y)
@@ -174,12 +177,24 @@ $(OUT)rom.o: $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o $(OUT
 	@echo "  Linking $@"
 	$(Q)$(LD) -T $(OUT)romlayout32flat.lds $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o -o $@
 
-$(OUT)bios.bin.elf $(OUT)bios.bin: $(OUT)rom.o scripts/checkrom.py
+$(OUT)bios.bin.prep: $(OUT)rom.o scripts/checkrom.py
 	@echo "  Prepping $@"
+	$(Q)rm -f $(OUT)bios.bin $(OUT)Csm16.bin $(OUT)bios.bin.elf
 	$(Q)$(OBJDUMP) -thr $< > $<.objdump
 	$(Q)$(OBJCOPY) -O binary $< $(OUT)bios.bin.raw
 	$(Q)$(PYTHON) ./scripts/checkrom.py $<.objdump $(CONFIG_ROM_SIZE) \
-		$(OUT)bios.bin.raw $(OUT)bios.bin
+		$(OUT)bios.bin.raw $(OUT)bios.bin.prep
+
+$(OUT)bios.bin: $(OUT)bios.bin.prep
+	@echo "  Creating $@"
+	$(Q)cp $< $@
+
+$(OUT)Csm16.bin: $(OUT)bios.bin.prep
+	@echo "  Creating $@"
+	$(Q)cp $< $@
+
+$(OUT)bios.bin.elf: $(OUT)rom.o $(OUT)bios.bin.prep
+	@echo "  Creating $@"
 	$(Q)$(STRIP) -R .comment $< -o $(OUT)bios.bin.elf
 
 

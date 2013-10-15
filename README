@@ -1,8 +1,10 @@
 This code implements an X86 legacy bios.  It is intended to be
 compiled using standard gnu tools (eg, gas and gcc).
 
-To build, one should be able to run "make" in the main directory.  The
-resulting file "out/bios.bin" contains the processed bios image.
+To build for QEMU, one should be able to run "make" in the main
+directory.  The resulting file "out/bios.bin" contains the processed
+bios image.  To build for coreboot, please see the coreboot wiki.  To
+build for CSM, please see README.CSM.
 
 
 Testing of images:
