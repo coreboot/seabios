@@ -115,17 +115,10 @@ qemu_preinit(void)
     RamSize = rs;
     add_e820(0, rs, E820_RAM);
 
-    // Check for memory over 4Gig
-    u64 high = ((rtc_read(CMOS_MEM_HIGHMEM_LOW) << 16)
-                | ((u32)rtc_read(CMOS_MEM_HIGHMEM_MID) << 24)
-                | ((u64)rtc_read(CMOS_MEM_HIGHMEM_HIGH) << 32));
-    RamSizeOver4G = high;
-    add_e820(0x100000000ull, high, E820_RAM);
-
     /* reserve 256KB BIOS area at the end of 4 GB */
     add_e820(0xfffc0000, 256*1024, E820_RESERVED);
 
-    dprintf(1, "Ram Size=0x%08x (0x%016llx high)\n", RamSize, RamSizeOver4G);
+    dprintf(1, "RamSize: 0x%08x [cmos]\n", RamSize);
 }
 
 void
@@ -254,6 +247,35 @@ struct qemu_smbios_header {
     u16 fieldoffset;
 } PACKED;
 
+static void
+qemu_cfg_e820(void)
+{
+    // QEMU_CFG_E820_TABLE has reservations only
+    u32 count32;
+    qemu_cfg_read_entry(&count32, QEMU_CFG_E820_TABLE, sizeof(count32));
+    if (count32) {
+        struct e820_reservation entry;
+        int i;
+        for (i = 0; i < count32; i++) {
+            qemu_cfg_read(&entry, sizeof(entry));
+            add_e820(entry.address, entry.length, entry.type);
+        }
+    } else if (runningOnKVM()) {
+        // Backwards compatibility - provide hard coded range.
+        // 4 pages before the bios, 3 pages for vmx tss pages, the
+        // other page for EPT real mode pagetable
+        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
+    }
+
+    // Check for memory over 4Gig in cmos
+    u64 high = ((rtc_read(CMOS_MEM_HIGHMEM_LOW) << 16)
+                | ((u32)rtc_read(CMOS_MEM_HIGHMEM_MID) << 24)
+                | ((u64)rtc_read(CMOS_MEM_HIGHMEM_HIGH) << 32));
+    RamSizeOver4G = high;
+    add_e820(0x100000000ull, high, E820_RAM);
+    dprintf(1, "RamSizeOver4G: 0x%016llx [cmos]\n", RamSizeOver4G);
+}
+
 // Populate romfile entries for legacy fw_cfg ports (that predate the
 // "file" interface).
 static void
@@ -276,23 +298,6 @@ qemu_cfg_legacy(void)
     qemu_romfile_add("etc/numa-nodes", QEMU_CFG_NUMA
                      , sizeof(numacount) + max_cpu*sizeof(u64)
                      , numacount*sizeof(u64));
-
-    // e820 data
-    u32 count32;
-    qemu_cfg_read_entry(&count32, QEMU_CFG_E820_TABLE, sizeof(count32));
-    if (count32) {
-        struct e820_reservation entry;
-        int i;
-        for (i = 0; i < count32; i++) {
-            qemu_cfg_read(&entry, sizeof(entry));
-            add_e820(entry.address, entry.length, entry.type);
-        }
-    } else if (runningOnKVM()) {
-        // Backwards compatibility - provide hard coded range.
-        // 4 pages before the bios, 3 pages for vmx tss pages, the
-        // other page for EPT real mode pagetable
-        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
-    }
 
     // ACPI tables
     char name[128];
@@ -367,4 +372,6 @@ void qemu_cfg_init(void)
         qemu_romfile_add(qfile.name, be16_to_cpu(qfile.select)
                          , 0, be32_to_cpu(qfile.size));
     }
+
+    qemu_cfg_e820();
 }
