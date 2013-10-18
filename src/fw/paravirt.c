@@ -250,6 +250,47 @@ struct qemu_smbios_header {
 static void
 qemu_cfg_e820(void)
 {
+    struct e820_reservation *table;
+    int i, size;
+
+    // "etc/e820" has both ram and reservations
+    table = romfile_loadfile("etc/e820", &size);
+    if (table) {
+        for (i = 0; i < size / sizeof(struct e820_reservation); i++) {
+            switch (table[i].type) {
+            case E820_RAM:
+                dprintf(1, "RamBlock: addr 0x%016llx len 0x%016llx [e820]\n",
+                        table[i].address, table[i].length);
+                if (table[i].address < RamSize)
+                    // ignore, preinit got it from cmos already and
+                    // adding this again would ruin any reservations
+                    // done so far
+                    continue;
+                if (table[i].address < 0x100000000LL) {
+                    // below 4g -- adjust RamSize to mark highest lowram addr
+                    if (RamSize < table[i].address + table[i].length)
+                        RamSize = table[i].address + table[i].length;
+                } else {
+                    // above 4g -- adjust RamSizeOver4G to mark highest ram addr
+                    if (0x100000000LL + RamSizeOver4G < table[i].address + table[i].length)
+                        RamSizeOver4G = table[i].address + table[i].length - 0x100000000LL;
+                }
+                /* fall through */
+            case E820_RESERVED:
+                add_e820(table[i].address, table[i].length, table[i].type);
+                break;
+            default:
+                /*
+                 * Qemu 1.7 uses RAM + RESERVED only.  Ignore
+                 * everything else, so we have the option to
+                 * extend this in the future without breakage.
+                 */
+                break;
+            }
+        }
+        return;
+    }
+
     // QEMU_CFG_E820_TABLE has reservations only
     u32 count32;
     qemu_cfg_read_entry(&count32, QEMU_CFG_E820_TABLE, sizeof(count32));
