@@ -12,10 +12,11 @@
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "output.h" // dprintf
 #include "string.h" // strcmp
-#include "util.h" // handle_155f
+#include "util.h" // handle_155f, handle_157f
 
 #define VH_VIA 1
 #define VH_INTEL 2
+#define VH_SMI 3
 
 int VGAHookHandlerType VARFSEG;
 
@@ -25,6 +26,11 @@ handle_155fXX(struct bregs *regs)
     set_code_unimplemented(regs, RET_EUNSUPPORTED);
 }
 
+static void
+handle_157fXX(struct bregs *regs)
+{
+    set_code_unimplemented(regs, RET_EUNSUPPORTED);
+}
 
 /****************************************************************
  * Via hooks
@@ -248,6 +254,46 @@ getac_setup(struct pci_device *pci)
 {
 }
 
+/****************************************************************
+ * Silicon Motion hooks
+ ****************************************************************/
+
+u8 SmiBootDisplay VARFSEG; // 1: LCD, 2: CRT, 3: Both */
+
+static void
+smi_157f02(struct bregs *regs)
+{
+    /* Boot Display Device Override */
+    regs->ax = 0x007f;
+    regs->bl = GET_GLOBAL(SmiBootDisplay);
+    set_success(regs);
+}
+
+static void
+smi_157f14(struct bregs *regs)
+{
+    /* ReduceOn support default status */
+    regs->ax = 0x007f;
+    regs->bl = 0x00;
+    set_success(regs);
+}
+
+static void
+smi_157f(struct bregs *regs)
+{
+    switch (regs->al) {
+    case 0x02: smi_157f02(regs); break;
+    case 0x14: smi_157f14(regs); break;
+    default:   handle_157fXX(regs); break;
+    }
+}
+
+static void
+winent_mb6047_setup(struct pci_device *pci)
+{
+    VGAHookHandlerType = VH_SMI;
+    SmiBootDisplay = 0x02;
+}
 
 /****************************************************************
  * Entry and setup
@@ -270,6 +316,22 @@ handle_155f(struct bregs *regs)
     }
 }
 
+// Main 16bit entry point
+void
+handle_157f(struct bregs *regs)
+{
+    if (!CONFIG_VGAHOOKS) {
+        handle_157fXX(regs);
+        return;
+    }
+
+    int htype = GET_GLOBAL(VGAHookHandlerType);
+    switch (htype) {
+    case VH_SMI:   smi_157f(regs); break;
+    default:       handle_157fXX(regs); break;
+    }
+}
+
 // Setup
 void
 vgahook_setup(struct pci_device *pci)
@@ -283,6 +345,8 @@ vgahook_setup(struct pci_device *pci)
         getac_setup(pci);
     else if (strcmp(CBvendor, "RODA") == 0 && strcmp(CBpart, "RK886EX") == 0)
         roda_setup(pci);
+    else if (strcmp(CBvendor, "Win Enterprise") == 0 && strcmp(CBpart, "MB6047") == 0)
+        winent_mb6047_setup(pci);
     else if (pci->vendor == PCI_VENDOR_ID_VIA)
         via_setup(pci);
     else if (pci->vendor == PCI_VENDOR_ID_INTEL)

@@ -218,6 +218,7 @@ void lpt_setup(void);
 
 // vgahooks.c
 void handle_155f(struct bregs *regs);
+void handle_157f(struct bregs *regs);
 void vgahook_setup(struct pci_device *pci);
 
 

@@ -349,6 +349,7 @@ handle_15(struct bregs *regs)
     case 0x52: handle_1552(regs); break;
     case 0x53: handle_1553(regs); break;
     case 0x5f: handle_155f(regs); break;
+    case 0x7f: handle_157f(regs); break;
     case 0x83: handle_1583(regs); break;
     case 0x86: handle_1586(regs); break;
     case 0x87: handle_1587(regs); break;
