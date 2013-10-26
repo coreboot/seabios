@@ -99,10 +99,6 @@ static inline u16 get_global_seg(void) {
 #define GET_GLOBAL(var)                                                 \
     GET_VAR(GLOBAL_SEGREG, *(typeof(&(var)))((void*)&(var)              \
                                              + get_global_offset()))
-#define SET_GLOBAL(var, val) do {               \
-        ASSERT32FLAT();                         \
-        (var) = (val);                          \
-    } while (0)
 #if MODESEGMENT
 #define GLOBALFLAT2GLOBAL(var) ((typeof(var))((void*)(var) - BUILD_BIOS_ADDR))
 #else

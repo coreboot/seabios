@@ -104,23 +104,22 @@ mode instead of a segment/offset pair.
 
 Most BIOS variables are stored in global variables, the "BDA", or
 "EBDA" memory areas.  Because this is common, three sets of helper
-macros (GET/SET_GLOBAL, GET/SET_BDA, and GET/SET_EBDA) are available
-to simplify these accesses.  Also, an area in the 0xc0000-0xf0000
-memory range is made available for internal BIOS run-time variables
-that are marked with the VARLOW attribute.  These variables can then
-be accessed with the GET/SET_LOW macros.
+macros (GET_GLOBAL, GET/SET_BDA, and GET/SET_EBDA) are available to
+simplify these accesses.  Also, an area in the 0xc0000-0xf0000 memory
+range is made available for internal BIOS run-time variables that are
+marked with the VARLOW attribute.  These variables can then be
+accessed with the GET/SET_LOW macros.
 
 Global variables defined in the C code can be read in 16bit mode if
 the variable declaration is marked with VAR16, VARFSEG, or VAR16FIXED.
 The GET_GLOBAL macro will then allow read access to the variable.
 Global variables are stored in the 0xf000 segment.  Because the
 f-segment is marked read-only during run-time, the 16bit code is not
-permitted to change the value of 16bit variables (use of the
-SET_GLOBAL macro from 16bit mode will cause a link error).  Code
-running in 32bit mode can not access variables with VAR16, but can
-access variables marked with VARFSEG, VARLOW, VAR16FIXED, or with no
-marking at all.  The 32bit code can use the GET/SET_GLOBAL macros, but
-they are not required.
+permitted to change the value of 16bit variables.  Code running in
+32bit mode can not access variables with VAR16, but can access
+variables marked with VARFSEG, VARLOW, VAR16FIXED, or with no marking
+at all.  The 32bit code can use the GET_GLOBAL macros, but they are
+not required.
 
 
 GCC 16 bit stack limitations:
