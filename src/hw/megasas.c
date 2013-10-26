@@ -109,9 +109,9 @@ struct mfi_ld_list_s {
 
 struct megasas_lun_s {
     struct drive_s drive;
-    struct pci_device *pci;
     struct megasas_cmd_frame *frame;
     u32 iobase;
+    u16 pci_id;
     u8 target;
     u8 lun;
 };
@@ -163,7 +163,7 @@ megasas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         container_of(op->drive_gf, struct megasas_lun_s, drive);
     u8 *cdb = cdbcmd;
     struct megasas_cmd_frame *frame = GET_GLOBALFLAT(mlun_gf->frame);
-    u16 pci_id = GET_GLOBALFLAT(mlun_gf->pci->device);
+    u16 pci_id = GET_GLOBALFLAT(mlun_gf->pci_id);
     int i;
 
     if (!CONFIG_MEGASAS)
@@ -212,7 +212,7 @@ megasas_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
     memset(mlun, 0, sizeof(*mlun));
     mlun->drive.type = DTYPE_MEGASAS;
     mlun->drive.cntl_id = pci->bdf;
-    mlun->pci = pci;
+    mlun->pci_id = pci->device;
     mlun->target = target;
     mlun->lun = lun;
     mlun->iobase = iobase;
