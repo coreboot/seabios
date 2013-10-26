@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
 #include "malloc.h" // malloc_fseg
@@ -49,19 +49,19 @@ ramdisk_setup(void)
         return;
 
     // Setup driver.
-    struct drive_s *drive_g = init_floppy((u32)pos, ftype);
-    if (!drive_g)
+    struct drive_s *drive = init_floppy((u32)pos, ftype);
+    if (!drive)
         return;
-    drive_g->type = DTYPE_RAMDISK;
+    drive->type = DTYPE_RAMDISK;
     dprintf(1, "Mapping CBFS floppy %s to addr %p\n", filename, pos);
     char *desc = znprintf(MAXDESCSIZE, "Ramdisk [%s]", &filename[10]);
-    boot_add_floppy(drive_g, desc, bootprio_find_named_rom(filename, 0));
+    boot_add_floppy(drive, desc, bootprio_find_named_rom(filename, 0));
 }
 
 static int
 ramdisk_copy(struct disk_op_s *op, int iswrite)
 {
-    u32 offset = GET_GLOBAL(op->drive_g->cntl_id);
+    u32 offset = GET_GLOBALFLAT(op->drive_gf->cntl_id);
     offset += (u32)op->lba * DISK_SECTOR_SIZE;
     u64 opd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)op->buf_fl);
     u64 ramd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE(offset);

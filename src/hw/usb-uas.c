@@ -14,7 +14,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // DTYPE_USB
 #include "blockcmd.h" // cdb_read
 #include "config.h" // CONFIG_USB_UAS
@@ -96,16 +96,16 @@ uas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     if (!CONFIG_USB_UAS)
         return DISK_RET_EBADTRACK;
 
-    struct uasdrive_s *drive = container_of(
-        op->drive_g, struct uasdrive_s, drive);
+    struct uasdrive_s *drive_gf = container_of(
+        op->drive_gf, struct uasdrive_s, drive);
 
     uas_ui ui;
     memset(&ui, 0, sizeof(ui));
     ui.hdr.id = UAS_UI_COMMAND;
     ui.hdr.tag = 0xdead;
-    ui.command.lun[1] = drive->lun;
+    ui.command.lun[1] = GET_GLOBALFLAT(drive_gf->lun);
     memcpy(ui.command.cdb, cdbcmd, sizeof(ui.command.cdb));
-    int ret = usb_send_bulk(GET_GLOBAL(drive->command),
+    int ret = usb_send_bulk(GET_GLOBALFLAT(drive_gf->command),
                             USB_DIR_OUT, MAKE_FLATPTR(GET_SEG(SS), &ui),
                             sizeof(ui.hdr) + sizeof(ui.command));
     if (ret) {
@@ -114,7 +114,7 @@ uas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     }
 
     memset(&ui, 0xff, sizeof(ui));
-    ret = usb_send_bulk(GET_GLOBAL(drive->status),
+    ret = usb_send_bulk(GET_GLOBALFLAT(drive_gf->status),
                         USB_DIR_IN, MAKE_FLATPTR(GET_SEG(SS), &ui), sizeof(ui));
     if (ret) {
         dprintf(1, "uas: status recv fail");
@@ -125,7 +125,7 @@ uas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     case UAS_UI_SENSE:
         goto have_sense;
     case UAS_UI_READ_READY:
-        ret = usb_send_bulk(GET_GLOBAL(drive->data_in),
+        ret = usb_send_bulk(GET_GLOBALFLAT(drive_gf->data_in),
                             USB_DIR_IN, op->buf_fl, op->count * blocksize);
         if (ret) {
             dprintf(1, "uas: data read fail");
@@ -133,7 +133,7 @@ uas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         }
         break;
     case UAS_UI_WRITE_READY:
-        ret = usb_send_bulk(GET_GLOBAL(drive->data_out),
+        ret = usb_send_bulk(GET_GLOBALFLAT(drive_gf->data_out),
                             USB_DIR_OUT, op->buf_fl, op->count * blocksize);
         if (ret) {
             dprintf(1, "uas: data write fail");
@@ -146,7 +146,7 @@ uas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     }
 
     memset(&ui, 0xff, sizeof(ui));
-    ret = usb_send_bulk(GET_GLOBAL(drive->status),
+    ret = usb_send_bulk(GET_GLOBALFLAT(drive_gf->status),
                         USB_DIR_IN, MAKE_FLATPTR(GET_SEG(SS), &ui), sizeof(ui));
     if (ret) {
         dprintf(1, "uas: status recv fail");

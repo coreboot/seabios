@@ -10,7 +10,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // scsi_drive_setup
 #include "config.h" // CONFIG_*
@@ -159,11 +159,11 @@ static int megasas_fire_cmd(u16 pci_id, u32 ioaddr,
 int
 megasas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
-    struct megasas_lun_s *mlun =
-        container_of(op->drive_g, struct megasas_lun_s, drive);
+    struct megasas_lun_s *mlun_gf =
+        container_of(op->drive_gf, struct megasas_lun_s, drive);
     u8 *cdb = cdbcmd;
-    struct megasas_cmd_frame *frame = GET_GLOBAL(mlun->frame);
-    u16 pci_id = GET_GLOBAL(mlun->pci->device);
+    struct megasas_cmd_frame *frame = GET_GLOBALFLAT(mlun_gf->frame);
+    u16 pci_id = GET_GLOBALFLAT(mlun_gf->pci->device);
     int i;
 
     if (!CONFIG_MEGASAS)
@@ -172,8 +172,8 @@ megasas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     memset_fl(frame, 0, sizeof(*frame));
     SET_LOWFLAT(frame->cmd, MFI_CMD_LD_SCSI_IO);
     SET_LOWFLAT(frame->cmd_status, 0xFF);
-    SET_LOWFLAT(frame->target_id, GET_GLOBAL(mlun->target));
-    SET_LOWFLAT(frame->lun, GET_GLOBAL(mlun->lun));
+    SET_LOWFLAT(frame->target_id, GET_GLOBALFLAT(mlun_gf->target));
+    SET_LOWFLAT(frame->lun, GET_GLOBALFLAT(mlun_gf->lun));
     SET_LOWFLAT(frame->flags, 0x0001);
     SET_LOWFLAT(frame->data_xfer_len, op->count * blocksize);
     SET_LOWFLAT(frame->cdb_len, 16);
@@ -191,7 +191,7 @@ megasas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     }
     SET_LOWFLAT(frame->context, (u32)frame);
 
-    if (megasas_fire_cmd(pci_id, GET_GLOBAL(mlun->iobase), frame) == 0)
+    if (megasas_fire_cmd(pci_id, GET_GLOBALFLAT(mlun_gf->iobase), frame) == 0)
         return DISK_RET_SUCCESS;
 
     dprintf(2, "pthru cmd 0x%x failed\n", cdb[0]);

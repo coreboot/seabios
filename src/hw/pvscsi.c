@@ -7,7 +7,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // scsi_drive_setup
 #include "config.h" // CONFIG_*
@@ -234,10 +234,10 @@ pvscsi_get_rsp(struct PVSCSIRingsState *s,
 }
 
 static int
-pvscsi_cmd(struct pvscsi_lun_s *plun, struct disk_op_s *op,
+pvscsi_cmd(struct pvscsi_lun_s *plun_gf, struct disk_op_s *op,
            void *cdbcmd, u16 target, u16 lun, u16 blocksize)
 {
-    struct pvscsi_ring_dsc_s *ring_dsc = GET_GLOBAL(plun->ring_dsc);
+    struct pvscsi_ring_dsc_s *ring_dsc = GET_GLOBALFLAT(plun_gf->ring_dsc);
     struct PVSCSIRingsState *s = GET_LOWFLAT(ring_dsc->ring_state);
     u32 req_entries = GET_LOWFLAT(s->reqNumEntriesLog2);
     u32 cmp_entries = GET_LOWFLAT(s->cmpNumEntriesLog2);
@@ -254,8 +254,8 @@ pvscsi_cmd(struct pvscsi_lun_s *plun, struct disk_op_s *op,
     req = GET_LOWFLAT(ring_dsc->ring_reqs) + (GET_LOWFLAT(s->reqProdIdx) & MASK(req_entries));
     pvscsi_fill_req(s, req, target, lun, cdbcmd, blocksize, op);
 
-    pvscsi_kick_rw_io(GET_GLOBAL(plun->iobase));
-    pvscsi_wait_intr_cmpl(GET_GLOBAL(plun->iobase));
+    pvscsi_kick_rw_io(GET_GLOBALFLAT(plun_gf->iobase));
+    pvscsi_wait_intr_cmpl(GET_GLOBALFLAT(plun_gf->iobase));
 
     rsp = GET_LOWFLAT(ring_dsc->ring_cmps) + (GET_LOWFLAT(s->cmpConsIdx) & MASK(cmp_entries));
     status = pvscsi_get_rsp(s, rsp);
@@ -269,11 +269,12 @@ pvscsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     if (!CONFIG_PVSCSI)
         return DISK_RET_EBADTRACK;
 
-    struct pvscsi_lun_s *plun =
-        container_of(op->drive_g, struct pvscsi_lun_s, drive);
+    struct pvscsi_lun_s *plun_gf =
+        container_of(op->drive_gf, struct pvscsi_lun_s, drive);
 
-    return pvscsi_cmd(plun, op, cdbcmd,
-                      GET_GLOBAL(plun->target), GET_GLOBAL(plun->lun),
+    return pvscsi_cmd(plun_gf, op, cdbcmd,
+                      GET_GLOBALFLAT(plun_gf->target),
+                      GET_GLOBALFLAT(plun_gf->lun),
                       blocksize);
 
 }

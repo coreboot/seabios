@@ -30,10 +30,9 @@ struct drive_s *cdemu_drive_gf VARFSEG;
 static int
 cdemu_read(struct disk_op_s *op)
 {
-    struct drive_s *drive_g;
-    drive_g = GLOBALFLAT2GLOBAL(GET_LOW(CDEmu.emulated_drive_gf));
+    struct drive_s *drive_gf = GET_LOW(CDEmu.emulated_drive_gf);
     struct disk_op_s dop;
-    dop.drive_g = drive_g;
+    dop.drive_gf = drive_gf;
     dop.command = op->command;
     dop.lba = GET_LOW(CDEmu.ilba) + op->lba / 4;
 
@@ -120,17 +119,17 @@ cdrom_prepboot(void)
     if (create_bounce_buf() < 0)
         return;
 
-    struct drive_s *drive_g = malloc_fseg(sizeof(*drive_g));
-    if (!drive_g) {
+    struct drive_s *drive = malloc_fseg(sizeof(*drive));
+    if (!drive) {
         warn_noalloc();
-        free(drive_g);
+        free(drive);
         return;
     }
-    cdemu_drive_gf = drive_g;
-    memset(drive_g, 0, sizeof(*drive_g));
-    drive_g->type = DTYPE_CDEMU;
-    drive_g->blksize = DISK_SECTOR_SIZE;
-    drive_g->sectors = (u64)-1;
+    cdemu_drive_gf = drive;
+    memset(drive, 0, sizeof(*drive));
+    drive->type = DTYPE_CDEMU;
+    drive->blksize = DISK_SECTOR_SIZE;
+    drive->sectors = (u64)-1;
 }
 
 #define SET_INT13ET(regs,var,val)                                      \
@@ -175,14 +174,14 @@ cdemu_134b(struct bregs *regs)
  ****************************************************************/
 
 int
-cdrom_boot(struct drive_s *drive_g)
+cdrom_boot(struct drive_s *drive)
 {
     ASSERT32FLAT();
     struct disk_op_s dop;
-    int cdid = getDriveId(EXTTYPE_CD, drive_g);
+    int cdid = getDriveId(EXTTYPE_CD, drive);
     memset(&dop, 0, sizeof(dop));
-    dop.drive_g = drive_g;
-    if (!dop.drive_g || cdid < 0)
+    dop.drive_gf = drive;
+    if (!dop.drive_gf || cdid < 0)
         return 1;
 
     int ret = scsi_is_ready(&dop);
@@ -231,7 +230,7 @@ cdrom_boot(struct drive_s *drive_g)
     u8 media = buffer[0x21];
     CDEmu.media = media;
 
-    CDEmu.emulated_drive_gf = dop.drive_g;
+    CDEmu.emulated_drive_gf = dop.drive_gf;
 
     u16 boot_segment = *(u16*)&buffer[0x22];
     if (!boot_segment)

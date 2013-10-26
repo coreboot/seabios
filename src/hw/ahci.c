@@ -102,15 +102,15 @@ static void ahci_port_writel(struct ahci_ctrl_s *ctrl, u32 pnr, u32 reg, u32 val
 }
 
 // submit ahci command + wait for result
-static int ahci_command(struct ahci_port_s *port, int iswrite, int isatapi,
+static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
                         void *buffer, u32 bsize)
 {
     u32 val, status, success, flags, intbits, error;
-    struct ahci_ctrl_s *ctrl = GET_GLOBAL(port->ctrl);
-    struct ahci_cmd_s  *cmd  = GET_GLOBAL(port->cmd);
-    struct ahci_fis_s  *fis  = GET_GLOBAL(port->fis);
-    struct ahci_list_s *list = GET_GLOBAL(port->list);
-    u32 pnr                  = GET_GLOBAL(port->pnr);
+    struct ahci_ctrl_s *ctrl = GET_GLOBALFLAT(port_gf->ctrl);
+    struct ahci_cmd_s  *cmd  = GET_GLOBALFLAT(port_gf->cmd);
+    struct ahci_fis_s  *fis  = GET_GLOBALFLAT(port_gf->fis);
+    struct ahci_list_s *list = GET_GLOBALFLAT(port_gf->list);
+    u32 pnr                  = GET_GLOBALFLAT(port_gf->pnr);
 
     SET_LOWFLAT(cmd->fis.reg,       0x27);
     SET_LOWFLAT(cmd->fis.pmp_type,  (1 << 7)); /* cmd fis */
@@ -218,9 +218,9 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     if (! CONFIG_AHCI)
         return 0;
 
-    struct ahci_port_s *port = container_of(
-        op->drive_g, struct ahci_port_s, drive);
-    struct ahci_cmd_s *cmd = GET_GLOBAL(port->cmd);
+    struct ahci_port_s *port_gf = container_of(
+        op->drive_gf, struct ahci_port_s, drive);
+    struct ahci_cmd_s *cmd = GET_GLOBALFLAT(port_gf->cmd);
     u8 *atapi = cdbcmd;
     int i, rc;
 
@@ -228,7 +228,7 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     for (i = 0; i < CDROM_CDB_SIZE; i++) {
         SET_LOWFLAT(cmd->atapi[i], atapi[i]);
     }
-    rc = ahci_command(port, 0, 1, op->buf_fl,
+    rc = ahci_command(port_gf, 0, 1, op->buf_fl,
                       op->count * blocksize);
     if (rc < 0)
         return DISK_RET_EBADTRACK;
@@ -239,13 +239,13 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 static int
 ahci_disk_readwrite_aligned(struct disk_op_s *op, int iswrite)
 {
-    struct ahci_port_s *port = container_of(
-        op->drive_g, struct ahci_port_s, drive);
-    struct ahci_cmd_s *cmd = GET_GLOBAL(port->cmd);
+    struct ahci_port_s *port_gf = container_of(
+        op->drive_gf, struct ahci_port_s, drive);
+    struct ahci_cmd_s *cmd = GET_GLOBALFLAT(port_gf->cmd);
     int rc;
 
     sata_prep_readwrite(&cmd->fis, op, iswrite);
-    rc = ahci_command(port, iswrite, 0, op->buf_fl,
+    rc = ahci_command(port_gf, iswrite, 0, op->buf_fl,
                       op->count * DISK_SECTOR_SIZE);
     dprintf(8, "ahci disk %s, lba %6x, count %3x, buf %p, rc %d\n",
             iswrite ? "write" : "read", (u32)op->lba, op->count, op->buf_fl, rc);

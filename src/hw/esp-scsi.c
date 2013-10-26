@@ -10,7 +10,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // scsi_drive_setup
 #include "config.h" // CONFIG_*
@@ -77,10 +77,10 @@ esp_scsi_dma(u32 iobase, u32 buf, u32 len, int read)
 }
 
 static int
-esp_scsi_cmd(struct esp_lun_s *llun, struct disk_op_s *op,
+esp_scsi_cmd(struct esp_lun_s *llun_gf, struct disk_op_s *op,
              u8 *cdbcmd, u16 target, u16 lun, u16 blocksize)
 {
-    u32 iobase = GET_GLOBAL(llun->iobase);
+    u32 iobase = GET_GLOBALFLAT(llun_gf->iobase);
     int i, state;
     u8 status;
 
@@ -150,11 +150,12 @@ esp_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     if (!CONFIG_ESP_SCSI)
         return DISK_RET_EBADTRACK;
 
-    struct esp_lun_s *llun =
-        container_of(op->drive_g, struct esp_lun_s, drive);
+    struct esp_lun_s *llun_gf =
+        container_of(op->drive_gf, struct esp_lun_s, drive);
 
-    return esp_scsi_cmd(llun, op, cdbcmd,
-                        GET_GLOBAL(llun->target), GET_GLOBAL(llun->lun),
+    return esp_scsi_cmd(llun_gf, op, cdbcmd,
+                        GET_GLOBALFLAT(llun_gf->target),
+                        GET_GLOBALFLAT(llun_gf->lun),
                         blocksize);
 }
 

@@ -7,7 +7,7 @@
 
 #include "ahci.h" // atapi_cmd_data
 #include "ata.h" // atapi_cmd_data
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "byteorder.h" // be32_to_cpu
@@ -27,7 +27,7 @@
 static int
 cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
-    u8 type = GET_GLOBAL(op->drive_g->type);
+    u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
     case DTYPE_ATA_ATAPI:
         return atapi_cmd_data(op, cdbcmd, blocksize);
@@ -64,7 +64,7 @@ cdb_is_read(u8 *cdbcmd, u16 blocksize)
 int
 scsi_is_ready(struct disk_op_s *op)
 {
-    dprintf(6, "scsi_is_ready (drive=%p)\n", op->drive_g);
+    dprintf(6, "scsi_is_ready (drive=%p)\n", op->drive_gf);
 
     /* Retry TEST UNIT READY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
@@ -111,7 +111,7 @@ scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
 {
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
-    dop.drive_g = drive;
+    dop.drive_gf = drive;
     struct cdbres_inquiry data;
     int ret = cdb_get_inquiry(&dop, &data);
     if (ret)
@@ -268,7 +268,7 @@ cdb_read(struct disk_op_s *op)
     cmd.command = CDB_CMD_READ_10;
     cmd.lba = cpu_to_be32(op->lba);
     cmd.count = cpu_to_be16(op->count);
-    return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
+    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
 }
 
 // Write sectors.
@@ -280,5 +280,5 @@ cdb_write(struct disk_op_s *op)
     cmd.command = CDB_CMD_WRITE_10;
     cmd.lba = cpu_to_be32(op->lba);
     cmd.count = cpu_to_be16(op->count);
-    return cdb_cmd_data(op, &cmd, GET_GLOBAL(op->drive_g->blksize));
+    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
 }

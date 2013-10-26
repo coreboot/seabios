@@ -7,7 +7,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // scsi_drive_setup
 #include "config.h" // CONFIG_*
@@ -89,12 +89,13 @@ virtio_scsi_cmd(u16 ioaddr, struct vring_virtqueue *vq, struct disk_op_s *op,
 int
 virtio_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
-    struct virtio_lun_s *vlun =
-        container_of(op->drive_g, struct virtio_lun_s, drive);
+    struct virtio_lun_s *vlun_gf =
+        container_of(op->drive_gf, struct virtio_lun_s, drive);
 
-    return virtio_scsi_cmd(GET_GLOBAL(vlun->ioaddr),
-                           GET_GLOBAL(vlun->vq), op, cdbcmd,
-                           GET_GLOBAL(vlun->target), GET_GLOBAL(vlun->lun),
+    return virtio_scsi_cmd(GET_GLOBALFLAT(vlun_gf->ioaddr),
+                           GET_GLOBALFLAT(vlun_gf->vq), op, cdbcmd,
+                           GET_GLOBALFLAT(vlun_gf->target),
+                           GET_GLOBALFLAT(vlun_gf->lun),
                            blocksize);
 }
 

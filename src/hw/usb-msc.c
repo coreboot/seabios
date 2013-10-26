@@ -4,7 +4,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBAL
+#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // DTYPE_USB
 #include "blockcmd.h" // cdb_read
 #include "config.h" // CONFIG_USB_MSC
@@ -51,13 +51,13 @@ struct csw_s {
 } PACKED;
 
 static int
-usb_msc_send(struct usbdrive_s *udrive_g, int dir, void *buf, u32 bytes)
+usb_msc_send(struct usbdrive_s *udrive_gf, int dir, void *buf, u32 bytes)
 {
     struct usb_pipe *pipe;
     if (dir == USB_DIR_OUT)
-        pipe = GET_GLOBAL(udrive_g->bulkout);
+        pipe = GET_GLOBALFLAT(udrive_gf->bulkout);
     else
-        pipe = GET_GLOBAL(udrive_g->bulkin);
+        pipe = GET_GLOBALFLAT(udrive_gf->bulkin);
     return usb_send_bulk(pipe, dir, buf, bytes);
 }
 
@@ -69,9 +69,9 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return 0;
 
     dprintf(16, "usb_cmd_data id=%p write=%d count=%d bs=%d buf=%p\n"
-            , op->drive_g, 0, op->count, blocksize, op->buf_fl);
-    struct usbdrive_s *udrive_g = container_of(
-        op->drive_g, struct usbdrive_s, drive);
+            , op->drive_gf, 0, op->count, blocksize, op->buf_fl);
+    struct usbdrive_s *udrive_gf = container_of(
+        op->drive_gf, struct usbdrive_s, drive);
 
     // Setup command block wrapper.
     u32 bytes = blocksize * op->count;
@@ -82,26 +82,26 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     cbw.dCBWTag = 999; // XXX
     cbw.dCBWDataTransferLength = bytes;
     cbw.bmCBWFlags = cdb_is_read(cdbcmd, blocksize) ? USB_DIR_IN : USB_DIR_OUT;
-    cbw.bCBWLUN = GET_GLOBAL(udrive_g->lun);
+    cbw.bCBWLUN = GET_GLOBALFLAT(udrive_gf->lun);
     cbw.bCBWCBLength = USB_CDB_SIZE;
 
     // Transfer cbw to device.
-    int ret = usb_msc_send(udrive_g, USB_DIR_OUT
+    int ret = usb_msc_send(udrive_gf, USB_DIR_OUT
                            , MAKE_FLATPTR(GET_SEG(SS), &cbw), sizeof(cbw));
     if (ret)
         goto fail;
 
     // Transfer data to/from device.
     if (bytes) {
-        ret = usb_msc_send(udrive_g, cbw.bmCBWFlags, op->buf_fl, bytes);
+        ret = usb_msc_send(udrive_gf, cbw.bmCBWFlags, op->buf_fl, bytes);
         if (ret)
             goto fail;
     }
 
     // Transfer csw info.
     struct csw_s csw;
-    ret = usb_msc_send(udrive_g, USB_DIR_IN
-                        , MAKE_FLATPTR(GET_SEG(SS), &csw), sizeof(csw));
+    ret = usb_msc_send(udrive_gf, USB_DIR_IN
+                       , MAKE_FLATPTR(GET_SEG(SS), &csw), sizeof(csw));
     if (ret)
         goto fail;
 
@@ -142,22 +142,22 @@ usb_msc_lun_setup(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
                   struct usbdevice_s *usbdev, int lun)
 {
     // Allocate drive structure.
-    struct usbdrive_s *udrive_g = malloc_fseg(sizeof(*udrive_g));
-    if (!udrive_g) {
+    struct usbdrive_s *drive = malloc_fseg(sizeof(*drive));
+    if (!drive) {
         warn_noalloc();
         return -1;
     }
-    memset(udrive_g, 0, sizeof(*udrive_g));
-    udrive_g->drive.type = DTYPE_USB;
-    udrive_g->bulkin = inpipe;
-    udrive_g->bulkout = outpipe;
-    udrive_g->lun = lun;
+    memset(drive, 0, sizeof(*drive));
+    drive->drive.type = DTYPE_USB;
+    drive->bulkin = inpipe;
+    drive->bulkout = outpipe;
+    drive->lun = lun;
 
     int prio = bootprio_find_usb(usbdev, lun);
-    int ret = scsi_drive_setup(&udrive_g->drive, "USB MSC", prio);
+    int ret = scsi_drive_setup(&drive->drive, "USB MSC", prio);
     if (ret) {
         dprintf(1, "Unable to configure USB MSC drive.\n");
-        free(udrive_g);
+        free(drive);
         return -1;
     }
     return 0;

@@ -11,7 +11,7 @@
 struct disk_op_s {
     u64 lba;
     void *buf_fl;
-    struct drive_s *drive_g;
+    struct drive_s *drive_gf;
     u16 count;
     u8 command;
 };
@@ -109,10 +109,10 @@ extern struct dpte_s DefaultDPTE;
 extern u8 FloppyCount, CDCount;
 extern u8 *bounce_buf_fl;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
-int getDriveId(u8 exttype, struct drive_s *drive_g);
-void map_floppy_drive(struct drive_s *drive_g);
-void map_hd_drive(struct drive_s *drive_g);
-void map_cd_drive(struct drive_s *drive_g);
+int getDriveId(u8 exttype, struct drive_s *drive);
+void map_floppy_drive(struct drive_s *drive);
+void map_hd_drive(struct drive_s *drive);
+void map_cd_drive(struct drive_s *drive);
 struct bregs;
 void __disk_ret(struct bregs *regs, u32 linecode, const char *fname);
 void __disk_ret_unimplemented(struct bregs *regs, u32 linecode
