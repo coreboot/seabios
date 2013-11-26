@@ -579,6 +579,8 @@ static void pci_region_migrate_64bit_entries(struct pci_region *from,
     hlist_for_each_entry_safe(entry, n, &from->list, node) {
         if (!entry->is64)
             continue;
+        if (entry->dev->class == PCI_CLASS_SERIAL_USB)
+            continue;
         // Move from source list to destination list.
         hlist_del(&entry->node);
         hlist_add(&entry->node, last);
