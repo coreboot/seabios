@@ -783,10 +783,15 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         u64 align_mem = pci_region_align(&r64_mem);
         u64 align_pref = pci_region_align(&r64_pref);
 
-        r64_mem.base = ALIGN(0x100000000LL + RamSizeOver4G, align_mem);
-        r64_pref.base = ALIGN(r64_mem.base + sum_mem, align_pref);
+        r64_mem.base = 0x100000000LL + RamSizeOver4G;
+        r64_mem.base = ALIGN(r64_mem.base, align_mem);
+        r64_mem.base = ALIGN(r64_mem.base, (1LL<<30));    // 1G hugepage
+        r64_pref.base = r64_mem.base + sum_mem;
+        r64_pref.base = ALIGN(r64_pref.base, align_pref);
+        r64_pref.base = ALIGN(r64_pref.base, (1LL<<30));  // 1G hugepage
         pcimem64_start = r64_mem.base;
         pcimem64_end = r64_pref.base + sum_pref;
+        pcimem64_end = ALIGN(pcimem64_end, (1LL<<30));    // 1G hugepage
 
         pci_region_map_entries(busses, &r64_mem);
         pci_region_map_entries(busses, &r64_pref);
