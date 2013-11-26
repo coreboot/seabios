@@ -27,7 +27,7 @@
 static void sata_prep_simple(struct sata_cmd_fis *fis, u8 command)
 {
     memset_fl(fis, 0, sizeof(*fis));
-    SET_LOWFLAT(fis->command, command);
+    fis->command = command;
 }
 
 static void sata_prep_readwrite(struct sata_cmd_fis *fis,
@@ -39,10 +39,10 @@ static void sata_prep_readwrite(struct sata_cmd_fis *fis,
     memset_fl(fis, 0, sizeof(*fis));
 
     if (op->count >= (1<<8) || lba + op->count >= (1<<28)) {
-        SET_LOWFLAT(fis->sector_count2, op->count >> 8);
-        SET_LOWFLAT(fis->lba_low2,      lba >> 24);
-        SET_LOWFLAT(fis->lba_mid2,      lba >> 32);
-        SET_LOWFLAT(fis->lba_high2,     lba >> 40);
+        fis->sector_count2 = op->count >> 8;
+        fis->lba_low2      = lba >> 24;
+        fis->lba_mid2      = lba >> 32;
+        fis->lba_high2     = lba >> 40;
         lba &= 0xffffff;
         command = (iswrite ? ATA_CMD_WRITE_DMA_EXT
                    : ATA_CMD_READ_DMA_EXT);
@@ -50,34 +50,34 @@ static void sata_prep_readwrite(struct sata_cmd_fis *fis,
         command = (iswrite ? ATA_CMD_WRITE_DMA
                    : ATA_CMD_READ_DMA);
     }
-    SET_LOWFLAT(fis->feature,      1); /* dma */
-    SET_LOWFLAT(fis->command,      command);
-    SET_LOWFLAT(fis->sector_count, op->count);
-    SET_LOWFLAT(fis->lba_low,      lba);
-    SET_LOWFLAT(fis->lba_mid,      lba >> 8);
-    SET_LOWFLAT(fis->lba_high,     lba >> 16);
-    SET_LOWFLAT(fis->device,       ((lba >> 24) & 0xf) | ATA_CB_DH_LBA);
+    fis->feature      = 1; /* dma */
+    fis->command      = command;
+    fis->sector_count = op->count;
+    fis->lba_low      = lba;
+    fis->lba_mid      = lba >> 8;
+    fis->lba_high     = lba >> 16;
+    fis->device       = ((lba >> 24) & 0xf) | ATA_CB_DH_LBA;
 }
 
 static void sata_prep_atapi(struct sata_cmd_fis *fis, u16 blocksize)
 {
     memset_fl(fis, 0, sizeof(*fis));
-    SET_LOWFLAT(fis->command,  ATA_CMD_PACKET);
-    SET_LOWFLAT(fis->feature,  1); /* dma */
-    SET_LOWFLAT(fis->lba_mid,  blocksize);
-    SET_LOWFLAT(fis->lba_high, blocksize >> 8);
+    fis->command  = ATA_CMD_PACKET;
+    fis->feature  = 1; /* dma */
+    fis->lba_mid  = blocksize;
+    fis->lba_high = blocksize >> 8;
 }
 
 // ahci register access helpers
 static u32 ahci_ctrl_readl(struct ahci_ctrl_s *ctrl, u32 reg)
 {
-    u32 addr = GET_GLOBALFLAT(ctrl->iobase) + reg;
+    u32 addr = ctrl->iobase + reg;
     return readl((void*)addr);
 }
 
 static void ahci_ctrl_writel(struct ahci_ctrl_s *ctrl, u32 reg, u32 val)
 {
-    u32 addr = GET_GLOBALFLAT(ctrl->iobase) + reg;
+    u32 addr = ctrl->iobase + reg;
     writel((void*)addr, val);
 }
 
@@ -106,26 +106,26 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
                         void *buffer, u32 bsize)
 {
     u32 val, status, success, flags, intbits, error;
-    struct ahci_ctrl_s *ctrl = GET_GLOBALFLAT(port_gf->ctrl);
-    struct ahci_cmd_s  *cmd  = GET_GLOBALFLAT(port_gf->cmd);
-    struct ahci_fis_s  *fis  = GET_GLOBALFLAT(port_gf->fis);
-    struct ahci_list_s *list = GET_GLOBALFLAT(port_gf->list);
-    u32 pnr                  = GET_GLOBALFLAT(port_gf->pnr);
+    struct ahci_ctrl_s *ctrl = port_gf->ctrl;
+    struct ahci_cmd_s  *cmd  = port_gf->cmd;
+    struct ahci_fis_s  *fis  = port_gf->fis;
+    struct ahci_list_s *list = port_gf->list;
+    u32 pnr                  = port_gf->pnr;
 
-    SET_LOWFLAT(cmd->fis.reg,       0x27);
-    SET_LOWFLAT(cmd->fis.pmp_type,  (1 << 7)); /* cmd fis */
-    SET_LOWFLAT(cmd->prdt[0].base,  ((u32)buffer));
-    SET_LOWFLAT(cmd->prdt[0].baseu, 0);
-    SET_LOWFLAT(cmd->prdt[0].flags, bsize-1);
+    cmd->fis.reg       = 0x27;
+    cmd->fis.pmp_type  = (1 << 7); /* cmd fis */
+    cmd->prdt[0].base  = ((u32)buffer);
+    cmd->prdt[0].baseu = 0;
+    cmd->prdt[0].flags = bsize-1;
 
     flags = ((1 << 16) | /* one prd entry */
              (iswrite ? (1 << 6) : 0) |
              (isatapi ? (1 << 5) : 0) |
              (5 << 0)); /* fis length (dwords) */
-    SET_LOWFLAT(list[0].flags,  flags);
-    SET_LOWFLAT(list[0].bytes,  0);
-    SET_LOWFLAT(list[0].base,   ((u32)(cmd)));
-    SET_LOWFLAT(list[0].baseu,  0);
+    list[0].flags  = flags;
+    list[0].bytes  = 0;
+    list[0].base   = ((u32)(cmd));
+    list[0].baseu  = 0;
 
     dprintf(8, "AHCI/%d: send cmd ...\n", pnr);
     intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
@@ -220,13 +220,13 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 
     struct ahci_port_s *port_gf = container_of(
         op->drive_gf, struct ahci_port_s, drive);
-    struct ahci_cmd_s *cmd = GET_GLOBALFLAT(port_gf->cmd);
+    struct ahci_cmd_s *cmd = port_gf->cmd;
     u8 *atapi = cdbcmd;
     int i, rc;
 
     sata_prep_atapi(&cmd->fis, blocksize);
     for (i = 0; i < CDROM_CDB_SIZE; i++) {
-        SET_LOWFLAT(cmd->atapi[i], atapi[i]);
+        cmd->atapi[i] = atapi[i];
     }
     rc = ahci_command(port_gf, 0, 1, op->buf_fl,
                       op->count * blocksize);
@@ -241,7 +241,7 @@ ahci_disk_readwrite_aligned(struct disk_op_s *op, int iswrite)
 {
     struct ahci_port_s *port_gf = container_of(
         op->drive_gf, struct ahci_port_s, drive);
-    struct ahci_cmd_s *cmd = GET_GLOBALFLAT(port_gf->cmd);
+    struct ahci_cmd_s *cmd = port_gf->cmd;
     int rc;
 
     sata_prep_readwrite(&cmd->fis, op, iswrite);
@@ -265,7 +265,7 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
     // Use a word aligned buffer for AHCI I/O
     int rc;
     struct disk_op_s localop = *op;
-    u8 *alignedbuf_fl = GET_GLOBAL(bounce_buf_fl);
+    u8 *alignedbuf_fl = bounce_buf_fl;
     u8 *position = op->buf_fl;
 
     localop.buf_fl = alignedbuf_fl;
