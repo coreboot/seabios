@@ -20,9 +20,9 @@
 #include "util.h" // pci_setup
 #include "x86.h" // outb
 
-#define PCI_DEVICE_MEM_MIN     0x1000
-#define PCI_BRIDGE_IO_MIN      0x1000
-#define PCI_BRIDGE_MEM_MIN   0x100000
+#define PCI_DEVICE_MEM_MIN    (1<<12)  // 4k == page size
+#define PCI_BRIDGE_MEM_MIN    (1<<21)  // 2M == hugepage size
+#define PCI_BRIDGE_IO_MIN      0x1000  // mandated by pci bridge spec
 
 enum pci_region_type {
     PCI_REGION_TYPE_IO,
