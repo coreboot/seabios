@@ -113,8 +113,8 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
     u32 pnr                  = port_gf->pnr;
 
     cmd->fis.reg       = 0x27;
-    cmd->fis.pmp_type  = (1 << 7); /* cmd fis */
-    cmd->prdt[0].base  = ((u32)buffer);
+    cmd->fis.pmp_type  = 1 << 7; /* cmd fis */
+    cmd->prdt[0].base  = (u32)buffer;
     cmd->prdt[0].baseu = 0;
     cmd->prdt[0].flags = bsize-1;
 
@@ -124,7 +124,7 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
              (5 << 0)); /* fis length (dwords) */
     list[0].flags  = flags;
     list[0].bytes  = 0;
-    list[0].base   = ((u32)(cmd));
+    list[0].base   = (u32)(cmd);
     list[0].baseu  = 0;
 
     dprintf(8, "AHCI/%d: send cmd ...\n", pnr);
