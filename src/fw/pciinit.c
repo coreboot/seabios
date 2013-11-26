@@ -766,6 +766,7 @@ static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
+    dprintf(1, "PCI: 32: %016llx - %016llx\n", pcimem_start, pcimem_end);
     if (pci_bios_init_root_regions(busses)) {
         struct pci_region r64_mem, r64_pref;
         r64_mem.list.first = NULL;
@@ -792,6 +793,7 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         pcimem64_start = r64_mem.base;
         pcimem64_end = r64_pref.base + sum_pref;
         pcimem64_end = ALIGN(pcimem64_end, (1LL<<30));    // 1G hugepage
+        dprintf(1, "PCI: 64: %016llx - %016llx\n", pcimem64_start, pcimem64_end);
 
         pci_region_map_entries(busses, &r64_mem);
         pci_region_map_entries(busses, &r64_pref);
