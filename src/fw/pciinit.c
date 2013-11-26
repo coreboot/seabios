@@ -582,6 +582,7 @@ static void pci_region_migrate_64bit_entries(struct pci_region *from,
         // Move from source list to destination list.
         hlist_del(&entry->node);
         hlist_add(&entry->node, last);
+        last = &entry->node.next;
     }
 }
 
