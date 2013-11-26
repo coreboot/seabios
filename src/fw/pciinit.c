@@ -19,6 +19,8 @@
 #include "string.h" // memset
 #include "util.h" // pci_setup
 #include "x86.h" // outb
+#include "byteorder.h" // le64_to_cpu
+#include "romfile.h" // romfile_loadint
 
 #define PCI_DEVICE_MEM_MIN    (1<<12)  // 4k == page size
 #define PCI_BRIDGE_MEM_MIN    (1<<21)  // 2M == hugepage size
@@ -784,7 +786,9 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         u64 align_mem = pci_region_align(&r64_mem);
         u64 align_pref = pci_region_align(&r64_pref);
 
-        r64_mem.base = 0x100000000LL + RamSizeOver4G;
+        r64_mem.base = le64_to_cpu(romfile_loadint("etc/reserved-memory-end", 0));
+        if (r64_mem.base < 0x100000000LL + RamSizeOver4G)
+            r64_mem.base = 0x100000000LL + RamSizeOver4G;
         r64_mem.base = ALIGN(r64_mem.base, align_mem);
         r64_mem.base = ALIGN(r64_mem.base, (1LL<<30));    // 1G hugepage
         r64_pref.base = r64_mem.base + sum_mem;
