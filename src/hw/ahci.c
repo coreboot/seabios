@@ -403,9 +403,9 @@ static struct ahci_port_s* ahci_port_realloc(struct ahci_port_s *port)
     free(port->list);
     free(port->fis);
     free(port->cmd);
-    port->list = memalign_low(1024, 1024);
-    port->fis = memalign_low(256, 256);
-    port->cmd = memalign_low(256, 256);
+    port->list = memalign_high(1024, 1024);
+    port->fis = memalign_high(256, 256);
+    port->cmd = memalign_high(256, 256);
 
     ahci_port_writel(port->ctrl, port->pnr, PORT_LST_ADDR, (u32)port->list);
     ahci_port_writel(port->ctrl, port->pnr, PORT_FIS_ADDR, (u32)port->fis);
