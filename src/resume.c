@@ -25,7 +25,7 @@ void VISIBLE16
 handle_resume(void)
 {
     ASSERT16();
-    debug_serial_preinit();
+    debug_preinit();
     int status = rtc_read(CMOS_RESET_CODE);
     rtc_write(CMOS_RESET_CODE, 0);
     dprintf(1, "In resume (status=%d)\n", status);

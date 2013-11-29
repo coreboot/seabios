@@ -5,6 +5,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h"
+#include "hw/serialio.h" // DebugOutputPort
 #include "malloc.h" // memalign_high
 #include "memmap.h" // add_e820
 #include "output.h" // dprintf

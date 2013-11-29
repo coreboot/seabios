@@ -1283,7 +1283,7 @@ int HaveRunInit VAR16;
 void VISIBLE16
 vga_post(struct bregs *regs)
 {
-    debug_serial_preinit();
+    debug_preinit();
     dprintf(1, "Start SeaVGABIOS (version %s)\n", VERSION);
     debug_enter(regs, DEBUG_VGA_POST);
 

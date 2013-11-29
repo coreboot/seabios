@@ -317,7 +317,7 @@ handle_post(void)
     if (!CONFIG_QEMU && !CONFIG_COREBOOT)
         return;
 
-    debug_serial_preinit();
+    debug_preinit();
     dprintf(1, "Start bios (version %s)\n", VERSION);
 
     // Check if we are running under Xen.

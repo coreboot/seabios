@@ -202,7 +202,7 @@ fail:
     return;
 }
 
-void debug_cbmem(char c)
+void coreboot_debug_putc(char c)
 {
     if (!CONFIG_DEBUG_COREBOOT)
         return;

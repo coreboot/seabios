@@ -78,7 +78,7 @@ void *find_acpi_rsdp(void);
 // fw/coreboot.c
 extern const char *CBvendor, *CBpart;
 struct cbfs_file;
-void debug_cbmem(char c);
+void coreboot_debug_putc(char c);
 void cbfs_run_payload(struct cbfs_file *file);
 void coreboot_platform_setup(void);
 void cbfs_payload_setup(void);

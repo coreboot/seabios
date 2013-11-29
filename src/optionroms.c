@@ -45,7 +45,7 @@ __callrom(struct rom_header *rom, u16 offset, u16 bdf)
     farcall16big(&br);
     finish_preempt();
 
-    debug_serial_preinit();
+    debug_preinit();
 }
 
 // Execute a given option rom at the standard entry vector.
