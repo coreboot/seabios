@@ -318,14 +318,13 @@ bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
     if (!GET_GLOBAL(dispi_found))
         return -1;
 
-    u8 depth = GET_GLOBAL(vmode_g->depth);
-    if (depth == 4)
+    u8 memmodel = GET_GLOBAL(vmode_g->memmodel);
+    if (memmodel == MM_PLANAR)
         stdvga_set_mode(stdvga_find_mode(0x6a), 0);
-    if (depth == 8)
-        // XXX load_dac_palette(3);
-        ;
+    if (memmodel == MM_PACKED && !(flags & MF_NOPALETTE))
+        stdvga_set_packed_palette();
 
-    dispi_write(VBE_DISPI_INDEX_BPP, depth);
+    dispi_write(VBE_DISPI_INDEX_BPP, GET_GLOBAL(vmode_g->depth));
     u16 width = GET_GLOBAL(vmode_g->width);
     u16 height = GET_GLOBAL(vmode_g->height);
     dispi_write(VBE_DISPI_INDEX_XRES, width);
@@ -353,7 +352,7 @@ bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
     stdvga_attr_mask(0x10, 0x00, 0x01);
     stdvga_grdc_write(0x06, 0x05);
     stdvga_sequ_write(0x02, 0x0f);
-    if (depth >= 8) {
+    if (memmodel != MM_PLANAR) {
         stdvga_crtc_mask(crtc_addr, 0x14, 0x00, 0x40);
         stdvga_attr_mask(0x10, 0x00, 0x40);
         stdvga_sequ_mask(0x04, 0x00, 0x08);

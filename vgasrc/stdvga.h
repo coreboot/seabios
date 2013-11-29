@@ -50,6 +50,7 @@ void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
 void stdvga_build_video_param(void);
 void stdvga_override_crtc(int mode, u8 *crtc);
 int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
+void stdvga_set_packed_palette(void);
 
 // stdvgaio.c
 u8 stdvga_pelmask_read(void);

@@ -466,6 +466,8 @@ clext_set_mode(struct vgamode_s *vmode_g, int flags)
     struct cirrus_mode_s *table_g = container_of(
         vmode_g, struct cirrus_mode_s, info);
     cirrus_switch_mode(table_g);
+    if (GET_GLOBAL(vmode_g->memmodel) == MM_PACKED && !(flags & MF_NOPALETTE))
+        stdvga_set_packed_palette();
     if (!(flags & MF_LINEARFB))
         cirrus_enable_16k_granularity();
     if (!(flags & MF_NOCLEARMEM))

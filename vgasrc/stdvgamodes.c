@@ -505,3 +505,10 @@ stdvga_set_mode(struct vgamode_s *vmode_g, int flags)
 
     return 0;
 }
+
+// Load the standard palette associated with 8bpp packed pixel vga modes.
+void
+stdvga_set_packed_palette(void)
+{
+    stdvga_dac_write(get_global_seg(), palette3, 0, sizeof(palette3) / 3);
+}
