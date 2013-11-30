@@ -1,4 +1,4 @@
-// Option rom scanning code.
+// Initialize the VGA console and possibly show a boot splash image.
 //
 // Copyright (C) 2009-2010  coresystems GmbH
 // Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
