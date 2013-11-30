@@ -212,6 +212,8 @@ bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
     if (GET_GLOBAL(dispi_found)) {
         int bpp = vga_bpp(vmode_g);
         int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
+        if (!linelength)
+            return 0;
         dispi_write(VBE_DISPI_INDEX_X_OFFSET, (val % linelength) * 8 / bpp);
         dispi_write(VBE_DISPI_INDEX_Y_OFFSET, val / linelength);
     }
