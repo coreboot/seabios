@@ -44,17 +44,34 @@ _rom_header_signature:
  * Entry points
  ****************************************************************/
 
+        // This macro is the same as ENTRY_ARG except the "calll"
+        // instruction is avoided to work around known issues in the
+        // emulation of some versions of x86emu.
+        .macro ENTRY_ARG_VGA cfunc
+        cli
+        cld
+        PUSHBREGS
+        movw %ss, %ax           // Move %ss to %ds
+        movw %ax, %ds
+        movl %esp, %ebx         // Backup %esp, then zero high bits
+        movzwl %sp, %esp
+        movl %esp, %eax         // First arg is pointer to struct bregs
+        pushw %ax ; callw \cfunc
+        movl %ebx, %esp         // Restore %esp (including high bits)
+        POPBREGS
+        .endm
+
         DECLFUNC entry_104f05
 entry_104f05:
-        ENTRY_ARG vbe_104f05
+        ENTRY_ARG_VGA vbe_104f05
         lretw
 
         DECLFUNC _optionrom_entry
 _optionrom_entry:
-        ENTRY_ARG vga_post
+        ENTRY_ARG_VGA vga_post
         lretw
 
         DECLFUNC entry_10
 entry_10:
-        ENTRY_ARG handle_10
+        ENTRY_ARG_VGA handle_10
         iretw

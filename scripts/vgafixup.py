@@ -28,6 +28,8 @@ def main():
             out.append('retw $2\n')
         elif sline == 'leave':
             out.append('movl %ebp, %esp ; popl %ebp\n')
+        elif sline.startswith('call'):
+            out.append('pushw %ax ; callw' + sline[4:] + '\n')
         else:
             out.append(line)
     infile.close()
