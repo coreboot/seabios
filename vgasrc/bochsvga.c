@@ -69,6 +69,9 @@ static struct bochsvga_mode
     { 0x14a, { MM_DIRECT, 1152, 864,  16, 8, 16, SEG_GRAPH } },
     { 0x14b, { MM_DIRECT, 1152, 864,  24, 8, 16, SEG_GRAPH } },
     { 0x14c, { MM_DIRECT, 1152, 864,  32, 8, 16, SEG_GRAPH } },
+    { 0x175, { MM_DIRECT, 1280, 768,  16, 8, 16, SEG_GRAPH } },
+    { 0x176, { MM_DIRECT, 1280, 768,  24, 8, 16, SEG_GRAPH } },
+    { 0x177, { MM_DIRECT, 1280, 768,  32, 8, 16, SEG_GRAPH } },
     { 0x178, { MM_DIRECT, 1280, 800,  16, 8, 16, SEG_GRAPH } },
     { 0x179, { MM_DIRECT, 1280, 800,  24, 8, 16, SEG_GRAPH } },
     { 0x17a, { MM_DIRECT, 1280, 800,  32, 8, 16, SEG_GRAPH } },
@@ -90,6 +93,12 @@ static struct bochsvga_mode
     { 0x18a, { MM_DIRECT, 2560, 1600, 16, 8, 16, SEG_GRAPH } },
     { 0x18b, { MM_DIRECT, 2560, 1600, 24, 8, 16, SEG_GRAPH } },
     { 0x18c, { MM_DIRECT, 2560, 1600, 32, 8, 16, SEG_GRAPH } },
+    { 0x18d, { MM_DIRECT, 1280, 720,  16, 8, 16, SEG_GRAPH } },
+    { 0x18e, { MM_DIRECT, 1280, 720,  24, 8, 16, SEG_GRAPH } },
+    { 0x18f, { MM_DIRECT, 1280, 720,  32, 8, 16, SEG_GRAPH } },
+    { 0x190, { MM_DIRECT, 1920, 1080, 16, 8, 16, SEG_GRAPH } },
+    { 0x191, { MM_DIRECT, 1920, 1080, 24, 8, 16, SEG_GRAPH } },
+    { 0x192, { MM_DIRECT, 1920, 1080, 32, 8, 16, SEG_GRAPH } },
 };
 
 static int dispi_found VAR16 = 0;
