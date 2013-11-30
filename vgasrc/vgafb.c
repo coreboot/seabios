@@ -43,7 +43,7 @@ static void
 scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
            , struct cursorpos ul, struct cursorpos lr)
 {
-    int cheight = GET_GLOBAL(vmode_g->cheight);
+    int cheight = GET_BDA(char_height);
     int cwidth = 1;
     int stride = GET_BDA(video_cols) * cwidth;
     void *src_far, *dest_far;
@@ -79,7 +79,7 @@ static void
 scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
             , struct cursorpos ul, struct cursorpos lr)
 {
-    int cheight = GET_GLOBAL(vmode_g->cheight) / 2;
+    int cheight = GET_BDA(char_height) / 2;
     int cwidth = GET_GLOBAL(vmode_g->depth);
     int stride = GET_BDA(video_cols) * cwidth;
     void *src_far, *dest_far;
@@ -117,7 +117,7 @@ static void
 scroll_lin(struct vgamode_s *vmode_g, int nblines, int attr
            , struct cursorpos ul, struct cursorpos lr)
 {
-    int cheight = 8;
+    int cheight = GET_BDA(char_height);
     int cwidth = 8;
     int stride = GET_BDA(video_cols) * cwidth;
     void *src_far, *dest_far;
@@ -206,6 +206,21 @@ vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
  * Read/write characters to screen
  ****************************************************************/
 
+static struct segoff_s
+get_font_data(u8 c)
+{
+    int char_height = GET_BDA(char_height);
+    struct segoff_s font;
+    if (char_height == 8 && c >= 128) {
+        font = GET_IVT(0x1f);
+        c -= 128;
+    } else {
+        font = GET_IVT(0x43);
+    }
+    font.offset += c * char_height;
+    return font;
+}
+
 static void
 write_gfx_char_pl4(struct vgamode_s *vmode_g
                    , struct cursorpos cp, struct carattr ca)
@@ -214,28 +229,20 @@ write_gfx_char_pl4(struct vgamode_s *vmode_g
     if (cp.x >= nbcols)
         return;
 
-    u8 cheight = GET_GLOBAL(vmode_g->cheight);
-    u8 *fdata_g;
-    switch (cheight) {
-    case 14:
-        fdata_g = vgafont14;
-        break;
-    case 16:
-        fdata_g = vgafont16;
-        break;
-    default:
-        fdata_g = vgafont8;
-    }
-    u16 addr = cp.x + cp.y * cheight * nbcols;
-    u16 src = ca.car * cheight;
+    struct segoff_s font = get_font_data(ca.car);
+    int cheight = GET_BDA(char_height);
+    int cwidth = 1;
+    int stride = nbcols * cwidth;
+    int addr = cp.y * cheight * stride + cp.x * cwidth;
     int i;
     for (i=0; i<4; i++) {
         stdvga_planar4_plane(i);
         u8 colors = ((ca.attr & (1<<i)) ? 0xff : 0x00);
         int j;
         for (j = 0; j < cheight; j++) {
-            u8 *dest_far = (void*)(addr + j * nbcols);
-            u8 pixels = colors & GET_GLOBAL(fdata_g[src + j]);
+            u8 *dest_far = (void*)(addr + j * stride);
+            u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+j));
+            u8 pixels = colors & fontline;
             if (ca.attr & 0x80)
                 pixels ^= GET_FARVAR(SEG_GRAPH, *dest_far);
             SET_FARVAR(SEG_GRAPH, *dest_far, pixels);
@@ -252,29 +259,31 @@ write_gfx_char_cga(struct vgamode_s *vmode_g
     if (cp.x >= nbcols)
         return;
 
-    u8 *fdata_g = vgafont8;
-    u8 bpp = GET_GLOBAL(vmode_g->depth);
-    u16 addr = (cp.x * bpp) + cp.y * 320;
-    u16 src = ca.car * 8;
-    u8 i;
-    for (i = 0; i < 8; i++) {
-        u8 *dest_far = (void*)(addr + (i >> 1) * 80);
+    struct segoff_s font = get_font_data(ca.car);
+    int cheight = GET_BDA(char_height) / 2;
+    int cwidth = GET_GLOBAL(vmode_g->depth);
+    int stride = nbcols * cwidth;
+    int addr = cp.y * cheight * stride + cp.x * cwidth;
+    int i;
+    for (i = 0; i < cheight*2; i++) {
+        u8 *dest_far = (void*)(addr + (i >> 1) * stride);
         if (i & 1)
             dest_far += 0x2000;
-        if (bpp == 1) {
+        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
+        if (cwidth == 1) {
             u8 colors = (ca.attr & 0x01) ? 0xff : 0x00;
-            u8 pixels = colors & GET_GLOBAL(fdata_g[src + i]);
+            u8 pixels = colors & fontline;
             if (ca.attr & 0x80)
                 pixels ^= GET_FARVAR(SEG_GRAPH, *dest_far);
             SET_FARVAR(SEG_CTEXT, *dest_far, pixels);
         } else {
-            u16 pixels = 0;
-            u8 fontline = GET_GLOBAL(fdata_g[src + i]);
-            int j;
-            for (j = 0; j < 8; j++)
-                if (fontline & (1<<j))
-                    pixels |= (ca.attr & 0x03) << (j*2);
-            pixels = cpu_to_be16(pixels);
+            u16 fontline16 = ((fontline & 0xf0) << 4) | (fontline & 0x0f);
+            fontline16 = ((fontline16 & 0x0c0c) << 2) | (fontline16 & 0x0303);
+            fontline16 = ((fontline16 & 0x2222) << 1) | (fontline16 & 0x1111);
+            fontline16 |= fontline16<<1;
+            u16 colors = (((ca.attr & 0x01) ? 0x5555 : 0x0000)
+                          | ((ca.attr & 0x02) ? 0xaaaa : 0x0000));
+            u16 pixels = cpu_to_be16(colors & fontline16);
             if (ca.attr & 0x80)
                 pixels ^= GET_FARVAR(SEG_GRAPH, *(u16*)dest_far);
             SET_FARVAR(SEG_CTEXT, *(u16*)dest_far, pixels);
@@ -291,14 +300,16 @@ write_gfx_char_lin(struct vgamode_s *vmode_g
     if (cp.x >= nbcols)
         return;
 
-    u8 *fdata_g = vgafont8;
-    u16 addr = cp.x * 8 + cp.y * nbcols * 64;
-    u16 src = ca.car * 8;
-    u8 i;
-    for (i = 0; i < 8; i++) {
-        u8 *dest_far = (void*)(addr + i * nbcols * 8);
-        u8 fontline = GET_GLOBAL(fdata_g[src + i]);
-        u8 j;
+    struct segoff_s font = get_font_data(ca.car);
+    int cheight = GET_BDA(char_height);
+    int cwidth = 8;
+    int stride = nbcols * cwidth;
+    int addr = cp.y * cheight * stride + cp.x * cwidth;
+    int i;
+    for (i = 0; i < cheight; i++) {
+        u8 *dest_far = (void*)(addr + i * stride);
+        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
+        int j;
         for (j = 0; j < 8; j++) {
             u8 pixel = (fontline & (0x80>>j)) ? ca.attr : 0x00;
             SET_FARVAR(SEG_GRAPH, dest_far[j], pixel);
@@ -310,16 +321,16 @@ static void
 write_text_char(struct vgamode_s *vmode_g
                 , struct cursorpos cp, struct carattr ca)
 {
-    // Compute the address
-    u16 nbcols = GET_BDA(video_cols);
-    void *address_far = (void*)(GET_BDA(video_pagesize) * cp.page
-                                + (cp.x + cp.y * nbcols) * 2);
-
+    int cheight = 1;
+    int cwidth = 2;
+    int stride = GET_BDA(video_cols) * cwidth;
+    int addr = cp.y * cheight * stride + cp.x * cwidth;
+    void *dest_far = (void*)(GET_BDA(video_pagesize) * cp.page + addr);
     if (ca.use_attr) {
         u16 dummy = (ca.attr << 8) | ca.car;
-        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u16*)address_far, dummy);
+        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u16*)dest_far, dummy);
     } else {
-        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)address_far, ca.car);
+        SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)dest_far, ca.car);
     }
 }
 
@@ -366,10 +377,12 @@ vgafb_read_char(struct cursorpos cp)
     }
 
     // Compute the address
-    u16 nbcols = GET_BDA(video_cols);
-    u16 *address_far = (void*)(GET_BDA(video_pagesize) * cp.page
-                               + (cp.x + cp.y * nbcols) * 2);
-    u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *address_far);
+    int cheight = 1;
+    int cwidth = 2;
+    int stride = GET_BDA(video_cols) * cwidth;
+    int addr = cp.y * cheight * stride + cp.x * cwidth;
+    u16 *src_far = (void*)(GET_BDA(video_pagesize) * cp.page + addr);
+    u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *src_far);
     struct carattr ca = {v, v>>8, 0};
     return ca;
 
