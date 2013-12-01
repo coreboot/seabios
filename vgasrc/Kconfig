@@ -68,6 +68,20 @@ menu "VGA ROM"
         bool
         default !NO_VGABIOS
 
+    config VGA_ALLOCATE_EXTRA_STACK
+        depends on BUILD_VGABIOS
+        bool "Allocate an internal stack for 16bit interrupt entry point"
+        default y
+        help
+            Attempt to allocate (via BIOS PMM call) an internal stack
+            for the legacy 16bit 0x10 interrupt entry point.  This
+            reduces the amount of space on the caller's stack that
+            SeaVGABIOS uses.
+
+    config VGA_EXTRA_STACK_SIZE
+        int
+        default 512
+
     config VGA_VBE
         depends on BUILD_VGABIOS
         bool "Video BIOS Extensions (VBE)"

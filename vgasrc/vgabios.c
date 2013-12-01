@@ -13,6 +13,7 @@
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "output.h" // dprintf
 #include "std/optionrom.h" // struct pci_data
+#include "std/pmm.h" // struct pmmheader
 #include "std/vbe.h" // VBE_RETURN_STATUS_FAILED
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "string.h" // memset_far
@@ -1277,6 +1278,46 @@ init_bios_area(void)
     SET_BDA(video_msr, 0x09);
 }
 
+u16 ExtraStackSeg VAR16 VISIBLE16;
+
+static void
+allocate_extra_stack(void)
+{
+    if (!CONFIG_VGA_ALLOCATE_EXTRA_STACK)
+        return;
+    void *pmmscan = (void*)BUILD_BIOS_ADDR;
+    for (; pmmscan < (void*)BUILD_BIOS_ADDR+BUILD_BIOS_SIZE; pmmscan+=16) {
+        struct pmmheader *pmm = pmmscan;
+        if (pmm->signature != PMM_SIGNATURE)
+            continue;
+        if (checksum_far(0, pmm, pmm->length))
+            continue;
+        struct segoff_s entry = pmm->entry;
+        dprintf(1, "Attempting to allocate VGA stack via pmm call to %04x:%04x\n"
+                , entry.seg, entry.offset);
+        u16 res1, res2;
+        asm volatile(
+            "pushl %0\n"
+            "pushw $(8|1)\n"            // Permanent low memory request
+            "pushl $0xffffffff\n"       // Anonymous handle
+            "pushl $" __stringify(CONFIG_VGA_EXTRA_STACK_SIZE) "\n"
+            "pushw $0x00\n"             // PMM allocation request
+            "lcallw *12(%%esp)\n"
+            "addl $16, %%esp\n"
+            "cli\n"
+            "cld\n"
+            : "+r" (entry.segoff), "=a" (res1), "=d" (res2) : : "cc", "memory");
+        u32 res = res1 | (res2 << 16);
+        if (!res || res == PMM_FUNCTION_NOT_SUPPORTED)
+            return;
+        dprintf(1, "VGA stack allocated at %x\n", res);
+        SET_VGA(ExtraStackSeg, res >> 4);
+        extern void entry_10_extrastack(void);
+        SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10_extrastack));
+        return;
+    }
+}
+
 int VgaBDF VAR16 = -1;
 int HaveRunInit VAR16;
 
@@ -1313,6 +1354,8 @@ vga_post(struct bregs *regs)
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
+
+    allocate_extra_stack();
 
     SET_VGA(HaveRunInit, 1);
 

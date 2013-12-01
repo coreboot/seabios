@@ -215,7 +215,7 @@ $(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s scripts/vgafixup.py
 	$(Q)$(PYTHON) ./scripts/vgafixup.py $< $(OUT)vgaccode16.s
 	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.s -o $@
 
-$(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h
+$(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16VGA) -c -D__ASSEMBLY__ $< -o $@
 
