@@ -1,6 +1,6 @@
 // Rom layout and bios assembler to C interface.
 //
-// Copyright (C) 2009-2012  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2013  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 

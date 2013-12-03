@@ -78,6 +78,9 @@ extern u8 vgafont16alt[];
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
 
+// vgainit.c
+extern struct VideoSavePointer_s video_save_pointer_table;
+
 // vgabios.c
 extern int VgaBDF;
 extern int HaveRunInit;

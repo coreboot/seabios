@@ -202,7 +202,8 @@ $(OUT)bios.bin.elf: $(OUT)rom.o $(OUT)bios.bin.prep
 
 # VGA src files
 SRCVGA=src/output.c src/string.c src/hw/pci.c src/hw/serialio.c \
-    vgasrc/vgabios.c vgasrc/vgafb.c vgasrc/vgafonts.c vgasrc/vbe.c \
+    vgasrc/vgainit.c vgasrc/vgabios.c vgasrc/vgafb.c \
+    vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/stdvgamodes.c vgasrc/stdvgaio.c \
     vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c
 
