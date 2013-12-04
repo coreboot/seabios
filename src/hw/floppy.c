@@ -193,6 +193,7 @@ floppy_wait_irq(void)
     SET_BDA(floppy_recalibration_status, frs & ~FRS_IRQ);
     for (;;) {
         if (!GET_BDA(floppy_motor_counter)) {
+            warn_timeout();
             floppy_disable_controller();
             return DISK_RET_ETIMEOUT;
         }
@@ -225,6 +226,7 @@ floppy_pio(struct floppy_pio_s *pio)
         u8 sts = inb(PORT_FD_STATUS);
         if (!(sts & 0x80)) {
             if (timer_check(end)) {
+                warn_timeout();
                 floppy_disable_controller();
                 return DISK_RET_ETIMEOUT;
             }
@@ -253,6 +255,7 @@ floppy_pio(struct floppy_pio_s *pio)
         u8 sts = inb(PORT_FD_STATUS);
         if (!(sts & 0x80)) {
             if (timer_check(end)) {
+                warn_timeout();
                 floppy_disable_controller();
                 return DISK_RET_ETIMEOUT;
             }
