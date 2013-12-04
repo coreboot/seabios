@@ -102,13 +102,6 @@ stack_hop_back(u32 eax, u32 edx, void *func)
  * 16bit / 32bit calling
  ****************************************************************/
 
-static inline void sgdt(struct descloc_s *desc) {
-    asm("sgdtl %0" : "=m"(*desc));
-}
-static inline void lgdt(struct descloc_s *desc) {
-    asm("lgdtl %0" : : "m"(*desc) : "memory");
-}
-
 u16 StackSeg VARLOW;
 
 // Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.

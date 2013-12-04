@@ -209,6 +209,12 @@ struct descloc_s {
     u32 addr;
 } PACKED;
 
+static inline void sgdt(struct descloc_s *desc) {
+    asm("sgdtl %0" : "=m"(*desc));
+}
+static inline void lgdt(struct descloc_s *desc) {
+    asm("lgdtl %0" : : "m"(*desc) : "memory");
+}
 
 // x86.c
 void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx);
