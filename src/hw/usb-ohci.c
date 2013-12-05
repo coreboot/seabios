@@ -9,6 +9,7 @@
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // pci_bdf_to_bus
+#include "pci_ids.h" // PCI_CLASS_SERIAL_USB_OHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
@@ -265,21 +266,19 @@ free:
     free(intr_ed);
 }
 
-void
-ohci_setup(struct pci_device *pci, int busid)
+static void
+ohci_controller_setup(struct pci_device *pci)
 {
-    if (! CONFIG_USB_OHCI)
-        return;
     struct usb_ohci_s *cntl = malloc_tmphigh(sizeof(*cntl));
     if (!cntl) {
         warn_noalloc();
         return;
     }
     memset(cntl, 0, sizeof(*cntl));
-    cntl->usb.busid = busid;
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_OHCI;
 
+    wait_preempt();  // Avoid pci_config_readl when preempting
     u16 bdf = pci->bdf;
     u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
     cntl->regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
@@ -299,6 +298,18 @@ ohci_setup(struct pci_device *pci, int busid)
     writel(&cntl->regs->intrstatus, ~0);
 
     run_thread(configure_ohci, cntl);
+}
+
+void
+ohci_setup(void)
+{
+    if (! CONFIG_USB_OHCI)
+        return;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
+            ohci_controller_setup(pci);
+    }
 }
 
 

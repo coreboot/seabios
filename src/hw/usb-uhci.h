@@ -2,7 +2,7 @@
 #define __USB_UHCI_H
 
 // usb-uhci.c
-void uhci_setup(struct pci_device *pci, int busid);
+void uhci_setup(void);
 struct usbdevice_s;
 struct usb_endpoint_descriptor;
 struct usb_pipe *uhci_alloc_pipe(struct usbdevice_s *usbdev

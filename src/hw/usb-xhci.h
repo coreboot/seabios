@@ -8,7 +8,7 @@ struct usb_pipe;
 // --------------------------------------------------------------
 
 // usb-xhci.c
-int xhci_setup(struct pci_device *pci, int busid);
+void xhci_setup(void);
 struct usb_pipe *xhci_alloc_pipe(struct usbdevice_s *usbdev
                                  , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe *xhci_update_pipe(struct usbdevice_s *usbdev

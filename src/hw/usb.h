@@ -35,7 +35,6 @@ struct usb_s {
     struct usb_pipe *freelist;
     struct mutex_s resetlock;
     struct pci_device *pci;
-    int busid;
     u8 type;
     u8 maxaddr;
 };

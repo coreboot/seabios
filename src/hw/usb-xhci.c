@@ -5,6 +5,7 @@
 #include "x86.h" // readl
 #include "malloc.h" // memalign_low
 #include "pci.h" // pci_bdf_to_bus
+#include "pci_ids.h" // PCI_CLASS_SERIAL_USB_XHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "usb.h" // struct usb_s
 #include "usb-xhci.h" // struct ehci_qh
@@ -1054,20 +1055,17 @@ xhci_poll_intr(struct usb_pipe *p, void *data)
     return 0;
 }
 
-int
-xhci_setup(struct pci_device *pci, int busid)
+static void
+xhci_controller_setup(struct pci_device *pci)
 {
-    ASSERT32FLAT();
-    if (!CONFIG_USB_XHCI)
-        return -1;
-
     struct usb_xhci_s *xhci = malloc_low(sizeof(*xhci));
     if (!xhci) {
         warn_noalloc();
-        return -1;
+        return;
     }
     memset(xhci, 0, sizeof(*xhci));
 
+    wait_preempt();  // Avoid pci_config_readl when preempting
     xhci->baseaddr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
         & PCI_BASE_ADDRESS_MEM_MASK;
     xhci->caps  = (void*)(xhci->baseaddr);
@@ -1082,7 +1080,6 @@ xhci_setup(struct pci_device *pci, int busid)
     xhci->slots = hcs1         & 0xff;
     xhci->xcap  = ((hcc >> 16) & 0xffff) << 2;
 
-    xhci->usb.busid = busid;
     xhci->usb.pci = pci;
     xhci->usb.type = USB_TYPE_XHCI;
     xhci->hub.cntl = &xhci->usb;
@@ -1125,5 +1122,16 @@ xhci_setup(struct pci_device *pci, int busid)
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
 
     run_thread(configure_xhci, xhci);
-    return 0;
+}
+
+void
+xhci_setup(void)
+{
+    if (! CONFIG_USB_XHCI)
+        return;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_XHCI)
+            xhci_controller_setup(pci);
+    }
 }

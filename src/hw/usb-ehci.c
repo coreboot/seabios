@@ -1,6 +1,6 @@
 // Code for handling EHCI USB controllers.
 //
-// Copyright (C) 2010  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2010-2013  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -14,8 +14,6 @@
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
 #include "usb-ehci.h" // struct ehci_qh
-#include "usb-ohci.h" // ohci_setup
-#include "usb-uhci.h" // uhci_setup
 #include "util.h" // msleep
 #include "x86.h" // readl
 
@@ -24,9 +22,7 @@ struct usb_ehci_s {
     struct ehci_caps *caps;
     struct ehci_regs *regs;
     struct ehci_qh *async_qh;
-    struct pci_device *companion[8];
     int checkports;
-    int legacycount;
 };
 
 struct ehci_pipe {
@@ -36,6 +32,8 @@ struct ehci_pipe {
     struct usb_pipe pipe;
 };
 
+static int PendingEHCIPorts;
+
 
 /****************************************************************
  * Root hub
@@ -43,33 +41,6 @@ struct ehci_pipe {
 
 #define EHCI_TIME_POSTPOWER 20
 #define EHCI_TIME_POSTRESET 2
-
-// Check if need companion controllers for full/low speed devices
-static void
-ehci_note_port(struct usb_ehci_s *cntl)
-{
-    if (--cntl->checkports)
-        // Ports still being detected.
-        return;
-    if (! cntl->legacycount)
-        // No full/low speed devices found.
-        return;
-    // Start companion controllers.
-    int i;
-    for (i=0; i<ARRAY_SIZE(cntl->companion); i++) {
-        struct pci_device *pci = cntl->companion[i];
-        if (!pci)
-            break;
-
-        // ohci/uhci_setup call pci_config_X - don't run from irq handler.
-        wait_preempt();
-
-        if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
-            uhci_setup(pci, cntl->usb.busid + i);
-        else if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_OHCI)
-            ohci_setup(pci, cntl->usb.busid + i);
-    }
-}
 
 // Check if device attached to port
 static int
@@ -97,7 +68,6 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
 
     if ((portsc & PORT_LINESTATUS_MASK) == PORT_LINESTATUS_KSTATE) {
         // low speed device
-        cntl->legacycount++;
         writel(portreg, portsc | PORT_OWNER);
         goto doneearly;
     }
@@ -111,7 +81,7 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
     return 0;
 
 doneearly:
-    ehci_note_port(cntl);
+    PendingEHCIPorts--;
     return -1;
 }
 
@@ -135,14 +105,13 @@ ehci_hub_reset(struct usbhub_s *hub, u32 port)
         goto resetfail;
     if (!(portsc & PORT_PE)) {
         // full speed device
-        cntl->legacycount++;
         writel(portreg, portsc | PORT_OWNER);
         goto resetfail;
     }
 
     rv = USB_HIGHSPEED;
 resetfail:
-    ehci_note_port(cntl);
+    PendingEHCIPorts--;
     return rv;
 }
 
@@ -310,7 +279,6 @@ configure_ehci(void *data)
 
     // Set default of high speed for root hub.
     writel(&cntl->regs->configflag, 1);
-    cntl->checkports = readl(&cntl->caps->hcsparams) & HCS_N_PORTS_MASK;
 
     // Find devices
     int count = check_ehci_ports(cntl);
@@ -329,12 +297,10 @@ fail:
     free(cntl);
 }
 
-int
-ehci_setup(struct pci_device *pci, int busid, struct pci_device *comppci)
+static void
+ehci_controller_setup(struct pci_device *pci)
 {
-    if (! CONFIG_USB_EHCI)
-        return -1;
-
+    wait_preempt();  // Avoid pci_config_readl when preempting
     u16 bdf = pci->bdf;
     u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
     struct ehci_caps *caps = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
@@ -343,16 +309,17 @@ ehci_setup(struct pci_device *pci, int busid, struct pci_device *comppci)
     struct usb_ehci_s *cntl = malloc_tmphigh(sizeof(*cntl));
     if (!cntl) {
         warn_noalloc();
-        return -1;
+        return;
     }
     memset(cntl, 0, sizeof(*cntl));
-    cntl->usb.busid = busid;
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_EHCI;
     cntl->caps = caps;
+    cntl->checkports = readl(&cntl->caps->hcsparams) & HCS_N_PORTS_MASK;
     cntl->regs = (void*)caps + readb(&caps->caplength);
     if (hcc_params & HCC_64BIT_ADDR)
         cntl->regs->ctrldssegment = 0;
+    PendingEHCIPorts += cntl->checkports;
 
     dprintf(1, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
@@ -362,20 +329,24 @@ ehci_setup(struct pci_device *pci, int busid, struct pci_device *comppci)
 
     // XXX - check for and disable SMM control?
 
-    // Find companion controllers.
-    int count = 0;
-    for (;;) {
-        if (!comppci || comppci == pci)
-            break;
-        if (pci_classprog(comppci) == PCI_CLASS_SERIAL_USB_UHCI)
-            cntl->companion[count++] = comppci;
-        else if (pci_classprog(comppci) == PCI_CLASS_SERIAL_USB_OHCI)
-            cntl->companion[count++] = comppci;
-        comppci = container_of(comppci->node.next, struct pci_device, node);
+    run_thread(configure_ehci, cntl);
+}
+
+void
+ehci_setup(void)
+{
+    if (! CONFIG_USB_EHCI)
+        return;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_EHCI)
+            ehci_controller_setup(pci);
     }
 
-    run_thread(configure_ehci, cntl);
-    return 0;
+    // Wait for all EHCI ports to initialize.  This forces OHCI/UHCI
+    // setup to always be after any EHCI ports are set to low speed.
+    while (PendingEHCIPorts)
+        yield();
 }
 
 

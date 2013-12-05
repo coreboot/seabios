@@ -9,6 +9,7 @@
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // pci_bdf_to_bus
+#include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
@@ -237,19 +238,17 @@ fail:
     free(cntl);
 }
 
-void
-uhci_setup(struct pci_device *pci, int busid)
+static void
+uhci_controller_setup(struct pci_device *pci)
 {
-    if (! CONFIG_USB_UHCI)
-        return;
     u16 bdf = pci->bdf;
     struct usb_uhci_s *cntl = malloc_tmphigh(sizeof(*cntl));
     if (!cntl) {
         warn_noalloc();
         return;
     }
+    wait_preempt();  // Avoid pci_config_readl when preempting
     memset(cntl, 0, sizeof(*cntl));
-    cntl->usb.busid = busid;
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_UHCI;
     cntl->iobase = (pci_config_readl(bdf, PCI_BASE_ADDRESS_4)
@@ -264,6 +263,18 @@ uhci_setup(struct pci_device *pci, int busid)
     reset_uhci(cntl, bdf);
 
     run_thread(configure_uhci, cntl);
+}
+
+void
+uhci_setup(void)
+{
+    if (! CONFIG_USB_UHCI)
+        return;
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_UHCI)
+            uhci_controller_setup(pci);
+    }
 }
 
 
