@@ -163,12 +163,14 @@ class LayoutInfo:
     sections32low = sec32low_start = sec32low_align = None
     sections32fseg = sec32fseg_start = sec32fseg_align = None
     zonefseg_start = zonefseg_end = None
+    final_readonly_start = None
     zonelow_base = final_sec32low_start = None
     exportsyms = varlowsyms = None
 
 # Determine final memory addresses for sections
-def doLayout(sections, config):
+def doLayout(sections, config, genreloc):
     li = LayoutInfo()
+    li.genreloc = genreloc
     # Determine 16bit positions
     li.sections16 = getSectionsCategory(sections, '16')
     textsections = getSectionsPrefix(li.sections16, '.text.')
@@ -215,7 +217,23 @@ def doLayout(sections, config):
     li.sec32flat_start, li.sec32flat_align = setSectionsStart(
         textsections + rodatasections + datasections + bsssections
         , li.sec32fseg_start, 16)
+
+    # Determine 32flat init positions
+    li.sections32init = getSectionsCategory(sections, '32init')
+    init32_textsections = getSectionsPrefix(li.sections32init, '.text.')
+    init32_rodatasections = getSectionsPrefix(li.sections32init, '.rodata')
+    init32_datasections = getSectionsPrefix(li.sections32init, '.data.')
+    init32_bsssections = getSectionsPrefix(li.sections32init, '.bss.')
+
+    li.sec32init_start, li.sec32init_align = setSectionsStart(
+        init32_textsections + init32_rodatasections
+        + init32_datasections + init32_bsssections
+        , li.sec32flat_start, 16)
+
+    # Determine location of ZoneFSeg memory.
     li.zonefseg_end = li.sec32flat_start
+    if not genreloc:
+        li.zonefseg_end = li.sec32init_start
     li.zonefseg_start = BUILD_BIOS_ADDR
     if li.zonefseg_start + BUILD_MIN_BIOSTABLE > li.zonefseg_end:
         # Not enough ZoneFSeg space - force a minimum space.
@@ -224,23 +242,19 @@ def doLayout(sections, config):
         li.sec32flat_start, li.sec32flat_align = setSectionsStart(
             textsections + rodatasections + datasections + bsssections
             , li.zonefseg_start, 16)
-
-    # Determine 32flat init positions
-    li.sections32init = getSectionsCategory(sections, '32init')
-    textsections = getSectionsPrefix(li.sections32init, '.text.')
-    rodatasections = getSectionsPrefix(li.sections32init, '.rodata')
-    datasections = getSectionsPrefix(li.sections32init, '.data.')
-    bsssections = getSectionsPrefix(li.sections32init, '.bss.')
-
-    li.sec32init_start, li.sec32init_align = setSectionsStart(
-        textsections + rodatasections + datasections + bsssections
-        , li.sec32flat_start, 16)
+        li.sec32init_start, li.sec32init_align = setSectionsStart(
+            init32_textsections + init32_rodatasections
+            + init32_datasections + init32_bsssections
+            , li.sec32flat_start, 16)
+    li.final_readonly_start = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+    if not genreloc:
+        li.final_readonly_start = min(BUILD_BIOS_ADDR, li.sec32init_start)
 
     # Determine "low memory" data positions
     li.sections32low = getSectionsCategory(sections, '32low')
     sec32low_end = li.sec32init_start
     if config.get('CONFIG_MALLOC_UPPERMEMORY'):
-        final_sec32low_end = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+        final_sec32low_end = li.final_readonly_start
         zonelow_base = final_sec32low_end - 64*1024
         li.zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
     else:
@@ -390,6 +404,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     zonefseg_end = 0x%x ;
     zonelow_base = 0x%x ;
     final_varlow_start = 0x%x ;
+    final_readonly_start = 0x%x ;
 
     code32flat_start = 0x%x ;
     .text code32flat_start : {
@@ -413,6 +428,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        li.zonefseg_end,
        li.zonelow_base,
        li.final_sec32low_start,
+       li.final_readonly_start,
        sec32all_start,
        relocstr,
        outRelSections(li.sections32low, 'code32flat_start'),
@@ -450,7 +466,7 @@ def markRuntime(section, sections, chain=[]):
     for reloc in section.relocs:
         markRuntime(reloc.symbol.section, sections, chain + [section.name])
 
-def findInit(sections, genreloc):
+def findInit(sections):
     # Recursively find and mark all "runtime" sections.
     for section in sections:
         if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
@@ -459,7 +475,7 @@ def findInit(sections, genreloc):
     for section in sections:
         if section.category is not None:
             continue
-        if section.fileid == '32flat' and genreloc:
+        if section.fileid == '32flat':
             section.category = '32init'
         else:
             section.category = section.fileid
@@ -662,8 +678,7 @@ def main():
     sections = gc(info16, info32seg, info32flat)
 
     # Separate 32bit flat into runtime and init parts
-    genreloc = '_reloc_abs_start' in info32flat[1]
-    findInit(sections, genreloc)
+    findInit(sections)
 
     # Note "low memory" and "fseg memory" parts
     for section in getSectionsPrefix(sections, '.data.varlow.'):
@@ -672,8 +687,8 @@ def main():
         section.category = '32fseg'
 
     # Determine the final memory locations of each kept section.
-    li = doLayout(sections, config)
-    li.genreloc = genreloc
+    genreloc = '_reloc_abs_start' in info32flat[1]
+    li = doLayout(sections, config, genreloc)
 
     # Exported symbols
     li.exportsyms = [symbol for symbol in info16[1].values()

@@ -332,9 +332,8 @@ rom_get_max(void)
     if (CONFIG_MALLOC_UPPERMEMORY)
         return ALIGN_DOWN((u32)RomBase->allocend - OPROM_HEADER_RESERVE
                           , OPTION_ROM_ALIGN);
-    extern u8 code32init_end[];
-    u32 end = (u32)code32init_end;
-    return end > BUILD_BIOS_ADDR ? BUILD_BIOS_ADDR : end;
+    extern u8 final_readonly_start[];
+    return (u32)final_readonly_start;
 }
 
 // Return the end of the last deployed option rom.
