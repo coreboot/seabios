@@ -53,7 +53,7 @@ loadBootOrder(void)
         return;
     }
 
-    dprintf(3, "boot order:\n");
+    dprintf(1, "boot order:\n");
     i = 0;
     do {
         Bootorder[i] = f;
@@ -61,7 +61,7 @@ loadBootOrder(void)
         if (f)
             *(f++) = '\0';
         nullTrailingSpace(Bootorder[i]);
-        dprintf(3, "%d: %s\n", i+1, Bootorder[i]);
+        dprintf(1, "%d: %s\n", i+1, Bootorder[i]);
         i++;
     } while (f);
 }
