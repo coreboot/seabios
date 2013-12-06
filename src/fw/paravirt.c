@@ -253,6 +253,9 @@ qemu_cfg_e820(void)
     struct e820_reservation *table;
     int i, size;
 
+    if (!CONFIG_QEMU)
+        return;
+
     // "etc/e820" has both ram and reservations
     table = romfile_loadfile("etc/e820", &size);
     if (table) {
