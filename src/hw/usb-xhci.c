@@ -711,6 +711,19 @@ configure_xhci(void *data)
     writel(&xhci->ir->erstba_high, 0);
     xhci->evts->cs = 1;
 
+    reg = readl(&xhci->caps->hcsparams2);
+    u32 spb = reg >> 27;
+    if (spb) {
+        dprintf(3, "%s: setup %d scratch pad buffers\n", __func__, spb);
+        u64 *spba = memalign_high(64, sizeof(*spba) * spb);
+        void *pad = memalign_high(4096, 4096 * spb);
+        int i;
+        for (i = 0; i < spb; i++)
+            spba[i] = (u32)pad + (i * 4096);
+        xhci->devs[0].ptr_low = (u32)spba;
+        xhci->devs[0].ptr_high = 0;
+    }
+
     reg = readl(&xhci->op->usbcmd);
     reg |= XHCI_CMD_RS;
     writel(&xhci->op->usbcmd, reg);
