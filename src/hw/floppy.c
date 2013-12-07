@@ -496,11 +496,10 @@ static struct chs_s
 lba2chs(struct disk_op_s *op)
 {
     struct chs_s res = { };
-    u32 lba = op->lba;
 
-    u32 tmp = lba + 1;
+    u32 tmp = op->lba;
     u16 nls = GET_GLOBALFLAT(op->drive_gf->lchs.sector);
-    res.sector = tmp % nls;
+    res.sector = (tmp % nls) + 1;
 
     tmp /= nls;
     u16 nlh = GET_GLOBALFLAT(op->drive_gf->lchs.head);
