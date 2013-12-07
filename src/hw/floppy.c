@@ -180,10 +180,20 @@ find_floppy_type(u32 size)
  * Low-level floppy IO
  ****************************************************************/
 
+u8 FloppyDOR VARLOW;
+
+static inline void
+floppy_dor_write(u8 val)
+{
+    outb(val, PORT_FD_DOR);
+    SET_LOW(FloppyDOR, val);
+}
+
 static void
 floppy_disable_controller(void)
 {
-    outb(inb(PORT_FD_DOR) & ~0x04, PORT_FD_DOR);
+    dprintf(2, "Floppy_disable_controller\n");
+    floppy_dor_write(0x00);
 }
 
 static int
@@ -276,7 +286,9 @@ floppy_pio(struct floppy_pio_s *pio)
 static int
 floppy_enable_controller(void)
 {
-    outb(inb(PORT_FD_DOR) | 0x04, PORT_FD_DOR);
+    dprintf(2, "Floppy_enable_controller\n");
+    floppy_dor_write(0x00);
+    floppy_dor_write(0x0c);
     int ret = floppy_wait_irq();
     if (ret)
         return ret;
@@ -296,16 +308,14 @@ floppy_select_drive(u8 floppyid)
     SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
 
     // Enable controller if it isn't running.
-    u8 dor = inb(PORT_FD_DOR);
-    if (!(dor & 0x04)) {
+    if (!(GET_LOW(FloppyDOR) & 0x04)) {
         int ret = floppy_enable_controller();
         if (ret)
             return ret;
     }
 
     // Turn on motor of selected drive, DMA & int enabled, normal operation
-    dor = (floppyid ? 0x20 : 0x10) | 0x0c | floppyid;
-    outb(dor, PORT_FD_DOR);
+    floppy_dor_write((floppyid ? 0x20 : 0x10) | 0x0c | floppyid);
 
     return DISK_RET_SUCCESS;
 }
@@ -324,6 +334,7 @@ set_diskette_current_cyl(u8 floppyid, u8 cyl)
 static int
 floppy_drive_recal(u8 floppyid)
 {
+    dprintf(2, "Floppy_drive_recal %d\n", floppyid);
     int ret = floppy_select_drive(floppyid);
     if (ret)
         return ret;
@@ -407,6 +418,8 @@ floppy_media_sense(struct drive_s *drive_gf)
                 break;
         }
     }
+    dprintf(2, "Floppy_media_sense on drive %d found rate %d\n"
+            , floppyid, data_rate);
 
     u8 old_data_rate = GET_BDA(floppy_media_state[floppyid]) >> 6;
     SET_BDA(floppy_last_data_rate, (old_data_rate<<2) | (data_rate<<6));
@@ -680,6 +693,6 @@ floppy_tick(void)
         SET_BDA(floppy_motor_counter, fcount);
         if (fcount == 0)
             // turn motor(s) off
-            outb(inb(PORT_FD_DOR) & 0xcf, PORT_FD_DOR);
+            floppy_dor_write(GET_LOW(FloppyDOR) & ~0xf0);
     }
 }
