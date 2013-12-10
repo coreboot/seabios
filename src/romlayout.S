@@ -486,7 +486,6 @@ irqentry_extrastack:
         popl %ecx
         movl %edx, 12(%eax)
         movl %esp, 16(%eax)
-        movzwl %sp, %esp
         movw %ss, 20(%eax)
 
         movw %ds, %dx           // Setup %ss/%esp and call function
@@ -528,12 +527,9 @@ irqentry_arg_extrastack:
         popl %ecx
         movw %es, BREGS_es(%eax)
         movl %esp, BREGS_size+0(%eax)
-        movzwl %sp, %esp
         movw %ss, BREGS_size+4(%eax)
-        movl (%esp), %edx
-        movl %edx, BREGS_code(%eax)
-        movw 4(%esp), %dx
-        movw %dx, BREGS_flags(%eax)
+        popl BREGS_code(%eax)
+        popw BREGS_flags(%eax)
 
         movw %ds, %dx           // Setup %ss/%esp and call function
         movw %dx, %ss

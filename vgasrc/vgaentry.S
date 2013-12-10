@@ -84,8 +84,7 @@ entry_10_extrastack:
         cld
         pushw %ds               // Set %ds:%eax to space on ExtraStack
         pushl %eax
-        movzwl %cs:ExtraStackSeg, %eax
-        movl %eax, %ds
+        movw %cs:ExtraStackSeg, %ds
         movl $(CONFIG_VGA_EXTRA_STACK_SIZE-BREGS_size-8), %eax
         popl BREGS_eax(%eax)    // Backup registers
         popw BREGS_ds(%eax)
