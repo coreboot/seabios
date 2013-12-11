@@ -219,18 +219,23 @@ floppy_wait_irq(void)
     return DISK_RET_SUCCESS;
 }
 
-struct floppy_pio_s {
-    u8 cmdlen;
-    u8 resplen;
-    u8 waitirq;
-    u8 data[9];
-};
+// Floppy commands
+#define FCF_WAITIRQ 0x10000
+#define FC_CHECKIRQ    (0x08 | (0<<8) | (2<<12))
+#define FC_RECALIBRATE (0x07 | (1<<8) | (0<<12) | FCF_WAITIRQ)
+#define FC_READID      (0x4a | (1<<8) | (7<<12) | FCF_WAITIRQ)
+#define FC_READ        (0xe6 | (8<<8) | (7<<12) | FCF_WAITIRQ)
+#define FC_WRITE       (0xc5 | (8<<8) | (7<<12) | FCF_WAITIRQ)
+#define FC_FORMAT      (0x4d | (5<<8) | (7<<12) | FCF_WAITIRQ)
 
+// Send the specified command and it's parameters to the floppy controller.
 static int
-floppy_pio(struct floppy_pio_s *pio)
+floppy_pio(int command, u8 *param)
 {
-    // Send command to controller.
+    dprintf(9, "Floppy pio command %x\n", command);
+    // Send command and parameters to controller.
     u32 end = timer_calc(FLOPPY_PIO_TIMEOUT);
+    int send = (command >> 8) & 0xf;
     int i = 0;
     for (;;) {
         u8 sts = inb(PORT_FD_STATUS);
@@ -246,13 +251,16 @@ floppy_pio(struct floppy_pio_s *pio)
             floppy_disable_controller();
             return DISK_RET_ECONTROLLER;
         }
-        outb(pio->data[i++], PORT_FD_DATA);
-        if (i >= pio->cmdlen)
+        if (i == 0)
+            outb(command & 0xff, PORT_FD_DATA);
+        else
+            outb(param[i-1], PORT_FD_DATA);
+        if (i++ >= send)
             break;
     }
 
     // Wait for command to complete.
-    if (pio->waitirq) {
+    if (command & FCF_WAITIRQ) {
         int ret = floppy_wait_irq();
         if (ret)
             return ret;
@@ -260,6 +268,7 @@ floppy_pio(struct floppy_pio_s *pio)
 
     // Read response from controller.
     end = timer_calc(FLOPPY_PIO_TIMEOUT);
+    int receive = (command >> 12) & 0xf;
     i = 0;
     for (;;) {
         u8 sts = inb(PORT_FD_STATUS);
@@ -271,13 +280,18 @@ floppy_pio(struct floppy_pio_s *pio)
             }
             continue;
         }
-        if (i >= pio->resplen)
+        if (i >= receive) {
+            if (sts & 0x40) {
+                floppy_disable_controller();
+                return DISK_RET_ECONTROLLER;
+            }
             break;
+        }
         if (!(sts & 0x40)) {
             floppy_disable_controller();
             return DISK_RET_ECONTROLLER;
         }
-        pio->data[i++] = inb(PORT_FD_DATA);
+        param[i++] = inb(PORT_FD_DATA);
     }
 
     return DISK_RET_SUCCESS;
@@ -287,26 +301,21 @@ static int
 floppy_enable_controller(void)
 {
     dprintf(2, "Floppy_enable_controller\n");
+    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
     floppy_dor_write(0x00);
     floppy_dor_write(0x0c);
     int ret = floppy_wait_irq();
     if (ret)
         return ret;
 
-    struct floppy_pio_s pio;
-    pio.cmdlen = 1;
-    pio.resplen = 2;
-    pio.waitirq = 0;
-    pio.data[0] = 0x08;  // 08: Check Interrupt Status
-    return floppy_pio(&pio);
+    u8 param[2];
+    return floppy_pio(FC_CHECKIRQ, param);
 }
 
+// Activate a drive and send a command to it.
 static int
-floppy_select_drive(u8 floppyid)
+floppy_drive_pio(u8 floppyid, int command, u8 *param)
 {
-    // reset the disk motor timeout value of INT 08
-    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
-
     // Enable controller if it isn't running.
     if (!(GET_LOW(FloppyDOR) & 0x04)) {
         int ret = floppy_enable_controller();
@@ -314,9 +323,20 @@ floppy_select_drive(u8 floppyid)
             return ret;
     }
 
+    // reset the disk motor timeout value of INT 08
+    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
+
     // Turn on motor of selected drive, DMA & int enabled, normal operation
     floppy_dor_write((floppyid ? 0x20 : 0x10) | 0x0c | floppyid);
 
+    // Send command.
+    int ret = floppy_pio(command, param);
+    if (ret)
+        return ret;
+
+    // Check IRQ command is needed after irq commands with no results
+    if ((command & FCF_WAITIRQ) && ((command >> 12) & 0xf) == 0)
+        return floppy_pio(FC_CHECKIRQ, param);
     return DISK_RET_SUCCESS;
 }
 
@@ -335,26 +355,10 @@ static int
 floppy_drive_recal(u8 floppyid)
 {
     dprintf(2, "Floppy_drive_recal %d\n", floppyid);
-    int ret = floppy_select_drive(floppyid);
-    if (ret)
-        return ret;
-
-    // send Recalibrate command (2 bytes) to controller
-    struct floppy_pio_s pio;
-    pio.cmdlen = 2;
-    pio.resplen = 0;
-    pio.waitirq = 1;
-    pio.data[0] = 0x07;  // 07: Recalibrate
-    pio.data[1] = floppyid; // 0=drive0, 1=drive1
-    ret = floppy_pio(&pio);
-    if (ret)
-        return ret;
-
-    pio.cmdlen = 1;
-    pio.resplen = 2;
-    pio.waitirq = 0;
-    pio.data[0] = 0x08;  // 08: Check Interrupt Status
-    ret = floppy_pio(&pio);
+    // send Recalibrate command to controller
+    u8 param[2];
+    param[0] = floppyid;
+    int ret = floppy_drive_pio(floppyid, FC_RECALIBRATE, param);
     if (ret)
         return ret;
 
@@ -367,24 +371,16 @@ floppy_drive_recal(u8 floppyid)
 static int
 floppy_drive_readid(u8 floppyid, u8 data_rate, u8 head)
 {
-    int ret = floppy_select_drive(floppyid);
-    if (ret)
-        return ret;
-
     // Set data rate.
     outb(data_rate, PORT_FD_DIR);
 
     // send Read Sector Id command
-    struct floppy_pio_s pio;
-    pio.cmdlen = 2;
-    pio.resplen = 7;
-    pio.waitirq = 1;
-    pio.data[0] = 0x4a;  // 0a: Read Sector Id
-    pio.data[1] = (head << 2) | floppyid; // HD DR1 DR2
-    ret = floppy_pio(&pio);
+    u8 param[7];
+    param[0] = (head << 2) | floppyid; // HD DR1 DR2
+    int ret = floppy_drive_pio(floppyid, FC_READID, param);
     if (ret)
         return ret;
-    if (pio.data[0] & 0xc0)
+    if (param[0] & 0xc0)
         return -1;
     return 0;
 }
@@ -458,44 +454,39 @@ check_recal_drive(struct drive_s *drive_gf)
 
 // Perform a floppy transfer command (setup DMA and issue PIO).
 static int
-floppy_cmd(struct disk_op_s *op, int blocksize, struct floppy_pio_s *pio)
+floppy_cmd(struct disk_op_s *op, int blocksize, int command, u8 *param)
 {
     int ret = check_recal_drive(op->drive_gf);
     if (ret)
         return ret;
 
     // Setup DMA controller
-    int isWrite = pio->data[0] != 0xe6;
+    int isWrite = command != FC_READ;
     ret = dma_floppy((u32)op->buf_fl, op->count * blocksize, isWrite);
     if (ret)
         return DISK_RET_EBOUNDARY;
 
     // Invoke floppy controller
-    ret = floppy_select_drive(pio->data[1] & 1);
-    if (ret)
-        return ret;
-    pio->resplen = 7;
-    pio->waitirq = 1;
-    ret = floppy_pio(pio);
+    ret = floppy_drive_pio(param[0] & 1, command, param);
     if (ret)
         return ret;
 
     // Populate floppy_return_status in BDA
     int i;
     for (i=0; i<7; i++)
-        SET_BDA(floppy_return_status[i], pio->data[i]);
+        SET_BDA(floppy_return_status[i], param[i]);
 
-    if (pio->data[0] & 0xc0) {
-        if (pio->data[1] & 0x02)
+    if (param[0] & 0xc0) {
+        if (param[1] & 0x02)
             return DISK_RET_EWRITEPROTECT;
         dprintf(1, "floppy error: %02x %02x %02x %02x %02x %02x %02x\n"
-                , pio->data[0], pio->data[1], pio->data[2], pio->data[3]
-                , pio->data[4], pio->data[5], pio->data[6]);
+                , param[0], param[1], param[2], param[3]
+                , param[4], param[5], param[6]);
         return DISK_RET_ECONTROLLER;
     }
 
-    u8 track = (pio->cmdlen == 9 ? pio->data[3] : 0);
-    set_diskette_current_cyl(pio->data[0] & 1, track);
+    u8 track = (command != FC_FORMAT ? param[3] : 0);
+    set_diskette_current_cyl(param[0] & 1, track);
 
     return DISK_RET_SUCCESS;
 }
@@ -528,7 +519,6 @@ lba2chs(struct disk_op_s *op)
 static int
 floppy_reset(struct disk_op_s *op)
 {
-    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
     SET_BDA(floppy_recalibration_status, 0);
     SET_BDA(floppy_media_state[0], 0);
     SET_BDA(floppy_media_state[1], 0);
@@ -536,7 +526,7 @@ floppy_reset(struct disk_op_s *op)
     SET_BDA(floppy_track[1], 0);
     SET_BDA(floppy_last_data_rate, 0);
     floppy_disable_controller();
-    return floppy_select_drive(floppyid);
+    return floppy_enable_controller();
 }
 
 // Read Diskette Sectors
@@ -545,21 +535,18 @@ floppy_read(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
 
-    // send read-normal-data command (9 bytes) to controller
+    // send read-normal-data command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
-    struct floppy_pio_s pio;
-    pio.cmdlen = 9;
-    pio.data[0] = 0xe6; // e6: read normal data
-    pio.data[1] = (chs.head << 2) | floppyid; // HD DR1 DR2
-    pio.data[2] = chs.cylinder;
-    pio.data[3] = chs.head;
-    pio.data[4] = chs.sector;
-    pio.data[5] = FLOPPY_SIZE_CODE;
-    pio.data[6] = chs.sector + op->count - 1; // last sector to read on track
-    pio.data[7] = FLOPPY_GAPLEN;
-    pio.data[8] = FLOPPY_DATALEN;
-
-    int res = floppy_cmd(op, DISK_SECTOR_SIZE, &pio);
+    u8 param[8];
+    param[0] = (chs.head << 2) | floppyid; // HD DR1 DR2
+    param[1] = chs.cylinder;
+    param[2] = chs.head;
+    param[3] = chs.sector;
+    param[4] = FLOPPY_SIZE_CODE;
+    param[5] = chs.sector + op->count - 1; // last sector to read on track
+    param[6] = FLOPPY_GAPLEN;
+    param[7] = FLOPPY_DATALEN;
+    int res = floppy_cmd(op, DISK_SECTOR_SIZE, FC_READ, param);
     if (res)
         goto fail;
     return DISK_RET_SUCCESS;
@@ -574,21 +561,18 @@ floppy_write(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
 
-    // send write-normal-data command (9 bytes) to controller
+    // send write-normal-data command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
-    struct floppy_pio_s pio;
-    pio.cmdlen = 9;
-    pio.data[0] = 0xc5; // c5: write normal data
-    pio.data[1] = (chs.head << 2) | floppyid; // HD DR1 DR2
-    pio.data[2] = chs.cylinder;
-    pio.data[3] = chs.head;
-    pio.data[4] = chs.sector;
-    pio.data[5] = FLOPPY_SIZE_CODE;
-    pio.data[6] = chs.sector + op->count - 1; // last sector to write on track
-    pio.data[7] = FLOPPY_GAPLEN;
-    pio.data[8] = FLOPPY_DATALEN;
-
-    int res = floppy_cmd(op, DISK_SECTOR_SIZE, &pio);
+    u8 param[8];
+    param[0] = (chs.head << 2) | floppyid; // HD DR1 DR2
+    param[1] = chs.cylinder;
+    param[2] = chs.head;
+    param[3] = chs.sector;
+    param[4] = FLOPPY_SIZE_CODE;
+    param[5] = chs.sector + op->count - 1; // last sector to write on track
+    param[6] = FLOPPY_GAPLEN;
+    param[7] = FLOPPY_DATALEN;
+    int res = floppy_cmd(op, DISK_SECTOR_SIZE, FC_WRITE, param);
     if (res)
         goto fail;
     return DISK_RET_SUCCESS;
@@ -622,18 +606,15 @@ floppy_format(struct disk_op_s *op)
 {
     u8 head = op->lba;
 
-    // send format-track command (6 bytes) to controller
+    // send format-track command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
-    struct floppy_pio_s pio;
-    pio.cmdlen = 6;
-    pio.data[0] = 0x4d; // 4d: format track
-    pio.data[1] = (head << 2) | floppyid; // HD DR1 DR2
-    pio.data[2] = FLOPPY_SIZE_CODE;
-    pio.data[3] = op->count; // number of sectors per track
-    pio.data[4] = FLOPPY_FORMAT_GAPLEN;
-    pio.data[5] = FLOPPY_FILLBYTE;
-
-    return floppy_cmd(op, 4, &pio);
+    u8 param[7];
+    param[0] = (head << 2) | floppyid; // HD DR1 DR2
+    param[1] = FLOPPY_SIZE_CODE;
+    param[2] = op->count; // number of sectors per track
+    param[3] = FLOPPY_FORMAT_GAPLEN;
+    param[4] = FLOPPY_FILLBYTE;
+    return floppy_cmd(op, 4, FC_FORMAT, param);
 }
 
 int
