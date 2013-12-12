@@ -386,12 +386,20 @@ bochsvga_setup(void)
     u32 lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
     int bdf = GET_GLOBAL(VgaBDF);
     if (CONFIG_VGA_PCI && bdf >= 0) {
-        int barid = 0;
-        u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
-        if ((bar & PCI_BASE_ADDRESS_SPACE) != PCI_BASE_ADDRESS_SPACE_MEMORY) {
+        u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
+        int barid;
+        switch (vendor) {
+        case 0x15ad: /* qemu vmware vga */
             barid = 1;
-            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_1);
+            break;
+        case 0x1af4: /* virtio-vga */
+            barid = 2;
+            break;
+        default: /* stdvga, qxl */
+            barid = 0;
+            break;
         }
+        u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0 + barid * 4);
         lfb_addr = bar & PCI_BASE_ADDRESS_MEM_MASK;
         dprintf(1, "VBE DISPI: bdf %02x:%02x.%x, bar %d\n", pci_bdf_to_bus(bdf)
                 , pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf), barid);
