@@ -186,12 +186,13 @@ disk_1305(struct bregs *regs, struct drive_s *drive_gf)
     debug_stub(regs);
 
     struct chs_s chs = getLCHS(drive_gf);
-    u16 nlh=chs.head, nls=chs.sector;
+    u16 nlc=chs.cylinder, nlh=chs.head, nls=chs.sector;
 
-    u8 num_sectors = regs->al;
-    u8 head        = regs->dh;
+    u8 count = regs->al;
+    u8 cylinder = regs->ch;
+    u8 head = regs->dh;
 
-    if (head >= nlh || num_sectors == 0 || num_sectors > nls) {
+    if (cylinder >= nlc || head >= nlh || count == 0 || count > nls) {
         disk_ret(regs, DISK_RET_EPARAM);
         return;
     }
@@ -199,8 +200,8 @@ disk_1305(struct bregs *regs, struct drive_s *drive_gf)
     struct disk_op_s dop;
     dop.drive_gf = drive_gf;
     dop.command = CMD_FORMAT;
-    dop.lba = head;
-    dop.count = num_sectors;
+    dop.lba = (((u32)cylinder * (u32)nlh) + (u32)head) * (u32)nls;
+    dop.count = count;
     dop.buf_fl = MAKE_FLATPTR(regs->es, regs->bx);
     int status = send_disk_op(&dop);
     disk_ret(regs, status);

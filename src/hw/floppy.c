@@ -604,12 +604,12 @@ fail:
 static int
 floppy_format(struct disk_op_s *op)
 {
-    u8 head = op->lba;
+    struct chs_s chs = lba2chs(op);
 
     // send format-track command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
     u8 param[7];
-    param[0] = (head << 2) | floppyid; // HD DR1 DR2
+    param[0] = (chs.head << 2) | floppyid; // HD DR1 DR2
     param[1] = FLOPPY_SIZE_CODE;
     param[2] = op->count; // number of sectors per track
     param[3] = FLOPPY_FORMAT_GAPLEN;
