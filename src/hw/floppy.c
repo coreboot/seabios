@@ -222,6 +222,7 @@ floppy_wait_irq(void)
 // Floppy commands
 #define FCF_WAITIRQ 0x10000
 #define FC_CHECKIRQ    (0x08 | (0<<8) | (2<<12))
+#define FC_SEEK        (0x0f | (2<<8) | (0<<12) | FCF_WAITIRQ)
 #define FC_RECALIBRATE (0x07 | (1<<8) | (0<<12) | FCF_WAITIRQ)
 #define FC_READID      (0x4a | (1<<8) | (7<<12) | FCF_WAITIRQ)
 #define FC_READ        (0xe6 | (8<<8) | (7<<12) | FCF_WAITIRQ)
@@ -342,14 +343,8 @@ floppy_drive_pio(u8 floppyid, int command, u8 *param)
 
 
 /****************************************************************
- * Floppy media sense
+ * Floppy media sense and seeking
  ****************************************************************/
-
-static inline void
-set_diskette_current_cyl(u8 floppyid, u8 cyl)
-{
-    SET_BDA(floppy_track[floppyid], cyl);
-}
 
 static int
 floppy_drive_recal(u8 floppyid)
@@ -364,7 +359,7 @@ floppy_drive_recal(u8 floppyid)
 
     u8 frs = GET_BDA(floppy_recalibration_status);
     SET_BDA(floppy_recalibration_status, frs | (1<<floppyid));
-    set_diskette_current_cyl(floppyid, 0);
+    SET_BDA(floppy_track[floppyid], 0);
     return DISK_RET_SUCCESS;
 }
 
@@ -429,22 +424,37 @@ floppy_media_sense(struct drive_s *drive_gf)
     return DISK_RET_SUCCESS;
 }
 
+// Prepare a floppy for a data transfer.
 static int
-check_recal_drive(struct drive_s *drive_gf)
+floppy_prep(struct drive_s *drive_gf, u8 cylinder)
 {
     u8 floppyid = GET_GLOBALFLAT(drive_gf->cntl_id);
-    if ((GET_BDA(floppy_recalibration_status) & (1<<floppyid))
-        && (GET_BDA(floppy_media_state[floppyid]) & FMS_MEDIA_DRIVE_ESTABLISHED))
-        // Media is known.
-        return DISK_RET_SUCCESS;
+    if (!(GET_BDA(floppy_recalibration_status) & (1<<floppyid)) ||
+        !(GET_BDA(floppy_media_state[floppyid]) & FMS_MEDIA_DRIVE_ESTABLISHED)) {
+        // Recalibrate drive.
+        int ret = floppy_drive_recal(floppyid);
+        if (ret)
+            return ret;
 
-    // Recalibrate drive.
-    int ret = floppy_drive_recal(floppyid);
-    if (ret)
-        return ret;
+        // Sense media.
+        ret = floppy_media_sense(drive_gf);
+        if (ret)
+            return ret;
+    }
 
-    // Sense media.
-    return floppy_media_sense(drive_gf);
+    // Seek to cylinder if needed.
+    u8 lastcyl = GET_BDA(floppy_track[floppyid]);
+    if (cylinder != lastcyl) {
+        u8 param[2];
+        param[0] = floppyid;
+        param[1] = cylinder;
+        int ret = floppy_drive_pio(floppyid, FC_SEEK, param);
+        if (ret)
+            return ret;
+        SET_BDA(floppy_track[floppyid], cylinder);
+    }
+
+    return DISK_RET_SUCCESS;
 }
 
 
@@ -454,20 +464,17 @@ check_recal_drive(struct drive_s *drive_gf)
 
 // Perform a floppy transfer command (setup DMA and issue PIO).
 static int
-floppy_cmd(struct disk_op_s *op, int blocksize, int command, u8 *param)
+floppy_dma_cmd(struct disk_op_s *op, int count, int command, u8 *param)
 {
-    int ret = check_recal_drive(op->drive_gf);
-    if (ret)
-        return ret;
-
     // Setup DMA controller
     int isWrite = command != FC_READ;
-    ret = dma_floppy((u32)op->buf_fl, op->count * blocksize, isWrite);
+    int ret = dma_floppy((u32)op->buf_fl, count, isWrite);
     if (ret)
         return DISK_RET_EBOUNDARY;
 
     // Invoke floppy controller
-    ret = floppy_drive_pio(param[0] & 1, command, param);
+    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
+    ret = floppy_drive_pio(floppyid, command, param);
     if (ret)
         return ret;
 
@@ -484,9 +491,6 @@ floppy_cmd(struct disk_op_s *op, int blocksize, int command, u8 *param)
                 , param[4], param[5], param[6]);
         return DISK_RET_ECONTROLLER;
     }
-
-    u8 track = (command != FC_FORMAT ? param[3] : 0);
-    set_diskette_current_cyl(param[0] & 1, track);
 
     return DISK_RET_SUCCESS;
 }
@@ -534,6 +538,9 @@ static int
 floppy_read(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
+    int res = floppy_prep(op->drive_gf, chs.cylinder);
+    if (res)
+        goto fail;
 
     // send read-normal-data command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
@@ -546,7 +553,7 @@ floppy_read(struct disk_op_s *op)
     param[5] = chs.sector + op->count - 1; // last sector to read on track
     param[6] = FLOPPY_GAPLEN;
     param[7] = FLOPPY_DATALEN;
-    int res = floppy_cmd(op, DISK_SECTOR_SIZE, FC_READ, param);
+    res = floppy_dma_cmd(op, op->count * DISK_SECTOR_SIZE, FC_READ, param);
     if (res)
         goto fail;
     return DISK_RET_SUCCESS;
@@ -560,6 +567,9 @@ static int
 floppy_write(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
+    int res = floppy_prep(op->drive_gf, chs.cylinder);
+    if (res)
+        goto fail;
 
     // send write-normal-data command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
@@ -572,7 +582,7 @@ floppy_write(struct disk_op_s *op)
     param[5] = chs.sector + op->count - 1; // last sector to write on track
     param[6] = FLOPPY_GAPLEN;
     param[7] = FLOPPY_DATALEN;
-    int res = floppy_cmd(op, DISK_SECTOR_SIZE, FC_WRITE, param);
+    res = floppy_dma_cmd(op, op->count * DISK_SECTOR_SIZE, FC_WRITE, param);
     if (res)
         goto fail;
     return DISK_RET_SUCCESS;
@@ -585,15 +595,12 @@ fail:
 static int
 floppy_verify(struct disk_op_s *op)
 {
-    int res = check_recal_drive(op->drive_gf);
+    struct chs_s chs = lba2chs(op);
+    int res = floppy_prep(op->drive_gf, chs.cylinder);
     if (res)
         goto fail;
 
-    struct chs_s chs = lba2chs(op);
-
-    // ??? should track be new val from return_status[3] ?
-    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
-    set_diskette_current_cyl(floppyid, chs.cylinder);
+    // This command isn't implemented - just return success.
     return DISK_RET_SUCCESS;
 fail:
     op->count = 0; // no sectors read
@@ -605,6 +612,9 @@ static int
 floppy_format(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
+    int res = floppy_prep(op->drive_gf, chs.cylinder);
+    if (res)
+        return res;
 
     // send format-track command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
@@ -614,7 +624,7 @@ floppy_format(struct disk_op_s *op)
     param[2] = op->count; // number of sectors per track
     param[3] = FLOPPY_FORMAT_GAPLEN;
     param[4] = FLOPPY_FILLBYTE;
-    return floppy_cmd(op, 4, FC_FORMAT, param);
+    return floppy_dma_cmd(op, op->count * 4, FC_FORMAT, param);
 }
 
 int
