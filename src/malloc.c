@@ -225,7 +225,7 @@ zonelow_expand(u32 size, u32 align, struct allocinfo_s *fill)
 
 // Allocate memory from the given zone and track it as a PMM allocation
 void * __malloc
-_malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
+_malloc(struct zone_s *zone, u32 size, u32 align)
 {
     ASSERT32FLAT();
     if (!size)
@@ -240,6 +240,7 @@ _malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
         if (!detail)
             return NULL;
     }
+    detail->handle = MALLOC_DEFAULT_HANDLE;
 
     // Find and reserve space for main allocation
     void *data = allocSpace(zone, size, align, &detail->datainfo);
@@ -250,9 +251,8 @@ _malloc(struct zone_s *zone, u32 handle, u32 size, u32 align)
         return NULL;
     }
 
-    dprintf(8, "_malloc zone=%p handle=%x size=%d align=%x ret=%p (detail=%p)\n"
-            , zone, handle, size, align, data, detail);
-    detail->handle = handle;
+    dprintf(8, "_malloc zone=%p size=%d align=%x ret=%p (detail=%p)\n"
+            , zone, size, align, data, detail);
 
     return data;
 }
@@ -296,9 +296,22 @@ malloc_getspace(struct zone_s *zone)
     return maxspace - reserve;
 }
 
+// Set a handle associated with an allocation.
+void
+malloc_sethandle(void *data, u32 handle)
+{
+    ASSERT32FLAT();
+    struct allocinfo_s *info = findAlloc(data);
+    if (!info || data == (void*)info || data == info->dataend)
+        return;
+    struct allocdetail_s *detail = container_of(
+        info, struct allocdetail_s, datainfo);
+    detail->handle = handle;
+}
+
 // Find the data block allocated with _malloc with a given handle.
 void *
-malloc_find(u32 handle)
+malloc_findhandle(u32 handle)
 {
     int i;
     for (i=0; i<ARRAY_SIZE(Zones); i++) {

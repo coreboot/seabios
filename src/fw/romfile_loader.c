@@ -57,7 +57,7 @@ static void romfile_loader_allocate(struct romfile_loader_entry_s *entry,
     file->file = romfile_find(entry->alloc_file);
     if (!file->file || !file->file->size)
         return;
-    data = _malloc(zone, MALLOC_DEFAULT_HANDLE, file->file->size, alloc_align);
+    data = _malloc(zone, file->file->size, alloc_align);
     if (!data) {
         warn_noalloc();
         return;
