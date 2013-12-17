@@ -49,7 +49,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         if (!MODESEGMENT)
             return ahci_cmd_data(op, cdbcmd, blocksize);
     default:
-        op->count = 0;
         return DISK_RET_EPARAM;
     }
 }

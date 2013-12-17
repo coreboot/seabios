@@ -106,7 +106,6 @@ process_ramdisk_op(struct disk_op_s *op)
     case CMD_RESET:
         return DISK_RET_SUCCESS;
     default:
-        op->count = 0;
         return DISK_RET_EPARAM;
     }
 }

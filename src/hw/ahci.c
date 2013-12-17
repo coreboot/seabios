@@ -314,7 +314,6 @@ process_ahci_op(struct disk_op_s *op)
         return DISK_RET_SUCCESS;
     default:
         dprintf(1, "AHCI: unknown disk command %d\n", op->command);
-        op->count = 0;
         return DISK_RET_EPARAM;
     }
 }

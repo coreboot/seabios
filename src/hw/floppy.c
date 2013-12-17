@@ -538,9 +538,9 @@ static int
 floppy_read(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int res = floppy_prep(op->drive_gf, chs.cylinder);
-    if (res)
-        goto fail;
+    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    if (ret)
+        return ret;
 
     // send read-normal-data command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
@@ -553,13 +553,7 @@ floppy_read(struct disk_op_s *op)
     param[5] = chs.sector + op->count - 1; // last sector to read on track
     param[6] = FLOPPY_GAPLEN;
     param[7] = FLOPPY_DATALEN;
-    res = floppy_dma_cmd(op, op->count * DISK_SECTOR_SIZE, FC_READ, param);
-    if (res)
-        goto fail;
-    return DISK_RET_SUCCESS;
-fail:
-    op->count = 0; // no sectors read
-    return res;
+    return floppy_dma_cmd(op, op->count * DISK_SECTOR_SIZE, FC_READ, param);
 }
 
 // Write Diskette Sectors
@@ -567,9 +561,9 @@ static int
 floppy_write(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int res = floppy_prep(op->drive_gf, chs.cylinder);
-    if (res)
-        goto fail;
+    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    if (ret)
+        return ret;
 
     // send write-normal-data command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
@@ -582,13 +576,7 @@ floppy_write(struct disk_op_s *op)
     param[5] = chs.sector + op->count - 1; // last sector to write on track
     param[6] = FLOPPY_GAPLEN;
     param[7] = FLOPPY_DATALEN;
-    res = floppy_dma_cmd(op, op->count * DISK_SECTOR_SIZE, FC_WRITE, param);
-    if (res)
-        goto fail;
-    return DISK_RET_SUCCESS;
-fail:
-    op->count = 0; // no sectors read
-    return res;
+    return floppy_dma_cmd(op, op->count * DISK_SECTOR_SIZE, FC_WRITE, param);
 }
 
 // Verify Diskette Sectors
@@ -596,15 +584,12 @@ static int
 floppy_verify(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int res = floppy_prep(op->drive_gf, chs.cylinder);
-    if (res)
-        goto fail;
+    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    if (ret)
+        return ret;
 
     // This command isn't implemented - just return success.
     return DISK_RET_SUCCESS;
-fail:
-    op->count = 0; // no sectors read
-    return res;
 }
 
 // format diskette track
@@ -612,9 +597,9 @@ static int
 floppy_format(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int res = floppy_prep(op->drive_gf, chs.cylinder);
-    if (res)
-        return res;
+    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    if (ret)
+        return ret;
 
     // send format-track command to controller
     u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
@@ -645,7 +630,6 @@ process_floppy_op(struct disk_op_s *op)
     case CMD_FORMAT:
         return floppy_format(op);
     default:
-        op->count = 0;
         return DISK_RET_EPARAM;
     }
 }

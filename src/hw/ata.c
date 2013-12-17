@@ -452,7 +452,6 @@ ata_dma_transfer(struct disk_op_s *op)
 
     dprintf(6, "IDE DMA error (dma=%x ide=%x/%x/%x)\n", status, idestatus
             , inb(iobase2 + ATA_CB_ASTAT), inb(iobase1 + ATA_CB_ERR));
-    op->count = 0;
     return -1;
 }
 
@@ -575,7 +574,6 @@ process_ata_op(struct disk_op_s *op)
     case CMD_SEEK:
         return DISK_RET_SUCCESS;
     default:
-        op->count = 0;
         return DISK_RET_EPARAM;
     }
 }

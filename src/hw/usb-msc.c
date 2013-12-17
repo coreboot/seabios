@@ -117,7 +117,6 @@ usb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 fail:
     // XXX - reset connection
     dprintf(1, "USB transmission failed\n");
-    op->count = 0;
     return DISK_RET_EBADTRACK;
 }
 
