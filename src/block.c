@@ -350,28 +350,37 @@ int
 process_op(struct disk_op_s *op)
 {
     ASSERT16();
+    int ret, origcount = op->count;
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
     case DTYPE_FLOPPY:
-        return process_floppy_op(op);
+        ret = process_floppy_op(op);
+        break;
     case DTYPE_ATA:
-        return process_ata_op(op);
+        ret = process_ata_op(op);
+        break;
     case DTYPE_RAMDISK:
-        return process_ramdisk_op(op);
+        ret = process_ramdisk_op(op);
+        break;
     case DTYPE_CDEMU:
-        return process_cdemu_op(op);
+        ret = process_cdemu_op(op);
+        break;
     case DTYPE_VIRTIO_BLK:
-        return process_virtio_blk_op(op);
+        ret = process_virtio_blk_op(op);
+        break;
     case DTYPE_AHCI: ;
         extern void _cfunc32flat_process_ahci_op(void);
-        return call32(_cfunc32flat_process_ahci_op
-                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+        ret = call32(_cfunc32flat_process_ahci_op
+                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+        break;
     case DTYPE_ATA_ATAPI:
-        return process_atapi_op(op);
+        ret = process_atapi_op(op);
+        break;
     case DTYPE_AHCI_ATAPI: ;
         extern void _cfunc32flat_process_atapi_op(void);
-        return call32(_cfunc32flat_process_atapi_op
-                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+        ret = call32(_cfunc32flat_process_atapi_op
+                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+        break;
     case DTYPE_USB:
     case DTYPE_UAS:
     case DTYPE_VIRTIO_SCSI:
@@ -379,11 +388,16 @@ process_op(struct disk_op_s *op)
     case DTYPE_ESP_SCSI:
     case DTYPE_MEGASAS:
     case DTYPE_PVSCSI:
-        return process_scsi_op(op);
+        ret = process_scsi_op(op);
+        break;
     default:
-        op->count = 0;
-        return DISK_RET_EPARAM;
+        ret = DISK_RET_EPARAM;
+        break;
     }
+    if (ret && op->count == origcount)
+        // If the count hasn't changed on error, assume no data transferred.
+        op->count = 0;
+    return ret;
 }
 
 // Execute a "disk_op_s" request - this runs on the extra stack.
