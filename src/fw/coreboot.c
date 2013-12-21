@@ -208,9 +208,9 @@ void coreboot_debug_putc(char c)
         return;
     if (!cbcon)
         return;
-    if (cbcon->buffer_cursor == cbcon->buffer_size)
-        return;
-    cbcon->buffer_body[cbcon->buffer_cursor++] = c;
+    u32 cursor = cbcon->buffer_cursor++;
+    if (cursor < cbcon->buffer_size)
+        cbcon->buffer_body[cursor] = c;
 }
 
 /****************************************************************
