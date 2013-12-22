@@ -182,7 +182,7 @@ coreboot_preinit(void)
     struct cb_cbmem_ref *cbref = find_cb_subtable(cbh, CB_TAG_CBMEM_CONSOLE);
     if (cbref) {
         cbcon = (void*)(u32)cbref->cbmem_addr;
-        dprintf(1, "----- [ seabios log starts here ] -----\n");
+        dprintf(1, "----- [ SeaBIOS %s ] -----\n", VERSION);
         dprintf(1, "Found coreboot cbmem console @ %llx\n", cbref->cbmem_addr);
     }
 
