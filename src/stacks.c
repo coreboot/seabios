@@ -293,13 +293,13 @@ switch_next(struct thread_info *cur)
         : "ebx", "edx", "esi", "edi", "cc", "memory");
 }
 
-// Last thing called from a thread (called on "next" stack).
+// Last thing called from a thread (called on MainThread stack).
 static void
 __end_thread(struct thread_info *old)
 {
     hlist_del(&old->node);
-    free(old);
     dprintf(DEBUG_thread, "\\%08x/ End thread\n", (u32)old);
+    free(old);
     if (!have_threads())
         dprintf(1, "All threads complete.\n");
 }
@@ -316,11 +316,10 @@ run_thread(void (*func)(void*), void *data)
     if (!thread)
         goto fail;
 
+    dprintf(DEBUG_thread, "/%08x\\ Start thread\n", (u32)thread);
     thread->stackpos = (void*)thread + THREADSTACKSIZE;
     struct thread_info *cur = getCurThread();
     hlist_add_after(&thread->node, &cur->node);
-
-    dprintf(DEBUG_thread, "/%08x\\ Start thread\n", (u32)thread);
     asm volatile(
         // Start thread
         "  pushl $1f\n"                 // store return pc
@@ -330,15 +329,16 @@ run_thread(void (*func)(void*), void *data)
         "  calll *%%ecx\n"              // Call func
 
         // End thread
-        "  movl 4(%%ebx), %%ecx\n"      // %ecx = thread->node.next
-        "  movl -4(%%ecx), %%esp\n"     // %esp = next->stackpos
-        "  movl %%ebx, %%eax\n"
+        "  movl %%ebx, %%eax\n"         // %eax = thread
+        "  movl 4(%%ebx), %%ebx\n"      // %ebx = thread->node.next
+        "  movl (%5), %%esp\n"          // %esp = MainThread.stackpos
         "  calll %4\n"                  // call __end_thread(thread)
+        "  movl -4(%%ebx), %%esp\n"     // %esp = next->stackpos
         "  popl %%ebp\n"                // restore %ebp
         "  retl\n"                      // restore pc
         "1:\n"
         : "+a"(data), "+c"(func), "+b"(thread), "+d"(cur)
-        : "m"(*(u8*)__end_thread)
+        : "m"(*(u8*)__end_thread), "m"(MainThread)
         : "esi", "edi", "cc", "memory");
     return;
 
