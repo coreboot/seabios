@@ -129,41 +129,41 @@ struct pvscsi_ring_dsc_s {
 
 struct pvscsi_lun_s {
     struct drive_s drive;
-    u32 iobase;
+    void *iobase;
     u8 target;
     u8 lun;
     struct pvscsi_ring_dsc_s *ring_dsc;
 };
 
 static void
-pvscsi_write_cmd_desc(u32 iobase, u32 cmd, const void *desc, size_t len)
+pvscsi_write_cmd_desc(void *iobase, u32 cmd, const void *desc, size_t len)
 {
     const u32 *ptr = desc;
     size_t i;
 
     len /= sizeof(*ptr);
-    pci_writel(iobase + PVSCSI_REG_OFFSET_COMMAND, cmd);
+    writel(iobase + PVSCSI_REG_OFFSET_COMMAND, cmd);
     for (i = 0; i < len; i++)
-        pci_writel(iobase + PVSCSI_REG_OFFSET_COMMAND_DATA, ptr[i]);
+        writel(iobase + PVSCSI_REG_OFFSET_COMMAND_DATA, ptr[i]);
 }
 
 static void
-pvscsi_kick_rw_io(u32 iobase)
+pvscsi_kick_rw_io(void *iobase)
 {
-    pci_writel(iobase + PVSCSI_REG_OFFSET_KICK_RW_IO, 0);
+    writel(iobase + PVSCSI_REG_OFFSET_KICK_RW_IO, 0);
 }
 
 static void
-pvscsi_wait_intr_cmpl(u32 iobase)
+pvscsi_wait_intr_cmpl(void *iobase)
 {
-    while (!(pci_readl(iobase + PVSCSI_REG_OFFSET_INTR_STATUS) & PVSCSI_INTR_CMPL_MASK))
+    while (!(readl(iobase + PVSCSI_REG_OFFSET_INTR_STATUS) & PVSCSI_INTR_CMPL_MASK))
         usleep(5);
-    pci_writel(iobase + PVSCSI_REG_OFFSET_INTR_STATUS, PVSCSI_INTR_CMPL_MASK);
+    writel(iobase + PVSCSI_REG_OFFSET_INTR_STATUS, PVSCSI_INTR_CMPL_MASK);
 
 }
 
 static void
-pvscsi_init_rings(u32 iobase, struct pvscsi_ring_dsc_s **ring_dsc)
+pvscsi_init_rings(void *iobase, struct pvscsi_ring_dsc_s **ring_dsc)
 {
     struct PVSCSICmdDescSetupRings cmd = {0,};
 
@@ -279,7 +279,7 @@ pvscsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 }
 
 static int
-pvscsi_add_lun(struct pci_device *pci, u32 iobase,
+pvscsi_add_lun(struct pci_device *pci, void *iobase,
                struct pvscsi_ring_dsc_s *ring_dsc, u8 target, u8 lun)
 {
     struct pvscsi_lun_s *plun = malloc_fseg(sizeof(*plun));
@@ -311,7 +311,7 @@ fail:
 }
 
 static void
-pvscsi_scan_target(struct pci_device *pci, u32 iobase,
+pvscsi_scan_target(struct pci_device *pci, void *iobase,
                    struct pvscsi_ring_dsc_s *ring_dsc, u8 target)
 {
     /* TODO: send REPORT LUNS.  For now, only LUN 0 is recognized.  */
@@ -324,12 +324,12 @@ init_pvscsi(struct pci_device *pci)
     struct pvscsi_ring_dsc_s *ring_dsc = NULL;
     int i;
     u16 bdf = pci->bdf;
-    u32 iobase = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
-        & PCI_BASE_ADDRESS_MEM_MASK;
+    void *iobase = (void*)(pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
+                           & PCI_BASE_ADDRESS_MEM_MASK);
 
     pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
 
-    dprintf(1, "found pvscsi at %02x:%02x.%x, io @ %x\n",
+    dprintf(1, "found pvscsi at %02x:%02x.%x, io @ %p\n",
             pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
             pci_bdf_to_fn(bdf), iobase);
 

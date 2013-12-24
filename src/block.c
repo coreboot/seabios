@@ -313,7 +313,7 @@ __disk_ret_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
  * 16bit calling interface
  ****************************************************************/
 
-static int
+int VISIBLE32FLAT
 process_scsi_op(struct disk_op_s *op)
 {
     switch (op->command) {
@@ -386,8 +386,12 @@ process_op(struct disk_op_s *op)
     case DTYPE_LSI_SCSI:
     case DTYPE_ESP_SCSI:
     case DTYPE_MEGASAS:
-    case DTYPE_PVSCSI:
         ret = process_scsi_op(op);
+        break;
+    case DTYPE_PVSCSI: ;
+        extern void _cfunc32flat_process_scsi_op(void);
+        ret = call32(_cfunc32flat_process_scsi_op
+                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
         break;
     default:
         ret = DISK_RET_EPARAM;

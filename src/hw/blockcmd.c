@@ -44,7 +44,8 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     case DTYPE_MEGASAS:
         return megasas_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_PVSCSI:
-        return pvscsi_cmd_data(op, cdbcmd, blocksize);
+        if (!MODESEGMENT)
+            return pvscsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_AHCI_ATAPI:
         if (!MODESEGMENT)
             return ahci_cmd_data(op, cdbcmd, blocksize);
