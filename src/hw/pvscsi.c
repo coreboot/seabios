@@ -129,7 +129,6 @@ struct pvscsi_ring_dsc_s {
 
 struct pvscsi_lun_s {
     struct drive_s drive;
-    struct pci_device *pci;
     u32 iobase;
     u8 target;
     u8 lun;
@@ -291,7 +290,6 @@ pvscsi_add_lun(struct pci_device *pci, u32 iobase,
     memset(plun, 0, sizeof(*plun));
     plun->drive.type = DTYPE_PVSCSI;
     plun->drive.cntl_id = pci->bdf;
-    plun->pci = pci;
     plun->target = target;
     plun->lun = lun;
     plun->iobase = iobase;
