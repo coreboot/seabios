@@ -379,6 +379,7 @@ static void xhci_process_events(struct usb_xhci_s *xhci)
         u32 addr = (u32)(&ir->erdp_low);
         u32 erdp = (u32)(evts->ring + nidx);
         pci_writel(addr, erdp);
+        pci_writel((u32)(&ir->erdp_high), 0);
     }
 }
 
