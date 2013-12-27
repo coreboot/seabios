@@ -1,15 +1,16 @@
+#include "biosvar.h" // GET_LOWFLAT
 #include "config.h" // CONFIG_*
-#include "output.h" // dprintf
-#include "string.h" // memcpy_fl
-#include "util.h" // timer_calc
-#include "x86.h" // readl
 #include "malloc.h" // memalign_low
+#include "memmap.h" // PAGE_SIZE
+#include "output.h" // dprintf
 #include "pci.h" // pci_bdf_to_bus
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_XHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "string.h" // memcpy_fl
 #include "usb.h" // struct usb_s
 #include "usb-xhci.h" // struct ehci_qh
-#include "biosvar.h" // GET_LOWFLAT
+#include "util.h" // timer_calc
+#include "x86.h" // readl
 
 // --------------------------------------------------------------
 // configuration
@@ -717,10 +718,10 @@ configure_xhci(void *data)
     if (spb) {
         dprintf(3, "%s: setup %d scratch pad buffers\n", __func__, spb);
         u64 *spba = memalign_high(64, sizeof(*spba) * spb);
-        void *pad = memalign_high(4096, 4096 * spb);
+        void *pad = memalign_high(PAGE_SIZE, PAGE_SIZE * spb);
         int i;
         for (i = 0; i < spb; i++)
-            spba[i] = (u32)pad + (i * 4096);
+            spba[i] = (u32)pad + (i * PAGE_SIZE);
         xhci->devs[0].ptr_low = (u32)spba;
         xhci->devs[0].ptr_high = 0;
     }
@@ -1133,6 +1134,14 @@ xhci_controller_setup(struct pci_device *pci)
             off = (cap >> 8) & 0xff;
             addr += off << 2;
         } while (off > 0);
+    }
+
+    u32 pagesize = readl(&xhci->op->pagesize);
+    if (PAGE_SIZE != (pagesize<<12)) {
+        dprintf(1, "XHCI driver does not support page size code %d\n"
+                , pagesize<<12);
+        free(xhci);
+        return;
     }
 
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
