@@ -895,6 +895,8 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         in->slot.ctx[0]    |= (31 << 27); // context entries
 
         int e = pipe->epid-1;
+        if (eptype == USB_ENDPOINT_XFER_INT)
+            in->ep[e].ctx[0] = (usb_getFrameExp(usbdev, epdesc) + 3) << 16;
         in->ep[e].ctx[1]   |= (eptype << 3);
         if (epdesc->bEndpointAddress & USB_DIR_IN)
             in->ep[e].ctx[1] |= (1 << 5);
