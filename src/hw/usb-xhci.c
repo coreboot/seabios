@@ -621,7 +621,7 @@ static void xhci_xfer_data(struct xhci_pipe *pipe,
     xhci_xfer_queue(pipe, &trb);
 }
 
-static void xhci_xfer_status(struct xhci_pipe *pipe, int dir)
+static void xhci_xfer_status(struct xhci_pipe *pipe, int dir, int datalen)
 {
     ASSERT32FLAT();
     struct xhci_trb trb;
@@ -629,7 +629,7 @@ static void xhci_xfer_status(struct xhci_pipe *pipe, int dir)
     memset(&trb, 0, sizeof(trb));
     trb.control  |= (TR_STATUS << 10); // trb type
     trb.control  |= TRB_TR_IOC;
-    if (dir)
+    if (!datalen || !dir)
         trb.control |= (1 << 16);
 
     xhci_xfer_queue(pipe, &trb);
@@ -1007,7 +1007,7 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     xhci_xfer_setup(pipe, req, dir, datalen);
     if (datalen)
         xhci_xfer_data(pipe, dir, data, datalen);
-    xhci_xfer_status(pipe, dir);
+    xhci_xfer_status(pipe, dir, datalen);
 
     cc = xhci_event_wait(xhci, &pipe->reqs, 1000);
     if (cc != CC_SUCCESS) {
