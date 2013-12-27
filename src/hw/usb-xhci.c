@@ -249,7 +249,6 @@ struct usb_xhci_s {
 
 struct xhci_device {
     struct xhci_devctx   devctx;
-    struct xhci_inctx    inctx;
 
     struct usbdevice_s   *usbdev;
     struct usb_xhci_s    *xhci;
@@ -545,11 +544,12 @@ static int xhci_cmd_disable_slot(struct xhci_device *dev)
     return xhci_cmd_submit(dev->xhci, &cmd);
 }
 
-static int xhci_cmd_address_device(struct xhci_device *dev)
+static int xhci_cmd_address_device(struct xhci_device *dev
+                                   , struct xhci_inctx *inctx)
 {
     ASSERT32FLAT();
     struct xhci_trb cmd = {
-        .ptr_low  = (u32)&dev->inctx,
+        .ptr_low  = (u32)inctx,
         .ptr_high = 0,
         .status   = 0,
         .control  = (dev->slotid << 24) | (CR_ADDRESS_DEVICE << 10)
@@ -558,31 +558,33 @@ static int xhci_cmd_address_device(struct xhci_device *dev)
     return xhci_cmd_submit(dev->xhci, &cmd);
 }
 
-static int xhci_cmd_configure_endpoint(struct xhci_device *dev)
+static int xhci_cmd_configure_endpoint(struct xhci_device *dev
+                                       , struct xhci_inctx *inctx)
 {
     ASSERT32FLAT();
     struct xhci_trb cmd = {
-        .ptr_low  = (u32)&dev->inctx,
+        .ptr_low  = (u32)inctx,
         .ptr_high = 0,
         .status   = 0,
         .control  = (dev->slotid << 24) | (CR_CONFIGURE_ENDPOINT << 10)
     };
     dprintf(3, "%s: slotid %d, add 0x%x, del 0x%x\n", __func__,
-            dev->slotid, dev->inctx.add, dev->inctx.del);
+            dev->slotid, inctx->add, inctx->del);
     return xhci_cmd_submit(dev->xhci, &cmd);
 }
 
-static int xhci_cmd_evaluate_context(struct xhci_device *dev)
+static int xhci_cmd_evaluate_context(struct xhci_device *dev
+                                     , struct xhci_inctx *inctx)
 {
     ASSERT32FLAT();
     struct xhci_trb cmd = {
-        .ptr_low  = (u32)&dev->inctx,
+        .ptr_low  = (u32)inctx,
         .ptr_high = 0,
         .status   = 0,
         .control  = (dev->slotid << 24) | (CR_EVALUATE_CONTEXT << 10)
     };
     dprintf(3, "%s: slotid %d, add 0x%x, del 0x%x\n", __func__,
-            dev->slotid, dev->inctx.add, dev->inctx.del);
+            dev->slotid, inctx->add, inctx->del);
     return xhci_cmd_submit(dev->xhci, &cmd);
 }
 
@@ -845,6 +847,35 @@ static struct usbhub_op_s xhci_hub_ops = {
 // --------------------------------------------------------------
 // external interface
 
+
+static struct xhci_inctx *
+xhci_alloc_inctx(struct xhci_pipe *pipe)
+{
+    struct xhci_inctx *in = memalign_tmphigh(4096, sizeof(*in));
+    if (!in) {
+        warn_noalloc();
+        return NULL;
+    }
+    memset(in, 0, sizeof(*in));
+
+    struct usbdevice_s *usbdev = pipe->dev->usbdev;
+    u32 route = 0;
+    while (usbdev->hub->usbdev) {
+        route <<= 4;
+        route |= (usbdev->port+1) & 0xf;
+        usbdev = usbdev->hub->usbdev;
+    }
+
+    in->add = 0x01;
+    in->slot.ctx[0]    |= (1 << 27); // context entries
+    in->slot.ctx[0]    |= speed_to_xhci[pipe->dev->usbdev->speed] << 20;
+    in->slot.ctx[0]    |= route;
+    in->slot.ctx[1]    |= (usbdev->port+1) << 16;
+    /* TODO ctx0: hub bit */
+    /* TODO ctx1: hub ports */
+    return in;
+}
+
 struct usb_pipe *
 xhci_alloc_pipe(struct usbdevice_s *usbdev
                 , struct usb_endpoint_descriptor *epdesc)
@@ -877,10 +908,8 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
 
     usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
     pipe->dev = xhci_find_alloc_device(xhci, usbdev);
-    if (!pipe->dev) {
-        free(pipe);
-        return NULL;
-    }
+    if (!pipe->dev)
+        goto fail;
     pipe->epid = epid;
     pipe->reqs.cs = 1;
     if (eptype == USB_ENDPOINT_XFER_INT)
@@ -889,10 +918,10 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     dprintf(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
             usbdev, &pipe->reqs, pipe->dev->slotid, pipe->epid);
     if (pipe->epid > 1 && pipe->dev->slotid) {
-        struct xhci_inctx *in = &pipe->dev->inctx;
-        in->add = (1 << pipe->epid) | 1;
-        in->del = 0;
-
+        struct xhci_inctx *in = xhci_alloc_inctx(pipe);
+        if (!in)
+            goto fail;
+        in->add |= (1 << pipe->epid);
         in->slot.ctx[0]    |= (31 << 27); // context entries
 
         int e = pipe->epid-1;
@@ -907,15 +936,18 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         in->ep[e].deq_high = 0;
         in->ep[e].length   = pipe->pipe.maxpacket;
 
-        int cc = xhci_cmd_configure_endpoint(pipe->dev);
+        int cc = xhci_cmd_configure_endpoint(pipe->dev, in);
+        free(in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: configure endpoint: failed (cc %d)\n", __func__, cc);
-            free(pipe);
-            return NULL;
+            goto fail;
         }
     }
 
     return &pipe->pipe;
+fail:
+    free(pipe);
+    return NULL;
 }
 
 struct usb_pipe *
@@ -934,16 +966,17 @@ xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
         dprintf(1, "%s: reconf ctl endpoint pkt size: %d -> %d\n",
                 __func__, pipe->pipe.maxpacket, epdesc->wMaxPacketSize);
         pipe->pipe.maxpacket = epdesc->wMaxPacketSize;
-        struct xhci_inctx *in = &pipe->dev->inctx;
+        struct xhci_inctx *in = xhci_alloc_inctx(pipe);
+        if (!in)
+            return upipe;
         in->add = (1 << 1);
-        in->del = 0;
-        in->ep[0].ctx[1] &= 0xffff;
         in->ep[0].ctx[1] |= (pipe->pipe.maxpacket << 16);
-        int cc = xhci_cmd_evaluate_context(pipe->dev);
+        int cc = xhci_cmd_evaluate_context(pipe->dev, in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: reconf ctl endpoint: failed (cc %d)\n",
                     __func__, cc);
         }
+        free(in);
     }
     return upipe;
 }
@@ -971,24 +1004,8 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         xhci->devs[slotid].ptr_low = (u32)&pipe->dev->devctx;
         xhci->devs[slotid].ptr_high = 0;
 
-        struct usbdevice_s *usbdev = pipe->dev->usbdev;
-        u32 route = 0;
-        while (usbdev->hub->usbdev) {
-            route <<= 4;
-            route |= (usbdev->port+1) & 0xf;
-            usbdev = usbdev->hub->usbdev;
-        }
-        dprintf(3, "%s: root port %d, route 0x%x\n",
-                __func__, usbdev->port+1, route);
-
-        struct xhci_inctx *in = &pipe->dev->inctx;
-        in->add = 0x03;
-        in->slot.ctx[0]    |= (1 << 27); // context entries
-        in->slot.ctx[0]    |= speed_to_xhci[pipe->dev->usbdev->speed] << 20;
-        in->slot.ctx[0]    |= route;
-        in->slot.ctx[1]    |= (usbdev->port+1) << 16;
-        /* TODO ctx0: hub bit */
-        /* TODO ctx1: hub ports */
+        struct xhci_inctx *in = xhci_alloc_inctx(pipe);
+        in->add |= (1 << 1);
 
         in->ep[0].ctx[0]   |= (3 << 16); // interval: 1ms
         in->ep[0].ctx[1]   |= (4 << 3);  // control pipe
@@ -999,7 +1016,8 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         in->ep[0].deq_high = 0;
         in->ep[0].length   = 8;
 
-        cc = xhci_cmd_address_device(pipe->dev);
+        cc = xhci_cmd_address_device(pipe->dev, in);
+        free(in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: address device: failed (cc %d)\n", __func__, cc);
             return -1;
