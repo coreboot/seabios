@@ -917,7 +917,37 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
 
     dprintf(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
             usbdev, &pipe->reqs, pipe->dev->slotid, pipe->epid);
-    if (pipe->epid > 1 && pipe->dev->slotid) {
+    if (pipe->epid == 1) {
+        // Enable slot and send set_address command.
+        int slotid = xhci_cmd_enable_slot(xhci);
+        if (slotid < 0) {
+            dprintf(1, "%s: enable slot: failed\n", __func__);
+            goto fail;
+        }
+        dprintf(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
+        pipe->dev->slotid = slotid;
+        xhci->devs[slotid].ptr_low = (u32)&pipe->dev->devctx;
+        xhci->devs[slotid].ptr_high = 0;
+
+        struct xhci_inctx *in = xhci_alloc_inctx(pipe);
+        in->add |= (1 << 1);
+
+        in->ep[0].ctx[0]   |= (3 << 16); // interval: 1ms
+        in->ep[0].ctx[1]   |= (4 << 3);  // control pipe
+        in->ep[0].ctx[1]   |= (speed_to_ctlsize[pipe->dev->usbdev->speed] << 16);
+
+        in->ep[0].deq_low  = (u32)&pipe->reqs.ring[0];
+        in->ep[0].deq_low  |= 1;         // dcs
+        in->ep[0].deq_high = 0;
+        in->ep[0].length   = 8;
+
+        int cc = xhci_cmd_address_device(pipe->dev, in);
+        free(in);
+        if (cc != CC_SUCCESS) {
+            dprintf(1, "%s: address device: failed (cc %d)\n", __func__, cc);
+            goto fail;
+        }
+    } else {
         struct xhci_inctx *in = xhci_alloc_inctx(pipe);
         if (!in)
             goto fail;
@@ -991,46 +1021,17 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     const struct usb_ctrlrequest *req = cmd;
     struct xhci_pipe *pipe = container_of(p, struct xhci_pipe, pipe);
     struct usb_xhci_s *xhci = pipe->dev->xhci;
-    int cc;
 
-    if (req->bRequest == USB_REQ_SET_ADDRESS) {
-        int slotid = xhci_cmd_enable_slot(xhci);
-        if (slotid < 0) {
-            dprintf(1, "%s: enable slot: failed\n", __func__);
-            return -1;
-        }
-        dprintf(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
-        pipe->dev->slotid = slotid;
-        xhci->devs[slotid].ptr_low = (u32)&pipe->dev->devctx;
-        xhci->devs[slotid].ptr_high = 0;
-
-        struct xhci_inctx *in = xhci_alloc_inctx(pipe);
-        in->add |= (1 << 1);
-
-        in->ep[0].ctx[0]   |= (3 << 16); // interval: 1ms
-        in->ep[0].ctx[1]   |= (4 << 3);  // control pipe
-        in->ep[0].ctx[1]   |= (speed_to_ctlsize[pipe->dev->usbdev->speed] << 16);
-
-        in->ep[0].deq_low  = (u32)&pipe->reqs.ring[0];
-        in->ep[0].deq_low  |= 1;         // dcs
-        in->ep[0].deq_high = 0;
-        in->ep[0].length   = 8;
-
-        cc = xhci_cmd_address_device(pipe->dev, in);
-        free(in);
-        if (cc != CC_SUCCESS) {
-            dprintf(1, "%s: address device: failed (cc %d)\n", __func__, cc);
-            return -1;
-        }
+    if (req->bRequest == USB_REQ_SET_ADDRESS)
+        // Set address command sent during xhci_alloc_pipe.
         return 0;
-    }
 
     xhci_xfer_setup(pipe, req, dir, datalen);
     if (datalen)
         xhci_xfer_data(pipe, dir, data, datalen);
     xhci_xfer_status(pipe, dir, datalen);
 
-    cc = xhci_event_wait(xhci, &pipe->reqs, 1000);
+    int cc = xhci_event_wait(xhci, &pipe->reqs, 1000);
     if (cc != CC_SUCCESS) {
         dprintf(1, "%s: control xfer failed (cc %d)\n", __func__, cc);
         return -1;

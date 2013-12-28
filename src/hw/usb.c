@@ -263,6 +263,8 @@ usb_set_address(struct usbdevice_s *usbdev)
     if (cntl->maxaddr >= USB_MAXADDR)
         return -1;
 
+    msleep(USB_TIME_RSTRCY);
+
     // Create a pipe for the default address.
     struct usb_endpoint_descriptor epdesc = {
         .wMaxPacketSize = 8,
@@ -271,8 +273,6 @@ usb_set_address(struct usbdevice_s *usbdev)
     usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);
     if (!usbdev->defpipe)
         return -1;
-
-    msleep(USB_TIME_RSTRCY);
 
     // Send set_address command.
     struct usb_ctrlrequest req;
