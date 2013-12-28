@@ -250,7 +250,7 @@ menu "Hardware support"
         help
             Support USB EHCI controllers.
     config USB_XHCI
-        depends on USB && QEMU_HARDWARE
+        depends on USB
         bool "USB XHCI controllers"
         default y
         help
