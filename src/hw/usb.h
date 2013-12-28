@@ -22,6 +22,7 @@ struct usb_pipe {
 struct usbdevice_s {
     struct usbhub_s *hub;
     struct usb_pipe *defpipe;
+    u32 slotid;
     u32 port;
     struct usb_config_descriptor *config;
     struct usb_interface_descriptor *iface;
