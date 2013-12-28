@@ -229,6 +229,7 @@ struct usb_xhci_s {
     u32                  xcap;
     u32                  ports;
     u32                  slots;
+    u8                   context64;
 
     /* xhci registers */
     struct xhci_caps     *caps;
@@ -807,12 +808,15 @@ static struct usbhub_op_s xhci_hub_ops = {
 static struct xhci_inctx *
 xhci_alloc_inctx(struct usbdevice_s *usbdev)
 {
-    struct xhci_inctx *in = memalign_tmphigh(4096, sizeof(*in));
+    struct usb_xhci_s *xhci = container_of(
+        usbdev->hub->cntl, struct usb_xhci_s, usb);
+    int size = (sizeof(struct xhci_inctx) * 33) << xhci->context64;
+    struct xhci_inctx *in = memalign_tmphigh(2048 << xhci->context64, size);
     if (!in) {
         warn_noalloc();
         return NULL;
     }
-    memset(in, 0, sizeof(*in));
+    memset(in, 0, size);
 
     u32 route = 0;
     while (usbdev->hub->usbdev) {
@@ -822,10 +826,11 @@ xhci_alloc_inctx(struct usbdevice_s *usbdev)
     }
 
     in->add = 0x01;
-    in->slot.ctx[0]    |= (1 << 27); // context entries
-    in->slot.ctx[0]    |= speed_to_xhci[usbdev->speed] << 20;
-    in->slot.ctx[0]    |= route;
-    in->slot.ctx[1]    |= (usbdev->port+1) << 16;
+    struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
+    slot->ctx[0]    |= (1 << 27); // context entries
+    slot->ctx[0]    |= speed_to_xhci[usbdev->speed] << 20;
+    slot->ctx[0]    |= route;
+    slot->ctx[1]    |= (usbdev->port+1) << 16;
     /* TODO ctx0: hub bit */
     /* TODO ctx1: hub ports */
     return in;
@@ -871,7 +876,8 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
             usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
     if (pipe->epid == 1) {
         // Enable slot and send set_address command.
-        struct xhci_slotctx *dev = memalign_high(2048, sizeof(*dev));
+        u32 size = (sizeof(struct xhci_slotctx) * 32) << xhci->context64;
+        struct xhci_slotctx *dev = memalign_high(1024 << xhci->context64, size);
         if (!dev) {
             warn_noalloc();
             goto fail;
@@ -884,7 +890,7 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         }
         dprintf(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
 
-        memset(dev, 0, sizeof(*dev));
+        memset(dev, 0, size);
         pipe->slotid = usbdev->slotid = slotid;
         xhci->devs[slotid].ptr_low = (u32)dev;
         xhci->devs[slotid].ptr_high = 0;
@@ -894,14 +900,15 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
             goto fail;
         in->add |= (1 << 1);
 
-        in->ep[0].ctx[0]   |= (3 << 16); // interval: 1ms
-        in->ep[0].ctx[1]   |= (4 << 3);  // control pipe
-        in->ep[0].ctx[1]   |= (speed_to_ctlsize[usbdev->speed] << 16);
+        struct xhci_epctx *ep = (void*)&in[2 << xhci->context64];
+        ep->ctx[0]   |= (3 << 16); // interval: 1ms
+        ep->ctx[1]   |= (4 << 3);  // control pipe
+        ep->ctx[1]   |= (speed_to_ctlsize[usbdev->speed] << 16);
 
-        in->ep[0].deq_low  = (u32)&pipe->reqs.ring[0];
-        in->ep[0].deq_low  |= 1;         // dcs
-        in->ep[0].deq_high = 0;
-        in->ep[0].length   = 8;
+        ep->deq_low  = (u32)&pipe->reqs.ring[0];
+        ep->deq_low  |= 1;         // dcs
+        ep->deq_high = 0;
+        ep->length   = 8;
 
         int cc = xhci_cmd_address_device(xhci, slotid, in);
         free(in);
@@ -914,19 +921,20 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         if (!in)
             goto fail;
         in->add |= (1 << pipe->epid);
-        in->slot.ctx[0]    |= (31 << 27); // context entries
+        struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
+        slot->ctx[0] |= (31 << 27); // context entries
 
-        int e = pipe->epid-1;
+        struct xhci_epctx *ep = (void*)&in[(pipe->epid+1) << xhci->context64];
         if (eptype == USB_ENDPOINT_XFER_INT)
-            in->ep[e].ctx[0] = (usb_getFrameExp(usbdev, epdesc) + 3) << 16;
-        in->ep[e].ctx[1]   |= (eptype << 3);
+            ep->ctx[0] = (usb_getFrameExp(usbdev, epdesc) + 3) << 16;
+        ep->ctx[1]   |= (eptype << 3);
         if (epdesc->bEndpointAddress & USB_DIR_IN)
-            in->ep[e].ctx[1] |= (1 << 5);
-        in->ep[e].ctx[1]   |= (pipe->pipe.maxpacket << 16);
-        in->ep[e].deq_low  = (u32)&pipe->reqs.ring[0];
-        in->ep[e].deq_low  |= 1;         // dcs
-        in->ep[e].deq_high = 0;
-        in->ep[e].length   = pipe->pipe.maxpacket;
+            ep->ctx[1] |= (1 << 5);
+        ep->ctx[1]   |= (pipe->pipe.maxpacket << 16);
+        ep->deq_low  = (u32)&pipe->reqs.ring[0];
+        ep->deq_low  |= 1;         // dcs
+        ep->deq_high = 0;
+        ep->length   = pipe->pipe.maxpacket;
 
         pipe->slotid = usbdev->slotid;
         int cc = xhci_cmd_configure_endpoint(xhci, pipe->slotid, in);
@@ -965,7 +973,8 @@ xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
         if (!in)
             return upipe;
         in->add = (1 << 1);
-        in->ep[0].ctx[1] |= (pipe->pipe.maxpacket << 16);
+        struct xhci_epctx *ep = (void*)&in[2 << xhci->context64];
+        ep->ctx[1] |= (pipe->pipe.maxpacket << 16);
         int cc = xhci_cmd_evaluate_context(xhci, pipe->slotid, in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: reconf ctl endpoint: failed (cc %d)\n",
@@ -1081,6 +1090,7 @@ xhci_controller_setup(struct pci_device *pci)
     xhci->ports = (hcs1 >> 24) & 0xff;
     xhci->slots = hcs1         & 0xff;
     xhci->xcap  = ((hcc >> 16) & 0xffff) << 2;
+    xhci->context64 = (hcc & 0x04) ? 1 : 0;
 
     xhci->usb.pci = pci;
     xhci->usb.type = USB_TYPE_XHCI;
@@ -1088,10 +1098,11 @@ xhci_controller_setup(struct pci_device *pci)
     xhci->hub.portcount = xhci->ports;
     xhci->hub.op = &xhci_hub_ops;
 
-    dprintf(1, "XHCI init on dev %02x:%02x.%x: regs @ %p, %d ports, %d slots\n"
+    dprintf(1, "XHCI init on dev %02x:%02x.%x: regs @ %p, %d ports, %d slots"
+            ", %d byte contexts\n"
             , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
             , pci_bdf_to_fn(pci->bdf), xhci->caps
-            , xhci->ports, xhci->slots);
+            , xhci->ports, xhci->slots, xhci->context64 ? 64 : 32);
 
     if (xhci->xcap) {
         u32 off, addr = xhci->baseaddr + xhci->xcap;

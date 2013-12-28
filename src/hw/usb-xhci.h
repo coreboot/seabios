@@ -104,12 +104,6 @@ struct xhci_epctx {
     u32 reserved_01[3];
 } PACKED;
 
-// device context
-struct xhci_devctx {
-    struct xhci_slotctx slot;
-    struct xhci_epctx   ep[31];
-} PACKED;
-
 // device context array element
 struct xhci_devlist {
     u32 ptr_low;
@@ -121,8 +115,6 @@ struct xhci_inctx {
     u32 del;
     u32 add;
     u32 reserved_01[6];
-    struct xhci_slotctx slot;
-    struct xhci_epctx   ep[31];
 } PACKED;
 
 // transfer block (ring element)
