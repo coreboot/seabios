@@ -922,7 +922,7 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
             goto fail;
         in->add |= (1 << pipe->epid);
         struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
-        slot->ctx[0] |= (31 << 27); // context entries
+        slot->ctx[0] = (slot->ctx[0] & ~0xf8000000) | (pipe->epid << 27);
 
         struct xhci_epctx *ep = (void*)&in[(pipe->epid+1) << xhci->context64];
         if (eptype == USB_ENDPOINT_XFER_INT)
