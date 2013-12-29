@@ -1113,7 +1113,8 @@ xhci_controller_setup(struct pci_device *pci)
             case 0x02:
                 name  = readl(&xcap->data[0]);
                 ports = readl(&xcap->data[1]);
-                dprintf(1, "XHCI    protocol %c%c%c%c %x.%02x, %d ports (offset %d)\n"
+                dprintf(1, "XHCI    protocol %c%c%c%c %x.%02x"
+                        ", %d ports (offset %d), def %x\n"
                         , (name >>  0) & 0xff
                         , (name >>  8) & 0xff
                         , (name >> 16) & 0xff
@@ -1121,7 +1122,8 @@ xhci_controller_setup(struct pci_device *pci)
                         , (cap >> 24) & 0xff
                         , (cap >> 16) & 0xff
                         , (ports >>  8) & 0xff
-                        , (ports >>  0) & 0xff);
+                        , (ports >>  0) & 0xff
+                        , ports >> 16);
                 break;
             default:
                 dprintf(1, "XHCI    extcap 0x%x @ %x\n", cap & 0xff, addr);
