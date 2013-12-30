@@ -818,22 +818,63 @@ xhci_alloc_inctx(struct usbdevice_s *usbdev)
     }
     memset(in, 0, size);
 
-    u32 route = 0;
-    while (usbdev->hub->usbdev) {
-        route <<= 4;
-        route |= (usbdev->port+1) & 0xf;
-        usbdev = usbdev->hub->usbdev;
-    }
-
     in->add = 0x01;
     struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
     slot->ctx[0]    |= (1 << 27); // context entries
     slot->ctx[0]    |= speed_to_xhci[usbdev->speed] << 20;
-    slot->ctx[0]    |= route;
+
+    // Set high-speed hub flags.
+    struct usbdevice_s *hubdev = usbdev->hub->usbdev;
+    if (hubdev) {
+        if (usbdev->speed == USB_LOWSPEED || usbdev->speed == USB_FULLSPEED) {
+            struct xhci_pipe *hpipe = container_of(
+                hubdev->defpipe, struct xhci_pipe, pipe);
+            if (hubdev->speed == USB_HIGHSPEED) {
+                slot->ctx[2] |= hpipe->slotid;
+                slot->ctx[2] |= (usbdev->port+1) << 8;
+            } else {
+                struct xhci_slotctx *hslot = (void*)xhci->devs[hpipe->slotid].ptr_low;
+                slot->ctx[2] = hslot->ctx[2];
+            }
+        }
+        u32 route = 0;
+        while (usbdev->hub->usbdev) {
+            route <<= 4;
+            route |= (usbdev->port+1) & 0xf;
+            usbdev = usbdev->hub->usbdev;
+        }
+        slot->ctx[0]    |= route;
+    }
+
     slot->ctx[1]    |= (usbdev->port+1) << 16;
-    /* TODO ctx0: hub bit */
-    /* TODO ctx1: hub ports */
+
     return in;
+}
+
+static int xhci_config_hub(struct usbhub_s *hub)
+{
+    struct usb_xhci_s *xhci = container_of(
+        hub->cntl, struct usb_xhci_s, usb);
+    struct xhci_pipe *pipe = container_of(
+        hub->usbdev->defpipe, struct xhci_pipe, pipe);
+    struct xhci_slotctx *hdslot = (void*)xhci->devs[pipe->slotid].ptr_low;
+    if ((hdslot->ctx[3] >> 27) == 3)
+        // Already configured
+        return 0;
+    struct xhci_inctx *in = xhci_alloc_inctx(hub->usbdev);
+    if (!in)
+        return -1;
+    struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
+    slot->ctx[0] |= 1 << 26;
+    slot->ctx[1] |= hub->portcount << 24;
+
+    int cc = xhci_cmd_configure_endpoint(xhci, pipe->slotid, in);
+    free(in);
+    if (cc != CC_SUCCESS) {
+        dprintf(1, "%s: configure hub: failed (cc %d)\n", __func__, cc);
+        return -1;
+    }
+    return 0;
 }
 
 struct usb_pipe *
@@ -875,6 +916,12 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     dprintf(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
             usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
     if (pipe->epid == 1) {
+        if (usbdev->hub->usbdev) {
+            // Make sure parent hub is configured.
+            int ret = xhci_config_hub(usbdev->hub);
+            if (ret)
+                goto fail;
+        }
         // Enable slot and send set_address command.
         u32 size = (sizeof(struct xhci_slotctx) * 32) << xhci->context64;
         struct xhci_slotctx *dev = memalign_high(1024 << xhci->context64, size);
