@@ -501,3 +501,30 @@ check_preempt(void)
     if (CONFIG_THREAD_OPTIONROMS && GET_GLOBAL(CanPreempt) && have_threads())
         call32(_cfunc32flat_yield_preempt, 0, 0);
 }
+
+
+/****************************************************************
+ * call32 helper
+ ****************************************************************/
+
+struct call32_params_s {
+    void *func;
+    u32 eax, edx, ecx;
+};
+
+u32 VISIBLE32FLAT
+call32_params_helper(struct call32_params_s *params)
+{
+    return ((u32 (*)(u32, u32, u32))params->func)(
+        params->eax, params->edx, params->ecx);
+}
+
+u32
+call32_params(void *func, u32 eax, u32 edx, u32 ecx, u32 errret)
+{
+    ASSERT16();
+    struct call32_params_s params = {func, eax, edx, ecx};
+    extern void _cfunc32flat_call32_params_helper(void);
+    return call32(_cfunc32flat_call32_params_helper
+                  , (u32)MAKE_FLATPTR(GET_SEG(SS), &params), errret);
+}

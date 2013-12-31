@@ -30,5 +30,6 @@ void start_preempt(void);
 void finish_preempt(void);
 int wait_preempt(void);
 void check_preempt(void);
+u32 call32_params(void *func, u32 eax, u32 edx, u32 ecx, u32 errret);
 
 #endif // stacks.h
