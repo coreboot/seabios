@@ -79,7 +79,9 @@ struct drive_s {
 #define DTYPE_VIRTIO_SCSI  0x60
 #define DTYPE_VIRTIO_BLK   0x61
 #define DTYPE_USB          0x70
-#define DTYPE_UAS          0x71
+#define DTYPE_USB_32       0x71
+#define DTYPE_UAS          0x72
+#define DTYPE_UAS_32       0x73
 #define DTYPE_LSI_SCSI     0x80
 #define DTYPE_ESP_SCSI     0x81
 #define DTYPE_MEGASAS      0x82

@@ -388,6 +388,8 @@ process_op(struct disk_op_s *op)
     case DTYPE_MEGASAS:
         ret = process_scsi_op(op);
         break;
+    case DTYPE_USB_32:
+    case DTYPE_UAS_32:
     case DTYPE_PVSCSI: ;
         extern void _cfunc32flat_process_scsi_op(void);
         ret = call32(_cfunc32flat_process_scsi_op

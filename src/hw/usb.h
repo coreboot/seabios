@@ -228,6 +228,7 @@ struct usb_pipe *usb_alloc_pipe(struct usbdevice_s *usbdev
                                 , struct usb_endpoint_descriptor *epdesc);
 int usb_send_bulk(struct usb_pipe *pipe, int dir, void *data, int datasize);
 int usb_poll_intr(struct usb_pipe *pipe, void *data);
+int usb_32bit_pipe(struct usb_pipe *pipe_fl);
 int send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                          , void *data);
 void free_pipe(struct usb_pipe *pipe);

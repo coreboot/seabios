@@ -89,6 +89,8 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     case USB_TYPE_EHCI:
         return ehci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_XHCI:
+        if (MODESEGMENT)
+            return -1;
         return xhci_send_bulk(pipe_fl, dir, data, datasize);
     }
 }
@@ -96,6 +98,7 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
 int
 usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 {
+    ASSERT16();
     switch (GET_LOWFLAT(pipe_fl->type)) {
     default:
     case USB_TYPE_UHCI:
@@ -104,11 +107,17 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
         return ohci_poll_intr(pipe_fl, data);
     case USB_TYPE_EHCI:
         return ehci_poll_intr(pipe_fl, data);
-    case USB_TYPE_XHCI:
-        return xhci_poll_intr(pipe_fl, data);
+    case USB_TYPE_XHCI: ;
+        extern void _cfunc32flat_xhci_poll_intr(void);
+        return call32_params(_cfunc32flat_xhci_poll_intr, (u32)pipe_fl
+                             , (u32)MAKE_FLATPTR(GET_SEG(SS), (u32)data), 0, -1);
     }
 }
 
+int usb_32bit_pipe(struct usb_pipe *pipe_fl)
+{
+    return CONFIG_USB_XHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_XHCI;
+}
 
 /****************************************************************
  * Helper functions

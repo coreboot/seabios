@@ -43,6 +43,12 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return esp_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_MEGASAS:
         return megasas_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_USB_32:
+        if (!MODESEGMENT)
+            return usb_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_UAS_32:
+        if (!MODESEGMENT)
+            return uas_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_PVSCSI:
         if (!MODESEGMENT)
             return pvscsi_cmd_data(op, cdbcmd, blocksize);

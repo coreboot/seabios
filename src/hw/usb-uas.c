@@ -179,7 +179,10 @@ uas_lun_setup(struct usbdevice_s *usbdev,
         return -1;
     }
     memset(drive, 0, sizeof(*drive));
-    drive->drive.type = DTYPE_UAS;
+    if (usb_32bit_pipe(data_in))
+        drive->drive.type = DTYPE_UAS_32;
+    else
+        drive->drive.type = DTYPE_UAS;
     drive->command = command;
     drive->status = status;
     drive->data_in = data_in;

@@ -309,8 +309,8 @@ static const int eptype_to_xhci_out[] = {
 static void xhci_doorbell(struct usb_xhci_s *xhci, u32 slotid, u32 value)
 {
     struct xhci_db *db = GET_LOWFLAT(xhci->db);
-    u32 addr = (u32)(&db[slotid].doorbell);
-    pci_writel(addr, value);
+    void *addr = &db[slotid].doorbell;
+    writel(addr, value);
 }
 
 static void xhci_process_events(struct usb_xhci_s *xhci)
@@ -365,10 +365,9 @@ static void xhci_process_events(struct usb_xhci_s *xhci)
         }
         SET_LOWFLAT(evts->nidx, nidx);
         struct xhci_ir *ir = GET_LOWFLAT(xhci->ir);
-        u32 addr = (u32)(&ir->erdp_low);
         u32 erdp = (u32)(evts->ring + nidx);
-        pci_writel(addr, erdp);
-        pci_writel((u32)(&ir->erdp_high), 0);
+        writel(&ir->erdp_low, erdp);
+        writel(&ir->erdp_high, 0);
     }
 }
 
@@ -1062,7 +1061,7 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     return 0;
 }
 
-int
+int VISIBLE32FLAT
 xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datalen)
 {
     if (!CONFIG_USB_XHCI)
@@ -1081,7 +1080,7 @@ xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datalen)
     return 0;
 }
 
-int
+int VISIBLE32FLAT
 xhci_poll_intr(struct usb_pipe *p, void *data)
 {
     if (!CONFIG_USB_XHCI)

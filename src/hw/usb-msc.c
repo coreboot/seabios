@@ -147,7 +147,10 @@ usb_msc_lun_setup(struct usb_pipe *inpipe, struct usb_pipe *outpipe,
         return -1;
     }
     memset(drive, 0, sizeof(*drive));
-    drive->drive.type = DTYPE_USB;
+    if (usb_32bit_pipe(inpipe))
+        drive->drive.type = DTYPE_USB_32;
+    else
+        drive->drive.type = DTYPE_USB;
     drive->bulkin = inpipe;
     drive->bulkout = outpipe;
     drive->lun = lun;
