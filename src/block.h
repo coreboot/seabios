@@ -69,21 +69,21 @@ struct drive_s {
 #define CDROM_SECTOR_SIZE 2048
 
 #define DTYPE_NONE         0x00
-#define DTYPE_FLOPPY       0x01
-#define DTYPE_ATA          0x02
-#define DTYPE_ATA_ATAPI    0x03
-#define DTYPE_RAMDISK      0x04
-#define DTYPE_CDEMU        0x05
-#define DTYPE_AHCI         0x06
-#define DTYPE_AHCI_ATAPI   0x07
-#define DTYPE_VIRTIO_SCSI  0x08
-#define DTYPE_VIRTIO_BLK   0x09
-#define DTYPE_USB          0x0a
-#define DTYPE_UAS          0x0b
-#define DTYPE_LSI_SCSI     0x0c
-#define DTYPE_ESP_SCSI     0x0d
-#define DTYPE_MEGASAS      0x0e
-#define DTYPE_PVSCSI       0x0f
+#define DTYPE_FLOPPY       0x10
+#define DTYPE_ATA          0x20
+#define DTYPE_ATA_ATAPI    0x21
+#define DTYPE_RAMDISK      0x30
+#define DTYPE_CDEMU        0x40
+#define DTYPE_AHCI         0x50
+#define DTYPE_AHCI_ATAPI   0x51
+#define DTYPE_VIRTIO_SCSI  0x60
+#define DTYPE_VIRTIO_BLK   0x61
+#define DTYPE_USB          0x70
+#define DTYPE_UAS          0x71
+#define DTYPE_LSI_SCSI     0x80
+#define DTYPE_ESP_SCSI     0x81
+#define DTYPE_MEGASAS      0x82
+#define DTYPE_PVSCSI       0x83
 
 #define MAXDESCSIZE 80
 
