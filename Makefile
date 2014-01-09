@@ -182,8 +182,7 @@ $(OUT)bios.bin.prep: $(OUT)rom.o scripts/checkrom.py
 	$(Q)rm -f $(OUT)bios.bin $(OUT)Csm16.bin $(OUT)bios.bin.elf
 	$(Q)$(OBJDUMP) -thr $< > $<.objdump
 	$(Q)$(OBJCOPY) -O binary $< $(OUT)bios.bin.raw
-	$(Q)$(PYTHON) ./scripts/checkrom.py $<.objdump $(CONFIG_ROM_SIZE) \
-		$(OUT)bios.bin.raw $(OUT)bios.bin.prep
+	$(Q)$(PYTHON) ./scripts/checkrom.py $<.objdump $(CONFIG_ROM_SIZE) $(OUT)bios.bin.raw $(OUT)bios.bin.prep
 
 $(OUT)bios.bin: $(OUT)bios.bin.prep
 	@echo "  Creating $@"
