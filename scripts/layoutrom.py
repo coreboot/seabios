@@ -5,6 +5,7 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
+import operator
 import sys
 
 # LD script headers/trailers
@@ -79,7 +80,7 @@ def fitSections(sections, fillsections):
                 print("Error: Fixed section %s has non-zero alignment (%d)" % (
                     section.name, section.align))
                 sys.exit(1)
-    fixedsections.sort()
+    fixedsections.sort(key=operator.itemgetter(0))
     firstfixed = fixedsections[0][0]
 
     # Find freespace in fixed address area
@@ -94,7 +95,7 @@ def fitSections(sections, fillsections):
             nextaddr = fixedsections[i+1][0]
         avail = nextaddr - addr - section.size
         fixedAddr.append((avail, section))
-    fixedAddr.sort()
+    fixedAddr.sort(key=operator.itemgetter(0))
 
     # Attempt to fit other sections into fixed area
     canrelocate = [(section.size, section.align, section.name, section)
@@ -308,7 +309,7 @@ def outXRefs(sections, useseg=0, exportsyms=[], forcedelta=0):
 def outRelSections(sections, startsym, useseg=0):
     sections = [(section.finalloc, section) for section in sections
                 if section.finalloc is not None]
-    sections.sort()
+    sections.sort(key=operator.itemgetter(0))
     out = ""
     for addr, section in sections:
         loc = section.finalloc
