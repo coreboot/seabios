@@ -76,8 +76,8 @@ def fitSections(sections, fillsections):
             section.finalsegloc = addr
             fixedsections.append((addr, section))
             if section.align != 1:
-                print "Error: Fixed section %s has non-zero alignment (%d)" % (
-                    section.name, section.align)
+                print("Error: Fixed section %s has non-zero alignment (%d)" % (
+                    section.name, section.align))
                 sys.exit(1)
     fixedsections.sort()
     firstfixed = fixedsections[0][0]
@@ -106,8 +106,8 @@ def fitSections(sections, fillsections):
         addpos = fixedsection.finalsegloc + fixedsection.size
         totalused += fixedsection.size
         nextfixedaddr = addpos + freespace
-#        print "Filling section %x uses %d, next=%x, available=%d" % (
-#            fixedsection.finalloc, fixedsection.size, nextfixedaddr, freespace)
+#        print("Filling section %x uses %d, next=%x, available=%d" % (
+#            fixedsection.finalloc, fixedsection.size, nextfixedaddr, freespace))
         while 1:
             canfit = None
             for fitsection in canrelocate:
@@ -115,8 +115,8 @@ def fitSections(sections, fillsections):
                     # Can't fit and nothing else will fit.
                     break
                 fitnextaddr = alignpos(addpos, fitsection.align) + fitsection.size
-#                print "Test %s - %x vs %x" % (
-#                    fitsection.name, fitnextaddr, nextfixedaddr)
+#                print("Test %s - %x vs %x" % (
+#                    fitsection.name, fitnextaddr, nextfixedaddr))
                 if fitnextaddr > nextfixedaddr:
                     # This item can't fit.
                     continue
@@ -130,9 +130,9 @@ def fitSections(sections, fillsections):
             fitsection.finalsegloc = addpos
             addpos = fitnextaddr
             totalused += fitsection.size
-#            print "    Adding %s (size %d align %d) pos=%x avail=%d" % (
+#            print("    Adding %s (size %d align %d) pos=%x avail=%d" % (
 #                fitsection[2], fitsection[0], fitsection[1]
-#                , fitnextaddr, nextfixedaddr - fitnextaddr)
+#                , fitnextaddr, nextfixedaddr - fitnextaddr))
 
     # Report stats
     total = BUILD_BIOS_SIZE-firstfixed
@@ -273,12 +273,12 @@ def doLayout(sections, config, genreloc):
     size32flat = li.sec32fseg_start - li.sec32flat_start
     size32init = li.sec32flat_start - li.sec32init_start
     sizelow = sec32low_end - li.sec32low_start
-    print "16bit size:           %d" % size16
-    print "32bit segmented size: %d" % size32seg
-    print "32bit flat size:      %d" % size32flat
-    print "32bit flat init size: %d" % size32init
-    print "Lowmem size:          %d" % sizelow
-    print "f-segment var size:   %d" % size32fseg
+    print("16bit size:           %d" % size16)
+    print("32bit segmented size: %d" % size32seg)
+    print("32bit flat size:      %d" % size32flat)
+    print("32bit flat init size: %d" % size32init)
+    print("Lowmem size:          %d" % sizelow)
+    print("f-segment var size:   %d" % size32fseg)
     return li
 
 
@@ -458,8 +458,8 @@ def markRuntime(section, sections, chain=[]):
         or '.init.' in section.name or section.fileid != '32flat'):
         return
     if '.data.varinit.' in section.name:
-        print "ERROR: %s is VARVERIFY32INIT but used from %s" % (
-            section.name, chain)
+        print("ERROR: %s is VARVERIFY32INIT but used from %s" % (
+            section.name, chain))
         sys.exit(1)
     section.category = '32flat'
     # Recursively mark all sections this section points to

@@ -182,12 +182,12 @@ def calc():
                 elif insn.startswith('calll'):
                     noteCall(cur, subfuncs, insnaddr, calladdr, stackusage + 4)
                 else:
-                    print "unknown call", ref
+                    print("unknown call", ref)
                     noteCall(cur, subfuncs, insnaddr, calladdr, stackusage)
             # Reset stack usage to preamble usage
             stackusage = cur[1]
 
-        #print "other", repr(line)
+        #print("other", repr(line))
 
     # Calculate maxstackusage
     for funcaddr, info in funcs.items():
@@ -199,7 +199,7 @@ def calc():
     funcaddrs = orderfuncs(funcs.keys(), funcs.copy())
 
     # Show all functions
-    print OUTPUTDESC
+    print(OUTPUTDESC)
     for funcaddr in funcaddrs:
         name, basicusage, maxusage, yieldusage, maxyieldusage, count, calls = \
             funcs[funcaddr]
@@ -208,15 +208,15 @@ def calc():
         yieldstr = ""
         if maxyieldusage is not None:
             yieldstr = ",%d" % maxyieldusage
-        print "\n%s[%d,%d%s]:" % (name, basicusage, maxusage, yieldstr)
+        print("\n%s[%d,%d%s]:" % (name, basicusage, maxusage, yieldstr))
         for insnaddr, calladdr, stackusage in calls:
             callinfo = funcs.get(calladdr, ("<unknown>", 0, 0, 0, None))
             yieldstr = ""
             if callinfo[4] is not None:
                 yieldstr = ",%d" % (stackusage + callinfo[4])
-            print "    %04s:%-40s [%d+%d,%d%s]" % (
+            print("    %04s:%-40s [%d+%d,%d%s]" % (
                 insnaddr, callinfo[0], stackusage, callinfo[1]
-                , stackusage+callinfo[2], yieldstr)
+                , stackusage+callinfo[2], yieldstr))
 
 def main():
     calc()

@@ -10,7 +10,7 @@ import sys
 def main():
     data = sys.stdin.read()
     ords = map(ord, data)
-    print "sum=%x\n" % sum(ords)
+    print("sum=%x\n" % sum(ords))
 
 if __name__ == '__main__':
     main()
