@@ -38,9 +38,9 @@
 # 
 # ACPI_EXTRACT is not allowed anywhere else in code, except in comments.
 
-import re;
-import sys;
-import fileinput;
+import re
+import sys
+import fileinput
 
 aml = []
 asl = []
@@ -55,7 +55,7 @@ class asl_line:
 def die(diag):
     sys.stderr.write("Error: %s; %s\n" % (diag, debug))
     sys.exit(1)
-    
+
 #Store an ASL command, matching AML offset, and input line (for debugging)
 def add_asl(lineno, line):
     l = asl_line()
@@ -67,28 +67,28 @@ def add_asl(lineno, line):
 #Store an AML byte sequence
 #Verify that offset output by iasl matches # of bytes so far
 def add_aml(offset, line):
-    o = int(offset, 16);
+    o = int(offset, 16)
     # Sanity check: offset must match size of code so far
     if (o != len(aml)):
         die("Offset 0x%x != 0x%x" % (o, len(aml)))
     # Strip any trailing dots and ASCII dump after "
-    line = re.sub(r'\s*\.*\s*".*$',"", line)
+    line = re.sub(r'\s*\.*\s*".*$', "", line)
     # Strip traling whitespace
-    line = re.sub(r'\s+$',"", line)
+    line = re.sub(r'\s+$', "", line)
     # Strip leading whitespace
-    line = re.sub(r'^\s+',"", line)
+    line = re.sub(r'^\s+', "", line)
     # Split on whitespace
     code = re.split(r'\s+', line)
     for c in code:
         # Require a legal hex number, two digits
         if (not(re.search(r'^[0-9A-Fa-f][0-9A-Fa-f]$', c))):
-            die("Unexpected octet %s" % c);
-        aml.append(int(c, 16));
+            die("Unexpected octet %s" % c)
+        aml.append(int(c, 16))
 
 # Process aml bytecode array, decoding AML
 def aml_pkglen_bytes(offset):
     # PkgLength can be multibyte. Bits 8-7 give the # of extra bytes.
-    pkglenbytes = aml[offset] >> 6;
+    pkglenbytes = aml[offset] >> 6
     return pkglenbytes + 1
 
 def aml_pkglen(offset):
@@ -113,23 +113,23 @@ def aml_method_string(offset):
     #0x14 MethodOp PkgLength NameString MethodFlags TermList
     if (aml[offset] != 0x14):
         die( "Method offset 0x%x: expected 0x14 actual 0x%x" %
-             (offset, aml[offset]));
-    offset += 1;
+             (offset, aml[offset]))
+    offset += 1
     pkglenbytes = aml_pkglen_bytes(offset)
-    offset += pkglenbytes;
-    return offset;
+    offset += pkglenbytes
+    return offset
 
 # Given name offset, find its NameString offset
 def aml_name_string(offset):
     #0x08 NameOp NameString DataRef
     if (aml[offset] != 0x08):
         die( "Name offset 0x%x: expected 0x08 actual 0x%x" %
-             (offset, aml[offset]));
+             (offset, aml[offset]))
     offset += 1
     # Block Name Modifier. Skip it.
     if (aml[offset] == 0x5c or aml[offset] == 0x5e):
         offset += 1
-    return offset;
+    return offset
 
 # Given data offset, find 8 byte buffer offset
 def aml_data_buffer8(offset):
@@ -145,24 +145,24 @@ def aml_data_dword_const(offset):
     #0x08 NameOp NameString DataRef
     if (aml[offset] != 0x0C):
         die( "Name offset 0x%x: expected 0x0C actual 0x%x" %
-             (offset, aml[offset]));
-    return offset + 1;
+             (offset, aml[offset]))
+    return offset + 1
 
 # Given data offset, find word const offset
 def aml_data_word_const(offset):
     #0x08 NameOp NameString DataRef
     if (aml[offset] != 0x0B):
         die( "Name offset 0x%x: expected 0x0B actual 0x%x" %
-             (offset, aml[offset]));
-    return offset + 1;
+             (offset, aml[offset]))
+    return offset + 1
 
 # Given data offset, find byte const offset
 def aml_data_byte_const(offset):
     #0x08 NameOp NameString DataRef
     if (aml[offset] != 0x0A):
         die( "Name offset 0x%x: expected 0x0A actual 0x%x" %
-             (offset, aml[offset]));
-    return offset + 1;
+             (offset, aml[offset]))
+    return offset + 1
 
 # Find name'd buffer8
 def aml_name_buffer8(offset):
@@ -184,7 +184,7 @@ def aml_device_start(offset):
     #0x5B 0x82 DeviceOp PkgLength NameString
     if ((aml[offset] != 0x5B) or (aml[offset + 1] != 0x82)):
         die( "Name offset 0x%x: expected 0x5B 0x82 actual 0x%x 0x%x" %
-             (offset, aml[offset], aml[offset + 1]));
+             (offset, aml[offset], aml[offset + 1]))
     return offset
 
 def aml_device_string(offset):
@@ -206,7 +206,7 @@ def aml_processor_start(offset):
     #0x5B 0x83 ProcessorOp PkgLength NameString ProcID
     if ((aml[offset] != 0x5B) or (aml[offset + 1] != 0x83)):
         die( "Name offset 0x%x: expected 0x5B 0x83 actual 0x%x 0x%x" %
-             (offset, aml[offset], aml[offset + 1]));
+             (offset, aml[offset], aml[offset + 1]))
     return offset
 
 def aml_processor_string(offset):
@@ -229,14 +229,14 @@ def aml_package_start(offset):
     # 0x12 PkgLength NumElements PackageElementList
     if (aml[offset] != 0x12):
         die( "Name offset 0x%x: expected 0x12 actual 0x%x" %
-             (offset, aml[offset]));
+             (offset, aml[offset]))
     offset += 1
     return offset + aml_pkglen_bytes(offset) + 1
 
 lineno = 0
 for line in fileinput.input():
     # Strip trailing newline
-    line = line.rstrip();
+    line = line.rstrip()
     # line number and debug string to output in case of errors
     lineno = lineno + 1
     debug = "input line %d: %s" % (lineno, line)
@@ -244,7 +244,7 @@ for line in fileinput.input():
     pasl = re.compile('^\s+([0-9]+)(:\s\s|\.\.\.\.)\s*')
     m = pasl.search(line)
     if (m):
-        add_asl(lineno, pasl.sub("", line));
+        add_asl(lineno, pasl.sub("", line))
     # AML listing: offset in hex, then ...., then code
     paml = re.compile('^([0-9A-Fa-f]+)(:\s\s|\.\.\.\.)\s*')
     m = paml.search(line)
@@ -267,7 +267,7 @@ for i in range(len(asl)):
         # Ignore any non-words for the purpose of this test.
         m = re.search(r'\w+', l)
         if (m):
-                prev_aml_offset = asl[i].aml_offset
+            prev_aml_offset = asl[i].aml_offset
         continue
 
     if (a > 1):
@@ -337,11 +337,11 @@ debug = "at end of file"
 def get_value_type(maxvalue):
     #Use type large enough to fit the table
     if (maxvalue >= 0x10000):
-            return "int"
+        return "int"
     elif (maxvalue >= 0x100):
-            return "short"
+        return "short"
     else:
-            return "char"
+        return "char"
 
 # Pretty print output
 for array in output.keys():
@@ -351,4 +351,4 @@ for array in output.keys():
         odata.append("0x%x" % value)
     sys.stdout.write("static unsigned %s %s[] = {\n" % (otype, array))
     sys.stdout.write(",\n".join(odata))
-    sys.stdout.write('\n};\n');
+    sys.stdout.write('\n};\n')

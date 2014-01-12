@@ -8,9 +8,9 @@
 # We also put each directive on a new line, the machinery
 # in tools/acpi_extract.py requires this.
 
-import re;
-import sys;
-import fileinput;
+import re
+import sys
+import fileinput
 
 def die(diag):
     sys.stderr.write("Error: %s\n" % (diag))
@@ -22,7 +22,7 @@ psplit = re.compile(r''' (
                           ACPI_EXTRACT_\w+ # directive
                           \s+ # some whitespace
                           \w+ # array name
-                         )''', re.VERBOSE);
+                         )''', re.VERBOSE)
 
 lineno = 0
 for line in fileinput.input():
@@ -30,7 +30,7 @@ for line in fileinput.input():
     lineno = lineno + 1
     debug = "input line %d: %s" % (lineno, line.rstrip())
 
-    s = psplit.split(line);
+    s = psplit.split(line)
     # The way split works, each odd item is the matching ACPI_EXTRACT directive.
     # Put each in a comment, and on a line by itself.
     for i in range(len(s)):
