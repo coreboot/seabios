@@ -32,10 +32,10 @@ def main():
     # Check if a pci header is present
     pcidata = ord(data[24:25]) + (ord(data[25:26]) << 8)
     if pcidata != 0:
-        data = data[:pcidata + 16] + chr(count/512) + chr(0) + data[pcidata + 18:]
+        data = data[:pcidata + 16] + chr(int(count/512)) + chr(0) + data[pcidata + 18:]
 
     # Fill in size field; clear checksum field
-    data = data[:2] + chr(count/512) + data[3:6] + "\0" + data[7:]
+    data = data[:2] + chr(int(count/512)) + data[3:6] + "\0" + data[7:]
 
     # Checksum rom
     newsum = (256 - checksum(data)) & 0xff

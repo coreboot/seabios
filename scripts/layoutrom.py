@@ -46,7 +46,7 @@ def setSectionsStart(sections, endaddr, minalign=1, segoffset=0):
         if section.align > minalign:
             minalign = section.align
         totspace = alignpos(totspace, section.align) + section.size
-    startaddr = (endaddr - totspace) / minalign * minalign
+    startaddr = int((endaddr - totspace) / minalign) * minalign
     curaddr = startaddr
     for section in sections:
         curaddr = alignpos(curaddr, section.align)
@@ -359,7 +359,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
 %s
     }
 """ % (li.zonelow_base,
-       li.zonelow_base / 16,
+       int(li.zonelow_base / 16),
        li.sec16_start - BUILD_BIOS_ADDR,
        outRelSections(li.sections16, 'code16_start', useseg=1))
     outfile = open(out16, 'wb')

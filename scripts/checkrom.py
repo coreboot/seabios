@@ -86,7 +86,7 @@ def main():
     print("Total size: %d  Fixed: %d  Free: %d (used %.1f%% of %dKiB rom)" % (
         datasize, runtimesize, finalsize - datasize
         , (datasize / float(finalsize)) * 100.0
-        , finalsize / 1024))
+        , int(finalsize / 1024)))
 
     # Write final file
     f = open(outfile, 'wb')
