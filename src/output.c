@@ -26,6 +26,12 @@ struct putcinfo {
  * Debug output
  ****************************************************************/
 
+void
+debug_banner(void)
+{
+    dprintf(1, "SeaBIOS (version %s)\n", VERSION);
+}
+
 // Write a character to debug port(s).
 static void
 debug_putc(struct putcinfo *action, char c)

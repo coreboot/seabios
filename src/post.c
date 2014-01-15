@@ -319,7 +319,7 @@ handle_post(void)
         return;
 
     serial_debug_preinit();
-    dprintf(1, "Start bios (version %s)\n", VERSION);
+    debug_banner();
 
     // Check if we are running under Xen.
     xen_preinit();
