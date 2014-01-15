@@ -101,6 +101,8 @@ s3_resume(void)
     pic_setup();
     smm_setup();
 
+    pci_resume();
+
     s3_resume_vga();
 
     make_bios_readonly();

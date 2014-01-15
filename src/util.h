@@ -99,6 +99,7 @@ void mtrr_setup(void);
 // fw/pciinit.c
 extern const u8 pci_irqs[4];
 void pci_setup(void);
+void pci_resume(void);
 
 // fw/pirtable.c
 extern struct pir_header *PirAddr;

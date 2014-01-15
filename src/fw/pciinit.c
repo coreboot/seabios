@@ -230,10 +230,8 @@ static void apple_macio_setup(struct pci_device *pci, void *arg)
     pci_set_io_region_addr(pci, 0, 0x80800000, 0);
 }
 
-/* PIIX4 Power Management device (for ACPI) */
-static void piix4_pm_setup(struct pci_device *pci, void *arg)
+static void piix4_pm_config_setup(u16 bdf)
 {
-    u16 bdf = pci->bdf;
     // acpi sci is hardwired to 9
     pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
 
@@ -241,6 +239,15 @@ static void piix4_pm_setup(struct pci_device *pci, void *arg)
     pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
     pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
     pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
+}
+
+static int PiixPmBDF = -1;
+
+/* PIIX4 Power Management device (for ACPI) */
+static void piix4_pm_setup(struct pci_device *pci, void *arg)
+{
+    PiixPmBDF = pci->bdf;
+    piix4_pm_config_setup(pci->bdf);
 
     acpi_pm1a_cnt = PORT_ACPI_PM_BASE + 0x04;
     pmtimer_setup(PORT_ACPI_PM_BASE + 0x08);
@@ -294,6 +301,17 @@ static const struct pci_device_id pci_device_tbl[] = {
 
     PCI_DEVICE_END,
 };
+
+void pci_resume(void)
+{
+    if (!CONFIG_QEMU) {
+        return;
+    }
+
+    if (PiixPmBDF >= 0) {
+        piix4_pm_config_setup(PiixPmBDF);
+    }
+}
 
 static void pci_bios_init_device(struct pci_device *pci)
 {
