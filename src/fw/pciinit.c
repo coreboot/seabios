@@ -5,6 +5,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "byteorder.h" // le64_to_cpu
 #include "config.h" // CONFIG_*
 #include "dev-q35.h" // Q35_HOST_BRIDGE_PCIEXBAR_ADDR
 #include "hw/ata.h" // PORT_ATA1_CMD_BASE
@@ -16,11 +17,10 @@
 #include "memmap.h" // add_e820
 #include "output.h" // dprintf
 #include "paravirt.h" // RamSize
+#include "romfile.h" // romfile_loadint
 #include "string.h" // memset
 #include "util.h" // pci_setup
 #include "x86.h" // outb
-#include "byteorder.h" // le64_to_cpu
-#include "romfile.h" // romfile_loadint
 
 #define PCI_DEVICE_MEM_MIN    (1<<12)  // 4k == page size
 #define PCI_BRIDGE_MEM_MIN    (1<<21)  // 2M == hugepage size
@@ -165,7 +165,7 @@ static void piix_isa_bridge_setup(struct pci_device *pci, void *arg)
 
 /* ICH9 LPC PCI to ISA bridge */
 /* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
-void mch_isa_bridge_setup(struct pci_device *dev, void *arg)
+static void mch_isa_bridge_setup(struct pci_device *dev, void *arg)
 {
     u16 bdf = dev->bdf;
     int i, irq;
@@ -255,7 +255,7 @@ static void piix4_pm_setup(struct pci_device *pci, void *arg)
 
 /* ICH9 SMBUS */
 /* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_SMBUS */
-void ich9_smbus_setup(struct pci_device *dev, void *arg)
+static void ich9_smbus_setup(struct pci_device *dev, void *arg)
 {
     u16 bdf = dev->bdf;
     /* map smbus into io space */
@@ -383,7 +383,7 @@ static void pci_enable_default_vga(void)
  * Platform device initialization
  ****************************************************************/
 
-void i440fx_mem_addr_setup(struct pci_device *dev, void *arg)
+static void i440fx_mem_addr_setup(struct pci_device *dev, void *arg)
 {
     if (RamSize <= 0x80000000)
         pcimem_start = 0x80000000;
@@ -393,7 +393,7 @@ void i440fx_mem_addr_setup(struct pci_device *dev, void *arg)
     pci_slot_get_irq = piix_pci_slot_get_irq;
 }
 
-void mch_mem_addr_setup(struct pci_device *dev, void *arg)
+static void mch_mem_addr_setup(struct pci_device *dev, void *arg)
 {
     u64 addr = Q35_HOST_BRIDGE_PCIEXBAR_ADDR;
     u32 size = Q35_HOST_BRIDGE_PCIEXBAR_SIZE;
