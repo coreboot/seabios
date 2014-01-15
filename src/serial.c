@@ -9,6 +9,7 @@
 #include "bregs.h" // struct bregs
 #include "hw/serialio.h" // SEROFF_IER
 #include "output.h" // debug_enter
+#include "romfile.h" // romfile_loadint
 #include "stacks.h" // yield
 #include "util.h" // serial_setup
 
@@ -20,6 +21,9 @@
 static u16
 detect_serial(u16 port, u8 timeout, u8 count)
 {
+    if (CONFIG_DEBUG_SERIAL && port == CONFIG_DEBUG_SERIAL_PORT
+        && !romfile_loadint("etc/advertise-serial-debug-port", 1))
+        return 0;
     outb(0x02, port+SEROFF_IER);
     u8 ier = inb(port+SEROFF_IER);
     if (ier != 0x02)
