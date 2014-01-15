@@ -9,6 +9,7 @@
 #include "bregs.h" // struct bregs
 #include "hw/pci.h" // pci_config_readw
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
+#include "hw/serialio.h" // serial_debug_preinit
 #include "output.h" // dprintf
 #include "std/optionrom.h" // struct pci_data
 #include "std/pmm.h" // struct pmmheader
@@ -126,7 +127,7 @@ int HaveRunInit VAR16;
 void VISIBLE16
 vga_post(struct bregs *regs)
 {
-    debug_preinit();
+    serial_debug_preinit();
     dprintf(1, "Start SeaVGABIOS (version %s)\n", VERSION);
     debug_enter(regs, DEBUG_VGA_POST);
 

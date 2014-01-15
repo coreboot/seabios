@@ -26,13 +26,6 @@ struct putcinfo {
  * Debug output
  ****************************************************************/
 
-// Setup debugging port(s).
-void
-debug_preinit(void)
-{
-    serial_debug_preinit();
-}
-
 // Write a character to debug port(s).
 static void
 debug_putc(struct putcinfo *action, char c)

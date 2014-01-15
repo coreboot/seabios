@@ -743,7 +743,6 @@ int BootSequence VARLOW = -1;
 void VISIBLE32FLAT
 handle_18(void)
 {
-    debug_preinit();
     debug_enter(NULL, DEBUG_HDL_18);
     int seq = BootSequence + 1;
     BootSequence = seq;
@@ -754,7 +753,6 @@ handle_18(void)
 void VISIBLE32FLAT
 handle_19(void)
 {
-    debug_preinit();
     debug_enter(NULL, DEBUG_HDL_19);
     BootSequence = 0;
     do_boot(0);

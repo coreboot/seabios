@@ -4,7 +4,6 @@
 #include "types.h" // u32
 
 // output.c
-void debug_preinit(void);
 void panic(const char *fmt, ...)
     __attribute__ ((format (printf, 1, 2))) __noreturn;
 void printf(const char *fmt, ...)

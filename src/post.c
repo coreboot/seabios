@@ -19,6 +19,7 @@
 #include "hw/pic.h" // pic_setup
 #include "hw/ps2port.h" // ps2port_setup
 #include "hw/rtc.h" // rtc_write
+#include "hw/serialio.h" // serial_debug_preinit
 #include "hw/usb.h" // usb_setup
 #include "hw/virtio-blk.h" // virtio_blk_setup
 #include "hw/virtio-scsi.h" // virtio_scsi_setup
@@ -317,7 +318,7 @@ handle_post(void)
     if (!CONFIG_QEMU && !CONFIG_COREBOOT)
         return;
 
-    debug_preinit();
+    serial_debug_preinit();
     dprintf(1, "Start bios (version %s)\n", VERSION);
 
     // Check if we are running under Xen.
