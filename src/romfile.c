@@ -79,7 +79,7 @@ romfile_loadfile(const char *name, int *psize)
 }
 
 // Attempt to load an integer from the given file - return 'defval'
-// if unsuccesful.
+// if unsuccessful.
 u64
 romfile_loadint(const char *name, u64 defval)
 {
