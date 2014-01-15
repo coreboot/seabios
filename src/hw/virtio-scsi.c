@@ -158,8 +158,10 @@ init_virtio_scsi(struct pci_device *pci)
     for (tot = 0, i = 0; i < 256; i++)
         tot += virtio_scsi_scan_target(pci, ioaddr, vq, i);
 
-    if (!tot)
+    if (!tot) {
+        vp_reset(ioaddr);
         goto fail;
+    }
 
     return;
 
