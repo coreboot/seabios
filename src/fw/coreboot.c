@@ -408,6 +408,45 @@ coreboot_cbfs_init(void)
         fhdr = (void*)ALIGN((u32)cfile->data + cfile->rawsize
                             , be32_to_cpu(hdr->align));
     }
+
+    // Process CBFS links file.  The links file is a newline separated
+    // file where each line has a "link name" and a "destination name"
+    // separated by a space character.
+    char *links = romfile_loadfile("links", NULL), *next = links;
+    while (next) {
+        // Parse out linkname and destname
+        char *linkname = next;
+        next = strchr(linkname, '\n');
+        if (next)
+            *next++ = '\0';
+        while (*linkname && *linkname <= ' ')
+            linkname++;
+        char *comment = strchr(linkname, '#');
+        if (comment)
+            *comment = '\0';
+        nullTrailingSpace(linkname);
+        char *destname = strchr(linkname, ' ');
+        if (!destname)
+            continue;
+        *destname++ = '\0';
+        while (*destname && *destname <= ' ')
+            destname++;
+        // Lookup destname and create new romfile entry for linkname
+        struct romfile_s *ufile = romfile_find(destname);
+        if (!ufile)
+            continue;
+        struct cbfs_romfile_s *cufile
+            = container_of(ufile, struct cbfs_romfile_s, file);
+        struct cbfs_romfile_s *cfile = malloc_tmp(sizeof(*cfile));
+        if (!cfile) {
+            warn_noalloc();
+            break;
+        }
+        memcpy(cfile, cufile, sizeof(*cfile));
+        strtcpy(cfile->file.name, linkname, sizeof(cfile->file.name));
+        romfile_add(&cfile->file);
+    }
+    free(links);
 }
 
 struct cbfs_payload_segment {
