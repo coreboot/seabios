@@ -409,6 +409,8 @@ ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
         goto fail;
     }
     memset(pipe, 0, sizeof(*pipe));
+    memset(tds, 0, sizeof(*tds) * count);
+    memset(data, 0, maxpacket * count);
     ehci_desc2pipe(pipe, usbdev, epdesc);
     pipe->next_td = pipe->tds = tds;
     pipe->data = data;
