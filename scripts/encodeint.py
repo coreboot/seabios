@@ -10,7 +10,7 @@ import struct
 
 def main():
     filename = sys.argv[1]
-    value = int(sys.argv[2])
+    value = int(sys.argv[2], 0)
 
     outval = struct.pack('<Q', value)
     f = open(filename, 'wb')
