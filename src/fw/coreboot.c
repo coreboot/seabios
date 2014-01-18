@@ -297,7 +297,6 @@ ulzma(u8 *dst, u32 maxlen, const u8 *src, u32 srclen)
  ****************************************************************/
 
 #define CBFS_HEADER_MAGIC 0x4F524243
-#define CBFS_HEADPTR_ADDR 0xFFFFFFFc
 #define CBFS_VERSION1 0x31313131
 
 struct cbfs_header {
@@ -369,7 +368,7 @@ coreboot_cbfs_init(void)
     if (!CONFIG_COREBOOT_FLASH)
         return;
 
-    struct cbfs_header *hdr = *(void **)CBFS_HEADPTR_ADDR;
+    struct cbfs_header *hdr = *(void **)(CONFIG_CBFS_LOCATION - 4);
     if (hdr->magic != cpu_to_be32(CBFS_HEADER_MAGIC)) {
         dprintf(1, "Unable to find CBFS (ptr=%p; got %x not %x)\n"
                 , hdr, hdr->magic, cpu_to_be32(CBFS_HEADER_MAGIC));
@@ -377,10 +376,11 @@ coreboot_cbfs_init(void)
     }
     dprintf(1, "Found CBFS header at %p\n", hdr);
 
-    struct cbfs_file *fhdr = (void *)(0 - be32_to_cpu(hdr->romsize)
-                                      + be32_to_cpu(hdr->offset));
+    u32 romsize = be32_to_cpu(hdr->romsize);
+    u32 romstart = CONFIG_CBFS_LOCATION - romsize;
+    struct cbfs_file *fhdr = (void*)romstart + be32_to_cpu(hdr->offset);
     for (;;) {
-        if (fhdr < (struct cbfs_file *)(0xFFFFFFFF - be32_to_cpu(hdr->romsize)))
+        if ((u32)fhdr - romstart > romsize)
             break;
         u64 magic = fhdr->magic;
         if (magic != CBFS_FILE_MAGIC)
