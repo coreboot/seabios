@@ -20,7 +20,7 @@ import sys
 
 def main():
     infilename, outfilename = sys.argv[1:]
-    infile = open(infilename, 'rb')
+    infile = open(infilename, 'r')
     out = []
     for line in infile:
         sline = line.strip()
@@ -33,7 +33,7 @@ def main():
         else:
             out.append(line)
     infile.close()
-    outfile = open(outfilename, 'wb')
+    outfile = open(outfilename, 'w')
     outfile.write(''.join(out))
     outfile.close()
 

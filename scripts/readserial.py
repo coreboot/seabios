@@ -13,6 +13,8 @@ import time
 import select
 import optparse
 
+from python23compat import as_bytes
+
 # Reset time counter after this much idle time.
 RESTARTINTERVAL = 60
 # Number of bits in a transmitted byte - 8N1 is 1 start bit + 8 data
@@ -25,7 +27,7 @@ def calibrateserialwrite(outfile, byteadjust):
     data = data * 80
     while 1:
         st = time.time()
-        outfile.write(data)
+        outfile.write(as_bytes(data))
         outfile.flush()
         et = time.time()
         sys.stdout.write(
@@ -85,11 +87,11 @@ def readserial(infile, logfile, byteadjust):
             msg = "\n\n======= %s (adjust=%.1fus)\n" % (
                 time.asctime(time.localtime(datatime)), byteadjust * 1000000)
             sys.stdout.write(msg)
-            logfile.write(msg)
+            logfile.write(as_bytes(msg))
         lasttime = datatime
 
         # Translate unprintable chars; add timestamps
-        out = ""
+        out = as_bytes("")
         for c in d:
             if isnewline:
                 delta = datatime - starttime - (charcount * byteadjust)
@@ -113,7 +115,10 @@ def readserial(infile, logfile, byteadjust):
                 continue
             out += c
 
-        sys.stdout.write(out)
+        if (sys.version_info > (3, 0)):
+            sys.stdout.buffer.write(out)
+        else:
+            sys.stdout.write(out)
         sys.stdout.flush()
         logfile.write(out)
         logfile.flush()

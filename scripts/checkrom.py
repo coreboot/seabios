@@ -8,6 +8,8 @@
 import sys
 import layoutrom
 
+from python23compat import as_bytes
+
 def subst(data, offset, new):
     return data[:offset] + new + data[offset + len(new):]
 
@@ -24,7 +26,7 @@ def main():
     objinfo, finalsize, rawfile, outfile = sys.argv[1:]
 
     # Read in symbols
-    objinfofile = open(objinfo, 'rb')
+    objinfofile = open(objinfo, 'r')
     symbols = layoutrom.parseObjDump(objinfofile, 'in')[1]
 
     # Read in raw file
@@ -90,7 +92,7 @@ def main():
 
     # Write final file
     f = open(outfile, 'wb')
-    f.write(("\0" * (finalsize - datasize)) + rawdata)
+    f.write((as_bytes("\0") * (finalsize - datasize)) + rawdata)
     f.close()
 
 if __name__ == '__main__':

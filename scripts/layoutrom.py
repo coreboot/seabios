@@ -363,7 +363,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        int(li.zonelow_base / 16),
        li.sec16_start - BUILD_BIOS_ADDR,
        outRelSections(li.sections16, 'code16_start', useseg=1))
-    outfile = open(out16, 'wb')
+    outfile = open(out16, 'w')
     outfile.write(COMMONHEADER + out + COMMONTRAILER)
     outfile.close()
 
@@ -375,7 +375,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     }
 """ % (li.sec32seg_start - BUILD_BIOS_ADDR,
        outRelSections(li.sections32seg, 'code32seg_start', useseg=1))
-    outfile = open(out32seg, 'wb')
+    outfile = open(out32seg, 'w')
     outfile.write(COMMONHEADER + out + COMMONTRAILER)
     outfile.close()
 
@@ -445,7 +445,7 @@ PHDRS
         text PT_LOAD AT ( code32flat_start ) ;
 }
 """
-    outfile = open(out32flat, 'wb')
+    outfile = open(out32flat, 'w')
     outfile.write(out)
     outfile.close()
 
@@ -644,7 +644,7 @@ def parseObjDump(file, fileid):
 
 # Parser for constants in simple C header files.
 def scanconfig(file):
-    f = open(file, 'rb')
+    f = open(file, 'r')
     opts = {}
     for l in f.readlines():
         parts = l.split()
@@ -663,9 +663,9 @@ def main():
     in16, in32seg, in32flat, cfgfile, out16, out32seg, out32flat = sys.argv[1:]
 
     # Read in the objdump information
-    infile16 = open(in16, 'rb')
-    infile32seg = open(in32seg, 'rb')
-    infile32flat = open(in32flat, 'rb')
+    infile16 = open(in16, 'r')
+    infile32seg = open(in32seg, 'r')
+    infile32flat = open(in32flat, 'r')
 
     # infoX = (sections, symbols)
     info16 = parseObjDump(infile16, '16')

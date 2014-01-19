@@ -7,6 +7,8 @@
 
 import sys
 
+from python23compat import as_bytes
+
 def alignpos(pos, alignbytes):
     mask = alignbytes - 1
     return (pos + mask) & ~mask
@@ -26,7 +28,7 @@ def main():
     count = len(data)
 
     # Pad to a 512 byte boundary
-    data += "\0" * (alignpos(count, 512) - count)
+    data += as_bytes("\0") * (alignpos(count, 512) - count)
     count = len(data)
 
     # Check if a pci header is present
@@ -35,7 +37,7 @@ def main():
         data = data[:pcidata + 16] + chr(int(count/512)) + chr(0) + data[pcidata + 18:]
 
     # Fill in size field; clear checksum field
-    data = data[:2] + chr(int(count/512)) + data[3:6] + "\0" + data[7:]
+    data = data[:2] + chr(int(count/512)) + data[3:6] + as_bytes("\0") + data[7:]
 
     # Checksum rom
     newsum = (256 - checksum(data)) & 0xff

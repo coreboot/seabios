@@ -44,7 +44,10 @@ def main():
         filehdl = open(filename, 'r')
     mem = parseMem(filehdl)
     for i in mem:
-        sys.stdout.write(struct.pack("<I", i))
+        if (sys.version_info > (3, 0)):
+            sys.stdout.buffer.write(struct.pack("<I", i))
+        else:
+            sys.stdout.write(struct.pack("<I", i))
 
 if __name__ == '__main__':
     main()
