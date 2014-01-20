@@ -133,20 +133,24 @@ get_external(int type, char **p, unsigned *nr_structs,
     do {                                                                \
         size = get_field(type, offsetof(struct smbios_type_##type,      \
                                         field), end);                   \
-        if (size > 0) {                                                 \
+        if (size == 1) {                                                \
+            /* zero-length string, skip to avoid bogus end marker */    \
+            p->field = 0;                                               \
+        } else if (size > 1) {                                          \
             end += size;                                                \
+            p->field = ++str_index;                                     \
         } else {                                                        \
             memcpy(end, def, sizeof(def));                              \
             end += sizeof(def);                                         \
+            p->field = ++str_index;                                     \
         }                                                               \
-        p->field = ++str_index;                                         \
     } while (0)
 
 #define load_str_field_or_skip(type, field)                             \
     do {                                                                \
         size = get_field(type, offsetof(struct smbios_type_##type,      \
                                         field), end);                   \
-        if (size > 0) {                                                 \
+        if (size > 1) {                                                 \
             end += size;                                                \
             p->field = ++str_index;                                     \
         } else {                                                        \
