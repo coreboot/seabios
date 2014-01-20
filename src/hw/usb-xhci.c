@@ -687,6 +687,12 @@ configure_xhci(void *data)
         dprintf(3, "%s: setup %d scratch pad buffers\n", __func__, spb);
         u64 *spba = memalign_high(64, sizeof(*spba) * spb);
         void *pad = memalign_high(PAGE_SIZE, PAGE_SIZE * spb);
+        if (!spba || !pad) {
+            warn_noalloc();
+            free(spba);
+            free(pad);
+            goto fail;
+        }
         int i;
         for (i = 0; i < spb; i++)
             spba[i] = (u32)pad + (i * PAGE_SIZE);
