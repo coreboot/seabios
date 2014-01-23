@@ -705,10 +705,42 @@ static int pci_bios_check_devices(struct pci_bus *busses)
  ****************************************************************/
 
 // Setup region bases (given the regions' size and alignment)
-static int pci_bios_init_root_regions(struct pci_bus *bus)
+static int pci_bios_init_root_regions_io(struct pci_bus *bus)
 {
-    bus->r[PCI_REGION_TYPE_IO].base = 0xc000;
+    /*
+     * QEMU I/O address space usage:
+     *   0000 - 0fff    legacy isa, pci config, pci root bus, ...
+     *   1000 - 9fff    free
+     *   a000 - afff    hotplug (cpu, pci via acpi, i440fx/piix only)
+     *   b000 - bfff    power management (PORT_ACPI_PM_BASE)
+     *                  [ qemu 1.4+ implements pci config registers
+     *                    properly so guests can place the registers
+     *                    where they want, on older versions its fixed ]
+     *   c000 - ffff    free, traditionally used for pci io
+     */
+    struct pci_region *r_io = &bus->r[PCI_REGION_TYPE_IO];
+    u64 sum = pci_region_sum(r_io);
+    if (sum < 0x4000) {
+        /* traditional region is big enougth, use it */
+        r_io->base = 0xc000;
+    } else if (sum < 0x9000) {
+        /* use the larger region at 0x1000 */
+        r_io->base = 0x1000;
+    } else {
+        /*
+         * Not enougth io address space -> error out.
+         *
+         * TODO: on q35 we can move PORT_ACPI_PM_BASE out of
+         * the way, then use the whole 1000 -> ffff region.
+         */
+        return -1;
+    }
+    dprintf(1, "PCI: IO: %4llx - %4llx\n", r_io->base, r_io->base + sum - 1);
+    return 0;
+}
 
+static int pci_bios_init_root_regions_mem(struct pci_bus *bus)
+{
     struct pci_region *r_end = &bus->r[PCI_REGION_TYPE_PREFMEM];
     struct pci_region *r_start = &bus->r[PCI_REGION_TYPE_MEM];
 
@@ -786,8 +818,11 @@ static void pci_region_map_entries(struct pci_bus *busses, struct pci_region *r)
 
 static void pci_bios_map_devices(struct pci_bus *busses)
 {
+    if (pci_bios_init_root_regions_io(busses))
+        panic("PCI: out of I/O address space\n");
+
     dprintf(1, "PCI: 32: %016llx - %016llx\n", pcimem_start, pcimem_end);
-    if (pci_bios_init_root_regions(busses)) {
+    if (pci_bios_init_root_regions_mem(busses)) {
         struct pci_region r64_mem, r64_pref;
         r64_mem.list.first = NULL;
         r64_pref.list.first = NULL;
@@ -796,7 +831,7 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         pci_region_migrate_64bit_entries(&busses[0].r[PCI_REGION_TYPE_PREFMEM],
                                          &r64_pref);
 
-        if (pci_bios_init_root_regions(busses))
+        if (pci_bios_init_root_regions_mem(busses))
             panic("PCI: out of 32bit address space\n");
 
         u64 sum_mem = pci_region_sum(&r64_mem);
