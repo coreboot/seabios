@@ -319,13 +319,16 @@ configure_usb_device(struct usbdevice_s *usbdev)
     int ret = get_device_info8(usbdev->defpipe, &dinfo);
     if (ret)
         return 0;
-    dprintf(3, "device rev=%04x cls=%02x sub=%02x proto=%02x size=%02x\n"
+    u16 maxpacket = dinfo.bMaxPacketSize0;
+    if (dinfo.bcdUSB >= 0x0300)
+        maxpacket = 1 << dinfo.bMaxPacketSize0;
+    dprintf(3, "device rev=%04x cls=%02x sub=%02x proto=%02x size=%d\n"
             , dinfo.bcdUSB, dinfo.bDeviceClass, dinfo.bDeviceSubClass
-            , dinfo.bDeviceProtocol, dinfo.bMaxPacketSize0);
-    if (dinfo.bMaxPacketSize0 < 8 || dinfo.bMaxPacketSize0 > 64)
+            , dinfo.bDeviceProtocol, maxpacket);
+    if (maxpacket < 8)
         return 0;
     struct usb_endpoint_descriptor epdesc = {
-        .wMaxPacketSize = dinfo.bMaxPacketSize0,
+        .wMaxPacketSize = maxpacket,
         .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
     };
     usbdev->defpipe = usb_update_pipe(usbdev, usbdev->defpipe, &epdesc);
