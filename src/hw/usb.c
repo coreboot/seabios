@@ -261,6 +261,13 @@ set_configuration(struct usb_pipe *pipe, u16 val)
  * Initialization and enumeration
  ****************************************************************/
 
+static const int speed_to_ctlsize[] = {
+    [ USB_FULLSPEED  ] = 8,
+    [ USB_LOWSPEED   ] = 8,
+    [ USB_HIGHSPEED  ] = 64,
+    [ USB_SUPERSPEED ] = 512,
+};
+
 // Assign an address to a device in the default state on the given
 // controller.
 static int
@@ -276,7 +283,7 @@ usb_set_address(struct usbdevice_s *usbdev)
 
     // Create a pipe for the default address.
     struct usb_endpoint_descriptor epdesc = {
-        .wMaxPacketSize = 8,
+        .wMaxPacketSize = speed_to_ctlsize[usbdev->speed],
         .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
     };
     usbdev->defpipe = usb_alloc_pipe(usbdev, &epdesc);

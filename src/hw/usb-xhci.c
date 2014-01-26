@@ -282,13 +282,6 @@ static const int speed_to_xhci[] = {
     [ USB_SUPERSPEED ] = 4,
 };
 
-static const int speed_to_ctlsize[] = {
-    [ USB_FULLSPEED  ] = 8,
-    [ USB_LOWSPEED   ] = 8,
-    [ USB_HIGHSPEED  ] = 64,
-    [ USB_SUPERSPEED ] = 256,
-};
-
 static const int eptype_to_xhci_in[] = {
     [ USB_ENDPOINT_XFER_CONTROL] = 4,
     [ USB_ENDPOINT_XFER_ISOC   ] = 5,
@@ -955,12 +948,12 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         struct xhci_epctx *ep = (void*)&in[2 << xhci->context64];
         ep->ctx[0]   |= (3 << 16); // interval: 1ms
         ep->ctx[1]   |= (4 << 3);  // control pipe
-        ep->ctx[1]   |= (speed_to_ctlsize[usbdev->speed] << 16);
+        ep->ctx[1]   |= (pipe->pipe.maxpacket << 16);
 
         ep->deq_low  = (u32)&pipe->reqs.ring[0];
         ep->deq_low  |= 1;         // dcs
         ep->deq_high = 0;
-        ep->length   = 8;
+        ep->length   = pipe->pipe.maxpacket;
 
         int cc = xhci_cmd_address_device(xhci, slotid, in);
         free(in);
