@@ -1,3 +1,10 @@
+// Code for handling XHCI "Super speed" USB controllers.
+//
+// Copyright (C) 2013  Gerd Hoffmann <kraxel@redhat.com>
+// Copyright (C) 2014  Kevin O'Connor <kevin@koconnor.net>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
 #include "biosvar.h" // GET_LOWFLAT
 #include "config.h" // CONFIG_*
 #include "malloc.h" // memalign_low
