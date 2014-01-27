@@ -804,7 +804,7 @@ static struct usbhub_op_s xhci_hub_ops = {
 
 
 static struct xhci_inctx *
-xhci_alloc_inctx(struct usbdevice_s *usbdev)
+xhci_alloc_inctx(struct usbdevice_s *usbdev, int maxepid)
 {
     struct usb_xhci_s *xhci = container_of(
         usbdev->hub->cntl, struct usb_xhci_s, usb);
@@ -816,9 +816,8 @@ xhci_alloc_inctx(struct usbdevice_s *usbdev)
     }
     memset(in, 0, size);
 
-    in->add = 0x01;
     struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
-    slot->ctx[0]    |= (1 << 27); // context entries
+    slot->ctx[0]    |= maxepid << 27; // context entries
     slot->ctx[0]    |= speed_to_xhci[usbdev->speed] << 20;
 
     // Set high-speed hub flags.
@@ -859,9 +858,10 @@ static int xhci_config_hub(struct usbhub_s *hub)
     if ((hdslot->ctx[3] >> 27) == 3)
         // Already configured
         return 0;
-    struct xhci_inctx *in = xhci_alloc_inctx(hub->usbdev);
+    struct xhci_inctx *in = xhci_alloc_inctx(hub->usbdev, 1);
     if (!in)
         return -1;
+    in->add = 0x01;
     struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
     slot->ctx[0] |= 1 << 26;
     slot->ctx[1] |= hub->portcount << 24;
@@ -911,6 +911,23 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     if (eptype == USB_ENDPOINT_XFER_INT)
         pipe->buf = malloc_low(pipe->pipe.maxpacket);
 
+    // Allocate input context and initialize endpoint info.
+    struct xhci_inctx *in = xhci_alloc_inctx(usbdev, epid);
+    if (!in)
+        goto fail;
+    in->add = 0x01 | (1 << epid);
+    struct xhci_epctx *ep = (void*)&in[(pipe->epid+1) << xhci->context64];
+    if (eptype == USB_ENDPOINT_XFER_INT)
+        ep->ctx[0] = (usb_getFrameExp(usbdev, epdesc) + 3) << 16;
+    ep->ctx[1]   |= eptype << 3;
+    if (epdesc->bEndpointAddress & USB_DIR_IN
+        || eptype == USB_ENDPOINT_XFER_CONTROL)
+        ep->ctx[1] |= 1 << 5;
+    ep->ctx[1]   |= pipe->pipe.maxpacket << 16;
+    ep->deq_low  = (u32)&pipe->reqs.ring[0];
+    ep->deq_low  |= 1;         // dcs
+    ep->length   = pipe->pipe.maxpacket;
+
     dprintf(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
             usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
     if (pipe->epid == 1) {
@@ -920,7 +937,7 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
             if (ret)
                 goto fail;
         }
-        // Enable slot and send set_address command.
+        // Enable slot.
         u32 size = (sizeof(struct xhci_slotctx) * 32) << xhci->context64;
         struct xhci_slotctx *dev = memalign_high(1024 << xhci->context64, size);
         if (!dev) {
@@ -934,65 +951,32 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
             goto fail;
         }
         dprintf(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
-
         memset(dev, 0, size);
         pipe->slotid = usbdev->slotid = slotid;
         xhci->devs[slotid].ptr_low = (u32)dev;
         xhci->devs[slotid].ptr_high = 0;
 
-        struct xhci_inctx *in = xhci_alloc_inctx(usbdev);
-        if (!in)
-            goto fail;
-        in->add |= (1 << 1);
-
-        struct xhci_epctx *ep = (void*)&in[2 << xhci->context64];
-        ep->ctx[0]   |= (3 << 16); // interval: 1ms
-        ep->ctx[1]   |= (4 << 3);  // control pipe
-        ep->ctx[1]   |= (pipe->pipe.maxpacket << 16);
-
-        ep->deq_low  = (u32)&pipe->reqs.ring[0];
-        ep->deq_low  |= 1;         // dcs
-        ep->deq_high = 0;
-        ep->length   = pipe->pipe.maxpacket;
-
+        // Send set_address command.
         int cc = xhci_cmd_address_device(xhci, slotid, in);
-        free(in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: address device: failed (cc %d)\n", __func__, cc);
             goto fail;
         }
     } else {
-        struct xhci_inctx *in = xhci_alloc_inctx(usbdev);
-        if (!in)
-            goto fail;
-        in->add |= (1 << pipe->epid);
-        struct xhci_slotctx *slot = (void*)&in[1 << xhci->context64];
-        slot->ctx[0] = (slot->ctx[0] & ~0xf8000000) | (pipe->epid << 27);
-
-        struct xhci_epctx *ep = (void*)&in[(pipe->epid+1) << xhci->context64];
-        if (eptype == USB_ENDPOINT_XFER_INT)
-            ep->ctx[0] = (usb_getFrameExp(usbdev, epdesc) + 3) << 16;
-        ep->ctx[1]   |= (eptype << 3);
-        if (epdesc->bEndpointAddress & USB_DIR_IN)
-            ep->ctx[1] |= (1 << 5);
-        ep->ctx[1]   |= (pipe->pipe.maxpacket << 16);
-        ep->deq_low  = (u32)&pipe->reqs.ring[0];
-        ep->deq_low  |= 1;         // dcs
-        ep->deq_high = 0;
-        ep->length   = pipe->pipe.maxpacket;
-
         pipe->slotid = usbdev->slotid;
+        // Send configure command.
         int cc = xhci_cmd_configure_endpoint(xhci, pipe->slotid, in);
-        free(in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: configure endpoint: failed (cc %d)\n", __func__, cc);
             goto fail;
         }
     }
-
+    free(in);
     return &pipe->pipe;
+
 fail:
     free(pipe);
+    free(in);
     return NULL;
 }
 
@@ -1010,11 +994,11 @@ xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
     dprintf(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
             usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
     if (eptype == USB_ENDPOINT_XFER_CONTROL &&
-        pipe->pipe.maxpacket !=  epdesc->wMaxPacketSize) {
+        pipe->pipe.maxpacket != epdesc->wMaxPacketSize) {
         dprintf(1, "%s: reconf ctl endpoint pkt size: %d -> %d\n",
                 __func__, pipe->pipe.maxpacket, epdesc->wMaxPacketSize);
         pipe->pipe.maxpacket = epdesc->wMaxPacketSize;
-        struct xhci_inctx *in = xhci_alloc_inctx(usbdev);
+        struct xhci_inctx *in = xhci_alloc_inctx(usbdev, 1);
         if (!in)
             return upipe;
         in->add = (1 << 1);
