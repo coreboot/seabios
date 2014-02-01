@@ -419,18 +419,15 @@ coreboot_cbfs_init(void)
         next = strchr(linkname, '\n');
         if (next)
             *next++ = '\0';
-        while (*linkname && *linkname <= ' ')
-            linkname++;
         char *comment = strchr(linkname, '#');
         if (comment)
             *comment = '\0';
-        nullTrailingSpace(linkname);
+        linkname = nullTrailingSpace(linkname);
         char *destname = strchr(linkname, ' ');
         if (!destname)
             continue;
         *destname++ = '\0';
-        while (*destname && *destname <= ' ')
-            destname++;
+        destname = nullTrailingSpace(destname);
         // Lookup destname and create new romfile entry for linkname
         struct romfile_s *ufile = romfile_find(destname);
         if (!ufile)

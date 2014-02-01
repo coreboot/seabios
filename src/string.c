@@ -225,11 +225,14 @@ strchr(const char *s, int c)
 }
 
 // Remove any trailing blank characters (spaces, new lines, carriage returns)
-void
+char *
 nullTrailingSpace(char *buf)
 {
     int len = strlen(buf);
     char *end = &buf[len-1];
     while (end >= buf && *end <= ' ')
         *(end--) = '\0';
+    while (*buf && *buf <= ' ')
+        buf++;
+    return buf;
 }
