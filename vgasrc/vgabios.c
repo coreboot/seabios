@@ -1114,7 +1114,7 @@ struct funcInfo {
     u8 save_flags;
     u8 disp_info;
     u8 reserved_34[12];
-};
+} PACKED;
 
 static void
 handle_101b(struct bregs *regs)

@@ -338,7 +338,7 @@ struct saveVideoHardware {
     u8 grdc_regs[9];
     u16 crtc_addr;
     u8 plane_latch[4];
-};
+} PACKED;
 
 static void
 stdvga_save_hw_state(u16 seg, struct saveVideoHardware *info)
@@ -412,7 +412,7 @@ struct saveDACcolors {
     u8 pelmask;
     u8 dac[768];
     u8 color_select;
-};
+} PACKED;
 
 static void
 stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
