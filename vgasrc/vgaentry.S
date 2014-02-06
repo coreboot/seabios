@@ -45,9 +45,26 @@ _rom_header_signature:
  * Entry points
  ****************************************************************/
 
-        // This macro is the same as ENTRY_ARG except the "calll"
-        // instruction is avoided to work around known issues in the
-        // emulation of some versions of x86emu.
+        // Force a fault if found to be running on broken x86emu versions.
+        DECLFUNC x86emu_fault
+x86emu_fault:
+1:      hlt
+        jmp 1b
+
+        // This macro implements a call while avoiding instructions
+        // that old versions of x86emu have problems with.
+        .macro VGA_CALLL cfunc
+        // Make sure leal instruction works.
+        movl $0x8000, %ecx
+        leal (%ecx, %ecx, 1), %ecx
+        cmpl $0x10000, %ecx
+        jne x86emu_fault
+        // Use callw instead of calll
+        push %ax
+        callw \cfunc
+        .endm
+
+        // This macro is the same as ENTRY_ARG except VGA_CALLL is used.
         .macro ENTRY_ARG_VGA cfunc
         cli
         cld
@@ -57,7 +74,7 @@ _rom_header_signature:
         movl %esp, %ebx         // Backup %esp, then zero high bits
         movzwl %sp, %esp
         movl %esp, %eax         // First arg is pointer to struct bregs
-        pushw %ax ; callw \cfunc
+        VGA_CALLL \cfunc
         movl %ebx, %esp         // Restore %esp (including high bits)
         POPBREGS
         .endm
@@ -103,7 +120,7 @@ entry_10_extrastack:
         movw %ds, %dx           // Setup %ss/%esp and call function
         movw %dx, %ss
         movl %eax, %esp
-        pushw %ax ; callw handle_10
+        VGA_CALLL handle_10
 
         movl %esp, %eax         // Restore registers and return
         movw BREGS_size+4(%eax), %ss
