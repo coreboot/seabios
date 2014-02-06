@@ -20,20 +20,9 @@ struct VideoParam_s {
 extern struct VideoParam_s video_param_table[29];
 
 struct saveBDAstate {
-    u16 video_mode;
-    u16 video_cols;
-    u16 video_pagesize;
-    u16 crtc_address;
-    u8 video_rows;
-    u16 char_height;
-    u8 video_ctl;
-    u8 video_switches;
-    u8 modeset_ctl;
-    u16 cursor_type;
-    u16 cursor_pos[8];
-    u16 video_pagestart;
-    u8 video_page;
-    /* current font */
+    u8 bda_0x49[28];
+    u8 bda_0x84[6];
+    u16 vbe_mode;
     struct segoff_s font0;
     struct segoff_s font1;
 };

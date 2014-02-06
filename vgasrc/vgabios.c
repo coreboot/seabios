@@ -239,22 +239,11 @@ write_teletype(struct cursorpos *pcp, struct carattr ca)
 void
 save_bda_state(u16 seg, struct saveBDAstate *info)
 {
-    SET_FARVAR(seg, info->video_mode, GET_BDA(vbe_mode));
-    SET_FARVAR(seg, info->video_cols, GET_BDA(video_cols));
-    SET_FARVAR(seg, info->video_pagesize, GET_BDA(video_pagesize));
-    SET_FARVAR(seg, info->crtc_address, GET_BDA(crtc_address));
-    SET_FARVAR(seg, info->video_rows, GET_BDA(video_rows));
-    SET_FARVAR(seg, info->char_height, GET_BDA(char_height));
-    SET_FARVAR(seg, info->video_ctl, GET_BDA(video_ctl));
-    SET_FARVAR(seg, info->video_switches, GET_BDA(video_switches));
-    SET_FARVAR(seg, info->modeset_ctl, GET_BDA(modeset_ctl));
-    SET_FARVAR(seg, info->cursor_type, GET_BDA(cursor_type));
-    int i;
-    for (i=0; i<8; i++)
-        SET_FARVAR(seg, info->cursor_pos[i], GET_BDA(cursor_pos[i]));
-    SET_FARVAR(seg, info->video_pagestart, GET_BDA(video_pagestart));
-    SET_FARVAR(seg, info->video_page, GET_BDA(video_page));
-    /* current font */
+    memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49
+               , sizeof(info->bda_0x49));
+    memcpy_far(seg, info->bda_0x84, SEG_BDA, (void*)0x84
+               , sizeof(info->bda_0x84));
+    SET_FARVAR(seg, info->vbe_mode, GET_BDA(vbe_mode));
     SET_FARVAR(seg, info->font0, GET_IVT(0x1f));
     SET_FARVAR(seg, info->font1, GET_IVT(0x43));
 }
@@ -262,27 +251,11 @@ save_bda_state(u16 seg, struct saveBDAstate *info)
 void
 restore_bda_state(u16 seg, struct saveBDAstate *info)
 {
-    u16 mode = GET_FARVAR(seg, info->video_mode);
-    SET_BDA(vbe_mode, mode);
-    if (mode < 0x100)
-        SET_BDA(video_mode, mode);
-    else
-        SET_BDA(video_mode, 0xff);
-    SET_BDA(video_cols, GET_FARVAR(seg, info->video_cols));
-    SET_BDA(video_pagesize, GET_FARVAR(seg, info->video_pagesize));
-    SET_BDA(crtc_address, GET_FARVAR(seg, info->crtc_address));
-    SET_BDA(video_rows, GET_FARVAR(seg, info->video_rows));
-    SET_BDA(char_height, GET_FARVAR(seg, info->char_height));
-    SET_BDA(video_ctl, GET_FARVAR(seg, info->video_ctl));
-    SET_BDA(video_switches, GET_FARVAR(seg, info->video_switches));
-    SET_BDA(modeset_ctl, GET_FARVAR(seg, info->modeset_ctl));
-    SET_BDA(cursor_type, GET_FARVAR(seg, info->cursor_type));
-    int i;
-    for (i = 0; i < 8; i++)
-        SET_BDA(cursor_pos[i], GET_FARVAR(seg, info->cursor_pos[i]));
-    SET_BDA(video_pagestart, GET_FARVAR(seg, info->video_pagestart));
-    SET_BDA(video_page, GET_FARVAR(seg, info->video_page));
-    /* current font */
+    memcpy_far(SEG_BDA, (void*)0x49, seg, info->bda_0x49
+               , sizeof(info->bda_0x49));
+    memcpy_far(SEG_BDA, (void*)0x84, seg, info->bda_0x84
+               , sizeof(info->bda_0x84));
+    SET_BDA(vbe_mode, GET_FARVAR(seg, info->vbe_mode));
     SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
     SET_IVT(0x43, GET_FARVAR(seg, info->font1));
 }
