@@ -104,9 +104,7 @@ int stdvga_get_displaystart(struct vgamode_s *vmode_g);
 int stdvga_set_displaystart(struct vgamode_s *vmode_g, int val);
 int stdvga_get_dacformat(struct vgamode_s *vmode_g);
 int stdvga_set_dacformat(struct vgamode_s *vmode_g, int val);
-int stdvga_size_state(int states);
-int stdvga_save_state(u16 seg, void *data, int states);
-int stdvga_restore_state(u16 seg, void *data, int states);
+int stdvga_save_restore(int cmd, u16 seg, void *data);
 void stdvga_enable_video_addressing(u8 disable);
 int stdvga_setup(void);
 

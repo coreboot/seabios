@@ -236,28 +236,39 @@ write_teletype(struct cursorpos *pcp, struct carattr ca)
  * Save and restore bda state
  ****************************************************************/
 
-void
-save_bda_state(u16 seg, struct saveBDAstate *info)
-{
-    memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49
-               , sizeof(info->bda_0x49));
-    memcpy_far(seg, info->bda_0x84, SEG_BDA, (void*)0x84
-               , sizeof(info->bda_0x84));
-    SET_FARVAR(seg, info->vbe_mode, GET_BDA(vbe_mode));
-    SET_FARVAR(seg, info->font0, GET_IVT(0x1f));
-    SET_FARVAR(seg, info->font1, GET_IVT(0x43));
-}
+struct saveBDAstate {
+    u8 bda_0x49[28];
+    u8 bda_0x84[6];
+    u16 vbe_mode;
+    struct segoff_s font0;
+    struct segoff_s font1;
+};
 
-void
-restore_bda_state(u16 seg, struct saveBDAstate *info)
+int
+bda_save_restore(int cmd, u16 seg, void *data)
 {
-    memcpy_far(SEG_BDA, (void*)0x49, seg, info->bda_0x49
-               , sizeof(info->bda_0x49));
-    memcpy_far(SEG_BDA, (void*)0x84, seg, info->bda_0x84
-               , sizeof(info->bda_0x84));
-    SET_BDA(vbe_mode, GET_FARVAR(seg, info->vbe_mode));
-    SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
-    SET_IVT(0x43, GET_FARVAR(seg, info->font1));
+    if (!(cmd & SR_BDA))
+        return 0;
+    struct saveBDAstate *info = data;
+    if (cmd & SR_SAVE) {
+        memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49
+                   , sizeof(info->bda_0x49));
+        memcpy_far(seg, info->bda_0x84, SEG_BDA, (void*)0x84
+                   , sizeof(info->bda_0x84));
+        SET_FARVAR(seg, info->vbe_mode, GET_BDA(vbe_mode));
+        SET_FARVAR(seg, info->font0, GET_IVT(0x1f));
+        SET_FARVAR(seg, info->font1, GET_IVT(0x43));
+    }
+    if (cmd & SR_RESTORE) {
+        memcpy_far(SEG_BDA, (void*)0x49, seg, info->bda_0x49
+                   , sizeof(info->bda_0x49));
+        memcpy_far(SEG_BDA, (void*)0x84, seg, info->bda_0x84
+                   , sizeof(info->bda_0x84));
+        SET_BDA(vbe_mode, GET_FARVAR(seg, info->vbe_mode));
+        SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
+        SET_IVT(0x43, GET_FARVAR(seg, info->font1));
+    }
+    return sizeof(*info);
 }
 
 
@@ -1120,29 +1131,14 @@ handle_101c(struct bregs *regs)
     u16 seg = regs->es;
     void *data = (void*)(regs->bx+0);
     u16 states = regs->cx;
-    if (states & ~0x07)
+    u8 cmd = regs->al;
+    if (states & ~0x07 || cmd > 2)
         goto fail;
-    int ret;
-    switch (regs->al) {
-    case 0x00:
-        ret = vgahw_size_state(states);
-        if (ret < 0)
-            goto fail;
+    int ret = vgahw_save_restore(states | (cmd<<8), seg, data);
+    if (ret < 0)
+        goto fail;
+    if (cmd == 0)
         regs->bx = ret / 64;
-        break;
-    case 0x01:
-        ret = vgahw_save_state(seg, data, states);
-        if (ret)
-            goto fail;
-        break;
-    case 0x02:
-        ret = vgahw_restore_state(seg, data, states);
-        if (ret)
-            goto fail;
-        break;
-    default:
-        goto fail;
-    }
     regs->al = 0x1c;
 fail:
     return;

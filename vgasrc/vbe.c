@@ -228,29 +228,14 @@ vbe_104f04(struct bregs *regs)
     u16 seg = regs->es;
     void *data = (void*)(regs->bx+0);
     u16 states = regs->cx;
-    if (states & ~0x0f)
+    u8 cmd = regs->dl;
+    if (states & ~0x0f || cmd > 2)
         goto fail;
-    int ret;
-    switch (regs->dl) {
-    case 0x00:
-        ret = vgahw_size_state(states);
-        if (ret < 0)
-            goto fail;
+    int ret = vgahw_save_restore(states | (cmd<<8), seg, data);
+    if (ret < 0)
+        goto fail;
+    if (cmd == 0)
         regs->bx = ret / 64;
-        break;
-    case 0x01:
-        ret = vgahw_save_state(seg, data, states);
-        if (ret)
-            goto fail;
-        break;
-    case 0x02:
-        ret = vgahw_restore_state(seg, data, states);
-        if (ret)
-            goto fail;
-        break;
-    default:
-        goto fail;
-    }
     regs->ax = 0x004f;
     return;
 fail:

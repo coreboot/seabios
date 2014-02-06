@@ -369,27 +369,11 @@ clext_set_displaystart(struct vgamode_s *vmode_g, int val)
 }
 
 int
-clext_size_state(int states)
+clext_save_restore(int cmd, u16 seg, void *data)
 {
-    if (states & 8)
+    if (cmd & SR_REGISTERS)
         return -1;
-    return stdvga_size_state(states);
-}
-
-int
-clext_save_state(u16 seg, void *data, int states)
-{
-    if (states & 8)
-        return -1;
-    return stdvga_save_state(seg, data, states);
-}
-
-int
-clext_restore_state(u16 seg, void *data, int states)
-{
-    if (states & 8)
-        return -1;
-    return stdvga_restore_state(seg, data, states);
+    return stdvga_save_restore(cmd, seg, data);
 }
 
 

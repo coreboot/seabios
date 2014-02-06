@@ -19,13 +19,13 @@ struct VideoParam_s {
 
 extern struct VideoParam_s video_param_table[29];
 
-struct saveBDAstate {
-    u8 bda_0x49[28];
-    u8 bda_0x84[6];
-    u16 vbe_mode;
-    struct segoff_s font0;
-    struct segoff_s font1;
-};
+// Save/Restore flags
+#define SR_HARDWARE   0x0001
+#define SR_BDA        0x0002
+#define SR_DAC        0x0004
+#define SR_REGISTERS  0x0008
+#define SR_SAVE       0x0100
+#define SR_RESTORE    0x0200
 
 // Mode flags
 #define MF_LEGACY     0x0001
@@ -82,8 +82,7 @@ struct cursorpos {
 };
 int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
-void save_bda_state(u16 seg, struct saveBDAstate *info);
-void restore_bda_state(u16 seg, struct saveBDAstate *info);
+int bda_save_restore(int cmd, u16 seg, void *data);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
 

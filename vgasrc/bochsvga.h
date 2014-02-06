@@ -50,9 +50,7 @@ int bochsvga_get_displaystart(struct vgamode_s *vmode_g);
 int bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val);
 int bochsvga_get_dacformat(struct vgamode_s *vmode_g);
 int bochsvga_set_dacformat(struct vgamode_s *vmode_g, int val);
-int bochsvga_size_state(int states);
-int bochsvga_save_state(u16 seg, void *data, int states);
-int bochsvga_restore_state(u16 seg, void *data, int states);
+int bochsvga_save_restore(int cmd, u16 seg, void *data);
 int bochsvga_set_mode(struct vgamode_s *vmode_g, int flags);
 int bochsvga_setup(void);
 
