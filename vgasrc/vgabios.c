@@ -168,14 +168,17 @@ set_scan_lines(u8 lines)
  * Character writing
  ****************************************************************/
 
-// Scroll the screen one line.  This function is designed to be called
-// tail-recursive to reduce stack usage.
-static void noinline
-scroll_one(u16 nbrows, u16 nbcols, u8 page)
+// Write a character to the screen and calculate new cursor position.
+static void
+write_char(struct cursorpos *pcp, struct carattr ca)
 {
-    struct cursorpos ul = {0, 0, page};
-    struct cursorpos lr = {nbcols-1, nbrows-1, page};
-    vgafb_scroll(1, -1, ul, lr);
+    vgafb_write_char(*pcp, ca);
+    pcp->x++;
+    // Do we need to wrap ?
+    if (pcp->x == GET_BDA(video_cols)) {
+        pcp->x = 0;
+        pcp->y++;
+    }
 }
 
 // Write a character to the screen at a given position.  Implement
@@ -183,45 +186,33 @@ scroll_one(u16 nbrows, u16 nbcols, u8 page)
 static void
 write_teletype(struct cursorpos *pcp, struct carattr ca)
 {
-    struct cursorpos cp = *pcp;
-
-    // Get the dimensions
-    u16 nbrows = GET_BDA(video_rows) + 1;
-    u16 nbcols = GET_BDA(video_cols);
-
     switch (ca.car) {
     case 7:
         //FIXME should beep
         break;
     case 8:
-        if (cp.x > 0)
-            cp.x--;
+        if (pcp->x > 0)
+            pcp->x--;
         break;
     case '\r':
-        cp.x = 0;
+        pcp->x = 0;
         break;
     case '\n':
-        cp.y++;
+        pcp->y++;
         break;
     default:
-        vgafb_write_char(cp, ca);
-        cp.x++;
+        write_char(pcp, ca);
+        break;
     }
 
-    // Do we need to wrap ?
-    if (cp.x == nbcols) {
-        cp.x = 0;
-        cp.y++;
-    }
     // Do we need to scroll ?
-    if (cp.y < nbrows) {
-        *pcp = cp;
-        return;
+    u16 nbrows = GET_BDA(video_rows);
+    if (pcp->y > nbrows) {
+        pcp->y--;
+        struct cursorpos ul = {0, 0, pcp->page};
+        struct cursorpos lr = {GET_BDA(video_cols)-1, nbrows, pcp->page};
+        vgafb_scroll(1, -1, ul, lr);
     }
-    // Scroll screen
-    cp.y--;
-    *pcp = cp;
-    scroll_one(nbrows, nbcols, cp.page);
 }
 
 
@@ -453,32 +444,23 @@ handle_1008(struct bregs *regs)
 }
 
 static void noinline
-write_chars(u8 page, struct carattr ca, u16 count)
-{
-    u16 nbcols = GET_BDA(video_cols);
-    struct cursorpos cp = get_cursor_pos(page);
-    while (count--) {
-        vgafb_write_char(cp, ca);
-        cp.x++;
-        if (cp.x >= nbcols) {
-            cp.x -= nbcols;
-            cp.y++;
-        }
-    }
-}
-
-static void
 handle_1009(struct bregs *regs)
 {
     struct carattr ca = {regs->al, regs->bl, 1};
-    write_chars(regs->bh, ca, regs->cx);
+    struct cursorpos cp = get_cursor_pos(regs->bh);
+    int count = regs->cx;
+    while (count--)
+        write_char(&cp, ca);
 }
 
-static void
+static void noinline
 handle_100a(struct bregs *regs)
 {
     struct carattr ca = {regs->al, regs->bl, 0};
-    write_chars(regs->bh, ca, regs->cx);
+    struct cursorpos cp = get_cursor_pos(regs->bh);
+    int count = regs->cx;
+    while (count--)
+        write_char(&cp, ca);
 }
 
 
