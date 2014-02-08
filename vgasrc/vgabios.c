@@ -203,13 +203,6 @@ write_teletype(struct cursorpos *pcp, struct carattr ca)
     case '\n':
         cp.y++;
         break;
-    case '\t':
-        ca.car = ' ';
-        do {
-            vgafb_write_char(cp, ca);
-            cp.x++;
-        } while (cp.x < nbcols && cp.x % 8);
-        break;
     default:
         vgafb_write_char(cp, ca);
         cp.x++;
