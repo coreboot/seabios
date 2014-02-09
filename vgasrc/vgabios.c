@@ -59,6 +59,9 @@ set_cursor_shape(u8 start, u8 end)
     u16 curs = (start << 8) + end;
     SET_BDA(cursor_type, curs);
 
+    if (!CONFIG_VGA_STDVGA_PORTS)
+        return;
+
     u8 modeset_ctl = GET_BDA(modeset_ctl);
     u16 cheight = GET_BDA(char_height);
     if ((modeset_ctl & 0x01) && (cheight > 8) && (end < 8) && (start < 0x20)) {
@@ -91,6 +94,9 @@ set_cursor_pos(struct cursorpos cp)
 
     // Bios cursor pos
     SET_BDA(cursor_pos[page], (y << 8) | x);
+
+    if (!CONFIG_VGA_STDVGA_PORTS)
+        return;
 
     // Set the hardware cursor
     u8 current = GET_BDA(video_page);
@@ -300,7 +306,7 @@ vga_set_mode(int mode, int flags)
         SET_BDA(cursor_type, 0x0000);
     }
     SET_BDA(video_pagesize, calc_page_size(memmodel, width, height));
-    SET_BDA(crtc_address, stdvga_get_crtc());
+    SET_BDA(crtc_address, CONFIG_VGA_STDVGA_PORTS ? stdvga_get_crtc() : 0);
     SET_BDA(char_height, cheight);
     SET_BDA(video_ctl, 0x60 | (flags & MF_NOCLEARMEM ? 0x80 : 0x00));
     SET_BDA(video_switches, 0xF9);
@@ -485,6 +491,10 @@ handle_100bXX(struct bregs *regs)
 static void
 handle_100b(struct bregs *regs)
 {
+    if (!CONFIG_VGA_STDVGA_PORTS) {
+        handle_100bXX(regs);
+        return;
+    }
     switch (regs->bh) {
     case 0x00: handle_100b00(regs); break;
     case 0x01: handle_100b01(regs); break;
@@ -641,6 +651,10 @@ handle_1010XX(struct bregs *regs)
 static void
 handle_1010(struct bregs *regs)
 {
+    if (!CONFIG_VGA_STDVGA_PORTS) {
+        handle_1010XX(regs);
+        return;
+    }
     switch (regs->al) {
     case 0x00: handle_101000(regs); break;
     case 0x01: handle_101001(regs); break;
@@ -838,16 +852,20 @@ handle_1011XX(struct bregs *regs)
 static void
 handle_1011(struct bregs *regs)
 {
+    if (CONFIG_VGA_STDVGA_PORTS) {
+        switch (regs->al) {
+        case 0x00: handle_101100(regs); break;
+        case 0x01: handle_101101(regs); break;
+        case 0x02: handle_101102(regs); break;
+        case 0x03: handle_101103(regs); break;
+        case 0x04: handle_101104(regs); break;
+        case 0x10: handle_101110(regs); break;
+        case 0x11: handle_101111(regs); break;
+        case 0x12: handle_101112(regs); break;
+        case 0x14: handle_101114(regs); break;
+        }
+    }
     switch (regs->al) {
-    case 0x00: handle_101100(regs); break;
-    case 0x01: handle_101101(regs); break;
-    case 0x02: handle_101102(regs); break;
-    case 0x03: handle_101103(regs); break;
-    case 0x04: handle_101104(regs); break;
-    case 0x10: handle_101110(regs); break;
-    case 0x11: handle_101111(regs); break;
-    case 0x12: handle_101112(regs); break;
-    case 0x14: handle_101114(regs); break;
     case 0x30: handle_101130(regs); break;
     case 0x20: handle_101120(regs); break;
     case 0x21: handle_101121(regs); break;
@@ -912,8 +930,10 @@ handle_101231(struct bregs *regs)
 static void
 handle_101232(struct bregs *regs)
 {
-    stdvga_enable_video_addressing(regs->al);
-    regs->al = 0x12;
+    if (CONFIG_VGA_STDVGA_PORTS) {
+        stdvga_enable_video_addressing(regs->al);
+        regs->al = 0x12;
+    }
 }
 
 static void

@@ -13,6 +13,7 @@ menu "VGA ROM"
         config VGA_STANDARD_VGA
             depends on QEMU
             bool "QEMU/Bochs Original IBM 256K VGA"
+            select VGA_STDVGA_PORTS
             help
                 Build basic VGA BIOS support (pre Super-VGA) for use
                 on emulators.
@@ -20,6 +21,7 @@ menu "VGA ROM"
         config VGA_CIRRUS
             depends on QEMU
             bool "QEMU/Bochs Cirrus SVGA"
+            select VGA_STDVGA_PORTS
             help
                 Build support for Cirrus VGA emulation found on QEMU
                 and Bochs emulators.  This is for emulators; it is not
@@ -28,17 +30,20 @@ menu "VGA ROM"
         config VGA_BOCHS
             depends on QEMU
             bool "QEMU/Bochs VBE SVGA"
+            select VGA_STDVGA_PORTS
             help
                 Build support for Bochs DISPI interface (a custom VBE
                 protocol) found on QEMU and Bochs emulators.
 
         config VGA_GEODEGX2
             bool "GeodeGX2"
+            select VGA_STDVGA_PORTS
             help
                 Build support for Geode GX2 vga.
 
         config VGA_GEODELX
             bool "GeodeLX"
+            select VGA_STDVGA_PORTS
             help
                 Build support for Geode LX vga.
     endchoice
@@ -67,6 +72,9 @@ menu "VGA ROM"
     config BUILD_VGABIOS
         bool
         default !NO_VGABIOS
+
+    config VGA_STDVGA_PORTS
+        bool
 
     config VGA_ALLOCATE_EXTRA_STACK
         depends on BUILD_VGABIOS

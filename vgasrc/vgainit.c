@@ -153,7 +153,8 @@ vga_post(struct bregs *regs)
 
     SET_VGA(video_save_pointer_table.videoparam
             , SEGOFF(get_global_seg(), (u32)video_param_table));
-    stdvga_build_video_param();
+    if (CONFIG_VGA_STDVGA_PORTS)
+        stdvga_build_video_param();
 
     extern void entry_10(void);
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));

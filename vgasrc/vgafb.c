@@ -43,6 +43,8 @@ static void
 scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
            , struct cursorpos ul, struct cursorpos lr)
 {
+    if (!CONFIG_VGA_STDVGA_PORTS)
+        return;
     int cheight = GET_BDA(char_height);
     int cwidth = 1;
     int stride = GET_BDA(video_cols) * cwidth;
@@ -225,6 +227,8 @@ static void
 write_gfx_char_pl4(struct vgamode_s *vmode_g
                    , struct cursorpos cp, struct carattr ca)
 {
+    if (!CONFIG_VGA_STDVGA_PORTS)
+        return;
     u16 nbcols = GET_BDA(video_cols);
     if (cp.x >= nbcols)
         return;
@@ -407,6 +411,8 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
     u8 *addr_far, mask, attr, data, i;
     switch (GET_GLOBAL(vmode_g->memmodel)) {
     case MM_PLANAR:
+        if (!CONFIG_VGA_STDVGA_PORTS)
+            return;
         addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
         mask = 0x80 >> (x & 0x07);
         for (i=0; i<4; i++) {
@@ -464,6 +470,8 @@ vgafb_read_pixel(u16 x, u16 y)
     u8 *addr_far, mask, attr=0, data, i;
     switch (GET_GLOBAL(vmode_g->memmodel)) {
     case MM_PLANAR:
+        if (!CONFIG_VGA_STDVGA_PORTS)
+            return 0;
         addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
         mask = 0x80 >> (x & 0x07);
         attr = 0x00;
