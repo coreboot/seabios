@@ -292,7 +292,7 @@ gfx_direct(struct gfx_op *op)
  ****************************************************************/
 
 // Prepare a struct gfx_op for use.
-static void
+void
 init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g)
 {
     memset(op, 0, sizeof(*op));
@@ -302,7 +302,7 @@ init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g)
 }
 
 // Issue a graphics operation.
-static void
+void
 handle_gfx_op(struct gfx_op *op)
 {
     switch (GET_GLOBAL(op->vmode_g->memmodel)) {

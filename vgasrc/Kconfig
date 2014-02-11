@@ -46,6 +46,14 @@ menu "VGA ROM"
             select VGA_STDVGA_PORTS
             help
                 Build support for Geode LX vga.
+
+        config VGA_COREBOOT
+            depends on COREBOOT
+            bool "coreboot linear framebuffer"
+            help
+                Build support for a vgabios wrapper around video
+                devices initialized using coreboot native vga init.
+
     endchoice
 
     choice
@@ -98,7 +106,7 @@ menu "VGA ROM"
             Support VBE.
 
     config VGA_PCI
-        depends on BUILD_VGABIOS
+        depends on BUILD_VGABIOS && !VGA_COREBOOT
         bool "PCI ROM Headers"
         default y
         help

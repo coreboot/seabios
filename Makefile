@@ -204,7 +204,8 @@ SRCVGA=src/output.c src/string.c src/hw/pci.c src/hw/serialio.c \
     vgasrc/vgainit.c vgasrc/vgabios.c vgasrc/vgafb.c \
     vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/stdvgamodes.c vgasrc/stdvgaio.c \
-    vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c
+    vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c \
+    src/fw/coreboot.c vgasrc/cbvga.c
 
 CFLAGS16VGA = $(CFLAGS16INC) -Isrc
 
