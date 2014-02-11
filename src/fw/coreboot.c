@@ -92,11 +92,12 @@ ipchksum(char *buf, int count)
     u16 *p = (u16*)buf;
     u32 sum = 0;
     while (count > 1) {
-        sum += *p++;
+        sum += GET_FARVAR(0, *p);
+        p++;
         count -= 2;
     }
     if (count)
-        sum += *(u8*)p;
+        sum += GET_FARVAR(0, *(u8*)p);
     sum = (sum >> 16) + (sum & 0xffff);
     sum += (sum >> 16);
     return ~sum;
@@ -104,19 +105,20 @@ ipchksum(char *buf, int count)
 
 // Try to locate the coreboot header in a given address range.
 static struct cb_header *
-find_cb_header(char *addr, int len)
+find_cb_header(u32 addr, int len)
 {
-    char *end = addr + len;
+    u32 end = addr + len;
     for (; addr < end; addr += 16) {
-        struct cb_header *cbh = (struct cb_header *)addr;
-        if (cbh->signature != CB_SIGNATURE)
+        struct cb_header *cbh = (void*)addr;
+        if (GET_FARVAR(0, cbh->signature) != CB_SIGNATURE)
             continue;
-        if (! cbh->table_bytes)
+        u32 tsize = GET_FARVAR(0, cbh->table_bytes);
+        if (! tsize)
             continue;
-        if (ipchksum(addr, sizeof(*cbh)) != 0)
+        if (ipchksum((void*)addr, sizeof(*cbh)) != 0)
             continue;
-        if (ipchksum(addr + sizeof(*cbh), cbh->table_bytes)
-            != cbh->table_checksum)
+        if (ipchksum((void*)addr + sizeof(*cbh), tsize)
+            != GET_FARVAR(0, cbh->table_checksum))
             continue;
         return cbh;
     }
@@ -124,18 +126,35 @@ find_cb_header(char *addr, int len)
 }
 
 // Try to find the coreboot memory table in the given coreboot table.
-static void *
+void *
 find_cb_subtable(struct cb_header *cbh, u32 tag)
 {
     char *tbl = (char *)cbh + sizeof(*cbh);
+    u32 count = GET_FARVAR(0, cbh->table_entries);
     int i;
-    for (i=0; i<cbh->table_entries; i++) {
-        struct cb_memory *cbm = (struct cb_memory *)tbl;
-        tbl += cbm->size;
-        if (cbm->tag == tag)
+    for (i=0; i<count; i++) {
+        struct cb_memory *cbm = (void*)tbl;
+        tbl += GET_FARVAR(0, cbm->size);
+        if (GET_FARVAR(0, cbm->tag) == tag)
             return cbm;
     }
     return NULL;
+}
+
+struct cb_header *
+find_cb_table(void)
+{
+    struct cb_header *cbh = find_cb_header(0, 0x1000);
+    if (!cbh)
+        return NULL;
+    struct cb_forward *cbf = find_cb_subtable(cbh, CB_TAG_FORWARD);
+    if (cbf) {
+        dprintf(3, "Found coreboot table forwarder.\n");
+        cbh = find_cb_header(GET_FARVAR(0, cbf->forward), 0x100);
+        if (!cbh)
+            return NULL;
+    }
+    return cbh;
 }
 
 static struct cb_memory *CBMemTable;
@@ -151,16 +170,9 @@ coreboot_preinit(void)
     dprintf(3, "Attempting to find coreboot table\n");
 
     // Find coreboot table.
-    struct cb_header *cbh = find_cb_header(0, 0x1000);
+    struct cb_header *cbh = find_cb_table();
     if (!cbh)
         goto fail;
-    struct cb_forward *cbf = find_cb_subtable(cbh, CB_TAG_FORWARD);
-    if (cbf) {
-        dprintf(3, "Found coreboot table forwarder.\n");
-        cbh = find_cb_header((char *)((u32)cbf->forward), 0x100);
-        if (!cbh)
-            goto fail;
-    }
     dprintf(3, "Now attempting to find coreboot memory map\n");
     struct cb_memory *cbm = CBMemTable = find_cb_subtable(cbh, CB_TAG_MEMORY);
     if (!cbm)
