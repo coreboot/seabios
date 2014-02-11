@@ -336,7 +336,7 @@ void
 stdvga_list_modes(u16 seg, u16 *dest, u16 *last)
 {
     int i;
-    for (i = 0; i < ARRAY_SIZE(vga_modes); i++) {
+    for (i = 0; i < ARRAY_SIZE(vga_modes) && dest < last; i++) {
         struct stdvga_mode_s *stdmode_g = &vga_modes[i];
         u16 mode = GET_GLOBAL(stdmode_g->mode);
         if (mode == 0xffff)
