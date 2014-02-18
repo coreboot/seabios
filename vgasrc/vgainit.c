@@ -75,7 +75,7 @@ allocate_extra_stack(void)
             "pushl %0\n"
             "pushw $(8|1)\n"            // Permanent low memory request
             "pushl $0xffffffff\n"       // Anonymous handle
-            "pushl $" __stringify(CONFIG_VGA_EXTRA_STACK_SIZE) "\n"
+            "pushl $" __stringify(CONFIG_VGA_EXTRA_STACK_SIZE/16) "\n"
             "pushw $0x00\n"             // PMM allocation request
             "lcallw *12(%%esp)\n"
             "addl $16, %%esp\n"
