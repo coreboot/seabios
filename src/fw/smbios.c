@@ -522,6 +522,7 @@ smbios_setup(void)
         warn_noalloc();
         return;
     }
+    memset(start, 0, TEMPSMBIOSSIZE);
 
     u32 nr_structs = 0, max_struct_size = 0;
     char *q, *p = start;
