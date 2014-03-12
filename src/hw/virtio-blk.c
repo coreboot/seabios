@@ -153,6 +153,7 @@ init_virtio_blk(struct pci_device *pci)
     return;
 
 fail:
+    vp_reset(ioaddr);
     free(vdrive->vq);
     free(vdrive);
 }
