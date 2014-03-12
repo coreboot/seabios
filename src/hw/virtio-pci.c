@@ -90,6 +90,7 @@ u16 vp_init_simple(u16 bdf)
         PCI_BASE_ADDRESS_IO_MASK;
 
     vp_reset(ioaddr);
+    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
     vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER );
     return ioaddr;
