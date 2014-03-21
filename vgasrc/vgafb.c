@@ -17,12 +17,16 @@
  * Screen scrolling
  ****************************************************************/
 
-static inline void *
-memcpy_stride(u16 seg, void *dst, void *src, int copylen, int stride, int lines)
+static inline void
+memmove_stride(u16 seg, void *dst, void *src, int copylen, int stride, int lines)
 {
+    if (src < dst) {
+        dst += stride * (lines - 1);
+        src += stride * (lines - 1);
+        stride = -stride;
+    }
     for (; lines; lines--, dst+=stride, src+=stride)
         memcpy_far(seg, dst, seg, src, copylen);
-    return dst;
 }
 
 static inline void
@@ -40,163 +44,172 @@ memset16_stride(u16 seg, void *dst, u16 val, int setlen, int stride, int lines)
 }
 
 static void
-scroll_pl4(struct vgamode_s *vmode_g, int nblines, int attr
-           , struct cursorpos ul, struct cursorpos lr)
+planar_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                  , struct cursorpos src, struct cursorpos movesize)
 {
     if (!CONFIG_VGA_STDVGA_PORTS)
         return;
     int cheight = GET_BDA(char_height);
     int cwidth = 1;
     int stride = GET_BDA(video_cols) * cwidth;
-    void *src_far, *dest_far;
-    if (nblines >= 0) {
-        dest_far = (void*)(ul.y * cheight * stride + ul.x * cwidth);
-        src_far = dest_far + nblines * cheight * stride;
-    } else {
-        // Scroll down
-        nblines = -nblines;
-        dest_far = (void*)(lr.y * cheight * stride + ul.x * cwidth);
-        src_far = dest_far - nblines * cheight * stride;
-        stride = -stride;
-    }
-    if (attr < 0)
-        attr = 0;
-    int cols = lr.x - ul.x + 1;
-    int rows = lr.y - ul.y + 1;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
     int i;
     for (i=0; i<4; i++) {
         stdvga_planar4_plane(i);
-        void *dest = dest_far;
-        if (nblines < rows)
-            dest = memcpy_stride(SEG_GRAPH, dest, src_far, cols * cwidth
-                                 , stride, (rows - nblines) * cheight);
-        u8 pixels = (attr & (1<<i)) ? 0xff : 0x00;
-        memset_stride(SEG_GRAPH, dest, pixels, cols * cwidth
-                      , stride, nblines * cheight);
+        memmove_stride(SEG_GRAPH, dest_far, src_far
+                       , movesize.x * cwidth, stride, movesize.y * cheight);
     }
     stdvga_planar4_plane(-1);
 }
 
 static void
-scroll_cga(struct vgamode_s *vmode_g, int nblines, int attr
-            , struct cursorpos ul, struct cursorpos lr)
+planar_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                   , struct carattr ca, struct cursorpos clearsize)
+{
+    if (!CONFIG_VGA_STDVGA_PORTS)
+        return;
+    int cheight = GET_BDA(char_height);
+    int cwidth = 1;
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    int i;
+    for (i=0; i<4; i++) {
+        stdvga_planar4_plane(i);
+        u8 attr = (ca.attr & (1<<i)) ? 0xff : 0x00;
+        memset_stride(SEG_GRAPH, dest_far, attr
+                      , clearsize.x * cwidth, stride, clearsize.y * cheight);
+    }
+    stdvga_planar4_plane(-1);
+}
+
+static void
+cga_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+               , struct cursorpos src, struct cursorpos movesize)
 {
     int cheight = GET_BDA(char_height) / 2;
     int cwidth = GET_GLOBAL(vmode_g->depth);
     int stride = GET_BDA(video_cols) * cwidth;
-    void *src_far, *dest_far;
-    if (nblines >= 0) {
-        dest_far = (void*)(ul.y * cheight * stride + ul.x * cwidth);
-        src_far = dest_far + nblines * cheight * stride;
-    } else {
-        // Scroll down
-        nblines = -nblines;
-        dest_far = (void*)(lr.y * cheight * stride + ul.x * cwidth);
-        src_far = dest_far - nblines * cheight * stride;
-        stride = -stride;
-    }
-    if (attr < 0)
-        attr = 0;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
+    memmove_stride(SEG_CTEXT, dest_far, src_far
+                   , movesize.x * cwidth, stride, movesize.y * cheight);
+    memmove_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000
+                   , movesize.x * cwidth, stride, movesize.y * cheight);
+}
+
+static void
+cga_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                , struct carattr ca, struct cursorpos clearsize)
+{
+    int cheight = GET_BDA(char_height) / 2;
+    int cwidth = GET_GLOBAL(vmode_g->depth);
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    u8 attr = ca.attr;
     if (cwidth == 1)
         attr = (attr&1) | ((attr&1)<<1);
     attr &= 3;
     attr |= (attr<<2) | (attr<<4) | (attr<<6);
-    int cols = lr.x - ul.x + 1;
-    int rows = lr.y - ul.y + 1;
-    if (nblines < rows) {
-        memcpy_stride(SEG_CTEXT, dest_far+0x2000, src_far+0x2000, cols * cwidth
-                      , stride, (rows - nblines) * cheight);
-        dest_far = memcpy_stride(SEG_CTEXT, dest_far, src_far, cols * cwidth
-                                 , stride, (rows - nblines) * cheight);
-    }
-    memset_stride(SEG_CTEXT, dest_far + 0x2000, attr, cols * cwidth
-                  , stride, nblines * cheight);
-    memset_stride(SEG_CTEXT, dest_far, attr, cols * cwidth
-                  , stride, nblines * cheight);
+    memset_stride(SEG_CTEXT, dest_far, attr
+                  , clearsize.x * cwidth, stride, clearsize.y * cheight);
+    memset_stride(SEG_CTEXT, dest_far + 0x2000, attr
+                  , clearsize.x * cwidth, stride, clearsize.y * cheight);
 }
 
 static void
-scroll_lin(struct vgamode_s *vmode_g, int nblines, int attr
-           , struct cursorpos ul, struct cursorpos lr)
+packed_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                  , struct cursorpos src, struct cursorpos movesize)
 {
     int cheight = GET_BDA(char_height);
     int cwidth = 8;
     int stride = GET_BDA(video_cols) * cwidth;
-    void *src_far, *dest_far;
-    if (nblines >= 0) {
-        dest_far = (void*)(ul.y * cheight * stride + ul.x * cwidth);
-        src_far = dest_far + nblines * cheight * stride;
-    } else {
-        // Scroll down
-        nblines = -nblines;
-        dest_far = (void*)(lr.y * cheight * stride + ul.x * cwidth);
-        src_far = dest_far - nblines * cheight * stride;
-        stride = -stride;
-    }
-    if (attr < 0)
-        attr = 0;
-    int cols = lr.x - ul.x + 1;
-    int rows = lr.y - ul.y + 1;
-    if (nblines < rows)
-        dest_far = memcpy_stride(SEG_GRAPH, dest_far, src_far, cols * cwidth
-                                 , stride, (rows - nblines) * cheight);
-    memset_stride(SEG_GRAPH, dest_far, attr, cols * cwidth
-                  , stride, nblines * cheight);
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
+    memmove_stride(SEG_GRAPH, dest_far, src_far
+                   , movesize.x * cwidth, stride, movesize.y * cheight);
 }
 
 static void
-scroll_text(struct vgamode_s *vmode_g, int nblines, int attr
-            , struct cursorpos ul, struct cursorpos lr)
+packed_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                   , struct carattr ca, struct cursorpos clearsize)
+{
+    int cheight = GET_BDA(char_height);
+    int cwidth = 8;
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    memset_stride(SEG_GRAPH, dest_far, ca.attr
+                  , clearsize.x * cwidth, stride, clearsize.y * cheight);
+}
+
+static void
+text_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                , struct cursorpos src, struct cursorpos movesize)
 {
     int cheight = 1;
     int cwidth = 2;
     int stride = GET_BDA(video_cols) * cwidth;
-    void *src_far, *dest_far = (void*)(GET_BDA(video_pagesize) * ul.page);
-    if (nblines >= 0) {
-        dest_far += ul.y * cheight * stride + ul.x * cwidth;
-        src_far = dest_far + nblines * cheight * stride;
-    } else {
-        // Scroll down
-        nblines = -nblines;
-        dest_far += lr.y * cheight * stride + ul.x * cwidth;
-        src_far = dest_far - nblines * cheight * stride;
-        stride = -stride;
-    }
-    if (attr < 0)
-        attr = 0x07;
-    attr = (attr << 8) | ' ';
-    int cols = lr.x - ul.x + 1;
-    int rows = lr.y - ul.y + 1;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
+    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
     u16 seg = GET_GLOBAL(vmode_g->sstart);
-    if (nblines < rows)
-        dest_far = memcpy_stride(seg, dest_far, src_far, cols * cwidth
-                                 , stride, (rows - nblines) * cheight);
-    memset16_stride(seg, dest_far, attr, cols * cwidth
-                    , stride, nblines * cheight);
+    memmove_stride(seg, dest_far + pageoffset, src_far + pageoffset
+                   , movesize.x * cwidth, stride, movesize.y * cheight);
+}
+
+static void
+text_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                , struct carattr ca, struct cursorpos clearsize)
+{
+    int cheight = 1;
+    int cwidth = 2;
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
+    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
+    u16 seg = GET_GLOBAL(vmode_g->sstart);
+    memset16_stride(seg, dest_far + pageoffset, attr
+                    , clearsize.x * cwidth, stride, clearsize.y * cheight);
 }
 
 void
-vgafb_scroll(int nblines, int attr, struct cursorpos ul, struct cursorpos lr)
+vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                 , struct cursorpos src, struct cursorpos movesize)
 {
-    // Get the mode
-    struct vgamode_s *vmode_g = get_current_mode();
-    if (!vmode_g)
-        return;
-
-    // FIXME gfx mode not complete
     switch (GET_GLOBAL(vmode_g->memmodel)) {
     case MM_TEXT:
-        scroll_text(vmode_g, nblines, attr, ul, lr);
+        text_move_chars(vmode_g, dest, src, movesize);
         break;
     case MM_PLANAR:
-        scroll_pl4(vmode_g, nblines, attr, ul, lr);
+        planar_move_chars(vmode_g, dest, src, movesize);
         break;
     case MM_CGA:
-        scroll_cga(vmode_g, nblines, attr, ul, lr);
+        cga_move_chars(vmode_g, dest, src, movesize);
         break;
-    case MM_DIRECT:
     case MM_PACKED:
-        scroll_lin(vmode_g, nblines, attr, ul, lr);
+        packed_move_chars(vmode_g, dest, src, movesize);
+        break;
+    default:
+        break;
+    }
+}
+
+void
+vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                 , struct carattr ca, struct cursorpos movesize)
+{
+    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    case MM_TEXT:
+        text_clear_chars(vmode_g, dest, ca, movesize);
+        break;
+    case MM_PLANAR:
+        planar_clear_chars(vmode_g, dest, ca, movesize);
+        break;
+    case MM_CGA:
+        cga_clear_chars(vmode_g, dest, ca, movesize);
+        break;
+    case MM_PACKED:
+        packed_clear_chars(vmode_g, dest, ca, movesize);
         break;
     default:
         break;

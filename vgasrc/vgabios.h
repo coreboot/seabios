@@ -87,8 +87,10 @@ struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
 
 // vgafb.c
-void vgafb_scroll(int nblines, int attr
-                  , struct cursorpos ul, struct cursorpos lr);
+void vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                      , struct cursorpos src, struct cursorpos movesize);
+void vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                       , struct carattr ca, struct cursorpos movesize);
 void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);
 void vgafb_write_pixel(u8 color, u16 x, u16 y);
