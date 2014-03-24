@@ -1,6 +1,6 @@
 // Code for manipulating VGA framebuffers.
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2014  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2001-2008 the LGPL VGABios developers Team
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -11,11 +11,7 @@
 #include "stdvga.h" // stdvga_planar4_plane
 #include "string.h" // memset_far
 #include "vgabios.h" // vgafb_scroll
-
-
-/****************************************************************
- * Screen scrolling
- ****************************************************************/
+#include "vgahw.h" // vgahw_get_linelength
 
 static inline void
 memmove_stride(u16 seg, void *dst, void *src, int copylen, int stride, int lines)
@@ -43,185 +39,215 @@ memset16_stride(u16 seg, void *dst, u16 val, int setlen, int stride, int lines)
         memset16_far(seg, dst, val, setlen);
 }
 
+
+/****************************************************************
+ * Basic stdvga graphic manipulation
+ ****************************************************************/
+
 static void
-planar_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                  , struct cursorpos src, struct cursorpos movesize)
+gfx_planar(struct gfx_op *op)
 {
     if (!CONFIG_VGA_STDVGA_PORTS)
         return;
-    int cheight = GET_BDA(char_height);
-    int cwidth = 1;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
-    int i;
-    for (i=0; i<4; i++) {
-        stdvga_planar4_plane(i);
+    void *dest_far = (void*)(op->y * op->linelength + op->x / 8);
+    int plane;
+    switch (op->op) {
+    default:
+    case GO_READ8:
+        memset(op->pixels, 0, sizeof(op->pixels));
+        for (plane = 0; plane < 4; plane++) {
+            stdvga_planar4_plane(plane);
+            u8 data = GET_FARVAR(SEG_GRAPH, *(u8*)dest_far);
+            int pixel;
+            for (pixel=0; pixel<8; pixel++)
+                op->pixels[pixel] |= ((data>>(7-pixel)) & 1) << plane;
+        }
+        break;
+    case GO_WRITE8:
+        for (plane = 0; plane<4; plane++) {
+            stdvga_planar4_plane(plane);
+            u8 data = 0;
+            int pixel;
+            for (pixel=0; pixel<8; pixel++)
+                data |= ((op->pixels[pixel]>>plane) & 1) << (7-pixel);
+            SET_FARVAR(SEG_GRAPH, *(u8*)dest_far, data);
+        }
+        break;
+    case GO_MEMSET:
+        for (plane = 0; plane < 4; plane++) {
+            stdvga_planar4_plane(plane);
+            u8 data = (op->pixels[0] & (1<<plane)) ? 0xff : 0x00;
+            memset_stride(SEG_GRAPH, dest_far, data
+                          , op->xlen / 8, op->linelength, op->ylen);
+        }
+        break;
+    case GO_MEMMOVE: ;
+        void *src_far = (void*)(op->srcy * op->linelength + op->x / 8);
+        for (plane = 0; plane < 4; plane++) {
+            stdvga_planar4_plane(plane);
+            memmove_stride(SEG_GRAPH, dest_far, src_far
+                           , op->xlen / 8, op->linelength, op->ylen);
+        }
+        break;
+    }
+    stdvga_planar4_plane(-1);
+}
+
+static void
+gfx_cga(struct gfx_op *op)
+{
+    int bpp = GET_GLOBAL(op->vmode_g->depth);
+    void *dest_far = (void*)(op->y / 2 * op->linelength + op->x / 8 * bpp);
+    switch (op->op) {
+    default:
+    case GO_READ8:
+        if (op->y & 1)
+            dest_far += 0x2000;
+        if (bpp == 1) {
+            u8 data = GET_FARVAR(SEG_CTEXT, *(u8*)dest_far);
+            int pixel;
+            for (pixel=0; pixel<8; pixel++)
+                op->pixels[pixel] = (data >> (7-pixel)) & 1;
+        } else {
+            u16 data = GET_FARVAR(SEG_CTEXT, *(u16*)dest_far);
+            data = be16_to_cpu(data);
+            int pixel;
+            for (pixel=0; pixel<8; pixel++)
+                op->pixels[pixel] = (data >> ((7-pixel)*2)) & 3;
+        }
+        break;
+    case GO_WRITE8:
+        if (op->y & 1)
+            dest_far += 0x2000;
+        if (bpp == 1) {
+            u8 data = 0;
+            int pixel;
+            for (pixel=0; pixel<8; pixel++)
+                data |= (op->pixels[pixel] & 1) << (7-pixel);
+            SET_FARVAR(SEG_CTEXT, *(u8*)dest_far, data);
+        } else {
+            u16 data = 0;
+            int pixel;
+            for (pixel=0; pixel<8; pixel++)
+                data |= (op->pixels[pixel] & 3) << ((7-pixel) * 2);
+            data = cpu_to_be16(data);
+            SET_FARVAR(SEG_CTEXT, *(u16*)dest_far, data);
+        }
+        break;
+    case GO_MEMSET: ;
+        u8 data = op->pixels[0];
+        if (bpp == 1)
+            data = (data&1) | ((data&1)<<1);
+        data &= 3;
+        data |= (data<<2) | (data<<4) | (data<<6);
+        memset_stride(SEG_CTEXT, dest_far, data
+                      , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        memset_stride(SEG_CTEXT, dest_far + 0x2000, data
+                      , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        break;
+    case GO_MEMMOVE: ;
+        void *src_far = (void*)(op->srcy / 2 * op->linelength + op->x / 8 * bpp);
+        memmove_stride(SEG_CTEXT, dest_far, src_far
+                       , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        memmove_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000
+                       , op->xlen / 8 * bpp, op->linelength, op->ylen / 2);
+        break;
+    }
+}
+
+static void
+gfx_packed(struct gfx_op *op)
+{
+    void *dest_far = (void*)(op->y * op->linelength + op->x);
+    switch (op->op) {
+    default:
+    case GO_READ8:
+        memcpy_far(GET_SEG(SS), op->pixels, SEG_GRAPH, dest_far, 8);
+        break;
+    case GO_WRITE8:
+        memcpy_far(SEG_GRAPH, dest_far, GET_SEG(SS), op->pixels, 8);
+        break;
+    case GO_MEMSET:
+        memset_stride(SEG_GRAPH, dest_far, op->pixels[0]
+                      , op->xlen, op->linelength, op->ylen);
+        break;
+    case GO_MEMMOVE: ;
+        void *src_far = (void*)(op->srcy * op->linelength + op->x);
         memmove_stride(SEG_GRAPH, dest_far, src_far
-                       , movesize.x * cwidth, stride, movesize.y * cheight);
-    }
-    stdvga_planar4_plane(-1);
-}
-
-static void
-planar_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                   , struct carattr ca, struct cursorpos clearsize)
-{
-    if (!CONFIG_VGA_STDVGA_PORTS)
-        return;
-    int cheight = GET_BDA(char_height);
-    int cwidth = 1;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    int i;
-    for (i=0; i<4; i++) {
-        stdvga_planar4_plane(i);
-        u8 attr = (ca.attr & (1<<i)) ? 0xff : 0x00;
-        memset_stride(SEG_GRAPH, dest_far, attr
-                      , clearsize.x * cwidth, stride, clearsize.y * cheight);
-    }
-    stdvga_planar4_plane(-1);
-}
-
-static void
-cga_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-               , struct cursorpos src, struct cursorpos movesize)
-{
-    int cheight = GET_BDA(char_height) / 2;
-    int cwidth = GET_GLOBAL(vmode_g->depth);
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
-    memmove_stride(SEG_CTEXT, dest_far, src_far
-                   , movesize.x * cwidth, stride, movesize.y * cheight);
-    memmove_stride(SEG_CTEXT, dest_far + 0x2000, src_far + 0x2000
-                   , movesize.x * cwidth, stride, movesize.y * cheight);
-}
-
-static void
-cga_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                , struct carattr ca, struct cursorpos clearsize)
-{
-    int cheight = GET_BDA(char_height) / 2;
-    int cwidth = GET_GLOBAL(vmode_g->depth);
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    u8 attr = ca.attr;
-    if (cwidth == 1)
-        attr = (attr&1) | ((attr&1)<<1);
-    attr &= 3;
-    attr |= (attr<<2) | (attr<<4) | (attr<<6);
-    memset_stride(SEG_CTEXT, dest_far, attr
-                  , clearsize.x * cwidth, stride, clearsize.y * cheight);
-    memset_stride(SEG_CTEXT, dest_far + 0x2000, attr
-                  , clearsize.x * cwidth, stride, clearsize.y * cheight);
-}
-
-static void
-packed_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                  , struct cursorpos src, struct cursorpos movesize)
-{
-    int cheight = GET_BDA(char_height);
-    int cwidth = 8;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
-    memmove_stride(SEG_GRAPH, dest_far, src_far
-                   , movesize.x * cwidth, stride, movesize.y * cheight);
-}
-
-static void
-packed_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                   , struct carattr ca, struct cursorpos clearsize)
-{
-    int cheight = GET_BDA(char_height);
-    int cwidth = 8;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    memset_stride(SEG_GRAPH, dest_far, ca.attr
-                  , clearsize.x * cwidth, stride, clearsize.y * cheight);
-}
-
-static void
-text_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                , struct cursorpos src, struct cursorpos movesize)
-{
-    int cheight = 1;
-    int cwidth = 2;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
-    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
-    u16 seg = GET_GLOBAL(vmode_g->sstart);
-    memmove_stride(seg, dest_far + pageoffset, src_far + pageoffset
-                   , movesize.x * cwidth, stride, movesize.y * cheight);
-}
-
-static void
-text_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                , struct carattr ca, struct cursorpos clearsize)
-{
-    int cheight = 1;
-    int cwidth = 2;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
-    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
-    u16 seg = GET_GLOBAL(vmode_g->sstart);
-    memset16_stride(seg, dest_far + pageoffset, attr
-                    , clearsize.x * cwidth, stride, clearsize.y * cheight);
-}
-
-void
-vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                 , struct cursorpos src, struct cursorpos movesize)
-{
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case MM_TEXT:
-        text_move_chars(vmode_g, dest, src, movesize);
-        break;
-    case MM_PLANAR:
-        planar_move_chars(vmode_g, dest, src, movesize);
-        break;
-    case MM_CGA:
-        cga_move_chars(vmode_g, dest, src, movesize);
-        break;
-    case MM_PACKED:
-        packed_move_chars(vmode_g, dest, src, movesize);
-        break;
-    default:
-        break;
-    }
-}
-
-void
-vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                 , struct carattr ca, struct cursorpos movesize)
-{
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case MM_TEXT:
-        text_clear_chars(vmode_g, dest, ca, movesize);
-        break;
-    case MM_PLANAR:
-        planar_clear_chars(vmode_g, dest, ca, movesize);
-        break;
-    case MM_CGA:
-        cga_clear_chars(vmode_g, dest, ca, movesize);
-        break;
-    case MM_PACKED:
-        packed_clear_chars(vmode_g, dest, ca, movesize);
-        break;
-    default:
+                       , op->xlen, op->linelength, op->ylen);
         break;
     }
 }
 
 
 /****************************************************************
- * Read/write characters to screen
+ * Gfx interface
  ****************************************************************/
 
-static struct segoff_s
+// Prepare a struct gfx_op for use.
+static void
+init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g)
+{
+    memset(op, 0, sizeof(*op));
+    op->vmode_g = vmode_g;
+    op->linelength = vgahw_get_linelength(vmode_g);
+}
+
+// Issue a graphics operation.
+static void
+handle_gfx_op(struct gfx_op *op)
+{
+    switch (GET_GLOBAL(op->vmode_g->memmodel)) {
+    case MM_PLANAR:
+        gfx_planar(op);
+        break;
+    case MM_CGA:
+        gfx_cga(op);
+        break;
+    case MM_PACKED:
+        gfx_packed(op);
+        break;
+    default:
+        break;
+    }
+}
+
+// Move characters when in graphics mode.
+static void
+gfx_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+               , struct cursorpos src, struct cursorpos movesize)
+{
+    struct gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = dest.x * 8;
+    op.xlen = movesize.x * 8;
+    int cheight = GET_BDA(char_height);
+    op.y = dest.y * cheight;
+    op.ylen = movesize.y * cheight;
+    op.srcy = src.y * cheight;
+    op.op = GO_MEMMOVE;
+    handle_gfx_op(&op);
+}
+
+// Clear are of screen in graphics mode.
+static void
+gfx_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                , struct carattr ca, struct cursorpos clearsize)
+{
+    struct gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = dest.x * 8;
+    op.xlen = clearsize.x * 8;
+    int cheight = GET_BDA(char_height);
+    op.y = dest.y * cheight;
+    op.ylen = clearsize.y * cheight;
+    op.pixels[0] = ca.attr;
+    op.op = GO_MEMSET;
+    handle_gfx_op(&op);
+}
+
+// Return the font for a given character
+struct segoff_s
 get_font_data(u8 c)
 {
     int char_height = GET_BDA(char_height);
@@ -236,108 +262,142 @@ get_font_data(u8 c)
     return font;
 }
 
+// Write a character to the screen in graphics mode.
 static void
-write_gfx_char_pl4(struct vgamode_s *vmode_g
-                   , struct cursorpos cp, struct carattr ca)
-{
-    if (!CONFIG_VGA_STDVGA_PORTS)
-        return;
-    u16 nbcols = GET_BDA(video_cols);
-    if (cp.x >= nbcols)
-        return;
-
-    struct segoff_s font = get_font_data(ca.car);
-    int cheight = GET_BDA(char_height);
-    int cwidth = 1;
-    int stride = nbcols * cwidth;
-    int addr = cp.y * cheight * stride + cp.x * cwidth;
-    int i;
-    for (i=0; i<4; i++) {
-        stdvga_planar4_plane(i);
-        u8 colors = ((ca.attr & (1<<i)) ? 0xff : 0x00);
-        int j;
-        for (j = 0; j < cheight; j++) {
-            u8 *dest_far = (void*)(addr + j * stride);
-            u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+j));
-            u8 pixels = colors & fontline;
-            if (ca.attr & 0x80)
-                pixels ^= GET_FARVAR(SEG_GRAPH, *dest_far);
-            SET_FARVAR(SEG_GRAPH, *dest_far, pixels);
-        }
-    }
-    stdvga_planar4_plane(-1);
-}
-
-static void
-write_gfx_char_cga(struct vgamode_s *vmode_g
-                   , struct cursorpos cp, struct carattr ca)
-{
-    u16 nbcols = GET_BDA(video_cols);
-    if (cp.x >= nbcols)
-        return;
-
-    struct segoff_s font = get_font_data(ca.car);
-    int cheight = GET_BDA(char_height) / 2;
-    int cwidth = GET_GLOBAL(vmode_g->depth);
-    int stride = nbcols * cwidth;
-    int addr = cp.y * cheight * stride + cp.x * cwidth;
-    int i;
-    for (i = 0; i < cheight*2; i++) {
-        u8 *dest_far = (void*)(addr + (i >> 1) * stride);
-        if (i & 1)
-            dest_far += 0x2000;
-        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
-        if (cwidth == 1) {
-            u8 colors = (ca.attr & 0x01) ? 0xff : 0x00;
-            u8 pixels = colors & fontline;
-            if (ca.attr & 0x80)
-                pixels ^= GET_FARVAR(SEG_GRAPH, *dest_far);
-            SET_FARVAR(SEG_CTEXT, *dest_far, pixels);
-        } else {
-            u16 fontline16 = ((fontline & 0xf0) << 4) | (fontline & 0x0f);
-            fontline16 = ((fontline16 & 0x0c0c) << 2) | (fontline16 & 0x0303);
-            fontline16 = ((fontline16 & 0x2222) << 1) | (fontline16 & 0x1111);
-            fontline16 |= fontline16<<1;
-            u16 colors = (((ca.attr & 0x01) ? 0x5555 : 0x0000)
-                          | ((ca.attr & 0x02) ? 0xaaaa : 0x0000));
-            u16 pixels = cpu_to_be16(colors & fontline16);
-            if (ca.attr & 0x80)
-                pixels ^= GET_FARVAR(SEG_GRAPH, *(u16*)dest_far);
-            SET_FARVAR(SEG_CTEXT, *(u16*)dest_far, pixels);
-        }
-    }
-}
-
-static void
-write_gfx_char_lin(struct vgamode_s *vmode_g
-                   , struct cursorpos cp, struct carattr ca)
-{
-    // Get the dimensions
-    u16 nbcols = GET_BDA(video_cols);
-    if (cp.x >= nbcols)
-        return;
-
-    struct segoff_s font = get_font_data(ca.car);
-    int cheight = GET_BDA(char_height);
-    int cwidth = 8;
-    int stride = nbcols * cwidth;
-    int addr = cp.y * cheight * stride + cp.x * cwidth;
-    int i;
-    for (i = 0; i < cheight; i++) {
-        u8 *dest_far = (void*)(addr + i * stride);
-        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
-        int j;
-        for (j = 0; j < 8; j++) {
-            u8 pixel = (fontline & (0x80>>j)) ? ca.attr : 0x00;
-            SET_FARVAR(SEG_GRAPH, dest_far[j], pixel);
-        }
-    }
-}
-
-static void
-write_text_char(struct vgamode_s *vmode_g
+gfx_write_char(struct vgamode_s *vmode_g
                 , struct cursorpos cp, struct carattr ca)
 {
+    if (cp.x >= GET_BDA(video_cols))
+        return;
+
+    struct segoff_s font = get_font_data(ca.car);
+    struct gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = cp.x * 8;
+    int cheight = GET_BDA(char_height);
+    op.y = cp.y * cheight;
+    int usexor = ca.attr & 0x80 && GET_GLOBAL(vmode_g->depth) < 8;
+    int i;
+    for (i = 0; i < cheight; i++, op.y++) {
+        u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
+        if (usexor) {
+            op.op = GO_READ8;
+            handle_gfx_op(&op);
+            int j;
+            for (j = 0; j < 8; j++)
+                op.pixels[j] ^= (fontline & (0x80>>j)) ? (ca.attr & 0x7f) : 0x00;
+        } else {
+            int j;
+            for (j = 0; j < 8; j++)
+                op.pixels[j] = (fontline & (0x80>>j)) ? ca.attr : 0x00;
+        }
+        op.op = GO_WRITE8;
+        handle_gfx_op(&op);
+    }
+}
+
+// Set the pixel at the given position.
+void
+vgafb_write_pixel(u8 color, u16 x, u16 y)
+{
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (!vmode_g)
+        return;
+
+    struct gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = ALIGN_DOWN(x, 8);
+    op.y = y;
+    op.op = GO_READ8;
+    handle_gfx_op(&op);
+
+    int usexor = color & 0x80 && GET_GLOBAL(vmode_g->depth) < 8;
+    if (usexor)
+        op.pixels[x & 0x07] ^= color & 0x7f;
+    else
+        op.pixels[x & 0x07] = color;
+    op.op = GO_WRITE8;
+    handle_gfx_op(&op);
+}
+
+// Return the pixel at the given position.
+u8
+vgafb_read_pixel(u16 x, u16 y)
+{
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (!vmode_g)
+        return 0;
+
+    struct gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.x = ALIGN_DOWN(x, 8);
+    op.y = y;
+    op.op = GO_READ8;
+    handle_gfx_op(&op);
+
+    return op.pixels[x & 0x07];
+}
+
+
+/****************************************************************
+ * Text ops
+ ****************************************************************/
+
+// Move characters on screen.
+void
+vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                 , struct cursorpos src, struct cursorpos movesize)
+{
+    if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
+        gfx_move_chars(vmode_g, dest, src, movesize);
+        return;
+    }
+
+    int cheight = 1;
+    int cwidth = 2;
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
+    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
+    u16 seg = GET_GLOBAL(vmode_g->sstart);
+    memmove_stride(seg, dest_far + pageoffset, src_far + pageoffset
+                   , movesize.x * cwidth, stride, movesize.y * cheight);
+}
+
+// Clear are of screen.
+void
+vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+                  , struct carattr ca, struct cursorpos clearsize)
+{
+    if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
+        gfx_clear_chars(vmode_g, dest, ca, clearsize);
+        return;
+    }
+
+    int cheight = 1;
+    int cwidth = 2;
+    int stride = GET_BDA(video_cols) * cwidth;
+    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
+    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
+    u16 seg = GET_GLOBAL(vmode_g->sstart);
+    memset16_stride(seg, dest_far + pageoffset, attr
+                    , clearsize.x * cwidth, stride, clearsize.y * cheight);
+}
+
+// Write a character to the screen.
+void
+vgafb_write_char(struct cursorpos cp, struct carattr ca)
+{
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (!vmode_g)
+        return;
+
+    if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
+        gfx_write_char(vmode_g, cp, ca);
+        return;
+    }
+
     int cheight = 1;
     int cwidth = 2;
     int stride = GET_BDA(video_cols) * cwidth;
@@ -351,38 +411,10 @@ write_text_char(struct vgamode_s *vmode_g
     }
 }
 
-void
-vgafb_write_char(struct cursorpos cp, struct carattr ca)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = get_current_mode();
-    if (!vmode_g)
-        return;
-
-    // FIXME gfx mode not complete
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case MM_TEXT:
-        write_text_char(vmode_g, cp, ca);
-        break;
-    case MM_PLANAR:
-        write_gfx_char_pl4(vmode_g, cp, ca);
-        break;
-    case MM_CGA:
-        write_gfx_char_cga(vmode_g, cp, ca);
-        break;
-    case MM_DIRECT:
-    case MM_PACKED:
-        write_gfx_char_lin(vmode_g, cp, ca);
-        break;
-    default:
-        break;
-    }
-}
-
+// Return the character at the given position on the screen.
 struct carattr
 vgafb_read_char(struct cursorpos cp)
 {
-    // Get the mode
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         goto fail;
@@ -393,7 +425,6 @@ vgafb_read_char(struct cursorpos cp)
         goto fail;
     }
 
-    // Compute the address
     int cheight = 1;
     int cwidth = 2;
     int stride = GET_BDA(video_cols) * cwidth;
@@ -406,114 +437,4 @@ vgafb_read_char(struct cursorpos cp)
 fail: ;
     struct carattr ca2 = {0, 0, 0};
     return ca2;
-}
-
-
-/****************************************************************
- * Read/write pixels
- ****************************************************************/
-
-void
-vgafb_write_pixel(u8 color, u16 x, u16 y)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = get_current_mode();
-    if (!vmode_g)
-        return;
-
-    u8 *addr_far, mask, attr, data, i;
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case MM_PLANAR:
-        if (!CONFIG_VGA_STDVGA_PORTS)
-            return;
-        addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
-        mask = 0x80 >> (x & 0x07);
-        for (i=0; i<4; i++) {
-            stdvga_planar4_plane(i);
-            u8 colors = (color & (1<<i)) ? 0xff : 0x00;
-            u8 orig = GET_FARVAR(SEG_GRAPH, *addr_far);
-            if (color & 0x80)
-                colors ^= orig;
-            SET_FARVAR(SEG_GRAPH, *addr_far, (colors & mask) | (orig & ~mask));
-        }
-        stdvga_planar4_plane(-1);
-        break;
-    case MM_CGA:
-        if (GET_GLOBAL(vmode_g->depth) == 2)
-            addr_far = (void*)((x >> 2) + (y >> 1) * 80);
-        else
-            addr_far = (void*)((x >> 3) + (y >> 1) * 80);
-        if (y & 1)
-            addr_far += 0x2000;
-        data = GET_FARVAR(SEG_CTEXT, *addr_far);
-        if (GET_GLOBAL(vmode_g->depth) == 2) {
-            attr = (color & 0x03) << ((3 - (x & 0x03)) * 2);
-            mask = 0x03 << ((3 - (x & 0x03)) * 2);
-        } else {
-            attr = (color & 0x01) << (7 - (x & 0x07));
-            mask = 0x01 << (7 - (x & 0x07));
-        }
-        if (color & 0x80) {
-            data ^= attr;
-        } else {
-            data &= ~mask;
-            data |= attr;
-        }
-        SET_FARVAR(SEG_CTEXT, *addr_far, data);
-        break;
-    case MM_DIRECT:
-    case MM_PACKED:
-        addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
-        SET_FARVAR(SEG_GRAPH, *addr_far, color);
-        break;
-    default:
-    case MM_TEXT:
-        return;
-    }
-}
-
-u8
-vgafb_read_pixel(u16 x, u16 y)
-{
-    // Get the mode
-    struct vgamode_s *vmode_g = get_current_mode();
-    if (!vmode_g)
-        return 0;
-
-    u8 *addr_far, mask, attr=0, data, i;
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
-    case MM_PLANAR:
-        if (!CONFIG_VGA_STDVGA_PORTS)
-            return 0;
-        addr_far = (void*)(x / 8 + y * GET_BDA(video_cols));
-        mask = 0x80 >> (x & 0x07);
-        attr = 0x00;
-        for (i = 0; i < 4; i++) {
-            stdvga_planar4_plane(i);
-            data = GET_FARVAR(SEG_GRAPH, *addr_far) & mask;
-            if (data > 0)
-                attr |= (0x01 << i);
-        }
-        stdvga_planar4_plane(-1);
-        break;
-    case MM_CGA:
-        addr_far = (void*)((x >> 2) + (y >> 1) * 80);
-        if (y & 1)
-            addr_far += 0x2000;
-        data = GET_FARVAR(SEG_CTEXT, *addr_far);
-        if (GET_GLOBAL(vmode_g->depth) == 2)
-            attr = (data >> ((3 - (x & 0x03)) * 2)) & 0x03;
-        else
-            attr = (data >> (7 - (x & 0x07))) & 0x01;
-        break;
-    case MM_DIRECT:
-    case MM_PACKED:
-        addr_far = (void*)(x + y * (GET_BDA(video_cols) * 8));
-        attr = GET_FARVAR(SEG_GRAPH, *addr_far);
-        break;
-    default:
-    case MM_TEXT:
-        return 0;
-    }
-    return attr;
 }

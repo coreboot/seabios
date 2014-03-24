@@ -56,16 +56,34 @@ struct vgamode_s {
     u16 sstart;
 };
 
+// Graphics pixel operations.
+struct gfx_op {
+    struct vgamode_s *vmode_g;
+    u32 linelength;
+
+    u8 op;
+    u16 x, y;
+
+    u8 pixels[8];
+    u16 xlen, ylen;
+    u16 srcy;
+};
+
+#define GO_READ8   1
+#define GO_WRITE8  2
+#define GO_MEMSET  3
+#define GO_MEMMOVE 4
+
+// Debug settings
+#define DEBUG_VGA_POST 1
+#define DEBUG_VGA_10 3
+
 // vgafonts.c
 extern u8 vgafont8[];
 extern u8 vgafont14[];
 extern u8 vgafont16[];
 extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
-
-// Debug settings
-#define DEBUG_VGA_POST 1
-#define DEBUG_VGA_10 3
 
 // vgainit.c
 extern struct VideoSavePointer_s video_save_pointer_table;
