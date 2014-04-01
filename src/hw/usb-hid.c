@@ -109,7 +109,7 @@ usb_mouse_setup(struct usbdevice_s *usbdev
 int
 usb_hid_setup(struct usbdevice_s *usbdev)
 {
-    if (! CONFIG_USB_KEYBOARD || ! CONFIG_USB_MOUSE)
+    if (! CONFIG_USB_KEYBOARD && ! CONFIG_USB_MOUSE)
         return -1;
     dprintf(2, "usb_hid_setup %p\n", usbdev->defpipe);
 
