@@ -181,6 +181,113 @@ gfx_packed(struct gfx_op *op)
 
 
 /****************************************************************
+ * Direct framebuffers in high mem
+ ****************************************************************/
+
+// Use int 1587 call to copy memory to/from the framebuffer.
+static void
+memcpy_high(void *dest, void *src, u32 len)
+{
+    u64 gdt[6];
+    gdt[2] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)src);
+    gdt[3] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)dest);
+
+    // Call int 1587 to copy data.
+    len/=2;
+    u32 flags;
+    u32 eax = 0x8700;
+    u32 si = (u32)&gdt;
+    SET_SEG(ES, GET_SEG(SS));
+    asm volatile(
+        "stc\n"
+        "int $0x15\n"
+        "cli\n"
+        "cld\n"
+        "pushfl\n"
+        "popl %0\n"
+        : "=r" (flags), "+a" (eax), "+S" (si), "+c" (len)
+        : : "cc", "memory");
+}
+
+static void
+memmove_stride_high(void *dst, void *src, int copylen, int stride, int lines)
+{
+    if (src < dst) {
+        dst += stride * (lines - 1);
+        src += stride * (lines - 1);
+        stride = -stride;
+    }
+    for (; lines; lines--, dst+=stride, src+=stride)
+        memcpy_high(dst, src, copylen);
+}
+
+// Map a CGA color to a "direct" mode rgb value.
+static u32
+get_color(int depth, u8 attr)
+{
+    int rbits, gbits, bbits;
+    switch (depth) {
+    case 15: rbits=5; gbits=5; bbits=5; break;
+    case 16: rbits=5; gbits=6; bbits=5; break;
+    default:
+    case 24: rbits=8; gbits=8; bbits=8; break;
+    }
+    int h = (attr&8) ? 1 : 0;
+    int r = (attr&4) ? 2 : 0, g = (attr&2) ? 2 : 0, b = (attr&1) ? 2 : 0;
+    if ((attr & 0xf) == 6)
+        g = 1;
+    return ((((((1<<rbits) - 1) * (r + h) + 1) / 3) << (gbits+bbits))
+            + (((((1<<gbits) - 1) * (g + h) + 1) / 3) << bbits)
+            + ((((1<<bbits) - 1) * (b + h) + 1) / 3));
+}
+
+static void
+gfx_direct(struct gfx_op *op)
+{
+    void *fb = (void*)GET_GLOBAL(VBE_framebuffer);
+    if (!fb)
+        return;
+    int depth = GET_GLOBAL(op->vmode_g->depth);
+    int bypp = DIV_ROUND_UP(depth, 8);
+    void *dest_far = (fb + op->displaystart + op->y * op->linelength
+                      + op->x * bypp);
+    switch (op->op) {
+    default:
+    case GO_READ8:
+        // XXX - not implemented.
+        break;
+    case GO_WRITE8: {
+        u8 data[64];
+        int i;
+        for (i=0; i<8; i++)
+            *(u32*)&data[i*bypp] = get_color(depth, op->pixels[i]);
+        memcpy_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
+        break;
+    }
+    case GO_MEMSET: {
+        u32 color = get_color(depth, op->pixels[0]);
+        u8 data[64];
+        int i;
+        for (i=0; i<8; i++)
+            *(u32*)&data[i*bypp] = color;
+        memcpy_high(dest_far, MAKE_FLATPTR(GET_SEG(SS), data), bypp * 8);
+        memcpy_high(dest_far + bypp * 8, dest_far, op->xlen * bypp - bypp * 8);
+        for (i=1; i < op->ylen; i++)
+            memcpy_high(dest_far + op->linelength * i
+                        , dest_far, op->xlen * bypp);
+        break;
+    }
+    case GO_MEMMOVE: ;
+        void *src_far = (fb + op->displaystart + op->srcy * op->linelength
+                         + op->x * bypp);
+        memmove_stride_high(dest_far, src_far
+                            , op->xlen * bypp, op->linelength, op->ylen);
+        break;
+    }
+}
+
+
+/****************************************************************
  * Gfx interface
  ****************************************************************/
 
@@ -191,6 +298,7 @@ init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g)
     memset(op, 0, sizeof(*op));
     op->vmode_g = vmode_g;
     op->linelength = vgahw_get_linelength(vmode_g);
+    op->displaystart = vgahw_get_displaystart(vmode_g);
 }
 
 // Issue a graphics operation.
@@ -206,6 +314,9 @@ handle_gfx_op(struct gfx_op *op)
         break;
     case MM_PACKED:
         gfx_packed(op);
+        break;
+    case MM_DIRECT:
+        gfx_direct(op);
         break;
     default:
         break;

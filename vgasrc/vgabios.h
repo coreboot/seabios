@@ -60,6 +60,7 @@ struct vgamode_s {
 struct gfx_op {
     struct vgamode_s *vmode_g;
     u32 linelength;
+    u32 displaystart;
 
     u8 op;
     u16 x, y;
