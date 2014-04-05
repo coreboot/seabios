@@ -1,4 +1,4 @@
-// Structure layout of cpu registers the the bios uses.
+// Structure layout of cpu registers that the bios uses.
 //
 // Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
 //

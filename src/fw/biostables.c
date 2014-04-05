@@ -1,4 +1,4 @@
-// Coreboot interface support.
+// Support for manipulating bios tables (pir, mptable, acpi, smbios).
 //
 // Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
 //
