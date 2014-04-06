@@ -105,6 +105,7 @@ struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
 
 // vgafb.c
+void *text_address(struct cursorpos cp);
 void vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
                       , struct cursorpos src, struct cursorpos movesize);
 void vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest

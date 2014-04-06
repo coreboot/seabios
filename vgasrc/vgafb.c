@@ -343,6 +343,15 @@ vgafb_read_pixel(u16 x, u16 y)
  * Text ops
  ****************************************************************/
 
+// Return the fb offset for the given character address when in text mode.
+void *
+text_address(struct cursorpos cp)
+{
+    int stride = GET_BDA(video_cols) * 2;
+    u32 pageoffset = GET_BDA(video_pagesize) * cp.page;
+    return (void*)pageoffset + cp.y * stride + cp.x * 2;
+}
+
 // Move characters on screen.
 void
 vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
@@ -353,15 +362,10 @@ vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
         return;
     }
 
-    int cheight = 1;
-    int cwidth = 2;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
-    void *src_far = (void*)(src.y * cheight * stride + src.x * cwidth);
-    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
-    u16 seg = GET_GLOBAL(vmode_g->sstart);
-    memmove_stride(seg, dest_far + pageoffset, src_far + pageoffset
-                   , movesize.x * cwidth, stride, movesize.y * cheight);
+    int stride = GET_BDA(video_cols) * 2;
+    memmove_stride(GET_GLOBAL(vmode_g->sstart)
+                   , text_address(dest), text_address(src)
+                   , movesize.x * 2, stride, movesize.y);
 }
 
 // Clear are of screen.
@@ -374,15 +378,10 @@ vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
         return;
     }
 
-    int cheight = 1;
-    int cwidth = 2;
-    int stride = GET_BDA(video_cols) * cwidth;
-    void *dest_far = (void*)(dest.y * cheight * stride + dest.x * cwidth);
+    int stride = GET_BDA(video_cols) * 2;
     u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
-    u32 pageoffset = GET_BDA(video_pagesize) * dest.page;
-    u16 seg = GET_GLOBAL(vmode_g->sstart);
-    memset16_stride(seg, dest_far + pageoffset, attr
-                    , clearsize.x * cwidth, stride, clearsize.y * cheight);
+    memset16_stride(GET_GLOBAL(vmode_g->sstart), text_address(dest), attr
+                    , clearsize.x * 2, stride, clearsize.y);
 }
 
 // Write a character to the screen.
@@ -398,11 +397,7 @@ vgafb_write_char(struct cursorpos cp, struct carattr ca)
         return;
     }
 
-    int cheight = 1;
-    int cwidth = 2;
-    int stride = GET_BDA(video_cols) * cwidth;
-    int addr = cp.y * cheight * stride + cp.x * cwidth;
-    void *dest_far = (void*)(GET_BDA(video_pagesize) * cp.page + addr);
+    void *dest_far = text_address(cp);
     if (ca.use_attr) {
         u16 dummy = (ca.attr << 8) | ca.car;
         SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u16*)dest_far, dummy);
@@ -425,12 +420,8 @@ vgafb_read_char(struct cursorpos cp)
         goto fail;
     }
 
-    int cheight = 1;
-    int cwidth = 2;
-    int stride = GET_BDA(video_cols) * cwidth;
-    int addr = cp.y * cheight * stride + cp.x * cwidth;
-    u16 *src_far = (void*)(GET_BDA(video_pagesize) * cp.page + addr);
-    u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *src_far);
+    u16 *dest_far = text_address(cp);
+    u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *dest_far);
     struct carattr ca = {v, v>>8, 0};
     return ca;
 

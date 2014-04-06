@@ -104,9 +104,7 @@ set_cursor_pos(struct cursorpos cp)
         return;
 
     // Calculate the memory address
-    int address = (GET_BDA(video_pagesize) * page
-                   + (x + y * GET_BDA(video_cols)) * 2);
-    stdvga_set_cursor_pos(address);
+    stdvga_set_cursor_pos((int)text_address(cp));
 }
 
 static struct cursorpos
@@ -136,11 +134,9 @@ set_active_page(u8 page)
     if (!vmode_g)
         return;
 
-    // Get cursor pos for the given page
-    struct cursorpos cp = get_cursor_pos(page);
-
     // Calculate memory address of start of page
-    int address = GET_BDA(video_pagesize) * page;
+    struct cursorpos cp = {0, 0, page};
+    int address = (int)text_address(cp);
     vgahw_set_displaystart(vmode_g, address);
 
     // And change the BIOS page
@@ -150,7 +146,7 @@ set_active_page(u8 page)
     dprintf(1, "Set active page %02x address %04x\n", page, address);
 
     // Display the cursor, now the page is active
-    set_cursor_pos(cp);
+    set_cursor_pos(get_cursor_pos(page));
 }
 
 static void
