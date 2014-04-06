@@ -60,14 +60,14 @@ allocate_extra_stack(void)
 {
     if (!CONFIG_VGA_ALLOCATE_EXTRA_STACK)
         return;
-    void *pmmscan = (void*)BUILD_BIOS_ADDR;
-    for (; pmmscan < (void*)BUILD_BIOS_ADDR+BUILD_BIOS_SIZE; pmmscan+=16) {
-        struct pmmheader *pmm = pmmscan;
-        if (pmm->signature != PMM_SIGNATURE)
+    u32 pmmscan;
+    for (pmmscan=0; pmmscan < BUILD_BIOS_SIZE; pmmscan+=16) {
+        struct pmmheader *pmm = (void*)pmmscan;
+        if (GET_FARVAR(SEG_BIOS, pmm->signature) != PMM_SIGNATURE)
             continue;
-        if (checksum_far(0, pmm, pmm->length))
+        if (checksum_far(SEG_BIOS, pmm, GET_FARVAR(SEG_BIOS, pmm->length)))
             continue;
-        struct segoff_s entry = pmm->entry;
+        struct segoff_s entry = GET_FARVAR(SEG_BIOS, pmm->entry);
         dprintf(1, "Attempting to allocate VGA stack via pmm call to %04x:%04x\n"
                 , entry.seg, entry.offset);
         u16 res1, res2;
