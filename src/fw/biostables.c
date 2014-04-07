@@ -19,7 +19,7 @@
 
 struct pir_header *PirAddr VARFSEG;
 
-static void
+void
 copy_pir(void *pos)
 {
     struct pir_header *p = pos;
@@ -41,7 +41,7 @@ copy_pir(void *pos)
     PirAddr = newpos;
 }
 
-static void
+void
 copy_mptable(void *pos)
 {
     struct mptable_floating_s *p = pos;
@@ -53,6 +53,9 @@ copy_mptable(void *pos)
         return;
     u32 length = p->length * 16;
     u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
+    // Allocate final memory location.  (In theory the config
+    // structure can go in high memory, but Linux kernels before
+    // v2.6.30 crash with that.)
     struct mptable_floating_s *newpos = malloc_fseg(length + mpclength);
     if (!newpos) {
         warn_noalloc();
@@ -93,7 +96,7 @@ get_acpi_rsdp_length(void *pos, unsigned size)
 
 struct rsdp_descriptor *RsdpAddr;
 
-static void
+void
 copy_acpi_rsdp(void *pos)
 {
     if (RsdpAddr)

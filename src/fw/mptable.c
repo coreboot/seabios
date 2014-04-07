@@ -182,29 +182,14 @@ mptable_setup(void)
     config->length = length;
     config->checksum -= checksum(config, length);
 
-    // Allocate final memory locations.  (In theory the config
-    // structure can go in high memory, but Linux kernels before
-    // v2.6.30 crash with that.)
-    struct mptable_config_s *finalconfig = malloc_fseg(length);
-    struct mptable_floating_s *floating = malloc_fseg(sizeof(*floating));
-    if (!finalconfig || !floating) {
-        warn_noalloc();
-        free(config);
-        free(finalconfig);
-        free(floating);
-        return;
-    }
-    memcpy(finalconfig, config, length);
+    // floating pointer structure
+    struct mptable_floating_s floating;
+    memset(&floating, 0, sizeof(floating));
+    floating.signature = MPTABLE_SIGNATURE;
+    floating.physaddr = (u32)config;
+    floating.length = 1;
+    floating.spec_rev = 4;
+    floating.checksum -= checksum(&floating, sizeof(floating));
+    copy_mptable(&floating);
     free(config);
-
-    /* floating pointer structure */
-    memset(floating, 0, sizeof(*floating));
-    floating->signature = MPTABLE_SIGNATURE;
-    floating->physaddr = (u32)finalconfig;
-    floating->length = 1;
-    floating->spec_rev = 4;
-    floating->checksum -= checksum(floating, sizeof(*floating));
-
-    dprintf(1, "MP table addr=%p MPC table addr=%p size=%d\n",
-            floating, finalconfig, length);
 }

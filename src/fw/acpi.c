@@ -676,16 +676,11 @@ acpi_setup(void)
     build_header((void*)rsdt, RSDT_SIGNATURE, rsdt_len, 1);
 
     // Build rsdp pointer table
-    struct rsdp_descriptor *rsdp = malloc_fseg(sizeof(*rsdp));
-    if (!rsdp) {
-        warn_noalloc();
-        return;
-    }
-    memset(rsdp, 0, sizeof(*rsdp));
-    rsdp->signature = cpu_to_le64(RSDP_SIGNATURE);
-    memcpy(rsdp->oem_id, BUILD_APPNAME6, 6);
-    rsdp->rsdt_physical_address = cpu_to_le32((u32)rsdt);
-    rsdp->checksum -= checksum(rsdp, 20);
-    RsdpAddr = rsdp;
-    dprintf(1, "ACPI tables: RSDP=%p RSDT=%p\n", rsdp, rsdt);
+    struct rsdp_descriptor rsdp;
+    memset(&rsdp, 0, sizeof(rsdp));
+    rsdp.signature = cpu_to_le64(RSDP_SIGNATURE);
+    memcpy(rsdp.oem_id, BUILD_APPNAME6, 6);
+    rsdp.rsdt_physical_address = cpu_to_le32((u32)rsdt);
+    rsdp.checksum -= checksum(&rsdp, 20);
+    copy_acpi_rsdp(&rsdp);
 }

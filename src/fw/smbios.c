@@ -21,7 +21,6 @@ smbios_entry_point_setup(u16 max_structure_size,
                          void *structure_table_address,
                          u16 number_of_structures)
 {
-    struct smbios_entry_point *ep = malloc_fseg(sizeof(*ep));
     void *finaltable;
     if (structure_table_length <= BUILD_MAX_SMBIOS_FSEG)
         // Table is small enough for f-seg - allocate there.  This
@@ -29,35 +28,31 @@ smbios_entry_point_setup(u16 max_structure_size,
         finaltable = malloc_fseg(structure_table_length);
     else
         finaltable = malloc_high(structure_table_length);
-    if (!ep || !finaltable) {
+    if (!finaltable) {
         warn_noalloc();
-        free(ep);
-        free(finaltable);
         return;
     }
     memcpy(finaltable, structure_table_address, structure_table_length);
 
-    memcpy(ep->anchor_string, "_SM_", 4);
-    ep->length = 0x1f;
-    ep->smbios_major_version = 2;
-    ep->smbios_minor_version = 4;
-    ep->max_structure_size = max_structure_size;
-    ep->entry_point_revision = 0;
-    memset(ep->formatted_area, 0, 5);
-    memcpy(ep->intermediate_anchor_string, "_DMI_", 5);
+    struct smbios_entry_point ep;
+    memset(&ep, 0, sizeof(ep));
+    memcpy(ep.anchor_string, "_SM_", 4);
+    ep.length = 0x1f;
+    ep.smbios_major_version = 2;
+    ep.smbios_minor_version = 4;
+    ep.max_structure_size = max_structure_size;
+    memcpy(ep.intermediate_anchor_string, "_DMI_", 5);
 
-    ep->structure_table_length = structure_table_length;
-    ep->structure_table_address = (u32)finaltable;
-    ep->number_of_structures = number_of_structures;
-    ep->smbios_bcd_revision = 0x24;
+    ep.structure_table_length = structure_table_length;
+    ep.structure_table_address = (u32)finaltable;
+    ep.number_of_structures = number_of_structures;
+    ep.smbios_bcd_revision = 0x24;
 
-    ep->checksum -= checksum(ep, 0x10);
+    ep.checksum -= checksum(&ep, 0x10);
 
-    ep->intermediate_checksum -= checksum((void*)ep + 0x10, ep->length - 0x10);
+    ep.intermediate_checksum -= checksum((void*)&ep + 0x10, ep.length - 0x10);
 
-    SMBiosAddr = ep;
-    dprintf(1, "SMBIOS ptr=%p table=%p size=%d\n"
-            , ep, finaltable, structure_table_length);
+    copy_smbios(&ep);
 }
 
 static int

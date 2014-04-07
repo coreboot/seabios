@@ -64,7 +64,10 @@ void handle_1586(struct bregs *regs);
 void acpi_setup(void);
 
 // fw/biostable.c
+void copy_pir(void *pos);
+void copy_mptable(void *pos);
 extern struct pir_header *PirAddr;
+void copy_acpi_rsdp(void *pos);
 extern struct rsdp_descriptor *RsdpAddr;
 extern u32 acpi_pm1a_cnt;
 void *find_acpi_rsdp(void);
