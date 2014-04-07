@@ -9,8 +9,7 @@
 #include "output.h" // dprintf
 #include "std/pirtable.h" // struct pir_header
 #include "string.h" // checksum
-
-struct pir_header *PirAddr VARFSEG;
+#include "util.h" // PirAddr
 
 struct pir_table {
     struct pir_header pir;

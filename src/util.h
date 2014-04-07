@@ -64,6 +64,7 @@ void handle_1586(struct bregs *regs);
 void acpi_setup(void);
 
 // fw/biostable.c
+extern struct pir_header *PirAddr;
 extern struct rsdp_descriptor *RsdpAddr;
 extern u32 acpi_pm1a_cnt;
 void *find_acpi_rsdp(void);
@@ -102,7 +103,6 @@ void pci_setup(void);
 void pci_resume(void);
 
 // fw/pirtable.c
-extern struct pir_header *PirAddr;
 void pirtable_setup(void);
 
 // fw/shadow.c

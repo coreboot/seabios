@@ -17,6 +17,8 @@
 #include "util.h" // copy_table
 #include "x86.h" // outb
 
+struct pir_header *PirAddr VARFSEG;
+
 static void
 copy_pir(void *pos)
 {
