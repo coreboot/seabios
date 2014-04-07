@@ -10,6 +10,7 @@
 #include "list.h" // hlist_node
 #include "malloc.h" // free
 #include "output.h" // dprintf
+#include "romfile.h" // romfile_loadint
 #include "stacks.h" // struct mutex_s
 #include "util.h" // useRTC
 
@@ -271,6 +272,24 @@ getCurThread(void)
     return (void*)ALIGN_DOWN(esp, THREADSTACKSIZE);
 }
 
+static int ThreadControl;
+
+// Initialize the support for internal threads.
+void
+thread_init(void)
+{
+    if (! CONFIG_THREADS)
+        return;
+    ThreadControl = romfile_loadint("etc/threads", 1);
+}
+
+// Should hardware initialization threads run during optionrom execution.
+int
+threads_during_optionroms(void)
+{
+    return CONFIG_THREADS && ThreadControl == 2;
+}
+
 // Switch to next thread stack.
 static void
 switch_next(struct thread_info *cur)
@@ -309,7 +328,7 @@ void
 run_thread(void (*func)(void*), void *data)
 {
     ASSERT32FLAT();
-    if (! CONFIG_THREADS)
+    if (! CONFIG_THREADS || ! ThreadControl)
         goto fail;
     struct thread_info *thread;
     thread = memalign_tmphigh(THREADSTACKSIZE, THREADSTACKSIZE);
@@ -452,7 +471,7 @@ static u32 PreemptCount;
 void
 start_preempt(void)
 {
-    if (! CONFIG_THREAD_OPTIONROMS)
+    if (! threads_during_optionroms())
         return;
     CanPreempt = 1;
     PreemptCount = 0;
@@ -463,7 +482,7 @@ start_preempt(void)
 void
 finish_preempt(void)
 {
-    if (! CONFIG_THREAD_OPTIONROMS) {
+    if (! threads_during_optionroms()) {
         yield();
         return;
     }
@@ -477,7 +496,7 @@ finish_preempt(void)
 int
 wait_preempt(void)
 {
-    if (MODESEGMENT || !CONFIG_THREAD_OPTIONROMS || !CanPreempt
+    if (MODESEGMENT || !CONFIG_THREADS || !CanPreempt
         || getesp() < MAIN_STACK_MAX)
         return 0;
     while (CanPreempt)
@@ -498,7 +517,7 @@ void
 check_preempt(void)
 {
     extern void _cfunc32flat_yield_preempt(void);
-    if (CONFIG_THREAD_OPTIONROMS && GET_GLOBAL(CanPreempt) && have_threads())
+    if (CONFIG_THREADS && GET_GLOBAL(CanPreempt) && have_threads())
         call32(_cfunc32flat_yield_preempt, 0, 0);
 }
 

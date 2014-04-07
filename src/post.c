@@ -122,6 +122,7 @@ interface_init(void)
     bda_init();
 
     // Other interfaces
+    thread_init();
     boot_init();
     bios32_init();
     pmm_init();
@@ -212,15 +213,15 @@ maininit(void)
     // Setup platform devices.
     platform_hardware_setup();
 
-    // Start hardware initialization (if optionrom threading)
-    if (CONFIG_THREAD_OPTIONROMS)
+    // Start hardware initialization (if threads allowed during optionroms)
+    if (threads_during_optionroms())
         device_hardware_setup();
 
     // Run vga option rom
     vgarom_setup();
 
     // Do hardware initialization (if running synchronously)
-    if (!CONFIG_THREAD_OPTIONROMS) {
+    if (!threads_during_optionroms()) {
         device_hardware_setup();
         wait_threads();
     }
