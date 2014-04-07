@@ -22,6 +22,9 @@
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
         .code16gcc
+transition32_for_smi:
+        movl %eax, %ecx
+        jmp 1f
 transition32:
         movl %eax, %ecx
 
@@ -40,7 +43,7 @@ transition32:
         outb %al, $PORT_A20
 
         // Set segment descriptors
-        lidtw %cs:pmode_IDT_info
+1:      lidtw %cs:pmode_IDT_info
         lgdtw %cs:rombios32_gdt_48
 
         // Enable protected mode
@@ -49,12 +52,11 @@ transition32:
         movl %eax, %cr0
 
         // start 32bit protected mode code
-        ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 1f)
+        ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 2f)
 
         .code32
-1:
         // init data segments
-        movl $SEG32_MODE32_DS, %eax
+2:      movl $SEG32_MODE32_DS, %eax
         movw %ax, %ds
         movw %ax, %es
         movw %ax, %ss
@@ -259,6 +261,18 @@ __farcall16:
 /****************************************************************
  * Misc. entry points.
  ****************************************************************/
+
+// Entry point for QEMU smi interrupts.
+        DECLFUNC entry_smi
+entry_smi:
+        // Transition to 32bit mode.
+        movl $1f + BUILD_BIOS_ADDR, %edx
+        jmp transition32_for_smi
+        .code32
+1:      movl $BUILD_SMM_ADDR, %esp
+        calll _cfunc32flat_handle_smi - BUILD_BIOS_ADDR
+        rsm
+        .code16gcc
 
 // Resume (and reboot) entry point - called from entry_post
         DECLFUNC entry_resume

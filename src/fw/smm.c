@@ -1,6 +1,6 @@
 // System Management Mode support (on emulators)
 //
-// Copyright (C) 2008  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2014  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2006 Fabrice Bellard
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -17,47 +17,39 @@
 #include "util.h" // smm_setup
 #include "x86.h" // wbinvd
 
-extern u8 smm_code_start, smm_code_end;
+void VISIBLE32FLAT
+handle_smi(u16 cs)
+{
+    u8 cmd = inb(PORT_SMI_CMD);
+    dprintf(DEBUG_HDL_smi, "handle_smi cmd=%x cs=%x\n", cmd, cs);
 
-ASM32FLAT(
-    ".global smm_code_start, smm_code_end\n"
-    "  .code16gcc\n"
-    "smm_code_start:\n"
-    "  mov %cs, %ax\n"
-    "  cmp $0xa000, %ax\n"
-    "  je smm_exit\n"
+    void *smbase = MAKE_FLATPTR(cs, 0) + 0x8000;
+    if (smbase == (void*)BUILD_SMM_INIT_ADDR) {
+        // relocate SMBASE to 0xa0000
+        u8 *smrev = smbase + 0x7efc;
+        u32 *newbase = smbase + 0x7ef8;
+        if (*smrev == 0x64)
+            newbase = smbase + 0x7f00;
+        *newbase = BUILD_SMM_ADDR - 0x8000;
+        // indicate to smm_relocate_and_restore() that the SMM code was executed
+        outb(0x00, PORT_SMI_STATUS);
+        return;
+    }
+}
 
-    /* code to relocate SMBASE to 0xa0000 */
-    "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7efc, %ebx\n"
-    "  addr32 movb (%ebx), %al\n"  /* revision ID to see if x86_64 or x86 */
-    "  cmpb $0x64, %al\n"
-    "  je 1f\n"
-    "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7ef8, %ebx\n"
-    "  jmp 2f\n"
-    "1:\n"
-    "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7f00, %ebx\n"
-    "2:\n"
-    "  movl $" __stringify(BUILD_SMM_ADDR) " - 0x8000, %eax\n"
-    "  addr32 movl %eax, (%ebx)\n"
-    /* indicate to the BIOS that the SMM code was executed */
-    "  movb $0x00, %al\n"
-    "  movw $" __stringify(PORT_SMI_STATUS) ", %dx\n"
-    "  outb %al, %dx\n"
-    "smm_exit:\n"
-    "  rsm\n"
-    "smm_code_end:\n"
-    "  .code32\n"
-    );
+extern void entry_smi(void);
+// movw %cs, %ax; ljmpw $SEG_BIOS, $(entry_smi - BUILD_BIOS_ADDR)
+#define SMI_INSN (0xeac88c | ((u64)SEG_BIOS<<40) \
+                  | ((u64)((u32)entry_smi - BUILD_BIOS_ADDR) << 24))
 
 static void
 smm_save_and_copy(void)
 {
-    /* save original memory content */
+    // save original memory content
     memcpy((void *)BUILD_SMM_ADDR, (void *)BUILD_SMM_INIT_ADDR, BUILD_SMM_SIZE);
 
-    /* copy the SMM code, which will relocate itself on the first execution */
-    memcpy((void *)BUILD_SMM_INIT_ADDR, &smm_code_start,
-           &smm_code_end - &smm_code_start);
+    // Setup code entry point.
+    *(u64*)BUILD_SMM_INIT_ADDR = SMI_INSN;
 }
 
 static void
@@ -76,9 +68,8 @@ smm_relocate_and_restore(void)
     /* restore original memory content */
     memcpy((void *)BUILD_SMM_INIT_ADDR, (void *)BUILD_SMM_ADDR, BUILD_SMM_SIZE);
 
-    /* copy the SMM code */
-    memcpy((void *)BUILD_SMM_ADDR, &smm_code_start
-           , &smm_code_end - &smm_code_start);
+    // Setup code entry point.
+    *(u64*)BUILD_SMM_ADDR = SMI_INSN;
     wbinvd();
 }
 
