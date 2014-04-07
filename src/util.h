@@ -61,19 +61,17 @@ int irqtimer_check(u32 end);
 void handle_1586(struct bregs *regs);
 
 // fw/acpi.c
-extern struct rsdp_descriptor *RsdpAddr;
-extern u32 acpi_pm1a_cnt;
 void acpi_setup(void);
-u32 find_resume_vector(void);
-void find_acpi_features(void);
-struct acpi_20_generic_address;
-void acpi_set_reset_reg(struct acpi_20_generic_address *reg, u8 val);
-void acpi_reboot(void);
 
 // fw/biostable.c
+extern struct rsdp_descriptor *RsdpAddr;
+extern u32 acpi_pm1a_cnt;
+void *find_acpi_rsdp(void);
+u32 find_resume_vector(void);
+void acpi_reboot(void);
+void find_acpi_features(void);
 void copy_smbios(void *pos);
 void copy_table(void *pos);
-void *find_acpi_rsdp(void);
 
 // fw/coreboot.c
 extern const char *CBvendor, *CBpart;
