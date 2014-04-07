@@ -70,7 +70,9 @@ void *find_acpi_rsdp(void);
 u32 find_resume_vector(void);
 void acpi_reboot(void);
 void find_acpi_features(void);
+extern struct smbios_entry_point *SMBiosAddr;
 void copy_smbios(void *pos);
+void display_uuid(void);
 void copy_table(void *pos);
 
 // fw/coreboot.c
@@ -109,9 +111,7 @@ void make_bios_readonly(void);
 void qemu_prep_reset(void);
 
 // fw/smbios.c
-extern struct smbios_entry_point *SMBiosAddr;
 void smbios_setup(void);
-void display_uuid(void);
 
 // fw/smm.c
 void smm_device_setup(void);
