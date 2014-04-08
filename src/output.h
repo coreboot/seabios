@@ -1,6 +1,7 @@
 #ifndef __OUTPUT_H
 #define __OUTPUT_H
 
+#include "config.h" // CONFIG_DEBUG_LEVEL
 #include "types.h" // u32
 
 // output.c
