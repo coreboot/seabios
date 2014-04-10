@@ -677,12 +677,15 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             continue;
         struct pci_bus *parent = &busses[pci_bdf_to_bus(s->bus_dev->bdf)];
         int type;
+        u8 shpc_cap = pci_find_capability(s->bus_dev, PCI_CAP_ID_SHPC);
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u64 align = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
             if (pci_region_align(&s->r[type]) > align)
                  align = pci_region_align(&s->r[type]);
             u64 sum = pci_region_sum(&s->r[type]);
+            if (!sum && shpc_cap)
+                sum = align; /* reserve min size for hot-plug */
             u64 size = ALIGN(sum, align);
             int is64 = pci_bios_bridge_region_is64(&s->r[type],
                                             s->bus_dev, type);
