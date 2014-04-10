@@ -240,6 +240,32 @@ u8 pci_find_capability(struct pci_device *pci, u8 cap_id)
     return 0;
 }
 
+/* Test whether bridge support forwarding of transactions
+ * of a specific type.
+ * Note: disables bridge's window registers as a side effect.
+ */
+int pci_bridge_has_region(struct pci_device *pci,
+        enum pci_region_type region_type)
+{
+    u8 base;
+
+    switch (region_type) {
+        case PCI_REGION_TYPE_IO:
+            base = PCI_IO_BASE;
+            break;
+        case PCI_REGION_TYPE_PREFMEM:
+            base = PCI_PREF_MEMORY_BASE;
+            break;
+        default:
+            /* Regular memory support is mandatory */
+            return 1;
+    }
+
+    pci_config_writeb(pci->bdf, base, 0xFF);
+
+    return pci_config_readb(pci->bdf, base) != 0;
+}
+
 void
 pci_reboot(void)
 {

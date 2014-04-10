@@ -12,6 +12,13 @@
 #define PCI_NUM_REGIONS 7
 #define PCI_BRIDGE_NUM_REGIONS 2
 
+enum pci_region_type {
+    PCI_REGION_TYPE_IO,
+    PCI_REGION_TYPE_MEM,
+    PCI_REGION_TYPE_PREFMEM,
+    PCI_REGION_TYPE_COUNT,
+};
+
 static inline u8 pci_bdf_to_bus(u16 bdf) {
     return bdf >> 8;
 }
@@ -117,6 +124,8 @@ int pci_init_device(const struct pci_device_id *ids
 struct pci_device *pci_find_init_device(const struct pci_device_id *ids
                                         , void *arg);
 u8 pci_find_capability(struct pci_device *pci, u8 cap_id);
+int pci_bridge_has_region(struct pci_device *pci,
+                          enum pci_region_type region_type);
 void pci_reboot(void);
 
 #endif

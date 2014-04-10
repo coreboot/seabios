@@ -26,13 +26,6 @@
 #define PCI_BRIDGE_MEM_MIN    (1<<21)  // 2M == hugepage size
 #define PCI_BRIDGE_IO_MIN      0x1000  // mandated by pci bridge spec
 
-enum pci_region_type {
-    PCI_REGION_TYPE_IO,
-    PCI_REGION_TYPE_MEM,
-    PCI_REGION_TYPE_PREFMEM,
-    PCI_REGION_TYPE_COUNT,
-};
-
 static const char *region_type_name[] = {
     [ PCI_REGION_TYPE_IO ]      = "io",
     [ PCI_REGION_TYPE_MEM ]     = "mem",
@@ -681,6 +674,8 @@ static int pci_bios_check_devices(struct pci_bus *busses)
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u64 align = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
+            if (!pci_bridge_has_region(s->bus_dev, type))
+                continue;
             if (pci_region_align(&s->r[type]) > align)
                  align = pci_region_align(&s->r[type]);
             u64 sum = pci_region_sum(&s->r[type]);
