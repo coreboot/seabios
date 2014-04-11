@@ -4,7 +4,12 @@
 
 #include "types.h" // u32
 
+#define CALL32SMM_CMDID    0xb5
+#define CALL32SMM_ENTERID  0x1234
+#define CALL32SMM_RETURNID 0x5678
+
 // stacks.c
+extern int HaveSmmCall32;
 u32 call32(void *func, u32 eax, u32 errret);
 extern u8 ExtraStack[], *StackPos;
 u32 stack_hop(u32 eax, u32 edx, void *func);

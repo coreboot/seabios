@@ -292,6 +292,10 @@ menu "Hardware support"
         default y
         help
             Support System Management Mode (on emulators).
+    config CALL32_SMM
+        bool
+        depends on USE_SMM
+        default y
     config MTRR_INIT
         depends on QEMU
         bool "Initialize MTRRs"

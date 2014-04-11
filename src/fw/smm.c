@@ -13,6 +13,7 @@
 #include "hw/pci_regs.h" // PCI_DEVICE_ID
 #include "output.h" // dprintf
 #include "paravirt.h" // PORT_SMI_STATUS
+#include "stacks.h" // HaveSmmCall32
 #include "string.h" // memcpy
 #include "util.h" // smm_setup
 #include "x86.h" // wbinvd
@@ -42,7 +43,9 @@ struct smm_state {
 };
 
 struct smm_layout {
-    u8 stack[0x8000];
+    struct smm_state backup1;
+    struct smm_state backup2;
+    u8 stack[0x7c00];
     u64 codeentry;
     u8 pad_8008[0x7df8];
     struct smm_state cpu;
@@ -69,7 +72,48 @@ handle_smi(u16 cs)
         }
         // indicate to smm_relocate_and_restore() that the SMM code was executed
         outb(0x00, PORT_SMI_STATUS);
+
+        if (CONFIG_CALL32_SMM) {
+            // Backup current cpu state for SMM trampolining
+            struct smm_layout *newsmm = (void*)BUILD_SMM_ADDR;
+            memcpy(&newsmm->backup1, &smm->cpu, sizeof(newsmm->backup1));
+            memcpy(&newsmm->backup2, &smm->cpu, sizeof(newsmm->backup2));
+            HaveSmmCall32 = 1;
+        }
+
         return;
+    }
+
+    if (CONFIG_CALL32_SMM && cmd == CALL32SMM_CMDID) {
+        if (smm->cpu.i32.smm_rev == SMM_REV_I32) {
+            u32 regs[8];
+            memcpy(regs, &smm->cpu.i32.eax, sizeof(regs));
+            if (smm->cpu.i32.ecx == CALL32SMM_ENTERID) {
+                dprintf(9, "smm cpu call pc=%x esp=%x\n", regs[3], regs[4]);
+                memcpy(&smm->backup2, &smm->cpu, sizeof(smm->backup2));
+                memcpy(&smm->cpu, &smm->backup1, sizeof(smm->cpu));
+                memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
+                smm->cpu.i32.eip = regs[3];
+            } else if (smm->cpu.i32.ecx == CALL32SMM_RETURNID) {
+                dprintf(9, "smm cpu ret %x esp=%x\n", regs[3], regs[4]);
+                memcpy(&smm->cpu, &smm->backup2, sizeof(smm->cpu));
+                memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
+                smm->cpu.i32.eip = regs[3];
+            }
+        } else if (smm->cpu.i64.smm_rev == SMM_REV_I64) {
+            u64 regs[8];
+            memcpy(regs, &smm->cpu.i64.rdi, sizeof(regs));
+            if ((u32)smm->cpu.i64.rcx == CALL32SMM_ENTERID) {
+                memcpy(&smm->backup2, &smm->cpu, sizeof(smm->backup2));
+                memcpy(&smm->cpu, &smm->backup1, sizeof(smm->cpu));
+                memcpy(&smm->cpu.i64.rdi, regs, sizeof(regs));
+                smm->cpu.i64.rip = (u32)regs[4];
+            } else if ((u32)smm->cpu.i64.rcx == CALL32SMM_RETURNID) {
+                memcpy(&smm->cpu, &smm->backup2, sizeof(smm->cpu));
+                memcpy(&smm->cpu.i64.rdi, regs, sizeof(regs));
+                smm->cpu.i64.rip = (u32)regs[4];
+            }
+        }
     }
 }
 

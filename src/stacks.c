@@ -6,6 +6,7 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // CR0_PE
+#include "fw/paravirt.h" // PORT_SMI_CMD
 #include "hw/rtc.h" // rtc_use
 #include "list.h" // hlist_node
 #include "malloc.h" // free
@@ -29,6 +30,139 @@ struct {
 } Call32Data VARLOW;
 
 #define C32_SLOPPY 1
+#define C32_SMM    2
+
+int HaveSmmCall32 VARFSEG;
+
+// Backup state in preparation for call32_smm()
+static void
+call32_smm_prep(void)
+{
+    // Backup cmos index register and disable nmi
+    u8 cmosindex = inb(PORT_CMOS_INDEX);
+    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
+    inb(PORT_CMOS_DATA);
+    SET_LOW(Call32Data.cmosindex, cmosindex);
+
+    // Backup ss
+    SET_LOW(Call32Data.ss, GET_SEG(SS));
+
+    SET_LOW(Call32Data.method, C32_SMM);
+}
+
+// Restore state backed up during call32_smm()
+static void
+call32_smm_post(void)
+{
+    SET_LOW(Call32Data.method, 0);
+    SET_LOW(Call32Data.ss, 0);
+
+    // Restore cmos index register
+    outb(GET_LOW(Call32Data.cmosindex), PORT_CMOS_INDEX);
+    inb(PORT_CMOS_DATA);
+}
+
+// Call a SeaBIOS C function in 32bit mode using smm trampoline
+static u32
+call32_smm(void *func, u32 eax)
+{
+    ASSERT16();
+    dprintf(9, "call32_smm %p %x\n", func, eax);
+    call32_smm_prep();
+    u32 bkup_esp;
+    asm volatile(
+        // Backup esp / set esp to flat stack location
+        "  movl %%esp, %0\n"
+        "  movl %%ss, %%eax\n"
+        "  shll $4, %%eax\n"
+        "  addl %%eax, %%esp\n"
+
+        // Transition to 32bit mode, call func, return to 16bit
+        "  movl $" __stringify(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringify(CALL32SMM_ENTERID) ", %%ecx\n"
+        "  movl $(" __stringify(BUILD_BIOS_ADDR) " + 1f), %%ebx\n"
+        "  outb %%al, $" __stringify(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+        "  .code32\n"
+
+        "1:movl %1, %%eax\n"
+        "  calll *%2\n"
+        "  movl %%eax, %1\n"
+
+        "  movl $" __stringify(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringify(CALL32SMM_RETURNID) ", %%ecx\n"
+        "  movl $2f, %%ebx\n"
+        "  outb %%al, $" __stringify(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        // Restore esp
+        "  .code16gcc\n"
+        "2:movl %0, %%esp\n"
+        : "=&r" (bkup_esp), "+r" (eax)
+        : "r" (func)
+        : "eax", "ecx", "edx", "ebx", "cc", "memory");
+    call32_smm_post();
+
+    dprintf(9, "call32_smm done %p %x\n", func, eax);
+    return eax;
+}
+
+// 16bit handler code called from call16_smm()
+u32 VISIBLE16
+call16_smm_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
+{
+    if (!CONFIG_CALL32_SMM)
+        return eax;
+    call32_smm_post();
+    u32 ret = func(eax, edx);
+    call32_smm_prep();
+    return ret;
+}
+
+u32 FUNCFSEG
+call16_smm(u32 eax, u32 edx, void *func)
+{
+    ASSERT32FLAT();
+    if (!CONFIG_CALL32_SMM)
+        return eax;
+    func -= BUILD_BIOS_ADDR;
+    dprintf(9, "call16_smm %p %x %x\n", func, eax, edx);
+    u32 stackoffset = Call32Data.ss << 4;
+    asm volatile(
+        // Restore esp
+        "  subl %0, %%esp\n"
+
+        // Transition to 16bit mode, call func, return to 32bit
+        "  movl $" __stringify(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringify(CALL32SMM_RETURNID) ", %%ecx\n"
+        "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%ebx\n"
+        "  outb %%al, $" __stringify(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        "  .code16\n"
+        "1:movl %1, %%eax\n"
+        "  movl %3, %%ecx\n"
+        "  calll _cfunc16_call16_smm_helper\n"
+        "  movl %%eax, %1\n"
+
+        "  movl $" __stringify(CALL32SMM_CMDID) ", %%eax\n"
+        "  movl $" __stringify(CALL32SMM_ENTERID) ", %%ecx\n"
+        "  movl $2f, %%ebx\n"
+        "  outb %%al, $" __stringify(PORT_SMI_CMD) "\n"
+        "  rep; nop\n"
+        "  hlt\n"
+
+        // Set esp to flat stack location
+        "  .code32\n"
+        "2:addl %0, %%esp\n"
+        : "+r" (stackoffset), "+r" (eax), "+d" (edx)
+        : "r" (func)
+        : "eax", "ecx", "ebx", "cc", "memory");
+    return eax;
+}
 
 // Backup state in preparation for call32_sloppy()
 static void
@@ -157,6 +291,8 @@ u32 VISIBLE16
 call32(void *func, u32 eax, u32 errret)
 {
     ASSERT16();
+    if (CONFIG_CALL32_SMM && GET_GLOBAL(HaveSmmCall32))
+        return call32_smm(func, eax);
     u32 cr0 = getcr0();
     if (cr0 & CR0_PE)
         // Called in 16bit protected mode?!
@@ -223,6 +359,8 @@ static u32
 call16_back(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
+    if (CONFIG_CALL32_SMM && Call32Data.method == C32_SMM)
+        return call16_smm(eax, edx, func);
     if (Call32Data.method == C32_SLOPPY)
         return call16_sloppy(eax, edx, func);
     if (in_post())
