@@ -120,14 +120,14 @@ esp_scsi_cmd(struct esp_lun_s *llun_gf, struct disk_op_s *op,
             }
         }
 
-	/* At end of DMA TC is set again -> complete command.  */
+        /* At end of DMA TC is set again -> complete command.  */
         if (state == 1 && (stat & ESP_STAT_TC)) {
             state++;
             outb(ESP_CMD_ICCS, iobase + ESP_CMD);
             continue;
         }
 
-	/* Finally read data from the message in phase.  */
+        /* Finally read data from the message in phase.  */
         if (state == 2 && (stat & ESP_STAT_MSG)) {
             state++;
             status = inb(iobase + ESP_FIFO);

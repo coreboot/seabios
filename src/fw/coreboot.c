@@ -80,9 +80,9 @@ struct cb_cbmem_ref {
 #define CB_TAG_CBMEM_CONSOLE 0x17
 
 struct cbmem_console {
-	u32 buffer_size;
-	u32 buffer_cursor;
-	u8  buffer_body[0];
+    u32 buffer_size;
+    u32 buffer_cursor;
+    u8  buffer_body[0];
 } PACKED;
 static struct cbmem_console *cbcon = NULL;
 

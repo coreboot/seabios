@@ -26,7 +26,7 @@
 #define MSR_GLIU0                       (1 << 28)
 #define MSR_GLIU0_BASE4                 (MSR_GLIU0 + 0x23)  /* LX */
 #define GLIU0_P2D_BM_4                  (MSR_GLIU0 + 0x24)  /* GX2 */
-#define GLIU0_P2D_RO			(MSR_GLIU0 + 0x29)
+#define GLIU0_P2D_RO                    (MSR_GLIU0 + 0x29)
 #define GLIU0_IOD_BM_0                  (MSR_GLIU0 + 0xE0)
 #define GLIU0_IOD_BM_1                  (MSR_GLIU0 + 0xE1)
 #define DC_SPARE                        0x80000011

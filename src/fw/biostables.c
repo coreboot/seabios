@@ -186,7 +186,7 @@ acpi_reboot(void)
 
     switch (acpi_reset_reg.address_space_id) {
     case 0: // System Memory
-	writeb((void *)(u32)addr, acpi_reset_val);
+        writeb((void *)(u32)addr, acpi_reset_val);
         break;
     case 1: // System I/O
         outb(acpi_reset_val, addr);

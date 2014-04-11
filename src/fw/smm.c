@@ -166,7 +166,7 @@ void
 smm_device_setup(void)
 {
     if (!CONFIG_USE_SMM)
-	return;
+        return;
 
     struct pci_device *isapci, *pmpci;
     isapci = pci_find_device(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3);
@@ -188,7 +188,7 @@ void
 smm_setup(void)
 {
     if (!CONFIG_USE_SMM || SMMISADeviceBDF < 0)
-	return;
+        return;
 
     dprintf(3, "init smm\n");
     u16 device = pci_config_readw(SMMISADeviceBDF, PCI_DEVICE_ID);
