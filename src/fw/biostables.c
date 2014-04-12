@@ -236,6 +236,31 @@ find_acpi_features(void)
  * SMBIOS
  ****************************************************************/
 
+// Iterator for each sub-table in the smbios blob.
+void *
+smbios_next(struct smbios_entry_point *smbios, void *prev)
+{
+    if (!smbios)
+        return NULL;
+    void *start = (void*)smbios->structure_table_address;
+    void *end = start + smbios->structure_table_length;
+
+    if (!prev) {
+        prev = start;
+    } else {
+        struct smbios_structure_header *hdr = prev;
+        if (prev + sizeof(*hdr) > end)
+            return NULL;
+        prev += hdr->length + 2;
+        while (prev < end && (*(u8*)(prev-1) != '\0' || *(u8*)(prev-2) != '\0'))
+            prev++;
+    }
+    struct smbios_structure_header *hdr = prev;
+    if (prev >= end || prev + sizeof(*hdr) >= end || prev + hdr->length >= end)
+        return NULL;
+    return prev;
+}
+
 struct smbios_entry_point *SMBiosAddr;
 
 void
@@ -265,69 +290,28 @@ copy_smbios(void *pos)
 void
 display_uuid(void)
 {
-    u32 addr, end;
-    u8 *uuid;
-    u8 empty_uuid[16] = { 0 };
+    struct smbios_type_1 *tbl = smbios_next(SMBiosAddr, NULL);
+    int minlen = offsetof(struct smbios_type_1, uuid) + sizeof(tbl->uuid);
+    for (; tbl; tbl = smbios_next(SMBiosAddr, tbl))
+        if (tbl->header.type == 1 && tbl->header.length >= minlen) {
+            u8 *uuid = tbl->uuid;
+            u8 empty_uuid[sizeof(tbl->uuid)] = { 0 };
+            if (memcmp(uuid, empty_uuid, sizeof(empty_uuid)) == 0)
+                return;
 
-    if (SMBiosAddr == NULL)
-        return;
-
-    addr =        SMBiosAddr->structure_table_address;
-    end  = addr + SMBiosAddr->structure_table_length;
-
-    /* the following takes care of any initial wraparound too */
-    while (addr < end) {
-        const struct smbios_structure_header *hdr;
-
-        /* partial structure header */
-        if (end - addr < sizeof(struct smbios_structure_header))
+            printf("Machine UUID"
+                   " %02x%02x%02x%02x"
+                   "-%02x%02x"
+                   "-%02x%02x"
+                   "-%02x%02x"
+                   "-%02x%02x%02x%02x%02x%02x\n"
+                   , uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3]
+                   , uuid[ 4], uuid[ 5]
+                   , uuid[ 6], uuid[ 7]
+                   , uuid[ 8], uuid[ 9]
+                   , uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
             return;
-
-        hdr = (struct smbios_structure_header *)addr;
-
-        /* partial structure */
-        if (end - addr < hdr->length)
-            return;
-
-        /* any Type 1 structure version will do that has the UUID */
-        if (hdr->type == 1 &&
-            hdr->length >= offsetof(struct smbios_type_1, uuid) + 16)
-            break;
-
-        /* done with formatted area, skip string-set */
-        addr += hdr->length;
-
-        while (end - addr >= 2 &&
-               (*(u8 *)addr     != '\0' ||
-                *(u8 *)(addr+1) != '\0'))
-            ++addr;
-
-        /* structure terminator not found */
-        if (end - addr < 2)
-            return;
-
-        addr += 2;
-    }
-
-    /* parsing finished or skipped entirely, UUID not found */
-    if (addr >= end)
-        return;
-
-    uuid = (u8 *)(addr + offsetof(struct smbios_type_1, uuid));
-    if (memcmp(uuid, empty_uuid, sizeof empty_uuid) == 0)
-        return;
-
-    printf("Machine UUID"
-             " %02x%02x%02x%02x"
-             "-%02x%02x"
-             "-%02x%02x"
-             "-%02x%02x"
-             "-%02x%02x%02x%02x%02x%02x\n"
-           , uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3]
-           , uuid[ 4], uuid[ 5]
-           , uuid[ 6], uuid[ 7]
-           , uuid[ 8], uuid[ 9]
-           , uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+        }
 }
 
 
