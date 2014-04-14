@@ -32,6 +32,9 @@ struct VideoSavePointer_s video_save_pointer_table VAR16;
 
 struct VideoParam_s video_param_table[29] VAR16;
 
+// Type of emulator platform - for dprintf with certain compile options.
+int PlatformRunningOn VAR16;
+
 
 /****************************************************************
  * PCI Data
