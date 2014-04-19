@@ -185,6 +185,8 @@ prepareboot(void)
     malloc_prepboot();
     memmap_prepboot();
 
+    HaveRunPost = 2;
+
     // Setup bios checksum.
     BiosChecksum -= checksum((u8*)BUILD_BIOS_ADDR, BUILD_BIOS_SIZE);
 }

@@ -178,6 +178,7 @@ void process_key(u8 key);
 // misc.c
 extern struct bios_config_table_s BIOS_CONFIG_TABLE __aligned(1);
 extern u8 BiosChecksum;
+int in_post(void);
 void mathcp_setup(void);
 
 // mouse.c

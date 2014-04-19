@@ -115,12 +115,13 @@ handle_1587(struct bregs *regs)
     SET_FARVAR(gdt_seg, gdt_far[1], GDT_DATA | GDT_LIMIT((6*sizeof(u64))-1)
                | GDT_BASE(loc));
     // Initialize CS descriptor
-    SET_FARVAR(gdt_seg, gdt_far[4], GDT_CODE | GDT_LIMIT(BUILD_BIOS_SIZE-1)
-               | GDT_BASE(BUILD_BIOS_ADDR));
+    u64 lim = GDT_LIMIT(0x0ffff);
+    if (in_post())
+        lim = GDT_GRANLIMIT(0xffffffff);
+    SET_FARVAR(gdt_seg, gdt_far[4], GDT_CODE | lim | GDT_BASE(BUILD_BIOS_ADDR));
     // Initialize SS descriptor
     loc = (u32)MAKE_FLATPTR(GET_SEG(SS), 0);
-    SET_FARVAR(gdt_seg, gdt_far[5], GDT_DATA | GDT_LIMIT(0x0ffff)
-               | GDT_BASE(loc));
+    SET_FARVAR(gdt_seg, gdt_far[5], GDT_DATA | lim | GDT_BASE(loc));
 
     u16 count = regs->cx;
     asm volatile(

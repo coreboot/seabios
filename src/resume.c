@@ -17,9 +17,6 @@
 #include "string.h" // memset
 #include "util.h" // dma_setup
 
-// Indicator if POST phase has been run.
-int HaveRunPost VARFSEG;
-
 // Handler for post calls that look like a resume.
 void VISIBLE16
 handle_resume(void)
