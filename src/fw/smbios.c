@@ -504,7 +504,7 @@ smbios_init_type_127(void *start)
 #define TEMPSMBIOSSIZE (32 * 1024)
 
 void
-smbios_setup(void)
+smbios_legacy_setup(void)
 {
     if (! CONFIG_SMBIOS)
         return;

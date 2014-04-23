@@ -13,6 +13,7 @@
 #include "std/mptable.h" // MPTABLE_SIGNATURE
 #include "std/pirtable.h" // struct pir_header
 #include "std/smbios.h" // struct smbios_entry_point
+#include "romfile.h"
 #include "string.h" // memcpy
 #include "util.h" // copy_table
 #include "x86.h" // outb
@@ -314,6 +315,140 @@ display_uuid(void)
         }
 }
 
+#define set_str_field_or_skip(type, field, value)                       \
+    do {                                                                \
+        int size = (value != NULL) ? strlen(value) + 1 : 0;             \
+        if (size > 1) {                                                 \
+            memcpy(end, value, size);                                   \
+            end += size;                                                \
+            p->field = ++str_index;                                     \
+        } else {                                                        \
+            p->field = 0;                                               \
+        }                                                               \
+    } while (0)
+
+static void *
+smbios_new_type_0(void *start,
+                  const char *vendor, const char *version, const char *date)
+{
+    struct smbios_type_0 *p = (struct smbios_type_0 *)start;
+    char *end = (char *)start + sizeof(struct smbios_type_0);
+    int str_index = 0;
+
+    p->header.type = 0;
+    p->header.length = sizeof(struct smbios_type_0);
+    p->header.handle = 0;
+
+    set_str_field_or_skip(0, vendor_str, vendor);
+    set_str_field_or_skip(0, bios_version_str, version);
+    p->bios_starting_address_segment = 0xe800;
+    set_str_field_or_skip(0, bios_release_date_str, date);
+
+    p->bios_rom_size = 0; /* FIXME */
+
+    /* BIOS characteristics not supported */
+    memset(p->bios_characteristics, 0, 8);
+    p->bios_characteristics[0] = 0x08;
+
+    /* Enable targeted content distribution (needed for SVVP) */
+    p->bios_characteristics_extension_bytes[0] = 0;
+    p->bios_characteristics_extension_bytes[1] = 4;
+
+    p->system_bios_major_release = 0;
+    p->system_bios_minor_release = 0;
+    p->embedded_controller_major_release = 0xFF;
+    p->embedded_controller_minor_release = 0xFF;
+
+    *end = 0;
+    end++;
+    if (!str_index) {
+        *end = 0;
+        end++;
+    }
+
+    return end;
+}
+
+#define BIOS_NAME "SeaBIOS"
+#define BIOS_DATE "04/01/2014"
+
+static int
+smbios_romfile_setup(void)
+{
+    struct romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
+    struct romfile_s *f_tables = romfile_find("etc/smbios/smbios-tables");
+    struct smbios_entry_point ep;
+    struct smbios_type_0 *t0;
+    u16 qtables_len, need_t0 = 1;
+    u8 *qtables, *tables;
+
+    if (!f_anchor || !f_tables || f_anchor->size != sizeof(ep))
+        return 0;
+
+    f_anchor->copy(f_anchor, &ep, f_anchor->size);
+
+    if (f_tables->size != ep.structure_table_length)
+        return 0;
+
+    qtables = malloc_tmphigh(f_tables->size);
+    if (!qtables) {
+        warn_noalloc();
+        return 0;
+    }
+    f_tables->copy(f_tables, qtables, f_tables->size);
+    ep.structure_table_address = (u32)qtables; /* for smbios_next(), below */
+
+    /* did we get a type 0 structure ? */
+    for (t0 = smbios_next(&ep, NULL); t0; t0 = smbios_next(&ep, t0))
+        if (t0->header.type == 0) {
+            need_t0 = 0;
+            break;
+        }
+
+    qtables_len = ep.structure_table_length;
+    if (need_t0) {
+        /* common case: add our own type 0, with 3 strings and 4 '\0's */
+        u16 t0_len = sizeof(struct smbios_type_0) + strlen(BIOS_NAME) +
+                     strlen(VERSION) + strlen(BIOS_DATE) + 4;
+        ep.structure_table_length += t0_len;
+        if (t0_len > ep.max_structure_size)
+            ep.max_structure_size = t0_len;
+        ep.number_of_structures++;
+    }
+
+    /* allocate final blob and record its address in the entry point */
+    if (ep.structure_table_length > BUILD_MAX_SMBIOS_FSEG)
+        tables = malloc_high(ep.structure_table_length);
+    else
+        tables = malloc_fseg(ep.structure_table_length);
+    if (!tables) {
+        warn_noalloc();
+        free(qtables);
+        return 0;
+    }
+    ep.structure_table_address = (u32)tables;
+
+    /* populate final blob */
+    if (need_t0)
+        tables = smbios_new_type_0(tables, BIOS_NAME, VERSION, BIOS_DATE);
+    memcpy(tables, qtables, qtables_len);
+    free(qtables);
+
+    /* finalize entry point */
+    ep.checksum -= checksum(&ep, 0x10);
+    ep.intermediate_checksum -= checksum((void *)&ep + 0x10, ep.length - 0x10);
+
+    copy_smbios(&ep);
+    return 1;
+}
+
+void
+smbios_setup(void)
+{
+    if (smbios_romfile_setup())
+      return;
+    smbios_legacy_setup();
+}
 
 void
 copy_table(void *pos)

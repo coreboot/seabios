@@ -78,6 +78,7 @@ extern struct smbios_entry_point *SMBiosAddr;
 void copy_smbios(void *pos);
 void display_uuid(void);
 void copy_table(void *pos);
+void smbios_setup(void);
 
 // fw/coreboot.c
 extern const char *CBvendor, *CBpart;
@@ -117,7 +118,7 @@ void make_bios_readonly(void);
 void qemu_prep_reset(void);
 
 // fw/smbios.c
-void smbios_setup(void);
+void smbios_legacy_setup(void);
 
 // fw/smm.c
 void smm_device_setup(void);
