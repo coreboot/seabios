@@ -191,9 +191,10 @@ handle_1588(struct bregs *regs)
 }
 
 // Switch to protected mode
-static void
+void VISIBLE16
 handle_1589(struct bregs *regs)
 {
+    debug_enter(regs, DEBUG_HDL_15);
     set_a20(1);
 
     pic_reset(regs->bl, regs->bh);
@@ -355,7 +356,6 @@ handle_15(struct bregs *regs)
     case 0x86: handle_1586(regs); break;
     case 0x87: handle_1587(regs); break;
     case 0x88: handle_1588(regs); break;
-    case 0x89: handle_1589(regs); break;
     case 0x90: handle_1590(regs); break;
     case 0x91: handle_1591(regs); break;
     case 0xc0: handle_15c0(regs); break;

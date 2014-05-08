@@ -378,6 +378,12 @@ entry_pcibios16:
         ENTRY_ARG handle_pcibios
         iretw
 
+// int 1589 entry point
+        DECLFUNC entry_1589
+entry_1589:
+        ENTRY_ARG handle_1589
+        iretw
+
 // BIOS32 support
         .code32
         DECLFUNC entry_bios32
@@ -682,6 +688,10 @@ entry_10_0x0f:
         IRQ_ENTRY_ARG 11
 
         ORG 0xf859
+        .global entry_15_official
+entry_15_official:
+        cmpb $0x89, %ah
+        je entry_1589           // 1589 calls return in protected mode
         IRQ_ENTRY_ARG 15
 
         // 0xfa6e - vgafont8 in font.c

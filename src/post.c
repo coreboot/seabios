@@ -61,7 +61,7 @@ ivt_init(void)
     SET_IVT(0x12, FUNC16(entry_12));
     SET_IVT(0x13, FUNC16(entry_13_official));
     SET_IVT(0x14, FUNC16(entry_14));
-    SET_IVT(0x15, FUNC16(entry_15));
+    SET_IVT(0x15, FUNC16(entry_15_official));
     SET_IVT(0x16, FUNC16(entry_16));
     SET_IVT(0x17, FUNC16(entry_17));
     SET_IVT(0x18, FUNC16(entry_18));
