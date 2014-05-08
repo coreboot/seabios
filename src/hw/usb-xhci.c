@@ -705,7 +705,7 @@ configure_xhci(void *data)
     writel(&xhci->op->usbcmd, reg);
 
     // FIXME: try find a more elegant way than a fixed delay
-    mdelay(100);
+    msleep(100);
 
     usb_enumerate(&xhci->hub);
     // XXX - should walk list of pipes and free unused pipes.
