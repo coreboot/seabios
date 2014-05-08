@@ -147,7 +147,7 @@ $(OUT)code32seg.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)src/%.o,$(SRC32SEG)) ;
 
 $(OUT)ccode32flat.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)src/%.o,$(SRC32FLAT)) ; $(call whole-compile, $(CFLAGS32FLAT), $(addprefix src/, $(SRC32FLAT)),$@)
 
-$(OUT)romlayout.o: src/romlayout.S $(OUT)asm-offsets.h
+$(OUT)romlayout.o: src/romlayout.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
