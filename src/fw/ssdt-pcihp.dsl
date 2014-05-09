@@ -29,7 +29,7 @@ DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
             Name(_ADR, 0xAA0000)
             ACPI_EXTRACT_METHOD_STRING ssdt_pcihp_ej0
             Method(_EJ0, 1) {
-                Return (PCEJ(_SUN))
+                PCEJ(_SUN)
             }
         }
     }

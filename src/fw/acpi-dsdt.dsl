@@ -139,7 +139,6 @@ DefinitionBlock (
         Method(PCEJ, 1, NotSerialized) {
             // _EJ0 method - eject callback
             Store(ShiftLeft(1, Arg0), B0EJ)
-            Return (0x0)
         }
 
         /* Hotplug notification method supplied by SSDT */
