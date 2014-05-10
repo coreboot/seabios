@@ -337,13 +337,12 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
             , size, type, npc, nph, nps, (u32)lba, blksize);
 
     SET_FARVAR(seg, param_far->size, 26);
-    if (type == DTYPE_ATA_ATAPI) {
+    if (lba == (u64)-1) {
         // 0x74 = removable, media change, lockable, max values
         SET_FARVAR(seg, param_far->infos, 0x74);
         SET_FARVAR(seg, param_far->cylinders, 0xffffffff);
         SET_FARVAR(seg, param_far->heads, 0xffffffff);
         SET_FARVAR(seg, param_far->spt, 0xffffffff);
-        SET_FARVAR(seg, param_far->sector_count, (u64)-1);
     } else {
         if (lba > (u64)nps*nph*0x3fff) {
             SET_FARVAR(seg, param_far->infos, 0x00); // geometry is invalid
@@ -354,8 +353,8 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
         }
         SET_FARVAR(seg, param_far->heads, (u32)nph);
         SET_FARVAR(seg, param_far->spt, (u32)nps);
-        SET_FARVAR(seg, param_far->sector_count, lba);
     }
+    SET_FARVAR(seg, param_far->sector_count, lba);
     SET_FARVAR(seg, param_far->blksize, blksize);
 
     if (size < 30 ||
