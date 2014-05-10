@@ -132,23 +132,6 @@ cdrom_prepboot(void)
     drive->sectors = (u64)-1;
 }
 
-// ElTorito - Terminate disk emu
-void
-cdemu_134b(struct bregs *regs)
-{
-    memcpy_far(regs->ds, (void*)(regs->si+0), SEG_LOW, &CDEmu, sizeof(CDEmu));
-
-    // If we have to terminate emulation
-    if (regs->al == 0x00) {
-        // FIXME ElTorito Various. Should be handled accordingly to spec
-        SET_LOW(CDEmu.media, 0x00); // bye bye
-
-        // XXX - update floppy/hd count.
-    }
-
-    disk_ret(regs, DISK_RET_SUCCESS);
-}
-
 
 /****************************************************************
  * CD booting

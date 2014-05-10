@@ -18,8 +18,33 @@
 
 
 /****************************************************************
- * Helper functions
+ * Return status functions
  ****************************************************************/
+
+static void
+__disk_ret(struct bregs *regs, u32 linecode, const char *fname)
+{
+    u8 code = linecode;
+    if (regs->dl < EXTSTART_HD)
+        SET_BDA(floppy_last_status, code);
+    else
+        SET_BDA(disk_last_status, code);
+    if (code)
+        __set_code_invalid(regs, linecode, fname);
+    else
+        set_code_success(regs);
+}
+
+static void
+__disk_ret_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
+{
+    u8 code = linecode;
+    if (regs->dl < EXTSTART_HD)
+        SET_BDA(floppy_last_status, code);
+    else
+        SET_BDA(disk_last_status, code);
+    __set_code_unimplemented(regs, linecode, fname);
+}
 
 static void
 __disk_stub(struct bregs *regs, int lineno, const char *fname)
@@ -28,8 +53,17 @@ __disk_stub(struct bregs *regs, int lineno, const char *fname)
     __disk_ret(regs, DISK_RET_SUCCESS | (lineno << 8), fname);
 }
 
+#define disk_ret(regs, code) \
+    __disk_ret((regs), (code) | (__LINE__ << 8), __func__)
+#define disk_ret_unimplemented(regs, code) \
+    __disk_ret_unimplemented((regs), (code) | (__LINE__ << 8), __func__)
 #define DISK_STUB(regs)                         \
     __disk_stub((regs), __LINE__, __func__)
+
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
 
 // Get the cylinders/heads/sectors for the given drive.
 static struct chs_s
@@ -606,6 +640,23 @@ floppy_13(struct bregs *regs, struct drive_s *drive_gf)
         break;
     default:   disk_13XX(regs, drive_gf); break;
     }
+}
+
+// ElTorito - Terminate disk emu
+static void
+cdemu_134b(struct bregs *regs)
+{
+    memcpy_far(regs->ds, (void*)(regs->si+0), SEG_LOW, &CDEmu, sizeof(CDEmu));
+
+    // If we have to terminate emulation
+    if (regs->al == 0x00) {
+        // FIXME ElTorito Various. Should be handled accordingly to spec
+        SET_LOW(CDEmu.media, 0x00); // bye bye
+
+        // XXX - update floppy/hd count.
+    }
+
+    disk_ret(regs, DISK_RET_SUCCESS);
 }
 
 

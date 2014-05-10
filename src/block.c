@@ -7,7 +7,6 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "block.h" // process_op
-#include "bregs.h" // struct bregs
 #include "hw/ata.h" // process_ata_op
 #include "hw/ahci.h" // process_ahci_op
 #include "hw/blockcmd.h" // cdb_*
@@ -276,36 +275,6 @@ map_floppy_drive(struct drive_s *drive)
         set_equipment_flags(0x41, 0x41);
         SET_BDA(floppy_harddisk_info, 0x77);
     }
-}
-
-
-/****************************************************************
- * Return status functions
- ****************************************************************/
-
-void
-__disk_ret(struct bregs *regs, u32 linecode, const char *fname)
-{
-    u8 code = linecode;
-    if (regs->dl < EXTSTART_HD)
-        SET_BDA(floppy_last_status, code);
-    else
-        SET_BDA(disk_last_status, code);
-    if (code)
-        __set_code_invalid(regs, linecode, fname);
-    else
-        set_code_success(regs);
-}
-
-void
-__disk_ret_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
-{
-    u8 code = linecode;
-    if (regs->dl < EXTSTART_HD)
-        SET_BDA(floppy_last_status, code);
-    else
-        SET_BDA(disk_last_status, code);
-    __set_code_unimplemented(regs, linecode, fname);
 }
 
 

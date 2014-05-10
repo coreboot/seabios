@@ -49,7 +49,6 @@ extern struct drive_s *cdemu_drive_gf;
 struct disk_op_s;
 int process_cdemu_op(struct disk_op_s *op);
 void cdrom_prepboot(void);
-void cdemu_134b(struct bregs *regs);
 int cdrom_boot(struct drive_s *drive_g);
 
 // clock.c
