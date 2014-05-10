@@ -129,7 +129,7 @@ struct packed_chs_s {
     u8 heads;
     u8 sptcyl;
     u8 cyllow;
-};
+} PACKED;
 
 struct partition_s {
     u8 status;
@@ -169,9 +169,7 @@ struct eltorito_s {
     u16 buffer_segment;
     u16 load_segment;
     u16 sector_count;
-    u8 cylinders;
-    u8 sectors;
-    u8 heads;
-};
+    struct packed_chs_s chs;
+} PACKED;
 
 #endif // disk.h

@@ -41,9 +41,10 @@ getLCHS(struct drive_s *drive_gf)
         // populate the geometry directly in the driveid because the
         // geometry is only known after the bios segment is made
         // read-only).
-        res.cylinder = GET_LOW(CDEmu.lchs.cylinder);
-        res.head = GET_LOW(CDEmu.lchs.head);
-        res.sector = GET_LOW(CDEmu.lchs.sector);
+        u8 sptcyl = GET_LOW(CDEmu.chs.sptcyl);
+        res.cylinder = GET_LOW(CDEmu.chs.cyllow) + ((sptcyl << 2) & 0x300) + 1;
+        res.head = GET_LOW(CDEmu.chs.heads) + 1;
+        res.sector = sptcyl & 0x3f;
         return res;
     }
     res.cylinder = GET_GLOBALFLAT(drive_gf->lchs.cylinder);
@@ -238,8 +239,8 @@ disk_1308(struct bregs *regs, struct drive_s *drive_gf)
         return;
     }
 
-    if (CONFIG_CDROM_EMU && GET_LOW(CDEmu.active)) {
-        u8 emudrive = GET_LOW(CDEmu.emulated_extdrive);
+    if (CONFIG_CDROM_EMU && GET_LOW(CDEmu.media)) {
+        u8 emudrive = GET_LOW(CDEmu.emulated_drive);
         if (((emudrive ^ regs->dl) & 0x80) == 0)
             // Note extra drive due to emulation.
             count++;
@@ -663,8 +664,8 @@ handle_13(struct bregs *regs)
             cdemu_134b(regs);
             return;
         }
-        if (GET_LOW(CDEmu.active)) {
-            u8 emudrive = GET_LOW(CDEmu.emulated_extdrive);
+        if (GET_LOW(CDEmu.media)) {
+            u8 emudrive = GET_LOW(CDEmu.emulated_drive);
             if (extdrive == emudrive) {
                 // Access to an emulated drive.
                 struct drive_s *cdemu_gf = GET_GLOBAL(cdemu_drive_gf);

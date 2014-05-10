@@ -643,7 +643,7 @@ boot_cdrom(struct drive_s *drive_g)
         return;
     }
 
-    u8 bootdrv = CDEmu.emulated_extdrive;
+    u8 bootdrv = CDEmu.emulated_drive;
     u16 bootseg = CDEmu.load_segment;
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;

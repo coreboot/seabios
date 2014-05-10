@@ -36,21 +36,6 @@ struct chs_s {
     u16 pad;
 };
 
-// ElTorito Device Emulation data
-struct cdemu_s {
-    struct drive_s *emulated_drive_gf;
-    u32 ilba;
-    u16 buffer_segment;
-    u16 load_segment;
-    u16 sector_count;
-    u8  active;
-    u8  media;
-    u8  emulated_extdrive;
-
-    // Virtual device
-    struct chs_s lchs;
-};
-
 struct drive_s {
     u8 type;            // Driver type (DTYPE_*)
     u8 floppy_type;     // Type of floppy (only for floppy drives).
