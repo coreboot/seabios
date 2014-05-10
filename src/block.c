@@ -25,7 +25,6 @@ u8 FloppyCount VARFSEG;
 u8 CDCount;
 struct drive_s *IDMap[3][BUILD_MAX_EXTDRIVE] VARFSEG;
 u8 *bounce_buf_fl VARFSEG;
-struct dpte_s DefaultDPTE VARLOW;
 
 struct drive_s *
 getDrive(u8 exttype, u8 extdriveoffset)
@@ -314,8 +313,10 @@ __disk_ret_unimplemented(struct bregs *regs, u32 linecode, const char *fname)
  * Extended Disk Drive (EDD) get drive parameters
  ****************************************************************/
 
-int noinline
-fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
+static int
+fill_generic_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf
+                 , u32 dpte_so, char *iface_type
+                 , int bdf, u8 channel, u16 iobase, u64 device_path)
 {
     u16 size = GET_FARVAR(seg, param_far->size);
     u16 t13 = size == 74;
@@ -357,73 +358,15 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
     SET_FARVAR(seg, param_far->sector_count, lba);
     SET_FARVAR(seg, param_far->blksize, blksize);
 
-    if (size < 30 ||
-        (type != DTYPE_ATA && type != DTYPE_ATA_ATAPI &&
-         type != DTYPE_VIRTIO_BLK && type != DTYPE_VIRTIO_SCSI))
+    if (size < 30 || !dpte_so)
         return DISK_RET_SUCCESS;
 
     // EDD 2.x
 
-    int bdf;
-    u16 iobase1 = 0;
-    u64 device_path = 0;
-    u8 channel = 0;
     SET_FARVAR(seg, param_far->size, 30);
-    if (type == DTYPE_ATA || type == DTYPE_ATA_ATAPI) {
-        SET_FARVAR(seg, param_far->dpte, SEGOFF(SEG_LOW, (u32)&DefaultDPTE));
+    SET_FARVAR(seg, param_far->dpte.segoff, dpte_so);
 
-        // Fill in dpte
-        struct atadrive_s *adrive_gf = container_of(
-            drive_gf, struct atadrive_s, drive);
-        struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
-        u8 slave = GET_GLOBALFLAT(adrive_gf->slave);
-        u16 iobase2 = GET_GLOBALFLAT(chan_gf->iobase2);
-        u8 irq = GET_GLOBALFLAT(chan_gf->irq);
-        iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
-        bdf = GET_GLOBALFLAT(chan_gf->pci_bdf);
-        device_path = slave;
-        channel = GET_GLOBALFLAT(chan_gf->chanid);
-
-        u16 options = 0;
-        if (type == DTYPE_ATA) {
-            u8 translation = GET_GLOBALFLAT(drive_gf->translation);
-            if (translation != TRANSLATION_NONE) {
-                options |= 1<<3; // CHS translation
-                if (translation == TRANSLATION_LBA)
-                    options |= 1<<9;
-                if (translation == TRANSLATION_RECHS)
-                    options |= 3<<9;
-            }
-        } else {
-            // ATAPI
-            options |= 1<<5; // removable device
-            options |= 1<<6; // atapi device
-        }
-        options |= 1<<4; // lba translation
-        if (CONFIG_ATA_PIO32)
-            options |= 1<<7;
-
-        SET_LOW(DefaultDPTE.iobase1, iobase1);
-        SET_LOW(DefaultDPTE.iobase2, iobase2 + ATA_CB_DC);
-        SET_LOW(DefaultDPTE.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
-                                  | ATA_CB_DH_LBA));
-        SET_LOW(DefaultDPTE.unused, 0xcb);
-        SET_LOW(DefaultDPTE.irq, irq);
-        SET_LOW(DefaultDPTE.blkcount, 1);
-        SET_LOW(DefaultDPTE.dma, 0);
-        SET_LOW(DefaultDPTE.pio, 0);
-        SET_LOW(DefaultDPTE.options, options);
-        SET_LOW(DefaultDPTE.reserved, 0);
-        SET_LOW(DefaultDPTE.revision, 0x11);
-
-        u8 sum = checksum_far(SEG_LOW, &DefaultDPTE, 15);
-        SET_LOW(DefaultDPTE.checksum, -sum);
-    } else {
-        SET_FARVAR(seg, param_far->dpte.segoff, 0xffffffff);
-        bdf = GET_GLOBALFLAT(drive_gf->cntl_id);
-    }
-
-    if (size < 66)
+    if (size < 66 || !iface_type)
         return DISK_RET_SUCCESS;
 
     // EDD 3.x
@@ -431,6 +374,10 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
     SET_FARVAR(seg, param_far->dpi_length, t13 ? 44 : 36);
     SET_FARVAR(seg, param_far->reserved1, 0);
     SET_FARVAR(seg, param_far->reserved2, 0);
+
+    int i;
+    for (i=0; i<sizeof(param_far->iface_type); i++)
+        SET_FARVAR(seg, param_far->iface_type[i], GET_GLOBAL(iface_type[i]));
 
     if (bdf != -1) {
         SET_FARVAR(seg, param_far->host_bus[0], 'P');
@@ -451,24 +398,8 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
         SET_FARVAR(seg, param_far->host_bus[2], 'A');
         SET_FARVAR(seg, param_far->host_bus[3], ' ');
 
-        SET_FARVAR(seg, param_far->iface_path, iobase1);
+        SET_FARVAR(seg, param_far->iface_path, iobase);
     }
-
-    if (type != DTYPE_VIRTIO_BLK) {
-        SET_FARVAR(seg, param_far->iface_type[0], 'A');
-        SET_FARVAR(seg, param_far->iface_type[1], 'T');
-        SET_FARVAR(seg, param_far->iface_type[2], 'A');
-        SET_FARVAR(seg, param_far->iface_type[3], ' ');
-    } else {
-        SET_FARVAR(seg, param_far->iface_type[0], 'S');
-        SET_FARVAR(seg, param_far->iface_type[1], 'C');
-        SET_FARVAR(seg, param_far->iface_type[2], 'S');
-        SET_FARVAR(seg, param_far->iface_type[3], 'I');
-    }
-    SET_FARVAR(seg, param_far->iface_type[4], ' ');
-    SET_FARVAR(seg, param_far->iface_type[5], ' ');
-    SET_FARVAR(seg, param_far->iface_type[6], ' ');
-    SET_FARVAR(seg, param_far->iface_type[7], ' ');
 
     if (t13) {
         SET_FARVAR(seg, param_far->t13.device_path[0], device_path);
@@ -484,6 +415,82 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
     }
 
     return DISK_RET_SUCCESS;
+}
+
+struct dpte_s DefaultDPTE VARLOW;
+
+static int
+fill_ata_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
+{
+    if (!CONFIG_ATA)
+        return DISK_RET_EPARAM;
+
+    // Fill in dpte
+    struct atadrive_s *adrive_gf = container_of(
+        drive_gf, struct atadrive_s, drive);
+    struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
+    u8 slave = GET_GLOBALFLAT(adrive_gf->slave);
+    u16 iobase2 = GET_GLOBALFLAT(chan_gf->iobase2);
+    u8 irq = GET_GLOBALFLAT(chan_gf->irq);
+    u16 iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
+    int bdf = GET_GLOBALFLAT(chan_gf->pci_bdf);
+    u8 channel = GET_GLOBALFLAT(chan_gf->chanid);
+
+    u16 options = 0;
+    if (GET_GLOBALFLAT(drive_gf->type) == DTYPE_ATA) {
+        u8 translation = GET_GLOBALFLAT(drive_gf->translation);
+        if (translation != TRANSLATION_NONE) {
+            options |= 1<<3; // CHS translation
+            if (translation == TRANSLATION_LBA)
+                options |= 1<<9;
+            if (translation == TRANSLATION_RECHS)
+                options |= 3<<9;
+        }
+    } else {
+        // ATAPI
+        options |= 1<<5; // removable device
+        options |= 1<<6; // atapi device
+    }
+    options |= 1<<4; // lba translation
+    if (CONFIG_ATA_PIO32)
+        options |= 1<<7;
+
+    SET_LOW(DefaultDPTE.iobase1, iobase1);
+    SET_LOW(DefaultDPTE.iobase2, iobase2 + ATA_CB_DC);
+    SET_LOW(DefaultDPTE.prefix, ((slave ? ATA_CB_DH_DEV1 : ATA_CB_DH_DEV0)
+                                 | ATA_CB_DH_LBA));
+    SET_LOW(DefaultDPTE.unused, 0xcb);
+    SET_LOW(DefaultDPTE.irq, irq);
+    SET_LOW(DefaultDPTE.blkcount, 1);
+    SET_LOW(DefaultDPTE.dma, 0);
+    SET_LOW(DefaultDPTE.pio, 0);
+    SET_LOW(DefaultDPTE.options, options);
+    SET_LOW(DefaultDPTE.reserved, 0);
+    SET_LOW(DefaultDPTE.revision, 0x11);
+
+    u8 sum = checksum_far(SEG_LOW, &DefaultDPTE, 15);
+    SET_LOW(DefaultDPTE.checksum, -sum);
+
+    return fill_generic_edd(
+        seg, param_far, drive_gf, SEGOFF(SEG_LOW, (u32)&DefaultDPTE).segoff
+        , "ATA     ", bdf, channel, iobase1, slave);
+}
+
+int noinline
+fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
+{
+    switch (GET_GLOBALFLAT(drive_gf->type)) {
+    case DTYPE_ATA:
+    case DTYPE_ATA_ATAPI:
+        return fill_ata_edd(seg, param_far, drive_gf);
+    case DTYPE_VIRTIO_BLK:
+    case DTYPE_VIRTIO_SCSI:
+        return fill_generic_edd(
+            seg, param_far, drive_gf, 0xffffffff
+            , "SCSI    ", GET_GLOBALFLAT(drive_gf->cntl_id), 0, 0, 0);
+    default:
+        return fill_generic_edd(seg, param_far, drive_gf, 0, NULL, 0, 0, 0, 0);
+    }
 }
 
 
