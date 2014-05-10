@@ -107,7 +107,6 @@ struct drive_s {
  ****************************************************************/
 
 // block.c
-extern struct dpte_s DefaultDPTE;
 extern u8 FloppyCount, CDCount;
 extern u8 *bounce_buf_fl;
 struct drive_s *getDrive(u8 exttype, u8 extdriveoffset);
@@ -119,6 +118,8 @@ struct bregs;
 void __disk_ret(struct bregs *regs, u32 linecode, const char *fname);
 void __disk_ret_unimplemented(struct bregs *regs, u32 linecode
                               , const char *fname);
+struct int13dpt_s;
+int fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
 int create_bounce_buf(void);
