@@ -47,7 +47,17 @@ _rom_header_signature:
 
         // Force a fault if found to be running on broken x86emu versions.
         DECLFUNC x86emu_fault
+msg:    .ascii "SeaVGABIOS: x86emu leal trap!\n"
 x86emu_fault:
+#if CONFIG_DEBUG_IO
+        movw %cs:DebugOutputPort, %dx
+        movw $msg, %si
+1:      movb %cs:(%si), %al
+        outb %al, (%dx)
+        incw %si
+        cmpw $x86emu_fault, %si
+        jl 1b
+#endif
 1:      hlt
         jmp 1b
 
