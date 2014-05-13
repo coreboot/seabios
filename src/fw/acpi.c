@@ -55,9 +55,9 @@ static void piix4_fadt_setup(struct pci_device *pci, void *arg)
     fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
     fadt->acpi_enable = PIIX4_ACPI_ENABLE;
     fadt->acpi_disable = PIIX4_ACPI_DISABLE;
-    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
-    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
-    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
+    fadt->pm1a_evt_blk = cpu_to_le32(acpi_pm_base);
+    fadt->pm1a_cnt_blk = cpu_to_le32(acpi_pm_base + 0x04);
+    fadt->pm_tmr_blk = cpu_to_le32(acpi_pm_base + 0x08);
     fadt->gpe0_blk = cpu_to_le32(PIIX4_GPE0_BLK);
     fadt->pm1_evt_len = 4;
     fadt->pm1_cnt_len = 2;
@@ -81,10 +81,10 @@ static void ich9_lpc_fadt_setup(struct pci_device *dev, void *arg)
     fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
     fadt->acpi_enable = ICH9_ACPI_ENABLE;
     fadt->acpi_disable = ICH9_ACPI_DISABLE;
-    fadt->pm1a_evt_blk = cpu_to_le32(PORT_ACPI_PM_BASE);
-    fadt->pm1a_cnt_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x04);
-    fadt->pm_tmr_blk = cpu_to_le32(PORT_ACPI_PM_BASE + 0x08);
-    fadt->gpe0_blk = cpu_to_le32(PORT_ACPI_PM_BASE + ICH9_PMIO_GPE0_STS);
+    fadt->pm1a_evt_blk = cpu_to_le32(acpi_pm_base);
+    fadt->pm1a_cnt_blk = cpu_to_le32(acpi_pm_base + 0x04);
+    fadt->pm_tmr_blk = cpu_to_le32(acpi_pm_base + 0x08);
+    fadt->gpe0_blk = cpu_to_le32(acpi_pm_base + ICH9_PMIO_GPE0_STS);
     fadt->pm1_evt_len = 4;
     fadt->pm1_cnt_len = 2;
     fadt->pm_tmr_len = 4;

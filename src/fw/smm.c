@@ -116,7 +116,7 @@ static void piix4_apmc_smm_setup(int isabdf, int i440_bdf)
 void ich9_lpc_apmc_smm_setup(int isabdf, int mch_bdf)
 {
     /* check if SMM init is already done */
-    u32 value = inl(PORT_ACPI_PM_BASE + ICH9_PMIO_SMI_EN);
+    u32 value = inl(acpi_pm_base + ICH9_PMIO_SMI_EN);
     if (value & ICH9_PMIO_SMI_EN_APMC_EN)
         return;
 
@@ -127,7 +127,7 @@ void ich9_lpc_apmc_smm_setup(int isabdf, int mch_bdf)
 
     /* enable SMI generation when writing to the APMC register */
     outl(value | ICH9_PMIO_SMI_EN_APMC_EN,
-         PORT_ACPI_PM_BASE + ICH9_PMIO_SMI_EN);
+         acpi_pm_base + ICH9_PMIO_SMI_EN);
 
     smm_relocate_and_restore();
 

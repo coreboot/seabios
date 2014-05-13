@@ -70,6 +70,7 @@ extern struct pir_header *PirAddr;
 void copy_acpi_rsdp(void *pos);
 extern struct rsdp_descriptor *RsdpAddr;
 extern u32 acpi_pm1a_cnt;
+extern u16 acpi_pm_base;
 void *find_acpi_rsdp(void);
 u32 find_resume_vector(void);
 void acpi_reboot(void);

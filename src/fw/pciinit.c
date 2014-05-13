@@ -185,13 +185,13 @@ static void mch_isa_bridge_setup(struct pci_device *dev, void *arg)
 
     /* pm io base */
     pci_config_writel(bdf, ICH9_LPC_PMBASE,
-                      PORT_ACPI_PM_BASE | ICH9_LPC_PMBASE_RTE);
+                      acpi_pm_base | ICH9_LPC_PMBASE_RTE);
 
     /* acpi enable, SCI: IRQ9 000b = irq9*/
     pci_config_writeb(bdf, ICH9_LPC_ACPI_CTRL, ICH9_LPC_ACPI_CTRL_ACPI_EN);
 
-    acpi_pm1a_cnt = PORT_ACPI_PM_BASE + 0x04;
-    pmtimer_setup(PORT_ACPI_PM_BASE + 0x08);
+    acpi_pm1a_cnt = acpi_pm_base + 0x04;
+    pmtimer_setup(acpi_pm_base + 0x08);
 }
 
 static void storage_ide_setup(struct pci_device *pci, void *arg)
@@ -228,9 +228,9 @@ static void piix4_pm_config_setup(u16 bdf)
     // acpi sci is hardwired to 9
     pci_config_writeb(bdf, PCI_INTERRUPT_LINE, 9);
 
-    pci_config_writel(bdf, 0x40, PORT_ACPI_PM_BASE | 1);
+    pci_config_writel(bdf, 0x40, acpi_pm_base | 1);
     pci_config_writeb(bdf, 0x80, 0x01); /* enable PM io space */
-    pci_config_writel(bdf, 0x90, PORT_SMB_BASE | 1);
+    pci_config_writel(bdf, 0x90, (acpi_pm_base + 0x100) | 1);
     pci_config_writeb(bdf, 0xd2, 0x09); /* enable SMBus io space */
 }
 
@@ -242,8 +242,8 @@ static void piix4_pm_setup(struct pci_device *pci, void *arg)
     PiixPmBDF = pci->bdf;
     piix4_pm_config_setup(pci->bdf);
 
-    acpi_pm1a_cnt = PORT_ACPI_PM_BASE + 0x04;
-    pmtimer_setup(PORT_ACPI_PM_BASE + 0x08);
+    acpi_pm1a_cnt = acpi_pm_base + 0x04;
+    pmtimer_setup(acpi_pm_base + 0x08);
 }
 
 /* ICH9 SMBUS */
@@ -253,7 +253,7 @@ static void ich9_smbus_setup(struct pci_device *dev, void *arg)
     u16 bdf = dev->bdf;
     /* map smbus into io space */
     pci_config_writel(bdf, ICH9_SMB_SMB_BASE,
-                      PORT_SMB_BASE | PCI_BASE_ADDRESS_SPACE_IO);
+                      (acpi_pm_base + 0x100) | PCI_BASE_ADDRESS_SPACE_IO);
 
     /* enable SMBus */
     pci_config_writeb(bdf, ICH9_SMB_HOSTC, ICH9_SMB_HOSTC_HST_EN);

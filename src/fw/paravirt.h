@@ -29,8 +29,6 @@ static inline int runningOnKVM(void) {
 #define PORT_SMI_STATUS        0x00b3
 #define PORT_QEMU_CFG_CTL      0x0510
 #define PORT_QEMU_CFG_DATA     0x0511
-#define PORT_ACPI_PM_BASE      0xb000
-#define PORT_SMB_BASE          0xb100
 
 void qemu_preinit(void);
 void qemu_platform_setup(void);
