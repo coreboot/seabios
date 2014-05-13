@@ -440,4 +440,9 @@ void qemu_cfg_init(void)
     }
 
     qemu_cfg_e820();
+
+    if (romfile_find("etc/table-loader")) {
+        acpi_pm_base = 0x0600;
+        dprintf(1, "Moving pm_base to 0x%x\n", acpi_pm_base);
+    }
 }

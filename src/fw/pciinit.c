@@ -36,6 +36,7 @@ u64 pcimem_start   = BUILD_PCIMEM_START;
 u64 pcimem_end     = BUILD_PCIMEM_END;
 u64 pcimem64_start = BUILD_PCIMEM64_START;
 u64 pcimem64_end   = BUILD_PCIMEM64_END;
+u64 pci_io_low_end = 0xa000;
 
 struct pci_region_entry {
     struct pci_device *dev;
@@ -404,6 +405,12 @@ static void mch_mem_addr_setup(struct pci_device *dev, void *arg)
     pcimem_start = addr + size;
 
     pci_slot_get_irq = mch_pci_slot_get_irq;
+
+    /* setup io address space */
+    if (acpi_pm_base < 0x1000)
+        pci_io_low_end = 0x10000;
+    else
+        pci_io_low_end = acpi_pm_base;
 }
 
 static const struct pci_device_id pci_platform_tbl[] = {
@@ -721,16 +728,11 @@ static int pci_bios_init_root_regions_io(struct pci_bus *bus)
     if (sum < 0x4000) {
         /* traditional region is big enougth, use it */
         r_io->base = 0xc000;
-    } else if (sum < 0x9000) {
+    } else if (sum < pci_io_low_end - 0x1000) {
         /* use the larger region at 0x1000 */
         r_io->base = 0x1000;
     } else {
-        /*
-         * Not enougth io address space -> error out.
-         *
-         * TODO: on q35 we can move PORT_ACPI_PM_BASE out of
-         * the way, then use the whole 1000 -> ffff region.
-         */
+        /* not enouth io address space -> error out */
         return -1;
     }
     dprintf(1, "PCI: IO: %4llx - %4llx\n", r_io->base, r_io->base + sum - 1);
