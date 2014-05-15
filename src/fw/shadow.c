@@ -7,6 +7,7 @@
 
 #include "config.h" // CONFIG_*
 #include "dev-q35.h" // PCI_VENDOR_ID_INTEL
+#include "dev-piix.h" // I440FX_PAM0
 #include "hw/pci.h" // pci_config_writeb
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
@@ -19,8 +20,6 @@
 
 // On the emulators, the bios at 0xf0000 is also at 0xffff0000
 #define BIOS_SRC_OFFSET 0xfff00000
-
-#define I440FX_PAM0     0x59
 
 // Enable shadowing and copy bios.
 static void

@@ -9,6 +9,7 @@
 #include "byteorder.h" // cpu_to_le16
 #include "config.h" // CONFIG_*
 #include "dev-q35.h"
+#include "dev-piix.h"
 #include "hw/pci.h" // pci_find_init_device
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_INTERRUPT_LINE
@@ -38,31 +39,24 @@ build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
     h->checksum -= checksum(h, len);
 }
 
-#define PIIX4_ACPI_ENABLE       0xf1
-#define PIIX4_ACPI_DISABLE      0xf0
-#define PIIX4_GPE0_BLK          0xafe0
-#define PIIX4_GPE0_BLK_LEN      4
-
-#define PIIX4_PM_INTRRUPT       9       // irq 9
-
 static void piix4_fadt_setup(struct pci_device *pci, void *arg)
 {
     struct fadt_descriptor_rev1 *fadt = arg;
 
     fadt->model = 1;
     fadt->reserved1 = 0;
-    fadt->sci_int = cpu_to_le16(PIIX4_PM_INTRRUPT);
+    fadt->sci_int = cpu_to_le16(PIIX_PM_INTRRUPT);
     fadt->smi_cmd = cpu_to_le32(PORT_SMI_CMD);
-    fadt->acpi_enable = PIIX4_ACPI_ENABLE;
-    fadt->acpi_disable = PIIX4_ACPI_DISABLE;
+    fadt->acpi_enable = PIIX_ACPI_ENABLE;
+    fadt->acpi_disable = PIIX_ACPI_DISABLE;
     fadt->pm1a_evt_blk = cpu_to_le32(acpi_pm_base);
     fadt->pm1a_cnt_blk = cpu_to_le32(acpi_pm_base + 0x04);
     fadt->pm_tmr_blk = cpu_to_le32(acpi_pm_base + 0x08);
-    fadt->gpe0_blk = cpu_to_le32(PIIX4_GPE0_BLK);
+    fadt->gpe0_blk = cpu_to_le32(PIIX_GPE0_BLK);
     fadt->pm1_evt_len = 4;
     fadt->pm1_cnt_len = 2;
     fadt->pm_tmr_len = 4;
-    fadt->gpe0_blk_len = PIIX4_GPE0_BLK_LEN;
+    fadt->gpe0_blk_len = PIIX_GPE0_BLK_LEN;
     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
     /* WBINVD + PROC_C1 + SLP_BUTTON + RTC_S4 + USE_PLATFORM_CLOCK */

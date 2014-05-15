@@ -7,6 +7,7 @@
 
 #include "config.h" // CONFIG_*
 #include "dev-q35.h"
+#include "dev-piix.h"
 #include "hw/pci.h" // pci_config_writel
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_DEVICE_ID
@@ -86,16 +87,12 @@ smm_relocate_and_restore(void)
     wbinvd();
 }
 
-#define I440FX_SMRAM    0x72
-#define PIIX_DEVACTB    0x58
-#define PIIX_APMC_EN    (1 << 25)
-
 // This code is hardcoded for PIIX4 Power Management device.
 static void piix4_apmc_smm_setup(int isabdf, int i440_bdf)
 {
     /* check if SMM init is already done */
     u32 value = pci_config_readl(isabdf, PIIX_DEVACTB);
-    if (value & PIIX_APMC_EN)
+    if (value & PIIX_DEVACTB_APMC_EN)
         return;
 
     /* enable the SMM memory window */
@@ -104,7 +101,7 @@ static void piix4_apmc_smm_setup(int isabdf, int i440_bdf)
     smm_save_and_copy();
 
     /* enable SMI generation when writing to the APMC register */
-    pci_config_writel(isabdf, PIIX_DEVACTB, value | PIIX_APMC_EN);
+    pci_config_writel(isabdf, PIIX_DEVACTB, value | PIIX_DEVACTB_APMC_EN);
 
     smm_relocate_and_restore();
 
