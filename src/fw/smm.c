@@ -17,13 +17,17 @@
 #include "util.h" // smm_setup
 #include "x86.h" // wbinvd
 
-extern u8 smm_relocation_start, smm_relocation_end;
+extern u8 smm_code_start, smm_code_end;
+
 ASM32FLAT(
-    ".global smm_relocation_start, smm_relocation_end\n"
+    ".global smm_code_start, smm_code_end\n"
     "  .code16gcc\n"
+    "smm_code_start:\n"
+    "  mov %cs, %ax\n"
+    "  cmp $0xa000, %ax\n"
+    "  je smm_exit\n"
 
     /* code to relocate SMBASE to 0xa0000 */
-    "smm_relocation_start:\n"
     "  movl $" __stringify(BUILD_SMM_INIT_ADDR) " + 0x7efc, %ebx\n"
     "  addr32 movb (%ebx), %al\n"  /* revision ID to see if x86_64 or x86 */
     "  cmpb $0x64, %al\n"
@@ -39,16 +43,7 @@ ASM32FLAT(
     "  movb $0x00, %al\n"
     "  movw $" __stringify(PORT_SMI_STATUS) ", %dx\n"
     "  outb %al, %dx\n"
-    "  rsm\n"
-    "smm_relocation_end:\n"
-    "  .code32\n"
-    );
-
-extern u8 smm_code_start, smm_code_end;
-ASM32FLAT(
-    ".global smm_code_start, smm_code_end\n"
-    "  .code16gcc\n"
-    "smm_code_start:\n"
+    "smm_exit:\n"
     "  rsm\n"
     "smm_code_end:\n"
     "  .code32\n"
@@ -60,9 +55,9 @@ smm_save_and_copy(void)
     /* save original memory content */
     memcpy((void *)BUILD_SMM_ADDR, (void *)BUILD_SMM_INIT_ADDR, BUILD_SMM_SIZE);
 
-    /* copy the SMM relocation code */
-    memcpy((void *)BUILD_SMM_INIT_ADDR, &smm_relocation_start,
-           &smm_relocation_end - &smm_relocation_start);
+    /* copy the SMM code, which will relocate itself on the first execution */
+    memcpy((void *)BUILD_SMM_INIT_ADDR, &smm_code_start,
+           &smm_code_end - &smm_code_start);
 }
 
 static void
