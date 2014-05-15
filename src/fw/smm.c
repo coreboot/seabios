@@ -103,6 +103,11 @@ static void piix4_apmc_smm_setup(int isabdf, int i440_bdf)
     /* enable SMI generation when writing to the APMC register */
     pci_config_writel(isabdf, PIIX_DEVACTB, value | PIIX_DEVACTB_APMC_EN);
 
+    /* enable SMI generation */
+    value = inl(acpi_pm_base + PIIX_PMIO_GLBCTL);
+    outl(acpi_pm_base + PIIX_PMIO_GLBCTL,
+	 value | PIIX_PMIO_GLBCTL_SMI_EN);
+
     smm_relocate_and_restore();
 
     /* close the SMM memory window and enable normal SMM */
@@ -123,8 +128,13 @@ void ich9_lpc_apmc_smm_setup(int isabdf, int mch_bdf)
     smm_save_and_copy();
 
     /* enable SMI generation when writing to the APMC register */
-    outl(value | ICH9_PMIO_SMI_EN_APMC_EN,
+    outl(value | ICH9_PMIO_SMI_EN_APMC_EN | ICH9_PMIO_SMI_EN_GLB_SMI_EN,
          acpi_pm_base + ICH9_PMIO_SMI_EN);
+
+    /* lock SMI generation */
+    value = pci_config_readw(isabdf, ICH9_LPC_GEN_PMCON_1);
+    pci_config_writel(isabdf, ICH9_LPC_GEN_PMCON_1,
+                      value | ICH9_LPC_GEN_PMCON_1_SMI_LOCK);
 
     smm_relocate_and_restore();
 

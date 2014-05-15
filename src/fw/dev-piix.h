@@ -17,6 +17,8 @@
 /* ICH9 PM I/O registers */
 #define PIIX_GPE0_BLK            0xafe0
 #define PIIX_GPE0_BLK_LEN        4
+#define PIIX_PMIO_GLBCTL         0x28
+#define PIIX_PMIO_GLBCTL_SMI_EN  1
 
 /* FADT ACPI_ENABLE/ACPI_DISABLE */
 #define PIIX_ACPI_ENABLE         0xf1
