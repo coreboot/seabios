@@ -5,8 +5,8 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
-import sys
-import layoutrom
+import sys, struct
+import layoutrom, buildrom
 
 from python23compat import as_bytes
 
@@ -14,12 +14,8 @@ def subst(data, offset, new):
     return data[:offset] + new + data[offset + len(new):]
 
 def checksum(data, start, size, csum):
-    sumbyte = 0
-    while size:
-        sumbyte = sumbyte + ord(data[start + size - 1])
-        size = size - 1
-    sumbyte = (0x100 - sumbyte) & 0xff
-    return subst(data, start+csum, chr(sumbyte))
+    sumbyte = buildrom.checksum(data[start:start+size])
+    return subst(data, start+csum, sumbyte)
 
 def main():
     # Get args
@@ -76,11 +72,11 @@ def main():
 
         tableofs = symbols['csm_compat_table'].offset - symbols['code32flat_start'].offset
         entry_addr = symbols['entry_csm'].offset - layoutrom.BUILD_BIOS_ADDR
-        byte1 = chr(entry_addr & 0xff)
-        byte2 = chr(entry_addr >> 8)
-        rawdata = subst(rawdata, tableofs+ENTRY_FIELD_OFS, byte1+byte2)
+        entry_addr = struct.pack('<H', entry_addr)
+        rawdata = subst(rawdata, tableofs+ENTRY_FIELD_OFS, entry_addr)
 
-        tablesize = ord(rawdata[tableofs+SIZE_FIELD_OFS])
+        tsfield = tableofs+SIZE_FIELD_OFS
+        tablesize = ord(rawdata[tsfield:tsfield+1])
         rawdata = checksum(rawdata, tableofs, tablesize, CSUM_FIELD_OFS)
 
     # Print statistics
