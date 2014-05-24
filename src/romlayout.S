@@ -674,7 +674,7 @@ entry_post:
 entry_13_official:
         jmp entry_13
 
-        // 0xe401 - OldFDPT in disk.c
+        // 0xe401 - OldFDPT in misc.c
 
         ORG 0xe6f2
         .global entry_19_official
@@ -683,7 +683,7 @@ entry_19_official:
 
         // 0xe6f5 - BIOS_CONFIG_TABLE in misc.c
 
-        // 0xe729 - BaudTable in serial.c
+        // 0xe729 - BaudTable in misc.c
 
         ORG 0xe739
         IRQ_ENTRY_ARG 14
@@ -700,7 +700,7 @@ entry_19_official:
         ORG 0xef57
         IRQ_ENTRY 0e
 
-        // 0xefc7 - diskette_param_table in floppy.c
+        // 0xefc7 - diskette_param_table in misc.c
 
         ORG 0xefd2
         IRQ_ENTRY_ARG 17

@@ -181,9 +181,6 @@ handle_14(struct bregs *regs)
     }
 }
 
-// XXX - Baud Rate Generator Table
-u8 BaudTable[16] VAR16FIXED(0xe729);
-
 
 /****************************************************************
  * LPT ports

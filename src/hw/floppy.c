@@ -58,8 +58,6 @@ struct floppy_ext_dbt_s diskette_param_table2 VARFSEG = {
     .drive_type     = 4,    // drive type in cmos
 };
 
-struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7);
-
 struct floppyinfo_s {
     struct chs_s chs;
     u8 floppy_size;

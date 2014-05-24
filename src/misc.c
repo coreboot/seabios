@@ -188,6 +188,14 @@ u8 BiosModelId VAR16FIXED(0xfffe) = BUILD_MODEL_ID;
 
 u8 BiosChecksum VAR16FIXED(0xffff);
 
+struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7);
+
+// Old Fixed Disk Parameter Table (newer tables are in the ebda).
+struct fdpt_s OldFDPT VAR16FIXED(0xe401);
+
+// XXX - Baud Rate Generator Table
+u8 BaudTable[16] VAR16FIXED(0xe729);
+
 // XXX - Initial Interrupt Vector Offsets Loaded by POST
 u8 InitVectors[13] VAR16FIXED(0xfef3);
 
