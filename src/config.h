@@ -95,6 +95,7 @@
 #define DEBUG_ISR_hwpic1 5
 #define DEBUG_ISR_hwpic2 5
 #define DEBUG_HDL_smi 9
+#define DEBUG_HDL_smp 1
 #define DEBUG_HDL_pnp 1
 #define DEBUG_HDL_pmm 1
 #define DEBUG_HDL_pcibios 9

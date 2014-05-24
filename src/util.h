@@ -125,7 +125,6 @@ void smm_device_setup(void);
 void smm_setup(void);
 
 // fw/smp.c
-extern u32 CountCPUs;
 extern u32 MaxCountCPUs;
 void wrmsr_smp(u32 index, u64 val);
 void smp_setup(void);

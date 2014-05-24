@@ -29,7 +29,6 @@ LD32BIT_FLAG:=-melf_i386
 # Source files
 SRCBOTH=misc.c stacks.c output.c string.c x86.c block.c cdrom.c mouse.c kbd.c \
     serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
-    fw/smp.c \
     hw/pci.c hw/timer.c hw/rtc.c hw/dma.c hw/pic.c hw/ps2port.c hw/serialio.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c \
     hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \
@@ -41,7 +40,7 @@ SRC32FLAT=$(SRCBOTH) post.c memmap.c malloc.c pmm.c romfile.c optionroms.c \
     boot.c bootsplash.c jpeg.c bmp.c \
     hw/ahci.c hw/pvscsi.c hw/usb-xhci.c hw/usb-hub.c \
     fw/coreboot.c fw/lzmadecode.c fw/csm.c fw/biostables.c \
-    fw/paravirt.c fw/shadow.c fw/pciinit.c fw/smm.c fw/mtrr.c fw/xen.c \
+    fw/paravirt.c fw/shadow.c fw/pciinit.c fw/smm.c fw/smp.c fw/mtrr.c fw/xen.c \
     fw/acpi.c fw/mptable.c fw/pirtable.c fw/smbios.c fw/romfile_loader.c
 SRC32SEG=string.c output.c pcibios.c apm.c stacks.c hw/pci.c hw/serialio.c
 DIRS=src src/hw src/fw vgasrc
