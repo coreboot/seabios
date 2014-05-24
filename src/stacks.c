@@ -287,7 +287,7 @@ thread_init(void)
 int
 threads_during_optionroms(void)
 {
-    return CONFIG_THREADS && ThreadControl == 2;
+    return CONFIG_THREADS && ThreadControl == 2 && in_post();
 }
 
 // Switch to next thread stack.
