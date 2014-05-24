@@ -742,8 +742,6 @@ entry_1a_official:
 
         // 0xfef3 - InitVectors in misc.c
 
-        // 0xff00 - BiosCopyright in misc.c
-
         ORG 0xff53
         .global entry_iret_official
 entry_iret_official:

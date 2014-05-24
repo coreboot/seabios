@@ -181,9 +181,6 @@ struct descloc_s rombios32_gdt_48 VARFSEG = {
  * Misc fixed vars
  ****************************************************************/
 
-char BiosCopyright[] VAR16FIXED(0xff00) =
-    "(c) 2002 MandrakeSoft S.A. Written by Kevin Lawton & the Bochs team.";
-
 // BIOS build date
 char BiosDate[] VAR16FIXED(0xfff5) = "06/23/99";
 
