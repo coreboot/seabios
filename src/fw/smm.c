@@ -17,20 +17,54 @@
 #include "util.h" // smm_setup
 #include "x86.h" // wbinvd
 
+#define SMM_REV_I32 0x00020000
+#define SMM_REV_I64 0x00020064
+
+struct smm_state {
+    union {
+        struct {
+            u8 pad_000[0xf8];
+            u32 smm_base;
+            u32 smm_rev;
+            u8 pad_100[0xd0];
+            u32 eax, ecx, edx, ebx, esp, ebp, esi, edi, eip, eflags;
+            u8 pad_1f8[0x08];
+        } i32;
+        struct {
+            u8 pad_000[0xfc];
+            u32 smm_rev;
+            u32 smm_base;
+            u8 pad_104[0x6c];
+            u64 rflags, rip, r15, r14, r13, r12, r11, r10, r9, r8;
+            u64 rdi, rsi, rbp, rsp, rbx, rdx, rcx, rax;
+        } i64;
+    };
+};
+
+struct smm_layout {
+    u8 stack[0x8000];
+    u64 codeentry;
+    u8 pad_8008[0x7df8];
+    struct smm_state cpu;
+};
+
 void VISIBLE32FLAT
 handle_smi(u16 cs)
 {
     u8 cmd = inb(PORT_SMI_CMD);
-    dprintf(DEBUG_HDL_smi, "handle_smi cmd=%x cs=%x\n", cmd, cs);
+    struct smm_layout *smm = MAKE_FLATPTR(cs, 0);
+    dprintf(DEBUG_HDL_smi, "handle_smi cmd=%x smbase=%p\n", cmd, smm);
 
-    void *smbase = MAKE_FLATPTR(cs, 0) + 0x8000;
-    if (smbase == (void*)BUILD_SMM_INIT_ADDR) {
+    if (smm == (void*)BUILD_SMM_INIT_ADDR) {
         // relocate SMBASE to 0xa0000
-        u8 *smrev = smbase + 0x7efc;
-        u32 *newbase = smbase + 0x7ef8;
-        if (*smrev == 0x64)
-            newbase = smbase + 0x7f00;
-        *newbase = BUILD_SMM_ADDR - 0x8000;
+        if (smm->cpu.i32.smm_rev == SMM_REV_I32) {
+            smm->cpu.i32.smm_base = BUILD_SMM_ADDR;
+        } else if (smm->cpu.i64.smm_rev == SMM_REV_I64) {
+            smm->cpu.i64.smm_base = BUILD_SMM_ADDR;
+        } else {
+            warn_internalerror();
+            return;
+        }
         // indicate to smm_relocate_and_restore() that the SMM code was executed
         outb(0x00, PORT_SMI_STATUS);
         return;
@@ -46,10 +80,13 @@ static void
 smm_save_and_copy(void)
 {
     // save original memory content
-    memcpy((void *)BUILD_SMM_ADDR, (void *)BUILD_SMM_INIT_ADDR, BUILD_SMM_SIZE);
+    struct smm_layout *initsmm = (void*)BUILD_SMM_INIT_ADDR;
+    struct smm_layout *smm = (void*)BUILD_SMM_ADDR;
+    memcpy(&smm->cpu, &initsmm->cpu, sizeof(smm->cpu));
+    memcpy(&smm->codeentry, &initsmm->codeentry, sizeof(smm->codeentry));
 
     // Setup code entry point.
-    *(u64*)BUILD_SMM_INIT_ADDR = SMI_INSN;
+    initsmm->codeentry = SMI_INSN;
 }
 
 static void
@@ -66,10 +103,13 @@ smm_relocate_and_restore(void)
         ;
 
     /* restore original memory content */
-    memcpy((void *)BUILD_SMM_INIT_ADDR, (void *)BUILD_SMM_ADDR, BUILD_SMM_SIZE);
+    struct smm_layout *initsmm = (void*)BUILD_SMM_INIT_ADDR;
+    struct smm_layout *smm = (void*)BUILD_SMM_ADDR;
+    memcpy(&initsmm->cpu, &smm->cpu, sizeof(initsmm->cpu));
+    memcpy(&initsmm->codeentry, &smm->codeentry, sizeof(initsmm->codeentry));
 
     // Setup code entry point.
-    *(u64*)BUILD_SMM_ADDR = SMI_INSN;
+    smm->codeentry = SMI_INSN;
     wbinvd();
 }
 

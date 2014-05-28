@@ -269,7 +269,7 @@ entry_smi:
         movl $1f + BUILD_BIOS_ADDR, %edx
         jmp transition32_for_smi
         .code32
-1:      movl $BUILD_SMM_ADDR, %esp
+1:      movl $BUILD_SMM_ADDR + 0x8000, %esp
         calll _cfunc32flat_handle_smi - BUILD_BIOS_ADDR
         rsm
         .code16gcc
