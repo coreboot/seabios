@@ -891,15 +891,15 @@ handle_1011(struct bregs *regs)
 {
     if (CONFIG_VGA_STDVGA_PORTS) {
         switch (regs->al) {
-        case 0x00: handle_101100(regs); break;
-        case 0x01: handle_101101(regs); break;
-        case 0x02: handle_101102(regs); break;
-        case 0x03: handle_101103(regs); break;
-        case 0x04: handle_101104(regs); break;
-        case 0x10: handle_101110(regs); break;
-        case 0x11: handle_101111(regs); break;
-        case 0x12: handle_101112(regs); break;
-        case 0x14: handle_101114(regs); break;
+        case 0x00: handle_101100(regs); return;
+        case 0x01: handle_101101(regs); return;
+        case 0x02: handle_101102(regs); return;
+        case 0x03: handle_101103(regs); return;
+        case 0x04: handle_101104(regs); return;
+        case 0x10: handle_101110(regs); return;
+        case 0x11: handle_101111(regs); return;
+        case 0x12: handle_101112(regs); return;
+        case 0x14: handle_101114(regs); return;
         }
     }
     switch (regs->al) {
