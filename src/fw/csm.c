@@ -46,7 +46,13 @@ extern void __csm_return(struct bregs *regs) __noreturn;
 static void
 csm_return(struct bregs *regs)
 {
+    u32 rommax = rom_get_max();
+    extern u8 final_readonly_start[];
+
     dprintf(3, "handle_csm returning AX=%04x\n", regs->ax);
+
+    csm_compat_table.UmaAddress = rommax;
+    csm_compat_table.UmaSize = (u32)final_readonly_start - rommax;
 
     PICMask = pic_irqmask_read();
     __csm_return(regs);
