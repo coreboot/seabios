@@ -21,7 +21,7 @@
 // %edx = return location (in 32bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
-        .code16gcc
+        .code16
 transition32_for_smi:
         movl %eax, %ecx
         jmp 1f
@@ -104,7 +104,7 @@ transition16big:
 
         ljmpw $SEG32_MODE16BIG_CS, $1f
 
-        .code16gcc
+        .code16
 1:
         // Disable protected mode
         movl %cr0, %eax
@@ -147,7 +147,7 @@ __call16big:
         jmp transition16big
 
         // Make call.
-        .code16gcc
+        .code16
 1:      movl $_zonelow_seg, %edx        // Adjust %ds, %ss, and %esp
         movl %edx, %ds
         movzwl StackSeg, %edx
@@ -179,7 +179,7 @@ __call16big:
 // Far call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs, %edx = segment of struct bregs
 // Clobbers: %e[bc]x, %e[ds]i, flags
-        .code16gcc
+        .code16
         DECLFUNC __farcall16
 __farcall16:
         // Save %edx/%eax, %ebp
@@ -272,7 +272,7 @@ entry_smi:
 1:      movl $BUILD_SMM_ADDR + 0x8000, %esp
         calll _cfunc32flat_handle_smi - BUILD_BIOS_ADDR
         rsm
-        .code16gcc
+        .code16
 
 // Entry point for QEMU smp sipi interrupts.
         DECLFUNC entry_smp
@@ -292,7 +292,7 @@ entry_smp:
         movl $0, SMPLock
 3:      hlt
         jmp 3b
-        .code16gcc
+        .code16
 
 // Resume (and reboot) entry point - called from entry_post
         DECLFUNC entry_resume
@@ -406,7 +406,7 @@ entry_pcibios32:
         popfl
         lretl
 
-        .code16gcc
+        .code16
         DECLFUNC entry_pcibios16
 entry_pcibios16:
         ENTRY_ARG handle_pcibios
@@ -455,7 +455,7 @@ entry_elf:
         movl $BUILD_STACK_ADDR, %esp
         ljmpl $SEG32_MODE32_CS, $_cfunc32flat_handle_post
 
-        .code16gcc
+        .code16
 
 // UEFI Compatibility Support Module (CSM) entry point
         EXPORTFUNC entry_csm
@@ -487,7 +487,7 @@ entry_csm:
 __csm_return:
         movl $1f, %edx
         jmp transition16big
-        .code16gcc
+        .code16
 
         // Switch back to original stack
 1:      movzwl BREGS_code+2(%eax), %edx
