@@ -61,13 +61,15 @@ COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
+COMMA := ,
 
 CFLAGS32FLAT := $(COMMONCFLAGS) -DMODE16=0 -DMODESEGMENT=0 -fomit-frame-pointer
 CFLAGSSEG := $(COMMONCFLAGS) -DMODESEGMENT=1 -fno-defer-pop \
     $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
     $(call cc-option,$(CC),-fno-tree-switch-conversion,)
 CFLAGS32SEG := $(CFLAGSSEG) -DMODE16=0 -fomit-frame-pointer
-CFLAGS16INC := $(CFLAGSSEG) -DMODE16=1 -Wa,src/code16gcc.s \
+CFLAGS16INC := $(CFLAGSSEG) -DMODE16=1 \
+    $(call cc-option,$(CC),-m16,-Wa$(COMMA)src/code16gcc.s) \
     $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
 CFLAGS16 := $(CFLAGS16INC) -fomit-frame-pointer
 
