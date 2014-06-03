@@ -15,7 +15,7 @@
  ****************************************************************/
 
         .section .rom.header
-        .code16gcc
+        .code16
         .global _rom_header, _rom_header_size, _rom_header_checksum
 _rom_header:
         .word 0xaa55
