@@ -112,8 +112,8 @@ endif
 # Do a whole file compile by textually including all C code.
 define whole-compile
 @echo "  Compiling whole program $3"
-$(Q)printf '$(foreach i,$2,#include "$(CURDIR)/$i"\n)' > $3.tmp.c
-$(Q)$(CC) $1 $(CFLAGSWHOLE) -c $3.tmp.c -o $3
+$(Q)printf '$(foreach i,$2,#include "$i"\n)' > $3.tmp.c
+$(Q)$(CC) -I. $1 $(CFLAGSWHOLE) -c $3.tmp.c -o $3
 endef
 
 %.strip.o: %.o
