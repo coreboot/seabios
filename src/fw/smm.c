@@ -51,6 +51,8 @@ struct smm_layout {
 void VISIBLE32FLAT
 handle_smi(u16 cs)
 {
+    if (!CONFIG_USE_SMM)
+        return;
     u8 cmd = inb(PORT_SMI_CMD);
     struct smm_layout *smm = MAKE_FLATPTR(cs, 0);
     dprintf(DEBUG_HDL_smi, "handle_smi cmd=%x smbase=%p\n", cmd, smm);

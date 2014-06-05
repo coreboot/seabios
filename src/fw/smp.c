@@ -49,6 +49,9 @@ int apic_id_is_present(u8 apic_id)
 void VISIBLE32FLAT
 handle_smp(void)
 {
+    if (!CONFIG_QEMU)
+        return;
+
     // Enable CPU caching
     setcr0(getcr0() & ~(CR0_CD|CR0_NW));
 
