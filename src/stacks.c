@@ -238,6 +238,16 @@ __call16_int(struct bregs *callregs, u16 offset)
     farcall16(callregs);
 }
 
+// Reset the machine
+void
+reset(void)
+{
+    extern void reset_vector(void) __noreturn;
+    if (!MODESEGMENT)
+        call16(0, 0, reset_vector);
+    reset_vector();
+}
+
 
 /****************************************************************
  * Threads

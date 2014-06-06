@@ -689,10 +689,7 @@ boot_fail(void)
         yield_toirq();
     }
     printf("Rebooting.\n");
-    struct bregs br;
-    memset(&br, 0, sizeof(br));
-    br.code = SEGOFF(SEG_BIOS, (u32)reset_vector);
-    farcall16big(&br);
+    reset();
 }
 
 // Determine next boot method and attempt a boot using it.

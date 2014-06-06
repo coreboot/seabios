@@ -217,9 +217,6 @@ void reloc_preinit(void *f, void *arg);
 // resume.c
 extern int HaveRunPost;
 
-// romlayout.S
-void reset_vector(void) __noreturn;
-
 // serial.c
 void serial_setup(void);
 void lpt_setup(void);

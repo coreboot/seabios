@@ -502,7 +502,7 @@ __process_key(u8 scancode)
                 == (KF0_CTRLACTIVE|KF0_ALTACTIVE))) {
             // Ctrl+alt+del - reset machine.
             SET_BDA(soft_reset_flag, 0x1234);
-            reset_vector();
+            reset();
         }
         if (scancode >= ARRAY_SIZE(scan_to_scanascii)) {
             dprintf(1, "KBD: int09h_handler(): unknown scancode read: 0x%02x!\n"

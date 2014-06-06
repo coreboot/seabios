@@ -17,6 +17,7 @@ inline void __call16_int(struct bregs *callregs, u16 offset);
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \
     } while (0)
+void reset(void);
 extern struct thread_info MainThread;
 struct thread_info *getCurThread(void);
 void yield(void);
