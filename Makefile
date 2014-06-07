@@ -57,7 +57,7 @@ COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
     -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
     -minline-all-stringops \
     -freg-struct-return -ffreestanding -fno-delete-null-pointer-checks \
-    -ffunction-sections -fdata-sections -fno-common
+    -ffunction-sections -fdata-sections -fno-common -fno-merge-constants
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)

@@ -175,10 +175,7 @@ def doLayout(sections, config, genreloc):
     # Determine 16bit positions
     li.sections16 = getSectionsCategory(sections, '16')
     textsections = getSectionsPrefix(li.sections16, '.text.')
-    rodatasections = (
-        getSectionsPrefix(li.sections16, '.rodata.str1.1')
-        + getSectionsPrefix(li.sections16, '.rodata.__func__.')
-        + getSectionsPrefix(li.sections16, '.rodata.__PRETTY_FUNCTION__.'))
+    rodatasections = getSectionsPrefix(li.sections16, '.rodata')
     datasections = getSectionsPrefix(li.sections16, '.data16.')
     fixedsections = getSectionsPrefix(li.sections16, '.fixedaddr.')
 
@@ -191,10 +188,7 @@ def doLayout(sections, config, genreloc):
     # Determine 32seg positions
     li.sections32seg = getSectionsCategory(sections, '32seg')
     textsections = getSectionsPrefix(li.sections32seg, '.text.')
-    rodatasections = (
-        getSectionsPrefix(li.sections32seg, '.rodata.str1.1')
-        + getSectionsPrefix(li.sections32seg, '.rodata.__func__.')
-        + getSectionsPrefix(li.sections32seg, '.rodata.__PRETTY_FUNCTION__.'))
+    rodatasections = getSectionsPrefix(li.sections32seg, '.rodata')
     datasections = getSectionsPrefix(li.sections32seg, '.data32seg.')
 
     li.sec32seg_start, li.sec32seg_align = setSectionsStart(
@@ -305,6 +299,16 @@ def outXRefs(sections, useseg=0, exportsyms=[], forcedelta=0):
         out += "%s = 0x%x ;\n" % (symbolname, loc + forcedelta + symbol.offset)
     return out
 
+# Write LD script includes for the given sections
+def outSections(sections, useseg=0):
+    out = ""
+    for section in sections:
+        loc = section.finalloc
+        if useseg:
+            loc = section.finalsegloc
+        out += "%s 0x%x : { *(%s) }\n" % (section.name, loc, section.name)
+    return out
+
 # Write LD script includes for the given sections using relative offsets
 def outRelSections(sections, startsym, useseg=0):
     sections = [(section.finalloc, section) for section in sections
@@ -316,9 +320,9 @@ def outRelSections(sections, startsym, useseg=0):
         if useseg:
             loc = section.finalsegloc
         out += ". = ( 0x%x - %s ) ;\n" % (loc, startsym)
-        if section.name == '.rodata.str1.1':
-            out += "_rodata = . ;\n"
-        out += "*(%s)\n" % (section.name,)
+        if section.name in ('.rodata.str1.1', '.rodata'):
+            out += "_rodata%s = . ;\n" % (section.fileid,)
+        out += "*%s.*(%s)\n" % (section.fileid, section.name)
     return out
 
 # Build linker script output for a list of relocations.
@@ -344,26 +348,17 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     zonelow_base = 0x%x ;
     _zonelow_seg = 0x%x ;
 
-    code16_start = 0x%x ;
-    .text16 code16_start : {
 %s
-    }
 """ % (li.zonelow_base,
        int(li.zonelow_base / 16),
-       li.sec16_start - BUILD_BIOS_ADDR,
-       outRelSections(li.sections16, 'code16_start', useseg=1))
+       outSections(li.sections16, useseg=1))
     outfile = open(out16, 'w')
     outfile.write(COMMONHEADER + out + COMMONTRAILER)
     outfile.close()
 
     # Write 32seg linker script
-    out = outXRefs(li.sections32seg, useseg=1) + """
-    code32seg_start = 0x%x ;
-    .text32seg code32seg_start : {
-%s
-    }
-""" % (li.sec32seg_start - BUILD_BIOS_ADDR,
-       outRelSections(li.sections32seg, 'code32seg_start', useseg=1))
+    out = (outXRefs(li.sections32seg, useseg=1)
+           + outSections(li.sections32seg, useseg=1))
     outfile = open(out32seg, 'w')
     outfile.write(COMMONHEADER + out + COMMONTRAILER)
     outfile.close()
@@ -406,11 +401,6 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
 %s
         code32init_end = ABSOLUTE(.) ;
 %s
-%s
-        . = ( 0x%x - code32flat_start ) ;
-        *(.text32seg)
-        . = ( 0x%x - code32flat_start ) ;
-        *(.text16)
         code32flat_end = ABSOLUTE(.) ;
     } :text
 """ % (li.sec32init_align,
@@ -423,10 +413,8 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        relocstr,
        outRelSections(li.sections32low, 'code32flat_start'),
        outRelSections(li.sections32init, 'code32flat_start'),
-       outRelSections(li.sections32flat, 'code32flat_start'),
-       outRelSections(li.sections32fseg, 'code32flat_start'),
-       li.sec32seg_start,
-       li.sec16_start)
+       outRelSections(li.sections32flat + li.sections32fseg
+                      + li.sections32seg + li.sections16, 'code32flat_start'))
     out = COMMONHEADER + out + COMMONTRAILER + """
 ENTRY(%s)
 PHDRS
