@@ -175,10 +175,7 @@ def doLayout(sections, config, genreloc):
     # Determine 16bit positions
     li.sections16 = getSectionsCategory(sections, '16')
     textsections = getSectionsPrefix(li.sections16, '.text.')
-    rodatasections = (
-        getSectionsPrefix(li.sections16, '.rodata.str1.1')
-        + getSectionsPrefix(li.sections16, '.rodata.__func__.')
-        + getSectionsPrefix(li.sections16, '.rodata.__PRETTY_FUNCTION__.'))
+    rodatasections = getSectionsPrefix(li.sections16, '.rodata')
     datasections = getSectionsPrefix(li.sections16, '.data16.')
     fixedsections = getSectionsPrefix(li.sections16, '.fixedaddr.')
 
@@ -191,10 +188,7 @@ def doLayout(sections, config, genreloc):
     # Determine 32seg positions
     li.sections32seg = getSectionsCategory(sections, '32seg')
     textsections = getSectionsPrefix(li.sections32seg, '.text.')
-    rodatasections = (
-        getSectionsPrefix(li.sections32seg, '.rodata.str1.1')
-        + getSectionsPrefix(li.sections32seg, '.rodata.__func__.')
-        + getSectionsPrefix(li.sections32seg, '.rodata.__PRETTY_FUNCTION__.'))
+    rodatasections = getSectionsPrefix(li.sections32seg, '.rodata')
     datasections = getSectionsPrefix(li.sections32seg, '.data32seg.')
 
     li.sec32seg_start, li.sec32seg_align = setSectionsStart(
