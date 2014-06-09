@@ -467,8 +467,7 @@ def findReachable(anchorsections, checkreloc, data):
 
 def checkRuntime(reloc, rsection, data, chain):
     section = reloc.symbol.section
-    if (section is None or not section.keep
-        or '.init.' in section.name or section.fileid != '32flat'):
+    if section is None or '.init.' in section.name or section.fileid != '32flat':
         return 0
     if '.data.varinit.' in section.name:
         print("ERROR: %s is VARVERIFY32INIT but used from %s" % (
@@ -517,32 +516,17 @@ def checkKeepSym(reloc, syms, fileid, isxref):
     return 1
 
 # Resolve a relocation and check if it should be kept in the final binary.
-def checkKeep(reloc, section, infos, chain):
-    ret = checkKeepSym(reloc, infos[section.fileid][1], section.fileid, 0)
+def checkKeep(reloc, section, symbols, chain):
+    ret = checkKeepSym(reloc, symbols[section.fileid], section.fileid, 0)
     if ret:
         return ret
     # Not in primary sections - it may be a cross 16/32 reference
     for fileid in ('16', '32seg', '32flat'):
         if fileid != section.fileid:
-            ret = checkKeepSym(reloc, infos[fileid][1], fileid, 1)
+            ret = checkKeepSym(reloc, symbols[fileid], fileid, 1)
             if ret:
                 return ret
     return 0
-
-# Determine which sections are actually referenced and need to be
-# placed into the output file.
-def gc(info16, info32seg, info32flat):
-    anchorsections = [section for section in info16[0]
-                      if (section.name.startswith('.fixedaddr.')
-                          or '.export.' in section.name)]
-    infos = {'16': info16, '32seg': info32seg, '32flat': info32flat}
-    keepsections = findReachable(anchorsections, checkKeep, infos)
-    sections = []
-    for section in info16[0] + info32seg[0] + info32flat[0]:
-        if section in keepsections:
-            section.keep = 1
-            sections.append(section)
-    return sections
 
 
 ######################################################################
@@ -551,7 +535,7 @@ def gc(info16, info32seg, info32flat):
 
 class Section:
     name = size = alignment = fileid = relocs = None
-    finalloc = finalsegloc = category = keep = None
+    finalloc = finalsegloc = category = None
 class Reloc:
     offset = type = symbolname = symbol = None
 class Symbol:
@@ -674,7 +658,13 @@ def main():
     config = scanconfig(cfgfile)
 
     # Figure out which sections to keep.
-    sections = gc(info16, info32seg, info32flat)
+    allsections = info16[0] + info32seg[0] + info32flat[0]
+    symbols = {'16': info16[1], '32seg': info32seg[1], '32flat': info32flat[1]}
+    anchorsections = [section for section in info16[0]
+                      if (section.name.startswith('.fixedaddr.')
+                          or '.export.' in section.name)]
+    keepsections = findReachable(anchorsections, checkKeep, symbols)
+    sections = [section for section in allsections if section in keepsections]
 
     # Separate 32bit flat into runtime and init parts
     findInit(sections)
@@ -686,15 +676,15 @@ def main():
         section.category = '32fseg'
 
     # Determine the final memory locations of each kept section.
-    genreloc = '_reloc_abs_start' in info32flat[1]
+    genreloc = '_reloc_abs_start' in symbols['32flat']
     li = doLayout(sections, config, genreloc)
 
     # Exported symbols
-    li.exportsyms = [symbol for symbol in info16[1].values()
+    li.exportsyms = [symbol for symbol in symbols['16'].values()
                      if (symbol.section is not None
                          and '.export.' in symbol.section.name
                          and symbol.name != symbol.section.name)]
-    li.varlowsyms = [symbol for symbol in info32flat[1].values()
+    li.varlowsyms = [symbol for symbol in symbols['32flat'].values()
                      if (symbol.section is not None
                          and symbol.section.finalloc is not None
                          and '.data.varlow.' in symbol.section.name
