@@ -449,29 +449,42 @@ PHDRS
 # Detection of init code
 ######################################################################
 
-def markRuntime(section, sections, chain=[]):
-    if (section is None or not section.keep or section.category is not None
+# Visit all sections reachable from a given set of start sections
+def findReachable(anchorsections, checkreloc, data):
+    anchorsections = dict([(section, []) for section in anchorsections])
+    pending = list(anchorsections)
+    while pending:
+        section = pending.pop()
+        for reloc in section.relocs:
+            chain = anchorsections[section] + [section.name]
+            if not checkreloc(reloc, section, data, chain):
+                continue
+            nextsection = reloc.symbol.section
+            if nextsection not in anchorsections:
+                anchorsections[nextsection] = chain
+                pending.append(nextsection)
+    return anchorsections
+
+def checkRuntime(reloc, rsection, data, chain):
+    section = reloc.symbol.section
+    if (section is None or not section.keep
         or '.init.' in section.name or section.fileid != '32flat'):
-        return
+        return 0
     if '.data.varinit.' in section.name:
         print("ERROR: %s is VARVERIFY32INIT but used from %s" % (
             section.name, chain))
         sys.exit(1)
-    section.category = '32flat'
-    # Recursively mark all sections this section points to
-    for reloc in section.relocs:
-        markRuntime(reloc.symbol.section, sections, chain + [section.name])
+    return 1
 
 def findInit(sections):
     # Recursively find and mark all "runtime" sections.
-    for section in sections:
+    anchorsections = [
+        section for section in sections
         if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
-            or '.runtime.' in section.name or '.export.' in section.name):
-            markRuntime(section, sections)
+            or '.runtime.' in section.name or '.export.' in section.name)]
+    runtimesections = findReachable(anchorsections, checkRuntime, None)
     for section in sections:
-        if section.category is not None:
-            continue
-        if section.fileid == '32flat':
+        if section.fileid == '32flat' and section not in runtimesections:
             section.category = '32init'
         else:
             section.category = section.fileid
@@ -481,65 +494,55 @@ def findInit(sections):
 # Section garbage collection
 ######################################################################
 
-CFUNCPREFIX = [('_cfunc16_', 0), ('_cfunc32seg_', 1), ('_cfunc32flat_', 2)]
-
 # Find and keep the section associated with a symbol (if available).
-def keepsymbol(reloc, infos, pos, isxref):
+def checkKeepSym(reloc, syms, fileid, isxref):
     symbolname = reloc.symbolname
-    mustbecfunc = 0
-    for symprefix, needpos in CFUNCPREFIX:
-        if symbolname.startswith(symprefix):
-            if needpos != pos:
-                return -1
-            symbolname = symbolname[len(symprefix):]
-            mustbecfunc = 1
-            break
-    symbol = infos[pos][1].get(symbolname)
+    mustbecfunc = symbolname.startswith('_cfunc')
+    if mustbecfunc:
+        symprefix = '_cfunc' + fileid + '_'
+        if not symbolname.startswith(symprefix):
+            return 0
+        symbolname = symbolname[len(symprefix):]
+    symbol = syms.get(symbolname)
     if (symbol is None or symbol.section is None
         or symbol.section.name.startswith('.discard.')):
-        return -1
+        return 0
     isdestcfunc = (symbol.section.name.startswith('.text.')
                    and not symbol.section.name.startswith('.text.asm.'))
     if ((mustbecfunc and not isdestcfunc)
         or (not mustbecfunc and isdestcfunc and isxref)):
-        return -1
+        return 0
 
     reloc.symbol = symbol
-    keepsection(symbol.section, infos, pos)
-    return 0
+    return 1
 
-# Note required section, and recursively set all referenced sections
-# as required.
-def keepsection(section, infos, pos=0):
-    if section.keep:
-        # Already kept - nothing to do.
-        return
-    section.keep = 1
-    # Keep all sections that this section points to
-    for reloc in section.relocs:
-        ret = keepsymbol(reloc, infos, pos, 0)
-        if not ret:
-            continue
-        # Not in primary sections - it may be a cross 16/32 reference
-        ret = keepsymbol(reloc, infos, (pos+1)%3, 1)
-        if not ret:
-            continue
-        ret = keepsymbol(reloc, infos, (pos+2)%3, 1)
-        if not ret:
-            continue
+# Resolve a relocation and check if it should be kept in the final binary.
+def checkKeep(reloc, section, infos, chain):
+    ret = checkKeepSym(reloc, infos[section.fileid][1], section.fileid, 0)
+    if ret:
+        return ret
+    # Not in primary sections - it may be a cross 16/32 reference
+    for fileid in ('16', '32seg', '32flat'):
+        if fileid != section.fileid:
+            ret = checkKeepSym(reloc, infos[fileid][1], fileid, 1)
+            if ret:
+                return ret
+    return 0
 
 # Determine which sections are actually referenced and need to be
 # placed into the output file.
 def gc(info16, info32seg, info32flat):
-    # infos = ((sections16, symbols16), (sect32seg, sym32seg)
-    #          , (sect32flat, sym32flat))
-    infos = (info16, info32seg, info32flat)
-    # Start by keeping sections that are globally visible.
-    for section in info16[0]:
-        if section.name.startswith('.fixedaddr.') or '.export.' in section.name:
-            keepsection(section, infos)
-    return [section for section in info16[0]+info32seg[0]+info32flat[0]
-            if section.keep]
+    anchorsections = [section for section in info16[0]
+                      if (section.name.startswith('.fixedaddr.')
+                          or '.export.' in section.name)]
+    infos = {'16': info16, '32seg': info32seg, '32flat': info32flat}
+    keepsections = findReachable(anchorsections, checkKeep, infos)
+    sections = []
+    for section in info16[0] + info32seg[0] + info32flat[0]:
+        if section in keepsections:
+            section.keep = 1
+            sections.append(section)
+    return sections
 
 
 ######################################################################
