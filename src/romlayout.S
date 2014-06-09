@@ -440,7 +440,7 @@ entry_bios32:
         lretl
 
 // 32bit elf entry point
-        EXPORTFUNC entry_elf
+        DECLFUNC entry_elf
 entry_elf:
         cli
         cld
@@ -458,7 +458,7 @@ entry_elf:
         .code16
 
 // UEFI Compatibility Support Module (CSM) entry point
-        EXPORTFUNC entry_csm
+        DECLFUNC entry_csm
 entry_csm:
         // Backup register state
         pushfw

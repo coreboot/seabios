@@ -166,7 +166,7 @@ class LayoutInfo:
     zonefseg_start = zonefseg_end = None
     final_readonly_start = None
     zonelow_base = final_sec32low_start = None
-    exportsyms = varlowsyms = None
+    varlowsyms = entrysym = None
 
 # Determine final memory addresses for sections
 def doLayout(sections, config, genreloc):
@@ -394,7 +394,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
         sec32all_start -= numrelocs * 4
     out = outXRefs(li.sections32low, exportsyms=li.varlowsyms
                    , forcedelta=li.final_sec32low_start-li.sec32low_start)
-    out += outXRefs(sections32all, exportsyms=li.exportsyms) + """
+    out += outXRefs(sections32all, exportsyms=[li.entrysym]) + """
     _reloc_min_align = 0x%x ;
     zonefseg_start = 0x%x ;
     zonefseg_end = 0x%x ;
@@ -434,12 +434,12 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        li.sec32seg_start,
        li.sec16_start)
     out = COMMONHEADER + out + COMMONTRAILER + """
-ENTRY(entry_elf)
+ENTRY(%s)
 PHDRS
 {
         text PT_LOAD AT ( code32flat_start ) ;
 }
-"""
+""" % (li.entrysym.name,)
     outfile = open(out32flat, 'w')
     outfile.write(out)
     outfile.close()
@@ -480,7 +480,7 @@ def findInit(sections):
     anchorsections = [
         section for section in sections
         if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
-            or '.runtime.' in section.name or '.export.' in section.name)]
+            or '.runtime.' in section.name)]
     runtimesections = findReachable(anchorsections, checkRuntime, None)
     for section in sections:
         if section.fileid == '32flat' and section not in runtimesections:
@@ -660,9 +660,15 @@ def main():
     # Figure out which sections to keep.
     allsections = info16[0] + info32seg[0] + info32flat[0]
     symbols = {'16': info16[1], '32seg': info32seg[1], '32flat': info32flat[1]}
-    anchorsections = [section for section in info16[0]
-                      if (section.name.startswith('.fixedaddr.')
-                          or '.export.' in section.name)]
+    if config.get('CONFIG_COREBOOT'):
+        entrysym = symbols['16'].get('entry_elf')
+    elif config.get('CONFIG_CSM'):
+        entrysym = symbols['16'].get('entry_csm')
+    else:
+        entrysym = symbols['16'].get('reset_vector')
+    anchorsections = [entrysym.section] + [
+        section for section in info16[0]
+        if section.name.startswith('.fixedaddr.')]
     keepsections = findReachable(anchorsections, checkKeep, symbols)
     sections = [section for section in allsections if section in keepsections]
 
@@ -680,15 +686,12 @@ def main():
     li = doLayout(sections, config, genreloc)
 
     # Exported symbols
-    li.exportsyms = [symbol for symbol in symbols['16'].values()
-                     if (symbol.section is not None
-                         and '.export.' in symbol.section.name
-                         and symbol.name != symbol.section.name)]
     li.varlowsyms = [symbol for symbol in symbols['32flat'].values()
                      if (symbol.section is not None
                          and symbol.section.finalloc is not None
                          and '.data.varlow.' in symbol.section.name
                          and symbol.name != symbol.section.name)]
+    li.entrysym = entrysym
 
     # Write out linker script files.
     writeLinkerScripts(li, out16, out32seg, out32flat)
