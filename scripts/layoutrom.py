@@ -343,11 +343,6 @@ def getRelocs(sections, type=None, category=None, notcategory=None):
                 out.append(section.finalloc + reloc.offset)
     return out
 
-# Return the start address and minimum alignment for a set of sections
-def getSectionsStart(sections, defaddr=0):
-    return min([section.finalloc for section in sections
-                if section.finalloc is not None] or [defaddr])
-
 # Output the linker scripts for all required sections.
 def writeLinkerScripts(li, out16, out32seg, out32flat):
     # Write 16bit linker script
