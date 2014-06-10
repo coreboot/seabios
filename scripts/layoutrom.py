@@ -149,6 +149,10 @@ def fitSections(sections, fillsections):
 def getSectionsCategory(sections, category):
     return [section for section in sections if section.category == category]
 
+# Return the subset of sections with a given fileid
+def getSectionsFileid(sections, fileid):
+    return [section for section in sections if section.fileid == fileid]
+
 # Return the subset of sections with a given name prefix
 def getSectionsPrefix(sections, prefix):
     return [section for section in sections
@@ -156,6 +160,7 @@ def getSectionsPrefix(sections, prefix):
 
 # The sections (and associated information) to be placed in output rom
 class LayoutInfo:
+    sections = None
     genreloc = None
     sections16 = sec16_start = sec16_align = None
     sections32seg = sec32seg_start = sec32seg_align = None
@@ -171,6 +176,7 @@ class LayoutInfo:
 # Determine final memory addresses for sections
 def doLayout(sections, config, genreloc):
     li = LayoutInfo()
+    li.sections = sections
     li.genreloc = genreloc
     # Determine 16bit positions
     li.sections16 = getSectionsCategory(sections, '16')
@@ -344,35 +350,36 @@ def getRelocs(sections, tosection, type=None):
 # Output the linker scripts for all required sections.
 def writeLinkerScripts(li, out16, out32seg, out32flat):
     # Write 16bit linker script
-    out = outXRefs(li.sections16, useseg=1) + """
+    filesections16 = getSectionsFileid(li.sections, '16')
+    out = outXRefs(filesections16, useseg=1) + """
     zonelow_base = 0x%x ;
     _zonelow_seg = 0x%x ;
 
 %s
 """ % (li.zonelow_base,
        int(li.zonelow_base / 16),
-       outSections(li.sections16, useseg=1))
+       outSections(filesections16, useseg=1))
     outfile = open(out16, 'w')
     outfile.write(COMMONHEADER + out + COMMONTRAILER)
     outfile.close()
 
     # Write 32seg linker script
-    out = (outXRefs(li.sections32seg, useseg=1)
-           + outSections(li.sections32seg, useseg=1))
+    filesections32seg = getSectionsFileid(li.sections, '32seg')
+    out = (outXRefs(filesections32seg, useseg=1)
+           + outSections(filesections32seg, useseg=1))
     outfile = open(out32seg, 'w')
     outfile.write(COMMONHEADER + out + COMMONTRAILER)
     outfile.close()
 
     # Write 32flat linker script
-    sections32all = (li.sections32flat + li.sections32init + li.sections32fseg)
     sec32all_start = li.sec32low_start
     relocstr = ""
     if li.genreloc:
         # Generate relocations
-        initsections = dict([(s, 1) for s in li.sections32init])
-        noninitsections = dict([(s, 1) for s in (
-            li.sections32flat + li.sections32low + li.sections16
-            + li.sections32seg + li.sections32fseg)])
+        initsections = dict([
+            (s, 1) for s in getSectionsCategory(li.sections, '32init')])
+        noninitsections = dict([(s, 1) for s in li.sections
+                                if s not in initsections])
         absrelocs = getRelocs(initsections, initsections, type='R_386_32')
         relrelocs = getRelocs(initsections, noninitsections, type='R_386_PC32')
         initrelocs = getRelocs(noninitsections, initsections)
@@ -381,25 +388,24 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
                     + strRelocs("_reloc_init", "code32flat_start", initrelocs))
         numrelocs = len(absrelocs + relrelocs + initrelocs)
         sec32all_start -= numrelocs * 4
-    out = outXRefs(li.sections32low, exportsyms=li.varlowsyms
+    filesections32flat = getSectionsFileid(li.sections, '32flat')
+    out = outXRefs([], exportsyms=li.varlowsyms
                    , forcedelta=li.final_sec32low_start-li.sec32low_start)
-    out += outXRefs(sections32all, exportsyms=[li.entrysym]) + """
+    out += outXRefs(filesections32flat, exportsyms=[li.entrysym]) + """
     _reloc_min_align = 0x%x ;
     zonefseg_start = 0x%x ;
     zonefseg_end = 0x%x ;
     zonelow_base = 0x%x ;
     final_varlow_start = 0x%x ;
     final_readonly_start = 0x%x ;
+    varlow_start = 0x%x ;
+    varlow_end = 0x%x ;
+    code32init_start = 0x%x ;
+    code32init_end = 0x%x ;
 
     code32flat_start = 0x%x ;
     .text code32flat_start : {
 %s
-        varlow_start = ABSOLUTE(.) ;
-%s
-        varlow_end = ABSOLUTE(.) ;
-        code32init_start = ABSOLUTE(.) ;
-%s
-        code32init_end = ABSOLUTE(.) ;
 %s
         code32flat_end = ABSOLUTE(.) ;
     } :text
@@ -409,12 +415,13 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        li.zonelow_base,
        li.final_sec32low_start,
        li.final_readonly_start,
+       li.sec32low_start,
+       li.sec32init_start,
+       li.sec32init_start,
+       li.sec32flat_start,
        sec32all_start,
        relocstr,
-       outRelSections(li.sections32low, 'code32flat_start'),
-       outRelSections(li.sections32init, 'code32flat_start'),
-       outRelSections(li.sections32flat + li.sections32fseg
-                      + li.sections32seg + li.sections16, 'code32flat_start'))
+       outRelSections(li.sections, 'code32flat_start'))
     out = COMMONHEADER + out + COMMONTRAILER + """
 ENTRY(%s)
 PHDRS
