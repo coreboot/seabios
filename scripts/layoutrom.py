@@ -446,7 +446,7 @@ PHDRS
 
 
 ######################################################################
-# Detection of init code
+# Detection of unused sections and init sections
 ######################################################################
 
 # Visit all sections reachable from a given set of start sections
@@ -465,33 +465,16 @@ def findReachable(anchorsections, checkreloc, data):
                 pending.append(nextsection)
     return anchorsections
 
+# Find "runtime" sections (ie, not init only sections).
 def checkRuntime(reloc, rsection, data, chain):
     section = reloc.symbol.section
-    if section is None or '.init.' in section.name or section.fileid != '32flat':
+    if section is None or '.init.' in section.name:
         return 0
     if '.data.varinit.' in section.name:
         print("ERROR: %s is VARVERIFY32INIT but used from %s" % (
             section.name, chain))
         sys.exit(1)
     return 1
-
-def findInit(sections):
-    # Recursively find and mark all "runtime" sections.
-    anchorsections = [
-        section for section in sections
-        if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
-            or '.runtime.' in section.name)]
-    runtimesections = findReachable(anchorsections, checkRuntime, None)
-    for section in sections:
-        if section.fileid == '32flat' and section not in runtimesections:
-            section.category = '32init'
-        else:
-            section.category = section.fileid
-
-
-######################################################################
-# Section garbage collection
-######################################################################
 
 # Find and keep the section associated with a symbol (if available).
 def checkKeepSym(reloc, syms, fileid, isxref):
@@ -672,14 +655,21 @@ def main():
     keepsections = findReachable(anchorsections, checkKeep, symbols)
     sections = [section for section in allsections if section in keepsections]
 
-    # Separate 32bit flat into runtime and init parts
-    findInit(sections)
-
-    # Note "low memory" and "fseg memory" parts
-    for section in getSectionsPrefix(sections, '.data.varlow.'):
-        section.category = '32low'
-    for section in getSectionsPrefix(sections, '.data.varfseg.'):
-        section.category = '32fseg'
+    # Separate 32bit flat into runtime, init, and special variable parts
+    anchorsections = [
+        section for section in sections
+        if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
+            or '.runtime.' in section.name)]
+    runtimesections = findReachable(anchorsections, checkRuntime, None)
+    for section in sections:
+        if section.name.startswith('.data.varlow.'):
+            section.category = '32low'
+        elif section.name.startswith('.data.varfseg.'):
+            section.category = '32fseg'
+        elif section.fileid == '32flat' and section not in runtimesections:
+            section.category = '32init'
+        else:
+            section.category = section.fileid
 
     # Determine the final memory locations of each kept section.
     genreloc = '_reloc_abs_start' in symbols['32flat']
