@@ -6,7 +6,7 @@
 # Read a preprocessed ASL listing and put each ACPI_EXTRACT
 # directive in a comment, to make iasl skip it.
 # We also put each directive on a new line, the machinery
-# in tools/acpi_extract.py requires this.
+# in scripts/acpi_extract.py requires this.
 
 import re
 import sys

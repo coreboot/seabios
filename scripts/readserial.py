@@ -6,7 +6,7 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
 # Usage:
-#   tools/readserial.py /dev/ttyUSB0 115200
+#   scripts/readserial.py /dev/ttyUSB0 115200
 
 import sys
 import time
