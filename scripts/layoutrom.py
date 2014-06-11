@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Script to analyze code and arrange ld sections.
 #
-# Copyright (C) 2008-2010  Kevin O'Connor <kevin@koconnor.net>
+# Copyright (C) 2008-2014  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
@@ -179,7 +179,7 @@ def doLayout(sections, config, genreloc):
     textsections = getSectionsPrefix(sections16, '.text.')
     rodatasections = getSectionsPrefix(sections16, '.rodata')
     datasections = getSectionsPrefix(sections16, '.data16.')
-    fixedsections = getSectionsPrefix(sections16, '.fixedaddr.')
+    fixedsections = getSectionsCategory(sections, 'fixed')
 
     firstfixed = fitSections(fixedsections, textsections)
     remsections = [s for s in textsections+rodatasections+datasections
@@ -643,7 +643,7 @@ def main():
     else:
         entrysym = symbols['16'].get('reset_vector')
     anchorsections = [entrysym.section] + [
-        section for section in info16[0]
+        section for section in allsections
         if section.name.startswith('.fixedaddr.')]
     keepsections = findReachable(anchorsections, checkKeep, symbols)
     sections = [section for section in allsections if section in keepsections]
@@ -652,13 +652,15 @@ def main():
     anchorsections = [
         section for section in sections
         if ('.data.varlow.' in section.name or '.data.varfseg.' in section.name
-            or '.runtime.' in section.name)]
+            or '.fixedaddr.' in section.name or '.runtime.' in section.name)]
     runtimesections = findReachable(anchorsections, checkRuntime, None)
     for section in sections:
         if section.name.startswith('.data.varlow.'):
             section.category = '32low'
         elif section.name.startswith('.data.varfseg.'):
             section.category = '32fseg'
+        elif section.name.startswith('.fixedaddr.'):
+            section.category = 'fixed'
         elif section.fileid == '32flat' and section not in runtimesections:
             section.category = '32init'
         else:

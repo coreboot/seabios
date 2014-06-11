@@ -117,7 +117,7 @@ handle_75(void)
 // INT 16/AH=09h (keyboard functionality) supported
 #define CBT_F2_INT1609  (1<<6)
 
-struct bios_config_table_s BIOS_CONFIG_TABLE VAR16FIXED(0xe6f5) = {
+struct bios_config_table_s BIOS_CONFIG_TABLE VARFSEGFIXED(0xe6f5) = {
     .size     = sizeof(BIOS_CONFIG_TABLE) - 2,
     .model    = BUILD_MODEL_ID,
     .submodel = BUILD_SUBMODEL_ID,
@@ -182,22 +182,22 @@ struct descloc_s rombios32_gdt_48 VARFSEG = {
  ****************************************************************/
 
 // BIOS build date
-char BiosDate[] VAR16FIXED(0xfff5) = "06/23/99";
+char BiosDate[] VARFSEGFIXED(0xfff5) = "06/23/99";
 
-u8 BiosModelId VAR16FIXED(0xfffe) = BUILD_MODEL_ID;
+u8 BiosModelId VARFSEGFIXED(0xfffe) = BUILD_MODEL_ID;
 
-u8 BiosChecksum VAR16FIXED(0xffff);
+u8 BiosChecksum VARFSEGFIXED(0xffff);
 
-struct floppy_dbt_s diskette_param_table VAR16FIXED(0xefc7);
+struct floppy_dbt_s diskette_param_table VARFSEGFIXED(0xefc7);
 
 // Old Fixed Disk Parameter Table (newer tables are in the ebda).
-struct fdpt_s OldFDPT VAR16FIXED(0xe401);
+struct fdpt_s OldFDPT VARFSEGFIXED(0xe401);
 
 // XXX - Baud Rate Generator Table
-u8 BaudTable[16] VAR16FIXED(0xe729);
+u8 BaudTable[16] VARFSEGFIXED(0xe729);
 
 // XXX - Initial Interrupt Vector Offsets Loaded by POST
-u8 InitVectors[13] VAR16FIXED(0xfef3);
+u8 InitVectors[13] VARFSEGFIXED(0xfef3);
 
 // XXX - INT 1D - SYSTEM DATA - VIDEO PARAMETER TABLES
-u8 VideoParams[88] VAR16FIXED(0xf0a4);
+u8 VideoParams[88] VARFSEGFIXED(0xf0a4);

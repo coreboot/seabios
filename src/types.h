@@ -62,14 +62,14 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32SEG
 // Designate a variable as (only) visible to 16bit code.
 # define VAR16 __section(".data16." UNIQSEC)
-// Designate a variable at a specific 16bit address
-# define VAR16FIXED(addr) __aligned(1) __VISIBLE __section(".fixedaddr." __stringify(addr))
 // Designate a variable as (only) visible to 32bit segmented code.
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 // Designate a variable as visible and located in the e-segment.
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 // Designate a variable as visible and located in the f-segment.
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
+// Designate a variable at a specific address in the f-segment.
+# define VARFSEGFIXED(addr) __section(".discard.varfixed." UNIQSEC) __VISIBLE __weak
 // Verify a variable is only accessable via 32bit "init" functions
 # define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 // Designate top-level assembler as 16bit only.
@@ -86,10 +86,10 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32INIT
 # define VISIBLE32SEG __VISIBLE
 # define VAR16 __section(".discard.var16." UNIQSEC)
-# define VAR16FIXED(addr) VAR16 __VISIBLE __weak
 # define VAR32SEG __section(".data32seg." UNIQSEC)
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
+# define VARFSEGFIXED(addr) __section(".discard.varfixed." UNIQSEC) __VISIBLE __weak
 # define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 # define ASM16(code)
 # define ASM32FLAT(code)
@@ -102,10 +102,10 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VISIBLE32INIT __section(".text.init." UNIQSEC) __VISIBLE
 # define VISIBLE32SEG
 # define VAR16 __section(".discard.var16." UNIQSEC)
-# define VAR16FIXED(addr) VAR16 __VISIBLE __weak
 # define VAR32SEG __section(".discard.var32seg." UNIQSEC)
 # define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
+# define VARFSEGFIXED(addr) __section(".fixedaddr." __stringify(addr)) __VISIBLE __aligned(1)
 # define VARVERIFY32INIT __section(".data.varinit." UNIQSEC)
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)
