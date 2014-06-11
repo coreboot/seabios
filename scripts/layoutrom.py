@@ -162,15 +162,11 @@ def getSectionsPrefix(sections, prefix):
 class LayoutInfo:
     sections = None
     genreloc = None
-    sections16 = sec16_start = sec16_align = None
-    sections32seg = sec32seg_start = sec32seg_align = None
-    sections32flat = sec32flat_start = sec32flat_align = None
-    sections32init = sec32init_start = sec32init_align = None
-    sections32low = sec32low_start = sec32low_align = None
-    sections32fseg = sec32fseg_start = sec32fseg_align = None
+    sec32init_start = sec32init_end = sec32init_align = None
+    sec32low_start = sec32low_end = None
+    zonelow_base = final_sec32low_start = None
     zonefseg_start = zonefseg_end = None
     final_readonly_start = None
-    zonelow_base = final_sec32low_start = None
     varlowsyms = entrysym = None
 
 # Determine final memory addresses for sections
@@ -179,101 +175,109 @@ def doLayout(sections, config, genreloc):
     li.sections = sections
     li.genreloc = genreloc
     # Determine 16bit positions
-    li.sections16 = getSectionsCategory(sections, '16')
-    textsections = getSectionsPrefix(li.sections16, '.text.')
-    rodatasections = getSectionsPrefix(li.sections16, '.rodata')
-    datasections = getSectionsPrefix(li.sections16, '.data16.')
-    fixedsections = getSectionsPrefix(li.sections16, '.fixedaddr.')
+    sections16 = getSectionsCategory(sections, '16')
+    textsections = getSectionsPrefix(sections16, '.text.')
+    rodatasections = getSectionsPrefix(sections16, '.rodata')
+    datasections = getSectionsPrefix(sections16, '.data16.')
+    fixedsections = getSectionsPrefix(sections16, '.fixedaddr.')
 
     firstfixed = fitSections(fixedsections, textsections)
     remsections = [s for s in textsections+rodatasections+datasections
                    if s.finalloc is None]
-    li.sec16_start, li.sec16_align = setSectionsStart(
+    sec16_start, sec16_align = setSectionsStart(
         remsections, firstfixed, segoffset=BUILD_BIOS_ADDR)
 
     # Determine 32seg positions
-    li.sections32seg = getSectionsCategory(sections, '32seg')
-    textsections = getSectionsPrefix(li.sections32seg, '.text.')
-    rodatasections = getSectionsPrefix(li.sections32seg, '.rodata')
-    datasections = getSectionsPrefix(li.sections32seg, '.data32seg.')
+    sections32seg = getSectionsCategory(sections, '32seg')
+    textsections = getSectionsPrefix(sections32seg, '.text.')
+    rodatasections = getSectionsPrefix(sections32seg, '.rodata')
+    datasections = getSectionsPrefix(sections32seg, '.data32seg.')
 
-    li.sec32seg_start, li.sec32seg_align = setSectionsStart(
-        textsections + rodatasections + datasections, li.sec16_start
+    sec32seg_start, sec32seg_align = setSectionsStart(
+        textsections + rodatasections + datasections, sec16_start
         , segoffset=BUILD_BIOS_ADDR)
 
     # Determine "fseg memory" data positions
-    li.sections32fseg = getSectionsCategory(sections, '32fseg')
+    sections32fseg = getSectionsCategory(sections, '32fseg')
 
-    li.sec32fseg_start, li.sec32fseg_align = setSectionsStart(
-        li.sections32fseg, li.sec32seg_start, 16
+    sec32fseg_start, sec32fseg_align = setSectionsStart(
+        sections32fseg, sec32seg_start, 16
         , segoffset=BUILD_BIOS_ADDR)
 
     # Determine 32flat runtime positions
-    li.sections32flat = getSectionsCategory(sections, '32flat')
-    textsections = getSectionsPrefix(li.sections32flat, '.text.')
-    rodatasections = getSectionsPrefix(li.sections32flat, '.rodata')
-    datasections = getSectionsPrefix(li.sections32flat, '.data.')
-    bsssections = getSectionsPrefix(li.sections32flat, '.bss.')
+    sections32flat = getSectionsCategory(sections, '32flat')
+    textsections = getSectionsPrefix(sections32flat, '.text.')
+    rodatasections = getSectionsPrefix(sections32flat, '.rodata')
+    datasections = getSectionsPrefix(sections32flat, '.data.')
+    bsssections = getSectionsPrefix(sections32flat, '.bss.')
 
-    li.sec32flat_start, li.sec32flat_align = setSectionsStart(
+    sec32flat_start, sec32flat_align = setSectionsStart(
         textsections + rodatasections + datasections + bsssections
-        , li.sec32fseg_start, 16)
+        , sec32fseg_start, 16)
 
     # Determine 32flat init positions
-    li.sections32init = getSectionsCategory(sections, '32init')
-    init32_textsections = getSectionsPrefix(li.sections32init, '.text.')
-    init32_rodatasections = getSectionsPrefix(li.sections32init, '.rodata')
-    init32_datasections = getSectionsPrefix(li.sections32init, '.data.')
-    init32_bsssections = getSectionsPrefix(li.sections32init, '.bss.')
+    sections32init = getSectionsCategory(sections, '32init')
+    init32_textsections = getSectionsPrefix(sections32init, '.text.')
+    init32_rodatasections = getSectionsPrefix(sections32init, '.rodata')
+    init32_datasections = getSectionsPrefix(sections32init, '.data.')
+    init32_bsssections = getSectionsPrefix(sections32init, '.bss.')
 
-    li.sec32init_start, li.sec32init_align = setSectionsStart(
+    sec32init_start, sec32init_align = setSectionsStart(
         init32_textsections + init32_rodatasections
         + init32_datasections + init32_bsssections
-        , li.sec32flat_start, 16)
+        , sec32flat_start, 16)
 
     # Determine location of ZoneFSeg memory.
-    li.zonefseg_end = li.sec32flat_start
+    zonefseg_end = sec32flat_start
     if not genreloc:
-        li.zonefseg_end = li.sec32init_start
-    li.zonefseg_start = BUILD_BIOS_ADDR
-    if li.zonefseg_start + BUILD_MIN_BIOSTABLE > li.zonefseg_end:
+        zonefseg_end = sec32init_start
+    zonefseg_start = BUILD_BIOS_ADDR
+    if zonefseg_start + BUILD_MIN_BIOSTABLE > zonefseg_end:
         # Not enough ZoneFSeg space - force a minimum space.
-        li.zonefseg_end = li.sec32fseg_start
-        li.zonefseg_start = li.zonefseg_end - BUILD_MIN_BIOSTABLE
-        li.sec32flat_start, li.sec32flat_align = setSectionsStart(
+        zonefseg_end = sec32fseg_start
+        zonefseg_start = zonefseg_end - BUILD_MIN_BIOSTABLE
+        sec32flat_start, sec32flat_align = setSectionsStart(
             textsections + rodatasections + datasections + bsssections
-            , li.zonefseg_start, 16)
-        li.sec32init_start, li.sec32init_align = setSectionsStart(
+            , zonefseg_start, 16)
+        sec32init_start, sec32init_align = setSectionsStart(
             init32_textsections + init32_rodatasections
             + init32_datasections + init32_bsssections
-            , li.sec32flat_start, 16)
-    li.final_readonly_start = min(BUILD_BIOS_ADDR, li.sec32flat_start)
+            , sec32flat_start, 16)
+    li.sec32init_start = sec32init_start
+    li.sec32init_end = sec32flat_start
+    li.sec32init_align = sec32init_align
+    final_readonly_start = min(BUILD_BIOS_ADDR, sec32flat_start)
     if not genreloc:
-        li.final_readonly_start = min(BUILD_BIOS_ADDR, li.sec32init_start)
+        final_readonly_start = min(BUILD_BIOS_ADDR, sec32init_start)
+    li.zonefseg_start = zonefseg_start
+    li.zonefseg_end = zonefseg_end
+    li.final_readonly_start = final_readonly_start
 
     # Determine "low memory" data positions
-    li.sections32low = getSectionsCategory(sections, '32low')
-    sec32low_end = li.sec32init_start
+    sections32low = getSectionsCategory(sections, '32low')
+    sec32low_end = sec32init_start
     if config.get('CONFIG_MALLOC_UPPERMEMORY'):
-        final_sec32low_end = li.final_readonly_start
+        final_sec32low_end = final_readonly_start
         zonelow_base = final_sec32low_end - 64*1024
-        li.zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
+        zonelow_base = max(BUILD_ROM_START, alignpos(zonelow_base, 2*1024))
     else:
         final_sec32low_end = BUILD_LOWRAM_END
-        li.zonelow_base = final_sec32low_end - 64*1024
+        zonelow_base = final_sec32low_end - 64*1024
     relocdelta = final_sec32low_end - sec32low_end
     li.sec32low_start, li.sec32low_align = setSectionsStart(
-        li.sections32low, sec32low_end, 16
-        , segoffset=li.zonelow_base - relocdelta)
+        sections32low, sec32low_end, 16
+        , segoffset=zonelow_base - relocdelta)
+    li.sec32low_end = sec32low_end
+    li.zonelow_base = zonelow_base
     li.final_sec32low_start = li.sec32low_start + relocdelta
 
     # Print statistics
-    size16 = BUILD_BIOS_ADDR + BUILD_BIOS_SIZE - li.sec16_start
-    size32seg = li.sec16_start - li.sec32seg_start
-    size32fseg = li.sec32seg_start - li.sec32fseg_start
-    size32flat = li.sec32fseg_start - li.sec32flat_start
-    size32init = li.sec32flat_start - li.sec32init_start
-    sizelow = sec32low_end - li.sec32low_start
+    size16 = BUILD_BIOS_ADDR + BUILD_BIOS_SIZE - sec16_start
+    size32seg = sec16_start - sec32seg_start
+    size32fseg = sec32seg_start - sec32fseg_start
+    size32flat = sec32fseg_start - sec32flat_start
+    size32init = sec32flat_start - sec32init_start
+    sizelow = li.sec32low_end - li.sec32low_start
     print("16bit size:           %d" % size16)
     print("32bit segmented size: %d" % size32seg)
     print("32bit flat size:      %d" % size32flat)
@@ -416,9 +420,9 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        li.final_sec32low_start,
        li.final_readonly_start,
        li.sec32low_start,
+       li.sec32low_end,
        li.sec32init_start,
-       li.sec32init_start,
-       li.sec32flat_start,
+       li.sec32init_end,
        sec32all_start,
        relocstr,
        outRelSections(li.sections, 'code32flat_start'))
