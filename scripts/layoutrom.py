@@ -329,19 +329,13 @@ def strRelocs(outname, outrel, relocs):
                        for pos in relocs])
             + "        %s_end = ABSOLUTE(.) ;\n" % (outname,))
 
-# Find all relocations in the given sections with the given attributes
-def getRelocs(sections, type=None, category=None, notcategory=None):
-    out = []
-    for section in sections:
-        for reloc in section.relocs:
-            if reloc.symbol.section is None:
-                continue
-            destcategory = reloc.symbol.section.category
-            if ((type is None or reloc.type == type)
-                and (category is None or destcategory == category)
-                and (notcategory is None or destcategory != notcategory)):
-                out.append(section.finalloc + reloc.offset)
-    return out
+# Find relocations to the given sections
+def getRelocs(sections, tosection, type=None):
+    return [section.finalloc + reloc.offset
+            for section in sections
+                for reloc in section.relocs
+                    if (reloc.symbol.section in tosection
+                        and (type is None or reloc.type == type))]
 
 # Output the linker scripts for all required sections.
 def writeLinkerScripts(li, out16, out32seg, out32flat):
@@ -380,13 +374,13 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     relocstr = ""
     if li.genreloc:
         # Generate relocations
-        absrelocs = getRelocs(
-            li.sections32init, type='R_386_32', category='32init')
-        relrelocs = getRelocs(
-            li.sections32init, type='R_386_PC32', notcategory='32init')
-        initrelocs = getRelocs(
+        initsections = dict([(s, 1) for s in li.sections32init])
+        noninitsections = dict([(s, 1) for s in (
             li.sections32flat + li.sections32low + li.sections16
-            + li.sections32seg + li.sections32fseg, category='32init')
+            + li.sections32seg + li.sections32fseg)])
+        absrelocs = getRelocs(initsections, initsections, type='R_386_32')
+        relrelocs = getRelocs(initsections, noninitsections, type='R_386_PC32')
+        initrelocs = getRelocs(noninitsections, initsections)
         relocstr = (strRelocs("_reloc_abs", "code32init_start", absrelocs)
                     + strRelocs("_reloc_rel", "code32init_start", relrelocs)
                     + strRelocs("_reloc_init", "code32flat_start", initrelocs))
