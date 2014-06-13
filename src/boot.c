@@ -670,6 +670,12 @@ interactive_bootmenu(void)
     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
         return;
 
+    // skip menu if only one boot device and no TPM
+    if ((NULL == BootList.first->next) && !tpm_can_show_menu()) {
+       printf("\n");
+       return;
+    }
+
     while (get_keystroke(0) >= 0)
         ;
 
