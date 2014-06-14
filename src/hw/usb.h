@@ -84,6 +84,10 @@ struct usbhub_op_s {
 #define USB_TIME_DRSTR  50
 #define USB_TIME_RSTRCY 10
 
+#define USB_TIME_STATUS  50
+#define USB_TIME_DATAIN  500
+#define USB_TIME_COMMAND 5000
+
 #define USB_TIME_SETADDR_RECOVERY 2
 
 #define USB_PID_OUT                     0xe1
@@ -237,6 +241,7 @@ void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
                    , struct usb_endpoint_descriptor *epdesc);
 int usb_getFrameExp(struct usbdevice_s *usbdev
                     , struct usb_endpoint_descriptor *epdesc);
+int usb_xfer_time(struct usb_pipe *pipe, int datalen);
 struct usb_endpoint_descriptor *findEndPointDesc(struct usbdevice_s *usbdev
                                                  , int type, int dir);
 void usb_enumerate(struct usbhub_s *hub);

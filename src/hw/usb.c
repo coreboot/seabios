@@ -187,6 +187,19 @@ usb_getFrameExp(struct usbdevice_s *usbdev
     return (period <= 4) ? 0 : period - 4;
 }
 
+// Maximum time (in ms) a data transfer should take
+int
+usb_xfer_time(struct usb_pipe *pipe, int datalen)
+{
+    // Use the maximum command time (5 seconds), except for
+    // set_address commands where we don't want to stall the boot if
+    // the device doesn't actually exist.  Add 100ms to account for
+    // any controller delays.
+    if (!pipe->devaddr)
+        return USB_TIME_STATUS + 100;
+    return USB_TIME_COMMAND + 100;
+}
+
 // Find the first endpoing of a given type in an interface description.
 struct usb_endpoint_descriptor *
 findEndPointDesc(struct usbdevice_s *usbdev, int type, int dir)

@@ -1042,7 +1042,7 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         xhci_xfer_data(pipe, dir, data, datalen);
     xhci_xfer_status(pipe, dir, datalen);
 
-    int cc = xhci_event_wait(xhci, &pipe->reqs, 1000);
+    int cc = xhci_event_wait(xhci, &pipe->reqs, usb_xfer_time(p, datalen));
     if (cc != CC_SUCCESS) {
         dprintf(1, "%s: control xfer failed (cc %d)\n", __func__, cc);
         return -1;
@@ -1062,7 +1062,7 @@ xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datalen)
         GET_LOWFLAT(pipe->pipe.cntl), struct usb_xhci_s, usb);
 
     xhci_xfer_normal(pipe, data, datalen);
-    int cc = xhci_event_wait(xhci, &pipe->reqs, 1000);
+    int cc = xhci_event_wait(xhci, &pipe->reqs, usb_xfer_time(p, datalen));
     if (cc != CC_SUCCESS) {
         dprintf(1, "%s: bulk xfer failed (cc %d)\n", __func__, cc);
         return -1;
