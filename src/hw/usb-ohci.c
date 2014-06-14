@@ -434,10 +434,9 @@ ohci_alloc_pipe(struct usbdevice_s *usbdev
 }
 
 static int
-wait_ed(struct ohci_ed *ed)
+wait_ed(struct ohci_ed *ed, int timeout)
 {
-    // XXX - 500ms just a guess
-    u32 end = timer_calc(500);
+    u32 end = timer_calc(timeout);
     for (;;) {
         if (ed->hwHeadP == ed->hwTailP)
             return 0;
@@ -497,7 +496,7 @@ ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     pipe->ed.hwINFO &= ~ED_SKIP;
     writel(&cntl->regs->cmdstatus, OHCI_CLF);
 
-    int ret = wait_ed(&pipe->ed);
+    int ret = wait_ed(&pipe->ed, usb_xfer_time(p, datasize));
     pipe->ed.hwINFO |= ED_SKIP;
     if (ret)
         ohci_waittick(cntl);
