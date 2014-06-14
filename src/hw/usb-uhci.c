@@ -398,9 +398,8 @@ uhci_alloc_pipe(struct usbdevice_s *usbdev
 }
 
 static int
-wait_pipe(struct uhci_pipe *pipe, int timeout)
+wait_pipe(struct uhci_pipe *pipe, u32 end)
 {
-    u32 end = timer_calc(timeout);
     for (;;) {
         u32 el_link = GET_LOWFLAT(pipe->qh.element);
         if (el_link & UHCI_PTR_TERM)
@@ -422,9 +421,8 @@ wait_pipe(struct uhci_pipe *pipe, int timeout)
 }
 
 static int
-wait_td(struct uhci_td *td)
+wait_td(struct uhci_td *td, u32 end)
 {
-    u32 end = timer_calc(5000); // XXX - lookup real time.
     u32 status;
     for (;;) {
         status = td->status;
@@ -495,7 +493,7 @@ uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     // Transfer data
     barrier();
     pipe->qh.element = (u32)&tds[0];
-    int ret = wait_pipe(pipe, 500);
+    int ret = wait_pipe(pipe, timer_calc(usb_xfer_time(p, datasize)));
     free(tds);
     return ret;
 }
@@ -523,13 +521,14 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     memset(tds, 0, sizeof(*tds) * STACKTDS);
 
     // Enable tds
+    u32 end = timer_calc(usb_xfer_time(p, datasize));
     barrier();
     SET_LOWFLAT(pipe->qh.element, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
 
     int tdpos = 0;
     while (datasize) {
         struct uhci_td *td = &tds[tdpos++ % STACKTDS];
-        int ret = wait_td(td);
+        int ret = wait_td(td, end);
         if (ret)
             goto fail;
 
@@ -552,7 +551,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
         datasize -= transfer;
     }
     SET_LOWFLAT(pipe->toggle, !!toggle);
-    return wait_pipe(pipe, 5000);
+    return wait_pipe(pipe, end);
 fail:
     dprintf(1, "uhci_send_bulk failed\n");
     SET_LOWFLAT(pipe->qh.element, UHCI_PTR_TERM);
