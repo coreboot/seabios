@@ -503,9 +503,8 @@ ehci_reset_pipe(struct ehci_pipe *pipe)
 }
 
 static int
-ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, int timeout)
+ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, u32 end)
 {
-    u32 end = timer_calc(timeout);
     u32 status;
     for (;;) {
         status = td->token;
@@ -604,12 +603,13 @@ ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                  | (dir ? QTD_PID_OUT : QTD_PID_IN) | ehci_maxerr(3));
 
     // Transfer data
+    u32 end = timer_calc(usb_xfer_time(p, datasize));
     barrier();
     pipe->qh.qtd_next = (u32)tds;
     int i, ret=0;
     for (i=0; i<3; i++) {
         struct ehci_qtd *td = &tds[i];
-        ret = ehci_wait_td(pipe, td, 500);
+        ret = ehci_wait_td(pipe, td, end);
         if (ret)
             break;
     }
@@ -629,6 +629,7 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
             , &pipe->qh, dir, data, datasize);
 
     // Allocate 4 tds on stack (with required alignment)
+    u32 end = timer_calc(usb_xfer_time(p, datasize));
     u8 tdsbuf[sizeof(struct ehci_qtd) * STACKQTDS + EHCI_QTD_ALIGN - 1];
     struct ehci_qtd *tds = (void*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN);
     memset(tds, 0, sizeof(*tds) * STACKQTDS);
@@ -639,7 +640,7 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     int tdpos = 0;
     while (datasize) {
         struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];
-        int ret = ehci_wait_td(pipe, td, 5000);
+        int ret = ehci_wait_td(pipe, td, end);
         if (ret)
             return -1;
 
@@ -659,7 +660,7 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     int i;
     for (i=0; i<STACKQTDS; i++) {
         struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];
-        int ret = ehci_wait_td(pipe, td, 5000);
+        int ret = ehci_wait_td(pipe, td, end);
         if (ret)
             return -1;
     }
