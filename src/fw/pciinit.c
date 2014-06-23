@@ -636,6 +636,36 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     return entry;
 }
 
+static int pci_bus_hotplug_support(struct pci_bus *bus)
+{
+    u8 pcie_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_EXP);
+    u8 shpc_cap;
+
+    if (pcie_cap) {
+        u16 pcie_flags = pci_config_readw(bus->bus_dev->bdf,
+                                          pcie_cap + PCI_EXP_FLAGS);
+        u8 port_type = ((pcie_flags & PCI_EXP_FLAGS_TYPE) >>
+                       (__builtin_ffs(PCI_EXP_FLAGS_TYPE) - 1));
+        u8 downstream_port = (port_type == PCI_EXP_TYPE_DOWNSTREAM) ||
+                             (port_type == PCI_EXP_TYPE_ROOT_PORT);
+        /*
+         * PCI Express SPEC, 7.8.2:
+         *   Slot Implemented – When Set, this bit indicates that the Link
+         *   HwInit associated with this Port is connected to a slot (as
+         *   compared to being connected to a system-integrated device or
+         *   being disabled).
+         *   This bit is valid for Downstream Ports. This bit is undefined
+         *   for Upstream Ports.
+         */
+        u16 slot_implemented = pcie_flags & PCI_EXP_FLAGS_SLOT;
+
+        return downstream_port && slot_implemented;
+    }
+
+    shpc_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_SHPC);
+    return !!shpc_cap;
+}
+
 static int pci_bios_check_devices(struct pci_bus *busses)
 {
     dprintf(1, "PCI: check devices\n");
@@ -678,7 +708,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             continue;
         struct pci_bus *parent = &busses[pci_bdf_to_bus(s->bus_dev->bdf)];
         int type;
-        u8 shpc_cap = pci_find_capability(s->bus_dev, PCI_CAP_ID_SHPC);
+        int hotplug_support = pci_bus_hotplug_support(s);
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u64 align = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
@@ -687,7 +717,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             if (pci_region_align(&s->r[type]) > align)
                  align = pci_region_align(&s->r[type]);
             u64 sum = pci_region_sum(&s->r[type]);
-            if (!sum && shpc_cap)
+            if (!sum && hotplug_support)
                 sum = align; /* reserve min size for hot-plug */
             u64 size = ALIGN(sum, align);
             int is64 = pci_bios_bridge_region_is64(&s->r[type],
