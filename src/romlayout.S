@@ -282,7 +282,7 @@ entry_smp:
         jmp transition32
         .code32
         // Acquire lock and take ownership of shared stack
-1:      rep nop
+1:      rep ; nop
 2:      lock btsl $0, SMPLock
         jc 1b
         movl SMPStack, %esp
