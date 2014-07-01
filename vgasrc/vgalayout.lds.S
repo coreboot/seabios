@@ -13,8 +13,7 @@ SECTIONS
                 KEEP(*(.rom.header))
                 *(.text.*)
                 _rodata = . ;
-                *(.rodata.__func__.*)
-                *(.rodata.str1.1)
+                *(.rodata*)
                 *(.data16.*)
                 }
 
