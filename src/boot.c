@@ -145,7 +145,7 @@ int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun)
     // Find scsi drive - for example: /pci@i0cf8/scsi@5/channel@0/disk@1,0
     char desc[256], *p;
     p = build_pci_path(desc, sizeof(desc), "*", pci);
-    snprintf(p, desc+sizeof(desc)-p, "/*@0/*@%d,%d", target, lun);
+    snprintf(p, desc+sizeof(desc)-p, "/*@0/*@%x,%x", target, lun);
     return find_prio(desc);
 }
 
@@ -224,7 +224,7 @@ int bootprio_find_usb(struct usbdevice_s *usbdev, int lun)
     char desc[256], *p;
     p = build_pci_path(desc, sizeof(desc), "usb", usbdev->hub->cntl->pci);
     p = build_usb_path(p, desc+sizeof(desc)-p, usbdev->hub);
-    snprintf(p, desc+sizeof(desc)-p, "/storage@%x/*@0/*@0,%d"
+    snprintf(p, desc+sizeof(desc)-p, "/storage@%x/*@0/*@0,%x"
              , usbdev->port+1, lun);
     int ret = find_prio(desc);
     if (ret >= 0)
