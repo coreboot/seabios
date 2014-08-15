@@ -189,7 +189,7 @@ int bootprio_find_pci_rom(struct pci_device *pci, int instance)
     char desc[256], *p;
     p = build_pci_path(desc, sizeof(desc), "*", pci);
     if (instance)
-        snprintf(p, desc+sizeof(desc)-p, ":rom%d", instance);
+        snprintf(p, desc+sizeof(desc)-p, ":rom%x", instance);
     return find_prio(desc);
 }
 
@@ -201,7 +201,7 @@ int bootprio_find_named_rom(const char *name, int instance)
     char desc[256], *p;
     p = desc + snprintf(desc, sizeof(desc), "/rom@%s", name);
     if (instance)
-        snprintf(p, desc+sizeof(desc)-p, ":rom%d", instance);
+        snprintf(p, desc+sizeof(desc)-p, ":rom%x", instance);
     return find_prio(desc);
 }
 
