@@ -59,9 +59,11 @@ static void piix4_fadt_setup(struct pci_device *pci, void *arg)
     fadt->gpe0_blk_len = PIIX_GPE0_BLK_LEN;
     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
-    /* WBINVD + PROC_C1 + SLP_BUTTON + RTC_S4 + USE_PLATFORM_CLOCK */
-    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 7) |
-                              (1 << 15));
+    fadt->flags = cpu_to_le32(ACPI_FADT_F_WBINVD |
+                              ACPI_FADT_F_PROC_C1 |
+                              ACPI_FADT_F_SLP_BUTTON |
+                              ACPI_FADT_F_RTC_S4 |
+                              ACPI_FADT_F_USE_PLATFORM_CLOCK);
 }
 
 /* PCI_VENDOR_ID_INTEL && PCI_DEVICE_ID_INTEL_ICH9_LPC */
@@ -85,9 +87,11 @@ static void ich9_lpc_fadt_setup(struct pci_device *dev, void *arg)
     fadt->gpe0_blk_len = ICH9_PMIO_GPE0_BLK_LEN;
     fadt->plvl2_lat = cpu_to_le16(0xfff); // C2 state not supported
     fadt->plvl3_lat = cpu_to_le16(0xfff); // C3 state not supported
-    /* WBINVD + PROC_C1 + SLP_BUTTON + RTC_S4 + USE_PLATFORM_CLOCK */
-    fadt->flags = cpu_to_le32((1 << 0) | (1 << 2) | (1 << 5) | (1 << 7) |
-                              (1 << 15));
+    fadt->flags = cpu_to_le32(ACPI_FADT_F_WBINVD |
+                              ACPI_FADT_F_PROC_C1 |
+                              ACPI_FADT_F_SLP_BUTTON |
+                              ACPI_FADT_F_RTC_S4 |
+                              ACPI_FADT_F_USE_PLATFORM_CLOCK);
 }
 
 static const struct pci_device_id fadt_init_tbl[] = {
