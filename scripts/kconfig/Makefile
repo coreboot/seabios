@@ -34,11 +34,11 @@ oldconfig: $(obj)/conf
 
 silentoldconfig: $(obj)/conf
 	@echo "  Build Kconfig config file"
-	$(Q)mkdir -p include/generated
+	$(Q)mkdir -p include/config include/generated
 	$(Q)$< --$@ $(Kconfig)
 
 localyesconfig localmodconfig: $(obj)/streamline_config.pl $(obj)/conf
-	$(Q)mkdir -p include/generated
+	$(Q)mkdir -p include/config include/generated
 	$(Q)perl $< --$@ $(srctree) $(Kconfig) > .tmp.config
 	$(Q)if [ -f .config ]; then 					\
 			cmp -s .tmp.config .config ||			\
