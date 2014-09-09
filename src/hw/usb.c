@@ -195,7 +195,7 @@ usb_xfer_time(struct usb_pipe *pipe, int datalen)
     // set_address commands where we don't want to stall the boot if
     // the device doesn't actually exist.  Add 100ms to account for
     // any controller delays.
-    if (!pipe->devaddr)
+    if (!GET_LOWFLAT(pipe->devaddr))
         return USB_TIME_STATUS + 100;
     return USB_TIME_COMMAND + 100;
 }
