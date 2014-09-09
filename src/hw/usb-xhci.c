@@ -995,29 +995,32 @@ xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
     if (!CONFIG_USB_XHCI)
         return NULL;
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
+    int oldmaxpacket = upipe->maxpacket;
+    usb_desc2pipe(upipe, usbdev, epdesc);
     struct xhci_pipe *pipe = container_of(upipe, struct xhci_pipe, pipe);
     struct usb_xhci_s *xhci = container_of(
         pipe->pipe.cntl, struct usb_xhci_s, usb);
     dprintf(3, "%s: usbdev %p, ring %p, slotid %d, epid %d\n", __func__,
             usbdev, &pipe->reqs, pipe->slotid, pipe->epid);
-    if (eptype == USB_ENDPOINT_XFER_CONTROL &&
-        pipe->pipe.maxpacket != epdesc->wMaxPacketSize) {
-        dprintf(1, "%s: reconf ctl endpoint pkt size: %d -> %d\n",
-                __func__, pipe->pipe.maxpacket, epdesc->wMaxPacketSize);
-        pipe->pipe.maxpacket = epdesc->wMaxPacketSize;
-        struct xhci_inctx *in = xhci_alloc_inctx(usbdev, 1);
-        if (!in)
-            return upipe;
-        in->add = (1 << 1);
-        struct xhci_epctx *ep = (void*)&in[2 << xhci->context64];
-        ep->ctx[1] |= (pipe->pipe.maxpacket << 16);
-        int cc = xhci_cmd_evaluate_context(xhci, pipe->slotid, in);
-        if (cc != CC_SUCCESS) {
-            dprintf(1, "%s: reconf ctl endpoint: failed (cc %d)\n",
-                    __func__, cc);
-        }
-        free(in);
+    if (eptype != USB_ENDPOINT_XFER_CONTROL || upipe->maxpacket == oldmaxpacket)
+        return upipe;
+
+    // maxpacket has changed on control endpoint - update controller.
+    dprintf(1, "%s: reconf ctl endpoint pkt size: %d -> %d\n",
+            __func__, oldmaxpacket, pipe->pipe.maxpacket);
+    struct xhci_inctx *in = xhci_alloc_inctx(usbdev, 1);
+    if (!in)
+        return upipe;
+    in->add = (1 << 1);
+    struct xhci_epctx *ep = (void*)&in[2 << xhci->context64];
+    ep->ctx[1] |= (pipe->pipe.maxpacket << 16);
+    int cc = xhci_cmd_evaluate_context(xhci, pipe->slotid, in);
+    if (cc != CC_SUCCESS) {
+        dprintf(1, "%s: reconf ctl endpoint: failed (cc %d)\n",
+                __func__, cc);
     }
+    free(in);
+
     return upipe;
 }
 
