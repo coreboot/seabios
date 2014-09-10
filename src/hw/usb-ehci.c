@@ -32,7 +32,7 @@ struct ehci_pipe {
     struct usb_pipe pipe;
 };
 
-static int PendingEHCIPorts;
+static int PendingEHCI;
 
 
 /****************************************************************
@@ -52,12 +52,12 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
 
     if (!(portsc & PORT_CONNECT))
         // No device present
-        goto doneearly;
+        return -1;
 
     if ((portsc & PORT_LINESTATUS_MASK) == PORT_LINESTATUS_KSTATE) {
         // low speed device
         writel(portreg, portsc | PORT_OWNER);
-        goto doneearly;
+        return -1;
     }
 
     // XXX - if just powered up, need to wait for USB_TIME_ATTDB?
@@ -67,10 +67,6 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
     writel(portreg, portsc);
     msleep(USB_TIME_DRSTR);
     return 0;
-
-doneearly:
-    PendingEHCIPorts--;
-    return -1;
 }
 
 // Reset device on port
@@ -86,21 +82,17 @@ ehci_hub_reset(struct usbhub_s *hub, u32 port)
     writel(portreg, portsc);
     msleep(EHCI_TIME_POSTRESET);
 
-    int rv = -1;
     portsc = readl(portreg);
     if (!(portsc & PORT_CONNECT))
         // No longer connected
-        goto resetfail;
+        return -1;
     if (!(portsc & PORT_PE)) {
         // full speed device
         writel(portreg, portsc | PORT_OWNER);
-        goto resetfail;
+        return -1;
     }
 
-    rv = USB_HIGHSPEED;
-resetfail:
-    PendingEHCIPorts--;
-    return rv;
+    return USB_HIGHSPEED;
 }
 
 // Disable port
@@ -230,6 +222,7 @@ configure_ehci(void *data)
     struct ehci_qh *async_qh = memalign_high(EHCI_QH_ALIGN, sizeof(*async_qh));
     if (!fl || !intr_qh || !async_qh) {
         warn_noalloc();
+        PendingEHCI--;
         goto fail;
     }
 
@@ -245,6 +238,7 @@ configure_ehci(void *data)
             break;
         if (timer_check(end)) {
             warn_timeout();
+            PendingEHCI--;
             goto fail;
         }
         yield();
@@ -278,6 +272,7 @@ configure_ehci(void *data)
 
     // Set default of high speed for root hub.
     writel(&cntl->regs->configflag, 1);
+    PendingEHCI--;
 
     // Find devices
     int count = check_ehci_ports(cntl);
@@ -318,7 +313,7 @@ ehci_controller_setup(struct pci_device *pci)
     cntl->regs = (void*)caps + readb(&caps->caplength);
     if (hcc_params & HCC_64BIT_ADDR)
         cntl->regs->ctrldssegment = 0;
-    PendingEHCIPorts += cntl->checkports;
+    PendingEHCI++;
 
     dprintf(1, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
@@ -342,9 +337,9 @@ ehci_setup(void)
             ehci_controller_setup(pci);
     }
 
-    // Wait for all EHCI ports to initialize.  This forces OHCI/UHCI
-    // setup to always be after any EHCI ports are set to low speed.
-    while (PendingEHCIPorts)
+    // Wait for all EHCI controllers to initialize.  This forces OHCI/UHCI
+    // setup to always be after any EHCI ports are routed to EHCI.
+    while (PendingEHCI)
         yield();
 }
 
