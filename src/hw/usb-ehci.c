@@ -50,18 +50,6 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
     u32 *portreg = &cntl->regs->portsc[port];
     u32 portsc = readl(portreg);
 
-    // Power up port.
-    if (!(portsc & PORT_POWER)) {
-        portsc |= PORT_POWER;
-        writel(portreg, portsc);
-        msleep(EHCI_TIME_POSTPOWER);
-    } else {
-        // Port is already powered up, but we don't know how long it
-        // has been powered up, so wait the 20ms.
-        msleep(EHCI_TIME_POSTPOWER);
-    }
-    portsc = readl(portreg);
-
     if (!(portsc & PORT_CONNECT))
         // No device present
         goto doneearly;
@@ -135,7 +123,18 @@ static struct usbhub_op_s ehci_HubOp = {
 static int
 check_ehci_ports(struct usb_ehci_s *cntl)
 {
-    ASSERT32FLAT();
+    // Power up ports.
+    int i;
+    for (i=0; i<cntl->checkports; i++) {
+        u32 *portreg = &cntl->regs->portsc[i];
+        u32 portsc = readl(portreg);
+        if (!(portsc & PORT_POWER)) {
+            portsc |= PORT_POWER;
+            writel(portreg, portsc);
+        }
+    }
+    msleep(EHCI_TIME_POSTPOWER);
+
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
     hub.cntl = &cntl->usb;
