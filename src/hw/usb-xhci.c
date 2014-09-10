@@ -339,15 +339,7 @@ xhci_hub_detect(struct usbhub_s *hub, u32 port)
 {
     struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
     u32 portsc = readl(&xhci->pr[port].portsc);
-
-    xhci_print_port_state(3, __func__, port, portsc);
-    switch (xhci_get_field(portsc, XHCI_PORTSC_PLS)) {
-    case PLS_U0:
-    case PLS_POLLING:
-        return 0;
-    default:
-        return -1;
-    }
+    return (portsc & XHCI_PORTSC_CCS) ? 0 : -1;
 }
 
 // Reset device on port
