@@ -624,7 +624,7 @@ configure_xhci(void *data)
     xhci->devs = memalign_high(64, sizeof(*xhci->devs) * (xhci->slots + 1));
     xhci->eseg = memalign_high(64, sizeof(*xhci->eseg));
     xhci->cmds = memalign_high(XHCI_RING_SIZE, sizeof(*xhci->cmds));
-    xhci->evts = memalign_low(XHCI_RING_SIZE, sizeof(*xhci->evts));
+    xhci->evts = memalign_high(XHCI_RING_SIZE, sizeof(*xhci->evts));
     if (!xhci->devs || !xhci->cmds || !xhci->evts || !xhci->eseg) {
         warn_noalloc();
         goto fail;
@@ -896,7 +896,7 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     pipe->epid = epid;
     pipe->reqs.cs = 1;
     if (eptype == USB_ENDPOINT_XFER_INT)
-        pipe->buf = malloc_low(pipe->pipe.maxpacket);
+        pipe->buf = malloc_high(pipe->pipe.maxpacket);
 
     // Allocate input context and initialize endpoint info.
     struct xhci_inctx *in = xhci_alloc_inctx(usbdev, epid);
@@ -1086,7 +1086,7 @@ xhci_poll_intr(struct usb_pipe *p, void *data)
 static void
 xhci_controller_setup(struct pci_device *pci)
 {
-    struct usb_xhci_s *xhci = malloc_low(sizeof(*xhci));
+    struct usb_xhci_s *xhci = malloc_high(sizeof(*xhci));
     if (!xhci) {
         warn_noalloc();
         return;
