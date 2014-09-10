@@ -42,10 +42,17 @@ static int
 ohci_hub_detect(struct usbhub_s *hub, u32 port)
 {
     struct usb_ohci_s *cntl = container_of(hub->cntl, struct usb_ohci_s, usb);
-    u32 sts = readl(&cntl->regs->roothub_portstatus[port]);
-    if (!(sts & RH_PS_CCS))
-        // No device.
-        return -1;
+    u32 end = timer_calc(USB_TIME_SIGATT);
+    for (;;) {
+        u32 sts = readl(&cntl->regs->roothub_portstatus[port]);
+        if (sts & RH_PS_CCS)
+            // Device connected.
+            break;
+        if (timer_check(end))
+            // No device found.
+            return -1;
+        msleep(5);
+    }
 
     // XXX - need to wait for USB_TIME_ATTDB if just powered up?
 
