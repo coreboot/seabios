@@ -228,7 +228,6 @@ struct xhci_ring {
 
 struct usb_xhci_s {
     struct usb_s         usb;
-    struct usbhub_s      hub;
 
     /* devinfo */
     u32                  baseaddr;
@@ -393,10 +392,32 @@ static struct usbhub_op_s xhci_hub_ops = {
     .disconnect = xhci_hub_disconnect,
 };
 
+// Find any devices connected to the root hub.
+static int
+xhci_check_ports(struct usb_xhci_s *xhci)
+{
+    // FIXME: try find a more elegant way than a fixed delay
+    msleep(100);
+
+    struct usbhub_s hub;
+    memset(&hub, 0, sizeof(hub));
+    hub.cntl = &xhci->usb;
+    hub.portcount = xhci->ports;
+    hub.op = &xhci_hub_ops;
+    usb_enumerate(&hub);
+    return hub.devcount;
+}
+
 
 /****************************************************************
  * Setup
  ****************************************************************/
+
+static void
+xhci_free_pipes(struct usb_xhci_s *xhci)
+{
+    // XXX - should walk list of pipes and free unused pipes.
+}
 
 static void
 configure_xhci(void *data)
@@ -472,12 +493,11 @@ configure_xhci(void *data)
     reg |= XHCI_CMD_RS;
     writel(&xhci->op->usbcmd, reg);
 
-    // FIXME: try find a more elegant way than a fixed delay
-    msleep(100);
-
-    usb_enumerate(&xhci->hub);
-    // XXX - should walk list of pipes and free unused pipes.
-    if (xhci->hub.devcount)
+    // Find devices
+    int count = xhci_check_ports(xhci);
+    xhci_free_pipes(xhci);
+    if (count)
+        // Success
         return;
 
     // No devices found - shutdown and free controller.
@@ -523,9 +543,6 @@ xhci_controller_setup(struct pci_device *pci)
 
     xhci->usb.pci = pci;
     xhci->usb.type = USB_TYPE_XHCI;
-    xhci->hub.cntl = &xhci->usb;
-    xhci->hub.portcount = xhci->ports;
-    xhci->hub.op = &xhci_hub_ops;
 
     dprintf(1, "XHCI init on dev %02x:%02x.%x: regs @ %p, %d ports, %d slots"
             ", %d byte contexts\n"
