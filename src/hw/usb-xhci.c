@@ -5,7 +5,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_LOWFLAT
 #include "config.h" // CONFIG_*
 #include "malloc.h" // memalign_low
 #include "memmap.h" // PAGE_SIZE
@@ -13,7 +12,7 @@
 #include "pci.h" // pci_bdf_to_bus
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_XHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
-#include "string.h" // memcpy_fl
+#include "string.h" // memcpy
 #include "usb.h" // struct usb_s
 #include "usb-xhci.h" // struct ehci_qh
 #include "util.h" // timer_calc
@@ -304,48 +303,48 @@ static const int eptype_to_xhci_out[] = {
 };
 
 // --------------------------------------------------------------
-// internal functions, 16bit + 32bit
+// internal functions
 
 static void xhci_doorbell(struct usb_xhci_s *xhci, u32 slotid, u32 value)
 {
-    struct xhci_db *db = GET_LOWFLAT(xhci->db);
+    struct xhci_db *db = xhci->db;
     void *addr = &db[slotid].doorbell;
     writel(addr, value);
 }
 
 static void xhci_process_events(struct usb_xhci_s *xhci)
 {
-    struct xhci_ring *evts = GET_LOWFLAT(xhci->evts);
+    struct xhci_ring *evts = xhci->evts;
 
     for (;;) {
         /* check for event */
-        u32 nidx = GET_LOWFLAT(evts->nidx);
-        u32 cs = GET_LOWFLAT(evts->cs);
+        u32 nidx = evts->nidx;
+        u32 cs = evts->cs;
         struct xhci_trb *etrb = evts->ring + nidx;
-        u32 control = GET_LOWFLAT(etrb->control);
+        u32 control = etrb->control;
         if ((control & TRB_C) != (cs ? 1 : 0))
             return;
 
         /* process event */
         u32 evt_type = TRB_TYPE(control);
-        u32 evt_cc = (GET_LOWFLAT(etrb->status) >> 24) & 0xff;
+        u32 evt_cc = (etrb->status >> 24) & 0xff;
         switch (evt_type) {
         case ER_TRANSFER:
         case ER_COMMAND_COMPLETE:
         {
-            struct xhci_trb  *rtrb = (void*)GET_LOWFLAT(etrb->ptr_low);
+            struct xhci_trb  *rtrb = (void*)etrb->ptr_low;
             struct xhci_ring *ring = XHCI_RING(rtrb);
             struct xhci_trb  *evt = &ring->evt;
             u32 eidx = rtrb - ring->ring + 1;
             dprintf(5, "%s: ring %p [trb %p, evt %p, type %d, eidx %d, cc %d]\n",
                     __func__, ring, rtrb, evt, evt_type, eidx, evt_cc);
-            memcpy_fl(evt, etrb, sizeof(*etrb));
-            SET_LOWFLAT(ring->eidx, eidx);
+            memcpy(evt, etrb, sizeof(*etrb));
+            ring->eidx = eidx;
             break;
         }
         case ER_PORT_STATUS_CHANGE:
         {
-            u32 portid = (GET_LOWFLAT(etrb->ptr_low) >> 24) & 0xff;
+            u32 portid = (etrb->ptr_low >> 24) & 0xff;
             dprintf(3, "%s: status change port #%d\n",
                     __func__, portid);
             break;
@@ -361,10 +360,10 @@ static void xhci_process_events(struct usb_xhci_s *xhci)
         if (nidx == XHCI_RING_ITEMS) {
             nidx = 0;
             cs = cs ? 0 : 1;
-            SET_LOWFLAT(evts->cs, cs);
+            evts->cs = cs;
         }
-        SET_LOWFLAT(evts->nidx, nidx);
-        struct xhci_ir *ir = GET_LOWFLAT(xhci->ir);
+        evts->nidx = nidx;
+        struct xhci_ir *ir = xhci->ir;
         u32 erdp = (u32)(evts->ring + nidx);
         writel(&ir->erdp_low, erdp);
         writel(&ir->erdp_high, 0);
@@ -373,8 +372,8 @@ static void xhci_process_events(struct usb_xhci_s *xhci)
 
 static int xhci_ring_busy(struct xhci_ring *ring)
 {
-    u32 eidx = GET_LOWFLAT(ring->eidx);
-    u32 nidx = GET_LOWFLAT(ring->nidx);
+    u32 eidx = ring->eidx;
+    u32 nidx = ring->nidx;
     return (eidx != nidx);
 }
 
@@ -387,7 +386,7 @@ static int xhci_event_wait(struct usb_xhci_s *xhci,
     for (;;) {
         xhci_process_events(xhci);
         if (!xhci_ring_busy(ring)) {
-            u32 status = GET_LOWFLAT(ring->evt.status);
+            u32 status = ring->evt.status;
             return (status >> 24) & 0xff;
         }
         if (timer_check(end)) {
@@ -401,8 +400,8 @@ static int xhci_event_wait(struct usb_xhci_s *xhci,
 static void xhci_trb_queue(struct xhci_ring *ring,
                            struct xhci_trb *trb)
 {
-    u32 nidx = GET_LOWFLAT(ring->nidx);
-    u32 cs   = GET_LOWFLAT(ring->cs);
+    u32 nidx = ring->nidx;
+    u32 cs   = ring->cs;
     struct xhci_trb *dst;
     u32 control;
 
@@ -411,31 +410,31 @@ static void xhci_trb_queue(struct xhci_ring *ring,
         control  = (TR_LINK << 10); // trb type
         control |= TRB_LK_TC;
         control |= (cs ? TRB_C : 0);
-        SET_LOWFLAT(dst->ptr_low,  (u32)&ring[0]);
-        SET_LOWFLAT(dst->ptr_high, 0);
-        SET_LOWFLAT(dst->status,   0);
-        SET_LOWFLAT(dst->control,  control);
+        dst->ptr_low = (u32)&ring[0];
+        dst->ptr_high = 0;
+        dst->status = 0;
+        dst->control = control;
         nidx = 0;
         cs = cs ? 0 : 1;
-        SET_LOWFLAT(ring->nidx, nidx);
-        SET_LOWFLAT(ring->cs,   cs);
+        ring->nidx = nidx;
+        ring->cs = cs;
 
         dprintf(5, "%s: ring %p [linked]\n", __func__, ring);
     }
 
     dst = ring->ring + nidx;
-    control = GET_LOWFLAT(trb->control) | (cs ? TRB_C : 0);
+    control = trb->control | (cs ? TRB_C : 0);
 
-    SET_LOWFLAT(dst->ptr_low,  GET_LOWFLAT(trb->ptr_low));
-    SET_LOWFLAT(dst->ptr_high, GET_LOWFLAT(trb->ptr_high));
-    SET_LOWFLAT(dst->status,   GET_LOWFLAT(trb->status));
-    SET_LOWFLAT(dst->control,  control);
+    dst->ptr_low =  trb->ptr_low;
+    dst->ptr_high = trb->ptr_high;
+    dst->status =   trb->status;
+    dst->control =  control;
     nidx++;
-    SET_LOWFLAT(ring->nidx, nidx);
+    ring->nidx = nidx;
 
     dprintf(5, "%s: ring %p [nidx %d, len %d]\n",
             __func__, ring, nidx,
-            GET_LOWFLAT(trb->status) & 0xffff);
+            trb->status & 0xffff);
 }
 
 static void xhci_xfer_queue(struct xhci_pipe *pipe,
@@ -447,9 +446,9 @@ static void xhci_xfer_queue(struct xhci_pipe *pipe,
 static void xhci_xfer_kick(struct xhci_pipe *pipe)
 {
     struct usb_xhci_s *xhci = container_of(
-        GET_LOWFLAT(pipe->pipe.cntl), struct usb_xhci_s, usb);
-    u32 slotid = GET_LOWFLAT(pipe->slotid);
-    u32 epid = GET_LOWFLAT(pipe->epid);
+        pipe->pipe.cntl, struct usb_xhci_s, usb);
+    u32 slotid = pipe->slotid;
+    u32 epid = pipe->epid;
 
     dprintf(5, "%s: ring %p, slotid %d, epid %d\n",
             __func__, &pipe->reqs, slotid, epid);
@@ -467,16 +466,12 @@ static void xhci_xfer_normal(struct xhci_pipe *pipe,
     trb.control  |= (TR_NORMAL << 10); // trb type
     trb.control  |= TRB_TR_IOC;
 
-    xhci_xfer_queue(pipe, MAKE_FLATPTR(GET_SEG(SS), &trb));
+    xhci_xfer_queue(pipe, &trb);
     xhci_xfer_kick(pipe);
 }
 
-// --------------------------------------------------------------
-// internal functions, pure 32bit
-
 static int wait_bit(u32 *reg, u32 mask, int value, u32 timeout)
 {
-    ASSERT32FLAT();
     u32 end = timer_calc(timeout);
 
     while ((readl(reg) & mask) != value) {
@@ -492,7 +487,6 @@ static int wait_bit(u32 *reg, u32 mask, int value, u32 timeout)
 static int xhci_cmd_submit(struct usb_xhci_s *xhci,
                            struct xhci_trb *cmd)
 {
-    ASSERT32FLAT();
     int rc;
 
     mutex_lock(&xhci->cmds->lock);
@@ -505,7 +499,6 @@ static int xhci_cmd_submit(struct usb_xhci_s *xhci,
 
 static int xhci_cmd_enable_slot(struct usb_xhci_s *xhci)
 {
-    ASSERT32FLAT();
     struct xhci_trb cmd = {
         .ptr_low  = 0,
         .ptr_high = 0,
@@ -522,7 +515,6 @@ static int xhci_cmd_enable_slot(struct usb_xhci_s *xhci)
 #if 0
 static int xhci_cmd_disable_slot(struct usb_xhci_s *xhci, u32 slotid)
 {
-    ASSERT32FLAT();
     struct xhci_trb cmd = {
         .ptr_low  = 0,
         .ptr_high = 0,
@@ -537,7 +529,6 @@ static int xhci_cmd_disable_slot(struct usb_xhci_s *xhci, u32 slotid)
 static int xhci_cmd_address_device(struct usb_xhci_s *xhci, u32 slotid
                                    , struct xhci_inctx *inctx)
 {
-    ASSERT32FLAT();
     struct xhci_trb cmd = {
         .ptr_low  = (u32)inctx,
         .ptr_high = 0,
@@ -551,7 +542,6 @@ static int xhci_cmd_address_device(struct usb_xhci_s *xhci, u32 slotid
 static int xhci_cmd_configure_endpoint(struct usb_xhci_s *xhci, u32 slotid
                                        , struct xhci_inctx *inctx)
 {
-    ASSERT32FLAT();
     struct xhci_trb cmd = {
         .ptr_low  = (u32)inctx,
         .ptr_high = 0,
@@ -566,7 +556,6 @@ static int xhci_cmd_configure_endpoint(struct usb_xhci_s *xhci, u32 slotid
 static int xhci_cmd_evaluate_context(struct usb_xhci_s *xhci, u32 slotid
                                      , struct xhci_inctx *inctx)
 {
-    ASSERT32FLAT();
     struct xhci_trb cmd = {
         .ptr_low  = (u32)inctx,
         .ptr_high = 0,
@@ -582,7 +571,6 @@ static void xhci_xfer_setup(struct xhci_pipe *pipe,
                             const struct usb_ctrlrequest *req,
                             int dir, int datalen)
 {
-    ASSERT32FLAT();
     struct xhci_trb trb;
 
     memset(&trb, 0, sizeof(trb));
@@ -602,7 +590,6 @@ static void xhci_xfer_setup(struct xhci_pipe *pipe,
 static void xhci_xfer_data(struct xhci_pipe *pipe,
                            int dir, void *data, int datalen)
 {
-    ASSERT32FLAT();
     struct xhci_trb trb;
 
     memset(&trb, 0, sizeof(trb));
@@ -616,7 +603,6 @@ static void xhci_xfer_data(struct xhci_pipe *pipe,
 
 static void xhci_xfer_status(struct xhci_pipe *pipe, int dir, int datalen)
 {
-    ASSERT32FLAT();
     struct xhci_trb trb;
 
     memset(&trb, 0, sizeof(trb));
@@ -632,7 +618,6 @@ static void xhci_xfer_status(struct xhci_pipe *pipe, int dir, int datalen)
 static void
 configure_xhci(void *data)
 {
-    ASSERT32FLAT();
     struct usb_xhci_s *xhci = data;
     u32 reg;
 
@@ -734,7 +719,6 @@ fail:
 static void
 xhci_print_port_state(int loglevel, const char *prefix, u32 port, u32 portsc)
 {
-    ASSERT32FLAT();
     u32 pls = xhci_get_field(portsc, XHCI_PORTSC_PLS);
     u32 speed = xhci_get_field(portsc, XHCI_PORTSC_SPEED);
 
@@ -748,7 +732,6 @@ xhci_print_port_state(int loglevel, const char *prefix, u32 port, u32 portsc)
 static int
 xhci_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    ASSERT32FLAT();
     struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
     u32 portsc = readl(&xhci->pr[port].portsc);
 
@@ -766,7 +749,6 @@ xhci_hub_detect(struct usbhub_s *hub, u32 port)
 static int
 xhci_hub_reset(struct usbhub_s *hub, u32 port)
 {
-    ASSERT32FLAT();
     struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
     u32 portsc = readl(&xhci->pr[port].portsc);
     int rc;
@@ -796,7 +778,6 @@ xhci_hub_reset(struct usbhub_s *hub, u32 port)
 static void
 xhci_hub_disconnect(struct usbhub_s *hub, u32 port)
 {
-    ASSERT32FLAT();
     // XXX - should turn the port power off.
 }
 
@@ -886,7 +867,6 @@ struct usb_pipe *
 xhci_alloc_pipe(struct usbdevice_s *usbdev
                 , struct usb_endpoint_descriptor *epdesc)
 {
-    ASSERT32FLAT();
     if (!CONFIG_USB_XHCI)
         return NULL;
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
@@ -991,7 +971,6 @@ struct usb_pipe *
 xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
                 , struct usb_endpoint_descriptor *epdesc)
 {
-    ASSERT32FLAT();
     if (!CONFIG_USB_XHCI)
         return NULL;
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
@@ -1028,7 +1007,6 @@ int
 xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
              , void *data, int datalen)
 {
-    ASSERT32FLAT();
     if (!CONFIG_USB_XHCI)
         return -1;
     const struct usb_ctrlrequest *req = cmd;
@@ -1054,7 +1032,7 @@ xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     return 0;
 }
 
-int VISIBLE32FLAT
+int
 xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datalen)
 {
     if (!CONFIG_USB_XHCI)
@@ -1062,7 +1040,7 @@ xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datalen)
 
     struct xhci_pipe *pipe = container_of(p, struct xhci_pipe, pipe);
     struct usb_xhci_s *xhci = container_of(
-        GET_LOWFLAT(pipe->pipe.cntl), struct usb_xhci_s, usb);
+        pipe->pipe.cntl, struct usb_xhci_s, usb);
 
     xhci_xfer_normal(pipe, data, datalen);
     int cc = xhci_event_wait(xhci, &pipe->reqs, usb_xfer_time(p, datalen));
@@ -1081,15 +1059,15 @@ xhci_poll_intr(struct usb_pipe *p, void *data)
 
     struct xhci_pipe *pipe = container_of(p, struct xhci_pipe, pipe);
     struct usb_xhci_s *xhci = container_of(
-        GET_LOWFLAT(pipe->pipe.cntl), struct usb_xhci_s, usb);
-    u32 len = GET_LOWFLAT(pipe->pipe.maxpacket);
-    void *buf = GET_LOWFLAT(pipe->buf);
-    int bufused = GET_LOWFLAT(pipe->bufused);
+        pipe->pipe.cntl, struct usb_xhci_s, usb);
+    u32 len = pipe->pipe.maxpacket;
+    void *buf = pipe->buf;
+    int bufused = pipe->bufused;
 
     if (!bufused) {
         xhci_xfer_normal(pipe, buf, len);
         bufused = 1;
-        SET_LOWFLAT(pipe->bufused, bufused);
+        pipe->bufused = bufused;
         return -1;
     }
 
@@ -1097,10 +1075,10 @@ xhci_poll_intr(struct usb_pipe *p, void *data)
     if (xhci_ring_busy(&pipe->reqs))
         return -1;
     dprintf(5, "%s: st %x ct %x [ %p <= %p / %d ]\n", __func__,
-            GET_LOWFLAT(pipe->reqs.evt.status),
-            GET_LOWFLAT(pipe->reqs.evt.control),
-            MAKE_FLATPTR(GET_SEG(SS), data), buf, len);
-    memcpy_fl(MAKE_FLATPTR(GET_SEG(SS), data), buf, len);
+            pipe->reqs.evt.status,
+            pipe->reqs.evt.control,
+            data, buf, len);
+    memcpy(data, buf, len);
     xhci_xfer_normal(pipe, buf, len);
     return 0;
 }
