@@ -72,19 +72,11 @@ get_port_status(struct usbhub_s *hub, int port, struct usb_port_status *sts)
 static int
 usb_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    // Turn on power to port.
-    int ret = set_port_feature(hub, port, USB_PORT_FEAT_POWER);
-    if (ret)
-        goto fail;
-
-    // Wait for port power to stabilize.
-    msleep(hub->powerwait);
-
     // Check periodically for a device connect.
     struct usb_port_status sts;
     u32 end = timer_calc(USB_TIME_SIGATT);
     for (;;) {
-        ret = get_port_status(hub, port, &sts);
+        int ret = get_port_status(hub, port, &sts);
         if (ret)
             goto fail;
         if (sts.wPortStatus & USB_PORT_STAT_CONNECTION)
@@ -175,9 +167,19 @@ usb_hub_setup(struct usbdevice_s *usbdev)
     memset(&hub, 0, sizeof(hub));
     hub.usbdev = usbdev;
     hub.cntl = usbdev->defpipe->cntl;
-    hub.powerwait = desc.bPwrOn2PwrGood * 2;
     hub.portcount = desc.bNbrPorts;
     hub.op = &HubOp;
+
+    // Turn on power to ports.
+    int port;
+    for (port=0; port<desc.bNbrPorts; port++) {
+        ret = set_port_feature(&hub, port, USB_PORT_FEAT_POWER);
+        if (ret)
+            return ret;
+    }
+    // Wait for port power to stabilize.
+    msleep(desc.bPwrOn2PwrGood * 2);
+
     usb_enumerate(&hub);
 
     dprintf(1, "Initialized USB HUB (%d ports used)\n", hub.devcount);

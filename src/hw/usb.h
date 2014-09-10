@@ -46,7 +46,6 @@ struct usbhub_s {
     struct usbdevice_s *usbdev;
     struct usb_s *cntl;
     struct mutex_s lock;
-    u32 powerwait;
     u32 port;
     u32 threads;
     u32 portcount;
