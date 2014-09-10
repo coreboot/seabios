@@ -43,25 +43,17 @@ uhci_hub_detect(struct usbhub_s *hub, u32 port)
 {
     struct usb_uhci_s *cntl = container_of(hub->cntl, struct usb_uhci_s, usb);
     u16 ioport = cntl->iobase + USBPORTSC1 + port * 2;
-
-    u32 end = timer_calc(USB_TIME_SIGATT);
-    for (;;) {
-        u16 status = inw(ioport);
-        if (status & USBPORTSC_CCS)
-            // Device connected.
-            break;
-        if (timer_check(end))
-            // No device found.
-            return -1;
-        msleep(5);
-    }
+    u16 status = inw(ioport);
+    if (!(status & USBPORTSC_CCS))
+        // No device found.
+        return 0;
 
     // XXX - if just powered up, need to wait for USB_TIME_ATTDB?
 
     // Begin reset on port
     outw(USBPORTSC_PR, ioport);
     msleep(USB_TIME_DRSTR);
-    return 0;
+    return 1;
 }
 
 // Reset device on port

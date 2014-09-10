@@ -320,6 +320,8 @@ static int wait_bit(u32 *reg, u32 mask, int value, u32 timeout)
  * Root hub
  ****************************************************************/
 
+#define XHCI_TIME_POSTPOWER 20
+
 // Check if device attached to port
 static void
 xhci_print_port_state(int loglevel, const char *prefix, u32 port, u32 portsc)
@@ -339,7 +341,7 @@ xhci_hub_detect(struct usbhub_s *hub, u32 port)
 {
     struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
     u32 portsc = readl(&xhci->pr[port].portsc);
-    return (portsc & XHCI_PORTSC_CCS) ? 0 : -1;
+    return (portsc & XHCI_PORTSC_CCS) ? 1 : 0;
 }
 
 // Reset device on port
@@ -388,8 +390,8 @@ static struct usbhub_op_s xhci_hub_ops = {
 static int
 xhci_check_ports(struct usb_xhci_s *xhci)
 {
-    // FIXME: try find a more elegant way than a fixed delay
-    msleep(100);
+    // Wait for port power to stabilize.
+    msleep(XHCI_TIME_POSTPOWER);
 
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));

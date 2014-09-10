@@ -404,15 +404,23 @@ usb_hub_port_setup(void *data)
     struct usbhub_s *hub = usbdev->hub;
     u32 port = usbdev->port;
 
-    // Detect if device present (and possibly start reset)
-    int ret = hub->op->detect(hub, port);
-    if (ret)
-        // No device present
-        goto done;
+    for (;;) {
+        // Detect if device present (and possibly start reset)
+        int ret = hub->op->detect(hub, port);
+        if (ret > 0)
+            // Device connected.
+            break;
+        if (ret < 0 || timer_check(hub->detectend))
+            // No device found.
+            goto done;
+        msleep(5);
+    }
+
+    // XXX - wait USB_TIME_ATTDB time?
 
     // Reset port and determine device speed
     mutex_lock(&hub->cntl->resetlock);
-    ret = hub->op->reset(hub, port);
+    int ret = hub->op->reset(hub, port);
     if (ret < 0)
         // Reset failed
         goto resetfail;
@@ -447,6 +455,7 @@ usb_enumerate(struct usbhub_s *hub)
 {
     u32 portcount = hub->portcount;
     hub->threads = portcount;
+    hub->detectend = timer_calc(USB_TIME_SIGATT);
 
     // Launch a thread for every port.
     int i;

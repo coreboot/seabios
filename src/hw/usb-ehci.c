@@ -52,7 +52,7 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
 
     if (!(portsc & PORT_CONNECT))
         // No device present
-        return -1;
+        return 0;
 
     if ((portsc & PORT_LINESTATUS_MASK) == PORT_LINESTATUS_KSTATE) {
         // low speed device
@@ -66,7 +66,7 @@ ehci_hub_detect(struct usbhub_s *hub, u32 port)
     portsc = (portsc & ~PORT_PE) | PORT_RESET;
     writel(portreg, portsc);
     msleep(USB_TIME_DRSTR);
-    return 0;
+    return 1;
 }
 
 // Reset device on port

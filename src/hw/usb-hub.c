@@ -72,29 +72,13 @@ get_port_status(struct usbhub_s *hub, int port, struct usb_port_status *sts)
 static int
 usb_hub_detect(struct usbhub_s *hub, u32 port)
 {
-    // Check periodically for a device connect.
     struct usb_port_status sts;
-    u32 end = timer_calc(USB_TIME_SIGATT);
-    for (;;) {
-        int ret = get_port_status(hub, port, &sts);
-        if (ret)
-            goto fail;
-        if (sts.wPortStatus & USB_PORT_STAT_CONNECTION)
-            // Device connected.
-            break;
-        if (timer_check(end))
-            // No device found.
-            return -1;
-        msleep(5);
+    int ret = get_port_status(hub, port, &sts);
+    if (ret) {
+        dprintf(1, "Failure on hub port %d detect\n", port);
+        return -1;
     }
-
-    // XXX - wait USB_TIME_ATTDB time?
-
-    return 0;
-
-fail:
-    dprintf(1, "Failure on hub port %d detect\n", port);
-    return -1;
+    return (sts.wPortStatus & USB_PORT_STAT_CONNECTION) ? 1 : 0;
 }
 
 // Disable port
