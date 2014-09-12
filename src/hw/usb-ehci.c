@@ -372,7 +372,7 @@ ehci_desc2pipe(struct ehci_pipe *pipe, struct usbdevice_s *usbdev
         struct ehci_pipe *hpipe = container_of(
             hubdev->defpipe, struct ehci_pipe, pipe);
         if (hpipe->pipe.speed == USB_HIGHSPEED)
-            pipe->qh.info2 |= ((usbdev->port << QH_HUBPORT_SHIFT)
+            pipe->qh.info2 |= (((usbdev->port+1) << QH_HUBPORT_SHIFT)
                                | (hpipe->pipe.devaddr << QH_HUBADDR_SHIFT));
         else
             pipe->qh.info2 = hpipe->qh.info2;
