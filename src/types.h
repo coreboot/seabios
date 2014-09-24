@@ -70,6 +70,8 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
 // Designate a variable at a specific address in the f-segment.
 # define VARFSEGFIXED(addr) __section(".discard.varfixed." UNIQSEC) __VISIBLE __weak
+// Notes a 32bit flat function that must reside in the f-segment.
+# define FUNCFSEG __section(".discard.32fseg." UNIQSEC) __VISIBLE __weak
 // Verify a variable is only accessable via 32bit "init" functions
 # define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 // Designate top-level assembler as 16bit only.
@@ -90,6 +92,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VARLOW __section(".discard.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".discard.varfseg." UNIQSEC) __VISIBLE __weak
 # define VARFSEGFIXED(addr) __section(".discard.varfixed." UNIQSEC) __VISIBLE __weak
+# define FUNCFSEG __section(".discard.32fseg." UNIQSEC) __VISIBLE __weak
 # define VARVERIFY32INIT __section(".discard.varinit." UNIQSEC)
 # define ASM16(code)
 # define ASM32FLAT(code)
@@ -106,6 +109,7 @@ extern void __force_link_error__only_in_16bit(void) __noreturn;
 # define VARLOW __section(".data.varlow." UNIQSEC) __VISIBLE __weak
 # define VARFSEG __section(".data.varfseg." UNIQSEC) __VISIBLE
 # define VARFSEGFIXED(addr) __section(".fixedaddr." __stringify(addr)) __VISIBLE __aligned(1)
+# define FUNCFSEG __section(".text.32fseg." UNIQSEC) __VISIBLE
 # define VARVERIFY32INIT __section(".data.varinit." UNIQSEC)
 # define ASM16(code)
 # define ASM32FLAT(code) __ASM(code)

@@ -197,11 +197,14 @@ def doLayout(sections, config, genreloc):
         textsections + rodatasections + datasections, sec16_start
         , segoffset=BUILD_BIOS_ADDR)
 
-    # Determine "fseg memory" data positions
-    sections32fseg = getSectionsCategory(sections, '32fseg')
+    # Determine 32bit "fseg memory" data positions
+    sections32textfseg = getSectionsCategory(sections, '32textfseg')
+    sec32textfseg_start, sec32textfseg_align = setSectionsStart(
+        sections32textfseg, sec32seg_start, 16)
 
+    sections32fseg = getSectionsCategory(sections, '32fseg')
     sec32fseg_start, sec32fseg_align = setSectionsStart(
-        sections32fseg, sec32seg_start, 16
+        sections32fseg, sec32textfseg_start, 16
         , segoffset=BUILD_BIOS_ADDR)
 
     # Determine 32flat runtime positions
@@ -274,13 +277,14 @@ def doLayout(sections, config, genreloc):
     # Print statistics
     size16 = BUILD_BIOS_ADDR + BUILD_BIOS_SIZE - sec16_start
     size32seg = sec16_start - sec32seg_start
-    size32fseg = sec32seg_start - sec32fseg_start
+    size32textfseg = sec32seg_start - sec32textfseg_start
+    size32fseg = sec32textfseg_start - sec32fseg_start
     size32flat = sec32fseg_start - sec32flat_start
     size32init = sec32flat_start - sec32init_start
     sizelow = li.sec32low_end - li.sec32low_start
     print("16bit size:           %d" % size16)
     print("32bit segmented size: %d" % size32seg)
-    print("32bit flat size:      %d" % size32flat)
+    print("32bit flat size:      %d" % (size32flat + size32textfseg))
     print("32bit flat init size: %d" % size32init)
     print("Lowmem size:          %d" % sizelow)
     print("f-segment var size:   %d" % size32fseg)
@@ -659,6 +663,8 @@ def main():
             section.category = '32low'
         elif section.name.startswith('.data.varfseg.'):
             section.category = '32fseg'
+        elif section.name.startswith('.text.32fseg.'):
+            section.category = '32textfseg'
         elif section.name.startswith('.fixedaddr.'):
             section.category = 'fixed'
         elif section.fileid == '32flat' and section not in runtimesections:
