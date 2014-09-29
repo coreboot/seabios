@@ -42,7 +42,7 @@ u32 call32_params(void *func, u32 eax, u32 edx, u32 ecx, u32 errret);
 static inline int
 need_hop_back(void)
 {
-    return on_extra_stack();
+    return !MODESEGMENT || on_extra_stack();
 }
 
 #endif // stacks.h

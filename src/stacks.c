@@ -158,6 +158,8 @@ stack_hop(u32 eax, u32 edx, void *func)
 u32
 stack_hop_back(u32 eax, u32 edx, void *func)
 {
+    if (!MODESEGMENT)
+        return call16big(eax, edx, func);
     if (!on_extra_stack())
         return ((u32 (*)(u32, u32))func)(eax, edx);
     ASSERT16();
@@ -196,11 +198,12 @@ stack_hop_back(u32 eax, u32 edx, void *func)
 void VISIBLE16
 _farcall16(struct bregs *callregs, u16 callregseg)
 {
-    ASSERT16();
     if (need_hop_back()) {
-        stack_hop_back((u32)callregs, callregseg, _farcall16);
+        extern void _cfunc16__farcall16(void);
+        stack_hop_back((u32)callregs, callregseg, _cfunc16__farcall16);
         return;
     }
+    ASSERT16();
     asm volatile(
         "calll __farcall16\n"
         : "+a" (callregs), "+m" (*callregs), "+d" (callregseg)
@@ -385,7 +388,8 @@ void VISIBLE16
 check_irqs(void)
 {
     if (need_hop_back()) {
-        stack_hop_back(0, 0, check_irqs);
+        extern void _cfunc16_check_irqs(void);
+        stack_hop_back(0, 0, _cfunc16_check_irqs);
         return;
     }
     asm volatile("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
@@ -395,19 +399,14 @@ check_irqs(void)
 void
 yield(void)
 {
-    if (MODESEGMENT) {
+    if (MODESEGMENT || !CONFIG_THREADS) {
         check_irqs();
-        return;
-    }
-    extern void _cfunc16_check_irqs(void);
-    if (!CONFIG_THREADS) {
-        call16big(0, 0, _cfunc16_check_irqs);
         return;
     }
     struct thread_info *cur = getCurThread();
     if (cur == &MainThread)
         // Permit irqs to fire
-        call16big(0, 0, _cfunc16_check_irqs);
+        check_irqs();
 
     // Switch to the next thread
     switch_next(cur);
@@ -417,7 +416,8 @@ void VISIBLE16
 wait_irq(void)
 {
     if (need_hop_back()) {
-        stack_hop_back(0, 0, wait_irq);
+        extern void _cfunc16_wait_irq(void);
+        stack_hop_back(0, 0, _cfunc16_wait_irq);
         return;
     }
     asm volatile("sti ; hlt ; cli ; cld": : :"memory");
@@ -427,17 +427,12 @@ wait_irq(void)
 void
 yield_toirq(void)
 {
-    if (MODESEGMENT) {
-        wait_irq();
-        return;
-    }
-    if (have_threads()) {
+    if (!MODESEGMENT && have_threads()) {
         // Threads still active - do a yield instead.
         yield();
         return;
     }
-    extern void _cfunc16_wait_irq(void);
-    call16big(0, 0, _cfunc16_wait_irq);
+    wait_irq();
 }
 
 // Wait for all threads (other than the main thread) to complete.

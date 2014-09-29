@@ -274,13 +274,17 @@ handle_15c2(struct bregs *regs)
     }
 }
 
-static void
+void VISIBLE16
 invoke_mouse_handler(void)
 {
+    if (!CONFIG_MOUSE)
+        return;
     if (need_hop_back()) {
-        stack_hop_back(0, 0, invoke_mouse_handler);
+        extern void _cfunc16_invoke_mouse_handler(void);
+        stack_hop_back(0, 0, _cfunc16_invoke_mouse_handler);
         return;
     }
+    ASSERT16();
     u16 ebda_seg = get_ebda_seg();
     u16 status = GET_EBDA(ebda_seg, mouse_data[0]);
     u16 X      = GET_EBDA(ebda_seg, mouse_data[1]);
