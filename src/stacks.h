@@ -5,10 +5,10 @@
 #include "types.h" // u32
 
 // stacks.c
+u32 call32(void *func, u32 eax, u32 errret);
 extern u8 ExtraStack[], *StackPos;
 u32 stack_hop(u32 eax, u32 edx, void *func);
 u32 stack_hop_back(u32 eax, u32 edx, void *func);
-u32 call32(void *func, u32 eax, u32 errret);
 struct bregs;
 inline void farcall16(struct bregs *callregs);
 inline void farcall16big(struct bregs *callregs);

@@ -18,88 +18,6 @@
 
 
 /****************************************************************
- * Extra 16bit stack
- ****************************************************************/
-
-// Space for a stack for 16bit code.
-u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
-u8 *StackPos VARLOW;
-
-// Test if currently on the extra stack
-static inline int
-on_extra_stack(void)
-{
-    return MODE16 && GET_SEG(SS) == SEG_LOW && getesp() > (u32)ExtraStack;
-}
-
-// Switch to the extra stack and call a function.
-u32
-stack_hop(u32 eax, u32 edx, void *func)
-{
-    if (on_extra_stack())
-        return ((u32 (*)(u32, u32))func)(eax, edx);
-    ASSERT16();
-    u16 stack_seg = SEG_LOW;
-    u32 bkup_ss, bkup_esp;
-    asm volatile(
-        // Backup current %ss/%esp values.
-        "movw %%ss, %w3\n"
-        "movl %%esp, %4\n"
-        // Copy stack seg to %ds/%ss and set %esp
-        "movw %w6, %%ds\n"
-        "movw %w6, %%ss\n"
-        "movl %5, %%esp\n"
-        "pushl %3\n"
-        "pushl %4\n"
-        // Call func
-        "calll *%2\n"
-        "popl %4\n"
-        "popl %3\n"
-        // Restore segments and stack
-        "movw %w3, %%ds\n"
-        "movw %w3, %%ss\n"
-        "movl %4, %%esp"
-        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
-        : "m" (StackPos), "r" (stack_seg)
-        : "cc", "memory");
-    return eax;
-}
-
-// Switch back to original caller's stack and call a function.
-u32
-stack_hop_back(u32 eax, u32 edx, void *func)
-{
-    if (!on_extra_stack())
-        return ((u32 (*)(u32, u32))func)(eax, edx);
-    ASSERT16();
-    u16 bkup_ss;
-    u32 bkup_stack_pos, temp;
-    asm volatile(
-        // Backup stack_pos and current %ss/%esp
-        "movl %6, %4\n"
-        "movw %%ss, %w3\n"
-        "movl %%esp, %6\n"
-        // Restore original callers' %ss/%esp
-        "movl -4(%4), %5\n"
-        "movl %5, %%ss\n"
-        "movw %%ds:-8(%4), %%sp\n"
-        "movl %5, %%ds\n"
-        // Call func
-        "calll *%2\n"
-        // Restore %ss/%esp and stack_pos
-        "movw %w3, %%ds\n"
-        "movw %w3, %%ss\n"
-        "movl %6, %%esp\n"
-        "movl %4, %6"
-        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss)
-          , "=&r" (bkup_stack_pos), "=&r" (temp), "+m" (StackPos)
-        :
-        : "cc", "memory");
-    return eax;
-}
-
-
-/****************************************************************
  * 16bit / 32bit calling
  ****************************************************************/
 
@@ -185,6 +103,88 @@ call16big(u32 eax, u32 edx, void *func)
         panic("call16big with invalid stack\n");
     extern u32 __call16big(u32 eax, u32 edx, void *func);
     return __call16big(eax, edx, func - BUILD_BIOS_ADDR);
+}
+
+
+/****************************************************************
+ * Extra 16bit stack
+ ****************************************************************/
+
+// Space for a stack for 16bit code.
+u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
+u8 *StackPos VARLOW;
+
+// Test if currently on the extra stack
+static inline int
+on_extra_stack(void)
+{
+    return MODE16 && GET_SEG(SS) == SEG_LOW && getesp() > (u32)ExtraStack;
+}
+
+// Switch to the extra stack and call a function.
+u32
+stack_hop(u32 eax, u32 edx, void *func)
+{
+    if (on_extra_stack())
+        return ((u32 (*)(u32, u32))func)(eax, edx);
+    ASSERT16();
+    u16 stack_seg = SEG_LOW;
+    u32 bkup_ss, bkup_esp;
+    asm volatile(
+        // Backup current %ss/%esp values.
+        "movw %%ss, %w3\n"
+        "movl %%esp, %4\n"
+        // Copy stack seg to %ds/%ss and set %esp
+        "movw %w6, %%ds\n"
+        "movw %w6, %%ss\n"
+        "movl %5, %%esp\n"
+        "pushl %3\n"
+        "pushl %4\n"
+        // Call func
+        "calll *%2\n"
+        "popl %4\n"
+        "popl %3\n"
+        // Restore segments and stack
+        "movw %w3, %%ds\n"
+        "movw %w3, %%ss\n"
+        "movl %4, %%esp"
+        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss), "=&r" (bkup_esp)
+        : "m" (StackPos), "r" (stack_seg)
+        : "cc", "memory");
+    return eax;
+}
+
+// Switch back to original caller's stack and call a function.
+u32
+stack_hop_back(u32 eax, u32 edx, void *func)
+{
+    if (!on_extra_stack())
+        return ((u32 (*)(u32, u32))func)(eax, edx);
+    ASSERT16();
+    u16 bkup_ss;
+    u32 bkup_stack_pos, temp;
+    asm volatile(
+        // Backup stack_pos and current %ss/%esp
+        "movl %6, %4\n"
+        "movw %%ss, %w3\n"
+        "movl %%esp, %6\n"
+        // Restore original callers' %ss/%esp
+        "movl -4(%4), %5\n"
+        "movl %5, %%ss\n"
+        "movw %%ds:-8(%4), %%sp\n"
+        "movl %5, %%ds\n"
+        // Call func
+        "calll *%2\n"
+        // Restore %ss/%esp and stack_pos
+        "movw %w3, %%ds\n"
+        "movw %w3, %%ss\n"
+        "movl %6, %%esp\n"
+        "movl %4, %6"
+        : "+a" (eax), "+d" (edx), "+c" (func), "=&r" (bkup_ss)
+          , "=&r" (bkup_stack_pos), "=&r" (temp), "+m" (StackPos)
+        :
+        : "cc", "memory");
+    return eax;
 }
 
 
