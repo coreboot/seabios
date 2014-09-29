@@ -115,7 +115,7 @@ u8 ExtraStack[BUILD_EXTRA_STACK_SIZE+1] VARLOW __aligned(8);
 u8 *StackPos VARLOW;
 
 // Test if currently on the extra stack
-static inline int
+int
 on_extra_stack(void)
 {
     return MODE16 && GET_SEG(SS) == SEG_LOW && getesp() > (u32)ExtraStack;
@@ -197,7 +197,7 @@ void VISIBLE16
 _farcall16(struct bregs *callregs, u16 callregseg)
 {
     ASSERT16();
-    if (on_extra_stack()) {
+    if (need_hop_back()) {
         stack_hop_back((u32)callregs, callregseg, _farcall16);
         return;
     }
@@ -384,7 +384,7 @@ fail:
 void VISIBLE16
 check_irqs(void)
 {
-    if (on_extra_stack()) {
+    if (need_hop_back()) {
         stack_hop_back(0, 0, check_irqs);
         return;
     }
@@ -416,7 +416,7 @@ yield(void)
 void VISIBLE16
 wait_irq(void)
 {
-    if (on_extra_stack()) {
+    if (need_hop_back()) {
         stack_hop_back(0, 0, wait_irq);
         return;
     }

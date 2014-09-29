@@ -9,6 +9,7 @@ u32 call32(void *func, u32 eax, u32 errret);
 extern u8 ExtraStack[], *StackPos;
 u32 stack_hop(u32 eax, u32 edx, void *func);
 u32 stack_hop_back(u32 eax, u32 edx, void *func);
+int on_extra_stack(void);
 struct bregs;
 inline void farcall16(struct bregs *callregs);
 inline void farcall16big(struct bregs *callregs);
@@ -34,5 +35,14 @@ void finish_preempt(void);
 int wait_preempt(void);
 void check_preempt(void);
 u32 call32_params(void *func, u32 eax, u32 edx, u32 ecx, u32 errret);
+
+// Inline functions
+
+// Check if a call to stack_hop_back is needed.
+static inline int
+need_hop_back(void)
+{
+    return on_extra_stack();
+}
 
 #endif // stacks.h
