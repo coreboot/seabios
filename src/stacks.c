@@ -25,16 +25,12 @@ u16 StackSeg VARLOW;
 u8 Call32Method VARLOW;
 #define C32_SLOPPY 1
 
-// Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
-u32 VISIBLE16
-call32(void *func, u32 eax, u32 errret)
+// Call a C function in 32bit mode.  This clobbers the 16bit segment
+// selector registers.
+static u32
+call32_sloppy(void *func, u32 eax)
 {
     ASSERT16();
-    u32 cr0 = getcr0();
-    if (cr0 & CR0_PE)
-        // Called in 16bit protected mode?!
-        return errret;
-
     // Backup cmos index register and disable nmi
     u8 cmosindex = inb(PORT_CMOS_INDEX);
     outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
@@ -88,6 +84,53 @@ call32(void *func, u32 eax, u32 errret)
     return eax;
 }
 
+// Jump back to 16bit mode while in 32bit mode from call32_sloppy()
+u32 FUNCFSEG
+call16_sloppy(u32 eax, u32 edx, void *func)
+{
+    ASSERT32FLAT();
+    if (getesp() > MAIN_STACK_MAX)
+        panic("call16_sloppy with invalid stack\n");
+    func -= BUILD_BIOS_ADDR;
+    Call32Method = 0;
+    u32 stackseg = GET_LOW(StackSeg);
+    asm volatile(
+        // Transition to 16bit mode
+        "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
+        "  jmp transition16big\n"
+        // Setup ss/esp and call func
+        "  .code16\n"
+        "1:movl %3, %%ecx\n"
+        "  shll $4, %3\n"
+        "  movw %%cx, %%ss\n"
+        "  subl %3, %%esp\n"
+        "  movw %%cx, %%ds\n"
+        "  movl %2, %%edx\n"
+        "  calll *%1\n"
+        // Return to 32bit and restore esp
+        "  movl $2f, %%edx\n"
+        "  jmp transition32\n"
+        "  .code32\n"
+        "2:addl %3, %%esp\n"
+        : "+a" (eax)
+        : "r" (func), "r" (edx), "r" (stackseg)
+        : "edx", "ecx", "cc", "memory");
+    Call32Method = C32_SLOPPY;
+    return eax;
+}
+
+// Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
+u32 VISIBLE16
+call32(void *func, u32 eax, u32 errret)
+{
+    ASSERT16();
+    u32 cr0 = getcr0();
+    if (cr0 & CR0_PE)
+        // Called in 16bit protected mode?!
+        return errret;
+    return call32_sloppy(func, eax);
+}
+
 // Call a 16bit SeaBIOS function from a 32bit SeaBIOS function.
 u32 FUNCFSEG
 call16(u32 eax, u32 edx, void *func)
@@ -139,41 +182,6 @@ call16big(u32 eax, u32 edx, void *func)
         : "+a" (eax)
         : "r" (func), "r" (edx)
         : "edx", "ecx", "cc", "memory");
-    return eax;
-}
-
-// Jump back to 16bit mode while in 32bit mode from call32()
-u32 FUNCFSEG
-call16_sloppy(u32 eax, u32 edx, void *func)
-{
-    ASSERT32FLAT();
-    if (getesp() > MAIN_STACK_MAX)
-        panic("call16_sloppy with invalid stack\n");
-    func -= BUILD_BIOS_ADDR;
-    Call32Method = 0;
-    u32 stackseg = GET_LOW(StackSeg);
-    asm volatile(
-        // Transition to 16bit mode
-        "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
-        "  jmp transition16big\n"
-        // Setup ss/esp and call func
-        "  .code16\n"
-        "1:movl %3, %%ecx\n"
-        "  shll $4, %3\n"
-        "  movw %%cx, %%ss\n"
-        "  subl %3, %%esp\n"
-        "  movw %%cx, %%ds\n"
-        "  movl %2, %%edx\n"
-        "  calll *%1\n"
-        // Return to 32bit and restore esp
-        "  movl $2f, %%edx\n"
-        "  jmp transition32\n"
-        "  .code32\n"
-        "2:addl %3, %%esp\n"
-        : "+a" (eax)
-        : "r" (func), "r" (edx), "r" (stackseg)
-        : "edx", "ecx", "cc", "memory");
-    Call32Method = C32_SLOPPY;
     return eax;
 }
 
