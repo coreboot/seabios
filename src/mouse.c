@@ -10,7 +10,7 @@
 #include "hw/ps2port.h" // ps2_mouse_command
 #include "hw/usb-hid.h" // usb_mouse_command
 #include "output.h" // dprintf
-#include "stacks.h" // stack_hop
+#include "stacks.h" // stack_hop_back
 #include "util.h" // mouse_init
 
 void
@@ -27,8 +27,8 @@ static int
 mouse_command(int command, u8 *param)
 {
     if (usb_mouse_active())
-        return stack_hop(command, (u32)param, usb_mouse_command);
-    return stack_hop(command, (u32)param, ps2_mouse_command);
+        return usb_mouse_command(command, param);
+    return ps2_mouse_command(command, param);
 }
 
 #define RET_SUCCESS      0x00

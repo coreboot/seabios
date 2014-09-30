@@ -11,7 +11,7 @@
 #include "hw/ps2port.h" // ps2_kbd_command
 #include "hw/usb-hid.h" // usb_kbd_command
 #include "output.h" // debug_enter
-#include "stacks.h" // stack_hop
+#include "stacks.h" // yield
 #include "string.h" // memset
 #include "util.h" // kbd_init
 
@@ -117,8 +117,8 @@ static int
 kbd_command(int command, u8 *param)
 {
     if (usb_kbd_active())
-        return stack_hop(command, (u32)param, usb_kbd_command);
-    return stack_hop(command, (u32)param, ps2_kbd_command);
+        return usb_kbd_command(command, param);
+    return ps2_kbd_command(command, param);
 }
 
 // read keyboard input
