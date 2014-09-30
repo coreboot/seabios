@@ -22,6 +22,8 @@
  ****************************************************************/
 
 u16 StackSeg VARLOW;
+u8 Call32Method VARLOW;
+#define C32_SLOPPY 1
 
 // Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
 u32 VISIBLE16
@@ -45,6 +47,7 @@ call32(void *func, u32 eax, u32 errret)
 
     u16 oldstackseg = GET_LOW(StackSeg);
     SET_LOW(StackSeg, GET_SEG(SS));
+    SET_LOW(Call32Method, C32_SLOPPY);
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
@@ -71,6 +74,7 @@ call32(void *func, u32 eax, u32 errret)
         : "r" (func)
         : "ecx", "edx", "cc", "memory");
 
+    SET_LOW(Call32Method, 0);
     SET_LOW(StackSeg, oldstackseg);
 
     // Restore gdt and fs/gs
@@ -95,6 +99,7 @@ call16(u32 eax, u32 edx, void *func)
     return __call16(eax, edx, func - BUILD_BIOS_ADDR);
 }
 
+// Call a 16bit SeaBIOS function in "big real" mode.
 static inline u32
 call16big(u32 eax, u32 edx, void *func)
 {
@@ -103,6 +108,28 @@ call16big(u32 eax, u32 edx, void *func)
         panic("call16big with invalid stack\n");
     extern u32 __call16big(u32 eax, u32 edx, void *func);
     return __call16big(eax, edx, func - BUILD_BIOS_ADDR);
+}
+
+// Jump back to 16bit mode while in 32bit mode from call32()
+static u32
+call16_sloppy(u32 eax, u32 edx, void *func)
+{
+    Call32Method = 0;
+    u32 ret = call16big(eax, edx, func);
+    Call32Method = C32_SLOPPY;
+    return ret;
+}
+
+// Call a 16bit SeaBIOS function, restoring the mode from last call32().
+static u32
+call16_back(u32 eax, u32 edx, void *func)
+{
+    ASSERT32FLAT();
+    if (Call32Method == C32_SLOPPY)
+        return call16_sloppy(eax, edx, func);
+    if (in_post())
+        return call16big(eax, edx, func);
+    return call16(eax, edx, func);
 }
 
 
@@ -159,7 +186,7 @@ u32
 stack_hop_back(u32 eax, u32 edx, void *func)
 {
     if (!MODESEGMENT)
-        return call16big(eax, edx, func);
+        return call16_back(eax, edx, func);
     if (!on_extra_stack())
         return ((u32 (*)(u32, u32))func)(eax, edx);
     ASSERT16();
