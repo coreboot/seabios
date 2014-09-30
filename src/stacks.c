@@ -271,8 +271,8 @@ void
 reset(void)
 {
     extern void reset_vector(void) __noreturn;
-    if (!MODESEGMENT)
-        call16(0, 0, reset_vector);
+    if (!MODE16)
+        call16_back(0, 0, reset_vector);
     reset_vector();
 }
 
