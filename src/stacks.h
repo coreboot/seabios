@@ -11,9 +11,9 @@ u32 stack_hop(u32 eax, u32 edx, void *func);
 u32 stack_hop_back(u32 eax, u32 edx, void *func);
 int on_extra_stack(void);
 struct bregs;
-inline void farcall16(struct bregs *callregs);
-inline void farcall16big(struct bregs *callregs);
-inline void __call16_int(struct bregs *callregs, u16 offset);
+void farcall16(struct bregs *callregs);
+void farcall16big(struct bregs *callregs);
+void __call16_int(struct bregs *callregs, u16 offset);
 #define call16_int(nr, callregs) do {                           \
         extern void irq_trampoline_ ##nr ();                    \
         __call16_int((callregs), (u32)&irq_trampoline_ ##nr );  \

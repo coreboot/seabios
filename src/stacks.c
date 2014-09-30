@@ -238,34 +238,32 @@ _farcall16(struct bregs *callregs, u16 callregseg)
         : "ebx", "ecx", "esi", "edi", "cc", "memory");
 }
 
-inline void
+void
 farcall16(struct bregs *callregs)
 {
-    if (MODE16) {
-        _farcall16(callregs, GET_SEG(SS));
-        return;
-    }
     extern void _cfunc16__farcall16(void);
-    call16((u32)callregs - StackSeg * 16, StackSeg, _cfunc16__farcall16);
+    call16((u32)callregs, 0, _cfunc16__farcall16);
 }
 
-inline void
+void
 farcall16big(struct bregs *callregs)
 {
     extern void _cfunc16__farcall16(void);
-    call16big((u32)callregs - StackSeg * 16, StackSeg, _cfunc16__farcall16);
+    call16big((u32)callregs, 0, _cfunc16__farcall16);
 }
 
 // Invoke a 16bit software interrupt.
-inline void
+void
 __call16_int(struct bregs *callregs, u16 offset)
 {
-    if (MODESEGMENT)
-        callregs->code.seg = GET_SEG(CS);
-    else
-        callregs->code.seg = SEG_BIOS;
     callregs->code.offset = offset;
-    farcall16(callregs);
+    if (!MODESEGMENT) {
+        callregs->code.seg = SEG_BIOS;
+        _farcall16((void*)callregs - StackSeg * 16, StackSeg);
+        return;
+    }
+    callregs->code.seg = GET_SEG(CS);
+    _farcall16(callregs, GET_SEG(SS));
 }
 
 // Reset the machine
