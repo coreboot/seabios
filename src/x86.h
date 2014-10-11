@@ -14,6 +14,10 @@
 #define CR0_NW (1<<29) // Not Write-through
 #define CR0_PE (1<<0)  // Protection enable
 
+// PORT_A20 bitdefs
+#define PORT_A20 0x0092
+#define A20_ENABLE_BIT 0x02
+
 #ifndef __ASSEMBLY__
 
 #include "types.h" // u32
@@ -216,9 +220,18 @@ static inline void lgdt(struct descloc_s *desc) {
     asm("lgdtl %0" : : "m"(*desc) : "memory");
 }
 
+static inline u8 get_a20(void) {
+    return (inb(PORT_A20) & A20_ENABLE_BIT) != 0;
+}
+
+static inline u8 set_a20(u8 cond) {
+    u8 val = inb(PORT_A20);
+    outb((val & ~A20_ENABLE_BIT) | (cond ? A20_ENABLE_BIT : 0), PORT_A20);
+    return (val & A20_ENABLE_BIT) != 0;
+}
+
 // x86.c
 void cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx);
-
 
 #endif // !__ASSEMBLY__
 

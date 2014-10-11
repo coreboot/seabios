@@ -8,7 +8,6 @@
 #include "asm-offsets.h" // BREGS_*
 #include "config.h" // CONFIG_*
 #include "entryfuncs.S" // ENTRY_*
-#include "hw/ps2port.h" // PORT_A20
 #include "hw/rtc.h" // CMOS_RESET_CODE
 #include "x86.h" // CR0_*
 

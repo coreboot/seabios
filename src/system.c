@@ -8,28 +8,12 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "hw/pic.h" // pic_reset
-#include "hw/ps2port.h" // PORT_A20
 #include "malloc.h" // LegacyRamSize
 #include "memmap.h" // E820_RAM
 #include "output.h" // debug_enter
 #include "string.h" // memcpy_far
 #include "util.h" // handle_1553
-#include "x86.h" // inb
-
-// Use PS2 System Control port A to set A20 enable
-static inline u8
-set_a20(u8 cond)
-{
-    // get current setting first
-    u8 newval, oldval = inb(PORT_A20);
-    if (cond)
-        newval = oldval | A20_ENABLE_BIT;
-    else
-        newval = oldval & ~A20_ENABLE_BIT;
-    outb(newval, PORT_A20);
-
-    return (oldval & A20_ENABLE_BIT) != 0;
-}
+#include "x86.h" // set_a20
 
 static void
 handle_152400(struct bregs *regs)
@@ -48,7 +32,7 @@ handle_152401(struct bregs *regs)
 static void
 handle_152402(struct bregs *regs)
 {
-    regs->al = (inb(PORT_A20) & A20_ENABLE_BIT) != 0;
+    regs->al = get_a20();
     set_code_success(regs);
 }
 
