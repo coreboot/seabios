@@ -25,6 +25,7 @@
 struct {
     u8 method;
     u8 cmosindex;
+    u8 a20;
     u16 ss, fs, gs;
     struct descloc_s gdt;
 } Call32Data VARLOW;
@@ -174,6 +175,9 @@ call32_sloppy_prep(void)
     inb(PORT_CMOS_DATA);
     SET_LOW(Call32Data.cmosindex, cmosindex);
 
+    // Enable a20 and backup it's previous state
+    SET_LOW(Call32Data.a20, set_a20(1));
+
     // Backup ss/fs/gs and gdt
     SET_LOW(Call32Data.ss, GET_SEG(SS));
     SET_LOW(Call32Data.fs, GET_SEG(FS));
@@ -200,6 +204,9 @@ call32_sloppy_post(void)
     lgdt(&gdt);
     SET_SEG(FS, GET_LOW(Call32Data.fs));
     SET_SEG(GS, GET_LOW(Call32Data.gs));
+
+    // Restore a20
+    set_a20(GET_LOW(Call32Data.a20));
 
     // Restore cmos index register
     outb(GET_LOW(Call32Data.cmosindex), PORT_CMOS_INDEX);
