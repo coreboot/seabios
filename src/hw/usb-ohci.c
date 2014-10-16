@@ -387,10 +387,13 @@ err:
 }
 
 struct usb_pipe *
-ohci_alloc_pipe(struct usbdevice_s *usbdev
-                , struct usb_endpoint_descriptor *epdesc)
+ohci_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
+                  , struct usb_endpoint_descriptor *epdesc)
 {
     if (! CONFIG_USB_OHCI)
+        return NULL;
+    usb_add_freelist(upipe);
+    if (!epdesc)
         return NULL;
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
     if (eptype == USB_ENDPOINT_XFER_INT)
