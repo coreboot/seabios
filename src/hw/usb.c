@@ -26,35 +26,21 @@
  * Controller function wrappers
  ****************************************************************/
 
-// Allocate an async pipe (control or bulk).
-struct usb_pipe *
-usb_alloc_pipe(struct usbdevice_s *usbdev
-               , struct usb_endpoint_descriptor *epdesc)
+// Allocate, update, or free a usb pipe.
+static struct usb_pipe *
+usb_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
+                 , struct usb_endpoint_descriptor *epdesc)
 {
     switch (usbdev->hub->cntl->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_realloc_pipe(usbdev, NULL, epdesc);
+        return uhci_realloc_pipe(usbdev, pipe, epdesc);
     case USB_TYPE_OHCI:
-        return ohci_realloc_pipe(usbdev, NULL, epdesc);
+        return ohci_realloc_pipe(usbdev, pipe, epdesc);
     case USB_TYPE_EHCI:
-        return ehci_realloc_pipe(usbdev, NULL, epdesc);
-    case USB_TYPE_XHCI:
-        return xhci_realloc_pipe(usbdev, NULL, epdesc);
-    }
-}
-
-// Update an pipe (used for control only)
-struct usb_pipe *
-usb_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
-                , struct usb_endpoint_descriptor *epdesc)
-{
-    switch (usbdev->hub->cntl->type) {
+        return ehci_realloc_pipe(usbdev, pipe, epdesc);
     case USB_TYPE_XHCI:
         return xhci_realloc_pipe(usbdev, pipe, epdesc);
-    default:
-        usb_free_pipe(usbdev, pipe);
-        return usb_alloc_pipe(usbdev, epdesc);
     }
 }
 
@@ -119,9 +105,27 @@ int usb_32bit_pipe(struct usb_pipe *pipe_fl)
     return CONFIG_USB_XHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_XHCI;
 }
 
+
 /****************************************************************
  * Helper functions
  ****************************************************************/
+
+// Allocate a usb pipe.
+struct usb_pipe *
+usb_alloc_pipe(struct usbdevice_s *usbdev
+               , struct usb_endpoint_descriptor *epdesc)
+{
+    return usb_realloc_pipe(usbdev, NULL, epdesc);
+}
+
+// Free an allocated control or bulk pipe.
+void
+usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe)
+{
+    if (!pipe)
+        return;
+    usb_realloc_pipe(usbdev, pipe, NULL);
+}
 
 // Send a message to the default control pipe of a device.
 int
@@ -165,16 +169,6 @@ usb_get_freelist(struct usb_s *cntl, u8 eptype)
         }
         pfree = &pipe->freenext;
     }
-}
-
-// Free an allocated control or bulk pipe.
-void
-usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe)
-{
-    ASSERT32FLAT();
-    if (!pipe)
-        return;
-    usb_add_freelist(pipe);
 }
 
 // Fill "pipe" endpoint info from an endpoint descriptor.
@@ -335,7 +329,7 @@ usb_set_address(struct usbdevice_s *usbdev)
 
     cntl->maxaddr++;
     usbdev->devaddr = cntl->maxaddr;
-    usbdev->defpipe = usb_update_pipe(usbdev, usbdev->defpipe, &epdesc);
+    usbdev->defpipe = usb_realloc_pipe(usbdev, usbdev->defpipe, &epdesc);
     if (!usbdev->defpipe)
         return -1;
     return 0;
@@ -366,7 +360,7 @@ configure_usb_device(struct usbdevice_s *usbdev)
         .wMaxPacketSize = maxpacket,
         .bmAttributes = USB_ENDPOINT_XFER_CONTROL,
     };
-    usbdev->defpipe = usb_update_pipe(usbdev, usbdev->defpipe, &epdesc);
+    usbdev->defpipe = usb_realloc_pipe(usbdev, usbdev->defpipe, &epdesc);
     if (!usbdev->defpipe)
         return -1;
 
