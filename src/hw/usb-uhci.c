@@ -138,7 +138,7 @@ uhci_free_pipes(struct usb_uhci_s *cntl)
             break;
         struct uhci_qh *next = (void*)(link & ~UHCI_PTR_BITS);
         struct uhci_pipe *pipe = container_of(next, struct uhci_pipe, qh);
-        if (pipe->pipe.cntl != &cntl->usb)
+        if (usb_is_freelist(&cntl->usb, &pipe->pipe))
             pos->link = next->link;
         else
             pos = next;
@@ -364,7 +364,7 @@ uhci_alloc_pipe(struct usbdevice_s *usbdev
         usbdev->hub->cntl, struct usb_uhci_s, usb);
     dprintf(7, "uhci_alloc_async_pipe %p %d\n", &cntl->usb, eptype);
 
-    struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
+    struct usb_pipe *usbpipe = usb_get_freelist(&cntl->usb, eptype);
     if (usbpipe) {
         // Use previously allocated pipe.
         usb_desc2pipe(usbpipe, usbdev, epdesc);

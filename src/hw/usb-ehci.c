@@ -195,7 +195,7 @@ ehci_free_pipes(struct usb_ehci_s *cntl)
         if (next == start)
             break;
         struct ehci_pipe *pipe = container_of(next, struct ehci_pipe, qh);
-        if (pipe->pipe.cntl != &cntl->usb)
+        if (usb_is_freelist(&cntl->usb, &pipe->pipe))
             pos->next = next->next;
         else
             pos = next;
@@ -457,7 +457,7 @@ ehci_alloc_pipe(struct usbdevice_s *usbdev
         usbdev->hub->cntl, struct usb_ehci_s, usb);
     dprintf(7, "ehci_alloc_async_pipe %p %d\n", &cntl->usb, eptype);
 
-    struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
+    struct usb_pipe *usbpipe = usb_get_freelist(&cntl->usb, eptype);
     if (usbpipe) {
         // Use previously allocated pipe.
         struct ehci_pipe *pipe = container_of(usbpipe, struct ehci_pipe, pipe);

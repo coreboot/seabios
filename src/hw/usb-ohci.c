@@ -152,7 +152,7 @@ ohci_free_pipes(struct usb_ohci_s *cntl)
         if (!next)
             break;
         struct ohci_pipe *pipe = container_of(next, struct ohci_pipe, ed);
-        if (pipe->pipe.cntl != &cntl->usb) {
+        if (usb_is_freelist(&cntl->usb, &pipe->pipe)) {
             *pos = next->hwNextED;
             free(pipe);
         } else {
@@ -403,7 +403,7 @@ ohci_alloc_pipe(struct usbdevice_s *usbdev
         usbdev->hub->cntl, struct usb_ohci_s, usb);
     dprintf(7, "ohci_alloc_async_pipe %p\n", &cntl->usb);
 
-    struct usb_pipe *usbpipe = usb_getFreePipe(&cntl->usb, eptype);
+    struct usb_pipe *usbpipe = usb_get_freelist(&cntl->usb, eptype);
     if (usbpipe) {
         // Use previously allocated pipe.
         struct ohci_pipe *pipe = container_of(usbpipe, struct ohci_pipe, pipe);

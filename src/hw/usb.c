@@ -132,14 +132,19 @@ usb_send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *re
                             , req, sizeof(*req), data, req->wLength);
 }
 
-// Free an allocated control or bulk pipe.
-void
-usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe)
+// Check if a pipe for a given controller is on the freelist
+int
+usb_is_freelist(struct usb_s *cntl, struct usb_pipe *pipe)
 {
-    ASSERT32FLAT();
+    return pipe->cntl != cntl;
+}
+
+// Add a pipe to the controller's freelist
+void
+usb_add_freelist(struct usb_pipe *pipe)
+{
     if (!pipe)
         return;
-    // Add to controller's free list.
     struct usb_s *cntl = pipe->cntl;
     pipe->freenext = cntl->freelist;
     cntl->freelist = pipe;
@@ -147,7 +152,7 @@ usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe)
 
 // Check for an available pipe on the freelist.
 struct usb_pipe *
-usb_getFreePipe(struct usb_s *cntl, u8 eptype)
+usb_get_freelist(struct usb_s *cntl, u8 eptype)
 {
     struct usb_pipe **pfree = &cntl->freelist;
     for (;;) {
@@ -160,6 +165,16 @@ usb_getFreePipe(struct usb_s *cntl, u8 eptype)
         }
         pfree = &pipe->freenext;
     }
+}
+
+// Free an allocated control or bulk pipe.
+void
+usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe)
+{
+    ASSERT32FLAT();
+    if (!pipe)
+        return;
+    usb_add_freelist(pipe);
 }
 
 // Fill "pipe" endpoint info from an endpoint descriptor.
