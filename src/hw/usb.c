@@ -38,7 +38,7 @@ usb_alloc_pipe(struct usbdevice_s *usbdev
     case USB_TYPE_OHCI:
         return ohci_realloc_pipe(usbdev, NULL, epdesc);
     case USB_TYPE_EHCI:
-        return ehci_alloc_pipe(usbdev, epdesc);
+        return ehci_realloc_pipe(usbdev, NULL, epdesc);
     case USB_TYPE_XHCI:
         return xhci_realloc_pipe(usbdev, NULL, epdesc);
     }

@@ -5,9 +5,10 @@
 void ehci_setup(void);
 struct usbdevice_s;
 struct usb_endpoint_descriptor;
-struct usb_pipe *ehci_alloc_pipe(struct usbdevice_s *usbdev
-                                 , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe;
+struct usb_pipe *ehci_realloc_pipe(struct usbdevice_s *usbdev
+                                   , struct usb_pipe *upipe
+                                   , struct usb_endpoint_descriptor *epdesc);
 int ehci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
                       , void *data, int datasize);
 int ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);
