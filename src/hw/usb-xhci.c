@@ -972,12 +972,10 @@ static int xhci_config_hub(struct usbhub_s *hub)
     return 0;
 }
 
-struct usb_pipe *
+static struct usb_pipe *
 xhci_alloc_pipe(struct usbdevice_s *usbdev
                 , struct usb_endpoint_descriptor *epdesc)
 {
-    if (!CONFIG_USB_XHCI)
-        return NULL;
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
     struct usb_xhci_s *xhci = container_of(
         usbdev->hub->cntl, struct usb_xhci_s, usb);
@@ -1077,11 +1075,17 @@ fail:
 }
 
 struct usb_pipe *
-xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
-                , struct usb_endpoint_descriptor *epdesc)
+xhci_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
+                  , struct usb_endpoint_descriptor *epdesc)
 {
     if (!CONFIG_USB_XHCI)
         return NULL;
+    if (!epdesc) {
+        usb_add_freelist(upipe);
+        return NULL;
+    }
+    if (!upipe)
+        return xhci_alloc_pipe(usbdev, epdesc);
     u8 eptype = epdesc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
     int oldmaxpacket = upipe->maxpacket;
     usb_desc2pipe(upipe, usbdev, epdesc);

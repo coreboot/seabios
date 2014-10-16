@@ -40,7 +40,7 @@ usb_alloc_pipe(struct usbdevice_s *usbdev
     case USB_TYPE_EHCI:
         return ehci_alloc_pipe(usbdev, epdesc);
     case USB_TYPE_XHCI:
-        return xhci_alloc_pipe(usbdev, epdesc);
+        return xhci_realloc_pipe(usbdev, NULL, epdesc);
     }
 }
 
@@ -51,7 +51,7 @@ usb_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
 {
     switch (usbdev->hub->cntl->type) {
     case USB_TYPE_XHCI:
-        return xhci_update_pipe(usbdev, pipe, epdesc);
+        return xhci_realloc_pipe(usbdev, pipe, epdesc);
     default:
         usb_free_pipe(usbdev, pipe);
         return usb_alloc_pipe(usbdev, epdesc);
