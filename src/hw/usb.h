@@ -235,7 +235,7 @@ int usb_poll_intr(struct usb_pipe *pipe, void *data);
 int usb_32bit_pipe(struct usb_pipe *pipe_fl);
 int usb_send_default_control(struct usb_pipe *pipe
                              , const struct usb_ctrlrequest *req, void *data);
-void free_pipe(struct usb_pipe *pipe);
+void usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe);
 struct usb_pipe *usb_getFreePipe(struct usb_s *cntl, u8 eptype);
 void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
                    , struct usb_endpoint_descriptor *epdesc);

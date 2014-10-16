@@ -266,9 +266,9 @@ usb_uas_setup(struct usbdevice_s *usbdev)
     return 0;
 
 fail:
-    free_pipe(command);
-    free_pipe(status);
-    free_pipe(data_in);
-    free_pipe(data_out);
+    usb_free_pipe(usbdev, command);
+    usb_free_pipe(usbdev, status);
+    usb_free_pipe(usbdev, data_in);
+    usb_free_pipe(usbdev, data_out);
     return -1;
 }

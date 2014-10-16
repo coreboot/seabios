@@ -53,7 +53,7 @@ usb_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
     case USB_TYPE_XHCI:
         return xhci_update_pipe(usbdev, pipe, epdesc);
     default:
-        free_pipe(pipe);
+        usb_free_pipe(usbdev, pipe);
         return usb_alloc_pipe(usbdev, epdesc);
     }
 }
@@ -134,7 +134,7 @@ usb_send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *re
 
 // Free an allocated control or bulk pipe.
 void
-free_pipe(struct usb_pipe *pipe)
+usb_free_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe)
 {
     ASSERT32FLAT();
     if (!pipe)
@@ -312,7 +312,7 @@ usb_set_address(struct usbdevice_s *usbdev)
     req.wLength = 0;
     int ret = usb_send_default_control(usbdev->defpipe, &req, NULL);
     if (ret) {
-        free_pipe(usbdev->defpipe);
+        usb_free_pipe(usbdev, usbdev->defpipe);
         return -1;
     }
 
@@ -436,7 +436,7 @@ usb_hub_port_setup(void *data)
 
     // Configure the device
     int count = configure_usb_device(usbdev);
-    free_pipe(usbdev->defpipe);
+    usb_free_pipe(usbdev, usbdev->defpipe);
     if (!count)
         hub->op->disconnect(hub, port);
     hub->devcount += count;

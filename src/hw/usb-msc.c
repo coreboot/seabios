@@ -214,7 +214,7 @@ usb_msc_setup(struct usbdevice_s *usbdev)
     return 0;
 fail:
     dprintf(1, "Unable to configure USB MSC device.\n");
-    free_pipe(inpipe);
-    free_pipe(outpipe);
+    usb_free_pipe(usbdev, inpipe);
+    usb_free_pipe(usbdev, outpipe);
     return -1;
 }
