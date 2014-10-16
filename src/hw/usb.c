@@ -200,9 +200,9 @@ usb_xfer_time(struct usb_pipe *pipe, int datalen)
     return USB_TIME_COMMAND + 100;
 }
 
-// Find the first endpoing of a given type in an interface description.
+// Find the first endpoint of a given type in an interface description.
 struct usb_endpoint_descriptor *
-findEndPointDesc(struct usbdevice_s *usbdev, int type, int dir)
+usb_find_desc(struct usbdevice_s *usbdev, int type, int dir)
 {
     struct usb_endpoint_descriptor *epdesc = (void*)&usbdev->iface[1];
     for (;;) {

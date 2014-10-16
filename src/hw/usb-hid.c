@@ -119,7 +119,7 @@ usb_hid_setup(struct usbdevice_s *usbdev)
         return -1;
 
     // Find intr in endpoint.
-    struct usb_endpoint_descriptor *epdesc = findEndPointDesc(
+    struct usb_endpoint_descriptor *epdesc = usb_find_desc(
         usbdev, USB_ENDPOINT_XFER_INT, USB_DIR_IN);
     if (!epdesc) {
         dprintf(1, "No usb hid intr in?\n");
