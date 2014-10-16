@@ -1014,7 +1014,7 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     in->add = 0x01 | (1 << epid);
     struct xhci_epctx *ep = (void*)&in[(pipe->epid+1) << xhci->context64];
     if (eptype == USB_ENDPOINT_XFER_INT)
-        ep->ctx[0] = (usb_getFrameExp(usbdev, epdesc) + 3) << 16;
+        ep->ctx[0] = (usb_get_period(usbdev, epdesc) + 3) << 16;
     ep->ctx[1]   |= eptype << 3;
     if (epdesc->bEndpointAddress & USB_DIR_IN
         || eptype == USB_ENDPOINT_XFER_CONTROL)

@@ -178,8 +178,8 @@ usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
 
 // Find the exponential period of the requested interrupt end point.
 int
-usb_getFrameExp(struct usbdevice_s *usbdev
-                , struct usb_endpoint_descriptor *epdesc)
+usb_get_period(struct usbdevice_s *usbdev
+               , struct usb_endpoint_descriptor *epdesc)
 {
     int period = epdesc->bInterval;
     if (usbdev->speed != USB_HIGHSPEED)

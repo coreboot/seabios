@@ -386,7 +386,7 @@ ehci_alloc_intr_pipe(struct usbdevice_s *usbdev
 {
     struct usb_ehci_s *cntl = container_of(
         usbdev->hub->cntl, struct usb_ehci_s, usb);
-    int frameexp = usb_getFrameExp(usbdev, epdesc);
+    int frameexp = usb_get_period(usbdev, epdesc);
     dprintf(7, "ehci_alloc_intr_pipe %p %d\n", &cntl->usb, frameexp);
 
     if (frameexp > 10)

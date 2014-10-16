@@ -239,8 +239,8 @@ void free_pipe(struct usb_pipe *pipe);
 struct usb_pipe *usb_getFreePipe(struct usb_s *cntl, u8 eptype);
 void usb_desc2pipe(struct usb_pipe *pipe, struct usbdevice_s *usbdev
                    , struct usb_endpoint_descriptor *epdesc);
-int usb_getFrameExp(struct usbdevice_s *usbdev
-                    , struct usb_endpoint_descriptor *epdesc);
+int usb_get_period(struct usbdevice_s *usbdev
+                   , struct usb_endpoint_descriptor *epdesc);
 int usb_xfer_time(struct usb_pipe *pipe, int datalen);
 struct usb_endpoint_descriptor *findEndPointDesc(struct usbdevice_s *usbdev
                                                  , int type, int dir);
