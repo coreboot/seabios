@@ -550,8 +550,8 @@ fillTDbuffer(struct ehci_qtd *td, u16 maxpacket, const void *buf, int bytes)
 }
 
 int
-ehci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-             , void *data, int datasize)
+ehci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                  , void *data, int datasize)
 {
     ASSERT32FLAT();
     if (! CONFIG_USB_EHCI)

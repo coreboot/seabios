@@ -443,8 +443,8 @@ wait_ed(struct ohci_ed *ed, int timeout)
 }
 
 int
-ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-             , void *data, int datasize)
+ohci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                  , void *data, int datasize)
 {
     if (! CONFIG_USB_OHCI)
         return -1;

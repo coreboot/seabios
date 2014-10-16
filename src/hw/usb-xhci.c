@@ -1113,8 +1113,8 @@ xhci_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
 }
 
 int
-xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-             , void *data, int datalen)
+xhci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                  , void *data, int datalen)
 {
     if (!CONFIG_USB_XHCI)
         return -1;

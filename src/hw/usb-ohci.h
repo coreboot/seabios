@@ -8,8 +8,8 @@ struct usb_endpoint_descriptor;
 struct usb_pipe *ohci_alloc_pipe(struct usbdevice_s *usbdev
                                  , struct usb_endpoint_descriptor *epdesc);
 struct usb_pipe;
-int ohci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-                 , void *data, int datasize);
+int ohci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                      , void *data, int datasize);
 int ohci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);
 int ohci_poll_intr(struct usb_pipe *p, void *data);
 

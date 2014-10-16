@@ -60,20 +60,20 @@ usb_update_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
 
 // Send a message on a control pipe using the default control descriptor.
 static int
-send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
-             , void *data, int datasize)
+usb_send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
+                 , void *data, int datasize)
 {
     ASSERT32FLAT();
     switch (pipe->type) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_control(pipe, dir, cmd, cmdsize, data, datasize);
+        return uhci_send_control(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_OHCI:
-        return ohci_control(pipe, dir, cmd, cmdsize, data, datasize);
+        return ohci_send_control(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_EHCI:
-        return ehci_control(pipe, dir, cmd, cmdsize, data, datasize);
+        return ehci_send_control(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_XHCI:
-        return xhci_control(pipe, dir, cmd, cmdsize, data, datasize);
+        return xhci_send_control(pipe, dir, cmd, cmdsize, data, datasize);
     }
 }
 
@@ -128,8 +128,8 @@ int
 send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                      , void *data)
 {
-    return send_control(pipe, req->bRequestType & USB_DIR_IN
-                        , req, sizeof(*req), data, req->wLength);
+    return usb_send_control(pipe, req->bRequestType & USB_DIR_IN
+                            , req, sizeof(*req), data, req->wLength);
 }
 
 // Free an allocated control or bulk pipe.

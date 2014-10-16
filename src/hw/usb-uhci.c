@@ -441,8 +441,8 @@ wait_td(struct uhci_td *td, u32 end)
 }
 
 int
-uhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-             , void *data, int datasize)
+uhci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                  , void *data, int datasize)
 {
     ASSERT32FLAT();
     if (! CONFIG_USB_UHCI)

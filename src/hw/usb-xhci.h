@@ -14,8 +14,8 @@ struct usb_pipe *xhci_alloc_pipe(struct usbdevice_s *usbdev
 struct usb_pipe *xhci_update_pipe(struct usbdevice_s *usbdev
                                   , struct usb_pipe *pipe
                                   , struct usb_endpoint_descriptor *epdesc);
-int xhci_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-                 , void *data, int datasize);
+int xhci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                      , void *data, int datasize);
 int xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);
 int xhci_poll_intr(struct usb_pipe *p, void *data);
 
