@@ -130,7 +130,7 @@ usb_msc_maxlun(struct usb_pipe *pipe)
     req.wIndex = 0;
     req.wLength = 1;
     unsigned char maxlun;
-    int ret = send_default_control(pipe, &req, &maxlun);
+    int ret = usb_send_default_control(pipe, &req, &maxlun);
     if (ret)
         return 0;
     return maxlun;

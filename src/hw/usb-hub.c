@@ -20,7 +20,7 @@ get_hub_desc(struct usb_pipe *pipe, struct usb_hub_descriptor *desc)
     req.wValue = USB_DT_HUB<<8;
     req.wIndex = 0;
     req.wLength = sizeof(*desc);
-    return send_default_control(pipe, &req, desc);
+    return usb_send_default_control(pipe, &req, desc);
 }
 
 static int
@@ -33,7 +33,7 @@ set_port_feature(struct usbhub_s *hub, int port, int feature)
     req.wIndex = port + 1;
     req.wLength = 0;
     mutex_lock(&hub->lock);
-    int ret = send_default_control(hub->usbdev->defpipe, &req, NULL);
+    int ret = usb_send_default_control(hub->usbdev->defpipe, &req, NULL);
     mutex_unlock(&hub->lock);
     return ret;
 }
@@ -48,7 +48,7 @@ clear_port_feature(struct usbhub_s *hub, int port, int feature)
     req.wIndex = port + 1;
     req.wLength = 0;
     mutex_lock(&hub->lock);
-    int ret = send_default_control(hub->usbdev->defpipe, &req, NULL);
+    int ret = usb_send_default_control(hub->usbdev->defpipe, &req, NULL);
     mutex_unlock(&hub->lock);
     return ret;
 }
@@ -63,7 +63,7 @@ get_port_status(struct usbhub_s *hub, int port, struct usb_port_status *sts)
     req.wIndex = port + 1;
     req.wLength = sizeof(*sts);
     mutex_lock(&hub->lock);
-    int ret = send_default_control(hub->usbdev->defpipe, &req, sts);
+    int ret = usb_send_default_control(hub->usbdev->defpipe, &req, sts);
     mutex_unlock(&hub->lock);
     return ret;
 }

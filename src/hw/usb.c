@@ -125,8 +125,8 @@ int usb_32bit_pipe(struct usb_pipe *pipe_fl)
 
 // Send a message to the default control pipe of a device.
 int
-send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
-                     , void *data)
+usb_send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
+                         , void *data)
 {
     return usb_send_control(pipe, req->bRequestType & USB_DIR_IN
                             , req, sizeof(*req), data, req->wLength);
@@ -228,7 +228,7 @@ get_device_info8(struct usb_pipe *pipe, struct usb_device_descriptor *dinfo)
     req.wValue = USB_DT_DEVICE<<8;
     req.wIndex = 0;
     req.wLength = 8;
-    return send_default_control(pipe, &req, dinfo);
+    return usb_send_default_control(pipe, &req, dinfo);
 }
 
 static struct usb_config_descriptor *
@@ -242,7 +242,7 @@ get_device_config(struct usb_pipe *pipe)
     req.wValue = USB_DT_CONFIG<<8;
     req.wIndex = 0;
     req.wLength = sizeof(cfg);
-    int ret = send_default_control(pipe, &req, &cfg);
+    int ret = usb_send_default_control(pipe, &req, &cfg);
     if (ret)
         return NULL;
 
@@ -250,7 +250,7 @@ get_device_config(struct usb_pipe *pipe)
     if (!config)
         return NULL;
     req.wLength = cfg.wTotalLength;
-    ret = send_default_control(pipe, &req, config);
+    ret = usb_send_default_control(pipe, &req, config);
     if (ret)
         return NULL;
     //hexdump(config, cfg.wTotalLength);
@@ -266,7 +266,7 @@ set_configuration(struct usb_pipe *pipe, u16 val)
     req.wValue = val;
     req.wIndex = 0;
     req.wLength = 0;
-    return send_default_control(pipe, &req, NULL);
+    return usb_send_default_control(pipe, &req, NULL);
 }
 
 
@@ -310,7 +310,7 @@ usb_set_address(struct usbdevice_s *usbdev)
     req.wValue = cntl->maxaddr + 1;
     req.wIndex = 0;
     req.wLength = 0;
-    int ret = send_default_control(usbdev->defpipe, &req, NULL);
+    int ret = usb_send_default_control(usbdev->defpipe, &req, NULL);
     if (ret) {
         free_pipe(usbdev->defpipe);
         return -1;

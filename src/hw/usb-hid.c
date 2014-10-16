@@ -30,7 +30,7 @@ set_protocol(struct usb_pipe *pipe, u16 val)
     req.wValue = val;
     req.wIndex = 0;
     req.wLength = 0;
-    return send_default_control(pipe, &req, NULL);
+    return usb_send_default_control(pipe, &req, NULL);
 }
 
 // Send USB HID SetIdle request.
@@ -43,7 +43,7 @@ set_idle(struct usb_pipe *pipe, int ms)
     req.wValue = (ms/4)<<8;
     req.wIndex = 0;
     req.wLength = 0;
-    return send_default_control(pipe, &req, NULL);
+    return usb_send_default_control(pipe, &req, NULL);
 }
 
 #define KEYREPEATWAITMS 500
