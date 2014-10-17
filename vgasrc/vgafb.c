@@ -236,9 +236,31 @@ get_color(int depth, u8 attr)
     int r = (attr&4) ? 2 : 0, g = (attr&2) ? 2 : 0, b = (attr&1) ? 2 : 0;
     if ((attr & 0xf) == 6)
         g = 1;
-    return ((((((1<<rbits) - 1) * (r + h) + 1) / 3) << (gbits+bbits))
-            + (((((1<<gbits) - 1) * (g + h) + 1) / 3) << bbits)
-            + ((((1<<bbits) - 1) * (b + h) + 1) / 3));
+    int rv = DIV_ROUND_CLOSEST(((1<<rbits) - 1) * (r + h), 3);
+    int gv = DIV_ROUND_CLOSEST(((1<<gbits) - 1) * (g + h), 3);
+    int bv = DIV_ROUND_CLOSEST(((1<<bbits) - 1) * (b + h), 3);
+    return (rv << (gbits+bbits)) + (gv << bbits) + bv;
+}
+
+// Find the closest attribute for a given framebuffer color
+static u8
+reverse_color(int depth, u32 color)
+{
+    int rbits, gbits, bbits;
+    switch (depth) {
+    case 15: rbits=5; gbits=5; bbits=5; break;
+    case 16: rbits=5; gbits=6; bbits=5; break;
+    default:
+    case 24: rbits=8; gbits=8; bbits=8; break;
+    }
+    int rv = (color >> (gbits+bbits)) & ((1<<rbits)-1);
+    int gv = (color >> bbits) & ((1<<gbits)-1);
+    int bv = color & ((1<<bbits)-1);
+    int r = DIV_ROUND_CLOSEST(rv * 3, (1<<rbits) - 1);
+    int g = DIV_ROUND_CLOSEST(gv * 3, (1<<gbits) - 1);
+    int b = DIV_ROUND_CLOSEST(bv * 3, (1<<bbits) - 1);
+    int h = r && g && b && (r != 2 || g != 2 || b != 2);
+    return (h ? 8 : 0) | ((r-h) ? 4 : 0) | ((g-h) ? 2 : 0) | ((b-h) ? 1 : 0);
 }
 
 static void
@@ -253,9 +275,14 @@ gfx_direct(struct gfx_op *op)
                       + op->x * bypp);
     switch (op->op) {
     default:
-    case GO_READ8:
-        // XXX - not implemented.
+    case GO_READ8: {
+        u8 data[64];
+        memcpy_high(MAKE_FLATPTR(GET_SEG(SS), data), dest_far, bypp * 8);
+        int i;
+        for (i=0; i<8; i++)
+            op->pixels[i] = reverse_color(depth, *(u32*)&data[i*bypp]);
         break;
+    }
     case GO_WRITE8: {
         u8 data[64];
         int i;
