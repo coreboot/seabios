@@ -123,9 +123,9 @@ int vga_set_mode(int mode, int flags);
 void init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g);
 void handle_gfx_op(struct gfx_op *op);
 void *text_address(struct cursorpos cp);
-void vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+void vgafb_move_chars(struct cursorpos dest
                       , struct cursorpos src, struct cursorpos movesize);
-void vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+void vgafb_clear_chars(struct cursorpos dest
                        , struct carattr ca, struct cursorpos movesize);
 void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);

@@ -212,19 +212,15 @@ write_teletype(struct cursorpos *pcp, struct carattr ca)
     if (pcp->y > nbrows) {
         pcp->y--;
 
-        struct vgamode_s *vmode_g = get_current_mode();
-        if (!vmode_g)
-            return;
-
         struct cursorpos dest = {0, 0, pcp->page};
         struct cursorpos src = {0, 1, pcp->page};
         struct cursorpos size = {GET_BDA(video_cols), nbrows};
-        vgafb_move_chars(vmode_g, dest, src, size);
+        vgafb_move_chars(dest, src, size);
 
         struct cursorpos clr = {0, nbrows, pcp->page};
         struct carattr attr = {' ', 0, 0};
         struct cursorpos clrsize = {GET_BDA(video_cols), 1};
-        vgafb_clear_chars(vmode_g, clr, attr, clrsize);
+        vgafb_clear_chars(clr, attr, clrsize);
     }
 }
 
@@ -430,10 +426,6 @@ verify_scroll(struct bregs *regs, int dir)
     if (wincols <= 0 || winrows <= 0)
         return;
 
-    struct vgamode_s *vmode_g = get_current_mode();
-    if (!vmode_g)
-        return;
-
     u8 page = GET_BDA(video_page);
     int clearlines = regs->al, movelines = winrows - clearlines;
     if (!clearlines || movelines <= 0) {
@@ -441,7 +433,7 @@ verify_scroll(struct bregs *regs, int dir)
         struct cursorpos clr = {ulx, uly, page};
         struct carattr attr = {' ', regs->bh, 1};
         struct cursorpos clrsize = {wincols, winrows};
-        vgafb_clear_chars(vmode_g, clr, attr, clrsize);
+        vgafb_clear_chars(clr, attr, clrsize);
         return;
     }
 
@@ -450,23 +442,23 @@ verify_scroll(struct bregs *regs, int dir)
         struct cursorpos dest = {ulx, uly, page};
         struct cursorpos src = {ulx, uly + clearlines, page};
         struct cursorpos size = {wincols, movelines};
-        vgafb_move_chars(vmode_g, dest, src, size);
+        vgafb_move_chars(dest, src, size);
 
         struct cursorpos clr = {ulx, uly + movelines, page};
         struct carattr attr = {' ', regs->bh, 1};
         struct cursorpos clrsize = {wincols, clearlines};
-        vgafb_clear_chars(vmode_g, clr, attr, clrsize);
+        vgafb_clear_chars(clr, attr, clrsize);
     } else {
         // Scroll down
         struct cursorpos dest = {ulx, uly + clearlines, page};
         struct cursorpos src = {ulx, uly, page};
         struct cursorpos size = {wincols, movelines};
-        vgafb_move_chars(vmode_g, dest, src, size);
+        vgafb_move_chars(dest, src, size);
 
         struct cursorpos clr = {ulx, uly, page};
         struct carattr attr = {' ', regs->bh, 1};
         struct cursorpos clrsize = {wincols, clearlines};
-        vgafb_clear_chars(vmode_g, clr, attr, clrsize);
+        vgafb_clear_chars(clr, attr, clrsize);
     }
 }
 

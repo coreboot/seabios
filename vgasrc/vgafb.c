@@ -465,9 +465,13 @@ text_address(struct cursorpos cp)
 
 // Move characters on screen.
 void
-vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+vgafb_move_chars(struct cursorpos dest
                  , struct cursorpos src, struct cursorpos movesize)
 {
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (!vmode_g)
+        return;
+
     if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
         gfx_move_chars(vmode_g, dest, src, movesize);
         return;
@@ -481,9 +485,13 @@ vgafb_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
 
 // Clear are of screen.
 void
-vgafb_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
+vgafb_clear_chars(struct cursorpos dest
                   , struct carattr ca, struct cursorpos clearsize)
 {
+    struct vgamode_s *vmode_g = get_current_mode();
+    if (!vmode_g)
+        return;
+
     if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
         gfx_clear_chars(vmode_g, dest, ca, clearsize);
         return;
