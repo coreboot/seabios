@@ -217,7 +217,7 @@ vbe_104f02(struct bregs *regs)
 static void
 vbe_104f03(struct bregs *regs)
 {
-    regs->bx = GET_BDA(vbe_mode);
+    regs->bx = GET_BDA_EXT(vbe_mode);
     dprintf(1, "VBE current mode=%x\n", regs->bx);
     regs->ax = 0x004f;
 }
@@ -247,7 +247,7 @@ vbe_104f05(struct bregs *regs)
 {
     if (regs->bh > 1 || regs->bl > 1)
         goto fail;
-    if (GET_BDA(vbe_mode) & MF_LINEARFB) {
+    if (GET_BDA_EXT(vbe_mode) & MF_LINEARFB) {
         regs->ah = VBE_RETURN_STATUS_INVALID;
         return;
     }
@@ -382,10 +382,10 @@ vbe_104f10(struct bregs *regs)
         regs->bx = 0x0f30;
         break;
     case 0x01:
-        SET_BDA(vbe_flag, regs->bh);
+        SET_BDA_EXT(vbe_flag, regs->bh);
         break;
     case 0x02:
-        regs->bh = GET_BDA(vbe_flag);
+        regs->bh = GET_BDA_EXT(vbe_flag);
         break;
     default:
         regs->ax = 0x014f;

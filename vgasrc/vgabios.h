@@ -75,6 +75,19 @@ struct gfx_op {
 #define GO_MEMSET  3
 #define GO_MEMMOVE 4
 
+// Custom internal storage in BDA
+#define VGA_CUSTOM_BDA 0xb9
+
+struct vga_bda_s {
+    u8 vbe_flag;
+    u16 vbe_mode;
+} PACKED;
+
+#define GET_BDA_EXT(var) \
+    GET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var)
+#define SET_BDA_EXT(var, val) \
+    SET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var, (val))
+
 // Debug settings
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
