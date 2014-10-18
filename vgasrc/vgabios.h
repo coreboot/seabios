@@ -73,6 +73,7 @@ struct vga_bda_s {
 
 #define BF_PM_MASK      0x0f
 #define BF_EMULATE_TEXT 0x10
+#define BF_SWCURSOR     0x20
 
 #define GET_BDA_EXT(var) \
     GET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var)
@@ -112,6 +113,8 @@ struct cursorpos {
 };
 int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
+u16 get_cursor_shape(void);
+struct cursorpos get_cursor_pos(u8 page);
 int bda_save_restore(int cmd, u16 seg, void *data);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
@@ -129,6 +132,7 @@ void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);
 void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
+void vgafb_set_swcursor(int enable);
 
 // vbe.c
 extern u32 VBE_total_memory;

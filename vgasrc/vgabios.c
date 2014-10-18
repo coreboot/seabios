@@ -51,7 +51,7 @@ calc_page_size(u8 memmodel, u16 width, u16 height)
 }
 
 // Determine cursor shape (taking into account possible cursor scaling)
-static u16
+u16
 get_cursor_shape(void)
 {
     u16 cursor_type = GET_BDA(cursor_type);
@@ -74,6 +74,7 @@ get_cursor_shape(void)
 static void
 set_cursor_shape(u16 cursor_type)
 {
+    vgafb_set_swcursor(0);
     SET_BDA(cursor_type, cursor_type);
     if (CONFIG_VGA_STDVGA_PORTS)
         stdvga_set_cursor_shape(get_cursor_shape());
@@ -87,6 +88,8 @@ set_cursor_pos(struct cursorpos cp)
     // Should not happen...
     if (page > 7)
         return;
+
+    vgafb_set_swcursor(0);
 
     // Bios cursor pos
     SET_BDA(cursor_pos[page], (y << 8) | x);
@@ -103,7 +106,7 @@ set_cursor_pos(struct cursorpos cp)
     stdvga_set_cursor_pos((int)text_address(cp));
 }
 
-static struct cursorpos
+struct cursorpos
 get_cursor_pos(u8 page)
 {
     if (page == 0xff)
@@ -128,6 +131,8 @@ set_active_page(u8 page)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
+
+    vgafb_set_swcursor(0);
 
     // Calculate memory address of start of page
     struct cursorpos cp = {0, 0, page};
@@ -282,6 +287,8 @@ vga_set_mode(int mode, int flags)
     if (!vmode_g)
         return VBE_RETURN_STATUS_FAILED;
 
+    vgafb_set_swcursor(0);
+
     int ret = vgahw_set_mode(vmode_g, flags);
     if (ret)
         return ret;
@@ -305,7 +312,7 @@ vga_set_mode(int mode, int flags)
         int cwidth = GET_GLOBAL(vmode_g->cwidth);
         SET_BDA(video_cols, width / cwidth);
         SET_BDA(video_rows, (height / cheight) - 1);
-        SET_BDA(cursor_type, 0x0000);
+        SET_BDA(cursor_type, vga_emulate_text() ? 0x0607 : 0x0000);
     }
     SET_BDA(video_pagesize, calc_page_size(memmodel, width, height));
     SET_BDA(crtc_address, CONFIG_VGA_STDVGA_PORTS ? stdvga_get_crtc() : 0);

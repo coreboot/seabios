@@ -88,6 +88,38 @@ allocate_extra_stack(void)
 
 
 /****************************************************************
+ * Timer hook
+ ****************************************************************/
+
+struct segoff_s Timer_Hook_Resume VAR16 VISIBLE16;
+
+void VISIBLE16
+handle_timer_hook(void)
+{
+    if (!vga_emulate_text())
+        return;
+    vgafb_set_swcursor(GET_BDA(timer_counter) % 18 < 9);
+}
+
+static void
+hook_timer_irq(void)
+{
+    if (!CONFIG_VGA_EMULATE_TEXT)
+        return;
+    extern void entry_timer_hook(void);
+    extern void entry_timer_hook_extrastack(void);
+    struct segoff_s oldirq = GET_IVT(0x08);
+    struct segoff_s newirq = SEGOFF(get_global_seg(), (u32)entry_timer_hook);
+    if (CONFIG_VGA_ALLOCATE_EXTRA_STACK && GET_GLOBAL(ExtraStackSeg))
+        newirq = SEGOFF(get_global_seg(), (u32)entry_timer_hook_extrastack);
+    dprintf(1, "Hooking hardware timer irq (old=%x new=%x)\n"
+            , oldirq.segoff, newirq.segoff);
+    SET_VGA(Timer_Hook_Resume, oldirq);
+    SET_IVT(0x08, newirq);
+}
+
+
+/****************************************************************
  * VGA post
  ****************************************************************/
 
@@ -149,6 +181,8 @@ vga_post(struct bregs *regs)
     SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10));
 
     allocate_extra_stack();
+
+    hook_timer_irq();
 
     SET_VGA(HaveRunInit, 1);
 

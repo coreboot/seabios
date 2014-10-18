@@ -95,8 +95,8 @@ cbvga_save_restore(int cmd, u16 seg, void *data)
 int
 cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
-    MASK_BDA_EXT(flags, BF_EMULATE_TEXT
-                 , (vmode_g == &CBemulinfo) ? BF_EMULATE_TEXT : 0);
+    u8 emul = vmode_g == &CBemulinfo || GET_GLOBAL(CBmode) == 0x03;
+    MASK_BDA_EXT(flags, BF_EMULATE_TEXT, emul ? BF_EMULATE_TEXT : 0);
     if (!(flags & MF_NOCLEARMEM)) {
         if (GET_GLOBAL(CBmodeinfo.memmodel) == MM_TEXT) {
             memset16_far(SEG_CTEXT, (void*)0, 0x0720, 80*25*2);
