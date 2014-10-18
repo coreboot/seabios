@@ -81,6 +81,7 @@ struct gfx_op {
 struct vga_bda_s {
     u8 vbe_flag;
     u16 vbe_mode;
+    u16 vgamode_offset;
 } PACKED;
 
 #define GET_BDA_EXT(var) \
