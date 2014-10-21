@@ -79,10 +79,12 @@ struct gfx_op {
 #define VGA_CUSTOM_BDA 0xb9
 
 struct vga_bda_s {
-    u8 vbe_flag;
+    u8 flags;
     u16 vbe_mode;
     u16 vgamode_offset;
 } PACKED;
+
+#define BF_PM_MASK 0x0f
 
 #define GET_BDA_EXT(var) \
     GET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var)
