@@ -92,8 +92,7 @@ handle_1587(struct bregs *regs)
 // check for access rights of source & dest here
 
     // Initialize GDT descriptor
-    u32 si = regs->si;
-    u64 *gdt_far = (void*)si;
+    u64 *gdt_far = (void*)(regs->si + 0);
     u16 gdt_seg = regs->es;
     u32 loc = (u32)MAKE_FLATPTR(gdt_seg, gdt_far);
     SET_FARVAR(gdt_seg, gdt_far[1], GDT_DATA | GDT_LIMIT((6*sizeof(u64))-1)
@@ -107,10 +106,11 @@ handle_1587(struct bregs *regs)
     loc = (u32)MAKE_FLATPTR(GET_SEG(SS), 0);
     SET_FARVAR(gdt_seg, gdt_far[5], GDT_DATA | lim | GDT_BASE(loc));
 
-    u16 count = regs->cx;
+    SET_SEG(ES, gdt_seg);
+    u16 count = regs->cx, si = 0, di = 0;
     asm volatile(
         // Load new descriptor tables
-        "  lgdtw %%es:(1<<3)(%%si)\n"
+        "  lgdtw %%es:(1<<3)(%%eax)\n"
         "  lidtw %%cs:pmode_IDT_info\n"
 
         // Enable protected mode
@@ -127,13 +127,14 @@ handle_1587(struct bregs *regs)
         "  movw $(3<<3), %%ax\n" // 3rd descriptor in table, TI=GDT, RPL=00
         "  movw %%ax, %%es\n"
 
-        // move CX words from DS:SI to ES:DI
-        "  xorw %%si, %%si\n"
-        "  xorw %%di, %%di\n"
-        "  rep movsw\n"
+        // memcpy CX words using 32bit memcpy if applicable
+        "  testw $1, %%cx\n"
+        "  jnz 3f\n"
+        "  shrw $1, %%cx\n"
+        "  rep movsl %%ds:(%%si), %%es:(%%di)\n"
 
         // Restore DS and ES segment limits to 0xffff
-        "  movw $(5<<3), %%ax\n" // 5th descriptor in table (SS)
+        "2:movw $(5<<3), %%ax\n" // 5th descriptor in table (SS)
         "  movw %%ax, %%ds\n"
         "  movw %%ax, %%es\n"
 
@@ -143,16 +144,21 @@ handle_1587(struct bregs *regs)
         "  movl %%eax, %%cr0\n"
 
         // far jump to flush CPU queue after transition to real mode
-        "  ljmpw $" __stringify(SEG_BIOS) ", $2f\n"
+        "  ljmpw $" __stringify(SEG_BIOS) ", $4f\n"
+
+        // Slower 16bit copy method
+        "3:rep movsw %%ds:(%%si), %%es:(%%di)\n"
+        "  jmp 2b\n"
 
         // restore IDT to normal real-mode defaults
-        "2:lidtw %%cs:rmode_IDT_info\n"
+        "4:lidtw %%cs:rmode_IDT_info\n"
 
         // Restore %ds (from %ss)
         "  movw %%ss, %%ax\n"
         "  movw %%ax, %%ds\n"
-        : "+c"(count), "+S"(si), "+m" (__segment_ES)
-        : : "eax", "di", "cc");
+        : "+a" (gdt_far), "+c"(count), "+m" (__segment_ES)
+        : "S" (si), "D" (di)
+        : "cc");
 
     set_a20(prev_a20_enable);
 
