@@ -431,14 +431,8 @@ entry_csm:
         shll $4, %eax
         addl %esp, %eax
 
-        // Change to BUILD_STACK_ADDR stack
-        xorl %ebx, %ebx
-        movw %bx, %ss
-        movl $BUILD_STACK_ADDR, %esp
-
-        // Jump to 32bit mode and call handle_csm(bregs)
-        movl $_cfunc32flat_handle_csm, %edx
-        jmp transition32
+        // Change to BUILD_STACK_ADDR stack and call handle_csm(bregs)
+        ENTRY_INTO32 _cfunc32flat_handle_csm
 
         DECLFUNC __csm_return
         .code32

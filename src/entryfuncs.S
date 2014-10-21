@@ -135,10 +135,9 @@
         .endm
 
         // Reset stack, transition to 32bit mode, and call a C function.
-        // Clobbers %ax
         .macro ENTRY_INTO32 cfunc
-        xorw %ax, %ax
-        movw %ax, %ss
+        xorw %dx, %dx
+        movw %dx, %ss
         movl $ BUILD_STACK_ADDR , %esp
         movl $ \cfunc , %edx
         jmp transition32
