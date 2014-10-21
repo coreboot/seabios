@@ -1,16 +1,17 @@
 // Macros for entering C code
 //
-// Copyright (C) 2008,2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2008-2014  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 
 /****************************************************************
- * Entry macros
+ * Macros for save and restore of 'struct bregs' registers
  ****************************************************************/
 
+        // Save registers (matches struct bregs) to stack
         .macro PUSHBREGS
-        pushl %eax              // Save registers (matches struct bregs)
+        pushl %eax
         pushl %ecx
         pushl %edx
         pushl %ebx
@@ -21,8 +22,9 @@
         pushw %ds
         .endm
 
+        // Restore registers (from struct bregs) from stack
         .macro POPBREGS
-        popw %ds                // Restore registers (from struct bregs)
+        popw %ds
         popw %es
         popl %edi
         popl %esi
@@ -32,6 +34,40 @@
         popl %ecx
         popl %eax
         .endm
+
+        // Save registers to struct bregs at %ds:%eax.  The caller
+        // should "pushw %ds ; pushl %eax" prior to calling - this macro
+        // will pop them off.
+        .macro SAVEBREGS_POP_DSEAX
+        popl BREGS_eax(%eax)
+        popw BREGS_ds(%eax)
+        movl %edi, BREGS_edi(%eax)
+        movl %esi, BREGS_esi(%eax)
+        movl %ebp, BREGS_ebp(%eax)
+        movl %ebx, BREGS_ebx(%eax)
+        movl %edx, BREGS_edx(%eax)
+        movl %ecx, BREGS_ecx(%eax)
+        movw %es, BREGS_es(%eax)
+        .endm
+
+        // Restore registers from struct bregs at %ds:%eax
+        .macro RESTOREBREGS_DSEAX
+        movl BREGS_edi(%eax), %edi
+        movl BREGS_esi(%eax), %esi
+        movl BREGS_ebp(%eax), %ebp
+        movl BREGS_ebx(%eax), %ebx
+        movl BREGS_edx(%eax), %edx
+        movl BREGS_ecx(%eax), %ecx
+        movw BREGS_es(%eax), %es
+        pushl BREGS_eax(%eax)
+        movw BREGS_ds(%eax), %ds
+        popl %eax
+        .endm
+
+
+/****************************************************************
+ * Entry macros
+ ****************************************************************/
 
         // Call a C function - this does the minimal work necessary to
         // call into C.  It sets up %ds, backs up %es, and backs up

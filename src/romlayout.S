@@ -151,19 +151,8 @@ __farcall16:
         pushw BREGS_flags(%eax)         // flags
         pushl BREGS_code(%eax)          // CS:IP
 
-        // Load calling registers.
-        movl BREGS_edi(%eax), %edi
-        movl BREGS_esi(%eax), %esi
-        movl BREGS_ebp(%eax), %ebp
-        movl BREGS_ebx(%eax), %ebx
-        movl BREGS_edx(%eax), %edx
-        movl BREGS_ecx(%eax), %ecx
-        movw BREGS_es(%eax), %es
-        pushl BREGS_eax(%eax)
-        movw BREGS_ds(%eax), %ds
-        popl %eax
-
-        // Invoke call
+        // Load calling registers and invoke call
+        RESTOREBREGS_DSEAX
         iretw                           // XXX - just do a lcalll
 1:
         // Store flags, es, eax
@@ -174,18 +163,8 @@ __farcall16:
         pushl %eax
         movw 0x08(%esp), %ds
         movl 0x0c(%esp), %eax
-        popl BREGS_eax(%eax)
-        popw BREGS_es(%eax)
+        SAVEBREGS_POP_DSEAX
         popw BREGS_flags(%eax)
-
-        // Store remaining registers
-        movl %edi, BREGS_edi(%eax)
-        movl %esi, BREGS_esi(%eax)
-        movl %ebp, BREGS_ebp(%eax)
-        movl %ebx, BREGS_ebx(%eax)
-        movl %edx, BREGS_edx(%eax)
-        movl %ecx, BREGS_ecx(%eax)
-        movw %es, BREGS_ds(%eax)
         movw %ss, %cx
         movw %cx, %ds                   // Restore %ds == %ss
 
@@ -508,16 +487,8 @@ irqentry_arg_extrastack:
         movl %eax, %ds
         movl StackPos, %eax
         subl $BREGS_size+8, %eax
-        popl BREGS_eax(%eax)    // Backup registers
-        popw BREGS_ds(%eax)
-        movl %edi, BREGS_edi(%eax)
-        movl %esi, BREGS_esi(%eax)
-        movl %ebp, BREGS_ebp(%eax)
-        movl %ebx, BREGS_ebx(%eax)
-        movl %edx, BREGS_edx(%eax)
-        movl %ecx, BREGS_ecx(%eax)
+        SAVEBREGS_POP_DSEAX     // Save registers on extra stack
         popl %ecx
-        movw %es, BREGS_es(%eax)
         movl %esp, BREGS_size+0(%eax)
         movw %ss, BREGS_size+4(%eax)
         popl BREGS_code(%eax)
@@ -535,17 +506,7 @@ irqentry_arg_extrastack:
         popw %dx
         pushw BREGS_flags(%eax)
         pushl BREGS_code(%eax)
-        movl BREGS_edi(%eax), %edi
-        movl BREGS_esi(%eax), %esi
-        movl BREGS_ebp(%eax), %ebp
-        movl BREGS_ebx(%eax), %ebx
-        movl BREGS_edx(%eax), %edx
-        movl BREGS_ecx(%eax), %ecx
-        movw BREGS_es(%eax), %es
-        pushw BREGS_ds(%eax)
-        pushl BREGS_eax(%eax)
-        popl %eax
-        popw %ds
+        RESTOREBREGS_DSEAX
         iretw
 
         // Main entry point for interrupts with args

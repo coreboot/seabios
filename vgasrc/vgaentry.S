@@ -113,15 +113,7 @@ entry_10_extrastack:
         pushl %eax
         movw %cs:ExtraStackSeg, %ds
         movl $(CONFIG_VGA_EXTRA_STACK_SIZE-BREGS_size-8), %eax
-        popl BREGS_eax(%eax)    // Backup registers
-        popw BREGS_ds(%eax)
-        movl %edi, BREGS_edi(%eax)
-        movl %esi, BREGS_esi(%eax)
-        movl %ebp, BREGS_ebp(%eax)
-        movl %ebx, BREGS_ebx(%eax)
-        movl %edx, BREGS_edx(%eax)
-        movl %ecx, BREGS_ecx(%eax)
-        movw %es, BREGS_es(%eax)
+        SAVEBREGS_POP_DSEAX     // Save registers on extra stack
         movl %esp, BREGS_size+0(%eax)
         movw %ss, BREGS_size+4(%eax)
         popl BREGS_code(%eax)
@@ -139,15 +131,5 @@ entry_10_extrastack:
         popw %dx
         pushw BREGS_flags(%eax)
         pushl BREGS_code(%eax)
-        movl BREGS_edi(%eax), %edi
-        movl BREGS_esi(%eax), %esi
-        movl BREGS_ebp(%eax), %ebp
-        movl BREGS_ebx(%eax), %ebx
-        movl BREGS_edx(%eax), %edx
-        movl BREGS_ecx(%eax), %ecx
-        movw BREGS_es(%eax), %es
-        pushw BREGS_ds(%eax)
-        pushl BREGS_eax(%eax)
-        popl %eax
-        popw %ds
+        RESTOREBREGS_DSEAX
         iretw
