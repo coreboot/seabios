@@ -93,29 +93,6 @@
         popl %eax
         .endm
 
-        // As above, but get calling function from stack.
-        .macro ENTRY_ST
-        cli
-        cld
-        pushl %ecx
-        pushl %edx
-        pushw %es
-        pushw %ds
-        movw %ss, %cx           // Move %ss to %ds
-        movw %cx, %ds
-        pushl %esp              // Backup %esp, then clear high bits
-        movzwl %sp, %esp
-        movl 16(%esp), %ecx     // Get calling function
-        movl %eax, 16(%esp)     // Save %eax
-        calll *%ecx
-        popl %esp               // Restore %esp (including high bits)
-        popw %ds                // Restore registers saved above
-        popw %es
-        popl %edx
-        popl %ecx
-        popl %eax
-        .endm
-
         // Call a C function with current register list as an
         // argument.  This backs up the registers and sets %eax
         // to point to the backup.  On return, the registers are
