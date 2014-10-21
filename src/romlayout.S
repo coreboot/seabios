@@ -252,26 +252,18 @@ entry_pmm:
         pushfl                  // Save registers clobbered by C code
         cli
         cld
-        pushl %eax
-        pushl %ecx
-        pushl %edx
-        pushw %es
-        pushw %ds
+        PUSHBREGS
         movl %ss, %ecx          // Move %ss to %ds
         movw %cx, %ds
         shll $4, %ecx
         movl $_cfunc32flat_handle_pmm, %eax // Setup: call32(handle_pmm, args, -1)
-        leal 28(%esp, %ecx), %edx       // %edx points to start of args
+        leal BREGS_size-6+12(%esp, %ecx), %edx // %edx points to start of args
         movl $-1, %ecx
         calll call32
-        movw %ax, 12(%esp)      // Modify %ax:%dx to return %eax
+        movw %ax, BREGS_eax(%esp)       // Modify %ax:%dx to return %eax
         shrl $16, %eax
-        movw %ax, 4(%esp)
-        popw %ds                // Restore saved registers
-        popw %es
-        popl %edx
-        popl %ecx
-        popl %eax
+        movw %ax, BREGS_edx(%esp)
+        POPBREGS
         popfl
         popl %esp
         lretw
@@ -289,21 +281,13 @@ entry_pnp_real:
         pushfl                  // Save registers clobbered by C code
         cli
         cld
-        pushl %eax
-        pushl %ecx
-        pushl %edx
-        pushw %es
-        pushw %ds
+        PUSHBREGS
         movw %ss, %cx           // Move %ss to %ds
         movw %cx, %ds
-        leal 28(%esp), %eax     // %eax points to start of u16 args
+        leal BREGS_size-6+12(%esp), %eax  // %eax points to start of u16 args
         calll handle_pnp
         movw %ax, 12(%esp)      // Modify %eax to return %ax
-        popw %ds
-        popw %es
-        popl %edx
-        popl %ecx
-        popl %eax
+        POPBREGS
         popfl
         popl %esp
         lretw
@@ -449,15 +433,11 @@ irqentry_extrastack:
         movl $_zonelow_seg, %eax
         movl %eax, %ds
         movl StackPos, %eax
-        subl $24, %eax
-        popl 0(%eax)            // Backup %eax, %ds, %es, %ecx, %edx
-        popw 4(%eax)
-        movw %es, 6(%eax)
-        movl %ecx, 8(%eax)
+        subl $BREGS_size+8, %eax
+        SAVEBREGS_POP_DSEAX
         popl %ecx
-        movl %edx, 12(%eax)
-        movl %esp, 16(%eax)
-        movw %ss, 20(%eax)
+        movl %esp, BREGS_size(%eax)
+        movw %ss, BREGS_size+4(%eax)
 
         movw %ds, %dx           // Setup %ss/%esp and call function
         movw %dx, %ss
@@ -465,15 +445,9 @@ irqentry_extrastack:
         calll *%ecx
 
         movl %esp, %eax         // Restore registers and return
-        movw 20(%eax), %ss
-        movl 16(%eax), %esp
-        movl 12(%eax), %edx
-        movl 8(%eax), %ecx
-        movw 6(%eax), %es
-        pushw 4(%eax)
-        pushl 0(%eax)
-        popl %eax
-        popw %ds
+        movw BREGS_size+4(%eax), %ss
+        movl BREGS_size(%eax), %esp
+        RESTOREBREGS_DSEAX
         iretw
 
         // Main entry point for interrupts handled on extra stack
