@@ -62,9 +62,9 @@ set_cursor_shape(u8 start, u8 end)
     if (!CONFIG_VGA_STDVGA_PORTS)
         return;
 
-    u8 modeset_ctl = GET_BDA(modeset_ctl);
+    u8 emulate_cursor = (GET_BDA(video_ctl) & 1) == 0;
     u16 cheight = GET_BDA(char_height);
-    if ((modeset_ctl & 0x01) && (cheight > 8) && (end < 8) && (start < 0x20)) {
+    if (emulate_cursor && (cheight > 8) && (end < 8) && (start < 0x20)) {
         if (end != (start + 1))
             start = ((start + 1) * cheight / 8) - 1;
         else
@@ -79,7 +79,6 @@ get_cursor_shape(u8 page)
 {
     if (page > 7)
         return 0;
-    // FIXME should handle VGA 14/16 lines
     return GET_BDA(cursor_type);
 }
 
@@ -117,7 +116,6 @@ get_cursor_pos(u8 page)
         struct cursorpos cp = { 0, 0, 0xfe };
         return cp;
     }
-    // FIXME should handle VGA 14/16 lines
     u16 xy = GET_BDA(cursor_pos[page]);
     struct cursorpos cp = {xy, xy>>8, page};
     return cp;
@@ -153,16 +151,16 @@ static void
 set_scan_lines(u8 lines)
 {
     stdvga_set_scan_lines(lines);
-    if (lines == 8)
-        set_cursor_shape(0x06, 0x07);
-    else
-        set_cursor_shape(lines - 4, lines - 3);
     SET_BDA(char_height, lines);
     u16 vde = stdvga_get_vde();
     u8 rows = vde / lines;
     SET_BDA(video_rows, rows - 1);
     u16 cols = GET_BDA(video_cols);
     SET_BDA(video_pagesize, calc_page_size(MM_TEXT, cols, rows));
+    if (lines == 8)
+        set_cursor_shape(0x06, 0x07);
+    else
+        set_cursor_shape(lines - 3, lines - 2);
 }
 
 
@@ -981,9 +979,7 @@ handle_101233(struct bregs *regs)
 static void
 handle_101234(struct bregs *regs)
 {
-    u8 v = (regs->al & 0x01) ^ 0x01;
-    u8 v2 = GET_BDA(modeset_ctl) & ~0x01;
-    SET_BDA(modeset_ctl, v | v2);
+    SET_BDA(video_ctl, (GET_BDA(video_ctl) & ~0x01) | (regs->al & 0x01));
     regs->al = 0x12;
 }
 
