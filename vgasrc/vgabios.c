@@ -1076,51 +1076,23 @@ handle_101a(struct bregs *regs)
 }
 
 
-static u8 static_functionality[0x10] VAR16 = {
- /* 0 */ 0xff,  // All modes supported #1
- /* 1 */ 0xe0,  // All modes supported #2
- /* 2 */ 0x0f,  // All modes supported #3
- /* 3 */ 0x00, 0x00, 0x00, 0x00,  // reserved
- /* 7 */ 0x07,  // 200, 350, 400 scan lines
- /* 8 */ 0x02,  // mamimum number of visible charsets in text mode
- /* 9 */ 0x08,  // total number of charset blocks in text mode
- /* a */ 0xe7,  // Change to add new functions
- /* b */ 0x0c,  // Change to add new functions
- /* c */ 0x00,  // reserved
- /* d */ 0x00,  // reserved
- /* e */ 0x00,  // Change to add new functions
- /* f */ 0x00   // reserved
+static struct video_func_static static_functionality VAR16 = {
+    .modes          = 0x0fe0ff,
+    .scanlines      = 0x07,   // 200, 350, 400 scan lines
+    .cblocks        = 0x02,   // mamimum number of visible charsets in text mode
+    .active_cblocks = 0x08,   // total number of charset blocks in text mode
+    .misc_flags     = 0x0ce7,
 };
-
-struct funcInfo {
-    struct segoff_s static_functionality;
-    u8 bda_0x49[30];
-    u8 bda_0x84[3];
-    u8 dcc_index;
-    u8 dcc_alt;
-    u16 colors;
-    u8 pages;
-    u8 scan_lines;
-    u8 primary_char;
-    u8 secondar_char;
-    u8 misc;
-    u8 non_vga_mode;
-    u8 reserved_2f[2];
-    u8 video_mem;
-    u8 save_flags;
-    u8 disp_info;
-    u8 reserved_34[12];
-} PACKED;
 
 static void
 handle_101b(struct bregs *regs)
 {
     u16 seg = regs->es;
-    struct funcInfo *info = (void*)(regs->di+0);
+    struct video_func_info *info = (void*)(regs->di+0);
     memset_far(seg, info, 0, sizeof(*info));
     // Address of static functionality table
     SET_FARVAR(seg, info->static_functionality
-               , SEGOFF(get_global_seg(), (u32)static_functionality));
+               , SEGOFF(get_global_seg(), (u32)&static_functionality));
 
     // Hard coded copy from BIOS area. Should it be cleaner ?
     memcpy_far(seg, info->bda_0x49, SEG_BDA, (void*)0x49

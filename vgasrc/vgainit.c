@@ -15,22 +15,12 @@
 #include "std/pmm.h" // struct pmmheader
 #include "string.h" // checksum_far
 #include "util.h" // VERSION
-#include "vgabios.h" // struct VideoSavePointer_s
+#include "vgabios.h" // video_save_pointer_table
 #include "vgahw.h" // vgahw_setup
 
-// Standard Video Save Pointer Table
-struct VideoSavePointer_s {
-    struct segoff_s videoparam;
-    struct segoff_s paramdynamicsave;
-    struct segoff_s textcharset;
-    struct segoff_s graphcharset;
-    struct segoff_s secsavepointer;
-    u8 reserved[8];
-} PACKED;
+struct video_save_pointer_s video_save_pointer_table VAR16;
 
-struct VideoSavePointer_s video_save_pointer_table VAR16;
-
-struct VideoParam_s video_param_table[29] VAR16;
+struct video_param_s video_param_table[29] VAR16;
 
 // Type of emulator platform - for dprintf with certain compile options.
 int PlatformRunningOn VAR16;

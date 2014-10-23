@@ -3,21 +3,7 @@
 
 #include "types.h" // u8
 #include "farptr.h" // struct segoff_s
-
-// standard BIOS Video Parameter Table
-struct VideoParam_s {
-    u8 twidth;
-    u8 theightm1;
-    u8 cheight;
-    u16 slength;
-    u8 sequ_regs[4];
-    u8 miscreg;
-    u8 crtc_regs[25];
-    u8 actl_regs[20];
-    u8 grdc_regs[9];
-} PACKED;
-
-extern struct VideoParam_s video_param_table[29];
+#include "std/vga.h" // struct video_param_s
 
 // Save/Restore flags
 #define SR_HARDWARE   0x0001
@@ -103,7 +89,8 @@ extern u8 vgafont14alt[];
 extern u8 vgafont16alt[];
 
 // vgainit.c
-extern struct VideoSavePointer_s video_save_pointer_table;
+extern struct video_save_pointer_s video_save_pointer_table;
+extern struct video_param_s video_param_table[29];
 
 // vgabios.c
 extern int VgaBDF;
