@@ -92,7 +92,7 @@ void stdvga_load_font(u16 seg, void *src_far, u16 count
                       , u16 start, u8 destflags, u8 fontsize);
 u16 stdvga_get_crtc(void);
 int stdvga_vram_ratio(struct vgamode_s *vmode_g);
-void stdvga_set_cursor_shape(u8 start, u8 end);
+void stdvga_set_cursor_shape(u16 cursor_type);
 void stdvga_set_cursor_pos(int address);
 void stdvga_set_scan_lines(u8 lines);
 u16 stdvga_get_vde(void);

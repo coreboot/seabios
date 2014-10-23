@@ -229,11 +229,11 @@ stdvga_vram_ratio(struct vgamode_s *vmode_g)
 }
 
 void
-stdvga_set_cursor_shape(u8 start, u8 end)
+stdvga_set_cursor_shape(u16 cursor_type)
 {
     u16 crtc_addr = stdvga_get_crtc();
-    stdvga_crtc_write(crtc_addr, 0x0a, start);
-    stdvga_crtc_write(crtc_addr, 0x0b, end);
+    stdvga_crtc_write(crtc_addr, 0x0a, cursor_type >> 8);
+    stdvga_crtc_write(crtc_addr, 0x0b, cursor_type);
 }
 
 void

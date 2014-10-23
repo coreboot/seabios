@@ -50,36 +50,33 @@ calc_page_size(u8 memmodel, u16 width, u16 height)
     }
 }
 
-static void
-set_cursor_shape(u8 start, u8 end)
+// Determine cursor shape (taking into account possible cursor scaling)
+static u16
+get_cursor_shape(void)
 {
-    start &= 0x3f;
-    end &= 0x1f;
-
-    u16 curs = (start << 8) + end;
-    SET_BDA(cursor_type, curs);
-
-    if (!CONFIG_VGA_STDVGA_PORTS)
-        return;
-
+    u16 cursor_type = GET_BDA(cursor_type);
     u8 emulate_cursor = (GET_BDA(video_ctl) & 1) == 0;
+    if (!emulate_cursor)
+        return cursor_type;
+    u8 start = (cursor_type >> 8) & 0x3f;
+    u8 end = cursor_type & 0x1f;
     u16 cheight = GET_BDA(char_height);
-    if (emulate_cursor && (cheight > 8) && (end < 8) && (start < 0x20)) {
-        if (end != (start + 1))
-            start = ((start + 1) * cheight / 8) - 1;
-        else
-            start = ((end + 1) * cheight / 8) - 2;
-        end = ((end + 1) * cheight / 8) - 1;
-    }
-    stdvga_set_cursor_shape(start, end);
+    if (cheight <= 8 || end >= 8 || start >= 0x20)
+        return cursor_type;
+    if (end != (start + 1))
+        start = ((start + 1) * cheight / 8) - 1;
+    else
+        start = ((end + 1) * cheight / 8) - 2;
+    end = ((end + 1) * cheight / 8) - 1;
+    return (start << 8) | end;
 }
 
-static u16
-get_cursor_shape(u8 page)
+static void
+set_cursor_shape(u16 cursor_type)
 {
-    if (page > 7)
-        return 0;
-    return GET_BDA(cursor_type);
+    SET_BDA(cursor_type, cursor_type);
+    if (CONFIG_VGA_STDVGA_PORTS)
+        stdvga_set_cursor_shape(get_cursor_shape());
 }
 
 static void
@@ -158,9 +155,9 @@ set_scan_lines(u8 lines)
     u16 cols = GET_BDA(video_cols);
     SET_BDA(video_pagesize, calc_page_size(MM_TEXT, cols, rows));
     if (lines == 8)
-        set_cursor_shape(0x06, 0x07);
+        set_cursor_shape(0x0607);
     else
-        set_cursor_shape(lines - 3, lines - 2);
+        set_cursor_shape(((lines - 3) << 8) | (lines - 2));
 }
 
 
@@ -377,7 +374,7 @@ handle_1000(struct bregs *regs)
 static void
 handle_1001(struct bregs *regs)
 {
-    set_cursor_shape(regs->ch, regs->cl);
+    set_cursor_shape(regs->cx);
 }
 
 static void
@@ -390,7 +387,7 @@ handle_1002(struct bregs *regs)
 static void
 handle_1003(struct bregs *regs)
 {
-    regs->cx = get_cursor_shape(regs->bh);
+    regs->cx = GET_BDA(cursor_type);
     struct cursorpos cp = get_cursor_pos(regs->bh);
     regs->dl = cp.x;
     regs->dh = cp.y;
