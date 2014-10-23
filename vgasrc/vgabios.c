@@ -1076,8 +1076,8 @@ handle_101a(struct bregs *regs)
 }
 
 
-static struct video_func_static static_functionality VAR16 = {
-    .modes          = 0x0fe0ff,
+struct video_func_static static_functionality VAR16 = {
+    .modes          = 0x00,   // Filled in by stdvga_build_video_param()
     .scanlines      = 0x07,   // 200, 350, 400 scan lines
     .cblocks        = 0x02,   // mamimum number of visible charsets in text mode
     .active_cblocks = 0x08,   // total number of charset blocks in text mode

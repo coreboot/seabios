@@ -397,6 +397,15 @@ stdvga_build_video_param(void)
                    , get_global_seg(), GET_GLOBAL(stdmode_g->grdc_regs)
                    , ARRAY_SIZE(vparam_g->grdc_regs));
     }
+
+    // Fill available legacy modes in video_func_static table
+    u32 modes = 0;
+    for (i = 0; i < ARRAY_SIZE(vga_modes); i++) {
+        u16 mode = vga_modes[i].mode;
+        if (mode <= 0x13)
+            modes |= 1<<i;
+    }
+    SET_VGA(static_functionality.modes, modes);
 }
 
 void

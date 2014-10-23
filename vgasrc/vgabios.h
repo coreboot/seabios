@@ -107,6 +107,7 @@ u16 calc_page_size(u8 memmodel, u16 width, u16 height);
 int bda_save_restore(int cmd, u16 seg, void *data);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
+extern struct video_func_static static_functionality;
 
 // vgafb.c
 void init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g);
