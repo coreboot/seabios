@@ -108,20 +108,17 @@ init_bios_area(void)
     // set 80x25 color (not clear from RBIL but usual)
     set_equipment_flags(0x30, 0x20);
 
-    // the default char height
-    SET_BDA(char_height, 0x10);
-
-    // Clear the screen
-    SET_BDA(video_ctl, 0x60);
-
-    // Set the basic screen we have
-    SET_BDA(video_switches, 0xf9);
-
     // Set the basic modeset options
     SET_BDA(modeset_ctl, 0x51);
 
-    // Set the  default MSR
-    SET_BDA(video_msr, 0x09);
+    // FIXME We nearly have the good tables. to be reworked
+    SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
+    SET_BDA(video_savetable
+            , SEGOFF(get_global_seg(), (u32)&video_save_pointer_table));
+
+    // FIXME
+    SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
+    SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
 }
 
 int VgaBDF VAR16 = -1;

@@ -319,15 +319,6 @@ vga_set_mode(int mode, int flags)
     SET_BDA(video_pagestart, 0x0000);
     SET_BDA(video_page, 0x00);
 
-    // FIXME We nearly have the good tables. to be reworked
-    SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
-    SET_BDA(video_savetable
-            , SEGOFF(get_global_seg(), (u32)&video_save_pointer_table));
-
-    // FIXME
-    SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
-    SET_BDA(video_pal, 0x00); // Unavailable on vanilla vga, but...
-
     // Set the ints 0x1F and 0x43
     SET_IVT(0x1f, SEGOFF(get_global_seg(), (u32)&vgafont8[128 * 8]));
 
