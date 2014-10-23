@@ -111,8 +111,7 @@ init_bios_area(void)
     // Set the basic modeset options
     SET_BDA(modeset_ctl, 0x51);
 
-    // FIXME We nearly have the good tables. to be reworked
-    SET_BDA(dcc_index, 0x08);   // 8 is VGA should be ok for now
+    SET_BDA(dcc_index, CONFIG_VGA_STDVGA_PORTS ? 0x08 : 0xff);
     SET_BDA(video_savetable
             , SEGOFF(get_global_seg(), (u32)&video_save_pointer_table));
 
