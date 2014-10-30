@@ -1,6 +1,7 @@
 #ifndef __VGABIOS_H
 #define __VGABIOS_H
 
+#include "config.h" // CONFIG_VGA_EMULATE_TEXT
 #include "types.h" // u8
 #include "farptr.h" // struct segoff_s
 #include "std/vga.h" // struct video_param_s
@@ -70,12 +71,19 @@ struct vga_bda_s {
     u16 vgamode_offset;
 } PACKED;
 
-#define BF_PM_MASK 0x0f
+#define BF_PM_MASK      0x0f
+#define BF_EMULATE_TEXT 0x10
 
 #define GET_BDA_EXT(var) \
     GET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var)
 #define SET_BDA_EXT(var, val) \
     SET_FARVAR(SEG_BDA, ((struct vga_bda_s *)VGA_CUSTOM_BDA)->var, (val))
+#define MASK_BDA_EXT(var, off, on)                                      \
+    SET_BDA_EXT(var, (GET_BDA_EXT(var) & ~(off)) | (on))
+
+static inline int vga_emulate_text(void) {
+    return CONFIG_VGA_EMULATE_TEXT && GET_BDA_EXT(flags) & BF_EMULATE_TEXT;
+}
 
 // Debug settings
 #define DEBUG_VGA_POST 1

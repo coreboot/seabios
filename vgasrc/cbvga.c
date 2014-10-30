@@ -14,12 +14,15 @@
 
 static int CBmode VAR16;
 static struct vgamode_s CBmodeinfo VAR16;
+static struct vgamode_s CBemulinfo VAR16;
 static u32 CBlinelength VAR16;
 
 struct vgamode_s *cbvga_find_mode(int mode)
 {
     if (mode == GET_GLOBAL(CBmode))
         return &CBmodeinfo;
+    if (mode == 0x03)
+        return &CBemulinfo;
     return NULL;
 }
 
@@ -92,6 +95,8 @@ cbvga_save_restore(int cmd, u16 seg, void *data)
 int
 cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
+    MASK_BDA_EXT(flags, BF_EMULATE_TEXT
+                 , (vmode_g == &CBemulinfo) ? BF_EMULATE_TEXT : 0);
     if (!(flags & MF_NOCLEARMEM)) {
         if (GET_GLOBAL(CBmodeinfo.memmodel) == MM_TEXT) {
             memset16_far(SEG_CTEXT, (void*)0, 0x0720, 80*25*2);
@@ -181,9 +186,8 @@ cbvga_setup(void)
     SET_VGA(CBmodeinfo.depth, bpp);
     SET_VGA(CBmodeinfo.cwidth, 8);
     SET_VGA(CBmodeinfo.cheight, 16);
-
-    // Setup BDA and clear screen.
-    vga_set_mode(GET_GLOBAL(CBmode), 0);
+    memcpy_far(get_global_seg(), &CBemulinfo
+               , get_global_seg(), &CBmodeinfo, sizeof(CBemulinfo));
 
     return 0;
 }

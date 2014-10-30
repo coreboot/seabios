@@ -50,6 +50,7 @@ menu "VGA ROM"
         config VGA_COREBOOT
             depends on COREBOOT
             bool "coreboot linear framebuffer"
+            select VGA_EMULATE_TEXT
             help
                 Build support for a vgabios wrapper around video
                 devices initialized using coreboot native vga init.
@@ -83,6 +84,11 @@ menu "VGA ROM"
 
     config VGA_STDVGA_PORTS
         bool
+    config VGA_EMULATE_TEXT
+        bool
+        help
+            Support emulating text mode features when only a
+            framebuffer is available.
 
     config VGA_ALLOCATE_EXTRA_STACK
         depends on BUILD_VGABIOS

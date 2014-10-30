@@ -381,9 +381,8 @@ vbe_104f10(struct bregs *regs)
     case 0x00:
         regs->bx = 0x0f30;
         break;
-    case 0x01: ;
-        u8 flags = GET_BDA_EXT(flags);
-        SET_BDA_EXT(flags, (flags & ~BF_PM_MASK) | (regs->bh & BF_PM_MASK));
+    case 0x01:
+        MASK_BDA_EXT(flags, BF_PM_MASK, regs->bh & BF_PM_MASK);
         break;
     case 0x02:
         regs->bh = GET_BDA_EXT(flags) & BF_PM_MASK;

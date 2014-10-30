@@ -380,6 +380,8 @@ gfx_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
     op.y = dest.y * cheight;
     op.ylen = clearsize.y * cheight;
     op.pixels[0] = ca.attr;
+    if (vga_emulate_text())
+        op.pixels[0] = ca.attr >> 4;
     op.op = GO_MEMSET;
     handle_gfx_op(&op);
 }
@@ -414,7 +416,25 @@ gfx_write_char(struct vgamode_s *vmode_g
     op.x = cp.x * 8;
     int cheight = GET_BDA(char_height);
     op.y = cp.y * cheight;
-    int usexor = ca.attr & 0x80 && GET_GLOBAL(vmode_g->depth) < 8;
+    u8 fgattr = ca.attr, bgattr = 0x00;
+    int usexor = 0;
+    if (vga_emulate_text()) {
+        if (ca.use_attr) {
+            bgattr = fgattr >> 4;
+            fgattr = fgattr & 0x0f;
+        } else {
+            // Read bottom right pixel of the cell to guess bg color
+            op.op = GO_READ8;
+            op.y += cheight-1;
+            handle_gfx_op(&op);
+            op.y -= cheight-1;
+            bgattr = op.pixels[7];
+            fgattr = bgattr ^ 0x7;
+        }
+    } else if (fgattr & 0x80 && GET_GLOBAL(vmode_g->depth) < 8) {
+        usexor = 1;
+        fgattr &= 0x7f;
+    }
     int i;
     for (i = 0; i < cheight; i++, op.y++) {
         u8 fontline = GET_FARVAR(font.seg, *(u8*)(font.offset+i));
@@ -423,11 +443,11 @@ gfx_write_char(struct vgamode_s *vmode_g
             handle_gfx_op(&op);
             int j;
             for (j = 0; j < 8; j++)
-                op.pixels[j] ^= (fontline & (0x80>>j)) ? (ca.attr & 0x7f) : 0x00;
+                op.pixels[j] ^= (fontline & (0x80>>j)) ? fgattr : 0x00;
         } else {
             int j;
             for (j = 0; j < 8; j++)
-                op.pixels[j] = (fontline & (0x80>>j)) ? ca.attr : 0x00;
+                op.pixels[j] = (fontline & (0x80>>j)) ? fgattr : bgattr;
         }
         op.op = GO_WRITE8;
         handle_gfx_op(&op);
