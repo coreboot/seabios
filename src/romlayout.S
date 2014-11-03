@@ -286,7 +286,7 @@ entry_pnp_real:
         movw %cx, %ds
         leal BREGS_size-6+12(%esp), %eax  // %eax points to start of u16 args
         calll handle_pnp
-        movw %ax, 12(%esp)      // Modify %eax to return %ax
+        movw %ax, BREGS_eax(%esp)   // Modify %eax to return %ax
         POPBREGS
         popfl
         popl %esp
