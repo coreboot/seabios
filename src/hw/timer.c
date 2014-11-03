@@ -7,7 +7,6 @@
 #include "biosvar.h" // GET_LOW
 #include "config.h" // CONFIG_*
 #include "output.h" // dprintf
-#include "ps2port.h" // PORT_PS2_CTRLB
 #include "stacks.h" // yield
 #include "util.h" // timer_setup
 #include "x86.h" // cpuid
@@ -16,6 +15,7 @@
 #define PORT_PIT_COUNTER1      0x0041
 #define PORT_PIT_COUNTER2      0x0042
 #define PORT_PIT_MODE          0x0043
+#define PORT_PS2_CTRLB         0x0061
 
 // Bits for PORT_PIT_MODE
 #define PM_SEL_TIMER0   (0<<6)

@@ -5,7 +5,6 @@
 #include "types.h" // u8
 
 #define PORT_PS2_DATA          0x0060
-#define PORT_PS2_CTRLB         0x0061
 #define PORT_PS2_STATUS        0x0064
 
 // Standard commands.
