@@ -9,6 +9,8 @@
  * Macros for save and restore of 'struct bregs' registers
  ****************************************************************/
 
+#define PUSHBREGS_size 32
+
         // Save registers (matches struct bregs) to stack
         .macro PUSHBREGS
         pushl %eax

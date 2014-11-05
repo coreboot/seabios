@@ -112,10 +112,10 @@ entry_10_extrastack:
         pushw %ds               // Set %ds:%eax to space on ExtraStack
         pushl %eax
         movw %cs:ExtraStackSeg, %ds
-        movl $(CONFIG_VGA_EXTRA_STACK_SIZE-BREGS_size-8), %eax
+        movl $(CONFIG_VGA_EXTRA_STACK_SIZE-PUSHBREGS_size-16), %eax
         SAVEBREGS_POP_DSEAX     // Save registers on extra stack
-        movl %esp, BREGS_size+0(%eax)
-        movw %ss, BREGS_size+4(%eax)
+        movl %esp, PUSHBREGS_size+8(%eax)
+        movw %ss, PUSHBREGS_size+12(%eax)
         popl BREGS_code(%eax)
         popw BREGS_flags(%eax)
 
@@ -125,8 +125,8 @@ entry_10_extrastack:
         VGA_CALLL handle_10
 
         movl %esp, %eax         // Restore registers and return
-        movw BREGS_size+4(%eax), %ss
-        movl BREGS_size+0(%eax), %esp
+        movw PUSHBREGS_size+12(%eax), %ss
+        movl PUSHBREGS_size+8(%eax), %esp
         popl %edx
         popw %dx
         pushw BREGS_flags(%eax)
@@ -148,10 +148,10 @@ entry_timer_hook_extrastack:
         pushw %ds               // Set %ds:%eax to space on ExtraStack
         pushl %eax
         movw %cs:ExtraStackSeg, %ds
-        movl $(CONFIG_VGA_EXTRA_STACK_SIZE-BREGS_size-8), %eax
+        movl $(CONFIG_VGA_EXTRA_STACK_SIZE-PUSHBREGS_size-8), %eax
         SAVEBREGS_POP_DSEAX
-        movl %esp, BREGS_size(%eax)
-        movw %ss, BREGS_size+4(%eax)
+        movl %esp, PUSHBREGS_size(%eax)
+        movw %ss, PUSHBREGS_size+4(%eax)
 
         movw %ds, %dx           // Setup %ss/%esp and call function
         movw %dx, %ss
@@ -159,7 +159,7 @@ entry_timer_hook_extrastack:
         calll handle_timer_hook
 
         movl %esp, %eax         // Restore registers and return
-        movw BREGS_size+4(%eax), %ss
-        movl BREGS_size(%eax), %esp
+        movw PUSHBREGS_size+4(%eax), %ss
+        movl PUSHBREGS_size(%eax), %esp
         RESTOREBREGS_DSEAX
         ljmpw *%cs:Timer_Hook_Resume
