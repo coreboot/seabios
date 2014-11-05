@@ -423,7 +423,7 @@ __csm_return:
  * Interrupt entry points
  ****************************************************************/
 
-        // Main entry point for interrupts handled on extra stack
+        // Main entry point for hardware interrupts handled on extra stack
         DECLFUNC irqentry_extrastack
 irqentry_extrastack:
         cli
@@ -450,7 +450,7 @@ irqentry_extrastack:
         RESTOREBREGS_DSEAX
         iretw
 
-        // Main entry point for interrupts handled on extra stack
+        // Main entry point for software interrupts handled on extra stack
         DECLFUNC irqentry_arg_extrastack
 irqentry_arg_extrastack:
         cli
@@ -483,13 +483,13 @@ irqentry_arg_extrastack:
         RESTOREBREGS_DSEAX
         iretw
 
-        // Main entry point for interrupts with args
-        DECLFUNC irqentryarg
-irqentryarg:
+        // Main entry point for software interrupts (using caller's stack)
+        DECLFUNC irqentry_arg
+irqentry_arg:
         ENTRY_ARG_ST
         iretw
 
-        // Define an entry point for hardware interrupts.
+        // Helper macros for hardware interrupt declaration
         .macro IRQ_ENTRY num
         .global entry_\num
         entry_\num :
@@ -502,7 +502,7 @@ irqentryarg:
         IRQ_ENTRY \num
         .endm
 
-        // Define an entry point for an interrupt (can read/modify args).
+        // Helper macros for software interrupt declaration
         .macro IRQ_ENTRY_ARG num
         .global entry_\num
         entry_\num :
@@ -510,7 +510,7 @@ irqentryarg:
 #if CONFIG_ENTRY_EXTRASTACK
         jmp irqentry_arg_extrastack
 #else
-        jmp irqentryarg
+        jmp irqentry_arg
 #endif
         .endm
 
