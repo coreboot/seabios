@@ -357,6 +357,10 @@ init_megasas(struct pci_device *pci)
     u32 iobase = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_2)
         & PCI_BASE_ADDRESS_IO_MASK;
 
+    if (!iobase)
+        iobase = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
+            & PCI_BASE_ADDRESS_IO_MASK;
+
     dprintf(1, "found MegaRAID SAS at %02x:%02x.%x, io @ %x\n",
             pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
             pci_bdf_to_fn(bdf), iobase);
