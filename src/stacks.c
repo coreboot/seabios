@@ -430,7 +430,7 @@ stack_hop_back(u32 eax, u32 edx, void *func)
 {
     if (!MODESEGMENT)
         return call16_back(eax, edx, func);
-    if (!on_extra_stack())
+    if (!MODE16 || !on_extra_stack())
         return ((u32 (*)(u32, u32))func)(eax, edx);
     ASSERT16();
     u16 bkup_ss;
