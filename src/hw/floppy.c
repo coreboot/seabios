@@ -244,6 +244,7 @@ floppy_pio(int command, u8 *param)
                 floppy_disable_controller();
                 return DISK_RET_ETIMEOUT;
             }
+            yield();
             continue;
         }
         if (sts & 0x40) {
@@ -277,6 +278,7 @@ floppy_pio(int command, u8 *param)
                 floppy_disable_controller();
                 return DISK_RET_ETIMEOUT;
             }
+            yield();
             continue;
         }
         if (i >= receive) {
