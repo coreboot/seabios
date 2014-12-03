@@ -12,6 +12,7 @@ export HOSTCC             := $(CC)
 export CONFIG_SHELL       := sh
 export KCONFIG_AUTOHEADER := autoconf.h
 export KCONFIG_CONFIG     := $(CURDIR)/.config
+export LC_ALL             := C
 CROSS_PREFIX=
 ifneq ($(CROSS_PREFIX),)
 CC=$(CROSS_PREFIX)gcc
