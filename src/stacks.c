@@ -63,8 +63,8 @@ call32_smm_post(void)
     inb(PORT_CMOS_DATA);
 }
 
-#define ASM32_SWITCH16 "  .code16\n"
-#define ASM32_BACK32   "  .code32\n"
+#define ASM32_SWITCH16 "  .pushsection .text.32fseg." UNIQSEC "\n  .code16\n"
+#define ASM32_BACK32   "  .popsection\n  .code32\n"
 #define ASM16_SWITCH32 "  .code32\n"
 #define ASM16_BACK16   "  .code16gcc\n"
 
@@ -127,7 +127,7 @@ call16_smm_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
     return ret;
 }
 
-u32 FUNCFSEG
+static u32
 call16_smm(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
@@ -265,7 +265,7 @@ call16_sloppy_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
 }
 
 // Jump back to 16bit mode while in 32bit mode from call32_sloppy()
-u32 FUNCFSEG
+static u32
 call16_sloppy(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
@@ -313,7 +313,7 @@ call32(void *func, u32 eax, u32 errret)
 }
 
 // Call a 16bit SeaBIOS function from a 32bit SeaBIOS function.
-u32 FUNCFSEG
+static u32
 call16(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
@@ -340,7 +340,7 @@ call16(u32 eax, u32 edx, void *func)
 }
 
 // Call a 16bit SeaBIOS function in "big real" mode.
-u32 FUNCFSEG
+static u32
 call16big(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
