@@ -63,6 +63,11 @@ call32_smm_post(void)
     inb(PORT_CMOS_DATA);
 }
 
+#define ASM32_SWITCH16 "  .code16\n"
+#define ASM32_BACK32   "  .code32\n"
+#define ASM16_SWITCH32 "  .code32\n"
+#define ASM16_BACK16   "  .code16gcc\n"
+
 // Call a SeaBIOS C function in 32bit mode using smm trampoline
 static u32
 call32_smm(void *func, u32 eax)
@@ -85,8 +90,8 @@ call32_smm(void *func, u32 eax)
         "  outb %%al, $" __stringify(PORT_SMI_CMD) "\n"
         "  rep; nop\n"
         "  hlt\n"
-        "  .code32\n"
 
+        ASM16_SWITCH32
         "1:movl %1, %%eax\n"
         "  calll *%2\n"
         "  movl %%eax, %1\n"
@@ -99,7 +104,7 @@ call32_smm(void *func, u32 eax)
         "  hlt\n"
 
         // Restore esp
-        "  .code16gcc\n"
+        ASM16_BACK16
         "2:movl %0, %%esp\n"
         : "=&r" (bkup_esp), "+r" (eax)
         : "r" (func)
@@ -143,7 +148,7 @@ call16_smm(u32 eax, u32 edx, void *func)
         "  rep; nop\n"
         "  hlt\n"
 
-        "  .code16\n"
+        ASM32_SWITCH16
         "1:movl %1, %%eax\n"
         "  movl %3, %%ecx\n"
         "  calll _cfunc16_call16_smm_helper\n"
@@ -157,7 +162,7 @@ call16_smm(u32 eax, u32 edx, void *func)
         "  hlt\n"
 
         // Set esp to flat stack location
-        "  .code32\n"
+        ASM32_BACK32
         "2:addl %0, %%esp\n"
         : "+r" (stackoffset), "+r" (eax), "+d" (edx)
         : "r" (func)
@@ -232,13 +237,13 @@ call32_sloppy(void *func, u32 eax)
         // Transition to 32bit mode, call func, return to 16bit
         "  movl $(" __stringify(BUILD_BIOS_ADDR) " + 1f), %%edx\n"
         "  jmp transition32\n"
-        "  .code32\n"
+        ASM16_SWITCH32
         "1:calll *%3\n"
         "  movl $2f, %%edx\n"
         "  jmp transition16big\n"
 
         // Restore ds/ss/esp
-        "  .code16gcc\n"
+        ASM16_BACK16
         "2:movl %0, %%ds\n"
         "  movl %0, %%ss\n"
         "  movl %1, %%esp\n"
@@ -273,7 +278,7 @@ call16_sloppy(u32 eax, u32 edx, void *func)
         "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
         "  jmp transition16big\n"
         // Setup ss/esp and call func
-        "  .code16\n"
+        ASM32_SWITCH16
         "1:movl %3, %%ecx\n"
         "  shll $4, %3\n"
         "  movw %%cx, %%ss\n"
@@ -285,7 +290,7 @@ call16_sloppy(u32 eax, u32 edx, void *func)
         // Return to 32bit and restore esp
         "  movl $2f, %%edx\n"
         "  jmp transition32\n"
-        "  .code32\n"
+        ASM32_BACK32
         "2:addl %3, %%esp\n"
         : "+a" (eax)
         : "r" (func), "r" (edx), "r" (stackseg)
@@ -320,13 +325,13 @@ call16(u32 eax, u32 edx, void *func)
         "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
         "  jmp transition16\n"
         // Call func
-        "  .code16\n"
+        ASM32_SWITCH16
         "1:movl %2, %%edx\n"
         "  calll *%1\n"
         // Return to 32bit
         "  movl $2f, %%edx\n"
         "  jmp transition32\n"
-        "  .code32\n"
+        ASM32_BACK32
         "2:\n"
         : "+a" (eax)
         : "r" (func), "r" (edx)
@@ -347,13 +352,13 @@ call16big(u32 eax, u32 edx, void *func)
         "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
         "  jmp transition16big\n"
         // Call func
-        "  .code16\n"
+        ASM32_SWITCH16
         "1:movl %2, %%edx\n"
         "  calll *%1\n"
         // Return to 32bit
         "  movl $2f, %%edx\n"
         "  jmp transition32\n"
-        "  .code32\n"
+        ASM32_BACK32
         "2:\n"
         : "+a" (eax)
         : "r" (func), "r" (edx)
