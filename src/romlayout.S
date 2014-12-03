@@ -11,6 +11,8 @@
 #include "hw/rtc.h" // CMOS_RESET_CODE
 #include "x86.h" // CR0_*
 
+        .code16
+
 
 /****************************************************************
  * 16bit / 32bit call trampolines
@@ -20,7 +22,6 @@
 // %edx = return location (in 32bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
-        .code16
 transition32_for_smi:
         movl %eax, %ecx
         jmp 1f
@@ -64,12 +65,14 @@ transition32:
 
         movl %ecx, %eax
         jmpl *%edx
+        .code16
 
 // Place CPU into 16bit mode from 32bit mode.
 // %edx = return location (in 16bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition16
         .global transition16big
+        .code32
 transition16:
         movl %eax, %ecx
 
@@ -136,7 +139,6 @@ transition16big:
 // Far call a 16bit function from 16bit mode with a specified cpu register state
 // %eax = address of struct bregs, %edx = segment of struct bregs
 // Clobbers: %e[bc]x, %e[ds]i, flags
-        .code16
         DECLFUNC __farcall16
 __farcall16:
         // Save %edx/%eax, %ebp
@@ -302,8 +304,8 @@ entry_apm16:
         popfw           // restore flags
         lretw
 
-        .code32
         DECLFUNC entry_apm32
+        .code32
 entry_apm32:
         pushfl
         pushl %gs
@@ -314,9 +316,11 @@ entry_apm32:
         popl %gs
         popfl
         lretl
+        .code16
 
 // PCI-BIOS entry points
         DECLFUNC entry_pcibios32
+        .code32
 entry_pcibios32:
         pushfl
         pushl %gs               // Backup %gs and set %gs=%ds
@@ -326,8 +330,8 @@ entry_pcibios32:
         popl %gs
         popfl
         lretl
-
         .code16
+
         DECLFUNC entry_pcibios16
 entry_pcibios16:
         ENTRY_ARG handle_pcibios
@@ -340,8 +344,8 @@ entry_1589:
         iretw
 
 // BIOS32 support
-        .code32
         DECLFUNC entry_bios32
+        .code32
 entry_bios32:
         pushfl
 #if CONFIG_PCIBIOS
@@ -359,9 +363,11 @@ entry_bios32:
         // Return to caller
 2:      popfl
         lretl
+        .code16
 
 // 32bit elf entry point
         DECLFUNC entry_elf
+        .code32
 entry_elf:
         cli
         cld
@@ -375,7 +381,6 @@ entry_elf:
         movw %ax, %ss
         movl $BUILD_STACK_ADDR, %esp
         ljmpl $SEG32_MODE32_CS, $_cfunc32flat_handle_post
-
         .code16
 
 // UEFI Compatibility Support Module (CSM) entry point
