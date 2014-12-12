@@ -17,10 +17,25 @@ get_hub_desc(struct usb_pipe *pipe, struct usb_hub_descriptor *desc)
     struct usb_ctrlrequest req;
     req.bRequestType = USB_DIR_IN | USB_TYPE_CLASS | USB_RECIP_DEVICE;
     req.bRequest = USB_REQ_GET_DESCRIPTOR;
-    req.wValue = USB_DT_HUB<<8;
+    if (pipe->speed == USB_SUPERSPEED)
+        req.wValue = USB_DT_HUB3<<8;
+    else
+        req.wValue = USB_DT_HUB<<8;
     req.wIndex = 0;
     req.wLength = sizeof(*desc);
     return usb_send_default_control(pipe, &req, desc);
+}
+
+static int
+set_hub_depth(struct usb_pipe *pipe, u16 depth)
+{
+    struct usb_ctrlrequest req;
+    req.bRequestType = USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_DEVICE;
+    req.bRequest = HUB_REQ_SET_HUB_DEPTH;
+    req.wValue = depth;
+    req.wIndex = 0;
+    req.wLength = 0;
+    return usb_send_default_control(pipe, &req, NULL);
 }
 
 static int
@@ -105,7 +120,9 @@ usb_hub_reset(struct usbhub_s *hub, u32 port)
         ret = get_port_status(hub, port, &sts);
         if (ret)
             goto fail;
-        if (!(sts.wPortStatus & USB_PORT_STAT_RESET))
+        if (!(sts.wPortStatus & USB_PORT_STAT_RESET)
+            && (hub->usbdev->speed != USB_SUPERSPEED
+                || !(sts.wPortStatus & USB_PORT_STAT_LINK_MASK)))
             break;
         if (timer_check(end)) {
             warn_timeout();
@@ -119,6 +136,8 @@ usb_hub_reset(struct usbhub_s *hub, u32 port)
         // Device no longer present
         return -1;
 
+    if (hub->usbdev->speed == USB_SUPERSPEED)
+        return USB_SUPERSPEED;
     return ((sts.wPortStatus & USB_PORT_STAT_SPEED_MASK)
             >> USB_PORT_STAT_SPEED_SHIFT);
 
@@ -153,6 +172,19 @@ usb_hub_setup(struct usbdevice_s *usbdev)
     hub.cntl = usbdev->defpipe->cntl;
     hub.portcount = desc.bNbrPorts;
     hub.op = &HubOp;
+
+    if (usbdev->speed == USB_SUPERSPEED) {
+        int depth = 0;
+        struct usbdevice_s *parent = usbdev->hub->usbdev;
+        while (parent) {
+            depth++;
+            parent = parent->hub->usbdev;
+        }
+
+        ret = set_hub_depth(usbdev->defpipe, depth);
+        if (ret)
+            return ret;
+    }
 
     // Turn on power to ports.
     int port;

@@ -11,6 +11,9 @@ int usb_hub_setup(struct usbdevice_s *usbdev);
  ****************************************************************/
 
 #define USB_DT_HUB                      (USB_TYPE_CLASS | 0x09)
+#define USB_DT_HUB3                     (USB_TYPE_CLASS | 0x0a)
+
+#define HUB_REQ_SET_HUB_DEPTH           0x0C
 
 struct usb_hub_descriptor {
     u8  bDescLength;
@@ -48,7 +51,8 @@ struct usb_port_status {
 #define USB_PORT_STAT_SUSPEND           0x0004
 #define USB_PORT_STAT_OVERCURRENT       0x0008
 #define USB_PORT_STAT_RESET             0x0010
-#define USB_PORT_STAT_L1                0x0020
+#define USB_PORT_STAT_LINK_SHIFT        5
+#define USB_PORT_STAT_LINK_MASK         (0x7 << USB_PORT_STAT_LINK_SHIFT)
 #define USB_PORT_STAT_POWER             0x0100
 #define USB_PORT_STAT_SPEED_SHIFT       9
 #define USB_PORT_STAT_SPEED_MASK        (0x3 << USB_PORT_STAT_SPEED_SHIFT)
