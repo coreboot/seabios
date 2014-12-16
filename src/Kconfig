@@ -159,6 +159,12 @@ menu "Hardware support"
         default y
         help
             Support for AHCI disk code.
+    config SDCARD
+        depends on DRIVES && QEMU_HARDWARE
+        bool "SD controllers"
+        default y
+        help
+            Support for SD cards on PCI host controllers.
     config VIRTIO_BLK
         depends on DRIVES && QEMU_HARDWARE
         bool "virtio-blk controllers"

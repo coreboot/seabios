@@ -143,6 +143,7 @@ device_hardware_setup(void)
     floppy_setup();
     ata_setup();
     ahci_setup();
+    sdcard_setup();
     cbfs_payload_setup();
     ramdisk_setup();
     virtio_blk_setup();

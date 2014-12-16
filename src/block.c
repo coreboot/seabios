@@ -534,6 +534,11 @@ process_op(struct disk_op_s *op)
         ret = call32(_cfunc32flat_process_atapi_op
                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
         break;
+    case DTYPE_SDCARD: ;
+        extern void _cfunc32flat_process_sdcard_op(void);
+        ret = call32(_cfunc32flat_process_sdcard_op
+                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+        break;
     case DTYPE_USB:
     case DTYPE_UAS:
     case DTYPE_VIRTIO_SCSI:

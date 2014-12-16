@@ -146,6 +146,10 @@ void floppy_tick(void);
 void ramdisk_setup(void);
 int process_ramdisk_op(struct disk_op_s *op);
 
+// hw/sdcard.c
+int process_sdcard_op(struct disk_op_s *op);
+void sdcard_setup(void);
+
 // hw/timer.c
 void timer_setup(void);
 void pmtimer_setup(u16 ioport);
