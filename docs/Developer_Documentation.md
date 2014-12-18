@@ -3,12 +3,9 @@ enhancing SeaBIOS. Please also consider joining the [mailing
 list](Mailinglist).
 
 The SeaBIOS code can be obtained via the [download](Download)
-page. Please see the **README** file in the source code repository for
-information on building SeaBIOS. For specific information on building
-SeaBIOS for coreboot, please see the [coreboot
-SeaBIOS](http://www.coreboot.org/SeaBIOS) page. For information on
-building SeaBIOS for use as a Compatibility Support Module with UEFI,
-please see the **README.CSM** file in the source code repository.
+page. For specific information on building SeaBIOS for coreboot,
+please see the [coreboot SeaBIOS](http://www.coreboot.org/SeaBIOS)
+page.
 
 See details on [building SeaBIOS](Build overview).
 
