@@ -14,6 +14,9 @@ There is also information on the SeaBIOS [Memory Model](Memory Model).
 Along with information on SeaBIOS [Execution and code flow](Execution
 and code flow).
 
+A description of the process of linking the final SeaBIOS binary is
+available at [Linking overview](Linking overview).
+
 To debug SeaBIOS and report problems see SeaBIOS
 [debugging](Debugging).
 
