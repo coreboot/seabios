@@ -108,6 +108,15 @@ assembled using ".code16gcc". SeaBIOS is careful to use segment
 registers properly so that the same code can run in the different
 16bit modes that it needs to support.
 
+C code mode flags
+=================
+
+Two compile time flags are available to determine the memory model the
+code is intended for: MODE16 and MODESEGMENT. When compiling for the
+16 bit modes, MODE16 is true and MODESEGMENT is true. In 32bit
+segmented mode, MODE16 is false and MODESEGMENT is true. In 32bit flat
+mode both MODE16 and MODESEGMENT are false.
+
 Common memory used at run-time
 ==============================
 
