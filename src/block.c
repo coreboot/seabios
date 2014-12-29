@@ -485,6 +485,10 @@ process_op(struct disk_op_s *op)
 {
     ASSERT16();
     int ret, origcount = op->count;
+    if (origcount * GET_GLOBALFLAT(op->drive_gf->blksize) > 64*1024) {
+        op->count = 0;
+        return DISK_RET_EBOUNDARY;
+    }
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
     case DTYPE_FLOPPY:

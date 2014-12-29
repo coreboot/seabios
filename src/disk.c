@@ -173,6 +173,7 @@ disk_1300(struct bregs *regs, struct drive_s *drive_gf)
     struct disk_op_s dop;
     dop.drive_gf = drive_gf;
     dop.command = CMD_RESET;
+    dop.count = 0;
     int status = send_disk_op(&dop);
     disk_ret(regs, status);
 }
@@ -322,6 +323,7 @@ disk_1310(struct bregs *regs, struct drive_s *drive_gf)
     struct disk_op_s dop;
     dop.drive_gf = drive_gf;
     dop.command = CMD_ISREADY;
+    dop.count = 0;
     int status = send_disk_op(&dop);
     disk_ret(regs, status);
 }
