@@ -154,10 +154,11 @@ cdrom_boot(struct drive_s *drive)
 
     // Read the Boot Record Volume Descriptor
     u8 buffer[CDROM_SECTOR_SIZE];
+    dop.command = CMD_READ;
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = buffer;
-    ret = cdb_read(&dop);
+    ret = scsi_process_op(&dop);
     if (ret)
         return 3;
 
@@ -173,7 +174,7 @@ cdrom_boot(struct drive_s *drive)
     // And we read the Boot Catalog
     dop.lba = lba;
     dop.count = 1;
-    ret = cdb_read(&dop);
+    ret = scsi_process_op(&dop);
     if (ret)
         return 7;
 
@@ -214,7 +215,7 @@ cdrom_boot(struct drive_s *drive)
     dop.lba = lba;
     dop.count = DIV_ROUND_UP(nbsectors, 4);
     dop.buf_fl = MAKE_FLATPTR(boot_segment, 0);
-    ret = cdb_read(&dop);
+    ret = scsi_process_op(&dop);
     if (ret)
         return 12;
 
