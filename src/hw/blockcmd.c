@@ -67,6 +67,104 @@ cdb_is_read(u8 *cdbcmd, u16 blocksize)
     return blocksize && cdbcmd[0] != CDB_CMD_WRITE_10;
 }
 
+
+/****************************************************************
+ * Low level command requests
+ ****************************************************************/
+
+int
+cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
+{
+    struct cdb_request_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_INQUIRY;
+    cmd.length = sizeof(*data);
+    op->count = 1;
+    op->buf_fl = data;
+    return cdb_cmd_data(op, &cmd, sizeof(*data));
+}
+
+// Request SENSE
+int
+cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data)
+{
+    struct cdb_request_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_REQUEST_SENSE;
+    cmd.length = sizeof(*data);
+    op->count = 1;
+    op->buf_fl = data;
+    return cdb_cmd_data(op, &cmd, sizeof(*data));
+}
+
+// Test unit ready
+int
+cdb_test_unit_ready(struct disk_op_s *op)
+{
+    struct cdb_request_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_TEST_UNIT_READY;
+    op->count = 0;
+    op->buf_fl = NULL;
+    return cdb_cmd_data(op, &cmd, 0);
+}
+
+// Request capacity
+int
+cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)
+{
+    struct cdb_read_capacity cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_READ_CAPACITY;
+    op->count = 1;
+    op->buf_fl = data;
+    return cdb_cmd_data(op, &cmd, sizeof(*data));
+}
+
+// Mode sense, geometry page.
+int
+cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
+{
+    struct cdb_mode_sense cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_MODE_SENSE;
+    cmd.flags = 8; /* DBD */
+    cmd.page = MODE_PAGE_HD_GEOMETRY;
+    cmd.count = cpu_to_be16(sizeof(*data));
+    op->count = 1;
+    op->buf_fl = data;
+    return cdb_cmd_data(op, &cmd, sizeof(*data));
+}
+
+// Read sectors.
+int
+cdb_read(struct disk_op_s *op)
+{
+    struct cdb_rwdata_10 cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_READ_10;
+    cmd.lba = cpu_to_be32(op->lba);
+    cmd.count = cpu_to_be16(op->count);
+    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
+}
+
+// Write sectors.
+int
+cdb_write(struct disk_op_s *op)
+{
+    struct cdb_rwdata_10 cmd;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.command = CDB_CMD_WRITE_10;
+    cmd.lba = cpu_to_be32(op->lba);
+    cmd.count = cpu_to_be16(op->count);
+    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
+}
+
+
+/****************************************************************
+ * Main SCSI commands
+ ****************************************************************/
+
 int
 scsi_is_ready(struct disk_op_s *op)
 {
@@ -199,92 +297,4 @@ scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
                           , s, vendor, product, rev);
     boot_add_hd(drive, desc, prio);
     return 0;
-}
-
-int
-cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
-{
-    struct cdb_request_sense cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_INQUIRY;
-    cmd.length = sizeof(*data);
-    op->count = 1;
-    op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
-}
-
-// Request SENSE
-int
-cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data)
-{
-    struct cdb_request_sense cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_REQUEST_SENSE;
-    cmd.length = sizeof(*data);
-    op->count = 1;
-    op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
-}
-
-// Test unit ready
-int
-cdb_test_unit_ready(struct disk_op_s *op)
-{
-    struct cdb_request_sense cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_TEST_UNIT_READY;
-    op->count = 0;
-    op->buf_fl = NULL;
-    return cdb_cmd_data(op, &cmd, 0);
-}
-
-// Request capacity
-int
-cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)
-{
-    struct cdb_read_capacity cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_READ_CAPACITY;
-    op->count = 1;
-    op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
-}
-
-// Mode sense, geometry page.
-int
-cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
-{
-    struct cdb_mode_sense cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_MODE_SENSE;
-    cmd.flags = 8; /* DBD */
-    cmd.page = MODE_PAGE_HD_GEOMETRY;
-    cmd.count = cpu_to_be16(sizeof(*data));
-    op->count = 1;
-    op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
-}
-
-// Read sectors.
-int
-cdb_read(struct disk_op_s *op)
-{
-    struct cdb_rwdata_10 cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_READ_10;
-    cmd.lba = cpu_to_be32(op->lba);
-    cmd.count = cpu_to_be16(op->count);
-    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
-}
-
-// Write sectors.
-int
-cdb_write(struct disk_op_s *op)
-{
-    struct cdb_rwdata_10 cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_WRITE_10;
-    cmd.lba = cpu_to_be32(op->lba);
-    cmd.count = cpu_to_be16(op->count);
-    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
 }
