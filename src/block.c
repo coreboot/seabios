@@ -468,25 +468,6 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
  ****************************************************************/
 
 int VISIBLE32FLAT
-process_scsi_op(struct disk_op_s *op)
-{
-    switch (op->command) {
-    case CMD_READ:
-        return cdb_read(op);
-    case CMD_WRITE:
-        return cdb_write(op);
-    case CMD_FORMAT:
-    case CMD_RESET:
-    case CMD_ISREADY:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
-    default:
-        return DISK_RET_EPARAM;
-    }
-}
-
-int VISIBLE32FLAT
 process_atapi_op(struct disk_op_s *op)
 {
     switch (op->command) {
@@ -494,7 +475,7 @@ process_atapi_op(struct disk_op_s *op)
     case CMD_FORMAT:
         return DISK_RET_EWRITEPROTECT;
     default:
-        return process_scsi_op(op);
+        return scsi_process_op(op);
     }
 }
 
@@ -545,13 +526,13 @@ process_op(struct disk_op_s *op)
     case DTYPE_LSI_SCSI:
     case DTYPE_ESP_SCSI:
     case DTYPE_MEGASAS:
-        ret = process_scsi_op(op);
+        ret = scsi_process_op(op);
         break;
     case DTYPE_USB_32:
     case DTYPE_UAS_32:
     case DTYPE_PVSCSI: ;
-        extern void _cfunc32flat_process_scsi_op(void);
-        ret = call32(_cfunc32flat_process_scsi_op
+        extern void _cfunc32flat_scsi_process_op(void);
+        ret = call32(_cfunc32flat_scsi_process_op
                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
         break;
     default:

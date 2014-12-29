@@ -165,6 +165,25 @@ cdb_write(struct disk_op_s *op)
  * Main SCSI commands
  ****************************************************************/
 
+int VISIBLE32FLAT
+scsi_process_op(struct disk_op_s *op)
+{
+    switch (op->command) {
+    case CMD_READ:
+        return cdb_read(op);
+    case CMD_WRITE:
+        return cdb_write(op);
+    case CMD_FORMAT:
+    case CMD_RESET:
+    case CMD_ISREADY:
+    case CMD_VERIFY:
+    case CMD_SEEK:
+        return DISK_RET_SUCCESS;
+    default:
+        return DISK_RET_EPARAM;
+    }
+}
+
 int
 scsi_is_ready(struct disk_op_s *op)
 {

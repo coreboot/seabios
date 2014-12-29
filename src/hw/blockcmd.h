@@ -111,6 +111,7 @@ int cdb_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data);
 int cdb_read(struct disk_op_s *op);
 int cdb_write(struct disk_op_s *op);
 
+int scsi_process_op(struct disk_op_s *op);
 int scsi_is_ready(struct disk_op_s *op);
 struct drive_s;
 int scsi_drive_setup(struct drive_s *drive, const char *s, int prio);
