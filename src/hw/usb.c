@@ -71,6 +71,8 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     case USB_TYPE_UHCI:
         return uhci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_OHCI:
+        if (MODESEGMENT)
+            return -1;
         return ohci_send_bulk(pipe_fl, dir, data, datasize);
     case USB_TYPE_EHCI:
         return ehci_send_bulk(pipe_fl, dir, data, datasize);
@@ -102,7 +104,8 @@ usb_poll_intr(struct usb_pipe *pipe_fl, void *data)
 
 int usb_32bit_pipe(struct usb_pipe *pipe_fl)
 {
-    return CONFIG_USB_XHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_XHCI;
+    return (CONFIG_USB_XHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_XHCI)
+        || (CONFIG_USB_OHCI && GET_LOWFLAT(pipe_fl->type) == USB_TYPE_OHCI);
 }
 
 

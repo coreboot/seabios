@@ -107,6 +107,7 @@ struct ohci_regs {
 
 #define OHCI_HCR        (1 << 0)
 #define OHCI_CLF        (1 << 1)
+#define OHCI_BLF        (1 << 2)
 
 #define OHCI_INTR_MIE   (1 << 31)
 
