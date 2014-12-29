@@ -212,12 +212,21 @@ cdrom_boot(struct drive_s *drive)
     CDEmu.device_spec = drive->cntl_id % 2;
 
     // And we read the image in memory
+    nbsectors = DIV_ROUND_UP(nbsectors, 4);
     dop.lba = lba;
-    dop.count = DIV_ROUND_UP(nbsectors, 4);
     dop.buf_fl = MAKE_FLATPTR(boot_segment, 0);
-    ret = scsi_process_op(&dop);
-    if (ret)
-        return 12;
+    while (nbsectors) {
+        int count = nbsectors;
+        if (count > 64*1024/CDROM_SECTOR_SIZE)
+            count = 64*1024/CDROM_SECTOR_SIZE;
+        dop.count = count;
+        ret = scsi_process_op(&dop);
+        if (ret)
+            return 12;
+        nbsectors -= count;
+        dop.lba += count;
+        dop.buf_fl += count*CDROM_SECTOR_SIZE;
+    }
 
     if (media == 0) {
         // No emulation requested - return success.
