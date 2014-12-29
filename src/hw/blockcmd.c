@@ -72,7 +72,7 @@ cdb_is_read(u8 *cdbcmd, u16 blocksize)
  * Low level command requests
  ****************************************************************/
 
-int
+static int
 cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
 {
     struct cdb_request_sense cmd;
@@ -85,7 +85,7 @@ cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
 }
 
 // Request SENSE
-int
+static int
 cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data)
 {
     struct cdb_request_sense cmd;
@@ -98,7 +98,7 @@ cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data)
 }
 
 // Test unit ready
-int
+static int
 cdb_test_unit_ready(struct disk_op_s *op)
 {
     struct cdb_request_sense cmd;
@@ -110,7 +110,7 @@ cdb_test_unit_ready(struct disk_op_s *op)
 }
 
 // Request capacity
-int
+static int
 cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)
 {
     struct cdb_read_capacity cmd;
@@ -122,7 +122,7 @@ cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)
 }
 
 // Mode sense, geometry page.
-int
+static int
 cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
 {
     struct cdb_mode_sense cmd;
@@ -137,7 +137,7 @@ cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
 }
 
 // Read sectors.
-int
+static int
 cdb_read(struct disk_op_s *op)
 {
     struct cdb_rwdata_10 cmd;
@@ -149,7 +149,7 @@ cdb_read(struct disk_op_s *op)
 }
 
 // Write sectors.
-int
+static int
 cdb_write(struct disk_op_s *op)
 {
     struct cdb_rwdata_10 cmd;
