@@ -46,40 +46,23 @@ usb_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *pipe
 
 // Send a message on a control pipe using the default control descriptor.
 static int
-usb_send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
-                 , void *data, int datasize)
-{
-    ASSERT32FLAT();
-    switch (pipe->type) {
-    default:
-    case USB_TYPE_UHCI:
-        return uhci_send_pipe(pipe, dir, cmd, cmdsize, data, datasize);
-    case USB_TYPE_OHCI:
-        return ohci_send_pipe(pipe, dir, cmd, cmdsize, data, datasize);
-    case USB_TYPE_EHCI:
-        return ehci_send_pipe(pipe, dir, cmd, cmdsize, data, datasize);
-    case USB_TYPE_XHCI:
-        return xhci_send_pipe(pipe, dir, cmd, cmdsize, data, datasize);
-    }
-}
-
-int
-usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
+usb_send_pipe(struct usb_pipe *pipe_fl, int dir, const void *cmd, int cmdsize
+              , void *data, int datasize)
 {
     switch (GET_LOWFLAT(pipe_fl->type)) {
     default:
     case USB_TYPE_UHCI:
-        return uhci_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
+        return uhci_send_pipe(pipe_fl, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_OHCI:
         if (MODESEGMENT)
             return -1;
-        return ohci_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
+        return ohci_send_pipe(pipe_fl, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_EHCI:
-        return ehci_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
+        return ehci_send_pipe(pipe_fl, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_XHCI:
         if (MODESEGMENT)
             return -1;
-        return xhci_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
+        return xhci_send_pipe(pipe_fl, dir, cmd, cmdsize, data, datasize);
     }
 }
 
@@ -135,8 +118,15 @@ int
 usb_send_default_control(struct usb_pipe *pipe, const struct usb_ctrlrequest *req
                          , void *data)
 {
-    return usb_send_control(pipe, req->bRequestType & USB_DIR_IN
-                            , req, sizeof(*req), data, req->wLength);
+    return usb_send_pipe(pipe, req->bRequestType & USB_DIR_IN
+                         , req, sizeof(*req), data, req->wLength);
+}
+
+// Send a message to a bulk endpoint
+int
+usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
+{
+    return usb_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
 }
 
 // Check if a pipe for a given controller is on the freelist
