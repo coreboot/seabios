@@ -736,39 +736,6 @@ static void xhci_trb_queue(struct xhci_ring *ring,
             trb->status & 0xffff);
 }
 
-static void xhci_xfer_queue(struct xhci_pipe *pipe,
-                            struct xhci_trb *trb)
-{
-    xhci_trb_queue(&pipe->reqs, trb);
-}
-
-static void xhci_xfer_kick(struct xhci_pipe *pipe)
-{
-    struct usb_xhci_s *xhci = container_of(
-        pipe->pipe.cntl, struct usb_xhci_s, usb);
-    u32 slotid = pipe->slotid;
-    u32 epid = pipe->epid;
-
-    dprintf(5, "%s: ring %p, slotid %d, epid %d\n",
-            __func__, &pipe->reqs, slotid, epid);
-    xhci_doorbell(xhci, slotid, epid);
-}
-
-static void xhci_xfer_normal(struct xhci_pipe *pipe,
-                             void *data, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.ptr_low  = (u32)data;
-    trb.status   = datalen;
-    trb.control  |= (TR_NORMAL << 10); // trb type
-    trb.control  |= TRB_TR_IOC;
-
-    xhci_xfer_queue(pipe, &trb);
-    xhci_xfer_kick(pipe);
-}
-
 static int xhci_cmd_submit(struct usb_xhci_s *xhci,
                            struct xhci_trb *cmd)
 {
@@ -850,54 +817,6 @@ static int xhci_cmd_evaluate_context(struct usb_xhci_s *xhci, u32 slotid
     dprintf(3, "%s: slotid %d, add 0x%x, del 0x%x\n", __func__,
             slotid, inctx->add, inctx->del);
     return xhci_cmd_submit(xhci, &cmd);
-}
-
-static void xhci_xfer_setup(struct xhci_pipe *pipe,
-                            const struct usb_ctrlrequest *req,
-                            int dir, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.ptr_low  |= req->bRequestType;
-    trb.ptr_low  |= (req->bRequest) << 8;
-    trb.ptr_low  |= (req->wValue) << 16;
-    trb.ptr_high |= req->wIndex;
-    trb.ptr_high |= (req->wLength) << 16;
-    trb.status   |= 8;                // length
-    trb.control  |= (TR_SETUP << 10); // trb type
-    trb.control  |= TRB_TR_IDT;
-    if (datalen)
-        trb.control |= (dir ? 3 : 2) << 16; // transfer type
-    xhci_xfer_queue(pipe, &trb);
-}
-
-static void xhci_xfer_data(struct xhci_pipe *pipe,
-                           int dir, void *data, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.ptr_low  = (u32)data;
-    trb.status   = datalen;
-    trb.control  |= (TR_DATA << 10); // trb type
-    if (dir)
-        trb.control |= (1 << 16);
-    xhci_xfer_queue(pipe, &trb);
-}
-
-static void xhci_xfer_status(struct xhci_pipe *pipe, int dir, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.control  |= (TR_STATUS << 10); // trb type
-    trb.control  |= TRB_TR_IOC;
-    if (!datalen || !dir)
-        trb.control |= (1 << 16);
-
-    xhci_xfer_queue(pipe, &trb);
-    xhci_xfer_kick(pipe);
 }
 
 static struct xhci_inctx *
@@ -1114,6 +1033,87 @@ xhci_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
     free(in);
 
     return upipe;
+}
+
+static void xhci_xfer_queue(struct xhci_pipe *pipe,
+                            struct xhci_trb *trb)
+{
+    xhci_trb_queue(&pipe->reqs, trb);
+}
+
+static void xhci_xfer_kick(struct xhci_pipe *pipe)
+{
+    struct usb_xhci_s *xhci = container_of(
+        pipe->pipe.cntl, struct usb_xhci_s, usb);
+    u32 slotid = pipe->slotid;
+    u32 epid = pipe->epid;
+
+    dprintf(5, "%s: ring %p, slotid %d, epid %d\n",
+            __func__, &pipe->reqs, slotid, epid);
+    xhci_doorbell(xhci, slotid, epid);
+}
+
+static void xhci_xfer_normal(struct xhci_pipe *pipe,
+                             void *data, int datalen)
+{
+    struct xhci_trb trb;
+
+    memset(&trb, 0, sizeof(trb));
+    trb.ptr_low  = (u32)data;
+    trb.status   = datalen;
+    trb.control  |= (TR_NORMAL << 10); // trb type
+    trb.control  |= TRB_TR_IOC;
+
+    xhci_xfer_queue(pipe, &trb);
+    xhci_xfer_kick(pipe);
+}
+
+static void xhci_xfer_setup(struct xhci_pipe *pipe,
+                            const struct usb_ctrlrequest *req,
+                            int dir, int datalen)
+{
+    struct xhci_trb trb;
+
+    memset(&trb, 0, sizeof(trb));
+    trb.ptr_low  |= req->bRequestType;
+    trb.ptr_low  |= (req->bRequest) << 8;
+    trb.ptr_low  |= (req->wValue) << 16;
+    trb.ptr_high |= req->wIndex;
+    trb.ptr_high |= (req->wLength) << 16;
+    trb.status   |= 8;                // length
+    trb.control  |= (TR_SETUP << 10); // trb type
+    trb.control  |= TRB_TR_IDT;
+    if (datalen)
+        trb.control |= (dir ? 3 : 2) << 16; // transfer type
+    xhci_xfer_queue(pipe, &trb);
+}
+
+static void xhci_xfer_data(struct xhci_pipe *pipe,
+                           int dir, void *data, int datalen)
+{
+    struct xhci_trb trb;
+
+    memset(&trb, 0, sizeof(trb));
+    trb.ptr_low  = (u32)data;
+    trb.status   = datalen;
+    trb.control  |= (TR_DATA << 10); // trb type
+    if (dir)
+        trb.control |= (1 << 16);
+    xhci_xfer_queue(pipe, &trb);
+}
+
+static void xhci_xfer_status(struct xhci_pipe *pipe, int dir, int datalen)
+{
+    struct xhci_trb trb;
+
+    memset(&trb, 0, sizeof(trb));
+    trb.control  |= (TR_STATUS << 10); // trb type
+    trb.control  |= TRB_TR_IOC;
+    if (!datalen || !dir)
+        trb.control |= (1 << 16);
+
+    xhci_xfer_queue(pipe, &trb);
+    xhci_xfer_kick(pipe);
 }
 
 int
