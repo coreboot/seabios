@@ -500,7 +500,7 @@ uhci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     return ret;
 }
 
-#define STACKTDS 4
+#define STACKTDS 16
 #define TDALIGN 16
 
 int
@@ -517,7 +517,7 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
                    | (GET_LOWFLAT(pipe->pipe.ep) << 7));
     int toggle = GET_LOWFLAT(pipe->toggle) ? TD_TOKEN_TOGGLE : 0;
 
-    // Allocate 4 tds on stack (16byte aligned)
+    // Allocate 16 tds on stack (16byte aligned)
     u8 tdsbuf[sizeof(struct uhci_td) * STACKTDS + TDALIGN - 1];
     struct uhci_td *tds = (void*)ALIGN((u32)tdsbuf, TDALIGN);
     memset(tds, 0, sizeof(*tds) * STACKTDS);
