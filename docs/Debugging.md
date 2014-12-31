@@ -34,6 +34,43 @@ To report an issue, please collect the serial boot log with SeaBIOS
 set to a debug level of 8 and forward the full log along with a
 description of the problem to the SeaBIOS [mailing list](Mailinglist).
 
+Timing debug messages
+=====================
+
+The SeaBIOS repository has a tool (**scripts/readserial.py**) that can
+timestamp each diagnostic message produced. The timestamps can provide
+some additional information on how long internal processes take. It
+also provides a simple profiling mechanism.
+
+The tool can be used on coreboot builds that have diagnostic messages
+sent to a serial port. Make sure SeaBIOS is configured with
+CONFIG_DEBUG_SERIAL and run the following on the host receiving serial
+output:
+
+`/path/to/seabios/scripts/readserial.py /dev/ttyS0 115200`
+
+Update the above command with the appropriate serial device and baud
+rate.
+
+The tool can also timestamp the messages from the QEMU debug port. To
+use with QEMU run the following:
+
+`mkfifo qemudebugpipe`\
+`qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...`
+
+and then in another session:
+
+`/path/to/seabios/scripts/readserial.py -nf qemudebugpipe`
+
+The mkfifo command only needs to be run once to create the pipe file.
+
+When readserial.py is running, it shows a timestamp with millisecond
+precision of the amount of time since the start of the log. If one
+presses the "enter" key in the readserial.py session it will add a
+blank line to the screen and also reset the time back to zero. The
+readserial.py program also keeps a log of all output in files that
+look like "seriallog-YYYYMMDD_HHMMSS.log".
+
 Debugging with gdb on QEMU
 ==========================
 
