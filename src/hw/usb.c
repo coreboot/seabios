@@ -55,7 +55,7 @@ usb_send_control(struct usb_pipe *pipe, int dir, const void *cmd, int cmdsize
     case USB_TYPE_UHCI:
         return uhci_send_control(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_OHCI:
-        return ohci_send_control(pipe, dir, cmd, cmdsize, data, datasize);
+        return ohci_send_pipe(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_EHCI:
         return ehci_send_pipe(pipe, dir, cmd, cmdsize, data, datasize);
     case USB_TYPE_XHCI:
@@ -73,7 +73,7 @@ usb_send_bulk(struct usb_pipe *pipe_fl, int dir, void *data, int datasize)
     case USB_TYPE_OHCI:
         if (MODESEGMENT)
             return -1;
-        return ohci_send_bulk(pipe_fl, dir, data, datasize);
+        return ohci_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
     case USB_TYPE_EHCI:
         return ehci_send_pipe(pipe_fl, dir, NULL, 0, data, datasize);
     case USB_TYPE_XHCI:

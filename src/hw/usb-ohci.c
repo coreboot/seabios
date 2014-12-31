@@ -455,79 +455,37 @@ wait_ed(struct ohci_ed *ed, int timeout)
     }
 }
 
-int
-ohci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-                  , void *data, int datasize)
-{
-    if (! CONFIG_USB_OHCI)
-        return -1;
-    dprintf(5, "ohci_control %p\n", p);
-    if (datasize > 4096) {
-        // XXX - should support larger sizes.
-        warn_noalloc();
-        return -1;
-    }
-    struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
-
-    // Setup transfer descriptors
-    struct ohci_td *tds = malloc_tmphigh(sizeof(*tds) * 3);
-    if (!tds) {
-        warn_noalloc();
-        return -1;
-    }
-    struct ohci_td *td = tds;
-    td->hwINFO = TD_DP_SETUP | TD_T_DATA0 | TD_CC;
-    td->hwCBP = (u32)cmd;
-    td->hwNextTD = (u32)&td[1];
-    td->hwBE = (u32)cmd + cmdsize - 1;
-    td++;
-    if (datasize) {
-        td->hwINFO = (dir ? TD_DP_IN : TD_DP_OUT) | TD_T_DATA1 | TD_CC;
-        td->hwCBP = (u32)data;
-        td->hwNextTD = (u32)&td[1];
-        td->hwBE = (u32)data + datasize - 1;
-        td++;
-    }
-    td->hwINFO = (dir ? TD_DP_OUT : TD_DP_IN) | TD_T_DATA1 | TD_CC;
-    td->hwCBP = 0;
-    td->hwNextTD = (u32)&td[1];
-    td->hwBE = 0;
-    td++;
-
-    // Transfer data
-    pipe->ed.hwHeadP = (u32)tds;
-    pipe->ed.hwTailP = (u32)td;
-    barrier();
-    pipe->ed.hwINFO &= ~ED_SKIP;
-    writel(&pipe->regs->cmdstatus, OHCI_CLF);
-
-    int ret = wait_ed(&pipe->ed, usb_xfer_time(p, datasize));
-    pipe->ed.hwINFO |= ED_SKIP;
-    if (ret)
-        ohci_waittick(pipe->regs);
-    free(tds);
-    return ret;
-}
-
-#define STACKOTDS 16
+#define STACKOTDS 18
 #define OHCI_TD_ALIGN 16
 
 int
-ohci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
+ohci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+               , void *data, int datasize)
 {
     ASSERT32FLAT();
     if (! CONFIG_USB_OHCI)
         return -1;
-    dprintf(7, "ohci_send_bulk %p\n", p);
+    dprintf(7, "ohci_send_pipe %p\n", p);
     struct ohci_pipe *pipe = container_of(p, struct ohci_pipe, pipe);
 
-    // Allocate 16 tds on stack (with required alignment)
+    // Allocate tds on stack (with required alignment)
     u8 tdsbuf[sizeof(struct ohci_td) * STACKOTDS + OHCI_TD_ALIGN - 1];
     struct ohci_td *tds = (void*)ALIGN((u32)tdsbuf, OHCI_TD_ALIGN), *td = tds;
     memset(tds, 0, sizeof(*tds) * STACKOTDS);
 
     // Setup transfer descriptors
     u16 maxpacket = pipe->pipe.maxpacket;
+    u32 toggle = 0, statuscmd = OHCI_BLF;
+    if (cmd) {
+        // Send setup pid on control transfers
+        td->hwINFO = TD_DP_SETUP | TD_T_DATA0 | TD_CC;
+        td->hwCBP = (u32)cmd;
+        td->hwNextTD = (u32)&td[1];
+        td->hwBE = (u32)cmd + cmdsize - 1;
+        td++;
+        toggle = TD_T_DATA1;
+        statuscmd = OHCI_CLF;
+    }
     u32 dest = (u32)data, dataend = dest + datasize;
     while (dest < dataend) {
         // Send data pids
@@ -539,12 +497,24 @@ ohci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
         int transfer = dataend - dest;
         if (transfer > maxtransfer)
             transfer = ALIGN_DOWN(maxtransfer, maxpacket);
-        td->hwINFO = (dir ? TD_DP_IN : TD_DP_OUT) | TD_CC;
+        td->hwINFO = (dir ? TD_DP_IN : TD_DP_OUT) | toggle | TD_CC;
         td->hwCBP = dest;
         td->hwNextTD = (u32)&td[1];
         td->hwBE = dest + transfer - 1;
         td++;
         dest += transfer;
+    }
+    if (cmd) {
+        // Send status pid on control transfers
+        if (td >= &tds[STACKOTDS]) {
+            warn_noalloc();
+            return -1;
+        }
+        td->hwINFO = (dir ? TD_DP_OUT : TD_DP_IN) | TD_T_DATA1 | TD_CC;
+        td->hwCBP = 0;
+        td->hwNextTD = (u32)&td[1];
+        td->hwBE = 0;
+        td++;
     }
 
     // Transfer data
@@ -552,7 +522,7 @@ ohci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     pipe->ed.hwTailP = (u32)td;
     barrier();
     pipe->ed.hwINFO &= ~ED_SKIP;
-    writel(&pipe->regs->cmdstatus, OHCI_BLF);
+    writel(&pipe->regs->cmdstatus, statuscmd);
 
     int ret = wait_ed(&pipe->ed, usb_xfer_time(p, datasize));
     pipe->ed.hwINFO |= ED_SKIP;

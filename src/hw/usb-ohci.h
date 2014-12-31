@@ -9,9 +9,8 @@ struct usb_pipe;
 struct usb_pipe *ohci_realloc_pipe(struct usbdevice_s *usbdev
                                    , struct usb_pipe *upipe
                                    , struct usb_endpoint_descriptor *epdesc);
-int ohci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-                      , void *data, int datasize);
-int ohci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize);
+int ohci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+                   , void *data, int datasize);
 int ohci_poll_intr(struct usb_pipe *p, void *data);
 
 
