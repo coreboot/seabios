@@ -1117,50 +1117,35 @@ xhci_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
 }
 
 int
-xhci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-                  , void *data, int datalen)
+xhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+               , void *data, int datalen)
 {
     if (!CONFIG_USB_XHCI)
         return -1;
-    const struct usb_ctrlrequest *req = cmd;
     struct xhci_pipe *pipe = container_of(p, struct xhci_pipe, pipe);
     struct usb_xhci_s *xhci = container_of(
         pipe->pipe.cntl, struct usb_xhci_s, usb);
 
-    if (req->bRequest == USB_REQ_SET_ADDRESS)
-        // Set address command sent during xhci_alloc_pipe.
-        return 0;
+    if (cmd) {
+        const struct usb_ctrlrequest *req = cmd;
+        if (req->bRequest == USB_REQ_SET_ADDRESS)
+            // Set address command sent during xhci_alloc_pipe.
+            return 0;
 
-    xhci_xfer_setup(pipe, req, dir, datalen);
-    if (datalen)
-        xhci_xfer_data(pipe, dir, data, datalen);
-    xhci_xfer_status(pipe, dir, datalen);
+        xhci_xfer_setup(pipe, req, dir, datalen);
+        if (datalen)
+            xhci_xfer_data(pipe, dir, data, datalen);
+        xhci_xfer_status(pipe, dir, datalen);
+    } else {
+        xhci_xfer_normal(pipe, data, datalen);
+    }
 
     int cc = xhci_event_wait(xhci, &pipe->reqs, usb_xfer_time(p, datalen));
     if (cc != CC_SUCCESS) {
-        dprintf(1, "%s: control xfer failed (cc %d)\n", __func__, cc);
+        dprintf(1, "%s: xfer failed (cc %d)\n", __func__, cc);
         return -1;
     }
 
-    return 0;
-}
-
-int
-xhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datalen)
-{
-    if (!CONFIG_USB_XHCI)
-        return -1;
-
-    struct xhci_pipe *pipe = container_of(p, struct xhci_pipe, pipe);
-    struct usb_xhci_s *xhci = container_of(
-        pipe->pipe.cntl, struct usb_xhci_s, usb);
-
-    xhci_xfer_normal(pipe, data, datalen);
-    int cc = xhci_event_wait(xhci, &pipe->reqs, usb_xfer_time(p, datalen));
-    if (cc != CC_SUCCESS) {
-        dprintf(1, "%s: bulk xfer failed (cc %d)\n", __func__, cc);
-        return -1;
-    }
     return 0;
 }
 
