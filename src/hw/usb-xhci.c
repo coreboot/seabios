@@ -1036,9 +1036,17 @@ xhci_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
 }
 
 static void xhci_xfer_queue(struct xhci_pipe *pipe,
-                            struct xhci_trb *trb)
+                            void *data, int datalen, u32 flags)
 {
-    xhci_trb_queue(&pipe->reqs, trb);
+    struct xhci_trb trb;
+    memset(&trb, 0, sizeof(trb));
+    if (flags & TRB_TR_IDT)
+        memcpy(&trb.ptr_low, data, datalen);
+    else
+        trb.ptr_low  = (u32)data;
+    trb.status = datalen;
+    trb.control = flags;
+    xhci_trb_queue(&pipe->reqs, &trb);
 }
 
 static void xhci_xfer_kick(struct xhci_pipe *pipe)
@@ -1056,63 +1064,7 @@ static void xhci_xfer_kick(struct xhci_pipe *pipe)
 static void xhci_xfer_normal(struct xhci_pipe *pipe,
                              void *data, int datalen)
 {
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.ptr_low  = (u32)data;
-    trb.status   = datalen;
-    trb.control  |= (TR_NORMAL << 10); // trb type
-    trb.control  |= TRB_TR_IOC;
-
-    xhci_xfer_queue(pipe, &trb);
-    xhci_xfer_kick(pipe);
-}
-
-static void xhci_xfer_setup(struct xhci_pipe *pipe,
-                            const struct usb_ctrlrequest *req,
-                            int dir, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.ptr_low  |= req->bRequestType;
-    trb.ptr_low  |= (req->bRequest) << 8;
-    trb.ptr_low  |= (req->wValue) << 16;
-    trb.ptr_high |= req->wIndex;
-    trb.ptr_high |= (req->wLength) << 16;
-    trb.status   |= 8;                // length
-    trb.control  |= (TR_SETUP << 10); // trb type
-    trb.control  |= TRB_TR_IDT;
-    if (datalen)
-        trb.control |= (dir ? 3 : 2) << 16; // transfer type
-    xhci_xfer_queue(pipe, &trb);
-}
-
-static void xhci_xfer_data(struct xhci_pipe *pipe,
-                           int dir, void *data, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.ptr_low  = (u32)data;
-    trb.status   = datalen;
-    trb.control  |= (TR_DATA << 10); // trb type
-    if (dir)
-        trb.control |= (1 << 16);
-    xhci_xfer_queue(pipe, &trb);
-}
-
-static void xhci_xfer_status(struct xhci_pipe *pipe, int dir, int datalen)
-{
-    struct xhci_trb trb;
-
-    memset(&trb, 0, sizeof(trb));
-    trb.control  |= (TR_STATUS << 10); // trb type
-    trb.control  |= TRB_TR_IOC;
-    if (!datalen || !dir)
-        trb.control |= (1 << 16);
-
-    xhci_xfer_queue(pipe, &trb);
+    xhci_xfer_queue(pipe, data, datalen, (TR_NORMAL << 10) | TRB_TR_IOC);
     xhci_xfer_kick(pipe);
 }
 
@@ -1132,10 +1084,14 @@ xhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
             // Set address command sent during xhci_alloc_pipe.
             return 0;
 
-        xhci_xfer_setup(pipe, req, dir, datalen);
+        xhci_xfer_queue(pipe, (void*)req, 8, (TR_SETUP << 10) | TRB_TR_IDT
+                        | ((datalen ? (dir ? 3 : 2) : 0) << 16));
         if (datalen)
-            xhci_xfer_data(pipe, dir, data, datalen);
-        xhci_xfer_status(pipe, dir, datalen);
+            xhci_xfer_queue(pipe, data, datalen, (TR_DATA << 10)
+                            | ((dir ? 1 : 0) << 16));
+        xhci_xfer_queue(pipe, NULL, 0, (TR_STATUS << 10) | TRB_TR_IOC
+                        | ((dir ? 0 : 1) << 16));
+        xhci_xfer_kick(pipe);
     } else {
         xhci_xfer_normal(pipe, data, datalen);
     }
