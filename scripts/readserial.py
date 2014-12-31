@@ -8,10 +8,7 @@
 # Usage:
 #   scripts/readserial.py /dev/ttyUSB0 115200
 
-import sys
-import time
-import select
-import optparse
+import sys, os, time, select, optparse
 
 from python23compat import as_bytes
 
@@ -65,7 +62,7 @@ def readserial(infile, logfile, byteadjust):
             res = select.select([infile, sys.stdin], [], [])
         except KeyboardInterrupt:
             sys.stdout.write("\n")
-            break
+            return -1
         if sys.stdin in res[0]:
             # Got keyboard input - force reset on next serial input
             sys.stdin.read(1)
@@ -74,7 +71,7 @@ def readserial(infile, logfile, byteadjust):
                 continue
         d = infile.read(4096)
         if not d:
-            break
+            return 0
         datatime = time.time()
 
         datatime -= len(d) * byteadjust
@@ -128,7 +125,7 @@ def main():
     opts = optparse.OptionParser(usage)
     opts.add_option("-f", "--file",
                     action="store_false", dest="serial", default=True,
-                    help="read from file instead of serialdevice")
+                    help="read from unix named pipe instead of serialdevice")
     opts.add_option("-n", "--no-adjust",
                     action="store_false", dest="adjustbaud", default=True,
                     help="don't adjust times by serial rate")
@@ -168,13 +165,6 @@ Or: apt-get install python-serial
 """)
             sys.exit(1)
         ser = serial.Serial(serialport, baud, timeout=0)
-    else:
-        # Read from a file
-        ser = open(serialport, 'rb')
-        import fcntl
-        import os
-        fcntl.fcntl(ser, fcntl.F_SETFL
-                    , fcntl.fcntl(ser, fcntl.F_GETFL) | os.O_NONBLOCK)
 
     if options.calibrate_read:
         calibrateserialread(ser, byteadjust)
@@ -185,7 +175,16 @@ Or: apt-get install python-serial
 
     logname = time.strftime("seriallog-%Y%m%d_%H%M%S.log")
     f = open(logname, 'wb')
-    readserial(ser, f, byteadjust)
+    if options.serial:
+        readserial(ser, f, byteadjust)
+    else:
+        # Read from a pipe
+        while 1:
+            ser = os.fdopen(os.open(serialport, os.O_RDONLY|os.O_NONBLOCK), 'rb')
+            res = readserial(ser, f, byteadjust)
+            ser.close()
+            if res < 0:
+                break
 
 if __name__ == '__main__':
     main()
