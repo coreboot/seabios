@@ -539,87 +539,39 @@ ehci_fill_tdbuf(struct ehci_qtd *td, u32 dest, int transfer)
         *pos++ = dest;
 }
 
-int
-ehci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
-                  , void *data, int datasize)
-{
-    ASSERT32FLAT();
-    if (! CONFIG_USB_EHCI)
-        return -1;
-    dprintf(5, "ehci_control %p (dir=%d cmd=%d data=%d)\n"
-            , p, dir, cmdsize, datasize);
-    if (datasize > 4*4096 || cmdsize > 4*4096) {
-        // XXX - should support larger sizes.
-        warn_noalloc();
-        return -1;
-    }
-    struct ehci_pipe *pipe = container_of(p, struct ehci_pipe, pipe);
-
-    // Setup transfer descriptors
-    struct ehci_qtd *tds = memalign_tmphigh(EHCI_QTD_ALIGN, sizeof(*tds) * 3);
-    if (!tds) {
-        warn_noalloc();
-        return -1;
-    }
-    memset(tds, 0, sizeof(*tds) * 3);
-    struct ehci_qtd *td = tds;
-
-    td->qtd_next = (u32)&td[1];
-    td->alt_next = EHCI_PTR_TERM;
-    td->token = (ehci_explen(cmdsize) | QTD_STS_ACTIVE
-                 | QTD_PID_SETUP | ehci_maxerr(3));
-    ehci_fill_tdbuf(td, (u32)cmd, cmdsize);
-    td++;
-
-    if (datasize) {
-        td->qtd_next = (u32)&td[1];
-        td->alt_next = EHCI_PTR_TERM;
-        td->token = (QTD_TOGGLE | ehci_explen(datasize) | QTD_STS_ACTIVE
-                     | (dir ? QTD_PID_IN : QTD_PID_OUT) | ehci_maxerr(3));
-        ehci_fill_tdbuf(td, (u32)data, datasize);
-        td++;
-    }
-
-    td->qtd_next = EHCI_PTR_TERM;
-    td->alt_next = EHCI_PTR_TERM;
-    td->token = (QTD_TOGGLE | QTD_STS_ACTIVE
-                 | (dir ? QTD_PID_OUT : QTD_PID_IN) | ehci_maxerr(3));
-
-    // Transfer data
-    u32 end = timer_calc(usb_xfer_time(p, datasize));
-    barrier();
-    pipe->qh.qtd_next = (u32)tds;
-    int i, ret=0;
-    for (i=0; i<3; i++) {
-        struct ehci_qtd *td = &tds[i];
-        ret = ehci_wait_td(pipe, td, end);
-        if (ret)
-            break;
-    }
-    free(tds);
-    return ret;
-}
-
-#define STACKQTDS 4
+#define STACKQTDS 6
 
 int
-ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
+ehci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+               , void *data, int datasize)
 {
     if (! CONFIG_USB_EHCI)
         return -1;
     struct ehci_pipe *pipe = container_of(p, struct ehci_pipe, pipe);
-    dprintf(7, "ehci_send_bulk qh=%p dir=%d data=%p size=%d\n"
+    dprintf(7, "ehci_send_pipe qh=%p dir=%d data=%p size=%d\n"
             , &pipe->qh, dir, data, datasize);
 
-    // Allocate 4 tds on stack (with required alignment)
+    // Allocate tds on stack (with required alignment)
     u8 tdsbuf[sizeof(struct ehci_qtd) * STACKQTDS + EHCI_QTD_ALIGN - 1];
     struct ehci_qtd *tds = (void*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN), *td = tds;
     memset(tds, 0, sizeof(*tds) * STACKQTDS);
 
     // Setup transfer descriptors
     u16 maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
+    u32 toggle = 0;
+    if (cmd) {
+        // Send setup pid on control transfers
+        td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (ehci_explen(cmdsize) | QTD_STS_ACTIVE
+                     | QTD_PID_SETUP | ehci_maxerr(3));
+        ehci_fill_tdbuf(td, (u32)cmd, cmdsize);
+        td++;
+        toggle = QTD_TOGGLE;
+    }
     u32 dest = (u32)data, dataend = dest + datasize;
     while (dest < dataend) {
+        // Send data pids
         if (td >= &tds[STACKQTDS]) {
             warn_noalloc();
             return -1;
@@ -630,11 +582,23 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
             transfer = ALIGN_DOWN(maxtransfer, maxpacket);
         td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
         td->alt_next = EHCI_PTR_TERM;
-        td->token = (ehci_explen(transfer) | QTD_STS_ACTIVE
+        td->token = (ehci_explen(transfer) | toggle | QTD_STS_ACTIVE
                      | (dir ? QTD_PID_IN : QTD_PID_OUT) | ehci_maxerr(3));
         ehci_fill_tdbuf(td, dest, transfer);
         td++;
         dest += transfer;
+    }
+    if (cmd) {
+        // Send status pid on control transfers
+        if (td >= &tds[STACKQTDS]) {
+            warn_noalloc();
+            return -1;
+        }
+        td->qtd_next = EHCI_PTR_TERM;
+        td->alt_next = EHCI_PTR_TERM;
+        td->token = (QTD_TOGGLE | QTD_STS_ACTIVE
+                     | (dir ? QTD_PID_OUT : QTD_PID_IN) | ehci_maxerr(3));
+        td++;
     }
 
     // Transfer data
