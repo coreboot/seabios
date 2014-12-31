@@ -628,35 +628,33 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
     // Allocate 4 tds on stack (with required alignment)
     u32 end = timer_calc(usb_xfer_time(p, datasize));
     u8 tdsbuf[sizeof(struct ehci_qtd) * STACKQTDS + EHCI_QTD_ALIGN - 1];
-    struct ehci_qtd *tds = (void*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN);
+    struct ehci_qtd *tds = (void*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN), *td = tds;
     memset(tds, 0, sizeof(*tds) * STACKQTDS);
-    barrier();
-    SET_LOWFLAT(pipe->qh.qtd_next, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
 
+    // Setup transfer descriptors
     u16 maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
-    int tdpos = 0;
     while (datasize) {
-        struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];
-        int ret = ehci_wait_td(pipe, td, end);
-        if (ret)
+        if (td >= &tds[STACKQTDS]) {
+            warn_noalloc();
             return -1;
-
-        struct ehci_qtd *nexttd_fl = MAKE_FLATPTR(GET_SEG(SS)
-                                                 , &tds[tdpos % STACKQTDS]);
-
+        }
         int transfer = fillTDbuffer(td, maxpacket, data, datasize);
-        td->qtd_next = (transfer==datasize ? EHCI_PTR_TERM : (u32)nexttd_fl);
+        td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
         td->alt_next = EHCI_PTR_TERM;
-        barrier();
         td->token = (ehci_explen(transfer) | QTD_STS_ACTIVE
                      | (dir ? QTD_PID_IN : QTD_PID_OUT) | ehci_maxerr(3));
+        td++;
 
         data += transfer;
         datasize -= transfer;
     }
+
+    // Transfer data
+    (td-1)->qtd_next = EHCI_PTR_TERM;
+    barrier();
+    SET_LOWFLAT(pipe->qh.qtd_next, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
     int i;
-    for (i=0; i<STACKQTDS; i++) {
-        struct ehci_qtd *td = &tds[tdpos++ % STACKQTDS];
+    for (i=0, td=tds; i<STACKQTDS; i++, td++) {
         int ret = ehci_wait_td(pipe, td, end);
         if (ret)
             return -1;
