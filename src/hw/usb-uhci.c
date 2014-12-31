@@ -537,9 +537,9 @@ uhci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
         int transfer = datasize;
         if (transfer > maxpacket)
             transfer = maxpacket;
-        struct uhci_td *nexttd_fl = MAKE_FLATPTR(GET_SEG(SS)
-                                                 , &tds[tdpos % STACKTDS]);
-        td->link = (transfer==datasize ? UHCI_PTR_TERM : (u32)nexttd_fl);
+        u32 nexttd = (u32)MAKE_FLATPTR(GET_SEG(SS), &tds[tdpos % STACKTDS]);
+        td->link = (transfer==datasize
+                    ? UHCI_PTR_TERM : (nexttd | UHCI_PTR_DEPTH));
         td->token = (uhci_explen(transfer) | toggle
                      | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
                      | (dir ? USB_PID_IN : USB_PID_OUT));
