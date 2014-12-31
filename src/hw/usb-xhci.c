@@ -1069,7 +1069,7 @@ static void xhci_xfer_normal(struct xhci_pipe *pipe,
 }
 
 int
-xhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+xhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd
                , void *data, int datalen)
 {
     if (!CONFIG_USB_XHCI)
@@ -1084,7 +1084,8 @@ xhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
             // Set address command sent during xhci_alloc_pipe.
             return 0;
 
-        xhci_xfer_queue(pipe, (void*)req, 8, (TR_SETUP << 10) | TRB_TR_IDT
+        xhci_xfer_queue(pipe, (void*)req, USB_CONTROL_SETUP_SIZE
+                        , (TR_SETUP << 10) | TRB_TR_IDT
                         | ((datalen ? (dir ? 3 : 2) : 0) << 16));
         if (datalen)
             xhci_xfer_queue(pipe, data, datalen, (TR_DATA << 10)

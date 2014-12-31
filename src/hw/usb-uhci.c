@@ -447,7 +447,7 @@ wait_td(struct uhci_td *td, u32 end)
 #define TDALIGN 16
 
 int
-uhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+uhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd
                , void *data, int datasize)
 {
     if (! CONFIG_USB_UHCI)
@@ -478,8 +478,8 @@ uhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         struct uhci_td *td = &tds[tdpos++ % STACKTDS];
         u32 nexttd = (u32)MAKE_FLATPTR(GET_SEG(SS), &tds[tdpos % STACKTDS]);
         td->link = nexttd | UHCI_PTR_DEPTH;
-        td->token = (uhci_explen(cmdsize) | (devaddr << TD_TOKEN_DEVADDR_SHIFT)
-                     | USB_PID_SETUP);
+        td->token = (uhci_explen(USB_CONTROL_SETUP_SIZE)
+                     | (devaddr << TD_TOKEN_DEVADDR_SHIFT) | USB_PID_SETUP);
         td->buffer = (void*)cmd;
         barrier();
         td->status = (uhci_maxerr(3) | (lowspeed ? TD_CTRL_LS : 0)

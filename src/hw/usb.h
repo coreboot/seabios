@@ -211,6 +211,8 @@ struct usb_endpoint_descriptor {
 #define USB_ENDPOINT_XFER_INT           3
 #define USB_ENDPOINT_MAX_ADJUSTABLE     0x80
 
+#define USB_CONTROL_SETUP_SIZE          8
+
 
 /****************************************************************
  * usb mass storage flags

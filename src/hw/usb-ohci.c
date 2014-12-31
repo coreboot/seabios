@@ -459,7 +459,7 @@ wait_ed(struct ohci_ed *ed, int timeout)
 #define OHCI_TD_ALIGN 16
 
 int
-ohci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+ohci_send_pipe(struct usb_pipe *p, int dir, const void *cmd
                , void *data, int datasize)
 {
     ASSERT32FLAT();
@@ -481,7 +481,7 @@ ohci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         td->hwINFO = TD_DP_SETUP | TD_T_DATA0 | TD_CC;
         td->hwCBP = (u32)cmd;
         td->hwNextTD = (u32)&td[1];
-        td->hwBE = (u32)cmd + cmdsize - 1;
+        td->hwBE = (u32)cmd + USB_CONTROL_SETUP_SIZE - 1;
         td++;
         toggle = TD_T_DATA1;
         statuscmd = OHCI_CLF;

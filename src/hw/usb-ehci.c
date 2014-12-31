@@ -542,7 +542,7 @@ ehci_fill_tdbuf(struct ehci_qtd *td, u32 dest, int transfer)
 #define STACKQTDS 6
 
 int
-ehci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+ehci_send_pipe(struct usb_pipe *p, int dir, const void *cmd
                , void *data, int datasize)
 {
     if (! CONFIG_USB_EHCI)
@@ -563,9 +563,9 @@ ehci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         // Send setup pid on control transfers
         td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
         td->alt_next = EHCI_PTR_TERM;
-        td->token = (ehci_explen(cmdsize) | QTD_STS_ACTIVE
+        td->token = (ehci_explen(USB_CONTROL_SETUP_SIZE) | QTD_STS_ACTIVE
                      | QTD_PID_SETUP | ehci_maxerr(3));
-        ehci_fill_tdbuf(td, (u32)cmd, cmdsize);
+        ehci_fill_tdbuf(td, (u32)cmd, USB_CONTROL_SETUP_SIZE);
         td++;
         toggle = QTD_TOGGLE;
     }

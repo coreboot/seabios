@@ -9,7 +9,7 @@ struct usb_pipe;
 struct usb_pipe *uhci_realloc_pipe(struct usbdevice_s *usbdev
                                    , struct usb_pipe *upipe
                                    , struct usb_endpoint_descriptor *epdesc);
-int uhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
+int uhci_send_pipe(struct usb_pipe *p, int dir, const void *cmd
                    , void *data, int datasize);
 int uhci_poll_intr(struct usb_pipe *p, void *data);
 
