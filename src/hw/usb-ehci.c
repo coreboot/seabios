@@ -8,6 +8,7 @@
 #include "config.h" // CONFIG_*
 #include "output.h" // dprintf
 #include "malloc.h" // free
+#include "memmap.h" // PAGE_SIZE
 #include "pci.h" // pci_bdf_to_bus
 #include "pci_ids.h" // PCI_CLASS_SERIAL_USB_UHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
@@ -530,26 +531,12 @@ ehci_wait_td(struct ehci_pipe *pipe, struct ehci_qtd *td, u32 end)
     return 0;
 }
 
-static int
-fillTDbuffer(struct ehci_qtd *td, u16 maxpacket, const void *buf, int bytes)
+static void
+ehci_fill_tdbuf(struct ehci_qtd *td, u32 dest, int transfer)
 {
-    u32 dest = (u32)buf;
-    u32 *pos = td->buf;
-    while (bytes) {
-        if (pos >= &td->buf[ARRAY_SIZE(td->buf)])
-            // More data than can transfer in a single qtd - only use
-            // full packets to prevent a babble error.
-            return ALIGN_DOWN(dest - (u32)buf, maxpacket);
-        u32 count = bytes;
-        u32 max = 0x1000 - (dest & 0xfff);
-        if (count > max)
-            count = max;
-        *pos = dest;
-        bytes -= count;
-        dest += count;
-        pos++;
-    }
-    return dest - (u32)buf;
+    u32 *pos = td->buf, end = dest + transfer;
+    for (; dest < end; dest = ALIGN_DOWN(dest + PAGE_SIZE, PAGE_SIZE))
+        *pos++ = dest;
 }
 
 int
@@ -581,8 +568,7 @@ ehci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
     td->alt_next = EHCI_PTR_TERM;
     td->token = (ehci_explen(cmdsize) | QTD_STS_ACTIVE
                  | QTD_PID_SETUP | ehci_maxerr(3));
-    u16 maxpacket = pipe->pipe.maxpacket;
-    fillTDbuffer(td, maxpacket, cmd, cmdsize);
+    ehci_fill_tdbuf(td, (u32)cmd, cmdsize);
     td++;
 
     if (datasize) {
@@ -590,7 +576,7 @@ ehci_send_control(struct usb_pipe *p, int dir, const void *cmd, int cmdsize
         td->alt_next = EHCI_PTR_TERM;
         td->token = (QTD_TOGGLE | ehci_explen(datasize) | QTD_STS_ACTIVE
                      | (dir ? QTD_PID_IN : QTD_PID_OUT) | ehci_maxerr(3));
-        fillTDbuffer(td, maxpacket, data, datasize);
+        ehci_fill_tdbuf(td, (u32)data, datasize);
         td++;
     }
 
@@ -626,33 +612,36 @@ ehci_send_bulk(struct usb_pipe *p, int dir, void *data, int datasize)
             , &pipe->qh, dir, data, datasize);
 
     // Allocate 4 tds on stack (with required alignment)
-    u32 end = timer_calc(usb_xfer_time(p, datasize));
     u8 tdsbuf[sizeof(struct ehci_qtd) * STACKQTDS + EHCI_QTD_ALIGN - 1];
     struct ehci_qtd *tds = (void*)ALIGN((u32)tdsbuf, EHCI_QTD_ALIGN), *td = tds;
     memset(tds, 0, sizeof(*tds) * STACKQTDS);
 
     // Setup transfer descriptors
     u16 maxpacket = GET_LOWFLAT(pipe->pipe.maxpacket);
-    while (datasize) {
+    u32 dest = (u32)data, dataend = dest + datasize;
+    while (dest < dataend) {
         if (td >= &tds[STACKQTDS]) {
             warn_noalloc();
             return -1;
         }
-        int transfer = fillTDbuffer(td, maxpacket, data, datasize);
+        int maxtransfer = 5*PAGE_SIZE - (dest & (PAGE_SIZE-1));
+        int transfer = dataend - dest;
+        if (transfer > maxtransfer)
+            transfer = ALIGN_DOWN(maxtransfer, maxpacket);
         td->qtd_next = (u32)MAKE_FLATPTR(GET_SEG(SS), td+1);
         td->alt_next = EHCI_PTR_TERM;
         td->token = (ehci_explen(transfer) | QTD_STS_ACTIVE
                      | (dir ? QTD_PID_IN : QTD_PID_OUT) | ehci_maxerr(3));
+        ehci_fill_tdbuf(td, dest, transfer);
         td++;
-
-        data += transfer;
-        datasize -= transfer;
+        dest += transfer;
     }
 
     // Transfer data
     (td-1)->qtd_next = EHCI_PTR_TERM;
     barrier();
     SET_LOWFLAT(pipe->qh.qtd_next, (u32)MAKE_FLATPTR(GET_SEG(SS), tds));
+    u32 end = timer_calc(usb_xfer_time(p, datasize));
     int i;
     for (i=0, td=tds; i<STACKQTDS; i++, td++) {
         int ret = ehci_wait_td(pipe, td, end);
