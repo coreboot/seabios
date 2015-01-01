@@ -151,10 +151,21 @@ static inline void dispi_write(u16 reg, u16 val)
     outw(val, VBE_DISPI_IOPORT_DATA);
 }
 
+static u8
+bochsvga_dispi_enabled(void)
+{
+    if (!GET_GLOBAL(dispi_found))
+        return 0;
+    u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
+    if (!(en & VBE_DISPI_ENABLED))
+        return 0;
+    return 1;
+}
+
 int
 bochsvga_get_window(struct vgamode_s *vmode_g, int window)
 {
-    if (!GET_GLOBAL(dispi_found))
+    if (!bochsvga_dispi_enabled())
         return stdvga_get_window(vmode_g, window);
     if (window != 0)
         return -1;
@@ -164,7 +175,7 @@ bochsvga_get_window(struct vgamode_s *vmode_g, int window)
 int
 bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val)
 {
-    if (!GET_GLOBAL(dispi_found))
+    if (!bochsvga_dispi_enabled())
         return stdvga_set_window(vmode_g, window, val);
     if (window != 0)
         return -1;
@@ -177,7 +188,7 @@ bochsvga_set_window(struct vgamode_s *vmode_g, int window, int val)
 int
 bochsvga_get_linelength(struct vgamode_s *vmode_g)
 {
-    if (!GET_GLOBAL(dispi_found))
+    if (!bochsvga_dispi_enabled())
         return stdvga_get_linelength(vmode_g);
     return dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * vga_bpp(vmode_g) / 8;
 }
@@ -186,7 +197,7 @@ int
 bochsvga_set_linelength(struct vgamode_s *vmode_g, int val)
 {
     stdvga_set_linelength(vmode_g, val);
-    if (GET_GLOBAL(dispi_found)) {
+    if (bochsvga_dispi_enabled()) {
         int pixels = (val * 8) / vga_bpp(vmode_g);
         dispi_write(VBE_DISPI_INDEX_VIRT_WIDTH, pixels);
     }
@@ -196,7 +207,7 @@ bochsvga_set_linelength(struct vgamode_s *vmode_g, int val)
 int
 bochsvga_get_displaystart(struct vgamode_s *vmode_g)
 {
-    if (!GET_GLOBAL(dispi_found))
+    if (!bochsvga_dispi_enabled())
         return stdvga_get_displaystart(vmode_g);
     int bpp = vga_bpp(vmode_g);
     int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
@@ -209,7 +220,7 @@ int
 bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
 {
     stdvga_set_displaystart(vmode_g, val);
-    if (GET_GLOBAL(dispi_found)) {
+    if (bochsvga_dispi_enabled()) {
         int bpp = vga_bpp(vmode_g);
         int linelength = dispi_read(VBE_DISPI_INDEX_VIRT_WIDTH) * bpp / 8;
         if (!linelength)
@@ -223,7 +234,7 @@ bochsvga_set_displaystart(struct vgamode_s *vmode_g, int val)
 int
 bochsvga_get_dacformat(struct vgamode_s *vmode_g)
 {
-    if (!GET_GLOBAL(dispi_found))
+    if (!bochsvga_dispi_enabled())
         return stdvga_get_dacformat(vmode_g);
     u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
     return (en & VBE_DISPI_8BIT_DAC) ? 8 : 6;
@@ -232,7 +243,7 @@ bochsvga_get_dacformat(struct vgamode_s *vmode_g)
 int
 bochsvga_set_dacformat(struct vgamode_s *vmode_g, int val)
 {
-    if (!GET_GLOBAL(dispi_found))
+    if (!bochsvga_dispi_enabled())
         return stdvga_set_dacformat(vmode_g, val);
     u16 en = dispi_read(VBE_DISPI_INDEX_ENABLE);
     if (val == 6)
