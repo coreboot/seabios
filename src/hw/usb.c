@@ -253,8 +253,10 @@ get_device_config(struct usb_pipe *pipe)
         return NULL;
     req.wLength = cfg.wTotalLength;
     ret = usb_send_default_control(pipe, &req, config);
-    if (ret)
+    if (ret) {
+        free(config);
         return NULL;
+    }
     //hexdump(config, cfg.wTotalLength);
     return config;
 }
