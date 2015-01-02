@@ -454,6 +454,43 @@ gfx_write_char(struct vgamode_s *vmode_g
     }
 }
 
+// Read a character from the screen in graphics mode.
+static struct carattr
+gfx_read_char(struct vgamode_s *vmode_g, struct cursorpos cp)
+{
+    u8 lines[16];
+    int cheight = GET_BDA(char_height);
+    if (cp.x >= GET_BDA(video_cols) || cheight > ARRAY_SIZE(lines))
+        goto fail;
+
+    // Read cell from screen
+    struct gfx_op op;
+    init_gfx_op(&op, vmode_g);
+    op.op = GO_READ8;
+    op.x = cp.x * 8;
+    op.y = cp.y * cheight;
+    u8 i, j;
+    for (i=0; i<cheight; i++, op.y++) {
+        u8 line = 0;
+        handle_gfx_op(&op);
+        for (j=0; j<8; j++)
+            if (op.pixels[j])
+                line |= 0x80 >> j;
+        lines[i] = line;
+    }
+
+    // Determine font
+    u16 car;
+    for (car=0; car<256; car++) {
+        struct segoff_s font = get_font_data(car);
+        if (memcmp_far(GET_SEG(SS), lines
+                       , font.seg, (void*)(font.offset+0), cheight) == 0)
+            return (struct carattr){car, 0, 0};
+    }
+fail:
+    return (struct carattr){0, 0, 0};
+}
+
 // Draw/undraw a cursor on the framebuffer by xor'ing the cursor cell
 void
 gfx_set_swcursor(struct vgamode_s *vmode_g, int enable, struct cursorpos cp)
@@ -607,23 +644,15 @@ vgafb_read_char(struct cursorpos cp)
 {
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
-        goto fail;
+        return (struct carattr){0, 0, 0};
     vgafb_set_swcursor(0);
 
-    if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
-        // FIXME gfx mode
-        dprintf(1, "Read char in graphics mode\n");
-        goto fail;
-    }
+    if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT)
+        return gfx_read_char(vmode_g, cp);
 
     u16 *dest_far = text_address(cp);
     u16 v = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *dest_far);
-    struct carattr ca = {v, v>>8, 0};
-    return ca;
-
-fail: ;
-    struct carattr ca2 = {0, 0, 0};
-    return ca2;
+    return (struct carattr){v, v>>8, 0};
 }
 
 // Draw/undraw a cursor on the screen

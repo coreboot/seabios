@@ -42,6 +42,19 @@ strlen(const char *s)
     return p-s;
 }
 
+int
+memcmp_far(u16 s1seg, const void *s1, u16 s2seg, const void *s2, size_t n)
+{
+    while (n--) {
+        int d = GET_FARVAR(s1seg, *(u8*)s1) - GET_FARVAR(s2seg, *(u8*)s2);
+        if (d)
+            return d < 0 ? -1 : 1;
+        s1++;
+        s2++;
+    }
+    return 0;
+}
+
 // Compare two areas of memory.
 int
 memcmp(const void *s1, const void *s2, size_t n)

@@ -8,6 +8,7 @@
 u8 checksum_far(u16 buf_seg, void *buf_far, u32 len);
 u8 checksum(void *buf, u32 len);
 size_t strlen(const char *s);
+int memcmp_far(u16 s1seg, const void *s1, u16 s2seg, const void *s2, size_t n);
 int memcmp(const void *s1, const void *s2, size_t n);
 int strcmp(const char *s1, const char *s2);
 inline void memset_far(u16 d_seg, void *d_far, u8 c, size_t len);
