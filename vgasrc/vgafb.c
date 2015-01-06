@@ -367,7 +367,7 @@ gfx_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
     handle_gfx_op(&op);
 }
 
-// Clear are of screen in graphics mode.
+// Clear area of screen in graphics mode.
 static void
 gfx_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
                 , struct carattr ca, struct cursorpos clearsize)
@@ -469,23 +469,36 @@ gfx_read_char(struct vgamode_s *vmode_g, struct cursorpos cp)
     op.op = GO_READ8;
     op.x = cp.x * 8;
     op.y = cp.y * cheight;
+    int car = 0;
+    u8 fgattr = 0x00, bgattr = 0x00;
+    if (vga_emulate_text()) {
+        // Read bottom right pixel of the cell to guess bg color
+        op.y += cheight-1;
+        handle_gfx_op(&op);
+        op.y -= cheight-1;
+        bgattr = op.pixels[7];
+        fgattr = bgattr ^ 0x7;
+        // Report space character for blank cells (skip null character check)
+        car = 1;
+    }
     u8 i, j;
     for (i=0; i<cheight; i++, op.y++) {
         u8 line = 0;
         handle_gfx_op(&op);
         for (j=0; j<8; j++)
-            if (op.pixels[j])
+            if (op.pixels[j] != bgattr) {
                 line |= 0x80 >> j;
+                fgattr = op.pixels[j];
+            }
         lines[i] = line;
     }
 
     // Determine font
-    u16 car;
-    for (car=0; car<256; car++) {
+    for (; car<256; car++) {
         struct segoff_s font = get_font_data(car);
         if (memcmp_far(GET_SEG(SS), lines
                        , font.seg, (void*)(font.offset+0), cheight) == 0)
-            return (struct carattr){car, 0, 0};
+            return (struct carattr){car, fgattr | (bgattr << 4), 0};
     }
 fail:
     return (struct carattr){0, 0, 0};
@@ -594,7 +607,7 @@ vgafb_move_chars(struct cursorpos dest
                    , movesize.x * 2, stride, movesize.y);
 }
 
-// Clear are of screen.
+// Clear area of screen.
 void
 vgafb_clear_chars(struct cursorpos dest
                   , struct carattr ca, struct cursorpos clearsize)
