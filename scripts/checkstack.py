@@ -181,6 +181,8 @@ def calc():
                     noteCall(cur, subfuncs, insnaddr, calladdr, 0)
                 elif insn.startswith('calll'):
                     noteCall(cur, subfuncs, insnaddr, calladdr, stackusage + 4)
+                elif insn.startswith('callw'):
+                    noteCall(cur, subfuncs, insnaddr, calladdr, stackusage + 2)
                 else:
                     print("unknown call", ref)
                     noteCall(cur, subfuncs, insnaddr, calladdr, stackusage)
