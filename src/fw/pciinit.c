@@ -316,6 +316,10 @@ static void pci_bios_init_device(struct pci_device *pci)
     /* enable memory mappings */
     pci_config_maskw(bdf, PCI_COMMAND, 0,
                      PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_SERR);
+    /* enable SERR# for forwarding */
+    if (pci->header_type & PCI_HEADER_TYPE_BRIDGE)
+        pci_config_maskw(bdf, PCI_BRIDGE_CONTROL, 0,
+                         PCI_BRIDGE_CTL_SERR);
 }
 
 static void pci_bios_init_devices(void)
