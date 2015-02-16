@@ -677,6 +677,11 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             busses[pci->secondary_bus].bus_dev = pci;
 
         struct pci_bus *bus = &busses[pci_bdf_to_bus(pci->bdf)];
+        if (!bus->bus_dev)
+            /*
+             * Resources for all root busses go in busses[0]
+             */
+            bus = &busses[0];
         int i;
         for (i = 0; i < PCI_NUM_REGIONS; i++) {
             if ((pci->class == PCI_CLASS_BRIDGE_PCI) &&
@@ -707,6 +712,11 @@ static int pci_bios_check_devices(struct pci_bus *busses)
         if (!s->bus_dev)
             continue;
         struct pci_bus *parent = &busses[pci_bdf_to_bus(s->bus_dev->bdf)];
+        if (!parent->bus_dev)
+            /*
+             * Resources for all root busses go in busses[0]
+             */
+            parent = &busses[0];
         int type;
         int hotplug_support = pci_bus_hotplug_support(s);
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
