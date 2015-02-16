@@ -490,8 +490,17 @@ pci_bios_init_bus_rec(int bus, u8 *pci_bus)
 static void
 pci_bios_init_bus(void)
 {
+    u8 extraroots = romfile_loadint("etc/extra-pci-roots", 0);
     u8 pci_bus = 0;
+
     pci_bios_init_bus_rec(0 /* host bus */, &pci_bus);
+
+    if (extraroots) {
+        while (pci_bus < 0xff) {
+            pci_bus++;
+            pci_bios_init_bus_rec(pci_bus, &pci_bus);
+        }
+    }
 }
 
 
