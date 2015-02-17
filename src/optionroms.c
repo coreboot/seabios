@@ -20,6 +20,8 @@
 #include "string.h" // memset
 #include "util.h" // get_pnp_offset
 
+static int EnforceChecksum, S3ResumeVga, RunPCIroms;
+
 
 /****************************************************************
  * Helper functions
@@ -59,8 +61,6 @@ call_bcv(u16 seg, u16 ip)
 {
     __callrom(MAKE_FLATPTR(seg, 0), ip, 0);
 }
-
-static int EnforceChecksum;
 
 // Verify that an option rom looks valid
 static int
@@ -329,7 +329,7 @@ init_pcirom(struct pci_device *pci, int isvga, u64 *sources)
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , pci->vendor, pci->device);
     struct rom_header *rom = lookup_hardcode(pci);
-    if (! rom)
+    if (!rom && ((RunPCIroms > 1) || ((RunPCIroms == 1) && isvga)))
         rom = map_pcirom(pci);
     if (! rom)
         // No ROM present.
@@ -416,7 +416,6 @@ optionrom_setup(void)
  * VGA init
  ****************************************************************/
 
-static int S3ResumeVga;
 int ScreenAndDebug;
 struct rom_header *VgaROM;
 
@@ -432,6 +431,7 @@ vgarom_setup(void)
     // Load some config settings that impact VGA.
     EnforceChecksum = romfile_loadint("etc/optionroms-checksum", 1);
     S3ResumeVga = romfile_loadint("etc/s3-resume-vga-init", CONFIG_QEMU);
+    RunPCIroms = romfile_loadint("etc/pci-optionrom-exec", 2);
     ScreenAndDebug = romfile_loadint("etc/screen-and-debug", 1);
 
     if (CONFIG_OPTIONROMS_DEPLOYED) {
