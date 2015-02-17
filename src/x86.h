@@ -176,22 +176,31 @@ static inline void outsl(u16 port, u32 *data, u32 count) {
 }
 
 static inline void writel(void *addr, u32 val) {
+    barrier();
     *(volatile u32 *)addr = val;
 }
 static inline void writew(void *addr, u16 val) {
+    barrier();
     *(volatile u16 *)addr = val;
 }
 static inline void writeb(void *addr, u8 val) {
+    barrier();
     *(volatile u8 *)addr = val;
 }
 static inline u32 readl(const void *addr) {
-    return *(volatile const u32 *)addr;
+    u32 val = *(volatile const u32 *)addr;
+    barrier();
+    return val;
 }
 static inline u16 readw(const void *addr) {
-    return *(volatile const u16 *)addr;
+    u16 val = *(volatile const u16 *)addr;
+    barrier();
+    return val;
 }
 static inline u8 readb(const void *addr) {
-    return *(volatile const u8 *)addr;
+    u8 val = *(volatile const u8 *)addr;
+    barrier();
+    return val;
 }
 
 // GDT bits
