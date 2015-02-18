@@ -118,6 +118,11 @@ Available on 20111004. Major changes in this release:
 * PCI device scan is cached during POST phase
 * Several bug fixes
 
+The SeaBIOS 1.6.3 release was an incremental feature release. The
+first release number (1) was incremented as the project was no longer
+in a beta stage, and the third release number (3) was also incremented
+to indicate the release was a regular feature release.
+
 SeaBIOS 0.6.2
 =============
 
