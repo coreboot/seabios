@@ -15,6 +15,16 @@ Available on 20140528. Major changes in this release:
       emulation.
 * Several bug fixes and code cleanups
 
+SeaBIOS 1.7.5.1
+---------------
+
+Available on 20141113. Stable release containing only bug fixes.
+
+SeaBIOS 1.7.5.2
+---------------
+
+Available on 20150112. Stable release containing only bug fixes.
+
 SeaBIOS 1.7.4
 =============
 
@@ -64,6 +74,16 @@ Available on 20130118. Major changes in this release:
 * Support for using the ACPI PM timer on emulators
 * Improved Geode VGA BIOS support.
 * Several bug fixes
+
+SeaBIOS 1.7.2.1
+---------------
+
+Available on 20130227. Stable release containing only bug fixes.
+
+SeaBIOS 1.7.2.2
+---------------
+
+Available on 20130527. Stable release containing only bug fixes.
 
 SeaBIOS 1.7.1
 =============
@@ -123,6 +143,16 @@ first release number (1) was incremented as the project was no longer
 in a beta stage, and the third release number (3) was also incremented
 to indicate the release was a regular feature release.
 
+SeaBIOS 1.6.3.1
+---------------
+
+Available on 20111124. Stable release containing only bug fixes.
+
+SeaBIOS 1.6.3.2
+---------------
+
+Available on 20120311. Stable release containing only bug fixes.
+
 SeaBIOS 0.6.2
 =============
 
@@ -150,6 +180,21 @@ Available on 20100913. Major changes in this release:
 * New malloc implementation which improves memalign and free
 * The build system no longer double links objects
 * Several bug fixes
+
+SeaBIOS 0.6.1.1
+---------------
+
+Available on 20101031. Stable release containing only bug fixes.
+
+SeaBIOS 0.6.1.2
+---------------
+
+Available on 20101113. Stable release containing only bug fixes.
+
+SeaBIOS 0.6.1.3
+---------------
+
+Available on 20101226. Stable release containing only bug fixes.
 
 SeaBIOS 0.6.0
 =============
