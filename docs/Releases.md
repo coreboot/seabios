@@ -1,6 +1,28 @@
 History of SeaBIOS releases. Please see [download](Download) for
 information on obtaining these releases.
 
+SeaBIOS 1.8.0
+=============
+
+Available on 20150218. Major changes in this release:
+
+* Several USB timing fixes for USB controllers on real hardware
+* Initial support for USB3 hubs
+* Initial support for SD cards (on QEMU only)
+* Initial support for transitioning to 32bit mode using SMIs (on QEMU
+  TCG only)
+* SeaVGABIOS improvements
+    * Added cursor emulation to coreboot native init vgabios (cbvga)
+    * Added support for read character calls when in graphics mode
+* Developer documentation added to "docs/" directory in the code
+  repository and several documentation updates
+* Several bug fixes and code cleanups
+
+As of the 1.8.0 release, new feature releases will modify the first
+two release numbers (eg, 1.8) and stable releases will use three
+numbers (eg, 1.8.1). The prior behavior of using a forth number
+(eg, 1.7.5.1) for stable releases will no longer be used.
+
 SeaBIOS 1.7.5
 =============
 
