@@ -160,7 +160,7 @@ There are several memory areas that the SeaBIOS "runtime"
 
 * 0x0F0000-0x100000: The BIOS segment. This area is used for both
   runtime code and static variables. Space is allocated in this region
-  by either marking a global variable with VARFSEG, one of the VAR16
+  by either marking a global variable with VAR16, one of the VARFSEG
   flags, or by calling malloc_fseg() during initialization. The area
   is read-only at runtime and can be accessed from 16bit real mode,
   16bit bigreal mode, 16bit protected mode, and 32bit segmented mode
