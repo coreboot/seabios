@@ -55,8 +55,10 @@ rate.
 The tool can also timestamp the messages from the QEMU debug port. To
 use with QEMU run the following:
 
-`mkfifo qemudebugpipe`\
-`qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...`
+```
+mkfifo qemudebugpipe
+qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...
+```
 
 and then in another session:
 
@@ -90,8 +92,10 @@ on using gdb and QEMU in this mode.
 
 When debugging 16bit code, also run the following commands in gdb:
 
-`set architecture i8086`\
-`add-symbol-file out/rom16.o 0xf0000`
+```
+set architecture i8086
+add-symbol-file out/rom16.o 0xf0000
+```
 
 The second command loads the 16bit symbols a second time at an offset
 of 0xf0000, which helps gdb set and catch breakpoints correctly.

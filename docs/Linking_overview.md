@@ -95,8 +95,10 @@ a corresponding symbol definitions in the linker script that points to
 the C code of the specified mode. This is typically seen with code
 like:
 
-`extern void _cfunc32flat_process_op(void);`\
-`return call32(_cfunc32flat_process_op, 0, 0);`
+```
+extern void _cfunc32flat_process_op(void);
+return call32(_cfunc32flat_process_op, 0, 0);
+```
 
 In the above example, when the build finds the symbol
 "\_cfunc32flat_process_op" it will emit that symbol with the physical
