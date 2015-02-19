@@ -18,7 +18,8 @@ A description of the process of linking the final SeaBIOS binary is
 available at [Linking overview](Linking overview).
 
 To debug SeaBIOS and report problems see SeaBIOS
-[debugging](Debugging).
+[debugging](Debugging). To contribute changes to SeaBIOS see
+[contributing](Contributing).
 
 Useful links to specifications is available at [Developer
 links](Developer links).
