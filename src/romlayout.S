@@ -22,7 +22,8 @@
 // %edx = return location (in 32bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
-transition32_for_smi:
+transition32_nmi_off:
+        // transition32 when NMI and A20 are already initialized
         movl %eax, %ecx
         jmp 1f
 transition32:
@@ -205,7 +206,7 @@ __farcall16:
 entry_smi:
         // Transition to 32bit mode.
         movl $1f + BUILD_BIOS_ADDR, %edx
-        jmp transition32_for_smi
+        jmp transition32_nmi_off
         .code32
 1:      movl $BUILD_SMM_ADDR + 0x8000, %esp
         calll _cfunc32flat_handle_smi - BUILD_BIOS_ADDR
@@ -216,8 +217,10 @@ entry_smi:
         DECLFUNC entry_smp
 entry_smp:
         // Transition to 32bit mode.
+        cli
+        cld
         movl $2f + BUILD_BIOS_ADDR, %edx
-        jmp transition32
+        jmp transition32_nmi_off
         .code32
         // Acquire lock and take ownership of shared stack
 1:      rep ; nop
