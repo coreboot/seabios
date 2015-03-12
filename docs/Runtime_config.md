@@ -88,7 +88,7 @@ be displayed.
 
 SeaBIOS will show the image during the wait for the boot menu (if the
 boot menu has been disabled, users will not see the image). The image
-should probably have "Press F12 for boot menu" embedded in it so users
+should probably have "Press ESC for boot menu" embedded in it so users
 know they can enter the normal SeaBIOS boot menu. By default, the boot
 menu prompt (and thus graphical image) is shown for 2.5 seconds. This
 can be customized via a [configuration
@@ -174,7 +174,7 @@ There are several additional configuration options available in the
 | Filename            | Description
 |---------------------|---------------------------------------------------
 | show-boot-menu      | Controls the display of the boot menu. Set to 0 to disable the boot menu.
-| boot-menu-message   | Customize the text boot menu message. Normally, when in text mode SeaBIOS will report the string "\\nPress F12 for boot menu.\\n\\n". This field allows the string to be changed. (This is a string field, and is added as a file containing the raw string.)
+| boot-menu-message   | Customize the text boot menu message. Normally, when in text mode SeaBIOS will report the string "\\nPress ESC for boot menu.\\n\\n". This field allows the string to be changed. (This is a string field, and is added as a file containing the raw string.)
 | boot-menu-key       | Controls which key activates the boot menu. The value stored is the DOS scan code (eg, 0x86 for F12, 0x01 for Esc). If this field is set, be sure to also customize the **boot-menu-message** field above.
 | boot-menu-wait      | Amount of time (in milliseconds) to wait at the boot menu prompt before selecting the default boot.
 | boot-fail-wait      | If no boot devices are found SeaBIOS will reboot after 60 seconds. Set this to the amount of time (in milliseconds) to customize the reboot delay or set to -1 to disable rebooting when no boot devices are found
