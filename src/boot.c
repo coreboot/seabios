@@ -486,9 +486,15 @@ interactive_bootmenu(void)
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
 
-    // Get key press
+    // Get key press.  If the menu key is ESC, do not restart boot unless
+    // 1.5 seconds have passed.  Otherwise users (trained by years of
+    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+    // multiple times and immediately booting the primary boot device.
+    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
     for (;;) {
         scan_code = get_keystroke(1000);
+        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+            continue;
         if (scan_code >= 1 && scan_code <= maxmenu+1)
             break;
     }
