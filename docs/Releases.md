@@ -23,6 +23,11 @@ two release numbers (eg, 1.8) and stable releases will use three
 numbers (eg, 1.8.1). The prior behavior of using a forth number
 (eg, 1.7.5.1) for stable releases will no longer be used.
 
+SeaBIOS 1.8.1
+-------------
+
+Available on 20150316. Stable release containing only bug fixes.
+
 SeaBIOS 1.7.5
 =============
 
