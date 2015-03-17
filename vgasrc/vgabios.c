@@ -259,7 +259,7 @@ bda_save_restore(int cmd, u16 seg, void *data)
                    , sizeof(info->bda_0x84));
         u16 vbe_mode = GET_FARVAR(seg, info->vbe_mode);
         SET_BDA_EXT(vbe_mode, vbe_mode);
-        struct vgamode_s *vmode_g = vgahw_find_mode(vbe_mode);
+        struct vgamode_s *vmode_g = vgahw_find_mode(vbe_mode & ~MF_VBEFLAGS);
         SET_BDA_EXT(vgamode_offset, (u32)vmode_g);
         SET_IVT(0x1f, GET_FARVAR(seg, info->font0));
         SET_IVT(0x43, GET_FARVAR(seg, info->font1));
