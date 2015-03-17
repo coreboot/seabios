@@ -83,6 +83,11 @@ static inline u32 getcr0(void) {
 static inline void setcr0(u32 cr0) {
     asm("movl %0, %%cr0" : : "r"(cr0));
 }
+static inline u16 getcr0_vm86(void) {
+    u16 cr0;
+    asm("smsww %0" : "=r"(cr0));
+    return cr0;
+}
 
 static inline u64 rdmsr(u32 index)
 {
