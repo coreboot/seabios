@@ -32,7 +32,7 @@ class function:
         self.funcname = funcname
         self.basic_stack_usage = 0
         self.max_stack_usage = None
-        self.yield_usage = None
+        self.yield_usage = -1
         self.max_yield_usage = None
         self.total_calls = 0
         # called_funcs = [(insnaddr, calladdr, stackusage), ...]
@@ -40,7 +40,7 @@ class function:
         self.subfuncs = {}
     # Update function info with a found "yield" point.
     def noteYield(self, stackusage):
-        if self.yield_usage is None or self.yield_usage < stackusage:
+        if self.yield_usage < stackusage:
             self.yield_usage = stackusage
     # Update function info with a found "call" point.
     def noteCall(self, insnaddr, calladdr, stackusage):
@@ -54,15 +54,10 @@ class function:
 def calcmaxstack(funcs, funcaddr):
     info = funcs[funcaddr]
     # Find max of all nested calls.
-    maxusage = info.basic_stack_usage
-    maxyieldusage = doesyield = 0
-    if info.yield_usage is not None:
-        maxyieldusage = info.yield_usage
-        doesyield = 1
-    info.max_stack_usage = maxusage
-    info.max_yield_usage = info.yield_usage
+    info.max_stack_usage = max_stack_usage = info.basic_stack_usage
+    info.max_yield_usage = max_yield_usage = info.yield_usage
+    total_calls = 0
     seenbefore = {}
-    totcalls = 0
     for insnaddr, calladdr, usage in info.called_funcs:
         callinfo = funcs.get(calladdr)
         if callinfo is None:
@@ -71,32 +66,24 @@ def calcmaxstack(funcs, funcaddr):
             calcmaxstack(funcs, calladdr)
         if callinfo.funcname not in seenbefore:
             seenbefore[callinfo.funcname] = 1
-            totcalls += 1 + callinfo.total_calls
+            total_calls += callinfo.total_calls + 1
         funcnameroot = callinfo.funcname.split('.')[0]
         if funcnameroot in IGNORE:
             # This called function is ignored - don't contribute it to
             # the max stack.
             continue
-        if funcnameroot in STACKHOP:
-            if usage > maxusage:
-                maxusage = usage
-            if callinfo.max_yield_usage is not None:
-                doesyield = 1
-                if usage > maxyieldusage:
-                    maxyieldusage = usage
-            continue
         totusage = usage + callinfo.max_stack_usage
-        if totusage > maxusage:
-            maxusage = totusage
-        if callinfo.max_yield_usage is not None:
-            doesyield = 1
-            totyieldusage = usage + callinfo.max_yield_usage
-            if totyieldusage > maxyieldusage:
-                maxyieldusage = totyieldusage
-    info.max_stack_usage = maxusage
-    if doesyield:
-        info.max_yield_usage = maxyieldusage
-    info.total_calls = totcalls
+        totyieldusage = usage + callinfo.max_yield_usage
+        if funcnameroot in STACKHOP:
+            # Don't count children of this function
+            totusage = totyieldusage = usage
+        if totusage > max_stack_usage:
+            max_stack_usage = totusage
+        if callinfo.max_yield_usage >= 0 and totyieldusage > max_yield_usage:
+            max_yield_usage = totyieldusage
+    info.max_stack_usage = max_stack_usage
+    info.max_yield_usage = max_yield_usage
+    info.total_calls = total_calls
 
 # Try to arrange output so that functions that call each other are
 # near each other.
@@ -129,6 +116,7 @@ def main():
     unknownfunc = function(None, "<unknown>")
     indirectfunc = function(-1, '<indirect>')
     unknownfunc.max_stack_usage = indirectfunc.max_stack_usage = 0
+    unknownfunc.max_yield_usage = indirectfunc.max_yield_usage = -1
     funcs = {-1: indirectfunc}
     cur = None
     atstart = 0
@@ -214,17 +202,17 @@ def main():
     print(OUTPUTDESC)
     for funcaddr in funcaddrs:
         info = funcs[funcaddr]
-        if info.max_stack_usage == 0 and info.max_yield_usage is None:
+        if info.max_stack_usage == 0 and info.max_yield_usage < 0:
             continue
         yieldstr = ""
-        if info.max_yield_usage is not None:
+        if info.max_yield_usage >= 0:
             yieldstr = ",%d" % info.max_yield_usage
         print("\n%s[%d,%d%s]:" % (info.funcname, info.basic_stack_usage
                                   , info.max_stack_usage, yieldstr))
         for insnaddr, calladdr, stackusage in info.called_funcs:
             callinfo = funcs.get(calladdr, unknownfunc)
             yieldstr = ""
-            if callinfo.max_yield_usage is not None:
+            if callinfo.max_yield_usage >= 0:
                 yieldstr = ",%d" % (stackusage + callinfo.max_yield_usage)
             print("    %04s:%-40s [%d+%d,%d%s]" % (
                 insnaddr, callinfo.funcname, stackusage
