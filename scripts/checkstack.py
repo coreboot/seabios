@@ -51,19 +51,19 @@ class function:
         self.subfuncs[(calladdr, stackusage)] = 1
 
 # Find out maximum stack usage for a function
-def calcmaxstack(funcs, funcaddr):
-    info = funcs[funcaddr]
-    # Find max of all nested calls.
+def calcmaxstack(info, funcs):
+    if info.max_stack_usage is not None:
+        return
     info.max_stack_usage = max_stack_usage = info.basic_stack_usage
     info.max_yield_usage = max_yield_usage = info.yield_usage
     total_calls = 0
     seenbefore = {}
+    # Find max of all nested calls.
     for insnaddr, calladdr, usage in info.called_funcs:
         callinfo = funcs.get(calladdr)
         if callinfo is None:
             continue
-        if callinfo.max_stack_usage is None:
-            calcmaxstack(funcs, calladdr)
+        calcmaxstack(callinfo, funcs)
         if callinfo.funcname not in seenbefore:
             seenbefore[callinfo.funcname] = 1
             total_calls += callinfo.total_calls + 1
@@ -96,11 +96,12 @@ def orderfuncs(funcaddrs, availfuncs):
     out = []
     while l:
         count, name, funcaddr = l.pop(0)
-        if funcaddr not in availfuncs:
+        info = availfuncs.get(funcaddr)
+        if info is None:
             continue
-        calladdrs = [calls[1] for calls in availfuncs[funcaddr].called_funcs]
+        calladdrs = [calls[1] for calls in info.called_funcs]
         del availfuncs[funcaddr]
-        out = out + orderfuncs(calladdrs, availfuncs) + [funcaddr]
+        out = out + orderfuncs(calladdrs, availfuncs) + [info]
     return out
 
 hex_s = r'[0-9a-f]+'
@@ -190,18 +191,15 @@ def main():
         #print("other", repr(line))
 
     # Calculate maxstackusage
-    for funcaddr, info in funcs.items():
-        if info.max_stack_usage is not None:
-            continue
-        calcmaxstack(funcs, funcaddr)
+    for info in funcs.values():
+        calcmaxstack(info, funcs)
 
     # Sort functions for output
-    funcaddrs = orderfuncs(funcs.keys(), funcs.copy())
+    funcinfos = orderfuncs(funcs.keys(), funcs.copy())
 
     # Show all functions
     print(OUTPUTDESC)
-    for funcaddr in funcaddrs:
-        info = funcs[funcaddr]
+    for info in funcinfos:
         if info.max_stack_usage == 0 and info.max_yield_usage < 0:
             continue
         yieldstr = ""
