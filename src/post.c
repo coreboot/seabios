@@ -28,6 +28,7 @@
 #include "output.h" // dprintf
 #include "string.h" // memset
 #include "util.h" // kbd_init
+#include "tcgbios.h" // tpm_*
 
 
 /****************************************************************
@@ -220,6 +221,9 @@ maininit(void)
     if (threads_during_optionroms())
         device_hardware_setup();
 
+    // Initialize TPM
+    tpm_start();
+
     // Run vga option rom
     vgarom_setup();
 
@@ -235,6 +239,9 @@ maininit(void)
     // Allow user to modify overall boot order.
     interactive_bootmenu();
     wait_threads();
+
+    // Change TPM phys. presence state befor leaving BIOS
+    tpm_leave_bios();
 
     // Prepare for boot.
     prepareboot();

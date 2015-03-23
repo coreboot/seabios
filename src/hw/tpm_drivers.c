@@ -35,6 +35,9 @@ static u32 tpm_default_to[4];
 /* if device is not there, return '0', '1' otherwise */
 static u32 tis_probe(void)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u32 didvid = readl(TIS_REG(0, TIS_REG_DID_VID));
 
@@ -46,6 +49,9 @@ static u32 tis_probe(void)
 
 static u32 tis_init(void)
 {
+    if (!CONFIG_TCGBIOS)
+        return 1;
+
     writeb(TIS_REG(0, TIS_REG_INT_ENABLE), 0);
 
     if (tpm_drivers[TIS_DRIVER_IDX].durations == NULL) {
@@ -68,6 +74,9 @@ static u32 tis_init(void)
 
 static void set_timeouts(u32 timeouts[4], u32 durations[3])
 {
+    if (!CONFIG_TCGBIOS)
+        return;
+
     u32 *tos = tpm_drivers[TIS_DRIVER_IDX].timeouts;
     u32 *dus = tpm_drivers[TIS_DRIVER_IDX].durations;
 
@@ -80,6 +89,9 @@ static void set_timeouts(u32 timeouts[4], u32 durations[3])
 
 static u32 tis_wait_sts(u8 locty, u32 time, u8 mask, u8 expect)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 1;
 
     while (time > 0) {
@@ -96,6 +108,9 @@ static u32 tis_wait_sts(u8 locty, u32 time, u8 mask, u8 expect)
 
 static u32 tis_activate(u8 locty)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u8 acc;
     int l;
@@ -124,6 +139,9 @@ static u32 tis_activate(u8 locty)
 
 static u32 tis_find_active_locality(void)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u8 locty;
 
     for (locty = 0; locty <= 4; locty++) {
@@ -139,6 +157,9 @@ static u32 tis_find_active_locality(void)
 
 static u32 tis_ready(void)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u8 locty = tis_find_active_locality();
     u32 timeout_b = tpm_drivers[TIS_DRIVER_IDX].timeouts[TIS_TIMEOUT_TYPE_B];
@@ -152,6 +173,9 @@ static u32 tis_ready(void)
 
 static u32 tis_senddata(const u8 *const data, u32 len)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u32 offset = 0;
     u32 end = 0;
@@ -191,6 +215,9 @@ static u32 tis_senddata(const u8 *const data, u32 len)
 
 static u32 tis_readresp(u8 *buffer, u32 *len)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u32 offset = 0;
     u32 sts;
@@ -213,6 +240,9 @@ static u32 tis_readresp(u8 *buffer, u32 *len)
 
 static u32 tis_waitdatavalid(void)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u8 locty = tis_find_active_locality();
     u32 timeout_c = tpm_drivers[TIS_DRIVER_IDX].timeouts[TIS_TIMEOUT_TYPE_C];
@@ -225,6 +255,9 @@ static u32 tis_waitdatavalid(void)
 
 static u32 tis_waitrespready(enum tpmDurationType to_t)
 {
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
     u32 rc = 0;
     u8 locty = tis_find_active_locality();
     u32 timeout = tpm_drivers[TIS_DRIVER_IDX].durations[to_t];

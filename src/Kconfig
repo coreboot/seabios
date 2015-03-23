@@ -421,6 +421,13 @@ menu "BIOS interfaces"
             modified by programs.  However, some old DOS high memory
             managers may require the UMB region to be read-only.
 
+    config TCGBIOS
+        depends on S3_RESUME
+        bool "TPM support and TCG BIOS extensions"
+        default y
+        help
+            Provide TPM support along with TCG BIOS extensions
+
 endmenu
 
 menu "BIOS Tables"
