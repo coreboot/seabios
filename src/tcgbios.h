@@ -379,6 +379,9 @@ enum ipltype {
 };
 
 
+struct bregs;
+void tpm_interrupt_handler32(struct bregs *regs);
+
 u32 tpm_start(void);
 u32 tpm_leave_bios(void);
 u32 tpm_s3_resume(void);

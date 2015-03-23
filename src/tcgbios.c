@@ -22,6 +22,7 @@
 #include "output.h" // dprintf
 #include "std/acpi.h"  // RSDP_SIGNATURE, rsdt_descriptor
 #include "bregs.h" // struct bregs
+#include "sha1.h" // sha1
 
 
 static const u8 Startup_ST_CLEAR[2] = { 0x00, TPM_ST_CLEAR };
@@ -286,7 +287,7 @@ transmit(u8 locty, const struct iovec iovec[],
  * If a buffer is provided, the response will be copied into it.
  */
 static u32
-build_and_send_cmd_od(u32 ordinal, const u8 *append, u32 append_size,
+build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
                       u8 *resbuffer, u32 return_size, u32 *returnCode,
                       const u8 *otherdata, u32 otherdata_size,
                       enum tpmDurationType to_t)
@@ -298,7 +299,6 @@ build_and_send_cmd_od(u32 ordinal, const u8 *append, u32 append_size,
     u8 obuffer[MAX_RESPONSE_SIZE];
     struct tpm_req_header *trqh = (struct tpm_req_header *)ibuffer;
     struct tpm_rsp_header *trsh = (struct tpm_rsp_header *)obuffer;
-    u8 locty = 0;
     struct iovec iovec[3];
     u32 obuffer_len = sizeof(obuffer);
     u32 idx = 1;
@@ -325,7 +325,8 @@ build_and_send_cmd_od(u32 ordinal, const u8 *append, u32 append_size,
     memset(obuffer, 0x0, sizeof(obuffer));
 
     trqh->tag     = cpu_to_be16(0xc1);
-    trqh->totlen  = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size + otherdata_size);
+    trqh->totlen  = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size +
+                                otherdata_size);
     trqh->ordinal = cpu_to_be32(ordinal);
 
     if (append_size)
@@ -346,11 +347,11 @@ build_and_send_cmd_od(u32 ordinal, const u8 *append, u32 append_size,
 
 
 static u32
-build_and_send_cmd(u32 ordinal, const u8 *append, u32 append_size,
+build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
                    u8 *resbuffer, u32 return_size, u32 *returnCode,
                    enum tpmDurationType to_t)
 {
-    return build_and_send_cmd_od(ordinal, append, append_size,
+    return build_and_send_cmd_od(locty, ordinal, append, append_size,
                                  resbuffer, return_size, returnCode,
                                  NULL, 0, to_t);
 }
@@ -366,7 +367,7 @@ determine_timeouts(void)
     struct tpm_driver *td = &tpm_drivers[tpm_state.tpm_driver_to_use];
     u32 i;
 
-    rc = build_and_send_cmd(TPM_ORD_GetCapability,
+    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
                             GetCapability_Timeouts,
                             sizeof(GetCapability_Timeouts),
                             (u8 *)&timeouts,
@@ -379,7 +380,7 @@ determine_timeouts(void)
     if (rc || returnCode)
         goto err_exit;
 
-    rc = build_and_send_cmd(TPM_ORD_GetCapability,
+    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
                             GetCapability_Durations,
                             sizeof(GetCapability_Durations),
                             (u8 *)&durations,
@@ -434,7 +435,7 @@ tpm_startup(void)
         return TCG_GENERAL_ERROR;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
-    rc = build_and_send_cmd(TPM_ORD_Startup,
+    rc = build_and_send_cmd(0, TPM_ORD_Startup,
                             Startup_ST_CLEAR, sizeof(Startup_ST_CLEAR),
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
 
@@ -452,7 +453,7 @@ tpm_startup(void)
     if (rc || returnCode)
         goto err_exit;
 
-    rc = build_and_send_cmd(TPM_ORD_SelfTestFull, NULL, 0,
+    rc = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_LONG);
 
     dprintf(DEBUG_tcg, "Return code from TPM_SelfTestFull = 0x%08x\n",
@@ -461,7 +462,7 @@ tpm_startup(void)
     if (rc || returnCode)
         goto err_exit;
 
-    rc = build_and_send_cmd(TSC_ORD_ResetEstablishmentBit, NULL, 0,
+    rc = build_and_send_cmd(3, TSC_ORD_ResetEstablishmentBit, NULL, 0,
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
 
     dprintf(DEBUG_tcg, "Return code from TSC_ResetEstablishmentBit = 0x%08x\n",
@@ -510,14 +511,14 @@ tpm_leave_bios(void)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    rc = build_and_send_cmd(TPM_ORD_PhysicalPresence,
+    rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                             PhysicalPresence_CMD_ENABLE,
                             sizeof(PhysicalPresence_CMD_ENABLE),
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
     if (rc || returnCode)
         goto err_exit;
 
-    rc = build_and_send_cmd(TPM_ORD_PhysicalPresence,
+    rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                             PhysicalPresence_NOT_PRESENT_LOCK,
                             sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
@@ -535,6 +536,550 @@ err_exit:
     return TCG_TCG_COMMAND_ERROR;
 }
 
+static int
+is_valid_pcpes(struct pcpes *pcpes)
+{
+    return (pcpes->eventtype != 0);
+}
+
+
+static u8 *
+get_lasa_last_ptr(u16 *entry_count, u8 **log_area_start_address_next)
+{
+    struct pcpes *pcpes;
+    u32 log_area_minimum_length = 0;
+    u8 *log_area_start_address_base =
+        get_lasa_base_ptr(&log_area_minimum_length);
+    u8 *log_area_start_address_last = NULL;
+    u8 *end = log_area_start_address_base + log_area_minimum_length;
+    u32 size;
+
+    if (entry_count)
+        *entry_count = 0;
+
+    if (!log_area_start_address_base)
+        return NULL;
+
+    while (log_area_start_address_base < end) {
+        pcpes = (struct pcpes *)log_area_start_address_base;
+        if (!is_valid_pcpes(pcpes))
+            break;
+        if (entry_count)
+            (*entry_count)++;
+        size = pcpes->eventdatasize + offsetof(struct pcpes, event);
+        log_area_start_address_last = log_area_start_address_base;
+        log_area_start_address_base += size;
+    }
+
+    if (log_area_start_address_next)
+        *log_area_start_address_next = log_area_start_address_base;
+
+    return log_area_start_address_last;
+}
+
+
+static u32
+tpm_sha1_calc(const u8 *data, u32 length, u8 *hash)
+{
+    u32 rc;
+    u32 returnCode;
+    struct tpm_res_sha1start start;
+    struct tpm_res_sha1complete complete;
+    u32 blocks = length / 64;
+    u32 rest = length & 0x3f;
+    u32 numbytes, numbytes_no;
+    u32 offset = 0;
+
+    rc = build_and_send_cmd(0, TPM_ORD_SHA1Start,
+                            NULL, 0,
+                            (u8 *)&start,
+                            sizeof(struct tpm_res_sha1start),
+                            &returnCode, TPM_DURATION_TYPE_SHORT);
+
+    if (rc || returnCode)
+        goto err_exit;
+
+    while (blocks > 0) {
+
+        numbytes = be32_to_cpu(start.max_num_bytes);
+        if (numbytes > blocks * 64)
+             numbytes = blocks * 64;
+
+        numbytes_no = cpu_to_be32(numbytes);
+
+        rc = build_and_send_cmd_od(0, TPM_ORD_SHA1Update,
+                                   (u8 *)&numbytes_no, sizeof(numbytes_no),
+                                   NULL, 0, &returnCode,
+                                   &data[offset], numbytes,
+                                   TPM_DURATION_TYPE_SHORT);
+
+        if (rc || returnCode)
+            goto err_exit;
+
+        offset += numbytes;
+        blocks -= (numbytes / 64);
+    }
+
+    numbytes_no = cpu_to_be32(rest);
+
+    rc = build_and_send_cmd_od(0, TPM_ORD_SHA1Complete,
+                              (u8 *)&numbytes_no, sizeof(numbytes_no),
+                              (u8 *)&complete,
+                              sizeof(struct tpm_res_sha1complete),
+                              &returnCode,
+                              &data[offset], rest, TPM_DURATION_TYPE_SHORT);
+
+    if (rc || returnCode)
+        goto err_exit;
+
+    memcpy(hash, complete.hash, sizeof(complete.hash));
+
+    return 0;
+
+err_exit:
+    dprintf(DEBUG_tcg, "TCGBIOS: TPM SHA1 malfunctioning.\n");
+
+    tpm_state.tpm_working = 0;
+    if (rc)
+        return rc;
+    return TCG_TCG_COMMAND_ERROR;
+}
+
+
+static u32
+sha1_calc(const u8 *data, u32 length, u8 *hash)
+{
+    if (length < tpm_drivers[tpm_state.tpm_driver_to_use].sha1threshold)
+        return tpm_sha1_calc(data, length, hash);
+
+    return sha1(data, length, hash);
+}
+
+
+/*
+ * Extend the ACPI log with the given entry by copying the
+ * entry data into the log.
+ * Input
+ *  Pointer to the structure to be copied into the log
+ *
+ * Output:
+ *  lower 16 bits of return code contain entry number
+ *  if entry number is '0', then upper 16 bits contain error code.
+ */
+static u32
+tpm_extend_acpi_log(void *entry_ptr, u16 *entry_count)
+{
+    u32 log_area_minimum_length, size;
+    u8 *log_area_start_address_base =
+        get_lasa_base_ptr(&log_area_minimum_length);
+    u8 *log_area_start_address_next = NULL;
+    struct pcpes *pcpes = (struct pcpes *)entry_ptr;
+
+    get_lasa_last_ptr(entry_count, &log_area_start_address_next);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: LASA_BASE = %p, LASA_NEXT = %p\n",
+            log_area_start_address_base, log_area_start_address_next);
+
+    if (log_area_start_address_next == NULL || log_area_minimum_length == 0)
+        return TCG_PC_LOGOVERFLOW;
+
+    size = pcpes->eventdatasize + offsetof(struct pcpes, event);
+
+    if ((log_area_start_address_next + size - log_area_start_address_base) >
+        log_area_minimum_length) {
+        dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
+        return TCG_PC_LOGOVERFLOW;
+    }
+
+    memcpy(log_area_start_address_next, entry_ptr, size);
+
+    (*entry_count)++;
+
+    return 0;
+}
+
+
+static u32
+is_preboot_if_shutdown(void)
+{
+    return tpm_state.if_shutdown;
+}
+
+
+static u32
+shutdown_preboot_interface(void)
+{
+    u32 rc = 0;
+
+    if (!is_preboot_if_shutdown()) {
+        tpm_state.if_shutdown = 1;
+    } else {
+        rc = TCG_INTERFACE_SHUTDOWN;
+    }
+
+    return rc;
+}
+
+
+static void
+tpm_shutdown(void)
+{
+    reset_acpi_log();
+    shutdown_preboot_interface();
+}
+
+
+static u32
+pass_through_to_tpm(struct pttti *pttti, struct pttto *pttto)
+{
+    u32 rc = 0;
+    u32 resbuflen = 0;
+    struct tpm_req_header *trh;
+    u8 locty = 0;
+    struct iovec iovec[2];
+    const u32 *tmp;
+
+    if (is_preboot_if_shutdown()) {
+        rc = TCG_INTERFACE_SHUTDOWN;
+        goto err_exit;
+    }
+
+    trh = (struct tpm_req_header *)pttti->tpmopin;
+
+    if (pttti->ipblength < sizeof(struct pttti) + TPM_REQ_HEADER_SIZE ||
+        pttti->opblength < sizeof(struct pttto) ||
+        be32_to_cpu(trh->totlen)  + sizeof(struct pttti) > pttti->ipblength ) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
+
+    iovec[0].data   = pttti->tpmopin;
+    tmp = (const u32 *)&((u8 *)iovec[0].data)[2];
+    iovec[0].length = cpu_to_be32(*tmp);
+
+    iovec[1].data   = NULL;
+    iovec[1].length = 0;
+
+    rc = transmit(locty, iovec, pttto->tpmopout, &resbuflen,
+                  TPM_DURATION_TYPE_LONG /* worst case */);
+    if (rc)
+        goto err_exit;
+
+    pttto->opblength = offsetof(struct pttto, tpmopout) + resbuflen;
+    pttto->reserved  = 0;
+
+err_exit:
+    if (rc != 0) {
+        pttto->opblength = 4;
+        pttto->reserved = 0;
+    }
+
+    return rc;
+}
+
+
+static u32
+tpm_extend(u8 *hash, u32 pcrindex)
+{
+    u32 rc;
+    struct pttto_extend pttto;
+    struct pttti_extend pttti = {
+        .pttti = {
+            .ipblength = sizeof(struct pttti_extend),
+            .opblength = sizeof(struct pttto_extend),
+        },
+        .req = {
+            .tag      = cpu_to_be16(0xc1),
+            .totlen   = cpu_to_be32(sizeof(pttti.req)),
+            .ordinal  = cpu_to_be32(TPM_ORD_Extend),
+            .pcrindex = cpu_to_be32(pcrindex),
+        },
+    };
+
+    memcpy(pttti.req.digest, hash, sizeof(pttti.req.digest));
+
+    rc = pass_through_to_tpm(&pttti.pttti, &pttto.pttto);
+
+    if (rc == 0) {
+        if (pttto.pttto.opblength < TPM_RSP_HEADER_SIZE ||
+            pttto.pttto.opblength !=
+                sizeof(struct pttto) + be32_to_cpu(pttto.rsp.totlen) ||
+            be16_to_cpu(pttto.rsp.tag) != 0xc4) {
+            rc = TCG_FATAL_COM_ERROR;
+        }
+    }
+
+    if (rc)
+        tpm_shutdown();
+
+    return rc;
+}
+
+
+static u32
+hash_all(const struct hai *hai, u8 *hash)
+{
+    if (is_preboot_if_shutdown() != 0)
+        return TCG_INTERFACE_SHUTDOWN;
+
+    if (hai->ipblength != sizeof(struct hai) ||
+        hai->hashdataptr == 0 ||
+        hai->hashdatalen == 0 ||
+        hai->algorithmid != TPM_ALG_SHA)
+        return TCG_INVALID_INPUT_PARA;
+
+    return sha1_calc((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
+}
+
+
+static u32
+hash_log_event(const struct hlei *hlei, struct hleo *hleo)
+{
+    u32 rc = 0;
+    u16 size;
+    struct pcpes *pcpes;
+    u16 entry_count;
+
+    if (is_preboot_if_shutdown() != 0) {
+        rc = TCG_INTERFACE_SHUTDOWN;
+        goto err_exit;
+    }
+
+    size = hlei->ipblength;
+    if (size != sizeof(*hlei)) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    pcpes = (struct pcpes *)hlei->logdataptr;
+
+    if (pcpes->pcrindex >= 24 ||
+        pcpes->pcrindex  != hlei->pcrindex ||
+        pcpes->eventtype != hlei->logeventtype) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    if ((hlei->hashdataptr != 0) && (hlei->hashdatalen != 0)) {
+        rc = sha1_calc((const u8 *)hlei->hashdataptr,
+                       hlei->hashdatalen, pcpes->digest);
+        if (rc)
+            return rc;
+    }
+
+    rc = tpm_extend_acpi_log((void *)hlei->logdataptr, &entry_count);
+    if (rc)
+        goto err_exit;
+
+    /* updating the log was fine */
+    hleo->opblength = sizeof(struct hleo);
+    hleo->reserved  = 0;
+    hleo->eventnumber = entry_count;
+
+err_exit:
+    if (rc != 0) {
+        hleo->opblength = 2;
+        hleo->reserved = 0;
+    }
+
+    return rc;
+}
+
+
+static u32
+hash_log_extend_event(const struct hleei_short *hleei_s, struct hleeo *hleeo)
+{
+    u32 rc = 0;
+    struct hleo hleo;
+    struct hleei_long *hleei_l = (struct hleei_long *)hleei_s;
+    const void *logdataptr;
+    u32 logdatalen;
+    struct pcpes *pcpes;
+
+    /* short or long version? */
+    switch (hleei_s->ipblength) {
+    case sizeof(struct hleei_short):
+        /* short */
+        logdataptr = hleei_s->logdataptr;
+        logdatalen = hleei_s->logdatalen;
+    break;
+
+    case sizeof(struct hleei_long):
+        /* long */
+        logdataptr = hleei_l->logdataptr;
+        logdatalen = hleei_l->logdatalen;
+    break;
+
+    default:
+        /* bad input block */
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    pcpes = (struct pcpes *)logdataptr;
+
+    struct hlei hlei = {
+        .ipblength   = sizeof(hlei),
+        .hashdataptr = hleei_s->hashdataptr,
+        .hashdatalen = hleei_s->hashdatalen,
+        .pcrindex    = hleei_s->pcrindex,
+        .logeventtype= pcpes->eventtype,
+        .logdataptr  = logdataptr,
+        .logdatalen  = logdatalen,
+    };
+
+    rc = hash_log_event(&hlei, &hleo);
+    if (rc)
+        goto err_exit;
+
+    hleeo->opblength = sizeof(struct hleeo);
+    hleeo->reserved  = 0;
+    hleeo->eventnumber = hleo.eventnumber;
+
+    rc = tpm_extend(pcpes->digest, hleei_s->pcrindex);
+
+err_exit:
+    if (rc != 0) {
+        hleeo->opblength = 4;
+        hleeo->reserved  = 0;
+    }
+
+    return rc;
+
+}
+
+
+static u32
+tss(struct ti *ti, struct to *to)
+{
+    u32 rc = 0;
+
+    if (is_preboot_if_shutdown() == 0) {
+        rc = TCG_PC_UNSUPPORTED;
+    } else {
+        rc = TCG_INTERFACE_SHUTDOWN;
+    }
+
+    to->opblength = sizeof(struct to);
+    to->reserved  = 0;
+
+    return rc;
+}
+
+
+static u32
+compact_hash_log_extend_event(u8 *buffer,
+                              u32 info,
+                              u32 length,
+                              u32 pcrindex,
+                              u32 *edx_ptr)
+{
+    u32 rc = 0;
+    struct hleeo hleeo;
+    struct pcpes pcpes = {
+        .pcrindex      = pcrindex,
+        .eventtype     = EV_COMPACT_HASH,
+        .eventdatasize = sizeof(info),
+        .event         = info,
+    };
+    struct hleei_short hleei = {
+        .ipblength   = sizeof(hleei),
+        .hashdataptr = buffer,
+        .hashdatalen = length,
+        .pcrindex    = pcrindex,
+        .logdataptr  = &pcpes,
+        .logdatalen  = sizeof(pcpes),
+    };
+
+    rc = hash_log_extend_event(&hleei, &hleeo);
+    if (rc == 0)
+        *edx_ptr = hleeo.eventnumber;
+
+    return rc;
+}
+
+
+void VISIBLE32FLAT
+tpm_interrupt_handler32(struct bregs *regs)
+{
+    if (!CONFIG_TCGBIOS)
+        return;
+
+    set_cf(regs, 0);
+
+    if (!has_working_tpm()) {
+        regs->eax = TCG_GENERAL_ERROR;
+        return;
+    }
+
+    switch ((enum irq_ids)regs->al) {
+    case TCG_StatusCheck:
+        if (is_tpm_present() == 0) {
+            /* no TPM available */
+            regs->eax = TCG_PC_TPM_NOT_PRESENT;
+        } else {
+            regs->eax = 0;
+            regs->ebx = TCG_MAGIC;
+            regs->ch = TCG_VERSION_MAJOR;
+            regs->cl = TCG_VERSION_MINOR;
+            regs->edx = 0x0;
+            regs->esi = (u32)get_lasa_base_ptr(NULL);
+            regs->edi =
+                  (u32)get_lasa_last_ptr(NULL, NULL);
+        }
+        break;
+
+    case TCG_HashLogExtendEvent:
+        regs->eax =
+            hash_log_extend_event(
+                  (struct hleei_short *)input_buf32(regs),
+                  (struct hleeo *)output_buf32(regs));
+        break;
+
+    case TCG_PassThroughToTPM:
+        regs->eax =
+            pass_through_to_tpm((struct pttti *)input_buf32(regs),
+                                (struct pttto *)output_buf32(regs));
+        break;
+
+    case TCG_ShutdownPreBootInterface:
+        regs->eax = shutdown_preboot_interface();
+        break;
+
+    case TCG_HashLogEvent:
+        regs->eax = hash_log_event((struct hlei*)input_buf32(regs),
+                                   (struct hleo*)output_buf32(regs));
+        break;
+
+    case TCG_HashAll:
+        regs->eax =
+            hash_all((struct hai*)input_buf32(regs),
+                     (u8 *)output_buf32(regs));
+        break;
+
+    case TCG_TSS:
+        regs->eax = tss((struct ti*)input_buf32(regs),
+                    (struct to*)output_buf32(regs));
+        break;
+
+    case TCG_CompactHashLogExtendEvent:
+        regs->eax =
+          compact_hash_log_extend_event((u8 *)input_buf32(regs),
+                                        regs->esi,
+                                        regs->ecx,
+                                        regs->edx,
+                                        &regs->edx);
+        break;
+
+    default:
+        set_cf(regs, 1);
+    }
+
+    return;
+}
+
 
 u32
 tpm_s3_resume(void)
@@ -550,7 +1095,7 @@ tpm_s3_resume(void)
 
     dprintf(DEBUG_tcg, "TCGBIOS: Resuming with TPM_Startup(ST_STATE)\n");
 
-    rc = build_and_send_cmd(TPM_ORD_Startup,
+    rc = build_and_send_cmd(0, TPM_ORD_Startup,
                             Startup_ST_STATE, sizeof(Startup_ST_STATE),
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
 

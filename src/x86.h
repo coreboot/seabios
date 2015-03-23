@@ -129,6 +129,13 @@ static inline u32 getesp(void) {
     return esp;
 }
 
+static inline u32 rol(u32 val, u16 rol) {
+    u32 res;
+    asm volatile("roll %%cl, %%eax"
+                 : "=a" (res) : "a" (val), "c" (rol));
+    return res;
+}
+
 static inline void outb(u8 value, u16 port) {
     __asm__ __volatile__("outb %b0, %w1" : : "a"(value), "Nd"(port));
 }

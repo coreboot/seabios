@@ -75,6 +75,7 @@ u32 find_resume_vector(void);
 void acpi_reboot(void);
 void find_acpi_features(void);
 extern struct smbios_entry_point *SMBiosAddr;
+struct smbios_entry_point *get_smbios_entry_point();
 void copy_smbios(void *pos);
 void display_uuid(void);
 void copy_table(void *pos);

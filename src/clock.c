@@ -239,6 +239,18 @@ handle_1a07(struct bregs *regs)
     set_success(regs);
 }
 
+static void
+handle_1abb(struct bregs *regs)
+{
+    if (!CONFIG_TCGBIOS)
+        return;
+
+    dprintf(DEBUG_tcg, "16: Calling tpm_interrupt_handler\n");
+    extern void _cfunc32flat_tpm_interrupt_handler32(void);
+    call32(_cfunc32flat_tpm_interrupt_handler32,
+           (u32)MAKE_FLATPTR(GET_SEG(SS), regs), 0);
+}
+
 // Unsupported
 static void
 handle_1aXX(struct bregs *regs)
@@ -260,6 +272,7 @@ handle_1a(struct bregs *regs)
     case 0x05: handle_1a05(regs); break;
     case 0x06: handle_1a06(regs); break;
     case 0x07: handle_1a07(regs); break;
+    case 0xbb: handle_1abb(regs); break;
     default:   handle_1aXX(regs); break;
     }
 }
