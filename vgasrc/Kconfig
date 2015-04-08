@@ -58,6 +58,22 @@ menu "VGA ROM"
     endchoice
 
     choice
+        depends on VGA_BOCHS
+        prompt "bochs vga variant"
+        default VGA_BOCHS_STDVGA
+
+        config VGA_BOCHS_STDVGA
+            bool "qemu stdvga / bochs svga"
+
+        config VGA_BOCHS_VMWARE
+            bool "qemu vmware svga"
+
+        config VGA_BOCHS_QXL
+            bool "qemu qxl vga"
+
+    endchoice
+
+    choice
         depends on VGA_GEODEGX2 || VGA_GEODELX
         prompt "Output Mode"
         default VGA_OUTPUT_CRT
@@ -140,7 +156,9 @@ menu "VGA ROM"
         hex
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x1013 if VGA_CIRRUS
-        default 0x1234 if VGA_BOCHS
+        default 0x1234 if VGA_BOCHS_STDVGA
+        default 0x15ad if VGA_BOCHS_VMWARE
+        default 0x1b36 if VGA_BOCHS_QXL
         default 0x100b if VGA_GEODEGX2
         default 0x1022 if VGA_GEODELX
         default 0x0000
@@ -152,7 +170,9 @@ menu "VGA ROM"
         hex
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x00b8 if VGA_CIRRUS
-        default 0x1111 if VGA_BOCHS
+        default 0x1111 if VGA_BOCHS_STDVGA
+        default 0x0405 if VGA_BOCHS_VMWARE
+        default 0x0100 if VGA_BOCHS_QXL
         default 0x0030 if VGA_GEODEGX2
         default 0x2081 if VGA_GEODELX
         default 0x0000
