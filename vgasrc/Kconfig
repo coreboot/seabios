@@ -90,6 +90,16 @@ menu "VGA ROM"
             Support emulating text mode features when only a
             framebuffer is available.
 
+    config VGA_FIXUP_ASM
+        bool "Fixup assembler to work with broken emulators"
+        default y
+        help
+            This option will cause the build to attempt to avoid
+            certain x86 machine instructions that are known to confuse
+            some emulators.  In particular, it works around
+            deficiencies in the Windows vgabios emulator and the
+            x86emu vgabios emulator (frequently used in Xorg).
+
     config VGA_ALLOCATE_EXTRA_STACK
         depends on BUILD_VGABIOS
         bool "Allocate an internal stack for 16bit interrupt entry point"

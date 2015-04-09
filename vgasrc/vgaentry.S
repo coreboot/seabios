@@ -64,6 +64,7 @@ x86emu_fault:
         // This macro implements a call while avoiding instructions
         // that old versions of x86emu have problems with.
         .macro VGA_CALLL cfunc
+#if CONFIG_VGA_FIXUP_ASM
         // Make sure leal instruction works.
         movl $0x8000, %ecx
         leal (%ecx, %ecx, 1), %ecx
@@ -72,6 +73,9 @@ x86emu_fault:
         // Use callw instead of calll
         push %ax
         callw \cfunc
+#else
+        calll \cfunc
+#endif
         .endm
 
         // This macro is the same as ENTRY_ARG except VGA_CALLL is used.
