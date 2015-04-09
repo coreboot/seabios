@@ -271,7 +271,7 @@ copy_smbios(void *pos)
     if (SMBiosAddr)
         return;
     struct smbios_entry_point *p = pos;
-    if (memcmp(p->anchor_string, "_SM_", 4))
+    if (p->signature != SMBIOS_SIGNATURE)
         return;
     if (checksum(pos, 0x10) != 0)
         return;
