@@ -304,7 +304,7 @@ vga_set_mode(int mode, int flags)
         SET_BDA(video_mode, 0xff);
     SET_BDA_EXT(vbe_mode, mode | (flags & MF_VBEFLAGS));
     SET_BDA_EXT(vgamode_offset, (u32)vmode_g);
-    if (CONFIG_VGA_ALLOCATE_EXTRA_STACK && !(getcr0_vm86() & CR0_PE))
+    if (CONFIG_VGA_ALLOCATE_EXTRA_STACK)
         // Disable extra stack if it appears a modern OS is in use.
         // This works around bugs in some versions of Windows (Vista
         // and possibly later) when the stack is in the e-segment.
