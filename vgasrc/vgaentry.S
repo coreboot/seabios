@@ -45,33 +45,11 @@ _rom_header_signature:
  * Entry points
  ****************************************************************/
 
-        // Force a fault if found to be running on broken x86emu versions.
-        DECLFUNC x86emu_fault
-msg:    .ascii "SeaVGABIOS: x86emu leal trap!\n"
-x86emu_fault:
-#if CONFIG_DEBUG_IO
-        movw %cs:DebugOutputPort, %dx
-        movw $msg, %si
-1:      movb %cs:(%si), %al
-        outb %al, (%dx)
-        incw %si
-        cmpw $x86emu_fault, %si
-        jl 1b
-#endif
-1:      hlt
-        jmp 1b
-
         // This macro implements a call while avoiding instructions
         // that old versions of x86emu have problems with.
         .macro VGA_CALLL cfunc
 #if CONFIG_VGA_FIXUP_ASM
-        // Make sure leal instruction works.
-        movl $0x8000, %ecx
-        leal (%ecx, %ecx, 1), %ecx
-        cmpl $0x10000, %ecx
-        jne x86emu_fault
-        // Use callw instead of calll
-        push %ax
+        pushw %ax
         callw \cfunc
 #else
         calll \cfunc
