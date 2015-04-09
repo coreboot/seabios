@@ -56,7 +56,7 @@ COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
     -Wall -Wno-strict-aliasing -Wold-style-definition \
     $(call cc-option,$(CC),-Wtype-limits,) \
     -m32 -march=i386 -mregparm=3 -mpreferred-stack-boundary=2 \
-    -minline-all-stringops \
+    -minline-all-stringops -fomit-frame-pointer \
     -freg-struct-return -ffreestanding -fno-delete-null-pointer-checks \
     -ffunction-sections -fdata-sections -fno-common -fno-merge-constants
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
@@ -64,15 +64,14 @@ COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
 COMMA := ,
 
-CFLAGS32FLAT := $(COMMONCFLAGS) -DMODE16=0 -DMODESEGMENT=0 -fomit-frame-pointer
+CFLAGS32FLAT := $(COMMONCFLAGS) -DMODE16=0 -DMODESEGMENT=0
 CFLAGSSEG := $(COMMONCFLAGS) -DMODESEGMENT=1 -fno-defer-pop \
     $(call cc-option,$(CC),-fno-jump-tables,-DMANUAL_NO_JUMP_TABLE) \
     $(call cc-option,$(CC),-fno-tree-switch-conversion,)
-CFLAGS32SEG := $(CFLAGSSEG) -DMODE16=0 -fomit-frame-pointer
-CFLAGS16INC := $(CFLAGSSEG) -DMODE16=1 \
+CFLAGS32SEG := $(CFLAGSSEG) -DMODE16=0
+CFLAGS16 := $(CFLAGSSEG) -DMODE16=1 \
     $(call cc-option,$(CC),-m16,-Wa$(COMMA)src/code16gcc.s) \
     $(call cc-option,$(CC),--param large-stack-frame=4,-fno-inline)
-CFLAGS16 := $(CFLAGS16INC) -fomit-frame-pointer
 
 # Run with "make V=1" to see the actual compile commands
 ifdef V
@@ -210,23 +209,25 @@ SRCVGA=src/output.c src/string.c src/hw/pci.c src/hw/serialio.c \
     vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c \
     src/fw/coreboot.c vgasrc/cbvga.c
 
-CFLAGS16VGA = $(CFLAGS16INC) -Isrc
-
-$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(CFLAGS16VGA) -S, $(SRCVGA),$@)
+ifeq "$(CONFIG_VGA_FIXUP_ASM)" "y"
+$(OUT)vgaccode16.raw.s: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(filter-out -fomit-frame-pointer,$(CFLAGS16)) -fno-omit-frame-pointer -S -Isrc, $(SRCVGA),$@)
 
 $(OUT)vgaccode16.o: $(OUT)vgaccode16.raw.s scripts/vgafixup.py
 	@echo "  Fixup VGA rom assembler"
 	$(Q)$(PYTHON) ./scripts/vgafixup.py $< $(OUT)vgaccode16.s
 	$(Q)$(AS) --32 src/code16gcc.s $(OUT)vgaccode16.s -o $@
+else
+$(OUT)vgaccode16.o: $(OUT)autoconf.h $(patsubst %.c, $(OUT)%.o,$(SRCVGA)) ; $(call whole-compile, $(CFLAGS16) -Isrc, $(SRCVGA),$@)
+endif
 
 $(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
-	$(Q)$(CC) $(CFLAGS16VGA) -c -D__ASSEMBLY__ $< -o $@
+	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
 $(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgasrc/vgalayout.lds scripts/buildversion.sh
 	@echo "  Linking $@"
 	$(Q)./scripts/buildversion.sh $(OUT)vgaversion.c VAR16
-	$(Q)$(CC) $(CFLAGS16VGA) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
+	$(Q)$(CC) $(CFLAGS16) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
 	$(Q)$(LD) --gc-sections -T $(OUT)vgasrc/vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
 
 $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
