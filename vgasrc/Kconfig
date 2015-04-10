@@ -71,6 +71,9 @@ menu "VGA ROM"
         config VGA_BOCHS_QXL
             bool "qemu qxl vga"
 
+        config VGA_BOCHS_VIRTIO
+            bool "qemu virtio vga"
+
     endchoice
 
     choice
@@ -159,6 +162,7 @@ menu "VGA ROM"
         default 0x1234 if VGA_BOCHS_STDVGA
         default 0x15ad if VGA_BOCHS_VMWARE
         default 0x1b36 if VGA_BOCHS_QXL
+        default 0x1af4 if VGA_BOCHS_VIRTIO
         default 0x100b if VGA_GEODEGX2
         default 0x1022 if VGA_GEODELX
         default 0x0000
@@ -173,6 +177,7 @@ menu "VGA ROM"
         default 0x1111 if VGA_BOCHS_STDVGA
         default 0x0405 if VGA_BOCHS_VMWARE
         default 0x0100 if VGA_BOCHS_QXL
+        default 0x1050 if VGA_BOCHS_VIRTIO
         default 0x0030 if VGA_GEODEGX2
         default 0x2081 if VGA_GEODELX
         default 0x0000
