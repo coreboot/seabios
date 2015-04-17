@@ -134,61 +134,61 @@ def main():
             atstart = 1
             continue
         m = re_asm.match(line)
-        if m is not None:
-            insn = m.group('insn')
+        if m is None:
+            #print("other", repr(line))
+            continue
+        insn = m.group('insn')
 
-            im = re_usestack.match(insn)
-            if im is not None:
-                if insn.startswith('pushl') or insn.startswith('pushfl'):
-                    stackusage += 4
-                    continue
-                elif insn.startswith('pushw') or insn.startswith('pushfw'):
-                    stackusage += 2
-                    continue
-                stackusage += int(im.group('num'), 16)
+        im = re_usestack.match(insn)
+        if im is not None:
+            if insn.startswith('pushl') or insn.startswith('pushfl'):
+                stackusage += 4
+                continue
+            elif insn.startswith('pushw') or insn.startswith('pushfw'):
+                stackusage += 2
+                continue
+            stackusage += int(im.group('num'), 16)
 
-            if atstart:
-                if '%esp' in insn or insn.startswith('leal'):
-                    # Still part of initial header
-                    continue
-                cur.basic_stack_usage = stackusage
-                atstart = 0
+        if atstart:
+            if '%esp' in insn or insn.startswith('leal'):
+                # Still part of initial header
+                continue
+            cur.basic_stack_usage = stackusage
+            atstart = 0
 
-            insnaddr = m.group('insnaddr')
-            calladdr = m.group('calladdr')
-            if calladdr is None:
-                if insn.startswith('lcallw'):
-                    cur.noteCall(insnaddr, -1, stackusage + 4)
-                    cur.noteYield(stackusage + 4)
-                elif insn.startswith('int'):
-                    cur.noteCall(insnaddr, -1, stackusage + 6)
-                    cur.noteYield(stackusage + 6)
-                elif insn.startswith('sti'):
-                    cur.noteYield(stackusage)
-                else:
-                    # misc instruction
-                    continue
+        insnaddr = m.group('insnaddr')
+        calladdr = m.group('calladdr')
+        if calladdr is None:
+            if insn.startswith('lcallw'):
+                cur.noteCall(insnaddr, -1, stackusage + 4)
+                cur.noteYield(stackusage + 4)
+            elif insn.startswith('int'):
+                cur.noteCall(insnaddr, -1, stackusage + 6)
+                cur.noteYield(stackusage + 6)
+            elif insn.startswith('sti'):
+                cur.noteYield(stackusage)
             else:
-                # Jump or call insn
-                calladdr = int(calladdr, 16)
-                ref = m.group('ref')
-                if '+' in ref:
-                    # Inter-function jump.
-                    pass
-                elif insn.startswith('j'):
-                    # Tail call
-                    cur.noteCall(insnaddr, calladdr, 0)
-                elif insn.startswith('calll'):
-                    cur.noteCall(insnaddr, calladdr, stackusage + 4)
-                elif insn.startswith('callw'):
-                    cur.noteCall(insnaddr, calladdr, stackusage + 2)
-                else:
-                    print("unknown call", ref)
-                    cur.noteCall(insnaddr, calladdr, stackusage)
-            # Reset stack usage to preamble usage
-            stackusage = cur.basic_stack_usage
-
-        #print("other", repr(line))
+                # misc instruction
+                continue
+        else:
+            # Jump or call insn
+            calladdr = int(calladdr, 16)
+            ref = m.group('ref')
+            if '+' in ref:
+                # Inter-function jump.
+                pass
+            elif insn.startswith('j'):
+                # Tail call
+                cur.noteCall(insnaddr, calladdr, 0)
+            elif insn.startswith('calll'):
+                cur.noteCall(insnaddr, calladdr, stackusage + 4)
+            elif insn.startswith('callw'):
+                cur.noteCall(insnaddr, calladdr, stackusage + 2)
+            else:
+                print("unknown call", ref)
+                cur.noteCall(insnaddr, calladdr, stackusage)
+        # Reset stack usage to preamble usage
+        stackusage = cur.basic_stack_usage
 
     # Calculate maxstackusage
     for info in funcs.values():
