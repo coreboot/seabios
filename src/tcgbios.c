@@ -23,7 +23,7 @@
 #include "std/acpi.h"  // RSDP_SIGNATURE, rsdt_descriptor
 #include "bregs.h" // struct bregs
 #include "sha1.h" // sha1
-
+#include "fw/paravirt.h" // runningOnXen
 
 static const u8 Startup_ST_CLEAR[2] = { 0x00, TPM_ST_CLEAR };
 static const u8 Startup_ST_STATE[2] = { 0x00, TPM_ST_STATE };
@@ -494,6 +494,8 @@ tpm_start(void)
         return 0;
 
     tpm_acpi_init();
+    if (runningOnXen())
+        return 0;
 
     return tpm_startup();
 }
