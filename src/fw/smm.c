@@ -18,8 +18,14 @@
 #include "util.h" // smm_setup
 #include "x86.h" // wbinvd
 
-#define SMM_REV_I32 0x00020000
-#define SMM_REV_I64 0x00020064
+/*
+ * Check SMM state save area format (bits 0-15) and require support
+ * for SMBASE relocation.
+ */
+#define SMM_REV_MASK 0x0002ffff
+
+#define SMM_REV_I32  0x00020000
+#define SMM_REV_I64  0x00020064
 
 struct smm_state {
     union {
@@ -62,9 +68,10 @@ handle_smi(u16 cs)
 
     if (smm == (void*)BUILD_SMM_INIT_ADDR) {
         // relocate SMBASE to 0xa0000
-        if (smm->cpu.i32.smm_rev == SMM_REV_I32) {
+        u32 rev = smm->cpu.i32.smm_rev & SMM_REV_MASK;
+        if (rev == SMM_REV_I32) {
             smm->cpu.i32.smm_base = BUILD_SMM_ADDR;
-        } else if (smm->cpu.i64.smm_rev == SMM_REV_I64) {
+        } else if (rev == SMM_REV_I64) {
             smm->cpu.i64.smm_base = BUILD_SMM_ADDR;
         } else {
             warn_internalerror();
