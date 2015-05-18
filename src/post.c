@@ -117,6 +117,7 @@ interface_init(void)
     // Setup romfile items.
     qemu_cfg_init();
     coreboot_cbfs_init();
+    multiboot_init();
 
     // Setup ivt/bda/ebda
     ivt_init();

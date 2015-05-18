@@ -161,6 +161,7 @@ def getSectionsPrefix(sections, prefix):
 # The sections (and associated information) to be placed in output rom
 class LayoutInfo:
     sections = None
+    config = None
     genreloc = None
     sec32init_start = sec32init_end = sec32init_align = None
     sec32low_start = sec32low_end = None
@@ -172,6 +173,7 @@ class LayoutInfo:
 # Determine final memory addresses for sections
 def doLayout(sections, config, genreloc):
     li = LayoutInfo()
+    li.config = config
     li.sections = sections
     li.genreloc = genreloc
     # Determine 16bit positions
@@ -399,6 +401,10 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     filesections32flat = getSectionsFileid(li.sections, '32flat')
     out = outXRefs([], exportsyms=li.varlowsyms
                    , forcedelta=li.final_sec32low_start-li.sec32low_start)
+    multiboot_header = ""
+    if li.config.get('CONFIG_MULTIBOOT'):
+        multiboot_header = "LONG(0x1BADB002) LONG(0) LONG(-0x1BADB002)"
+        sec32all_start -= 3 * 4
     out += outXRefs(filesections32flat, exportsyms=[li.entrysym]) + """
     _reloc_min_align = 0x%x ;
     zonefseg_start = 0x%x ;
@@ -415,6 +421,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     .text code32flat_start : {
 %s
 %s
+%s
         code32flat_end = ABSOLUTE(.) ;
     } :text
 """ % (li.sec32init_align,
@@ -428,6 +435,7 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
        li.sec32init_start,
        li.sec32init_end,
        sec32all_start,
+       multiboot_header,
        relocstr,
        outRelSections(li.sections, 'code32flat_start'))
     out = COMMONHEADER + out + COMMONTRAILER + """

@@ -40,7 +40,7 @@ SRC16=$(SRCBOTH)
 SRC32FLAT=$(SRCBOTH) post.c memmap.c malloc.c romfile.c x86.c optionroms.c \
     pmm.c font.c boot.c bootsplash.c jpeg.c bmp.c tcgbios.c sha1.c \
     hw/ahci.c hw/pvscsi.c hw/usb-xhci.c hw/usb-hub.c hw/sdcard.c \
-    fw/coreboot.c fw/lzmadecode.c fw/csm.c fw/biostables.c \
+    fw/coreboot.c fw/lzmadecode.c fw/multiboot.c fw/csm.c fw/biostables.c \
     fw/paravirt.c fw/shadow.c fw/pciinit.c fw/smm.c fw/smp.c fw/mtrr.c fw/xen.c \
     fw/acpi.c fw/mptable.c fw/pirtable.c fw/smbios.c fw/romfile_loader.c \
     hw/tpm_drivers.c

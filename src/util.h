@@ -105,6 +105,9 @@ void mptable_setup(void);
 // fw/mtrr.c
 void mtrr_setup(void);
 
+// fw/multiboot.c
+void multiboot_init(void);
+
 // fw/pciinit.c
 extern const u8 pci_irqs[4];
 void pci_setup(void);

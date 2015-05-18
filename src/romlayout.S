@@ -374,6 +374,8 @@ entry_bios32:
 entry_elf:
         cli
         cld
+        movl %eax, entry_elf_eax
+        movl %ebx, entry_elf_ebx
         lidtl (BUILD_BIOS_ADDR + pmode_IDT_info)
         lgdtl (BUILD_BIOS_ADDR + rombios32_gdt_48)
         movl $SEG32_MODE32_DS, %eax

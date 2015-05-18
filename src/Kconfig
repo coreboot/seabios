@@ -102,6 +102,13 @@ endchoice
         default y
         help
             Support floppy images in coreboot flash.
+    config MULTIBOOT
+        depends on COREBOOT
+        bool "multiboot support"
+        default y
+        help
+            Add multiboot header in bios.bin.raw and accept files supplied
+            as multiboot modules.
     config ENTRY_EXTRASTACK
         bool "Use internal stack for 16bit interrupt entry points"
         default y
