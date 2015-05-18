@@ -601,7 +601,7 @@ ahci_controller_setup(struct pci_device *pci)
     dprintf(2, "AHCI: cap 0x%x, ports_impl 0x%x\n",
             ctrl->caps, ctrl->ports);
 
-    max = ctrl->caps & 0x1f;
+    max = 0x1f;
     for (pnr = 0; pnr <= max; pnr++) {
         if (!(ctrl->ports & (1 << pnr)))
             continue;
