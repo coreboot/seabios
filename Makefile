@@ -177,7 +177,7 @@ $(OUT)rom32seg.o: $(OUT)code32seg.o $(OUT)romlayout32seg.lds
 
 $(OUT)rom.o: $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o $(OUT)romlayout32flat.lds
 	@echo "  Linking $@"
-	$(Q)$(LD) -T $(OUT)romlayout32flat.lds $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o -o $@
+	$(Q)$(LD) -N -T $(OUT)romlayout32flat.lds $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o -o $@
 
 $(OUT)bios.bin.prep: $(OUT)rom.o scripts/checkrom.py
 	@echo "  Prepping $@"
