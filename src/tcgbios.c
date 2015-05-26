@@ -1,8 +1,8 @@
 //  Implementation of the TCG BIOS extension according to the specification
-//  described in
-//  https://www.trustedcomputinggroup.org/specs/PCClient/TCG_PCClientImplementationforBIOS_1-20_1-00.pdf
+//  described in specs found at
+//  http://www.trustedcomputinggroup.org/resources/pc_client_work_group_specific_implementation_specification_for_conventional_bios
 //
-//  Copyright (C) 2006-2011, 2014 IBM Corporation
+//  Copyright (C) 2006-2011, 2014, 2015 IBM Corporation
 //
 //  Authors:
 //      Stefan Berger <stefanb@linux.vnet.ibm.com>
@@ -24,6 +24,7 @@
 #include "bregs.h" // struct bregs
 #include "sha1.h" // sha1
 #include "fw/paravirt.h" // runningOnXen
+#include "std/smbios.h"
 
 static const u8 Startup_ST_CLEAR[2] = { 0x00, TPM_ST_CLEAR };
 static const u8 Startup_ST_STATE[2] = { 0x00, TPM_ST_STATE };
@@ -56,9 +57,17 @@ static const u8 GetCapability_Durations[] = {
     0x00, 0x00, 0x01, 0x20
 };
 
+static u8 evt_separator[] = {0xff,0xff,0xff,0xff};
+
 
 #define RSDP_CAST(ptr)   ((struct rsdp_descriptor *)ptr)
 
+/* local function prototypes */
+
+static u32 tpm_calling_int19h(void);
+static u32 tpm_add_event_separators(void);
+static u32 tpm_start_option_rom_scan(void);
+static u32 tpm_smbios_measure(void);
 
 /* helper functions */
 
@@ -475,6 +484,14 @@ tpm_startup(void)
     if (rc)
         goto err_exit;
 
+    rc = tpm_smbios_measure();
+    if (rc)
+        goto err_exit;
+
+    rc = tpm_start_option_rom_scan();
+    if (rc)
+        goto err_exit;
+
     return 0;
 
 err_exit:
@@ -525,6 +542,14 @@ tpm_leave_bios(void)
                             sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
                             NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
     if (rc || returnCode)
+        goto err_exit;
+
+    rc = tpm_calling_int19h();
+    if (rc)
+        goto err_exit;
+
+    rc = tpm_add_event_separators();
+    if (rc)
         goto err_exit;
 
     return 0;
@@ -1082,6 +1107,352 @@ tpm_interrupt_handler32(struct bregs *regs)
     return;
 }
 
+/*
+ * Add a measurement to the log; the data at data_seg:data/length are
+ * appended to the TCG_PCClientPCREventStruct
+ *
+ * Input parameters:
+ *  pcrIndex   : which PCR to extend
+ *  event_type : type of event; specs section on 'Event Types'
+ *  info       : pointer to info (e.g., string) to be added to log as-is
+ *  info_length: length of the info
+ *  data       : pointer to the data (i.e., string) to be added to the log
+ *  data_length: length of the data
+ */
+static u32
+tpm_add_measurement_to_log(u32 pcrIndex, u32 event_type,
+                           const char *info, u32 info_length,
+                           const u8 *data, u32 data_length)
+{
+    u32 rc = 0;
+    struct hleeo hleeo;
+    u8 _pcpes[offsetof(struct pcpes, event) + 400];
+    struct pcpes *pcpes = (struct pcpes *)_pcpes;
+
+    if (info_length < sizeof(_pcpes) - offsetof(struct pcpes, event)) {
+
+        pcpes->pcrindex      = pcrIndex;
+        pcpes->eventtype     = event_type;
+        memset(&pcpes->digest, 0x0, sizeof(pcpes->digest));
+        pcpes->eventdatasize = info_length;
+        memcpy(&pcpes->event, info, info_length);
+
+        struct hleei_short hleei = {
+            .ipblength   = sizeof(hleei),
+            .hashdataptr = data,
+            .hashdatalen = data_length,
+            .pcrindex    = pcrIndex,
+            .logdataptr  = _pcpes,
+            .logdatalen  = info_length + offsetof(struct pcpes, event),
+        };
+
+        rc = hash_log_extend_event(&hleei, &hleeo);
+    } else {
+        rc = TCG_GENERAL_ERROR;
+    }
+
+    return rc;
+}
+
+
+/*
+ * Add a measurement to the list of measurements
+ * pcrIndex   : PCR to be extended
+ * event_type : type of event; specs section on 'Event Types'
+ * data       : additional parameter; used as parameter for
+ *              'action index'
+ */
+static u32
+tpm_add_measurement(u32 pcrIndex,
+                    u16 event_type,
+                    const char *string)
+{
+    u32 rc;
+    u32 len;
+
+    switch (event_type) {
+    case EV_SEPARATOR:
+        len = sizeof(evt_separator);
+        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
+                                        (char *)NULL, 0,
+                                        (u8 *)evt_separator, len);
+        break;
+
+    case EV_ACTION:
+        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
+                                        string, strlen(string),
+                                        (u8 *)string, strlen(string));
+        break;
+
+    default:
+        rc = TCG_INVALID_INPUT_PARA;
+    }
+
+    return rc;
+}
+
+
+static u32
+tpm_calling_int19h(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    return tpm_add_measurement(4, EV_ACTION,
+                               "Calling INT 19h");
+}
+
+/*
+ * Add event separators for PCRs 0 to 7; specs on 'Measuring Boot Events'
+ */
+u32
+tpm_add_event_separators(void)
+{
+    u32 rc;
+    u32 pcrIndex = 0;
+
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    while (pcrIndex <= 7) {
+        rc = tpm_add_measurement(pcrIndex, EV_SEPARATOR, NULL);
+        if (rc)
+            break;
+        pcrIndex ++;
+    }
+
+    return rc;
+}
+
+
+/*
+ * Add a measurement regarding the boot device (CDRom, Floppy, HDD) to
+ * the list of measurements.
+ */
+static u32
+tpm_add_bootdevice(u32 bootcd, u32 bootdrv)
+{
+    const char *string;
+
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    switch (bootcd) {
+    case 0:
+        switch (bootdrv) {
+        case 0:
+            string = "Booting BCV device 00h (Floppy)";
+            break;
+
+        case 0x80:
+            string = "Booting BCV device 80h (HDD)";
+            break;
+
+        default:
+            string = "Booting unknown device";
+            break;
+        }
+
+        break;
+
+    default:
+        string = "Booting from CD ROM device";
+    }
+
+    return tpm_add_measurement_to_log(4, EV_ACTION,
+                                      string, strlen(string),
+                                      (u8 *)string, strlen(string));
+}
+
+
+/*
+ * Add measurement to the log about option rom scan
+ */
+u32
+tpm_start_option_rom_scan(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    return tpm_add_measurement(2, EV_ACTION,
+                               "Start Option ROM Scan");
+}
+
+
+/*
+ * Add measurement to the log about an option rom
+ */
+u32
+tpm_option_rom(const void *addr, u32 len)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    u32 rc;
+    struct pcctes_romex pcctes = {
+        .eventid = 7,
+        .eventdatasize = sizeof(u16) + sizeof(u16) + SHA1_BUFSIZE,
+    };
+
+    rc = sha1((const u8 *)addr, len, pcctes.digest);
+    if (rc)
+        return rc;
+
+    return tpm_add_measurement_to_log(2,
+                                      EV_EVENT_TAG,
+                                      (const char *)&pcctes, sizeof(pcctes),
+                                      (u8 *)&pcctes, sizeof(pcctes));
+}
+
+
+u32
+tpm_smbios_measure(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    u32 rc;
+    struct pcctes pcctes = {
+        .eventid = 1,
+        .eventdatasize = SHA1_BUFSIZE,
+    };
+    struct smbios_entry_point *sep = SMBiosAddr;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: SMBIOS at %p\n", sep);
+
+    if (!sep)
+        return 0;
+
+    rc = sha1((const u8 *)sep->structure_table_address,
+              sep->structure_table_length, pcctes.digest);
+    if (rc)
+        return rc;
+
+    return tpm_add_measurement_to_log(1,
+                                      EV_EVENT_TAG,
+                                      (const char *)&pcctes, sizeof(pcctes),
+                                      (u8 *)&pcctes, sizeof(pcctes));
+}
+
+
+/*
+ * Add a measurement related to Initial Program Loader to the log.
+ * Creates two log entries.
+ *
+ * Input parameter:
+ *  bootcd : 0: MBR of hdd, 1: boot image, 2: boot catalog of El Torito
+ *  addr   : address where the IP data are located
+ *  length : IP data length in bytes
+ */
+static u32
+tpm_ipl(enum ipltype bootcd, const u8 *addr, u32 length)
+{
+    u32 rc;
+    const char *string;
+
+    switch (bootcd) {
+    case IPL_EL_TORITO_1:
+        /* specs: see section 'El Torito' */
+        string = "EL TORITO IPL";
+        rc = tpm_add_measurement_to_log(4, EV_IPL,
+                                        string, strlen(string),
+                                        addr, length);
+        break;
+
+    case IPL_EL_TORITO_2:
+        /* specs: see section 'El Torito' */
+        string = "BOOT CATALOG";
+        rc = tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
+                                        string, strlen(string),
+                                        addr, length);
+        break;
+
+    default:
+        /* specs: see section 'Hard Disk Device or Hard Disk-Like Devices' */
+        /* equivalent to: dd if=/dev/hda ibs=1 count=440 | sha1sum */
+        string = "MBR";
+        rc = tpm_add_measurement_to_log(4, EV_IPL,
+                                        string, strlen(string),
+                                        addr, 0x1b8);
+
+        if (rc)
+            break;
+
+        /* equivalent to: dd if=/dev/hda ibs=1 count=72 skip=440 | sha1sum */
+        string = "MBR PARTITION_TABLE";
+        rc = tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
+                                        string, strlen(string),
+                                        addr + 0x1b8, 0x48);
+    }
+
+    return rc;
+}
+
+u32
+tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    u32 rc = tpm_add_bootdevice(0, bootdrv);
+    if (rc)
+        return rc;
+
+    return tpm_ipl(IPL_BCV, addr, length);
+}
+
+u32
+tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    u32 rc = tpm_add_bootdevice(1, bootdrv);
+    if (rc)
+        return rc;
+
+    return tpm_ipl(IPL_EL_TORITO_1, addr, length);
+}
+
+u32
+tpm_add_cdrom_catalog(const u8 *addr, u32 length)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    u32 rc = tpm_add_bootdevice(1, 0);
+    if (rc)
+        return rc;
+
+    return tpm_ipl(IPL_EL_TORITO_2, addr, length);
+}
 
 u32
 tpm_s3_resume(void)

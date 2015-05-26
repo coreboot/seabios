@@ -19,6 +19,7 @@
 #include "std/disk.h" // struct mbr_s
 #include "string.h" // memset
 #include "util.h" // irqtimer_calc
+#include "tcgbios.h" // tpm_*
 
 
 /****************************************************************
@@ -628,6 +629,8 @@ boot_disk(u8 bootdrv, int checksig)
         }
     }
 
+    tpm_add_bcv(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;
@@ -651,6 +654,9 @@ boot_cdrom(struct drive_s *drive_g)
 
     u8 bootdrv = CDEmu.emulated_drive;
     u16 bootseg = CDEmu.load_segment;
+
+    tpm_add_cdrom(bootdrv, MAKE_FLATPTR(bootseg, 0), 512);
+
     /* Canonicalize bootseg:bootip */
     u16 bootip = (bootseg & 0x0fff) << 4;
     bootseg &= 0xf000;

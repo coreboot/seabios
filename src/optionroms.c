@@ -19,6 +19,7 @@
 #include "std/pnpbios.h" // PNP_SIGNATURE
 #include "string.h" // memset
 #include "util.h" // get_pnp_offset
+#include "tcgbios.h" // tpm_*
 
 static int EnforceChecksum, S3ResumeVga, RunPCIroms;
 
@@ -80,6 +81,7 @@ is_valid_rom(struct rom_header *rom)
         if (EnforceChecksum)
             return 0;
     }
+    tpm_option_rom(rom, len);
     return 1;
 }
 
