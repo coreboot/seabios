@@ -154,7 +154,7 @@ $(OUT)romlayout.o: src/romlayout.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 
 $(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)ccode16.o $(OUT)romlayout.o scripts/layoutrom.py scripts/buildversion.sh
 	@echo "  Building ld scripts"
-	$(Q)./scripts/buildversion.sh $(OUT)version.c
+	$(Q)BUILD_VERSION="$(VERSION)" ./scripts/buildversion.sh $(OUT)version.c
 	$(Q)$(CC) $(CFLAGS32FLAT) -c $(OUT)version.c -o $(OUT)version.o
 	$(Q)$(LD) $(LD32BIT_FLAG) -r $(OUT)ccode32flat.o $(OUT)version.o -o $(OUT)code32flat.o
 	$(Q)$(LD) $(LD32BIT_FLAG) -r $(OUT)ccode16.o $(OUT)romlayout.o -o $(OUT)code16.o
@@ -226,7 +226,7 @@ $(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 
 $(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgasrc/vgalayout.lds scripts/buildversion.sh
 	@echo "  Linking $@"
-	$(Q)./scripts/buildversion.sh $(OUT)vgaversion.c VAR16
+	$(Q)BUILD_VERSION="$(VERSION)" ./scripts/buildversion.sh $(OUT)vgaversion.c VAR16
 	$(Q)$(CC) $(CFLAGS16) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
 	$(Q)$(LD) --gc-sections -T $(OUT)vgasrc/vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
 
