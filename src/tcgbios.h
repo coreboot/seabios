@@ -91,6 +91,8 @@
 #define TPM_INVALID_POSTINIT             0x26
 #define TPM_BAD_LOCALITY                 0x3d
 
+/* TPM command tags */
+#define TPM_TAG_RQU_CMD                  0x00c1
 
 /* interrupt identifiers (al register) */
 enum irq_ids {

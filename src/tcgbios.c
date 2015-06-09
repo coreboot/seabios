@@ -333,7 +333,7 @@ build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
     memset(ibuffer, 0x0, sizeof(ibuffer));
     memset(obuffer, 0x0, sizeof(obuffer));
 
-    trqh->tag     = cpu_to_be16(0xc1);
+    trqh->tag     = cpu_to_be16(TPM_TAG_RQU_CMD);
     trqh->totlen  = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size +
                                 otherdata_size);
     trqh->ordinal = cpu_to_be32(ordinal);
