@@ -379,8 +379,7 @@ determine_timeouts(void)
     rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
                             GetCapability_Timeouts,
                             sizeof(GetCapability_Timeouts),
-                            (u8 *)&timeouts,
-                            sizeof(struct tpm_res_getcap_timeouts),
+                            (u8 *)&timeouts, sizeof(timeouts),
                             &returnCode, TPM_DURATION_TYPE_SHORT);
 
     dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(Timeouts)"
@@ -392,8 +391,7 @@ determine_timeouts(void)
     rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
                             GetCapability_Durations,
                             sizeof(GetCapability_Durations),
-                            (u8 *)&durations,
-                            sizeof(struct tpm_res_getcap_durations),
+                            (u8 *)&durations, sizeof(durations),
                             &returnCode, TPM_DURATION_TYPE_SHORT);
 
     dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(Durations)"
@@ -446,7 +444,7 @@ tpm_startup(void)
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
     rc = build_and_send_cmd(0, TPM_ORD_Startup,
                             Startup_ST_CLEAR, sizeof(Startup_ST_CLEAR),
-                            NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
+                            NULL, 0, &returnCode, TPM_DURATION_TYPE_SHORT);
 
     dprintf(DEBUG_tcg, "Return code from TPM_Startup = 0x%08x\n",
             returnCode);
@@ -463,7 +461,7 @@ tpm_startup(void)
         goto err_exit;
 
     rc = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
-                            NULL, 10, &returnCode, TPM_DURATION_TYPE_LONG);
+                            NULL, 0, &returnCode, TPM_DURATION_TYPE_LONG);
 
     dprintf(DEBUG_tcg, "Return code from TPM_SelfTestFull = 0x%08x\n",
             returnCode);
@@ -472,7 +470,7 @@ tpm_startup(void)
         goto err_exit;
 
     rc = build_and_send_cmd(3, TSC_ORD_ResetEstablishmentBit, NULL, 0,
-                            NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
+                            NULL, 0, &returnCode, TPM_DURATION_TYPE_SHORT);
 
     dprintf(DEBUG_tcg, "Return code from TSC_ResetEstablishmentBit = 0x%08x\n",
             returnCode);
@@ -533,14 +531,14 @@ tpm_leave_bios(void)
     rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                             PhysicalPresence_CMD_ENABLE,
                             sizeof(PhysicalPresence_CMD_ENABLE),
-                            NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
+                            NULL, 0, &returnCode, TPM_DURATION_TYPE_SHORT);
     if (rc || returnCode)
         goto err_exit;
 
     rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                             PhysicalPresence_NOT_PRESENT_LOCK,
                             sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
-                            NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
+                            NULL, 0, &returnCode, TPM_DURATION_TYPE_SHORT);
     if (rc || returnCode)
         goto err_exit;
 
@@ -619,8 +617,7 @@ tpm_sha1_calc(const u8 *data, u32 length, u8 *hash)
 
     rc = build_and_send_cmd(0, TPM_ORD_SHA1Start,
                             NULL, 0,
-                            (u8 *)&start,
-                            sizeof(struct tpm_res_sha1start),
+                            (u8 *)&start, sizeof(start),
                             &returnCode, TPM_DURATION_TYPE_SHORT);
 
     if (rc || returnCode)
@@ -651,8 +648,7 @@ tpm_sha1_calc(const u8 *data, u32 length, u8 *hash)
 
     rc = build_and_send_cmd_od(0, TPM_ORD_SHA1Complete,
                               (u8 *)&numbytes_no, sizeof(numbytes_no),
-                              (u8 *)&complete,
-                              sizeof(struct tpm_res_sha1complete),
+                              (u8 *)&complete, sizeof(complete),
                               &returnCode,
                               &data[offset], rest, TPM_DURATION_TYPE_SHORT);
 
@@ -1470,7 +1466,7 @@ tpm_s3_resume(void)
 
     rc = build_and_send_cmd(0, TPM_ORD_Startup,
                             Startup_ST_STATE, sizeof(Startup_ST_STATE),
-                            NULL, 10, &returnCode, TPM_DURATION_TYPE_SHORT);
+                            NULL, 0, &returnCode, TPM_DURATION_TYPE_SHORT);
 
     dprintf(DEBUG_tcg, "TCGBIOS: ReturnCode from TPM_Startup = 0x%08x\n",
             returnCode);
