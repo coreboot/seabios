@@ -81,7 +81,6 @@ is_valid_rom(struct rom_header *rom)
         if (EnforceChecksum)
             return 0;
     }
-    tpm_option_rom(rom, len);
     return 1;
 }
 
@@ -133,6 +132,8 @@ init_optionrom(struct rom_header *rom, u16 bdf, int isvga)
     }
     if (newrom != rom)
         memmove(newrom, rom, rom->size * 512);
+
+    tpm_option_rom(newrom, rom->size * 512);
 
     if (isvga || get_pnp_rom(newrom))
         // Only init vga and PnP roms here.
