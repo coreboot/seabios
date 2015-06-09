@@ -3,8 +3,6 @@
 
 #include "types.h"
 
-#define TCG_MAGIC 0x41504354L
-
 /* Define for section 12.3 */
 #define TCG_PC_OK                       0x0
 #define TCG_PC_TPMERROR                 0x1
@@ -49,21 +47,6 @@
 //define TCG_PC_UNSUPPORTED             (TPM_RET_BASE + 0x21)
 #define TCG_PC_TPM_NOT_PRESENT          (TPM_RET_BASE + 0x22)
 #define TCG_PC_TPM_DEACTIVATED          (TPM_RET_BASE + 0x23)
-
-
-#define TPM_INVALID_ADR_REQUEST          TCG_INVALID_ADR_REQUEST
-#define TPM_IS_LOCKED                    TCG_TPM_IS_LOCKED
-#define TPM_INVALID_DEVICE_ID            TCG_INVALID_DEVICE_ID
-#define TPM_INVALID_VENDOR_ID            TCG_INVALID_VENDOR_ID
-//define TPM_RESERVED_REG_INVALID
-#define TPM_FIRMWARE_ERROR               TCG_FIRMWARE_ERROR
-#define TPM_UNABLE_TO_OPEN               TCG_UNABLE_TO_OPEN
-#define TPM_UNABLE_TO_CLOSE              TCG_UNABLE_TO_CLOSE
-#define TPM_INVALID_RESPONSE             TCG_INVALID_RESPONSE
-#define TPM_RESPONSE_TIMEOUT             TCG_RESPONSE_TIMEOUT
-#define TPM_INVALID_ACCESS_REQUEST       TCG_INVALID_ACCESS_REQUEST
-#define TPM_TRANSFER_ABORT               TCG_TRANSFER_ABORT
-#define TPM_GENERAL_ERROR                TCG_GENERAL_ERROR
 
 
 #define TPM_ORD_SelfTestFull             0x00000050
@@ -240,8 +223,6 @@ struct pcpes
     u32    event;
 } PACKED;
 
-
-/* 10.4.2.1 */
 struct pcctes
 {
     u32 eventid;
@@ -249,7 +230,6 @@ struct pcctes
     u8  digest[SHA1_BUFSIZE];
 } PACKED;
 
-/* 10.4.2.1 w/ 10.4.2.2.1 embedded */
 struct pcctes_romex
 {
     u32 eventid;
