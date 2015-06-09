@@ -26,23 +26,23 @@
 #include "fw/paravirt.h" // runningOnXen
 #include "std/smbios.h"
 
-static const u8 Startup_ST_CLEAR[2] = { 0x00, TPM_ST_CLEAR };
-static const u8 Startup_ST_STATE[2] = { 0x00, TPM_ST_STATE };
+static const u8 Startup_ST_CLEAR[] = { 0x00, TPM_ST_CLEAR };
+static const u8 Startup_ST_STATE[] = { 0x00, TPM_ST_STATE };
 
-static const u8 PhysicalPresence_CMD_ENABLE[2]  = { 0x00, 0x20 };
-static const u8 PhysicalPresence_CMD_DISABLE[2] = { 0x01, 0x00 };
-static const u8 PhysicalPresence_PRESENT[2]     = { 0x00, 0x08 };
-static const u8 PhysicalPresence_NOT_PRESENT_LOCK[2] = { 0x00, 0x14 };
+static const u8 PhysicalPresence_CMD_ENABLE[]  = { 0x00, 0x20 };
+static const u8 PhysicalPresence_CMD_DISABLE[] = { 0x01, 0x00 };
+static const u8 PhysicalPresence_PRESENT[]     = { 0x00, 0x08 };
+static const u8 PhysicalPresence_NOT_PRESENT_LOCK[] = { 0x00, 0x14 };
 
 static const u8 CommandFlag_FALSE[1] = { 0x00 };
 static const u8 CommandFlag_TRUE[1]  = { 0x01 };
 
-static const u8 GetCapability_Permanent_Flags[12] = {
+static const u8 GetCapability_Permanent_Flags[] = {
     0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04,
     0x00, 0x00, 0x01, 0x08
 };
 
-static const u8 GetCapability_OwnerAuth[12] = {
+static const u8 GetCapability_OwnerAuth[] = {
     0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x04,
     0x00, 0x00, 0x01, 0x11
 };
@@ -301,7 +301,7 @@ build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
                       const u8 *otherdata, u32 otherdata_size,
                       enum tpmDurationType to_t)
 {
-#define MAX_APPEND_SIZE   12
+#define MAX_APPEND_SIZE   sizeof(GetCapability_Timeouts)
 #define MAX_RESPONSE_SIZE sizeof(struct tpm_res_getcap_perm_flags)
     u32 rc;
     u8 ibuffer[TPM_REQ_HEADER_SIZE + MAX_APPEND_SIZE];
