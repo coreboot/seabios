@@ -502,31 +502,31 @@ err_exit:
 }
 
 
-u32
-tpm_start(void)
+void
+tpm_setup(void)
 {
     if (!CONFIG_TCGBIOS)
-        return 0;
+        return;
 
     tpm_acpi_init();
     if (runningOnXen())
-        return 0;
+        return;
 
-    return tpm_startup();
+    tpm_startup();
 }
 
 
-u32
-tpm_leave_bios(void)
+void
+tpm_prepboot(void)
 {
     u32 rc;
     u32 returnCode;
 
     if (!CONFIG_TCGBIOS)
-        return 0;
+        return;
 
     if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
+        return;
 
     rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                             PhysicalPresence_CMD_ENABLE,
@@ -550,15 +550,12 @@ tpm_leave_bios(void)
     if (rc)
         goto err_exit;
 
-    return 0;
+    return;
 
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_state.tpm_working = 0;
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
 }
 
 static int
@@ -1450,17 +1447,17 @@ tpm_add_cdrom_catalog(const u8 *addr, u32 length)
     return tpm_ipl(IPL_EL_TORITO_2, addr, length);
 }
 
-u32
+void
 tpm_s3_resume(void)
 {
     u32 rc;
     u32 returnCode;
 
     if (!CONFIG_TCGBIOS)
-        return 0;
+        return;
 
     if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
+        return;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Resuming with TPM_Startup(ST_STATE)\n");
 
@@ -1474,13 +1471,10 @@ tpm_s3_resume(void)
     if (rc || returnCode)
         goto err_exit;
 
-    return 0;
+    return;
 
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_state.tpm_working = 0;
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
 }

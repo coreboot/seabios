@@ -364,9 +364,9 @@ enum ipltype {
 struct bregs;
 void tpm_interrupt_handler32(struct bregs *regs);
 
-u32 tpm_start(void);
-u32 tpm_leave_bios(void);
-u32 tpm_s3_resume(void);
+void tpm_setup(void);
+void tpm_prepboot(void);
+void tpm_s3_resume(void);
 u32 tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length);
 u32 tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length);
 u32 tpm_add_cdrom_catalog(const u8 *addr, u32 length);

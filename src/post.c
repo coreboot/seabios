@@ -174,11 +174,17 @@ platform_hardware_setup(void)
     // Platform specific setup
     qemu_platform_setup();
     coreboot_platform_setup();
+
+    // Initialize TPM
+    tpm_setup();
 }
 
 void
 prepareboot(void)
 {
+    // Change TPM phys. presence state befor leaving BIOS
+    tpm_prepboot();
+
     // Run BCVs
     bcv_prepboot();
 
@@ -222,9 +228,6 @@ maininit(void)
     if (threads_during_optionroms())
         device_hardware_setup();
 
-    // Initialize TPM
-    tpm_start();
-
     // Run vga option rom
     vgarom_setup();
 
@@ -240,9 +243,6 @@ maininit(void)
     // Allow user to modify overall boot order.
     interactive_bootmenu();
     wait_threads();
-
-    // Change TPM phys. presence state befor leaving BIOS
-    tpm_leave_bios();
 
     // Prepare for boot.
     prepareboot();
