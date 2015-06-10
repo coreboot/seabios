@@ -110,6 +110,7 @@ menu "VGA ROM"
             framebuffer is available.
 
     config VGA_FIXUP_ASM
+        depends on BUILD_VGABIOS
         bool "Fixup assembler to work with broken emulators"
         default y
         help
