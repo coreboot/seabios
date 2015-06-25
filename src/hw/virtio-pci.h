@@ -231,14 +231,7 @@ static inline void vp_get(struct vp_device *vp, unsigned offset,
 u8 vp_get_status(struct vp_device *vp);
 void vp_set_status(struct vp_device *vp, u8 status);
 u8 vp_get_isr(struct vp_device *vp);
-
-static inline void vp_reset(struct vp_device *vp)
-{
-   int ioaddr = GET_LOWFLAT(vp->ioaddr);
-
-   outb(0, ioaddr + VIRTIO_PCI_STATUS);
-   (void)inb(ioaddr + VIRTIO_PCI_ISR);
-}
+void vp_reset(struct vp_device *vp);
 
 static inline void vp_notify(struct vp_device *vp, int queue_index)
 {
