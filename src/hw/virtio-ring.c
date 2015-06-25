@@ -136,7 +136,7 @@ void vring_add_buf(struct vring_virtqueue *vq,
     SET_LOWFLAT(avail->ring[av], head);
 }
 
-void vring_kick(unsigned int ioaddr, struct vring_virtqueue *vq, int num_added)
+void vring_kick(struct vp_device *vp, struct vring_virtqueue *vq, int num_added)
 {
     struct vring *vr = &vq->vring;
     struct vring_avail *avail = GET_LOWFLAT(vr->avail);
@@ -145,5 +145,5 @@ void vring_kick(unsigned int ioaddr, struct vring_virtqueue *vq, int num_added)
     smp_wmb();
     SET_LOWFLAT(avail->idx, GET_LOWFLAT(avail->idx) + num_added);
 
-    vp_notify(ioaddr, GET_LOWFLAT(vq->queue_index));
+    vp_notify(vp, GET_LOWFLAT(vq->queue_index));
 }

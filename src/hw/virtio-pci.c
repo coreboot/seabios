@@ -24,9 +24,10 @@
 #include "virtio-pci.h"
 #include "virtio-ring.h"
 
-int vp_find_vq(unsigned int ioaddr, int queue_index,
+int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq)
 {
+   int ioaddr = GET_LOWFLAT(vp->ioaddr);
    u16 num;
 
    ASSERT32FLAT();
@@ -84,14 +85,13 @@ fail:
    return -1;
 }
 
-u16 vp_init_simple(u16 bdf)
+void vp_init_simple(struct vp_device *vp, u16 bdf)
 {
-    u16 ioaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) &
+    vp->ioaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) &
         PCI_BASE_ADDRESS_IO_MASK;
 
-    vp_reset(ioaddr);
+    vp_reset(vp);
     pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
-    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
+    vp_set_status(vp, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER );
-    return ioaddr;
 }

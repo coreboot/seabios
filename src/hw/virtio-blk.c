@@ -25,7 +25,7 @@
 struct virtiodrive_s {
     struct drive_s drive;
     struct vring_virtqueue *vq;
-    u16 ioaddr;
+    struct vp_device vp;
 };
 
 static int
@@ -60,7 +60,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
         vring_add_buf(vq, sg, 2, 1, 0, 0);
     else
         vring_add_buf(vq, sg, 1, 2, 0, 0);
-    vring_kick(GET_GLOBALFLAT(vdrive_gf->ioaddr), vq, 1);
+    vring_kick(&vdrive_gf->vp, vq, 1);
 
     /* Wait for reply */
     while (!vring_more_used(vq))
@@ -72,7 +72,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
     /* Clear interrupt status register.  Avoid leaving interrupts stuck if
      * VRING_AVAIL_F_NO_INTERRUPT was ignored and interrupts were raised.
      */
-    vp_get_isr(GET_GLOBALFLAT(vdrive_gf->ioaddr));
+    vp_get_isr(&vdrive_gf->vp);
 
     return status == VIRTIO_BLK_S_OK ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
 }
@@ -113,18 +113,17 @@ init_virtio_blk(struct pci_device *pci)
     vdrive->drive.type = DTYPE_VIRTIO_BLK;
     vdrive->drive.cntl_id = bdf;
 
-    u16 ioaddr = vp_init_simple(bdf);
-    vdrive->ioaddr = ioaddr;
-    if (vp_find_vq(ioaddr, 0, &vdrive->vq) < 0 ) {
+    vp_init_simple(&vdrive->vp, bdf);
+    if (vp_find_vq(&vdrive->vp, 0, &vdrive->vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
         goto fail;
     }
 
     struct virtio_blk_config cfg;
-    vp_get(ioaddr, 0, &cfg, sizeof(cfg));
+    vp_get(&vdrive->vp, 0, &cfg, sizeof(cfg));
 
-    u32 f = vp_get_features(ioaddr);
+    u32 f = vp_get_features(&vdrive->vp);
     vdrive->drive.blksize = (f & (1 << VIRTIO_BLK_F_BLK_SIZE)) ?
         cfg.blk_size : DISK_SECTOR_SIZE;
 
@@ -148,12 +147,12 @@ init_virtio_blk(struct pci_device *pci)
 
     boot_add_hd(&vdrive->drive, desc, bootprio_find_pci_device(pci));
 
-    vp_set_status(ioaddr, VIRTIO_CONFIG_S_ACKNOWLEDGE |
+    vp_set_status(&vdrive->vp, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
     return;
 
 fail:
-    vp_reset(ioaddr);
+    vp_reset(&vdrive->vp);
     free(vdrive->vq);
     free(vdrive);
 }

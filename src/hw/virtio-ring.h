@@ -120,12 +120,13 @@ static inline void vring_init(struct vring *vr,
    vr->desc[i].next = 0;
 }
 
+struct vp_device;
 int vring_more_used(struct vring_virtqueue *vq);
 void vring_detach(struct vring_virtqueue *vq, unsigned int head);
 int vring_get_buf(struct vring_virtqueue *vq, unsigned int *len);
 void vring_add_buf(struct vring_virtqueue *vq, struct vring_list list[],
                    unsigned int out, unsigned int in,
                    int index, int num_added);
-void vring_kick(unsigned int ioaddr, struct vring_virtqueue *vq, int num_added);
+void vring_kick(struct vp_device *vp, struct vring_virtqueue *vq, int num_added);
 
 #endif /* _VIRTIO_RING_H_ */
