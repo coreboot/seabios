@@ -106,8 +106,9 @@ static inline void vp_del_vq(struct vp_device *vp, int queue_index)
    outl(0, ioaddr + VIRTIO_PCI_QUEUE_PFN);
 }
 
+struct pci_device;
 struct vring_virtqueue;
-void vp_init_simple(struct vp_device *vp, u16 bdf);
+void vp_init_simple(struct vp_device *vp, struct pci_device *pci);
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq);
 #endif /* _VIRTIO_PCI_H_ */

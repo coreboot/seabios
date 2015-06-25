@@ -85,13 +85,13 @@ fail:
    return -1;
 }
 
-void vp_init_simple(struct vp_device *vp, u16 bdf)
+void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
 {
-    vp->ioaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0) &
+    vp->ioaddr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0) &
         PCI_BASE_ADDRESS_IO_MASK;
 
     vp_reset(vp);
-    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+    pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
     vp_set_status(vp, VIRTIO_CONFIG_S_ACKNOWLEDGE |
                   VIRTIO_CONFIG_S_DRIVER );
 }

@@ -113,7 +113,7 @@ init_virtio_blk(struct pci_device *pci)
     vdrive->drive.type = DTYPE_VIRTIO_BLK;
     vdrive->drive.cntl_id = bdf;
 
-    vp_init_simple(&vdrive->vp, bdf);
+    vp_init_simple(&vdrive->vp, pci);
     if (vp_find_vq(&vdrive->vp, 0, &vdrive->vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-blk %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));

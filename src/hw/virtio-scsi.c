@@ -150,7 +150,7 @@ init_virtio_scsi(struct pci_device *pci)
         warn_noalloc();
         return;
     }
-    vp_init_simple(vp, bdf);
+    vp_init_simple(vp, pci);
     if (vp_find_vq(vp, 2, &vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-scsi %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
