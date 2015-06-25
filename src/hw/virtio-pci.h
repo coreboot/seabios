@@ -115,8 +115,16 @@ typedef struct virtio_pci_isr {
 
 /* --- driver structs ----------------------------------------------- */
 
+struct vp_cap {
+    u32 addr;
+    u8 cap;
+    u8 bar;
+    u8 is_io;
+};
+
 struct vp_device {
     unsigned int ioaddr;
+    struct vp_cap common, notify, isr, device;
 };
 
 static inline u32 vp_get_features(struct vp_device *vp)
