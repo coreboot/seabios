@@ -642,7 +642,7 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
 
 static int pci_bus_hotplug_support(struct pci_bus *bus)
 {
-    u8 pcie_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_EXP);
+    u8 pcie_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_EXP, 0);
     u8 shpc_cap;
 
     if (pcie_cap) {
@@ -666,7 +666,7 @@ static int pci_bus_hotplug_support(struct pci_bus *bus)
         return downstream_port && slot_implemented;
     }
 
-    shpc_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_SHPC);
+    shpc_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_SHPC, 0);
     return !!shpc_cap;
 }
 
