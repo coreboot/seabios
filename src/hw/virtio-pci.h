@@ -40,6 +40,67 @@
 /* Virtio ABI version, this must match exactly */
 #define VIRTIO_PCI_ABI_VERSION          0
 
+/* --- virtio 1.0 (modern) structs ---------------------------------- */
+
+/* Common configuration */
+#define VIRTIO_PCI_CAP_COMMON_CFG       1
+/* Notifications */
+#define VIRTIO_PCI_CAP_NOTIFY_CFG       2
+/* ISR access */
+#define VIRTIO_PCI_CAP_ISR_CFG          3
+/* Device specific configuration */
+#define VIRTIO_PCI_CAP_DEVICE_CFG       4
+/* PCI configuration access */
+#define VIRTIO_PCI_CAP_PCI_CFG          5
+
+/* This is the PCI capability header: */
+struct virtio_pci_cap {
+    u8 cap_vndr;          /* Generic PCI field: PCI_CAP_ID_VNDR */
+    u8 cap_next;          /* Generic PCI field: next ptr. */
+    u8 cap_len;           /* Generic PCI field: capability length */
+    u8 cfg_type;          /* Identifies the structure. */
+    u8 bar;               /* Where to find it. */
+    u8 padding[3];        /* Pad to full dword. */
+    u32 offset;           /* Offset within bar. */
+    u32 length;           /* Length of the structure, in bytes. */
+};
+
+struct virtio_pci_notify_cap {
+    struct virtio_pci_cap cap;
+    u32 notify_off_multiplier;   /* Multiplier for queue_notify_off. */
+};
+
+typedef struct virtio_pci_common_cfg {
+    /* About the whole device. */
+    u32 device_feature_select;   /* read-write */
+    u32 device_feature;          /* read-only */
+    u32 guest_feature_select;    /* read-write */
+    u32 guest_feature;           /* read-write */
+    u16 msix_config;             /* read-write */
+    u16 num_queues;              /* read-only */
+    u8 device_status;            /* read-write */
+    u8 config_generation;        /* read-only */
+
+    /* About a specific virtqueue. */
+    u16 queue_select;            /* read-write */
+    u16 queue_size;              /* read-write, power of 2. */
+    u16 queue_msix_vector;       /* read-write */
+    u16 queue_enable;            /* read-write */
+    u16 queue_notify_off;        /* read-only */
+    u32 queue_desc_lo;           /* read-write */
+    u32 queue_desc_hi;           /* read-write */
+    u32 queue_avail_lo;          /* read-write */
+    u32 queue_avail_hi;          /* read-write */
+    u32 queue_used_lo;           /* read-write */
+    u32 queue_used_hi;           /* read-write */
+} virtio_pci_common_cfg;
+
+typedef struct virtio_pci_isr {
+    u8 isr;
+} virtio_pci_isr;
+
+/* --- driver structs ----------------------------------------------- */
+
 struct vp_device {
     unsigned int ioaddr;
 };
