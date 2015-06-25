@@ -57,6 +57,26 @@ void vp_set_features(struct vp_device *vp, u64 features)
     }
 }
 
+u8 vp_get_status(struct vp_device *vp)
+{
+    if (vp->use_modern) {
+        return vp_read(&vp->common, virtio_pci_common_cfg, device_status);
+    } else {
+        return vp_read(&vp->legacy, virtio_pci_legacy, status);
+    }
+}
+
+void vp_set_status(struct vp_device *vp, u8 status)
+{
+    if (status == 0)        /* reset */
+        return;
+    if (vp->use_modern) {
+        vp_write(&vp->common, virtio_pci_common_cfg, device_status, status);
+    } else {
+        vp_write(&vp->legacy, virtio_pci_legacy, status, status);
+    }
+}
+
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq)
 {
