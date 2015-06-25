@@ -125,6 +125,7 @@ struct vp_cap {
 struct vp_device {
     unsigned int ioaddr;
     struct vp_cap common, notify, isr, device, legacy;
+    u8 use_modern;
 };
 
 static inline u64 _vp_read(struct vp_cap *cap, u32 offset, u8 size)
@@ -213,15 +214,8 @@ static inline void _vp_write(struct vp_cap *cap, u32 offset, u8 size, u64 var)
     _vp_write(_cap, offsetof(_struct, _field),          \
              sizeof(((_struct *)0)->_field), _var)
 
-static inline u32 vp_get_features(struct vp_device *vp)
-{
-    return inl(GET_LOWFLAT(vp->ioaddr) + VIRTIO_PCI_HOST_FEATURES);
-}
-
-static inline void vp_set_features(struct vp_device *vp, u32 features)
-{
-    outl(features, GET_LOWFLAT(vp->ioaddr) + VIRTIO_PCI_GUEST_FEATURES);
-}
+u64 vp_get_features(struct vp_device *vp);
+void vp_set_features(struct vp_device *vp, u64 features);
 
 static inline void vp_get(struct vp_device *vp, unsigned offset,
                      void *buf, unsigned len)

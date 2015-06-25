@@ -24,6 +24,39 @@
 #include "virtio-pci.h"
 #include "virtio-ring.h"
 
+u64 vp_get_features(struct vp_device *vp)
+{
+    u32 f0, f1;
+
+    if (vp->use_modern) {
+        vp_write(&vp->common, virtio_pci_common_cfg, device_feature_select, 0);
+        f0 = vp_read(&vp->common, virtio_pci_common_cfg, device_feature);
+        vp_write(&vp->common, virtio_pci_common_cfg, device_feature_select, 1);
+        f1 = vp_read(&vp->common, virtio_pci_common_cfg, device_feature);
+    } else {
+        f0 = vp_read(&vp->legacy, virtio_pci_legacy, host_features);
+        f1 = 0;
+    }
+    return ((u64)f1 << 32) | f0;
+}
+
+void vp_set_features(struct vp_device *vp, u64 features)
+{
+    u32 f0, f1;
+
+    f0 = features;
+    f1 = features >> 32;
+
+    if (vp->use_modern) {
+        vp_write(&vp->common, virtio_pci_common_cfg, guest_feature_select, 0);
+        vp_write(&vp->common, virtio_pci_common_cfg, guest_feature, f0);
+        vp_write(&vp->common, virtio_pci_common_cfg, guest_feature_select, 1);
+        vp_write(&vp->common, virtio_pci_common_cfg, guest_feature, f1);
+    } else {
+        vp_write(&vp->legacy, virtio_pci_legacy, guest_features, f0);
+    }
+}
+
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq)
 {

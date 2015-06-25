@@ -123,7 +123,7 @@ init_virtio_blk(struct pci_device *pci)
     struct virtio_blk_config cfg;
     vp_get(&vdrive->vp, 0, &cfg, sizeof(cfg));
 
-    u32 f = vp_get_features(&vdrive->vp);
+    u64 f = vp_get_features(&vdrive->vp);
     vdrive->drive.blksize = (f & (1 << VIRTIO_BLK_F_BLK_SIZE)) ?
         cfg.blk_size : DISK_SECTOR_SIZE;
 
