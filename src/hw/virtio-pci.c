@@ -77,6 +77,15 @@ void vp_set_status(struct vp_device *vp, u8 status)
     }
 }
 
+u8 vp_get_isr(struct vp_device *vp)
+{
+    if (vp->use_modern) {
+        return vp_read(&vp->isr, virtio_pci_isr, isr);
+    } else {
+        return vp_read(&vp->legacy, virtio_pci_legacy, isr);
+    }
+}
+
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq)
 {
