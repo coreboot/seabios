@@ -151,14 +151,35 @@ init_virtio_scsi(struct pci_device *pci)
         return;
     }
     vp_init_simple(vp, pci);
+    u8 status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
+
+    if (vp->use_modern) {
+        u64 features = vp_get_features(vp);
+        u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+        if (!(features & version1)) {
+            dprintf(1, "modern device without virtio_1 feature bit: %x:%x\n",
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
+            goto fail;
+        }
+
+        vp_set_features(vp, version1);
+        status |= VIRTIO_CONFIG_S_FEATURES_OK;
+        vp_set_status(vp, status);
+        if (!(vp_get_status(vp) & VIRTIO_CONFIG_S_FEATURES_OK)) {
+            dprintf(1, "device didn't accept features: %x:%x\n",
+                    pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
+            goto fail;
+        }
+    }
+
     if (vp_find_vq(vp, 2, &vq) < 0 ) {
         dprintf(1, "fail to find vq for virtio-scsi %x:%x\n",
                 pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf));
         goto fail;
     }
 
-    vp_set_status(vp, VIRTIO_CONFIG_S_ACKNOWLEDGE |
-                  VIRTIO_CONFIG_S_DRIVER | VIRTIO_CONFIG_S_DRIVER_OK);
+    status |= VIRTIO_CONFIG_S_DRIVER_OK;
+    vp_set_status(vp, status);
 
     int i, tot;
     for (tot = 0, i = 0; i < 256; i++)
