@@ -260,15 +260,18 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
     }
 
     if (vp->common.cap && vp->notify.cap && vp->isr.cap && vp->device.cap) {
-        dprintf(1, "pci dev %x:%x supports virtio 1.0\n",
+        dprintf(1, "pci dev %x:%x using modern (1.0) virtio mode\n",
                 pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf));
+        vp->use_modern = 1;
+    } else {
+        dprintf(1, "pci dev %x:%x using legacy (0.9.5) virtio mode\n",
+                pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf));
+        vp->legacy.bar = 0;
+        vp->legacy.addr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0) &
+            PCI_BASE_ADDRESS_IO_MASK;
+        vp->legacy.is_io = 1;
+        vp->ioaddr = vp->legacy.addr; /* temporary */
     }
-
-    vp->legacy.bar = 0;
-    vp->legacy.addr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0) &
-        PCI_BASE_ADDRESS_IO_MASK;
-    vp->legacy.is_io = 1;
-    vp->ioaddr = vp->legacy.addr; /* temporary */
 
     vp_reset(vp);
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
