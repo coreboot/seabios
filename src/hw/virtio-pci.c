@@ -97,6 +97,24 @@ void vp_reset(struct vp_device *vp)
     }
 }
 
+void vp_notify(struct vp_device *vp, struct vring_virtqueue *vq)
+{
+    if (vp->use_modern) {
+        u32 addr = vp->notify.addr +
+            vq->queue_notify_off *
+            vp->notify_off_multiplier;
+        if (vp->notify.is_io) {
+            outw(vq->queue_index, addr);
+        } else {
+            writew((void*)addr, vq->queue_index);
+        }
+        dprintf(9, "vp notify %x (%d) -- 0x%x\n",
+                addr, 2, vq->queue_index);
+    } else {
+        vp_write(&vp->legacy, virtio_pci_legacy, queue_notify, vq->queue_index);
+    }
+}
+
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq)
 {
@@ -162,7 +180,7 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
 {
     u8 cap = pci_find_capability(pci, PCI_CAP_ID_VNDR, 0);
     struct vp_cap *vp_cap;
-    u32 addr, offset;
+    u32 addr, offset, mul;
     u8 type;
 
     memset(vp, 0, sizeof(*vp));
@@ -175,6 +193,8 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
             break;
         case VIRTIO_PCI_CAP_NOTIFY_CFG:
             vp_cap = &vp->notify;
+            mul = offsetof(struct virtio_pci_notify_cap, notify_off_multiplier);
+            vp->notify_off_multiplier = pci_config_readl(pci->bdf, cap + mul);
             break;
         case VIRTIO_PCI_CAP_ISR_CFG:
             vp_cap = &vp->isr;

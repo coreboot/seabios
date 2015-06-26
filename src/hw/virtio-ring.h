@@ -88,6 +88,7 @@ struct vring_virtqueue {
    u16 vdata[MAX_QUEUE_NUM];
    /* PCI */
    int queue_index;
+   int queue_notify_off;
 };
 
 struct vring_list {

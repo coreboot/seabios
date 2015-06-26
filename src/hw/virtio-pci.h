@@ -125,6 +125,7 @@ struct vp_cap {
 struct vp_device {
     unsigned int ioaddr;
     struct vp_cap common, notify, isr, device, legacy;
+    u32 notify_off_multiplier;
     u8 use_modern;
 };
 
@@ -233,11 +234,6 @@ void vp_set_status(struct vp_device *vp, u8 status);
 u8 vp_get_isr(struct vp_device *vp);
 void vp_reset(struct vp_device *vp);
 
-static inline void vp_notify(struct vp_device *vp, int queue_index)
-{
-    outw(queue_index, GET_LOWFLAT(vp->ioaddr) + VIRTIO_PCI_QUEUE_NOTIFY);
-}
-
 static inline void vp_del_vq(struct vp_device *vp, int queue_index)
 {
    int ioaddr = GET_LOWFLAT(vp->ioaddr);
@@ -252,6 +248,7 @@ static inline void vp_del_vq(struct vp_device *vp, int queue_index)
 struct pci_device;
 struct vring_virtqueue;
 void vp_init_simple(struct vp_device *vp, struct pci_device *pci);
+void vp_notify(struct vp_device *vp, struct vring_virtqueue *vq);
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq);
 #endif /* _VIRTIO_PCI_H_ */

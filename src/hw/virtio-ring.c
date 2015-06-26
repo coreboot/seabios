@@ -145,5 +145,5 @@ void vring_kick(struct vp_device *vp, struct vring_virtqueue *vq, int num_added)
     smp_wmb();
     SET_LOWFLAT(avail->idx, GET_LOWFLAT(avail->idx) + num_added);
 
-    vp_notify(vp, GET_LOWFLAT(vq->queue_index));
+    vp_notify(vp, vq);
 }
