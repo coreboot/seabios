@@ -234,17 +234,6 @@ void vp_set_status(struct vp_device *vp, u8 status);
 u8 vp_get_isr(struct vp_device *vp);
 void vp_reset(struct vp_device *vp);
 
-static inline void vp_del_vq(struct vp_device *vp, int queue_index)
-{
-   int ioaddr = GET_LOWFLAT(vp->ioaddr);
-
-   /* select the queue */
-   outw(queue_index, ioaddr + VIRTIO_PCI_QUEUE_SEL);
-
-   /* deactivate the queue */
-   outl(0, ioaddr + VIRTIO_PCI_QUEUE_PFN);
-}
-
 struct pci_device;
 struct vring_virtqueue;
 void vp_init_simple(struct vp_device *vp, struct pci_device *pci);
