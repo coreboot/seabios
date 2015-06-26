@@ -218,15 +218,14 @@ static inline void _vp_write(struct vp_cap *cap, u32 offset, u8 size, u64 var)
 u64 vp_get_features(struct vp_device *vp);
 void vp_set_features(struct vp_device *vp, u64 features);
 
-static inline void vp_get(struct vp_device *vp, unsigned offset,
-                     void *buf, unsigned len)
+static inline void vp_get_legacy(struct vp_device *vp, unsigned offset,
+                                 void *buf, unsigned len)
 {
-   int ioaddr = GET_LOWFLAT(vp->ioaddr);
-   u8 *ptr = buf;
-   unsigned i;
+    u8 *ptr = buf;
+    unsigned i;
 
-   for (i = 0; i < len; i++)
-           ptr[i] = inb(ioaddr + VIRTIO_PCI_CONFIG + offset + i);
+    for (i = 0; i < len; i++)
+        ptr[i] = inb(vp->ioaddr + VIRTIO_PCI_CONFIG + offset + i);
 }
 
 u8 vp_get_status(struct vp_device *vp);
