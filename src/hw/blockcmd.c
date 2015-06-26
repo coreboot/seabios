@@ -35,14 +35,15 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
         return usb_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_UAS:
         return uas_cmd_data(op, cdbcmd, blocksize);
-    case DTYPE_VIRTIO_SCSI:
-        return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_LSI_SCSI:
         return lsi_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_ESP_SCSI:
         return esp_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_MEGASAS:
         return megasas_cmd_data(op, cdbcmd, blocksize);
+    case DTYPE_VIRTIO_SCSI:
+        if (!MODESEGMENT)
+            return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_USB_32:
         if (!MODESEGMENT)
             return usb_cmd_data(op, cdbcmd, blocksize);

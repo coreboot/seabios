@@ -34,7 +34,6 @@ SRCBOTH=misc.c stacks.c output.c string.c block.c cdrom.c disk.c mouse.c kbd.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c \
     hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \
     hw/blockcmd.c hw/floppy.c hw/ata.c hw/ramdisk.c \
-    hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c \
     hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
 SRC16=$(SRCBOTH)
 SRC32FLAT=$(SRCBOTH) post.c memmap.c malloc.c romfile.c x86.c optionroms.c \
@@ -43,6 +42,7 @@ SRC32FLAT=$(SRCBOTH) post.c memmap.c malloc.c romfile.c x86.c optionroms.c \
     fw/coreboot.c fw/lzmadecode.c fw/multiboot.c fw/csm.c fw/biostables.c \
     fw/paravirt.c fw/shadow.c fw/pciinit.c fw/smm.c fw/smp.c fw/mtrr.c fw/xen.c \
     fw/acpi.c fw/mptable.c fw/pirtable.c fw/smbios.c fw/romfile_loader.c \
+    hw/virtio-ring.c hw/virtio-pci.c hw/virtio-blk.c hw/virtio-scsi.c \
     hw/tpm_drivers.c
 SRC32SEG=string.c output.c pcibios.c apm.c stacks.c hw/pci.c hw/serialio.c
 DIRS=src src/hw src/fw vgasrc

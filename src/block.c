@@ -503,8 +503,10 @@ process_op(struct disk_op_s *op)
     case DTYPE_CDEMU:
         ret = process_cdemu_op(op);
         break;
-    case DTYPE_VIRTIO_BLK:
-        ret = process_virtio_blk_op(op);
+    case DTYPE_VIRTIO_BLK: ;
+        extern void _cfunc32flat_process_virtio_blk_op(void);
+        ret = call32(_cfunc32flat_process_virtio_blk_op
+                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
         break;
     case DTYPE_AHCI: ;
         extern void _cfunc32flat_process_ahci_op(void);
@@ -526,7 +528,6 @@ process_op(struct disk_op_s *op)
         break;
     case DTYPE_USB:
     case DTYPE_UAS:
-    case DTYPE_VIRTIO_SCSI:
     case DTYPE_LSI_SCSI:
     case DTYPE_ESP_SCSI:
     case DTYPE_MEGASAS:
@@ -534,6 +535,7 @@ process_op(struct disk_op_s *op)
         break;
     case DTYPE_USB_32:
     case DTYPE_UAS_32:
+    case DTYPE_VIRTIO_SCSI:
     case DTYPE_PVSCSI: ;
         extern void _cfunc32flat_scsi_process_op(void);
         ret = call32(_cfunc32flat_scsi_process_op
