@@ -207,8 +207,9 @@ virtio_scsi_setup(void)
 
     struct pci_device *pci;
     foreachpci(pci) {
-        if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET
-            || pci->device != PCI_DEVICE_ID_VIRTIO_SCSI)
+        if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET ||
+            (pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_09 &&
+             pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_10))
             continue;
         init_virtio_scsi(pci);
     }
