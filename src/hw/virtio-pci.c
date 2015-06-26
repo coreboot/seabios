@@ -118,7 +118,6 @@ void vp_notify(struct vp_device *vp, struct vring_virtqueue *vq)
 int vp_find_vq(struct vp_device *vp, int queue_index,
                struct vring_virtqueue **p_vq)
 {
-   int ioaddr = GET_LOWFLAT(vp->ioaddr);
    u16 num;
 
    ASSERT32FLAT();
@@ -129,34 +128,49 @@ int vp_find_vq(struct vp_device *vp, int queue_index,
    }
    memset(vq, 0, sizeof(*vq));
 
-   /* select the queue */
 
-   outw(queue_index, ioaddr + VIRTIO_PCI_QUEUE_SEL);
+   /* select the queue */
+   if (vp->use_modern) {
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_select, queue_index);
+   } else {
+       vp_write(&vp->legacy, virtio_pci_legacy, queue_sel, queue_index);
+   }
 
    /* check if the queue is available */
-
-   num = inw(ioaddr + VIRTIO_PCI_QUEUE_NUM);
+   if (vp->use_modern) {
+       num = vp_read(&vp->common, virtio_pci_common_cfg, queue_size);
+       if (num > MAX_QUEUE_NUM) {
+           vp_write(&vp->common, virtio_pci_common_cfg, queue_size,
+                    MAX_QUEUE_NUM);
+           num = vp_read(&vp->common, virtio_pci_common_cfg, queue_size);
+       }
+   } else {
+       num = vp_read(&vp->legacy, virtio_pci_legacy, queue_num);
+   }
    if (!num) {
        dprintf(1, "ERROR: queue size is 0\n");
        goto fail;
    }
-
    if (num > MAX_QUEUE_NUM) {
        dprintf(1, "ERROR: queue size %d > %d\n", num, MAX_QUEUE_NUM);
        goto fail;
    }
 
    /* check if the queue is already active */
-
-   if (inl(ioaddr + VIRTIO_PCI_QUEUE_PFN)) {
-       dprintf(1, "ERROR: queue already active\n");
-       goto fail;
+   if (vp->use_modern) {
+       if (vp_read(&vp->common, virtio_pci_common_cfg, queue_enable)) {
+           dprintf(1, "ERROR: queue already active\n");
+           goto fail;
+       }
+   } else {
+       if (vp_read(&vp->legacy, virtio_pci_legacy, queue_pfn)) {
+           dprintf(1, "ERROR: queue already active\n");
+           goto fail;
+       }
    }
-
    vq->queue_index = queue_index;
 
    /* initialize the queue */
-
    struct vring * vr = &vq->vring;
    vring_init(vr, num, (unsigned char*)&vq->queue);
 
@@ -165,9 +179,23 @@ int vp_find_vq(struct vp_device *vp, int queue_index,
     * NOTE: vr->desc is initialized by vring_init()
     */
 
-   outl((unsigned long)virt_to_phys(vr->desc) >> PAGE_SHIFT,
-        ioaddr + VIRTIO_PCI_QUEUE_PFN);
-
+   if (vp->use_modern) {
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_desc_lo,
+                (unsigned long)virt_to_phys(vr->desc));
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_desc_hi, 0);
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_avail_lo,
+                (unsigned long)virt_to_phys(vr->avail));
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_avail_hi, 0);
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_used_lo,
+                (unsigned long)virt_to_phys(vr->used));
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_used_hi, 0);
+       vp_write(&vp->common, virtio_pci_common_cfg, queue_enable, 1);
+       vq->queue_notify_off = vp_read(&vp->common, virtio_pci_common_cfg,
+                                      queue_notify_off);
+   } else {
+       vp_write(&vp->legacy, virtio_pci_legacy, queue_pfn,
+                (unsigned long)virt_to_phys(vr->desc) >> PAGE_SHIFT);
+   }
    return num;
 
 fail:
