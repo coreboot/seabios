@@ -7,7 +7,7 @@
 #include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
-#include "malloc.h" // malloc_fseg
+#include "malloc.h" // memalign_tmphigh
 #include "memmap.h" // add_e820
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_findprefix

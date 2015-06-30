@@ -241,7 +241,10 @@ static void megasas_scan_target(struct pci_device *pci, u32 iobase)
 {
     struct mfi_ld_list_s ld_list;
     struct megasas_cmd_frame *frame = memalign_tmp(256, sizeof(*frame));
-    int i;
+    if (!frame) {
+        warn_noalloc();
+        return;
+    }
 
     memset(&ld_list, 0, sizeof(ld_list));
     memset_fl(frame, 0, sizeof(*frame));
@@ -258,6 +261,7 @@ static void megasas_scan_target(struct pci_device *pci, u32 iobase)
 
     if (megasas_fire_cmd(pci->device, iobase, frame) == 0) {
         dprintf(2, "%d LD found\n", ld_list.count);
+        int i;
         for (i = 0; i < ld_list.count; i++) {
             dprintf(2, "LD %d:%d state 0x%x\n",
                     ld_list.lds[i].target, ld_list.lds[i].lun,

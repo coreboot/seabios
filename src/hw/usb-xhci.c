@@ -921,8 +921,14 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     usb_desc2pipe(&pipe->pipe, usbdev, epdesc);
     pipe->epid = epid;
     pipe->reqs.cs = 1;
-    if (eptype == USB_ENDPOINT_XFER_INT)
+    if (eptype == USB_ENDPOINT_XFER_INT) {
         pipe->buf = malloc_high(pipe->pipe.maxpacket);
+        if (!pipe->buf) {
+            warn_noalloc();
+            free(pipe);
+            return NULL;
+        }
+    }
 
     // Allocate input context and initialize endpoint info.
     struct xhci_inctx *in = xhci_alloc_inctx(usbdev, epid);
@@ -988,6 +994,7 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
     return &pipe->pipe;
 
 fail:
+    free(pipe->buf);
     free(pipe);
     free(in);
     return NULL;

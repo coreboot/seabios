@@ -123,7 +123,6 @@ cdrom_prepboot(void)
     struct drive_s *drive = malloc_fseg(sizeof(*drive));
     if (!drive) {
         warn_noalloc();
-        free(drive);
         return;
     }
     cdemu_drive_gf = drive;
