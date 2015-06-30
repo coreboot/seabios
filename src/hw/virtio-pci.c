@@ -270,7 +270,6 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
         vp->legacy.addr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0) &
             PCI_BASE_ADDRESS_IO_MASK;
         vp->legacy.is_io = 1;
-        vp->ioaddr = vp->legacy.addr; /* temporary */
     }
 
     vp_reset(vp);

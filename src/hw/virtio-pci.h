@@ -4,38 +4,8 @@
 #include "x86.h" // inl
 #include "biosvar.h" // GET_LOWFLAT
 
-/* A 32-bit r/o bitmask of the features supported by the host */
-#define VIRTIO_PCI_HOST_FEATURES        0
-
-/* A 32-bit r/w bitmask of features activated by the guest */
-#define VIRTIO_PCI_GUEST_FEATURES       4
-
-/* A 32-bit r/w PFN for the currently selected queue */
-#define VIRTIO_PCI_QUEUE_PFN            8
-
-/* A 16-bit r/o queue size for the currently selected queue */
-#define VIRTIO_PCI_QUEUE_NUM            12
-
-/* A 16-bit r/w queue selector */
-#define VIRTIO_PCI_QUEUE_SEL            14
-
-/* A 16-bit r/w queue notifier */
-#define VIRTIO_PCI_QUEUE_NOTIFY         16
-
-/* An 8-bit device status register.  */
-#define VIRTIO_PCI_STATUS               18
-
-/* An 8-bit r/o interrupt status register.  Reading the value will return the
- * current contents of the ISR and will also clear it.  This is effectively
- * a read-and-acknowledge. */
-#define VIRTIO_PCI_ISR                  19
-
 /* The bit of the ISR which indicates a device configuration change. */
 #define VIRTIO_PCI_ISR_CONFIG           0x2
-
-/* The remaining space is defined by each driver as the per-driver
- * configuration space */
-#define VIRTIO_PCI_CONFIG               20
 
 /* Virtio ABI version, this must match exactly */
 #define VIRTIO_PCI_ABI_VERSION          0
@@ -123,7 +93,6 @@ struct vp_cap {
 };
 
 struct vp_device {
-    unsigned int ioaddr;
     struct vp_cap common, notify, isr, device, legacy;
     u32 notify_off_multiplier;
     u8 use_modern;
@@ -225,7 +194,7 @@ static inline void vp_get_legacy(struct vp_device *vp, unsigned offset,
     unsigned i;
 
     for (i = 0; i < len; i++)
-        ptr[i] = inb(vp->ioaddr + VIRTIO_PCI_CONFIG + offset + i);
+        ptr[i] = vp_read(&vp->legacy, virtio_pci_legacy, device[i]);
 }
 
 u8 vp_get_status(struct vp_device *vp);
