@@ -124,7 +124,7 @@ struct vp_cap {
 
 struct vp_device {
     unsigned int ioaddr;
-    struct vp_cap common, notify, isr, device;
+    struct vp_cap common, notify, isr, device, legacy;
 };
 
 static inline u32 vp_get_features(struct vp_device *vp)

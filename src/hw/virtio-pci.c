@@ -143,8 +143,11 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
                 pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf));
     }
 
-    vp->ioaddr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0) &
+    vp->legacy.bar = 0;
+    vp->legacy.addr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0) &
         PCI_BASE_ADDRESS_IO_MASK;
+    vp->legacy.is_io = 1;
+    vp->ioaddr = vp->legacy.addr; /* temporary */
 
     vp_reset(vp);
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
