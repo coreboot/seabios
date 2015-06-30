@@ -40,6 +40,20 @@
 /* Virtio ABI version, this must match exactly */
 #define VIRTIO_PCI_ABI_VERSION          0
 
+/* --- virtio 0.9.5 (legacy) struct --------------------------------- */
+
+typedef struct virtio_pci_legacy {
+    u32 host_features;
+    u32 guest_features;
+    u32 queue_pfn;
+    u16 queue_num;
+    u16 queue_sel;
+    u16 queue_notify;
+    u8  status;
+    u8  isr;
+    u8  device[];
+} virtio_pci_legacy;
+
 /* --- virtio 1.0 (modern) structs ---------------------------------- */
 
 /* Common configuration */
