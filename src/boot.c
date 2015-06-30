@@ -112,9 +112,9 @@ build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
     if (pci->parent) {
         p = build_pci_path(p, max, "pci-bridge", pci->parent);
     } else {
-        if (pci->rootbus)
-            p += snprintf(p, max, "/pci-root@%x", pci->rootbus);
         p += snprintf(p, buf+max-p, "%s", FW_PCI_DOMAIN);
+        if (pci->rootbus)
+            p += snprintf(p, buf+max-p, ",%x", pci->rootbus);
     }
 
     int dev = pci_bdf_to_dev(pci->bdf), fn = pci_bdf_to_fn(pci->bdf);
