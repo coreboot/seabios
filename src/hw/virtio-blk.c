@@ -33,7 +33,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
 {
     struct virtiodrive_s *vdrive_gf =
         container_of(op->drive_gf, struct virtiodrive_s, drive);
-    struct vring_virtqueue *vq = GET_GLOBALFLAT(vdrive_gf->vq);
+    struct vring_virtqueue *vq = vdrive_gf->vq;
     struct virtio_blk_outhdr hdr = {
         .type = write ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN,
         .ioprio = 0,
@@ -42,15 +42,15 @@ virtio_blk_op(struct disk_op_s *op, int write)
     u8 status = VIRTIO_BLK_S_UNSUPP;
     struct vring_list sg[] = {
         {
-            .addr       = MAKE_FLATPTR(GET_SEG(SS), &hdr),
+            .addr       = (void*)(&hdr),
             .length     = sizeof(hdr),
         },
         {
             .addr       = op->buf_fl,
-            .length     = GET_GLOBALFLAT(vdrive_gf->drive.blksize) * op->count,
+            .length     = vdrive_gf->drive.blksize * op->count,
         },
         {
-            .addr       = MAKE_FLATPTR(GET_SEG(SS), &status),
+            .addr       = (void*)(&status),
             .length     = sizeof(status),
         },
     };
