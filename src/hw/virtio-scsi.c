@@ -53,10 +53,10 @@ virtio_scsi_cmd(struct vp_device *vp, struct vring_virtqueue *vq,
     int in_num = (datain ? 2 : 1);
     int out_num = (len ? 3 : 2) - in_num;
 
-    sg[0].addr   = MAKE_FLATPTR(GET_SEG(SS), &req);
+    sg[0].addr   = (void*)(&req);
     sg[0].length = sizeof(req);
 
-    sg[out_num].addr   = MAKE_FLATPTR(GET_SEG(SS), &resp);
+    sg[out_num].addr   = (void*)(&resp);
     sg[out_num].length = sizeof(resp);
 
     if (len) {
@@ -93,10 +93,10 @@ virtio_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     struct virtio_lun_s *vlun_gf =
         container_of(op->drive_gf, struct virtio_lun_s, drive);
 
-    return virtio_scsi_cmd(GET_GLOBALFLAT(vlun_gf->vp),
-                           GET_GLOBALFLAT(vlun_gf->vq), op, cdbcmd,
-                           GET_GLOBALFLAT(vlun_gf->target),
-                           GET_GLOBALFLAT(vlun_gf->lun),
+    return virtio_scsi_cmd(vlun_gf->vp,
+                           vlun_gf->vq, op, cdbcmd,
+                           vlun_gf->target,
+                           vlun_gf->lun,
                            blocksize);
 }
 
