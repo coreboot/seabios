@@ -121,7 +121,7 @@ int vp_find_vq(struct vp_device *vp, int queue_index,
    u16 num;
 
    ASSERT32FLAT();
-   struct vring_virtqueue *vq = *p_vq = memalign_low(PAGE_SIZE, sizeof(*vq));
+   struct vring_virtqueue *vq = *p_vq = memalign_high(PAGE_SIZE, sizeof(*vq));
    if (!vq) {
        warn_noalloc();
        goto fail;
