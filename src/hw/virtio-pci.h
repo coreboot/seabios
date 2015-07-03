@@ -54,6 +54,11 @@ struct virtio_pci_notify_cap {
     u32 notify_off_multiplier;   /* Multiplier for queue_notify_off. */
 };
 
+struct virtio_pci_cfg_cap {
+    struct virtio_pci_cap cap;
+    u8 pci_cfg_data[4]; /* Data for BAR access. */
+};
+
 typedef struct virtio_pci_common_cfg {
     /* About the whole device. */
     u32 device_feature_select;   /* read-write */
@@ -85,14 +90,21 @@ typedef struct virtio_pci_isr {
 
 /* --- driver structs ----------------------------------------------- */
 
+#define VP_ACCESS_IO       1
+#define VP_ACCESS_MMIO     2
+#define VP_ACCESS_PCICFG   3
+
 struct vp_cap {
     union {
         void *memaddr;
         u32 ioaddr;
+        u32 baroff;
     };
+    u16 bdf;
     u8 cap;
+    u8 cfg;
     u8 bar;
-    u8 is_io;
+    u8 mode;
 };
 
 struct vp_device {
