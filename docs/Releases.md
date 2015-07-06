@@ -28,6 +28,11 @@ SeaBIOS 1.8.1
 
 Available on 20150316. Stable release containing only bug fixes.
 
+SeaBIOS 1.8.2
+-------------
+
+Available on 20150617. Stable release containing only bug fixes.
+
 SeaBIOS 1.7.5
 =============
 
