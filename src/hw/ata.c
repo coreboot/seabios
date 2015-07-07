@@ -583,10 +583,17 @@ process_ata_op(struct disk_op_s *op)
 
 // Low-level atapi command transmit function.
 int
-atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
+ata_atapi_process_op(struct disk_op_s *op)
 {
     if (! CONFIG_ATA)
         return 0;
+
+    if (op->command == CMD_WRITE || op->command == CMD_FORMAT)
+        return DISK_RET_EWRITEPROTECT;
+    u8 cdbcmd[CDROM_CDB_SIZE];
+    int blocksize = scsi_fill_cmd(op, cdbcmd, sizeof(cdbcmd));
+    if (blocksize < 0)
+        return default_process_op(op);
 
     struct atadrive_s *adrive_gf = container_of(
         op->drive_gf, struct atadrive_s, drive);

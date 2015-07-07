@@ -502,7 +502,7 @@ process_op_both(struct disk_op_s *op)
 {
     switch (GET_GLOBALFLAT(op->drive_gf->type)) {
     case DTYPE_ATA_ATAPI:
-        return process_atapi_op(op);
+        return ata_atapi_process_op(op);
     case DTYPE_USB:
     case DTYPE_UAS:
     case DTYPE_LSI_SCSI:

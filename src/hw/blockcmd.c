@@ -6,7 +6,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "ahci.h" // atapi_cmd_data
-#include "ata.h" // atapi_cmd_data
 #include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
@@ -29,8 +28,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
-    case DTYPE_ATA_ATAPI:
-        return atapi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_USB:
         return usb_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_UAS:

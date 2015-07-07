@@ -25,7 +25,7 @@ struct atadrive_s {
 char *ata_extract_model(char *model, u32 size, u16 *buffer);
 int ata_extract_version(u16 *buffer);
 int cdrom_read(struct disk_op_s *op);
-int atapi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize);
+int ata_atapi_process_op(struct disk_op_s *op);
 void ata_setup(void);
 int process_ata_op(struct disk_op_s *op);
 
