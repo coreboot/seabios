@@ -152,48 +152,41 @@ cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
     return process_op(op);
 }
 
-// Read sectors.
-static int
-cdb_read(struct disk_op_s *op)
-{
-    struct cdb_rwdata_10 cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_READ_10;
-    cmd.lba = cpu_to_be32(op->lba);
-    cmd.count = cpu_to_be16(op->count);
-    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
-}
-
-// Write sectors.
-static int
-cdb_write(struct disk_op_s *op)
-{
-    struct cdb_rwdata_10 cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    cmd.command = CDB_CMD_WRITE_10;
-    cmd.lba = cpu_to_be32(op->lba);
-    cmd.count = cpu_to_be16(op->count);
-    return cdb_cmd_data(op, &cmd, GET_GLOBALFLAT(op->drive_gf->blksize));
-}
-
 
 /****************************************************************
  * Main SCSI commands
  ****************************************************************/
 
+// Create a scsi command request from a disk_op_s request
 int
-scsi_process_op(struct disk_op_s *op)
+scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
 {
     switch (op->command) {
     case CMD_READ:
-        return cdb_read(op);
-    case CMD_WRITE:
-        return cdb_write(op);
+    case CMD_WRITE: ;
+        struct cdb_rwdata_10 *cmd = cdbcmd;
+        memset(cmd, 0, maxcdb);
+        cmd->command = (op->command == CMD_READ ? CDB_CMD_READ_10
+                        : CDB_CMD_WRITE_10);
+        cmd->lba = cpu_to_be32(op->lba);
+        cmd->count = cpu_to_be16(op->count);
+        return GET_GLOBALFLAT(op->drive_gf->blksize);
     case CMD_SCSI:
-        return cdb_cmd_data(op, op->cdbcmd, op->blocksize);
+        memcpy(cdbcmd, op->cdbcmd, maxcdb);
+        return op->blocksize;
     default:
-        return default_process_op(op);
+        return -1;
     }
+}
+
+int
+scsi_process_op(struct disk_op_s *op)
+{
+    char cdbcmd[16];
+    int blocksize = scsi_fill_cmd(op, cdbcmd, sizeof(cdbcmd));
+    if (blocksize < 0)
+        return default_process_op(op);
+    return cdb_cmd_data(op, cdbcmd, blocksize);
 }
 
 int
