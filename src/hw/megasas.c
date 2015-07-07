@@ -157,17 +157,19 @@ static int megasas_fire_cmd(u16 pci_id, u32 ioaddr,
 }
 
 int
-megasas_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
+megasas_process_op(struct disk_op_s *op)
 {
+    if (!CONFIG_MEGASAS)
+        return DISK_RET_EBADTRACK;
+    u8 cdb[16];
+    int blocksize = scsi_fill_cmd(op, cdb, sizeof(cdb));
+    if (blocksize < 0)
+        return default_process_op(op);
     struct megasas_lun_s *mlun_gf =
         container_of(op->drive_gf, struct megasas_lun_s, drive);
-    u8 *cdb = cdbcmd;
     struct megasas_cmd_frame *frame = GET_GLOBALFLAT(mlun_gf->frame);
     u16 pci_id = GET_GLOBALFLAT(mlun_gf->pci_id);
     int i;
-
-    if (!CONFIG_MEGASAS)
-        return DISK_RET_EBADTRACK;
 
     memset_fl(frame, 0, sizeof(*frame));
     SET_LOWFLAT(frame->cmd, MFI_CMD_LD_SCSI_IO);

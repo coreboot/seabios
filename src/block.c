@@ -12,6 +12,7 @@
 #include "hw/blockcmd.h" // cdb_*
 #include "hw/esp-scsi.h" // esp_scsi_process_op
 #include "hw/lsi-scsi.h" // lsi_scsi_process_op
+#include "hw/megasas.h" // megasas_process_op
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/rtc.h" // rtc_read
 #include "hw/usb-msc.h" // usb_process_op
@@ -504,7 +505,7 @@ process_op_both(struct disk_op_s *op)
     case DTYPE_ESP_SCSI:
         return esp_scsi_process_op(op);
     case DTYPE_MEGASAS:
-        return scsi_process_op(op);
+        return megasas_process_op(op);
     default:
         if (!MODESEGMENT)
             return DISK_RET_EPARAM;
