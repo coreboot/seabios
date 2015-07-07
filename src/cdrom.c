@@ -89,7 +89,7 @@ cdemu_read(struct disk_op_s *op)
 }
 
 int
-process_cdemu_op(struct disk_op_s *op)
+cdemu_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_CDROM_EMU)
         return 0;

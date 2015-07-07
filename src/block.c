@@ -525,13 +525,13 @@ process_op_32(struct disk_op_s *op)
     ASSERT32FLAT();
     switch (op->drive_gf->type) {
     case DTYPE_VIRTIO_BLK:
-        return process_virtio_blk_op(op);
+        return virtio_blk_process_op(op);
     case DTYPE_AHCI:
-        return process_ahci_op(op);
+        return ahci_process_op(op);
     case DTYPE_AHCI_ATAPI:
         return ahci_atapi_process_op(op);
     case DTYPE_SDCARD:
-        return process_sdcard_op(op);
+        return sdcard_process_op(op);
     case DTYPE_USB_32:
         return usb_process_op(op);
     case DTYPE_UAS_32:
@@ -552,13 +552,13 @@ process_op_16(struct disk_op_s *op)
     ASSERT16();
     switch (GET_GLOBALFLAT(op->drive_gf->type)) {
     case DTYPE_FLOPPY:
-        return process_floppy_op(op);
+        return floppy_process_op(op);
     case DTYPE_ATA:
-        return process_ata_op(op);
+        return ata_process_op(op);
     case DTYPE_RAMDISK:
-        return process_ramdisk_op(op);
+        return ramdisk_process_op(op);
     case DTYPE_CDEMU:
-        return process_cdemu_op(op);
+        return cdemu_process_op(op);
     default:
         return process_op_both(op);
     }

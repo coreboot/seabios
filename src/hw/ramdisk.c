@@ -91,7 +91,7 @@ ramdisk_copy(struct disk_op_s *op, int iswrite)
 }
 
 int
-process_ramdisk_op(struct disk_op_s *op)
+ramdisk_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_FLASH_FLOPPY)
         return 0;

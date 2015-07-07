@@ -47,7 +47,7 @@ extern u8 CDRom_locks[];
 extern struct eltorito_s CDEmu;
 extern struct drive_s *cdemu_drive_gf;
 struct disk_op_s;
-int process_cdemu_op(struct disk_op_s *op);
+int cdemu_process_op(struct disk_op_s *op);
 void cdrom_prepboot(void);
 int cdrom_boot(struct drive_s *drive_g);
 
@@ -143,15 +143,15 @@ extern struct floppy_ext_dbt_s diskette_param_table2;
 void floppy_setup(void);
 struct drive_s *init_floppy(int floppyid, int ftype);
 int find_floppy_type(u32 size);
-int process_floppy_op(struct disk_op_s *op);
+int floppy_process_op(struct disk_op_s *op);
 void floppy_tick(void);
 
 // hw/ramdisk.c
 void ramdisk_setup(void);
-int process_ramdisk_op(struct disk_op_s *op);
+int ramdisk_process_op(struct disk_op_s *op);
 
 // hw/sdcard.c
-int process_sdcard_op(struct disk_op_s *op);
+int sdcard_process_op(struct disk_op_s *op);
 void sdcard_setup(void);
 
 // hw/timer.c

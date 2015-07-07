@@ -24,10 +24,9 @@ struct atadrive_s {
 // ata.c
 char *ata_extract_model(char *model, u32 size, u16 *buffer);
 int ata_extract_version(u16 *buffer);
-int cdrom_read(struct disk_op_s *op);
+int ata_process_op(struct disk_op_s *op);
 int ata_atapi_process_op(struct disk_op_s *op);
 void ata_setup(void);
-int process_ata_op(struct disk_op_s *op);
 
 #define PORT_ATA2_CMD_BASE     0x0170
 #define PORT_ATA1_CMD_BASE     0x01f0

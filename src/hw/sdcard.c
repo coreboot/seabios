@@ -209,7 +209,7 @@ sdcard_readwrite(struct disk_op_s *op, int iswrite)
 }
 
 int
-process_sdcard_op(struct disk_op_s *op)
+sdcard_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_SDCARD)
         return 0;

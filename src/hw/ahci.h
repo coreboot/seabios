@@ -83,7 +83,7 @@ struct ahci_port_s {
 };
 
 void ahci_setup(void);
-int process_ahci_op(struct disk_op_s *op);
+int ahci_process_op(struct disk_op_s *op);
 int ahci_atapi_process_op(struct disk_op_s *op);
 
 #define AHCI_IRQ_ON_SG            (1 << 31)

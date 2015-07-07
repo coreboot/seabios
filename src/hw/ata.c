@@ -552,7 +552,7 @@ ata_readwrite(struct disk_op_s *op, int iswrite)
 
 // 16bit command demuxer for ATA harddrives.
 int
-process_ata_op(struct disk_op_s *op)
+ata_process_op(struct disk_op_s *op)
 {
     if (!CONFIG_ATA)
         return 0;

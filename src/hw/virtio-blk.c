@@ -78,7 +78,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
 }
 
 int
-process_virtio_blk_op(struct disk_op_s *op)
+virtio_blk_process_op(struct disk_op_s *op)
 {
     if (! CONFIG_VIRTIO_BLK)
         return 0;
