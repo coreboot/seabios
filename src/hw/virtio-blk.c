@@ -87,14 +87,8 @@ process_virtio_blk_op(struct disk_op_s *op)
         return virtio_blk_op(op, 0);
     case CMD_WRITE:
         return virtio_blk_op(op, 1);
-    case CMD_FORMAT:
-    case CMD_RESET:
-    case CMD_ISREADY:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 

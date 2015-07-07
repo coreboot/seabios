@@ -101,11 +101,7 @@ process_ramdisk_op(struct disk_op_s *op)
         return ramdisk_copy(op, 0);
     case CMD_WRITE:
         return ramdisk_copy(op, 1);
-    case CMD_VERIFY:
-    case CMD_FORMAT:
-    case CMD_RESET:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }

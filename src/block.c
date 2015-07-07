@@ -467,6 +467,23 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
  * Disk driver dispatch
  ****************************************************************/
 
+// Fallback handler for command requests not implemented by drivers
+int
+default_process_op(struct disk_op_s *op)
+{
+    switch (op->command) {
+    case CMD_FORMAT:
+    case CMD_RESET:
+    case CMD_ISREADY:
+    case CMD_VERIFY:
+    case CMD_SEEK:
+        // Return success if the driver doesn't implement these commands
+        return DISK_RET_SUCCESS;
+    default:
+        return DISK_RET_EPARAM;
+    }
+}
+
 static int
 process_atapi_op(struct disk_op_s *op)
 {

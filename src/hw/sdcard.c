@@ -218,14 +218,8 @@ process_sdcard_op(struct disk_op_s *op)
         return sdcard_readwrite(op, 0);
     case CMD_WRITE:
         return sdcard_readwrite(op, 1);
-    case CMD_FORMAT:
-    case CMD_RESET:
-    case CMD_ISREADY:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 

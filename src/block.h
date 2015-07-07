@@ -102,6 +102,7 @@ void map_hd_drive(struct drive_s *drive);
 void map_cd_drive(struct drive_s *drive);
 struct int13dpt_s;
 int fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf);
+int default_process_op(struct disk_op_s *op);
 int process_op(struct disk_op_s *op);
 int send_disk_op(struct disk_op_s *op);
 int create_bounce_buf(void);

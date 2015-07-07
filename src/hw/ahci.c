@@ -306,15 +306,8 @@ process_ahci_op(struct disk_op_s *op)
         return ahci_disk_readwrite(op, 0);
     case CMD_WRITE:
         return ahci_disk_readwrite(op, 1);
-    case CMD_FORMAT:
-    case CMD_RESET:
-    case CMD_ISREADY:
-    case CMD_VERIFY:
-    case CMD_SEEK:
-        return DISK_RET_SUCCESS;
     default:
-        dprintf(1, "AHCI: unknown disk command %d\n", op->command);
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 

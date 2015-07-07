@@ -100,13 +100,8 @@ process_cdemu_op(struct disk_op_s *op)
     case CMD_WRITE:
     case CMD_FORMAT:
         return DISK_RET_EWRITEPROTECT;
-    case CMD_VERIFY:
-    case CMD_RESET:
-    case CMD_SEEK:
-    case CMD_ISREADY:
-        return DISK_RET_SUCCESS;
     default:
-        return DISK_RET_EPARAM;
+        return default_process_op(op);
     }
 }
 
