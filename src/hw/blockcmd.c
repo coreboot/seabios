@@ -5,7 +5,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "ahci.h" // atapi_cmd_data
 #include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
@@ -50,9 +49,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     case DTYPE_PVSCSI:
         if (!MODESEGMENT)
             return pvscsi_cmd_data(op, cdbcmd, blocksize);
-    case DTYPE_AHCI_ATAPI:
-        if (!MODESEGMENT)
-            return ahci_cmd_data(op, cdbcmd, blocksize);
     default:
         return DISK_RET_EPARAM;
     }

@@ -484,18 +484,6 @@ default_process_op(struct disk_op_s *op)
     }
 }
 
-static int
-process_atapi_op(struct disk_op_s *op)
-{
-    switch (op->command) {
-    case CMD_WRITE:
-    case CMD_FORMAT:
-        return DISK_RET_EWRITEPROTECT;
-    default:
-        return scsi_process_op(op);
-    }
-}
-
 // Command dispatch for disk drivers that run in both 16bit and 32bit mode
 static int
 process_op_both(struct disk_op_s *op)
@@ -530,7 +518,7 @@ process_op_32(struct disk_op_s *op)
     case DTYPE_AHCI:
         return process_ahci_op(op);
     case DTYPE_AHCI_ATAPI:
-        return process_atapi_op(op);
+        return ahci_atapi_process_op(op);
     case DTYPE_SDCARD:
         return process_sdcard_op(op);
     case DTYPE_USB_32:

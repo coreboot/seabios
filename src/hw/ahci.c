@@ -213,7 +213,7 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
 
 #define CDROM_CDB_SIZE 12
 
-int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
+int ahci_atapi_process_op(struct disk_op_s *op)
 {
     if (! CONFIG_AHCI)
         return 0;
@@ -221,15 +221,14 @@ int ahci_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     struct ahci_port_s *port_gf = container_of(
         op->drive_gf, struct ahci_port_s, drive);
     struct ahci_cmd_s *cmd = port_gf->cmd;
-    u8 *atapi = cdbcmd;
-    int i, rc;
 
+    if (op->command == CMD_WRITE || op->command == CMD_FORMAT)
+        return DISK_RET_EWRITEPROTECT;
+    int blocksize = scsi_fill_cmd(op, cmd->atapi, CDROM_CDB_SIZE);
+    if (blocksize < 0)
+        return default_process_op(op);
     sata_prep_atapi(&cmd->fis, blocksize);
-    for (i = 0; i < CDROM_CDB_SIZE; i++) {
-        cmd->atapi[i] = atapi[i];
-    }
-    rc = ahci_command(port_gf, 0, 1, op->buf_fl,
-                      op->count * blocksize);
+    int rc = ahci_command(port_gf, 0, 1, op->buf_fl, op->count * blocksize);
     if (rc < 0)
         return DISK_RET_EBADTRACK;
     return DISK_RET_SUCCESS;
