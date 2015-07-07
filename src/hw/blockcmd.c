@@ -9,7 +9,6 @@
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "byteorder.h" // be32_to_cpu
-#include "pvscsi.h" // pvscsi_cmd_data
 #include "output.h" // dprintf
 #include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
@@ -21,9 +20,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
-    case DTYPE_PVSCSI:
-        if (!MODESEGMENT)
-            return pvscsi_cmd_data(op, cdbcmd, blocksize);
     default:
         return DISK_RET_EPARAM;
     }

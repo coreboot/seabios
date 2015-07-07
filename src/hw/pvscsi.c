@@ -206,10 +206,13 @@ pvscsi_get_rsp(struct PVSCSIRingsState *s,
     return status;
 }
 
-static int
-pvscsi_cmd(struct pvscsi_lun_s *plun, struct disk_op_s *op,
-           void *cdbcmd, u16 target, u16 lun, u16 blocksize)
+int
+pvscsi_process_op(struct disk_op_s *op)
 {
+    if (!CONFIG_PVSCSI)
+        return DISK_RET_EBADTRACK;
+    struct pvscsi_lun_s *plun =
+        container_of(op->drive_gf, struct pvscsi_lun_s, drive);
     struct pvscsi_ring_dsc_s *ring_dsc = plun->ring_dsc;
     struct PVSCSIRingsState *s = ring_dsc->ring_state;
     u32 req_entries = s->reqNumEntriesLog2;
@@ -225,17 +228,19 @@ pvscsi_cmd(struct pvscsi_lun_s *plun, struct disk_op_s *op,
     }
 
     req = ring_dsc->ring_reqs + (s->reqProdIdx & MASK(req_entries));
+    int blocksize = scsi_fill_cmd(op, req->cdb, 16);
+    if (blocksize < 0)
+        return default_process_op(op);
     req->bus = 0;
-    req->target = target;
+    req->target = plun->target;
     memset(req->lun, 0, sizeof(req->lun));
-    req->lun[1] = lun;
+    req->lun[1] = plun->lun;
     req->senseLen = 0;
     req->senseAddr = 0;
     req->cdbLen = 16;
     req->vcpuHint = 0;
-    memcpy(req->cdb, cdbcmd, 16);
     req->tag = SIMPLE_QUEUE_TAG;
-    req->flags = cdb_is_read(cdbcmd, blocksize) ?
+    req->flags = cdb_is_read(req->cdb, blocksize) ?
         PVSCSI_FLAG_CMD_DIR_TOHOST : PVSCSI_FLAG_CMD_DIR_TODEVICE;
     req->dataLen = op->count * blocksize;
     req->dataAddr = (u32)op->buf_fl;
@@ -248,18 +253,6 @@ pvscsi_cmd(struct pvscsi_lun_s *plun, struct disk_op_s *op,
     status = pvscsi_get_rsp(s, rsp);
 
     return status == 0 ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
-}
-
-int
-pvscsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
-{
-    if (!CONFIG_PVSCSI)
-        return DISK_RET_EBADTRACK;
-
-    struct pvscsi_lun_s *plun =
-        container_of(op->drive_gf, struct pvscsi_lun_s, drive);
-
-    return pvscsi_cmd(plun, op, cdbcmd, plun->target, plun->lun, blocksize);
 }
 
 static int

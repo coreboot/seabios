@@ -14,6 +14,7 @@
 #include "hw/lsi-scsi.h" // lsi_scsi_process_op
 #include "hw/megasas.h" // megasas_process_op
 #include "hw/pci.h" // pci_bdf_to_bus
+#include "hw/pvscsi.h" // pvscsi_process_op
 #include "hw/rtc.h" // rtc_read
 #include "hw/usb-msc.h" // usb_process_op
 #include "hw/usb-uas.h" // uas_process_op
@@ -538,7 +539,7 @@ process_op_32(struct disk_op_s *op)
     case DTYPE_VIRTIO_SCSI:
         return virtio_scsi_process_op(op);
     case DTYPE_PVSCSI:
-        return scsi_process_op(op);
+        return pvscsi_process_op(op);
     default:
         return process_op_both(op);
     }
