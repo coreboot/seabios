@@ -14,17 +14,6 @@
 #include "string.h" // memset
 #include "util.h" // timer_calc
 
-// Route command to low-level handler.
-static int
-cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
-{
-    u8 type = GET_GLOBALFLAT(op->drive_gf->type);
-    switch (type) {
-    default:
-        return DISK_RET_EPARAM;
-    }
-}
-
 // Determine if the command is a request to pull data from the device
 int
 cdb_is_read(u8 *cdbcmd, u16 blocksize)
@@ -141,16 +130,6 @@ scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
     default:
         return -1;
     }
-}
-
-int
-scsi_process_op(struct disk_op_s *op)
-{
-    char cdbcmd[16];
-    int blocksize = scsi_fill_cmd(op, cdbcmd, sizeof(cdbcmd));
-    if (blocksize < 0)
-        return default_process_op(op);
-    return cdb_cmd_data(op, cdbcmd, blocksize);
 }
 
 int

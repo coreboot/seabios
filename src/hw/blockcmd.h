@@ -103,7 +103,6 @@ struct cdbres_mode_sense_geom {
 int cdb_is_read(u8 *cdbcmd, u16 blocksize);
 struct disk_op_s;
 int scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb);
-int scsi_process_op(struct disk_op_s *op);
 int scsi_is_ready(struct disk_op_s *op);
 struct drive_s;
 int scsi_drive_setup(struct drive_s *drive, const char *s, int prio);
