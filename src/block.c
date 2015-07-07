@@ -12,6 +12,7 @@
 #include "hw/blockcmd.h" // cdb_*
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/rtc.h" // rtc_read
+#include "hw/usb-msc.h" // usb_process_op
 #include "hw/virtio-blk.h" // process_virtio_blk_op
 #include "malloc.h" // malloc_low
 #include "output.h" // dprintf
@@ -492,6 +493,7 @@ process_op_both(struct disk_op_s *op)
     case DTYPE_ATA_ATAPI:
         return ata_atapi_process_op(op);
     case DTYPE_USB:
+        return usb_process_op(op);
     case DTYPE_UAS:
     case DTYPE_LSI_SCSI:
     case DTYPE_ESP_SCSI:
@@ -522,6 +524,7 @@ process_op_32(struct disk_op_s *op)
     case DTYPE_SDCARD:
         return process_sdcard_op(op);
     case DTYPE_USB_32:
+        return usb_process_op(op);
     case DTYPE_UAS_32:
     case DTYPE_VIRTIO_SCSI:
     case DTYPE_PVSCSI:
