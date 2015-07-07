@@ -16,7 +16,6 @@
 #include "output.h" // dprintf
 #include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
-#include "usb-uas.h" // usb_cmd_data
 #include "util.h" // timer_calc
 #include "virtio-scsi.h" // virtio_scsi_cmd_data
 
@@ -26,8 +25,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
-    case DTYPE_UAS:
-        return uas_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_LSI_SCSI:
         return lsi_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_ESP_SCSI:
@@ -37,9 +34,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
     case DTYPE_VIRTIO_SCSI:
         if (!MODESEGMENT)
             return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
-    case DTYPE_UAS_32:
-        if (!MODESEGMENT)
-            return uas_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_PVSCSI:
         if (!MODESEGMENT)
             return pvscsi_cmd_data(op, cdbcmd, blocksize);

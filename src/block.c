@@ -13,6 +13,7 @@
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/rtc.h" // rtc_read
 #include "hw/usb-msc.h" // usb_process_op
+#include "hw/usb-uas.h" // uas_process_op
 #include "hw/virtio-blk.h" // process_virtio_blk_op
 #include "malloc.h" // malloc_low
 #include "output.h" // dprintf
@@ -495,6 +496,7 @@ process_op_both(struct disk_op_s *op)
     case DTYPE_USB:
         return usb_process_op(op);
     case DTYPE_UAS:
+        return uas_process_op(op);
     case DTYPE_LSI_SCSI:
     case DTYPE_ESP_SCSI:
     case DTYPE_MEGASAS:
@@ -526,6 +528,7 @@ process_op_32(struct disk_op_s *op)
     case DTYPE_USB_32:
         return usb_process_op(op);
     case DTYPE_UAS_32:
+        return uas_process_op(op);
     case DTYPE_VIRTIO_SCSI:
     case DTYPE_PVSCSI:
         return scsi_process_op(op);
