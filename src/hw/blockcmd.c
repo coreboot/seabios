@@ -14,7 +14,6 @@
 #include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
 #include "util.h" // timer_calc
-#include "virtio-scsi.h" // virtio_scsi_cmd_data
 
 // Route command to low-level handler.
 static int
@@ -22,9 +21,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
-    case DTYPE_VIRTIO_SCSI:
-        if (!MODESEGMENT)
-            return virtio_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_PVSCSI:
         if (!MODESEGMENT)
             return pvscsi_cmd_data(op, cdbcmd, blocksize);

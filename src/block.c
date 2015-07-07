@@ -18,6 +18,7 @@
 #include "hw/usb-msc.h" // usb_process_op
 #include "hw/usb-uas.h" // uas_process_op
 #include "hw/virtio-blk.h" // process_virtio_blk_op
+#include "hw/virtio-scsi.h" // virtio_scsi_process_op
 #include "malloc.h" // malloc_low
 #include "output.h" // dprintf
 #include "stacks.h" // stack_hop
@@ -535,6 +536,7 @@ process_op_32(struct disk_op_s *op)
     case DTYPE_UAS_32:
         return uas_process_op(op);
     case DTYPE_VIRTIO_SCSI:
+        return virtio_scsi_process_op(op);
     case DTYPE_PVSCSI:
         return scsi_process_op(op);
     default:

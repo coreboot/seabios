@@ -32,24 +32,30 @@ struct virtio_lun_s {
     u16 lun;
 };
 
-static int
-virtio_scsi_cmd(struct vp_device *vp, struct vring_virtqueue *vq,
-                struct disk_op_s *op, void *cdbcmd, u16 target, u16 lun,
-                u16 blocksize)
+int
+virtio_scsi_process_op(struct disk_op_s *op)
 {
+    if (! CONFIG_VIRTIO_SCSI)
+        return 0;
+    struct virtio_lun_s *vlun =
+        container_of(op->drive_gf, struct virtio_lun_s, drive);
+    struct vp_device *vp = vlun->vp;
+    struct vring_virtqueue *vq = vlun->vq;
     struct virtio_scsi_req_cmd req;
     struct virtio_scsi_resp_cmd resp;
     struct vring_list sg[3];
 
     memset(&req, 0, sizeof(req));
+    int blocksize = scsi_fill_cmd(op, req.cdb, 16);
+    if (blocksize < 0)
+        return default_process_op(op);
     req.lun[0] = 1;
-    req.lun[1] = target;
-    req.lun[2] = (lun >> 8) | 0x40;
-    req.lun[3] = (lun & 0xff);
-    memcpy(req.cdb, cdbcmd, 16);
+    req.lun[1] = vlun->target;
+    req.lun[2] = (vlun->lun >> 8) | 0x40;
+    req.lun[3] = (vlun->lun & 0xff);
 
     u32 len = op->count * blocksize;
-    int datain = cdb_is_read(cdbcmd, blocksize);
+    int datain = cdb_is_read((u8*)req.cdb, blocksize);
     int in_num = (datain ? 2 : 1);
     int out_num = (len ? 3 : 2) - in_num;
 
@@ -85,19 +91,6 @@ virtio_scsi_cmd(struct vp_device *vp, struct vring_virtqueue *vq,
         return DISK_RET_SUCCESS;
     }
     return DISK_RET_EBADTRACK;
-}
-
-int
-virtio_scsi_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
-{
-    struct virtio_lun_s *vlun_gf =
-        container_of(op->drive_gf, struct virtio_lun_s, drive);
-
-    return virtio_scsi_cmd(vlun_gf->vp,
-                           vlun_gf->vq, op, cdbcmd,
-                           vlun_gf->target,
-                           vlun_gf->lun,
-                           blocksize);
 }
 
 static int
