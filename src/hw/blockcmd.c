@@ -9,7 +9,6 @@
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "byteorder.h" // be32_to_cpu
-#include "esp-scsi.h" // esp_scsi_cmd_data
 #include "megasas.h" // megasas_cmd_data
 #include "pvscsi.h" // pvscsi_cmd_data
 #include "output.h" // dprintf
@@ -24,8 +23,6 @@ cdb_cmd_data(struct disk_op_s *op, void *cdbcmd, u16 blocksize)
 {
     u8 type = GET_GLOBALFLAT(op->drive_gf->type);
     switch (type) {
-    case DTYPE_ESP_SCSI:
-        return esp_scsi_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_MEGASAS:
         return megasas_cmd_data(op, cdbcmd, blocksize);
     case DTYPE_VIRTIO_SCSI:

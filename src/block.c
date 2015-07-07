@@ -10,6 +10,7 @@
 #include "hw/ata.h" // process_ata_op
 #include "hw/ahci.h" // process_ahci_op
 #include "hw/blockcmd.h" // cdb_*
+#include "hw/esp-scsi.h" // esp_scsi_process_op
 #include "hw/lsi-scsi.h" // lsi_scsi_process_op
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/rtc.h" // rtc_read
@@ -501,6 +502,7 @@ process_op_both(struct disk_op_s *op)
     case DTYPE_LSI_SCSI:
         return lsi_scsi_process_op(op);
     case DTYPE_ESP_SCSI:
+        return esp_scsi_process_op(op);
     case DTYPE_MEGASAS:
         return scsi_process_op(op);
     default:
