@@ -296,7 +296,7 @@ ahci_disk_readwrite(struct disk_op_s *op, int iswrite)
 }
 
 // command demuxer
-int VISIBLE32FLAT
+int
 process_ahci_op(struct disk_op_s *op)
 {
     if (!CONFIG_AHCI)

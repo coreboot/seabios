@@ -77,7 +77,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
     return status == VIRTIO_BLK_S_OK ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
 }
 
-int VISIBLE32FLAT
+int
 process_virtio_blk_op(struct disk_op_s *op)
 {
     if (! CONFIG_VIRTIO_BLK)

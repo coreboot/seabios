@@ -464,10 +464,10 @@ fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
 
 
 /****************************************************************
- * 16bit calling interface
+ * Disk driver dispatch
  ****************************************************************/
 
-int VISIBLE32FLAT
+static int
 process_atapi_op(struct disk_op_s *op)
 {
     switch (op->command) {
@@ -479,72 +479,85 @@ process_atapi_op(struct disk_op_s *op)
     }
 }
 
-// Execute a disk_op request.
-int
-process_op(struct disk_op_s *op)
+// Command dispatch for disk drivers that run in both 16bit and 32bit mode
+static int
+process_op_both(struct disk_op_s *op)
 {
-    ASSERT16();
-    int ret, origcount = op->count;
-    if (origcount * GET_GLOBALFLAT(op->drive_gf->blksize) > 64*1024) {
-        op->count = 0;
-        return DISK_RET_EBOUNDARY;
-    }
-    u8 type = GET_GLOBALFLAT(op->drive_gf->type);
-    switch (type) {
-    case DTYPE_FLOPPY:
-        ret = process_floppy_op(op);
-        break;
-    case DTYPE_ATA:
-        ret = process_ata_op(op);
-        break;
-    case DTYPE_RAMDISK:
-        ret = process_ramdisk_op(op);
-        break;
-    case DTYPE_CDEMU:
-        ret = process_cdemu_op(op);
-        break;
-    case DTYPE_VIRTIO_BLK: ;
-        extern void _cfunc32flat_process_virtio_blk_op(void);
-        ret = call32(_cfunc32flat_process_virtio_blk_op
-                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
-        break;
-    case DTYPE_AHCI: ;
-        extern void _cfunc32flat_process_ahci_op(void);
-        ret = call32(_cfunc32flat_process_ahci_op
-                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
-        break;
+    switch (GET_GLOBALFLAT(op->drive_gf->type)) {
     case DTYPE_ATA_ATAPI:
-        ret = process_atapi_op(op);
-        break;
-    case DTYPE_AHCI_ATAPI: ;
-        extern void _cfunc32flat_process_atapi_op(void);
-        ret = call32(_cfunc32flat_process_atapi_op
-                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
-        break;
-    case DTYPE_SDCARD: ;
-        extern void _cfunc32flat_process_sdcard_op(void);
-        ret = call32(_cfunc32flat_process_sdcard_op
-                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
-        break;
+        return process_atapi_op(op);
     case DTYPE_USB:
     case DTYPE_UAS:
     case DTYPE_LSI_SCSI:
     case DTYPE_ESP_SCSI:
     case DTYPE_MEGASAS:
-        ret = scsi_process_op(op);
-        break;
+        return scsi_process_op(op);
+    default:
+        if (!MODESEGMENT)
+            return DISK_RET_EPARAM;
+        // In 16bit mode and driver not found - try in 32bit mode
+        extern void _cfunc32flat_process_op_32(void);
+        return call32(_cfunc32flat_process_op_32
+                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+    }
+}
+
+// Command dispatch for disk drivers that only run in 32bit mode
+int VISIBLE32FLAT
+process_op_32(struct disk_op_s *op)
+{
+    ASSERT32FLAT();
+    switch (op->drive_gf->type) {
+    case DTYPE_VIRTIO_BLK:
+        return process_virtio_blk_op(op);
+    case DTYPE_AHCI:
+        return process_ahci_op(op);
+    case DTYPE_AHCI_ATAPI:
+        return process_atapi_op(op);
+    case DTYPE_SDCARD:
+        return process_sdcard_op(op);
     case DTYPE_USB_32:
     case DTYPE_UAS_32:
     case DTYPE_VIRTIO_SCSI:
-    case DTYPE_PVSCSI: ;
-        extern void _cfunc32flat_scsi_process_op(void);
-        ret = call32(_cfunc32flat_scsi_process_op
-                     , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
-        break;
+    case DTYPE_PVSCSI:
+        return scsi_process_op(op);
     default:
-        ret = DISK_RET_EPARAM;
-        break;
+        return process_op_both(op);
     }
+}
+
+// Command dispatch for disk drivers that only run in 16bit mode
+static int
+process_op_16(struct disk_op_s *op)
+{
+    ASSERT16();
+    switch (GET_GLOBALFLAT(op->drive_gf->type)) {
+    case DTYPE_FLOPPY:
+        return process_floppy_op(op);
+    case DTYPE_ATA:
+        return process_ata_op(op);
+    case DTYPE_RAMDISK:
+        return process_ramdisk_op(op);
+    case DTYPE_CDEMU:
+        return process_cdemu_op(op);
+    default:
+        return process_op_both(op);
+    }
+}
+
+// Execute a disk_op_s request.
+int
+process_op(struct disk_op_s *op)
+{
+    int ret, origcount = op->count;
+    if (origcount * GET_GLOBALFLAT(op->drive_gf->blksize) > 64*1024) {
+        op->count = 0;
+        return DISK_RET_EBOUNDARY;
+    }
+    if (MODESEGMENT)
+        ret = process_op_16(op);
+    else
+        ret = process_op_32(op);
     if (ret && op->count == origcount)
         // If the count hasn't changed on error, assume no data transferred.
         op->count = 0;

@@ -166,7 +166,7 @@ cdb_write(struct disk_op_s *op)
  * Main SCSI commands
  ****************************************************************/
 
-int VISIBLE32FLAT
+int
 scsi_process_op(struct disk_op_s *op)
 {
     switch (op->command) {

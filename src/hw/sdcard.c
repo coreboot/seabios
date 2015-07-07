@@ -208,7 +208,7 @@ sdcard_readwrite(struct disk_op_s *op, int iswrite)
     return DISK_RET_SUCCESS;
 }
 
-int VISIBLE32FLAT
+int
 process_sdcard_op(struct disk_op_s *op)
 {
     if (!CONFIG_SDCARD)
