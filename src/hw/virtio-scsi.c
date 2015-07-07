@@ -55,7 +55,7 @@ virtio_scsi_process_op(struct disk_op_s *op)
     req.lun[3] = (vlun->lun & 0xff);
 
     u32 len = op->count * blocksize;
-    int datain = cdb_is_read((u8*)req.cdb, blocksize);
+    int datain = scsi_is_read(op);
     int in_num = (datain ? 2 : 1);
     int out_num = (len ? 3 : 2) - in_num;
 

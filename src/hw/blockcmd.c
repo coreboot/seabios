@@ -14,13 +14,6 @@
 #include "string.h" // memset
 #include "util.h" // timer_calc
 
-// Determine if the command is a request to pull data from the device
-int
-cdb_is_read(u8 *cdbcmd, u16 blocksize)
-{
-    return blocksize && cdbcmd[0] != CDB_CMD_WRITE_10;
-}
-
 
 /****************************************************************
  * Low level command requests
@@ -132,6 +125,14 @@ scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
     }
 }
 
+// Determine if the command is a request to pull data from the device
+int
+scsi_is_read(struct disk_op_s *op)
+{
+    return op->command == CMD_READ || (op->command == CMD_SCSI && op->blocksize);
+}
+
+// Check if a SCSI device is ready to receive commands
 int
 scsi_is_ready(struct disk_op_s *op)
 {

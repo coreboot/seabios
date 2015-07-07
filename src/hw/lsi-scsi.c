@@ -64,7 +64,7 @@ lsi_scsi_process_op(struct disk_op_s *op)
     if (blocksize < 0)
         return default_process_op(op);
     u32 iobase = GET_GLOBALFLAT(llun_gf->iobase);
-    u32 dma = ((cdb_is_read(cdbcmd, blocksize) ? 0x01000000 : 0x00000000) |
+    u32 dma = ((scsi_is_read(op) ? 0x01000000 : 0x00000000) |
                (op->count * blocksize));
     u8 msgout[] = {
         0x80 | lun,                 // select lun

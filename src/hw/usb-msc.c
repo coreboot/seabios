@@ -83,7 +83,7 @@ usb_process_op(struct disk_op_s *op)
     cbw.dCBWSignature = CBW_SIGNATURE;
     cbw.dCBWTag = 999; // XXX
     cbw.dCBWDataTransferLength = bytes;
-    cbw.bmCBWFlags = cdb_is_read(cbw.CBWCB, blocksize) ? USB_DIR_IN : USB_DIR_OUT;
+    cbw.bmCBWFlags = scsi_is_read(op) ? USB_DIR_IN : USB_DIR_OUT;
     cbw.bCBWLUN = GET_GLOBALFLAT(udrive_gf->lun);
     cbw.bCBWCBLength = USB_CDB_SIZE;
 

@@ -240,7 +240,7 @@ pvscsi_process_op(struct disk_op_s *op)
     req->cdbLen = 16;
     req->vcpuHint = 0;
     req->tag = SIMPLE_QUEUE_TAG;
-    req->flags = cdb_is_read(req->cdb, blocksize) ?
+    req->flags = scsi_is_read(op) ?
         PVSCSI_FLAG_CMD_DIR_TOHOST : PVSCSI_FLAG_CMD_DIR_TODEVICE;
     req->dataLen = op->count * blocksize;
     req->dataAddr = (u32)op->buf_fl;

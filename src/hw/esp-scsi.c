@@ -122,8 +122,7 @@ esp_scsi_process_op(struct disk_op_s *op)
             if (op->count && blocksize) {
                 /* Data phase.  */
                 u32 count = (u32)op->count * blocksize;
-                esp_scsi_dma(iobase, (u32)op->buf_fl, count,
-                             cdb_is_read(cdbcmd, blocksize));
+                esp_scsi_dma(iobase, (u32)op->buf_fl, count, scsi_is_read(op));
                 outb(ESP_CMD_TI | ESP_CMD_DMA, iobase + ESP_CMD);
                 continue;
             }
