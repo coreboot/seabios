@@ -153,7 +153,7 @@ cdrom_boot(struct drive_s *drive)
     dop.lba = 0x11;
     dop.count = 1;
     dop.buf_fl = buffer;
-    ret = scsi_process_op(&dop);
+    ret = process_op(&dop);
     if (ret)
         return 3;
 
@@ -169,7 +169,7 @@ cdrom_boot(struct drive_s *drive)
     // And we read the Boot Catalog
     dop.lba = lba;
     dop.count = 1;
-    ret = scsi_process_op(&dop);
+    ret = process_op(&dop);
     if (ret)
         return 7;
 
@@ -218,7 +218,7 @@ cdrom_boot(struct drive_s *drive)
         if (count > 64*1024/CDROM_SECTOR_SIZE)
             count = 64*1024/CDROM_SECTOR_SIZE;
         dop.count = count;
-        ret = scsi_process_op(&dop);
+        ret = process_op(&dop);
         if (ret)
             return 12;
         nbsectors -= count;

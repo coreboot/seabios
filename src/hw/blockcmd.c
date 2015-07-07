@@ -80,9 +80,12 @@ cdb_get_inquiry(struct disk_op_s *op, struct cdbres_inquiry *data)
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_INQUIRY;
     cmd.length = sizeof(*data);
+    op->command = CMD_SCSI;
     op->count = 1;
     op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
+    op->cdbcmd = &cmd;
+    op->blocksize = sizeof(*data);
+    return process_op(op);
 }
 
 // Request SENSE
@@ -93,9 +96,12 @@ cdb_get_sense(struct disk_op_s *op, struct cdbres_request_sense *data)
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_REQUEST_SENSE;
     cmd.length = sizeof(*data);
+    op->command = CMD_SCSI;
     op->count = 1;
     op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
+    op->cdbcmd = &cmd;
+    op->blocksize = sizeof(*data);
+    return process_op(op);
 }
 
 // Test unit ready
@@ -105,9 +111,12 @@ cdb_test_unit_ready(struct disk_op_s *op)
     struct cdb_request_sense cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_TEST_UNIT_READY;
+    op->command = CMD_SCSI;
     op->count = 0;
     op->buf_fl = NULL;
-    return cdb_cmd_data(op, &cmd, 0);
+    op->cdbcmd = &cmd;
+    op->blocksize = 0;
+    return process_op(op);
 }
 
 // Request capacity
@@ -117,9 +126,12 @@ cdb_read_capacity(struct disk_op_s *op, struct cdbres_read_capacity *data)
     struct cdb_read_capacity cmd;
     memset(&cmd, 0, sizeof(cmd));
     cmd.command = CDB_CMD_READ_CAPACITY;
+    op->command = CMD_SCSI;
     op->count = 1;
     op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
+    op->cdbcmd = &cmd;
+    op->blocksize = sizeof(*data);
+    return process_op(op);
 }
 
 // Mode sense, geometry page.
@@ -132,9 +144,12 @@ cdb_mode_sense_geom(struct disk_op_s *op, struct cdbres_mode_sense_geom *data)
     cmd.flags = 8; /* DBD */
     cmd.page = MODE_PAGE_HD_GEOMETRY;
     cmd.count = cpu_to_be16(sizeof(*data));
+    op->command = CMD_SCSI;
     op->count = 1;
     op->buf_fl = data;
-    return cdb_cmd_data(op, &cmd, sizeof(*data));
+    op->cdbcmd = &cmd;
+    op->blocksize = sizeof(*data);
+    return process_op(op);
 }
 
 // Read sectors.
@@ -174,6 +189,8 @@ scsi_process_op(struct disk_op_s *op)
         return cdb_read(op);
     case CMD_WRITE:
         return cdb_write(op);
+    case CMD_SCSI:
+        return cdb_cmd_data(op, op->cdbcmd, op->blocksize);
     default:
         return default_process_op(op);
     }
