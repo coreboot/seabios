@@ -421,6 +421,9 @@ coreboot_cbfs_init(void)
         return;
 
     struct cbfs_header *hdr = *(void **)(CONFIG_CBFS_LOCATION - 4);
+    if (CONFIG_CBFS_LOCATION && (u32)hdr > CONFIG_CBFS_LOCATION)
+        // Looks like the pointer is relative to CONFIG_CBFS_LOCATION
+        hdr = (void*)hdr + CONFIG_CBFS_LOCATION;
     if (hdr->magic != cpu_to_be32(CBFS_HEADER_MAGIC)) {
         dprintf(1, "Unable to find CBFS (ptr=%p; got %x not %x)\n"
                 , hdr, hdr->magic, cpu_to_be32(CBFS_HEADER_MAGIC));
