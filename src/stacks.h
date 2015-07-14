@@ -28,7 +28,7 @@ extern struct thread_info MainThread;
 struct thread_info *getCurThread(void);
 void yield(void);
 void yield_toirq(void);
-void thread_init(void);
+void thread_setup(void);
 int threads_during_optionroms(void);
 void run_thread(void (*func)(void*), void *data);
 void wait_threads(void);

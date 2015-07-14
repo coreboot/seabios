@@ -558,12 +558,13 @@ getCurThread(void)
     return (void*)ALIGN_DOWN(esp, THREADSTACKSIZE);
 }
 
-static int ThreadControl;
+static u8 CanInterrupt, ThreadControl;
 
 // Initialize the support for internal threads.
 void
-thread_init(void)
+thread_setup(void)
 {
+    CanInterrupt = 1;
     if (! CONFIG_THREADS)
         return;
     ThreadControl = romfile_loadint("etc/threads", 1);
@@ -673,11 +674,12 @@ void
 yield(void)
 {
     if (MODESEGMENT || !CONFIG_THREADS) {
-        check_irqs();
+        if (MODESEGMENT || CanInterrupt)
+            check_irqs();
         return;
     }
     struct thread_info *cur = getCurThread();
-    if (cur == &MainThread)
+    if (cur == &MainThread && CanInterrupt)
         // Permit irqs to fire
         check_irqs();
 
@@ -705,7 +707,8 @@ yield_toirq(void)
         yield();
         return;
     }
-    wait_irq();
+    if (MODESEGMENT || CanInterrupt)
+        wait_irq();
 }
 
 // Wait for all threads (other than the main thread) to complete.
