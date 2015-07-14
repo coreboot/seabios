@@ -74,10 +74,8 @@ get_translation(struct drive_s *drive)
     u8 type = drive->type;
     if (CONFIG_QEMU && type == DTYPE_ATA) {
         // Emulators pass in the translation info via nvram.
-        u8 ataid = drive->cntl_id;
-        u8 channel = ataid / 2;
-        u8 translation = rtc_read(CMOS_BIOS_DISKTRANSFLAG + channel/2);
-        translation >>= 2 * (ataid % 4);
+        u8 translation = rtc_read(CMOS_BIOS_DISKTRANSFLAG + drive->cntl_id/4);
+        translation >>= 2 * (drive->cntl_id % 4);
         translation &= 0x03;
         return translation;
     }

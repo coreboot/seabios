@@ -11,6 +11,7 @@ struct ata_channel_s {
     u16 iomaster;
     u8  irq;
     u8  chanid;
+    u8  ataid;
     int pci_bdf;
     struct pci_device *pci_tmp;
 };
