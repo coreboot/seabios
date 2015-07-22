@@ -168,12 +168,14 @@ platform_hardware_setup(void)
     pic_setup();
     thread_setup();
     mathcp_setup();
-    timer_setup();
-    clock_setup();
 
     // Platform specific setup
     qemu_platform_setup();
     coreboot_platform_setup();
+
+    // Setup timers and periodic clock interrupt
+    timer_setup();
+    clock_setup();
 
     // Initialize TPM
     tpm_setup();
