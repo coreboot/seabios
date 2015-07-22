@@ -242,8 +242,8 @@ __ps2_command(int aux, int command, u8 *param)
     if (ret)
         goto fail;
 
-    if (command == ATKBD_CMD_RESET_BAT) {
-        // Reset is special wrt timeouts and bytes received.
+    if ((u8)command == (u8)ATKBD_CMD_RESET_BAT) {
+        // Reset is special wrt timeouts.
 
         // Send command.
         ret = ps2_sendbyte(aux, command, 1000);
@@ -255,11 +255,12 @@ __ps2_command(int aux, int command, u8 *param)
         if (ret < 0)
             goto fail;
         param[0] = ret;
-        ret = ps2_recvbyte(aux, 0, 100);
-        if (ret < 0)
-            // Some devices only respond with one byte on reset.
-            ret = 0;
-        param[1] = ret;
+        if (receive > 1) {
+            ret = ps2_recvbyte(aux, 0, 500);
+            if (ret < 0)
+                goto fail;
+            param[1] = ret;
+        }
     } else if (command == ATKBD_CMD_GETID) {
         // Getid is special wrt bytes received.
 

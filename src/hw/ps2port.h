@@ -26,7 +26,7 @@
 #define ATKBD_CMD_GETID         0x02f2
 #define ATKBD_CMD_ENABLE        0x00f4
 #define ATKBD_CMD_RESET_DIS     0x00f5
-#define ATKBD_CMD_RESET_BAT     0x02ff
+#define ATKBD_CMD_RESET_BAT     0x01ff
 
 // Mouse commands
 #define PSMOUSE_CMD_SETSCALE11  0x00e6
