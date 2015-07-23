@@ -316,10 +316,16 @@ menu "Hardware support"
         help
             Initialize the Memory Type Range Registers (on emulators).
     config PMTIMER
-        bool "Use ACPI timer"
+        bool "Support ACPI timer"
         default y
         help
-            Use the ACPI timer instead of the TSC for timekeeping (on qemu).
+            Detect and use the ACPI timer for timekeeping.
+    config TSC_TIMER
+        bool "Support CPU timestamp counter as timer"
+        default y
+        help
+            Support for using the CPU timestamp counter as an internal
+            timing source.
 endmenu
 
 menu "BIOS interfaces"
