@@ -53,7 +53,7 @@ ramdisk_setup(void)
     if (!drive)
         return;
     drive->type = DTYPE_RAMDISK;
-    dprintf(1, "Mapping CBFS floppy %s to addr %p\n", filename, pos);
+    dprintf(1, "Mapping floppy %s to addr %p\n", filename, pos);
     char *desc = znprintf(MAXDESCSIZE, "Ramdisk [%s]", &filename[10]);
     boot_add_floppy(drive, desc, bootprio_find_named_rom(filename, 0));
 }

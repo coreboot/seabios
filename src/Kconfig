@@ -96,12 +96,6 @@ endchoice
             the CBFS filesystem is at a non-standard location (eg,
             0xffe00000 if CBFS ends 2Meg below the end of flash).
 
-    config FLASH_FLOPPY
-        depends on COREBOOT_FLASH
-        bool "Floppy images in CBFS"
-        default y
-        help
-            Support floppy images in coreboot flash.
     config MULTIBOOT
         depends on COREBOOT
         bool "multiboot support"
@@ -220,6 +214,13 @@ menu "Hardware support"
         default y
         help
             Support floppy drive access.
+    config FLASH_FLOPPY
+        depends on DRIVES
+        bool "Floppy images from CBFS or fw_cfg"
+        default y
+        help
+            Support floppy images stored in coreboot flash or from
+            QEMU fw_cfg.
 
     config PS2PORT
         depends on KEYBOARD || MOUSE
