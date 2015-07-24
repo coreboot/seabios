@@ -17,9 +17,6 @@
 #include "util.h" // cdrom_prepboot
 #include "tcgbios.h" // tpm_*
 
-// Locks for removable devices
-u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;
-
 
 /****************************************************************
  * CD emulation

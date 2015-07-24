@@ -407,6 +407,9 @@ disk_1344(struct bregs *regs, struct drive_s *drive_gf)
     extended_access(regs, drive_gf, CMD_VERIFY);
 }
 
+// Locks for removable devices
+u8 CDRom_locks[BUILD_MAX_EXTDRIVE] VARLOW;
+
 // lock
 static void
 disk_134500(struct bregs *regs, struct drive_s *drive_gf)

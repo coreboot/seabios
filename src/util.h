@@ -43,7 +43,6 @@ void enable_bootsplash(void);
 void disable_bootsplash(void);
 
 // cdrom.c
-extern u8 CDRom_locks[];
 extern struct eltorito_s CDEmu;
 extern struct drive_s *cdemu_drive_gf;
 struct disk_op_s;
