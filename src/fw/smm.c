@@ -184,7 +184,7 @@ static void piix4_apmc_smm_setup(int isabdf, int i440_bdf)
 
     /* enable SMI generation */
     value = inl(acpi_pm_base + PIIX_PMIO_GLBCTL);
-    outl(acpi_pm_base + PIIX_PMIO_GLBCTL, value | PIIX_PMIO_GLBCTL_SMI_EN);
+    outl(value | PIIX_PMIO_GLBCTL_SMI_EN, acpi_pm_base + PIIX_PMIO_GLBCTL);
 
     smm_relocate_and_restore();
 
