@@ -288,10 +288,12 @@ map_floppy_drive(struct drive_s *drive)
  ****************************************************************/
 
 static int
-fill_generic_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf
+fill_generic_edd(struct segoff_s edd, struct drive_s *drive_gf
                  , u32 dpte_so, char *iface_type
                  , int bdf, u8 channel, u16 iobase, u64 device_path)
 {
+    u16 seg = edd.seg;
+    struct int13dpt_s *param_far = (void*)(edd.offset+0);
     u16 size = GET_FARVAR(seg, param_far->size);
     u16 t13 = size == 74;
 
@@ -394,7 +396,7 @@ fill_generic_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf
 struct dpte_s DefaultDPTE VARLOW;
 
 static int
-fill_ata_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
+fill_ata_edd(struct segoff_s edd, struct drive_s *drive_gf)
 {
     if (!CONFIG_ATA)
         return DISK_RET_EPARAM;
@@ -446,24 +448,24 @@ fill_ata_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
     SET_LOW(DefaultDPTE.checksum, -sum);
 
     return fill_generic_edd(
-        seg, param_far, drive_gf, SEGOFF(SEG_LOW, (u32)&DefaultDPTE).segoff
+        edd, drive_gf, SEGOFF(SEG_LOW, (u32)&DefaultDPTE).segoff
         , "ATA     ", bdf, channel, iobase1, slave);
 }
 
 int noinline
-fill_edd(u16 seg, struct int13dpt_s *param_far, struct drive_s *drive_gf)
+fill_edd(struct segoff_s edd, struct drive_s *drive_gf)
 {
     switch (GET_GLOBALFLAT(drive_gf->type)) {
     case DTYPE_ATA:
     case DTYPE_ATA_ATAPI:
-        return fill_ata_edd(seg, param_far, drive_gf);
+        return fill_ata_edd(edd, drive_gf);
     case DTYPE_VIRTIO_BLK:
     case DTYPE_VIRTIO_SCSI:
         return fill_generic_edd(
-            seg, param_far, drive_gf, 0xffffffff
+            edd, drive_gf, 0xffffffff
             , "SCSI    ", GET_GLOBALFLAT(drive_gf->cntl_id), 0, 0, 0);
     default:
-        return fill_generic_edd(seg, param_far, drive_gf, 0, NULL, 0, 0, 0, 0);
+        return fill_generic_edd(edd, drive_gf, 0, NULL, 0, 0, 0, 0);
     }
 }
 

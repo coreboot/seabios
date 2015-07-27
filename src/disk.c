@@ -522,7 +522,7 @@ disk_1347(struct bregs *regs, struct drive_s *drive_gf)
 static void
 disk_1348(struct bregs *regs, struct drive_s *drive_gf)
 {
-    int ret = fill_edd(regs->ds, (void*)(regs->si+0), drive_gf);
+    int ret = fill_edd(SEGOFF(regs->ds, regs->si), drive_gf);
     disk_ret(regs, ret);
 }
 
