@@ -73,8 +73,9 @@ struct sdhci_s {
 #define SI_READ_READY   (1<<5)
 
 // SDHCI present_state flags
-#define SP_CMD_INHIBIT (1<<0)
-#define SP_DAT_INHIBIT (1<<1)
+#define SP_CMD_INHIBIT   (1<<0)
+#define SP_DAT_INHIBIT   (1<<1)
+#define SP_CARD_INSERTED (1<<16)
 
 // SDHCI transfer_mode flags
 #define ST_BLOCKCOUNT (1<<1)
@@ -268,6 +269,10 @@ sdcard_controller_setup(void *data)
     // Initialize controller
     if (!runningOnQEMU())
         // XXX - this init logic will probably only work on qemu!
+        return;
+    u32 present_state = readl(&regs->present_state);
+    if (!(present_state & SP_CARD_INSERTED))
+        // No card present
         return;
     writew(&regs->irq_signal, 0);
     writew(&regs->irq_enable, 0xffff);
