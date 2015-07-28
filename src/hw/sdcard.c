@@ -321,6 +321,7 @@ sdcard_controller_setup(void *data)
     writew(&regs->irq_signal, 0);
     writew(&regs->irq_enable, 0xffff);
     writew(&regs->error_signal, 0);
+    writeb(&regs->timeout_control, 0x0e); // Set to max timeout
     writeb(&regs->power_control, 0);
     writeb(&regs->power_control, SPC_V33 | SPC_POWER_ON);
     int ret = sdcard_set_frequency(regs, 400);
