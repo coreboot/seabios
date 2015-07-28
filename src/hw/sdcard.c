@@ -43,7 +43,7 @@ struct sdhci_s {
     u16 error_signal;
     u16 auto_cmd12;
     u8 pad_3E[2];
-    u64 cap;
+    u32 cap_lo, cap_hi;
     u64 max_current;
     u16 force_auto_cmd12;
     u16 force_error;
@@ -82,6 +82,16 @@ struct sdhci_s {
 #define ST_AUTO_CMD12 (1<<2)
 #define ST_READ       (1<<4)
 #define ST_MULTIPLE   (1<<5)
+
+// SDHCI capabilities flags
+#define SD_CAPLO_BASECLOCK_SHIFT 8
+#define SD_CAPLO_BASECLOCK_MASK  0x3f
+
+// SDHCI clock control flags
+#define SCC_INTERNAL_ENABLE (1<<0)
+#define SCC_STABLE          (1<<1)
+#define SCC_CLOCK_ENABLE    (1<<2)
+#define SCC_SDCLK_SHIFT     8
 
 // SDHCI result flags
 #define SR_OCR_CCS (1<<30)
@@ -255,6 +265,31 @@ sdcard_card_setup(struct sdhci_s *regs)
     return card_type;
 }
 
+static int
+sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
+{
+    u32 cap = readl(&regs->cap_lo);
+    u32 base_freq = (cap >> SD_CAPLO_BASECLOCK_SHIFT) & SD_CAPLO_BASECLOCK_MASK;
+    if (!base_freq) {
+        dprintf(1, "Unknown base frequency for SD controller\n");
+        return -1;
+    }
+    // Set new frequency
+    u32 divisor = DIV_ROUND_UP(base_freq * 1000, khz);
+    divisor = divisor > 1 ? 1 << __ffs(divisor-1) : 0;
+    u16 creg = (divisor << SCC_SDCLK_SHIFT) | SCC_INTERNAL_ENABLE;
+    writew(&regs->clock_control, 0);
+    writew(&regs->clock_control, creg);
+    // Wait for frequency to become active
+    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
+    int ret = waitw((u16*)&regs->clock_control, SCC_STABLE, SCC_STABLE, end);
+    if (ret)
+        return ret;
+    // Enable SD clock
+    writew(&regs->clock_control, creg | SCC_CLOCK_ENABLE);
+    return 0;
+}
+
 // Setup and configure an SD card controller
 static void
 sdcard_controller_setup(void *data)
@@ -278,11 +313,16 @@ sdcard_controller_setup(void *data)
     writew(&regs->irq_enable, 0xffff);
     writew(&regs->error_signal, 0);
     writeb(&regs->power_control, 0x0f);
-    writew(&regs->clock_control, 0x0005);
+    int ret = sdcard_set_frequency(regs, 400);
+    if (ret)
+        return;
 
     // Initialize card
     int card_type = sdcard_card_setup(regs);
     if (card_type < 0)
+        return;
+    ret = sdcard_set_frequency(regs, 25000);
+    if (ret)
         return;
 
     // Register drive
