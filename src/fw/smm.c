@@ -64,11 +64,11 @@ handle_smi(u16 cs)
         return;
     u8 cmd = inb(PORT_SMI_CMD);
     struct smm_layout *smm = MAKE_FLATPTR(cs, 0);
+    u32 rev = smm->cpu.i32.smm_rev & SMM_REV_MASK;
     dprintf(DEBUG_HDL_smi, "handle_smi cmd=%x smbase=%p\n", cmd, smm);
 
     if (smm == (void*)BUILD_SMM_INIT_ADDR) {
         // relocate SMBASE to 0xa0000
-        u32 rev = smm->cpu.i32.smm_rev & SMM_REV_MASK;
         if (rev == SMM_REV_I32) {
             smm->cpu.i32.smm_base = BUILD_SMM_ADDR;
         } else if (rev == SMM_REV_I64) {
@@ -92,7 +92,7 @@ handle_smi(u16 cs)
     }
 
     if (CONFIG_CALL32_SMM && cmd == CALL32SMM_CMDID) {
-        if (smm->cpu.i32.smm_rev == SMM_REV_I32) {
+        if (rev == SMM_REV_I32) {
             u32 regs[8];
             memcpy(regs, &smm->cpu.i32.eax, sizeof(regs));
             if (smm->cpu.i32.ecx == CALL32SMM_ENTERID) {
@@ -107,7 +107,7 @@ handle_smi(u16 cs)
                 memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
                 smm->cpu.i32.eip = regs[3];
             }
-        } else if (smm->cpu.i64.smm_rev == SMM_REV_I64) {
+        } else if (rev == SMM_REV_I64) {
             u64 regs[8];
             memcpy(regs, &smm->cpu.i64.rdi, sizeof(regs));
             if ((u32)smm->cpu.i64.rcx == CALL32SMM_ENTERID) {
