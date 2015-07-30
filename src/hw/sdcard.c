@@ -56,9 +56,11 @@ struct sdhci_s {
 } PACKED;
 
 // SDHCI commands
+#define SC_GO_IDLE_STATE        ((0<<8) | 0x20)
 #define SC_ALL_SEND_CID         ((2<<8) | 0x21)
 #define SC_SEND_RELATIVE_ADDR   ((3<<8) | 0x22)
 #define SC_SELECT_DESELECT_CARD ((7<<8) | 0x23)
+#define SC_SEND_IF_COND         ((8<<8) | 0x22)
 #define SC_READ_SINGLE          ((17<<8) | 0x22)
 #define SC_READ_MULTIPLE        ((18<<8) | 0x22)
 #define SC_WRITE_SINGLE         ((24<<8) | 0x22)
@@ -99,9 +101,11 @@ struct sdhci_s {
 #define SPC_V33      0x0e
 
 // SDHCI result flags
-#define SR_OCR_CCS (1<<30)
+#define SR_OCR_CCS     (1<<30)
+#define SR_OCR_NOTBUSY (1<<31)
 
 // SDHCI timeouts
+#define SDHCI_POWERUP_TIMEOUT  1000
 #define SDHCI_PIO_TIMEOUT      1000  // XXX - these are just made up
 #define SDHCI_TRANSFER_TIMEOUT 10000
 
@@ -151,6 +155,8 @@ sdcard_pio(struct sdhci_s *regs, int cmd, u32 *param)
     writew(&regs->irq_status, SI_CMD_COMPLETE);
     // Read response
     memcpy(param, regs->response, sizeof(regs->response));
+    dprintf(9, "sdcard cmd %x response %x %x %x %x\n"
+            , cmd, param[0], param[1], param[2], param[3]);
     return 0;
 }
 
@@ -249,16 +255,46 @@ static int
 sdcard_card_setup(struct sdhci_s *regs)
 {
     // XXX - works on QEMU; probably wont on real hardware!
-    u32 param[4] = { 0x01 };
-    int ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
+
+    // Reset card
+    u32 param[4] = { };
+    int ret = sdcard_pio_app(regs, SC_GO_IDLE_STATE, param);
     if (ret)
         return ret;
+    // Let card know SDHC/SDXC is supported and confirm voltage
+    param[0] = 0x1aa;
+    ret = sdcard_pio_app(regs, SC_SEND_IF_COND, param);
+    if (ret)
+        return ret;
+    u32 hcs = 0;
+    if (param[0] == 0x1aa)
+        hcs = 0x40000000;
+    // Verify SD card (instead of MMC or SDIO)
+    param[0] = 0x00;
+    ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
+    if (ret)
+        return ret;
+    // Init card
+    u32 end = timer_calc(SDHCI_POWERUP_TIMEOUT);
+    for (;;) {
+        param[0] = hcs | (1<<20); // SDHC support and voltage level
+        ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
+        if (ret)
+            return ret;
+        if (param[0] & SR_OCR_NOTBUSY)
+            break;
+        if (timer_check(end)) {
+            warn_timeout();
+            return -1;
+        }
+    }
     int card_type = (param[0] & SR_OCR_CCS) ? SF_SDHC : SF_SDSC;
     param[0] = 0x00;
+    // Select card
     ret = sdcard_pio(regs, SC_ALL_SEND_CID, param);
     if (ret)
         return ret;
-    param[0] = 0x01 << 16;
+    param[0] = 0x00;
     ret = sdcard_pio(regs, SC_SEND_RELATIVE_ADDR, param);
     if (ret)
         return ret;
