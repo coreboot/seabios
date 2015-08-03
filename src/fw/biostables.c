@@ -54,6 +54,11 @@ copy_mptable(void *pos)
         return;
     u32 length = p->length * 16;
     u16 mpclength = ((struct mptable_config_s *)p->physaddr)->length;
+    if (length + mpclength > BUILD_MAX_MPTABLE_FSEG) {
+        dprintf(1, "Skipping MPTABLE copy due to large size (%d bytes)\n"
+                , length + mpclength);
+        return;
+    }
     // Allocate final memory location.  (In theory the config
     // structure can go in high memory, but Linux kernels before
     // v2.6.30 crash with that.)
