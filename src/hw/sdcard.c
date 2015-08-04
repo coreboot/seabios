@@ -105,6 +105,9 @@ struct sdhci_s {
 #define SR_OCR_NOTBUSY (1<<31)
 
 // SDHCI timeouts
+#define SDHCI_POWER_OFF_TIME   1
+#define SDHCI_POWER_ON_TIME    1
+#define SDHCI_CLOCK_ON_TIME    1 // 74 clock cycles
 #define SDHCI_POWERUP_TIMEOUT  1000
 #define SDHCI_PIO_TIMEOUT      1000  // XXX - these are just made up
 #define SDHCI_TRANSFER_TIMEOUT 10000
@@ -359,10 +362,13 @@ sdcard_controller_setup(void *data)
     writew(&regs->error_signal, 0);
     writeb(&regs->timeout_control, 0x0e); // Set to max timeout
     writeb(&regs->power_control, 0);
+    msleep(SDHCI_POWER_OFF_TIME);
     writeb(&regs->power_control, SPC_V33 | SPC_POWER_ON);
+    msleep(SDHCI_POWER_ON_TIME);
     int ret = sdcard_set_frequency(regs, 400);
     if (ret)
         return;
+    msleep(SDHCI_CLOCK_ON_TIME);
 
     // Initialize card
     int card_type = sdcard_card_setup(regs);
