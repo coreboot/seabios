@@ -84,6 +84,7 @@ struct sdhci_s {
 #define ST_MULTIPLE   (1<<5)
 
 // SDHCI capabilities flags
+#define SD_CAPLO_V33             (1<<24)
 #define SD_CAPLO_BASECLOCK_SHIFT 8
 #define SD_CAPLO_BASECLOCK_MASK  0x3f
 
@@ -92,6 +93,10 @@ struct sdhci_s {
 #define SCC_STABLE          (1<<1)
 #define SCC_CLOCK_ENABLE    (1<<2)
 #define SCC_SDCLK_SHIFT     8
+
+// SDHCI power control flags
+#define SPC_POWER_ON (1<<0)
+#define SPC_V33      0x0e
 
 // SDHCI result flags
 #define SR_OCR_CCS (1<<30)
@@ -274,6 +279,10 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
         dprintf(1, "Unknown base frequency for SD controller\n");
         return -1;
     }
+    if (!(cap & SD_CAPLO_V33)) {
+        dprintf(1, "SD controller does not support 3.3V power\n");
+        return -1;
+    }
     // Set new frequency
     u32 divisor = DIV_ROUND_UP(base_freq * 1000, khz);
     divisor = divisor > 1 ? 1 << __ffs(divisor-1) : 0;
@@ -312,7 +321,8 @@ sdcard_controller_setup(void *data)
     writew(&regs->irq_signal, 0);
     writew(&regs->irq_enable, 0xffff);
     writew(&regs->error_signal, 0);
-    writeb(&regs->power_control, 0x0f);
+    writeb(&regs->power_control, 0);
+    writeb(&regs->power_control, SPC_V33 | SPC_POWER_ON);
     int ret = sdcard_set_frequency(regs, 400);
     if (ret)
         return;
