@@ -661,9 +661,11 @@ fail:
 void VISIBLE16
 check_irqs(void)
 {
-    if (!MODESEGMENT && !CanInterrupt)
+    if (!MODESEGMENT && !CanInterrupt) {
         // Can't enable interrupts (PIC and/or IVT not yet setup)
+        cpu_relax();
         return;
+    }
     if (need_hop_back()) {
         extern void _cfunc16_check_irqs(void);
         stack_hop_back(0, 0, _cfunc16_check_irqs);
