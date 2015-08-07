@@ -661,6 +661,9 @@ fail:
 void VISIBLE16
 check_irqs(void)
 {
+    if (!MODESEGMENT && !CanInterrupt)
+        // Can't enable interrupts (PIC and/or IVT not yet setup)
+        return;
     if (need_hop_back()) {
         extern void _cfunc16_check_irqs(void);
         stack_hop_back(0, 0, _cfunc16_check_irqs);
@@ -674,12 +677,11 @@ void
 yield(void)
 {
     if (MODESEGMENT || !CONFIG_THREADS) {
-        if (MODESEGMENT || CanInterrupt)
-            check_irqs();
+        check_irqs();
         return;
     }
     struct thread_info *cur = getCurThread();
-    if (cur == &MainThread && CanInterrupt)
+    if (cur == &MainThread)
         // Permit irqs to fire
         check_irqs();
 
@@ -702,13 +704,12 @@ wait_irq(void)
 void
 yield_toirq(void)
 {
-    if (!MODESEGMENT && have_threads()) {
-        // Threads still active - do a yield instead.
+    if (!MODESEGMENT && (have_threads() || !CanInterrupt)) {
+        // Threads still active or irqs not available - do a yield instead.
         yield();
         return;
     }
-    if (MODESEGMENT || CanInterrupt)
-        wait_irq();
+    wait_irq();
 }
 
 // Wait for all threads (other than the main thread) to complete.
