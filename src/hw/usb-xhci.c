@@ -465,7 +465,7 @@ configure_xhci(void *data)
     xhci->evts->cs = 1;
 
     reg = readl(&xhci->caps->hcsparams2);
-    u32 spb = reg >> 27;
+    u32 spb = (reg >> 21 & 0x1f) << 5 | reg >> 27;
     if (spb) {
         dprintf(3, "%s: setup %d scratch pad buffers\n", __func__, spb);
         u64 *spba = memalign_high(64, sizeof(*spba) * spb);
