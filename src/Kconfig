@@ -209,7 +209,7 @@ menu "Hardware support"
         help
             Support boot from LSI MegaRAID SAS scsi storage.
     config FLOPPY
-        depends on DRIVES
+        depends on DRIVES && HARDWARE_IRQ
         bool "Floppy controller"
         default y
         help
@@ -301,6 +301,7 @@ menu "Hardware support"
             Support parallel ports. This also enables int 17 parallel port calls.
     config RTC_TIMER
         bool "Real Time Clock (RTC) scheduling"
+        depends on HARDWARE_IRQ
         default y
         help
             Support MC146818 Real Time Clock chip timer
@@ -308,6 +309,16 @@ menu "Hardware support"
 
             Disabling this support does not disable access to the RTC
             cmos registers.
+
+    config HARDWARE_IRQ
+        bool "Hardware interrupts"
+        default y
+        help
+            Program and support hardware interrupts using the i8259
+            programmable interrupt controller (PIC).  This option must
+            be enabled in order to support most boot loaders.  Only
+            disable this option if running on peculiar hardware known
+            not to support irq routing.
 
     config USE_SMM
         depends on QEMU

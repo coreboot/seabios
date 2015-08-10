@@ -242,6 +242,8 @@ ticks_from_ms(u32 ms)
 void
 pit_setup(void)
 {
+    if (!CONFIG_HARDWARE_IRQ)
+        return;
     // timer0: binary count, 16bit count, mode 2
     outb(PM_SEL_TIMER0|PM_ACCESS_WORD|PM_MODE2|PM_CNT_BINARY, PORT_PIT_MODE);
     // maximum count of 0000H = 18.2Hz

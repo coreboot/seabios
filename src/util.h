@@ -53,6 +53,7 @@ int cdrom_boot(struct drive_s *drive_g);
 // clock.c
 void clock_setup(void);
 void handle_1583(struct bregs *regs);
+void clock_poll_irq(void);
 u32 irqtimer_calc_ticks(u32 count);
 u32 irqtimer_calc(u32 msecs);
 int irqtimer_check(u32 end);

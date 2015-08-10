@@ -671,6 +671,8 @@ check_irqs(void)
         stack_hop_back(0, 0, _cfunc16_check_irqs);
         return;
     }
+    if (MODE16)
+        clock_poll_irq();
     asm volatile("sti ; nop ; rep ; nop ; cli ; cld" : : :"memory");
 }
 
@@ -706,7 +708,8 @@ wait_irq(void)
 void
 yield_toirq(void)
 {
-    if (!MODESEGMENT && (have_threads() || !CanInterrupt)) {
+    if (!CONFIG_HARDWARE_IRQ
+        || (!MODESEGMENT && (have_threads() || !CanInterrupt))) {
         // Threads still active or irqs not available - do a yield instead.
         yield();
         return;
