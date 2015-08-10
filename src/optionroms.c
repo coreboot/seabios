@@ -183,19 +183,6 @@ deploy_romfile(struct romfile_s *file)
     return rom;
 }
 
-// Check if an option rom is at a hardcoded location or in CBFS.
-static struct rom_header *
-lookup_hardcode(struct pci_device *pci)
-{
-    char fname[17];
-    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
-             , pci->vendor, pci->device);
-    struct romfile_s *file = romfile_find(fname);
-    if (file)
-        return deploy_romfile(file);
-    return NULL;
-}
-
 // Run all roms in a given CBFS directory.
 static void
 run_file_roms(const char *prefix, int isvga, u64 *sources)
@@ -324,21 +311,28 @@ fail:
 }
 
 // Attempt to map and initialize the option rom on a given PCI device.
-static int
+static void
 init_pcirom(struct pci_device *pci, int isvga, u64 *sources)
 {
     u16 bdf = pci->bdf;
     dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (vd %04x:%04x)\n"
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
             , pci->vendor, pci->device);
-    struct rom_header *rom = lookup_hardcode(pci);
-    if (!rom && ((RunPCIroms > 1) || ((RunPCIroms == 1) && isvga)))
+
+    char fname[17];
+    snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
+             , pci->vendor, pci->device);
+    struct romfile_s *file = romfile_find(fname);
+    struct rom_header *rom = NULL;
+    if (file)
+        rom = deploy_romfile(file);
+    else if (RunPCIroms > 1 || (RunPCIroms == 1 && isvga))
         rom = map_pcirom(pci);
     if (! rom)
         // No ROM present.
-        return -1;
+        return;
     setRomSource(sources, rom, RS_PCIROM | (u32)pci);
-    return init_optionrom(rom, bdf, isvga);
+    init_optionrom(rom, bdf, isvga);
 }
 
 
