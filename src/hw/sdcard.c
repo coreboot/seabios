@@ -5,7 +5,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "block.h" // struct drive_s
-#include "fw/paravirt.h" // runningOnQEMU
 #include "malloc.h" // malloc_fseg
 #include "output.h" // znprintf
 #include "pci.h" // pci_config_readl
@@ -297,8 +296,6 @@ sdcard_process_op(struct disk_op_s *op)
 static int
 sdcard_card_setup(struct sdhci_s *regs, int volt)
 {
-    // XXX - works on QEMU; probably wont on real hardware!
-
     // Reset card
     u32 param[4] = { };
     int ret = sdcard_pio(regs, SC_GO_IDLE_STATE, param);
@@ -429,9 +426,6 @@ sdcard_controller_setup(void *data)
                      PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
 
     // Initialize controller
-    if (!runningOnQEMU())
-        // XXX - this init logic will probably only work on qemu!
-        return;
     u32 present_state = readl(&regs->present_state);
     if (!(present_state & SP_CARD_INSERTED))
         // No card present

@@ -161,7 +161,7 @@ menu "Hardware support"
         help
             Support for AHCI disk code.
     config SDCARD
-        depends on DRIVES && QEMU_HARDWARE
+        depends on DRIVES
         bool "SD controllers"
         default y
         help
