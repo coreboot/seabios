@@ -10,6 +10,7 @@
 #include "pci.h" // pci_config_readl
 #include "pci_ids.h" // PCI_CLASS_SYSTEM_SDHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "romfile.h" // romfile_findprefix
 #include "stacks.h" // wait_preempt
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
@@ -416,15 +417,8 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
 
 // Setup and configure an SD card controller
 static void
-sdcard_controller_setup(void *data)
+sdcard_controller_setup(struct sdhci_s *regs, int prio)
 {
-    struct pci_device *pci = data;
-    u16 bdf = pci->bdf;
-    wait_preempt();  // Avoid pci_config_readl when preempting
-    struct sdhci_s *regs = (void*)pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
-    pci_config_maskw(bdf, PCI_COMMAND, 0,
-                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
-
     // Initialize controller
     u32 present_state = readl(&regs->present_state);
     if (!(present_state & SP_CARD_INSERTED))
@@ -470,14 +464,36 @@ sdcard_controller_setup(void *data)
     drive->regs = regs;
     drive->card_type = card_type;
 
-    dprintf(1, "Found SD Card at %02x:%02x.%x\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
+    dprintf(1, "Found SD Card at %p\n", regs);
     char *desc = znprintf(MAXDESCSIZE, "SD Card"); // XXX
-    boot_add_hd(&drive->drive, desc, bootprio_find_pci_device(pci));
+    boot_add_hd(&drive->drive, desc, prio);
     return;
 fail:
     writeb(&regs->power_control, 0);
     writew(&regs->clock_control, 0);
+}
+
+static void
+sdcard_pci_setup(void *data)
+{
+    struct pci_device *pci = data;
+    wait_preempt();  // Avoid pci_config_readl when preempting
+    // XXX - bars dependent on slot index register in pci config space
+    u32 regs = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0);
+    pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
+                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+    int prio = bootprio_find_pci_device(pci);
+    sdcard_controller_setup((void*)regs, prio);
+}
+
+static void
+sdcard_romfile_setup(void *data)
+{
+    struct romfile_s *file = data;
+    int prio = bootprio_find_named_rom(file->name, 0);
+    u32 addr = romfile_loadint(file->name, 0);
+    dprintf(1, "Starting sdcard controller check at addr %x\n", addr);
+    sdcard_controller_setup((void*)addr, prio);
 }
 
 void
@@ -486,11 +502,19 @@ sdcard_setup(void)
     if (!CONFIG_SDCARD)
         return;
 
+    struct romfile_s *file = NULL;
+    for (;;) {
+        file = romfile_findprefix("etc/sdcard", file);
+        if (!file)
+            break;
+        run_thread(sdcard_romfile_setup, file);
+    }
+
     struct pci_device *pci;
     foreachpci(pci) {
         if (pci->class != PCI_CLASS_SYSTEM_SDHCI || pci->prog_if >= 2)
             // Not an SDHCI controller following SDHCI spec
             continue;
-        run_thread(sdcard_controller_setup, pci);
+        run_thread(sdcard_pci_setup, pci);
     }
 }
