@@ -261,12 +261,12 @@ sdcard_card_setup(struct sdhci_s *regs)
 
     // Reset card
     u32 param[4] = { };
-    int ret = sdcard_pio_app(regs, SC_GO_IDLE_STATE, param);
+    int ret = sdcard_pio(regs, SC_GO_IDLE_STATE, param);
     if (ret)
         return ret;
     // Let card know SDHC/SDXC is supported and confirm voltage
     param[0] = 0x1aa;
-    ret = sdcard_pio_app(regs, SC_SEND_IF_COND, param);
+    ret = sdcard_pio(regs, SC_SEND_IF_COND, param);
     if (ret)
         return ret;
     u32 hcs = 0;
