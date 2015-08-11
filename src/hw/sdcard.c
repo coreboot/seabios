@@ -93,6 +93,8 @@ struct sdhci_s {
 
 // SDHCI capabilities flags
 #define SD_CAPLO_V33             (1<<24)
+#define SD_CAPLO_V30             (1<<25)
+#define SD_CAPLO_V18             (1<<26)
 #define SD_CAPLO_BASECLOCK_SHIFT 8
 #define SD_CAPLO_BASECLOCK_MASK  0xff
 
@@ -107,6 +109,8 @@ struct sdhci_s {
 
 // SDHCI power control flags
 #define SPC_POWER_ON (1<<0)
+#define SPC_V18      0x0a
+#define SPC_V30      0x0c
 #define SPC_V33      0x0e
 
 // SDHCI result flags
@@ -323,15 +327,25 @@ static int
 sdcard_set_power(struct sdhci_s *regs)
 {
     u32 cap = readl(&regs->cap_lo);
-    if (!(cap & SD_CAPLO_V33)) {
-        dprintf(1, "SD controller does not support 3.3V power\n");
+    u32 volt, vbits;
+    if (cap & SD_CAPLO_V33) {
+        volt = 1<<20;
+        vbits = SPC_V33;
+    } else if (cap & SD_CAPLO_V30) {
+        volt = 1<<18;
+        vbits = SPC_V30;
+    } else if (cap & SD_CAPLO_V18) {
+        volt = 1<<7;
+        vbits = SPC_V18;
+    } else {
+        dprintf(1, "SD controller unsupported volt range (%x)\n", cap);
         return -1;
     }
     writeb(&regs->power_control, 0);
     msleep(SDHCI_POWER_OFF_TIME);
-    writeb(&regs->power_control, SPC_V33 | SPC_POWER_ON);
+    writeb(&regs->power_control, vbits | SPC_POWER_ON);
     msleep(SDHCI_POWER_ON_TIME);
-    return 1<<20;
+    return volt;
 }
 
 static int
