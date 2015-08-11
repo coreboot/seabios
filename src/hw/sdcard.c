@@ -63,6 +63,7 @@ struct sdhci_s {
 #define SCB_R48o 0x02 // Response R3, R4
 #define SCB_R136 0x09 // Response R2
 #define SC_GO_IDLE_STATE        ((0<<8) | SCB_R0)
+#define SC_SEND_OP_COND         ((1<<8) | SCB_R48o)
 #define SC_ALL_SEND_CID         ((2<<8) | SCB_R136)
 #define SC_SEND_RELATIVE_ADDR   ((3<<8) | SCB_R48)
 #define SC_SELECT_DESELECT_CARD ((7<<8) | SCB_R48b)
@@ -138,9 +139,8 @@ struct sddrive_s {
 };
 
 // SD card types
-#define SF_MMC  0
-#define SF_SDSC 1
-#define SF_SDHC 2
+#define SF_SC 1
+#define SF_HC 2
 
 // Repeatedly read a u16 register until any bit in a given mask is set
 static int
@@ -228,7 +228,7 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
     u16 tmode = ((count > 1 ? ST_MULTIPLE|ST_AUTO_CMD12|ST_BLOCKCOUNT : 0)
                  | (isread ? ST_READ : 0));
     writew(&drive->regs->transfer_mode, tmode);
-    if (drive->card_type < SF_SDHC)
+    if (drive->card_type < SF_HC)
         addr *= DISK_SECTOR_SIZE;
     u32 param[4] = { addr };
     int ret = sdcard_pio(drive->regs, cmd, param);
@@ -305,24 +305,32 @@ sdcard_card_setup(struct sdhci_s *regs, int volt)
     if (ret)
         return ret;
     // Let card know SDHC/SDXC is supported and confirm voltage
+    u32 isMMC = 0, hcs = 0;
     u32 vrange = (volt >= (1<<15) ? 0x100 : 0x200) | 0xaa;
     param[0] = vrange;
     ret = sdcard_pio(regs, SC_SEND_IF_COND, param);
-    if (ret)
-        return ret;
-    u32 hcs = 0;
-    if (param[0] == vrange)
-        hcs = 0x40000000;
+    if (!ret && param[0] == vrange)
+        hcs = (1<<30);
     // Verify SD card (instead of MMC or SDIO)
     param[0] = 0x00;
     ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
-    if (ret)
-        return ret;
+    if (ret) {
+        // Check for MMC card
+        param[0] = 0x00;
+        ret = sdcard_pio(regs, SC_SEND_OP_COND, param);
+        if (ret)
+            return ret;
+        isMMC = 1;
+        hcs = (1<<30);
+    }
     // Init card
     u32 end = timer_calc(SDHCI_POWERUP_TIMEOUT);
     for (;;) {
-        param[0] = hcs | volt; // SDHC support and voltage level
-        ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
+        param[0] = hcs | volt; // high-capacity support and voltage level
+        if (isMMC)
+            ret = sdcard_pio(regs, SC_SEND_OP_COND, param);
+        else
+            ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
         if (ret)
             return ret;
         if (param[0] & SR_OCR_NOTBUSY)
@@ -331,18 +339,19 @@ sdcard_card_setup(struct sdhci_s *regs, int volt)
             warn_timeout();
             return -1;
         }
+        msleep(5); // Avoid flooding log when debugging
     }
-    int card_type = (param[0] & SR_OCR_CCS) ? SF_SDHC : SF_SDSC;
-    param[0] = 0x00;
+    int card_type = (param[0] & SR_OCR_CCS) ? SF_HC : SF_SC;
     // Select card
+    param[0] = 0x00;
     ret = sdcard_pio(regs, SC_ALL_SEND_CID, param);
     if (ret)
         return ret;
-    param[0] = 0x00;
+    param[0] = isMMC ? 0x0001 << 16 : 0x00;
     ret = sdcard_pio(regs, SC_SEND_RELATIVE_ADDR, param);
     if (ret)
         return ret;
-    u16 rca = param[0] >> 16;
+    u16 rca = isMMC ? 0x0001 : param[0] >> 16;
     param[0] = rca << 16;
     ret = sdcard_pio(regs, SC_SELECT_DESELECT_CARD, param);
     if (ret)
