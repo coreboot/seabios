@@ -136,14 +136,15 @@ struct sddrive_s {
 #define SF_SDSC 1
 #define SF_SDHC 2
 
-// Repeatedly read a u16 register until the specific value is found
+// Repeatedly read a u16 register until any bit in a given mask is set
 static int
-waitw(u16 *reg, u16 mask, u16 value, u32 end)
+sdcard_waitw(u16 *reg, u16 mask)
 {
+    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
     for (;;) {
         u16 v = readw(reg);
-        if ((v & mask) == value)
-            return 0;
+        if (v & mask)
+            return v;
         if (timer_check(end)) {
             warn_timeout();
             return -1;
@@ -166,9 +167,8 @@ sdcard_pio(struct sdhci_s *regs, int cmd, u32 *param)
     // Send command
     writel(&regs->arg, *param);
     writew(&regs->cmd, cmd);
-    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
-    int ret = waitw(&regs->irq_status, SI_CMD_COMPLETE, SI_CMD_COMPLETE, end);
-    if (ret)
+    int ret = sdcard_waitw(&regs->irq_status, SI_CMD_COMPLETE);
+    if (ret < 0)
         return ret;
     writew(&regs->irq_status, SI_CMD_COMPLETE);
     // Read response
@@ -210,9 +210,8 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
     // Read/write data
     u16 cbit = isread ? SI_READ_READY : SI_WRITE_READY;
     while (count--) {
-        u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
-        ret = waitw(&drive->regs->irq_status, cbit, cbit, end);
-        if (ret)
+        ret = sdcard_waitw(&drive->regs->irq_status, cbit);
+        if (ret < 0)
             return ret;
         writew(&drive->regs->irq_status, cbit);
         int i;
@@ -225,9 +224,8 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
         }
     }
     // Complete command
-    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
-    ret = waitw(&drive->regs->irq_status, SI_TRANS_DONE, SI_TRANS_DONE, end);
-    if (ret)
+    ret = sdcard_waitw(&drive->regs->irq_status, SI_TRANS_DONE);
+    if (ret < 0)
         return ret;
     writew(&drive->regs->irq_status, SI_TRANS_DONE);
     return 0;
@@ -375,9 +373,8 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
     writew(&regs->clock_control, 0);
     writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE);
     // Wait for frequency to become active
-    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
-    int ret = waitw(&regs->clock_control, SCC_STABLE, SCC_STABLE, end);
-    if (ret)
+    int ret = sdcard_waitw(&regs->clock_control, SCC_STABLE);
+    if (ret < 0)
         return ret;
     // Enable SD clock
     writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE | SCC_CLOCK_ENABLE);
