@@ -56,17 +56,23 @@ struct sdhci_s {
 } PACKED;
 
 // SDHCI commands
-#define SC_GO_IDLE_STATE        ((0<<8) | 0x20)
-#define SC_ALL_SEND_CID         ((2<<8) | 0x21)
-#define SC_SEND_RELATIVE_ADDR   ((3<<8) | 0x22)
-#define SC_SELECT_DESELECT_CARD ((7<<8) | 0x23)
-#define SC_SEND_IF_COND         ((8<<8) | 0x22)
-#define SC_READ_SINGLE          ((17<<8) | 0x22)
-#define SC_READ_MULTIPLE        ((18<<8) | 0x22)
-#define SC_WRITE_SINGLE         ((24<<8) | 0x22)
-#define SC_WRITE_MULTIPLE       ((25<<8) | 0x22)
-#define SC_APP_CMD              ((55<<8) | 0x22)
-#define SC_APP_SEND_OP_COND ((41<<8) | 0x22)
+#define SCB_R0   0x00 // No response
+#define SCB_R48  0x1a // Response R1 (no data), R5, R6, R7
+#define SCB_R48d 0x3a // Response R1 (with data)
+#define SCB_R48b 0x1b // Response R1b, R5b
+#define SCB_R48o 0x02 // Response R3, R4
+#define SCB_R136 0x09 // Response R2
+#define SC_GO_IDLE_STATE        ((0<<8) | SCB_R0)
+#define SC_ALL_SEND_CID         ((2<<8) | SCB_R136)
+#define SC_SEND_RELATIVE_ADDR   ((3<<8) | SCB_R48)
+#define SC_SELECT_DESELECT_CARD ((7<<8) | SCB_R48b)
+#define SC_SEND_IF_COND         ((8<<8) | SCB_R48)
+#define SC_READ_SINGLE          ((17<<8) | SCB_R48d)
+#define SC_READ_MULTIPLE        ((18<<8) | SCB_R48d)
+#define SC_WRITE_SINGLE         ((24<<8) | SCB_R48d)
+#define SC_WRITE_MULTIPLE       ((25<<8) | SCB_R48d)
+#define SC_APP_CMD              ((55<<8) | SCB_R48)
+#define SC_APP_SEND_OP_COND ((41<<8) | SCB_R48o)
 
 // SDHCI irqs
 #define SI_CMD_COMPLETE (1<<0)
