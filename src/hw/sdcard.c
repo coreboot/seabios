@@ -413,22 +413,22 @@ sdcard_controller_setup(void *data)
         return;
     int ret = sdcard_set_frequency(regs, 400);
     if (ret)
-        return;
+        goto fail;
     msleep(SDHCI_CLOCK_ON_TIME);
 
     // Initialize card
     int card_type = sdcard_card_setup(regs, volt);
     if (card_type < 0)
-        return;
+        goto fail;
     ret = sdcard_set_frequency(regs, 25000);
     if (ret)
-        return;
+        goto fail;
 
     // Register drive
     struct sddrive_s *drive = malloc_fseg(sizeof(*drive));
     if (!drive) {
         warn_noalloc();
-        return;
+        goto fail;
     }
     memset(drive, 0, sizeof(*drive));
     drive->drive.type = DTYPE_SDCARD;
@@ -441,6 +441,10 @@ sdcard_controller_setup(void *data)
             , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
     char *desc = znprintf(MAXDESCSIZE, "SD Card"); // XXX
     boot_add_hd(&drive->drive, desc, bootprio_find_pci_device(pci));
+    return;
+fail:
+    writeb(&regs->power_control, 0);
+    writew(&regs->clock_control, 0);
 }
 
 void
