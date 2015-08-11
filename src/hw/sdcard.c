@@ -42,7 +42,7 @@ struct sdhci_s {
     u16 irq_signal;
     u16 error_signal;
     u16 auto_cmd12;
-    u8 pad_3E[2];
+    u16 host_control2;
     u32 cap_lo, cap_hi;
     u64 max_current;
     u16 force_auto_cmd12;
@@ -94,13 +94,16 @@ struct sdhci_s {
 // SDHCI capabilities flags
 #define SD_CAPLO_V33             (1<<24)
 #define SD_CAPLO_BASECLOCK_SHIFT 8
-#define SD_CAPLO_BASECLOCK_MASK  0x3f
+#define SD_CAPLO_BASECLOCK_MASK  0xff
 
 // SDHCI clock control flags
 #define SCC_INTERNAL_ENABLE (1<<0)
 #define SCC_STABLE          (1<<1)
 #define SCC_CLOCK_ENABLE    (1<<2)
+#define SCC_SDCLK_MASK      0xff
 #define SCC_SDCLK_SHIFT     8
+#define SCC_SDCLK_HI_MASK   0x300
+#define SCC_SDCLK_HI_RSHIFT 2
 
 // SDHCI power control flags
 #define SPC_POWER_ON (1<<0)
@@ -318,6 +321,7 @@ sdcard_card_setup(struct sdhci_s *regs)
 static int
 sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
 {
+    u16 ver = readw(&regs->controller_version);
     u32 cap = readl(&regs->cap_lo);
     u32 base_freq = (cap >> SD_CAPLO_BASECLOCK_SHIFT) & SD_CAPLO_BASECLOCK_MASK;
     if (!base_freq) {
@@ -330,17 +334,25 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
     }
     // Set new frequency
     u32 divisor = DIV_ROUND_UP(base_freq * 1000, khz);
-    divisor = divisor > 1 ? 1 << __ffs(divisor-1) : 0;
-    u16 creg = (divisor << SCC_SDCLK_SHIFT) | SCC_INTERNAL_ENABLE;
+    u16 creg;
+    if ((ver & 0xff) <= 0x01) {
+        divisor = divisor > 1 ? 1 << __fls(divisor-1) : 0;
+        creg = (divisor & SCC_SDCLK_MASK) << SCC_SDCLK_SHIFT;
+    } else {
+        divisor = DIV_ROUND_UP(divisor, 2);
+        creg = (divisor & SCC_SDCLK_MASK) << SCC_SDCLK_SHIFT;
+        creg |= (divisor & SCC_SDCLK_HI_MASK) >> SCC_SDCLK_HI_RSHIFT;
+    }
+    dprintf(3, "sdcard_set_frequency %d %d %x\n", base_freq, khz, creg);
     writew(&regs->clock_control, 0);
-    writew(&regs->clock_control, creg);
+    writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE);
     // Wait for frequency to become active
     u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
-    int ret = waitw((u16*)&regs->clock_control, SCC_STABLE, SCC_STABLE, end);
+    int ret = waitw(&regs->clock_control, SCC_STABLE, SCC_STABLE, end);
     if (ret)
         return ret;
     // Enable SD clock
-    writew(&regs->clock_control, creg | SCC_CLOCK_ENABLE);
+    writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE | SCC_CLOCK_ENABLE);
     return 0;
 }
 
@@ -363,6 +375,9 @@ sdcard_controller_setup(void *data)
     if (!(present_state & SP_CARD_INSERTED))
         // No card present
         return;
+    dprintf(3, "sdhci@%p ver=%x cap=%x %x\n", regs
+            , readw(&regs->controller_version)
+            , readl(&regs->cap_lo), readl(&regs->cap_hi));
     writew(&regs->irq_signal, 0);
     writew(&regs->irq_enable, 0xffff);
     writew(&regs->error_signal, 0);
