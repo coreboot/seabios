@@ -157,15 +157,18 @@ waitw(u16 *reg, u16 mask, u16 value, u32 end)
 static int
 sdcard_pio(struct sdhci_s *regs, int cmd, u32 *param)
 {
-    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
-    u16 busyf = SP_CMD_INHIBIT | ((cmd & 0x03) == 0x03 ? SP_DAT_INHIBIT : 0);
-    int ret = waitw((u16*)&regs->present_state, busyf, 0, end);
-    if (ret)
-        return ret;
+    u32 state = readl(&regs->present_state);
+    dprintf(9, "sdcard_pio cmd %x %x %x\n", cmd, *param, state);
+    if ((state & SP_CMD_INHIBIT)
+        || ((cmd & 0x03) == 0x03 && state & SP_DAT_INHIBIT)) {
+        dprintf(1, "sdcard_pio not ready %x\n", state);
+        return -1;
+    }
     // Send command
     writel(&regs->arg, *param);
     writew(&regs->cmd, cmd);
-    ret = waitw(&regs->irq_status, SI_CMD_COMPLETE, SI_CMD_COMPLETE, end);
+    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
+    int ret = waitw(&regs->irq_status, SI_CMD_COMPLETE, SI_CMD_COMPLETE, end);
     if (ret)
         return ret;
     writew(&regs->irq_status, SI_CMD_COMPLETE);
