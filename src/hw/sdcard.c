@@ -264,7 +264,7 @@ sdcard_process_op(struct disk_op_s *op)
 
 // Initialize an SD card
 static int
-sdcard_card_setup(struct sdhci_s *regs)
+sdcard_card_setup(struct sdhci_s *regs, int volt)
 {
     // XXX - works on QEMU; probably wont on real hardware!
 
@@ -274,12 +274,13 @@ sdcard_card_setup(struct sdhci_s *regs)
     if (ret)
         return ret;
     // Let card know SDHC/SDXC is supported and confirm voltage
-    param[0] = 0x1aa;
+    u32 vrange = (volt >= (1<<15) ? 0x100 : 0x200) | 0xaa;
+    param[0] = vrange;
     ret = sdcard_pio(regs, SC_SEND_IF_COND, param);
     if (ret)
         return ret;
     u32 hcs = 0;
-    if (param[0] == 0x1aa)
+    if (param[0] == vrange)
         hcs = 0x40000000;
     // Verify SD card (instead of MMC or SDIO)
     param[0] = 0x00;
@@ -289,7 +290,7 @@ sdcard_card_setup(struct sdhci_s *regs)
     // Init card
     u32 end = timer_calc(SDHCI_POWERUP_TIMEOUT);
     for (;;) {
-        param[0] = hcs | (1<<20); // SDHC support and voltage level
+        param[0] = hcs | volt; // SDHC support and voltage level
         ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
         if (ret)
             return ret;
@@ -319,6 +320,21 @@ sdcard_card_setup(struct sdhci_s *regs)
 }
 
 static int
+sdcard_set_power(struct sdhci_s *regs)
+{
+    u32 cap = readl(&regs->cap_lo);
+    if (!(cap & SD_CAPLO_V33)) {
+        dprintf(1, "SD controller does not support 3.3V power\n");
+        return -1;
+    }
+    writeb(&regs->power_control, 0);
+    msleep(SDHCI_POWER_OFF_TIME);
+    writeb(&regs->power_control, SPC_V33 | SPC_POWER_ON);
+    msleep(SDHCI_POWER_ON_TIME);
+    return 1<<20;
+}
+
+static int
 sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
 {
     u16 ver = readw(&regs->controller_version);
@@ -326,10 +342,6 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
     u32 base_freq = (cap >> SD_CAPLO_BASECLOCK_SHIFT) & SD_CAPLO_BASECLOCK_MASK;
     if (!base_freq) {
         dprintf(1, "Unknown base frequency for SD controller\n");
-        return -1;
-    }
-    if (!(cap & SD_CAPLO_V33)) {
-        dprintf(1, "SD controller does not support 3.3V power\n");
         return -1;
     }
     // Set new frequency
@@ -382,17 +394,16 @@ sdcard_controller_setup(void *data)
     writew(&regs->irq_enable, 0xffff);
     writew(&regs->error_signal, 0);
     writeb(&regs->timeout_control, 0x0e); // Set to max timeout
-    writeb(&regs->power_control, 0);
-    msleep(SDHCI_POWER_OFF_TIME);
-    writeb(&regs->power_control, SPC_V33 | SPC_POWER_ON);
-    msleep(SDHCI_POWER_ON_TIME);
+    int volt = sdcard_set_power(regs);
+    if (volt < 0)
+        return;
     int ret = sdcard_set_frequency(regs, 400);
     if (ret)
         return;
     msleep(SDHCI_CLOCK_ON_TIME);
 
     // Initialize card
-    int card_type = sdcard_card_setup(regs);
+    int card_type = sdcard_card_setup(regs, volt);
     if (card_type < 0)
         return;
     ret = sdcard_set_frequency(regs, 25000);
