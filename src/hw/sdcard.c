@@ -113,6 +113,11 @@ struct sdhci_s {
 #define SPC_V30      0x0c
 #define SPC_V33      0x0e
 
+// SDHCI software reset flags
+#define SRF_ALL  0x01
+#define SRF_CMD  0x02
+#define SRF_DATA 0x04
+
 // SDHCI result flags
 #define SR_OCR_CCS     (1<<30)
 #define SR_OCR_NOTBUSY (1<<31)
@@ -151,6 +156,20 @@ sdcard_waitw(u16 *reg, u16 mask)
         }
         yield();
     }
+}
+
+// Send an sdhci reset
+static int
+sdcard_reset(struct sdhci_s *regs, int flags)
+{
+    writeb(&regs->software_reset, flags);
+    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
+    while (readb(&regs->software_reset))
+        if (timer_check(end)) {
+            warn_timeout();
+            return -1;
+        }
+    return 0;
 }
 
 // Send a command to the card.
@@ -403,6 +422,7 @@ sdcard_controller_setup(void *data)
     dprintf(3, "sdhci@%p ver=%x cap=%x %x\n", regs
             , readw(&regs->controller_version)
             , readl(&regs->cap_lo), readl(&regs->cap_hi));
+    sdcard_reset(regs, SRF_ALL);
     writew(&regs->irq_signal, 0);
     writew(&regs->irq_enable, 0xffff);
     writew(&regs->error_signal, 0);
