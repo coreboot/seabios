@@ -122,8 +122,7 @@ struct sdhci_s {
 #define SDHCI_POWER_ON_TIME    1
 #define SDHCI_CLOCK_ON_TIME    1 // 74 clock cycles
 #define SDHCI_POWERUP_TIMEOUT  1000
-#define SDHCI_PIO_TIMEOUT      1000  // XXX - these are just made up
-#define SDHCI_TRANSFER_TIMEOUT 10000
+#define SDHCI_PIO_TIMEOUT      1000  // XXX - this is just made up
 
 // Internal 'struct drive_s' storage for a detected card
 struct sddrive_s {
@@ -197,7 +196,7 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
 {
     // Send command
     writel(&drive->regs->block_size, DISK_SECTOR_SIZE);
-    writew(&drive->regs->block_count, count); // XXX - SC_SET_BLOCK_COUNT?
+    writew(&drive->regs->block_count, count);
     int isread = cmd != SC_WRITE_SINGLE && cmd != SC_WRITE_MULTIPLE;
     u16 tmode = ((count > 1 ? ST_MULTIPLE|ST_AUTO_CMD12|ST_BLOCKCOUNT : 0)
                  | (isread ? ST_READ : 0));
@@ -209,9 +208,9 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
     if (ret)
         return ret;
     // Read/write data
-    u32 end = timer_calc(SDHCI_TRANSFER_TIMEOUT);
     u16 cbit = isread ? SI_READ_READY : SI_WRITE_READY;
     while (count--) {
+        u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
         ret = waitw(&drive->regs->irq_status, cbit, cbit, end);
         if (ret)
             return ret;
@@ -226,7 +225,7 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
         }
     }
     // Complete command
-    // XXX - SC_STOP_TRANSMISSION?
+    u32 end = timer_calc(SDHCI_PIO_TIMEOUT);
     ret = waitw(&drive->regs->irq_status, SI_TRANS_DONE, SI_TRANS_DONE, end);
     if (ret)
         return ret;
