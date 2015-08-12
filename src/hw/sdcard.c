@@ -79,6 +79,7 @@ struct sdhci_s {
 #define SI_TRANS_DONE   (1<<1)
 #define SI_WRITE_READY  (1<<4)
 #define SI_READ_READY   (1<<5)
+#define SI_ERROR        (1<<15)
 
 // SDHCI present_state flags
 #define SP_CMD_INHIBIT   (1<<0)
@@ -186,9 +187,16 @@ sdcard_pio(struct sdhci_s *regs, int cmd, u32 *param)
     // Send command
     writel(&regs->arg, *param);
     writew(&regs->cmd, cmd);
-    int ret = sdcard_waitw(&regs->irq_status, SI_CMD_COMPLETE);
+    int ret = sdcard_waitw(&regs->irq_status, SI_ERROR|SI_CMD_COMPLETE);
     if (ret < 0)
         return ret;
+    if (ret & SI_ERROR) {
+        u16 err = readw(&regs->error_irq_status);
+        dprintf(3, "sdcard_pio command stop (code=%x)\n", err);
+        sdcard_reset(regs, SRF_CMD|SRF_DATA);
+        writew(&regs->error_irq_status, err);
+        return -1;
+    }
     writew(&regs->irq_status, SI_CMD_COMPLETE);
     // Read response
     memcpy(param, regs->response, sizeof(regs->response));
@@ -424,8 +432,11 @@ sdcard_controller_setup(void *data)
             , readl(&regs->cap_lo), readl(&regs->cap_hi));
     sdcard_reset(regs, SRF_ALL);
     writew(&regs->irq_signal, 0);
-    writew(&regs->irq_enable, 0xffff);
+    writew(&regs->irq_enable, 0x01ff);
+    writew(&regs->irq_status, readw(&regs->irq_status));
     writew(&regs->error_signal, 0);
+    writew(&regs->error_irq_enable, 0x03ff);
+    writew(&regs->error_irq_status, readw(&regs->error_irq_status));
     writeb(&regs->timeout_control, 0x0e); // Set to max timeout
     int volt = sdcard_set_power(regs);
     if (volt < 0)
