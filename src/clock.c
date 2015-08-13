@@ -56,7 +56,8 @@ clock_setup(void)
     }
 
     enable_hwirq(0, FUNC16(entry_08));
-    enable_hwirq(8, FUNC16(entry_70));
+    if (CONFIG_RTC_TIMER)
+        enable_hwirq(8, FUNC16(entry_70));
 }
 
 
@@ -374,6 +375,10 @@ clear_usertimer(void)
 void
 handle_1586(struct bregs *regs)
 {
+    if (!CONFIG_RTC_TIMER) {
+        set_code_unimplemented(regs, RET_EUNSUPPORTED);
+        return;
+    }
     // Use the rtc to wait for the specified time.
     u8 statusflag = 0;
     u32 count = (regs->cx << 16) | regs->dx;
@@ -417,6 +422,10 @@ handle_1583XX(struct bregs *regs)
 void
 handle_1583(struct bregs *regs)
 {
+    if (!CONFIG_RTC_TIMER) {
+        handle_1583XX(regs);
+        return;
+    }
     switch (regs->al) {
     case 0x00: handle_158300(regs); break;
     case 0x01: handle_158301(regs); break;
@@ -430,6 +439,8 @@ handle_1583(struct bregs *regs)
 void VISIBLE16
 handle_70(void)
 {
+    if (!CONFIG_RTC_TIMER)
+        return;
     debug_isr(DEBUG_ISR_70);
 
     // Check which modes are enabled and have occurred.

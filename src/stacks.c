@@ -574,7 +574,7 @@ thread_setup(void)
 int
 threads_during_optionroms(void)
 {
-    return CONFIG_THREADS && ThreadControl == 2 && in_post();
+    return CONFIG_THREADS && CONFIG_RTC_TIMER && ThreadControl == 2 && in_post();
 }
 
 // Switch to next thread stack.

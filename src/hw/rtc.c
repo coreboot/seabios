@@ -62,6 +62,8 @@ rtc_updating(void)
 void
 rtc_setup(void)
 {
+    if (!CONFIG_RTC_TIMER)
+        return;
     rtc_write(CMOS_STATUS_A, 0x26);    // 32,768Khz src, 976.5625us updates
     rtc_mask(CMOS_STATUS_B, ~RTC_B_DSE, RTC_B_24HR);
     rtc_read(CMOS_STATUS_C);
@@ -73,6 +75,8 @@ int RTCusers VARLOW;
 void
 rtc_use(void)
 {
+    if (!CONFIG_RTC_TIMER)
+        return;
     int count = GET_LOW(RTCusers);
     SET_LOW(RTCusers, count+1);
     if (count)
@@ -84,6 +88,8 @@ rtc_use(void)
 void
 rtc_release(void)
 {
+    if (!CONFIG_RTC_TIMER)
+        return;
     int count = GET_LOW(RTCusers);
     SET_LOW(RTCusers, count-1);
     if (count != 1)

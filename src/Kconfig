@@ -299,6 +299,15 @@ menu "Hardware support"
         default y
         help
             Support parallel ports. This also enables int 17 parallel port calls.
+    config RTC_TIMER
+        bool "Real Time Clock (RTC) scheduling"
+        default y
+        help
+            Support MC146818 Real Time Clock chip timer
+            interrupts. This also enables int 1583 and int 1586 calls.
+
+            Disabling this support does not disable access to the RTC
+            cmos registers.
 
     config USE_SMM
         depends on QEMU
