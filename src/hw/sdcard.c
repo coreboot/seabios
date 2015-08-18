@@ -353,8 +353,9 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
 
 // Initialize an SD card
 static int
-sdcard_card_setup(struct sdhci_s *regs, int volt)
+sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
 {
+    struct sdhci_s *regs = drive->regs;
     // Set controller to initialization clock rate
     int ret = sdcard_set_frequency(regs, 400);
     if (ret)
@@ -402,7 +403,7 @@ sdcard_card_setup(struct sdhci_s *regs, int volt)
         }
         msleep(5); // Avoid flooding log when debugging
     }
-    int card_type = (param[0] & SR_OCR_CCS) ? SF_HC : SF_SC;
+    drive->card_type = (param[0] & SR_OCR_CCS) ? SF_HC : SF_SC;
     // Select card
     param[0] = 0x00;
     ret = sdcard_pio(regs, SC_ALL_SEND_CID, param);
@@ -421,7 +422,13 @@ sdcard_card_setup(struct sdhci_s *regs, int volt)
     ret = sdcard_set_frequency(regs, 25000);
     if (ret)
         return ret;
-    return card_type;
+    // Register drive
+    drive->drive.blksize = DISK_SECTOR_SIZE;
+    drive->drive.sectors = (u64)-1; // XXX
+    dprintf(1, "Found SD Card at %p\n", regs);
+    char *desc = znprintf(MAXDESCSIZE, "SD Card"); // XXX
+    boot_add_hd(&drive->drive, desc, prio);
+    return 0;
 }
 
 // Setup and configure an SD card controller
@@ -449,11 +456,6 @@ sdcard_controller_setup(struct sdhci_s *regs, int prio)
         return;
 
     // Initialize card
-    int card_type = sdcard_card_setup(regs, volt);
-    if (card_type < 0)
-        goto fail;
-
-    // Register drive
     struct sddrive_s *drive = malloc_fseg(sizeof(*drive));
     if (!drive) {
         warn_noalloc();
@@ -461,14 +463,12 @@ sdcard_controller_setup(struct sdhci_s *regs, int prio)
     }
     memset(drive, 0, sizeof(*drive));
     drive->drive.type = DTYPE_SDCARD;
-    drive->drive.blksize = DISK_SECTOR_SIZE;
-    drive->drive.sectors = (u64)-1; // XXX
     drive->regs = regs;
-    drive->card_type = card_type;
-
-    dprintf(1, "Found SD Card at %p\n", regs);
-    char *desc = znprintf(MAXDESCSIZE, "SD Card"); // XXX
-    boot_add_hd(&drive->drive, desc, prio);
+    int ret = sdcard_card_setup(drive, volt, prio);
+    if (ret) {
+        free(drive);
+        goto fail;
+    }
     return;
 fail:
     writeb(&regs->power_control, 0);
