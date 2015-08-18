@@ -293,6 +293,64 @@ sdcard_process_op(struct disk_op_s *op)
  * Setup
  ****************************************************************/
 
+static int
+sdcard_set_power(struct sdhci_s *regs)
+{
+    u32 cap = readl(&regs->cap_lo);
+    u32 volt, vbits;
+    if (cap & SD_CAPLO_V33) {
+        volt = 1<<20;
+        vbits = SPC_V33;
+    } else if (cap & SD_CAPLO_V30) {
+        volt = 1<<18;
+        vbits = SPC_V30;
+    } else if (cap & SD_CAPLO_V18) {
+        volt = 1<<7;
+        vbits = SPC_V18;
+    } else {
+        dprintf(1, "SD controller unsupported volt range (%x)\n", cap);
+        return -1;
+    }
+    writeb(&regs->power_control, 0);
+    msleep(SDHCI_POWER_OFF_TIME);
+    writeb(&regs->power_control, vbits | SPC_POWER_ON);
+    msleep(SDHCI_POWER_ON_TIME);
+    return volt;
+}
+
+static int
+sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
+{
+    u16 ver = readw(&regs->controller_version);
+    u32 cap = readl(&regs->cap_lo);
+    u32 base_freq = (cap >> SD_CAPLO_BASECLOCK_SHIFT) & SD_CAPLO_BASECLOCK_MASK;
+    if (!base_freq) {
+        dprintf(1, "Unknown base frequency for SD controller\n");
+        return -1;
+    }
+    // Set new frequency
+    u32 divisor = DIV_ROUND_UP(base_freq * 1000, khz);
+    u16 creg;
+    if ((ver & 0xff) <= 0x01) {
+        divisor = divisor > 1 ? 1 << __fls(divisor-1) : 0;
+        creg = (divisor & SCC_SDCLK_MASK) << SCC_SDCLK_SHIFT;
+    } else {
+        divisor = DIV_ROUND_UP(divisor, 2);
+        creg = (divisor & SCC_SDCLK_MASK) << SCC_SDCLK_SHIFT;
+        creg |= (divisor & SCC_SDCLK_HI_MASK) >> SCC_SDCLK_HI_RSHIFT;
+    }
+    dprintf(3, "sdcard_set_frequency %d %d %x\n", base_freq, khz, creg);
+    writew(&regs->clock_control, 0);
+    writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE);
+    // Wait for frequency to become active
+    int ret = sdcard_waitw(&regs->clock_control, SCC_STABLE);
+    if (ret < 0)
+        return ret;
+    // Enable SD clock
+    writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE | SCC_CLOCK_ENABLE);
+    return 0;
+}
+
 // Initialize an SD card
 static int
 sdcard_card_setup(struct sdhci_s *regs, int volt)
@@ -355,64 +413,6 @@ sdcard_card_setup(struct sdhci_s *regs, int volt)
     if (ret)
         return ret;
     return card_type;
-}
-
-static int
-sdcard_set_power(struct sdhci_s *regs)
-{
-    u32 cap = readl(&regs->cap_lo);
-    u32 volt, vbits;
-    if (cap & SD_CAPLO_V33) {
-        volt = 1<<20;
-        vbits = SPC_V33;
-    } else if (cap & SD_CAPLO_V30) {
-        volt = 1<<18;
-        vbits = SPC_V30;
-    } else if (cap & SD_CAPLO_V18) {
-        volt = 1<<7;
-        vbits = SPC_V18;
-    } else {
-        dprintf(1, "SD controller unsupported volt range (%x)\n", cap);
-        return -1;
-    }
-    writeb(&regs->power_control, 0);
-    msleep(SDHCI_POWER_OFF_TIME);
-    writeb(&regs->power_control, vbits | SPC_POWER_ON);
-    msleep(SDHCI_POWER_ON_TIME);
-    return volt;
-}
-
-static int
-sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
-{
-    u16 ver = readw(&regs->controller_version);
-    u32 cap = readl(&regs->cap_lo);
-    u32 base_freq = (cap >> SD_CAPLO_BASECLOCK_SHIFT) & SD_CAPLO_BASECLOCK_MASK;
-    if (!base_freq) {
-        dprintf(1, "Unknown base frequency for SD controller\n");
-        return -1;
-    }
-    // Set new frequency
-    u32 divisor = DIV_ROUND_UP(base_freq * 1000, khz);
-    u16 creg;
-    if ((ver & 0xff) <= 0x01) {
-        divisor = divisor > 1 ? 1 << __fls(divisor-1) : 0;
-        creg = (divisor & SCC_SDCLK_MASK) << SCC_SDCLK_SHIFT;
-    } else {
-        divisor = DIV_ROUND_UP(divisor, 2);
-        creg = (divisor & SCC_SDCLK_MASK) << SCC_SDCLK_SHIFT;
-        creg |= (divisor & SCC_SDCLK_HI_MASK) >> SCC_SDCLK_HI_RSHIFT;
-    }
-    dprintf(3, "sdcard_set_frequency %d %d %x\n", base_freq, khz, creg);
-    writew(&regs->clock_control, 0);
-    writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE);
-    // Wait for frequency to become active
-    int ret = sdcard_waitw(&regs->clock_control, SCC_STABLE);
-    if (ret < 0)
-        return ret;
-    // Enable SD clock
-    writew(&regs->clock_control, creg | SCC_INTERNAL_ENABLE | SCC_CLOCK_ENABLE);
-    return 0;
 }
 
 // Setup and configure an SD card controller
