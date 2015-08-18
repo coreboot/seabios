@@ -355,9 +355,14 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
 static int
 sdcard_card_setup(struct sdhci_s *regs, int volt)
 {
+    // Set controller to initialization clock rate
+    int ret = sdcard_set_frequency(regs, 400);
+    if (ret)
+        return ret;
+    msleep(SDHCI_CLOCK_ON_TIME);
     // Reset card
     u32 param[4] = { };
-    int ret = sdcard_pio(regs, SC_GO_IDLE_STATE, param);
+    ret = sdcard_pio(regs, SC_GO_IDLE_STATE, param);
     if (ret)
         return ret;
     // Let card know SDHC/SDXC is supported and confirm voltage
@@ -412,6 +417,10 @@ sdcard_card_setup(struct sdhci_s *regs, int volt)
     ret = sdcard_pio(regs, SC_SELECT_DESELECT_CARD, param);
     if (ret)
         return ret;
+    // Set controller to data transfer clock rate
+    ret = sdcard_set_frequency(regs, 25000);
+    if (ret)
+        return ret;
     return card_type;
 }
 
@@ -438,17 +447,10 @@ sdcard_controller_setup(struct sdhci_s *regs, int prio)
     int volt = sdcard_set_power(regs);
     if (volt < 0)
         return;
-    int ret = sdcard_set_frequency(regs, 400);
-    if (ret)
-        goto fail;
-    msleep(SDHCI_CLOCK_ON_TIME);
 
     // Initialize card
     int card_type = sdcard_card_setup(regs, volt);
     if (card_type < 0)
-        goto fail;
-    ret = sdcard_set_frequency(regs, 25000);
-    if (ret)
         goto fail;
 
     // Register drive
