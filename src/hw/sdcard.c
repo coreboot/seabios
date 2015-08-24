@@ -139,8 +139,8 @@ struct sddrive_s {
 };
 
 // SD card types
-#define SF_SC 1
-#define SF_HC 2
+#define SF_MMC          (1<<0)
+#define SF_HIGHCAPACITY (1<<1)
 
 // Repeatedly read a u16 register until any bit in a given mask is set
 static int
@@ -228,7 +228,7 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
     u16 tmode = ((count > 1 ? ST_MULTIPLE|ST_AUTO_CMD12|ST_BLOCKCOUNT : 0)
                  | (isread ? ST_READ : 0));
     writew(&drive->regs->transfer_mode, tmode);
-    if (drive->card_type < SF_HC)
+    if (!(drive->card_type & SF_HIGHCAPACITY))
         addr *= DISK_SECTOR_SIZE;
     u32 param[4] = { addr };
     int ret = sdcard_pio(drive->regs, cmd, param);
@@ -367,8 +367,7 @@ sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
     if (ret)
         return ret;
     // Let card know SDHC/SDXC is supported and confirm voltage
-    u32 isMMC = 0, hcs = 0;
-    u32 vrange = (volt >= (1<<15) ? 0x100 : 0x200) | 0xaa;
+    u32 hcs = 0, vrange = (volt >= (1<<15) ? 0x100 : 0x200) | 0xaa;
     param[0] = vrange;
     ret = sdcard_pio(regs, SC_SEND_IF_COND, param);
     if (!ret && param[0] == vrange)
@@ -382,14 +381,14 @@ sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
         ret = sdcard_pio(regs, SC_SEND_OP_COND, param);
         if (ret)
             return ret;
-        isMMC = 1;
+        drive->card_type |= SF_MMC;
         hcs = (1<<30);
     }
     // Init card
     u32 end = timer_calc(SDHCI_POWERUP_TIMEOUT);
     for (;;) {
         param[0] = hcs | volt; // high-capacity support and voltage level
-        if (isMMC)
+        if (drive->card_type & SF_MMC)
             ret = sdcard_pio(regs, SC_SEND_OP_COND, param);
         else
             ret = sdcard_pio_app(regs, SC_APP_SEND_OP_COND, param);
@@ -403,17 +402,17 @@ sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
         }
         msleep(5); // Avoid flooding log when debugging
     }
-    drive->card_type = (param[0] & SR_OCR_CCS) ? SF_HC : SF_SC;
+    drive->card_type |= (param[0] & SR_OCR_CCS) ? SF_HIGHCAPACITY : 0;
     // Select card
     param[0] = 0x00;
     ret = sdcard_pio(regs, SC_ALL_SEND_CID, param);
     if (ret)
         return ret;
-    param[0] = isMMC ? 0x0001 << 16 : 0x00;
+    param[0] = drive->card_type & SF_MMC ? 0x0001 << 16 : 0x00;
     ret = sdcard_pio(regs, SC_SEND_RELATIVE_ADDR, param);
     if (ret)
         return ret;
-    u16 rca = isMMC ? 0x0001 : param[0] >> 16;
+    u16 rca = drive->card_type & SF_MMC ? 0x0001 : param[0] >> 16;
     param[0] = rca << 16;
     ret = sdcard_pio(regs, SC_SELECT_DESELECT_CARD, param);
     if (ret)
