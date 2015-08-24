@@ -68,6 +68,8 @@ struct sdhci_s {
 #define SC_SEND_RELATIVE_ADDR   ((3<<8) | SCB_R48)
 #define SC_SELECT_DESELECT_CARD ((7<<8) | SCB_R48b)
 #define SC_SEND_IF_COND         ((8<<8) | SCB_R48)
+#define SC_SEND_EXT_CSD         ((8<<8) | SCB_R48d)
+#define SC_SEND_CSD             ((9<<8) | SCB_R136)
 #define SC_READ_SINGLE          ((17<<8) | SCB_R48d)
 #define SC_READ_MULTIPLE        ((18<<8) | SCB_R48d)
 #define SC_WRITE_SINGLE         ((24<<8) | SCB_R48d)
@@ -351,6 +353,35 @@ sdcard_set_frequency(struct sdhci_s *regs, u32 khz)
     return 0;
 }
 
+// Obtain the disk size of an SD card
+static int
+sdcard_get_capacity(struct sddrive_s *drive, u8 *csd)
+{
+    // Original MMC/SD card capacity formula
+    u16 C_SIZE = (csd[6] >> 6) | (csd[7] << 2) | ((csd[8] & 0x03) << 10);
+    u8 C_SIZE_MULT = (csd[4] >> 7) | ((csd[5] & 0x03) << 1);
+    u8 READ_BL_LEN = csd[9] & 0x0f;
+    u32 count = (C_SIZE+1) << (C_SIZE_MULT + 2 + READ_BL_LEN - 9);
+    // Check for newer encoding formats.
+    u8 CSD_STRUCTURE = csd[14] >> 6;
+    if ((drive->card_type & SF_MMC) && CSD_STRUCTURE >= 2) {
+        // Get capacity from EXT_CSD register
+        u8 ext_csd[512];
+        int ret = sdcard_pio_transfer(drive, SC_SEND_EXT_CSD, 0, ext_csd, 1);
+        if (ret)
+            return ret;
+        count = *(u32*)&ext_csd[212];
+    } else if (!(drive->card_type & SF_MMC) && CSD_STRUCTURE >= 1) {
+        // High capacity SD card
+        u32 C_SIZE2 = csd[5] | (csd[6] << 8) | ((csd[7] & 0x3f) << 16);
+        count = (C_SIZE2+1) << (19-9);
+    }
+    // Fill drive struct and return
+    drive->drive.blksize = DISK_SECTOR_SIZE;
+    drive->drive.sectors = count;
+    return 0;
+}
+
 // Initialize an SD card
 static int
 sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
@@ -403,7 +434,7 @@ sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
         msleep(5); // Avoid flooding log when debugging
     }
     drive->card_type |= (param[0] & SR_OCR_CCS) ? SF_HIGHCAPACITY : 0;
-    // Select card
+    // Select card (get cid, set rca, get csd, select card)
     param[0] = 0x00;
     ret = sdcard_pio(regs, SC_ALL_SEND_CID, param);
     if (ret)
@@ -416,6 +447,12 @@ sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
         return ret;
     u16 rca = drive->card_type & SF_MMC ? 0x0001 : param[0] >> 16;
     param[0] = rca << 16;
+    ret = sdcard_pio(regs, SC_SEND_CSD, param);
+    if (ret)
+        return ret;
+    u8 csd[16];
+    memcpy(csd, param, sizeof(csd));
+    param[0] = rca << 16;
     ret = sdcard_pio(regs, SC_SELECT_DESELECT_CARD, param);
     if (ret)
         return ret;
@@ -424,15 +461,16 @@ sdcard_card_setup(struct sddrive_s *drive, int volt, int prio)
     if (ret)
         return ret;
     // Register drive
-    drive->drive.blksize = DISK_SECTOR_SIZE;
-    drive->drive.sectors = (u64)-1; // XXX
+    ret = sdcard_get_capacity(drive, csd);
+    if (ret)
+        return ret;
     char pnm[7] = {};
     int i;
     for (i=0; i < (drive->card_type & SF_MMC ? 6 : 5); i++)
         pnm[i] = cid[11-i];
-    char *desc = znprintf(MAXDESCSIZE, "%s %s"
+    char *desc = znprintf(MAXDESCSIZE, "%s %s %dMiB"
                           , drive->card_type & SF_MMC ? "MMC drive" : "SD card"
-                          , pnm);
+                          , pnm, (u32)(drive->drive.sectors >> 11));
     dprintf(1, "Found sdcard at %p: %s\n", regs, desc);
     boot_add_hd(&drive->drive, desc, prio);
     return 0;
