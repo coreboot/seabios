@@ -354,9 +354,11 @@ xhci_hub_reset(struct usbhub_s *hub, u32 port)
 
     switch (xhci_get_field(portsc, XHCI_PORTSC_PLS)) {
     case PLS_U0:
+        // A USB3 port - no reset necessary.
         rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
         break;
     case PLS_POLLING:
+        // A USB2 port - perform device reset and wait for completion
         xhci_print_port_state(3, __func__, port, portsc);
         portsc |= XHCI_PORTSC_PR;
         writel(&xhci->pr[port].portsc, portsc);
