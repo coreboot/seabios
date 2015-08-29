@@ -301,9 +301,9 @@ static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
                 pci->device == PCI_DEVICE_ID_LSI_SAS2008 ||
                 pci->device == PCI_DEVICE_ID_LSI_SAS2208 ||
                 pci->device == PCI_DEVICE_ID_LSI_SAS3108) {
-                outl(ioaddr + MFI_DB, mfi_flags);
+                outl(mfi_flags, ioaddr + MFI_DB);
             } else {
-                outl(ioaddr + MFI_IDB, mfi_flags);
+                outl(mfi_flags, ioaddr + MFI_IDB);
             }
             break;
         case MFI_STATE_OPERATIONAL:
@@ -312,7 +312,7 @@ static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
                 pci->device == PCI_DEVICE_ID_LSI_SAS2008 ||
                 pci->device == PCI_DEVICE_ID_LSI_SAS2208 ||
                 pci->device == PCI_DEVICE_ID_LSI_SAS3108) {
-                outl(ioaddr + MFI_DB, mfi_flags);
+                outl(mfi_flags, ioaddr + MFI_DB);
                 if (pci->device == PCI_DEVICE_ID_LSI_SAS2208 ||
                     pci->device == PCI_DEVICE_ID_LSI_SAS3108) {
                     int j = 0;
@@ -327,7 +327,7 @@ static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
                     }
                 }
             } else {
-                outw(ioaddr + MFI_IDB, mfi_flags);
+                outw(mfi_flags, ioaddr + MFI_IDB);
             }
             break;
         case MFI_STATE_READY:
