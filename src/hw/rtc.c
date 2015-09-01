@@ -30,6 +30,7 @@ rtc_write(u8 index, u8 val)
 void
 rtc_mask(u8 index, u8 off, u8 on)
 {
+    index |= NMI_DISABLE_BIT;
     outb(index, PORT_CMOS_INDEX);
     u8 val = inb(PORT_CMOS_DATA);
     outb((val & ~off) | on, PORT_CMOS_DATA);
