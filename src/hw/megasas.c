@@ -327,7 +327,7 @@ static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
                     }
                 }
             } else {
-                outw(mfi_flags, ioaddr + MFI_IDB);
+                outl(mfi_flags, ioaddr + MFI_IDB);
             }
             break;
         case MFI_STATE_READY:
