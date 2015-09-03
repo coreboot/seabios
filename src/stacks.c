@@ -180,7 +180,7 @@ call32_sloppy_prep(void)
     inb(PORT_CMOS_DATA);
     SET_LOW(Call32Data.cmosindex, cmosindex);
 
-    // Enable a20 and backup it's previous state
+    // Enable a20 and backup its previous state
     SET_LOW(Call32Data.a20, set_a20(1));
 
     // Backup ss/fs/gs and gdt
