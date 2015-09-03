@@ -22,18 +22,13 @@
 // %edx = return location (in 32bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
-transition32_nmi_off:
-        // transition32 when NMI and A20 are already initialized
-        movl %eax, %ecx
-        jmp 1f
 transition32:
-        movl %eax, %ecx
-
         // Disable irqs (and clear direction flag)
         cli
         cld
 
         // Disable nmi
+        movl %eax, %ecx
         movl $CMOS_RESET_CODE|NMI_DISABLE_BIT, %eax
         outb %al, $PORT_CMOS_INDEX
         inb $PORT_CMOS_DATA, %al
@@ -42,29 +37,30 @@ transition32:
         inb $PORT_A20, %al
         orb $A20_ENABLE_BIT, %al
         outb %al, $PORT_A20
+        movl %ecx, %eax
 
+transition32_nmi_off:
         // Set segment descriptors
-1:      lidtw %cs:pmode_IDT_info
+        lidtw %cs:pmode_IDT_info
         lgdtw %cs:rombios32_gdt_48
 
         // Enable protected mode
-        movl %cr0, %eax
-        orl $CR0_PE, %eax
-        movl %eax, %cr0
+        movl %cr0, %ecx
+        orl $CR0_PE, %ecx
+        movl %ecx, %cr0
 
         // start 32bit protected mode code
-        ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 2f)
+        ljmpl $SEG32_MODE32_CS, $(BUILD_BIOS_ADDR + 1f)
 
         .code32
         // init data segments
-2:      movl $SEG32_MODE32_DS, %eax
-        movw %ax, %ds
-        movw %ax, %es
-        movw %ax, %ss
-        movw %ax, %fs
-        movw %ax, %gs
+1:      movl $SEG32_MODE32_DS, %ecx
+        movw %cx, %ds
+        movw %cx, %es
+        movw %cx, %ss
+        movw %cx, %fs
+        movw %cx, %gs
 
-        movl %ecx, %eax
         jmpl *%edx
         .code16
 
@@ -75,61 +71,56 @@ transition32:
         .global transition16big
         .code32
 transition16:
-        movl %eax, %ecx
-
-        // restore data segment limits to 0xffff
-        movl $SEG32_MODE16_DS, %eax
-        movw %ax, %ds
-        movw %ax, %es
-        movw %ax, %ss
-        movw %ax, %fs
-        movw %ax, %gs
-
 #if CONFIG_DISABLE_A20
         // disable a20
+        movl %eax, %ecx
         inb $PORT_A20, %al
         andb $~A20_ENABLE_BIT, %al
         outb %al, $PORT_A20
+        movl %ecx, %eax
 #endif
+
+        // Reset data segment limits
+        movl $SEG32_MODE16_DS, %ecx
+        movw %cx, %ds
+        movw %cx, %es
+        movw %cx, %ss
+        movw %cx, %fs
+        movw %cx, %gs
 
         // Jump to 16bit mode
         ljmpw $SEG32_MODE16_CS, $1f
 
 transition16big:
-        movl %eax, %ecx
-
-        movl $SEG32_MODE16BIG_DS, %eax
-        movw %ax, %ds
-        movw %ax, %es
-        movw %ax, %ss
-        movw %ax, %fs
-        movw %ax, %gs
+        movl $SEG32_MODE16BIG_DS, %ecx
+        movw %cx, %ds
+        movw %cx, %es
+        movw %cx, %ss
+        movw %cx, %fs
+        movw %cx, %gs
 
         ljmpw $SEG32_MODE16BIG_CS, $1f
 
         .code16
-1:
         // Disable protected mode
-        movl %cr0, %eax
-        andl $~CR0_PE, %eax
-        movl %eax, %cr0
+1:      movl %cr0, %ecx
+        andl $~CR0_PE, %ecx
+        movl %ecx, %cr0
 
         // far jump to flush CPU queue after transition to real mode
         ljmpw $SEG_BIOS, $2f
 
-2:
         // restore IDT to normal real-mode defaults
-        lidtw %cs:rmode_IDT_info
+2:      lidtw %cs:rmode_IDT_info
 
         // Clear segment registers
-        xorw %ax, %ax
-        movw %ax, %fs
-        movw %ax, %gs
-        movw %ax, %es
-        movw %ax, %ds
-        movw %ax, %ss  // Assume stack is in segment 0
+        xorw %cx, %cx
+        movw %cx, %fs
+        movw %cx, %gs
+        movw %cx, %es
+        movw %cx, %ds
+        movw %cx, %ss  // Assume stack is in segment 0
 
-        movl %ecx, %eax
         jmpl *%edx
 
 
