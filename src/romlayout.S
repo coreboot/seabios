@@ -71,15 +71,6 @@ transition32_nmi_off:
         .global transition16big
         .code32
 transition16:
-#if CONFIG_DISABLE_A20
-        // disable a20
-        movl %eax, %ecx
-        inb $PORT_A20, %al
-        andb $~A20_ENABLE_BIT, %al
-        outb %al, $PORT_A20
-        movl %ecx, %eax
-#endif
-
         // Reset data segment limits
         movl $SEG32_MODE16_DS, %ecx
         movw %cx, %ds

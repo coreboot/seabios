@@ -13,6 +13,7 @@
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint
 #include "stacks.h" // struct mutex_s
+#include "string.h" // memset
 #include "util.h" // useRTC
 
 #define MAIN_STACK_MAX (1024*1024)
@@ -30,8 +31,8 @@ struct {
     struct descloc_s gdt;
 } Call16Data VARLOW;
 
-#define C16_SLOPPY 1
-#define C16_SMM    2
+#define C16_BIG 1
+#define C16_SMM 2
 
 int HaveSmmCall32 VARFSEG;
 
@@ -91,7 +92,7 @@ call32_post(void)
     return method;
 }
 
-// 16bit handler code called from call16_sloppy() / call16_smm()
+// 16bit handler code called from call16_back() / call16_smm()
 u32 VISIBLE16
 call16_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
 {
@@ -202,7 +203,7 @@ static u32
 call32_sloppy(void *func, u32 eax)
 {
     ASSERT16();
-    call32_prep(C16_SLOPPY);
+    call32_prep(C16_BIG);
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
@@ -232,37 +233,45 @@ call32_sloppy(void *func, u32 eax)
     return eax;
 }
 
-// Jump back to 16bit mode while in 32bit mode from call32_sloppy()
+// Call a 16bit SeaBIOS function, restoring the mode from last call32().
 static u32
-call16_sloppy(u32 eax, u32 edx, void *func)
+call16_back(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
     if (getesp() > MAIN_STACK_MAX)
-        panic("call16_sloppy with invalid stack\n");
+        panic("call16_back with invalid stack\n");
+    if (CONFIG_CALL32_SMM && Call16Data.method == C16_SMM)
+        return call16_smm(eax, edx, func);
+
+    extern void transition16big(void);
+    extern void transition16(void);
+    void *thunk = transition16;
+    if (Call16Data.method == C16_BIG || in_post())
+        thunk = transition16big;
     func -= BUILD_BIOS_ADDR;
     u32 stackseg = Call16Data.ss;
     asm volatile(
         // Transition to 16bit mode
         "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
-        "  jmp transition16big\n"
+        "  jmp *%%ecx\n"
         // Setup ss/esp and call func
         ASM32_SWITCH16
-        "1:movl %3, %%ecx\n"
-        "  shll $4, %3\n"
+        "1:movl %2, %%ecx\n"
+        "  shll $4, %2\n"
         "  movw %%cx, %%ss\n"
-        "  subl %3, %%esp\n"
+        "  subl %2, %%esp\n"
         "  movw %%cx, %%ds\n"
-        "  movl %2, %%edx\n"
-        "  movl %1, %%ecx\n"
+        "  movl %4, %%edx\n"
+        "  movl %3, %%ecx\n"
         "  calll _cfunc16_call16_helper\n"
         // Return to 32bit and restore esp
         "  movl $2f, %%edx\n"
         "  jmp transition32\n"
         ASM32_BACK32
-        "2:addl %3, %%esp\n"
-        : "+a" (eax)
-        : "r" (func), "r" (edx), "r" (stackseg)
-        : "edx", "ecx", "cc", "memory");
+        "2:addl %2, %%esp\n"
+        : "+a" (eax), "+c"(thunk), "+r"(stackseg)
+        : "r" (func), "r" (edx)
+        : "edx", "cc", "memory");
     return eax;
 }
 
@@ -280,31 +289,16 @@ call32(void *func, u32 eax, u32 errret)
     return call32_sloppy(func, eax);
 }
 
-// Call a 16bit SeaBIOS function from a 32bit SeaBIOS function.
+// Call a 16bit SeaBIOS function in regular ("non-big") mode.
 static u32
 call16(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
     if (getesp() > BUILD_STACK_ADDR)
         panic("call16 with invalid stack\n");
-    func -= BUILD_BIOS_ADDR;
-    asm volatile(
-        // Transition to 16bit mode
-        "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
-        "  jmp transition16\n"
-        // Call func
-        ASM32_SWITCH16
-        "1:movl %2, %%edx\n"
-        "  calll *%1\n"
-        // Return to 32bit
-        "  movl $2f, %%edx\n"
-        "  jmp transition32\n"
-        ASM32_BACK32
-        "2:\n"
-        : "+a" (eax)
-        : "r" (func), "r" (edx)
-        : "edx", "ecx", "cc", "memory");
-    return eax;
+    memset(&Call16Data, 0, sizeof(Call16Data));
+    Call16Data.a20 = !CONFIG_DISABLE_A20;
+    return call16_back(eax, edx, func);
 }
 
 // Call a 16bit SeaBIOS function in "big real" mode.
@@ -314,38 +308,10 @@ call16big(u32 eax, u32 edx, void *func)
     ASSERT32FLAT();
     if (getesp() > BUILD_STACK_ADDR)
         panic("call16big with invalid stack\n");
-    func -= BUILD_BIOS_ADDR;
-    asm volatile(
-        // Transition to 16bit mode
-        "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
-        "  jmp transition16big\n"
-        // Call func
-        ASM32_SWITCH16
-        "1:movl %2, %%edx\n"
-        "  calll *%1\n"
-        // Return to 32bit
-        "  movl $2f, %%edx\n"
-        "  jmp transition32\n"
-        ASM32_BACK32
-        "2:\n"
-        : "+a" (eax)
-        : "r" (func), "r" (edx)
-        : "edx", "ecx", "cc", "memory");
-    return eax;
-}
-
-// Call a 16bit SeaBIOS function, restoring the mode from last call32().
-static u32
-call16_back(u32 eax, u32 edx, void *func)
-{
-    ASSERT32FLAT();
-    if (CONFIG_CALL32_SMM && Call16Data.method == C16_SMM)
-        return call16_smm(eax, edx, func);
-    if (Call16Data.method == C16_SLOPPY)
-        return call16_sloppy(eax, edx, func);
-    if (in_post())
-        return call16big(eax, edx, func);
-    return call16(eax, edx, func);
+    memset(&Call16Data, 0, sizeof(Call16Data));
+    Call16Data.method = C16_BIG;
+    Call16Data.a20 = 1;
+    return call16_back(eax, edx, func);
 }
 
 
