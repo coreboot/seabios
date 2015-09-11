@@ -197,12 +197,20 @@ call16_smm(u32 eax, u32 edx, void *func)
     return eax;
 }
 
-// Call a C function in 32bit mode.  This clobbers the 16bit segment
-// selector registers.
-static u32
-call32_sloppy(void *func, u32 eax)
+// Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
+u32 VISIBLE16
+call32(void *func, u32 eax, u32 errret)
 {
     ASSERT16();
+    if (CONFIG_CALL32_SMM && GET_GLOBAL(HaveSmmCall32))
+        return call32_smm(func, eax);
+    u32 cr0 = getcr0();
+    if (cr0 & CR0_PE)
+        // Called in 16bit protected mode?!
+        return errret;
+
+    // Jump direclty to 32bit mode - this clobbers the 16bit segment
+    // selector registers.
     call32_prep(C16_BIG);
     u32 bkup_ss, bkup_esp;
     asm volatile(
@@ -273,20 +281,6 @@ call16_back(u32 eax, u32 edx, void *func)
         : "r" (func), "r" (edx)
         : "edx", "cc", "memory");
     return eax;
-}
-
-// Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
-u32 VISIBLE16
-call32(void *func, u32 eax, u32 errret)
-{
-    ASSERT16();
-    if (CONFIG_CALL32_SMM && GET_GLOBAL(HaveSmmCall32))
-        return call32_smm(func, eax);
-    u32 cr0 = getcr0();
-    if (cr0 & CR0_PE)
-        // Called in 16bit protected mode?!
-        return errret;
-    return call32_sloppy(func, eax);
 }
 
 // Call a 16bit SeaBIOS function in regular ("non-big") mode.
