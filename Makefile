@@ -63,6 +63,7 @@ COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
 COMMONCFLAGS += $(call cc-option,$(CC),-nopie,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector,)
 COMMONCFLAGS += $(call cc-option,$(CC),-fno-stack-protector-all,)
+COMMONCFLAGS += $(call cc-option,$(CC),-fstack-check=no,)
 COMMA := ,
 
 CFLAGS32FLAT := $(COMMONCFLAGS) -DMODE16=0 -DMODESEGMENT=0
