@@ -35,9 +35,9 @@ struct {
 
 int HaveSmmCall32 VARFSEG;
 
-// Backup state in preparation for call32_smm()
+// Backup state in preparation for call32
 static void
-call32_smm_prep(void)
+call32_prep(u8 method)
 {
     // Backup cmos index register and disable nmi
     u8 cmosindex = inb(PORT_CMOS_INDEX);
@@ -48,19 +48,57 @@ call32_smm_prep(void)
     // Backup ss
     SET_LOW(Call32Data.ss, GET_SEG(SS));
 
-    SET_LOW(Call32Data.method, C32_SMM);
+    if (!CONFIG_CALL32_SMM || method != C32_SMM) {
+        // Backup fs/gs and gdt
+        SET_LOW(Call32Data.fs, GET_SEG(FS));
+        SET_LOW(Call32Data.gs, GET_SEG(GS));
+        struct descloc_s gdt;
+        sgdt(&gdt);
+        SET_LOW(Call32Data.gdt.length, gdt.length);
+        SET_LOW(Call32Data.gdt.addr, gdt.addr);
+
+        // Enable a20 and backup its previous state
+        SET_LOW(Call32Data.a20, set_a20(1));
+    }
+
+    SET_LOW(Call32Data.method, method);
 }
 
-// Restore state backed up during call32_smm()
-static void
-call32_smm_post(void)
+// Restore state backed up during call32
+static u8
+call32_post(void)
 {
+    u8 method = GET_LOW(Call32Data.method);
     SET_LOW(Call32Data.method, 0);
     SET_LOW(Call32Data.ss, 0);
+
+    if (!CONFIG_CALL32_SMM || method != C32_SMM) {
+        // Restore a20
+        set_a20(GET_LOW(Call32Data.a20));
+
+        // Restore gdt and fs/gs
+        struct descloc_s gdt;
+        gdt.length = GET_LOW(Call32Data.gdt.length);
+        gdt.addr = GET_LOW(Call32Data.gdt.addr);
+        lgdt(&gdt);
+        SET_SEG(FS, GET_LOW(Call32Data.fs));
+        SET_SEG(GS, GET_LOW(Call32Data.gs));
+    }
 
     // Restore cmos index register
     outb(GET_LOW(Call32Data.cmosindex), PORT_CMOS_INDEX);
     inb(PORT_CMOS_DATA);
+    return method;
+}
+
+// 16bit handler code called from call16_sloppy() / call16_smm()
+u32 VISIBLE16
+call16_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
+{
+    u8 method = call32_post();
+    u32 ret = func(eax, edx);
+    call32_prep(method);
+    return ret;
 }
 
 #define ASM32_SWITCH16 "  .pushsection .text.32fseg." UNIQSEC "\n  .code16\n"
@@ -74,7 +112,7 @@ call32_smm(void *func, u32 eax)
 {
     ASSERT16();
     dprintf(9, "call32_smm %p %x\n", func, eax);
-    call32_smm_prep();
+    call32_prep(C32_SMM);
     u32 bkup_esp;
     asm volatile(
         // Backup esp / set esp to flat stack location
@@ -109,22 +147,10 @@ call32_smm(void *func, u32 eax)
         : "=&r" (bkup_esp), "+r" (eax)
         : "r" (func)
         : "eax", "ecx", "edx", "ebx", "cc", "memory");
-    call32_smm_post();
+    call32_post();
 
     dprintf(9, "call32_smm done %p %x\n", func, eax);
     return eax;
-}
-
-// 16bit handler code called from call16_smm()
-u32 VISIBLE16
-call16_smm_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
-{
-    if (!CONFIG_CALL32_SMM)
-        return eax;
-    call32_smm_post();
-    u32 ret = func(eax, edx);
-    call32_smm_prep();
-    return ret;
 }
 
 static u32
@@ -151,7 +177,7 @@ call16_smm(u32 eax, u32 edx, void *func)
         ASM32_SWITCH16
         "1:movl %1, %%eax\n"
         "  movl %3, %%ecx\n"
-        "  calll _cfunc16_call16_smm_helper\n"
+        "  calll _cfunc16_call16_helper\n"
         "  movl %%eax, %1\n"
 
         "  movl $" __stringify(CALL32SMM_CMDID) ", %%eax\n"
@@ -170,61 +196,13 @@ call16_smm(u32 eax, u32 edx, void *func)
     return eax;
 }
 
-// Backup state in preparation for call32_sloppy()
-static void
-call32_sloppy_prep(void)
-{
-    // Backup cmos index register and disable nmi
-    u8 cmosindex = inb(PORT_CMOS_INDEX);
-    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
-    SET_LOW(Call32Data.cmosindex, cmosindex);
-
-    // Enable a20 and backup its previous state
-    SET_LOW(Call32Data.a20, set_a20(1));
-
-    // Backup ss/fs/gs and gdt
-    SET_LOW(Call32Data.ss, GET_SEG(SS));
-    SET_LOW(Call32Data.fs, GET_SEG(FS));
-    SET_LOW(Call32Data.gs, GET_SEG(GS));
-    struct descloc_s gdt;
-    sgdt(&gdt);
-    SET_LOW(Call32Data.gdt.length, gdt.length);
-    SET_LOW(Call32Data.gdt.addr, gdt.addr);
-
-    SET_LOW(Call32Data.method, C32_SLOPPY);
-}
-
-// Restore state backed up during call32_sloppy()
-static void
-call32_sloppy_post(void)
-{
-    SET_LOW(Call32Data.method, 0);
-    SET_LOW(Call32Data.ss, 0);
-
-    // Restore gdt and fs/gs
-    struct descloc_s gdt;
-    gdt.length = GET_LOW(Call32Data.gdt.length);
-    gdt.addr = GET_LOW(Call32Data.gdt.addr);
-    lgdt(&gdt);
-    SET_SEG(FS, GET_LOW(Call32Data.fs));
-    SET_SEG(GS, GET_LOW(Call32Data.gs));
-
-    // Restore a20
-    set_a20(GET_LOW(Call32Data.a20));
-
-    // Restore cmos index register
-    outb(GET_LOW(Call32Data.cmosindex), PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
-}
-
 // Call a C function in 32bit mode.  This clobbers the 16bit segment
 // selector registers.
 static u32
 call32_sloppy(void *func, u32 eax)
 {
     ASSERT16();
-    call32_sloppy_prep();
+    call32_prep(C32_SLOPPY);
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
@@ -250,18 +228,8 @@ call32_sloppy(void *func, u32 eax)
         : "=&r" (bkup_ss), "=&r" (bkup_esp), "+a" (eax)
         : "r" (func)
         : "ecx", "edx", "cc", "memory");
-    call32_sloppy_post();
+    call32_post();
     return eax;
-}
-
-// 16bit handler code called from call16_sloppy()
-u32 VISIBLE16
-call16_sloppy_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
-{
-    call32_sloppy_post();
-    u32 ret = func(eax, edx);
-    call32_sloppy_prep();
-    return ret;
 }
 
 // Jump back to 16bit mode while in 32bit mode from call32_sloppy()
@@ -286,7 +254,7 @@ call16_sloppy(u32 eax, u32 edx, void *func)
         "  movw %%cx, %%ds\n"
         "  movl %2, %%edx\n"
         "  movl %1, %%ecx\n"
-        "  calll _cfunc16_call16_sloppy_helper\n"
+        "  calll _cfunc16_call16_helper\n"
         // Return to 32bit and restore esp
         "  movl $2f, %%edx\n"
         "  jmp transition32\n"
