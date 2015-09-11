@@ -22,6 +22,7 @@
 // %edx = return location (in 32bit mode)
 // Clobbers: ecx, flags, segment registers, cr0, idt/gdt
         DECLFUNC transition32
+        .global transition32_nmi_off
 transition32:
         // Disable irqs (and clear direction flag)
         cli

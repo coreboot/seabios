@@ -223,7 +223,7 @@ call32(void *func, u32 eax, u32 errret)
 
         // Transition to 32bit mode, call func, return to 16bit
         "  movl $(" __stringify(BUILD_BIOS_ADDR) " + 1f), %%edx\n"
-        "  jmp transition32\n"
+        "  jmp transition32_nmi_off\n"
         ASM16_SWITCH32
         "1:calll *%3\n"
         "  movl $2f, %%edx\n"
@@ -274,7 +274,7 @@ call16_back(u32 eax, u32 edx, void *func)
         "  calll _cfunc16_call16_helper\n"
         // Return to 32bit and restore esp
         "  movl $2f, %%edx\n"
-        "  jmp transition32\n"
+        "  jmp transition32_nmi_off\n"
         ASM32_BACK32
         "2:addl %2, %%esp\n"
         : "+a" (eax), "+c"(thunk), "+r"(stackseg)
