@@ -28,10 +28,10 @@ struct {
     u8 a20;
     u16 ss, fs, gs;
     struct descloc_s gdt;
-} Call32Data VARLOW;
+} Call16Data VARLOW;
 
-#define C32_SLOPPY 1
-#define C32_SMM    2
+#define C16_SLOPPY 1
+#define C16_SMM    2
 
 int HaveSmmCall32 VARFSEG;
 
@@ -43,50 +43,50 @@ call32_prep(u8 method)
     u8 cmosindex = inb(PORT_CMOS_INDEX);
     outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
     inb(PORT_CMOS_DATA);
-    SET_LOW(Call32Data.cmosindex, cmosindex);
+    SET_LOW(Call16Data.cmosindex, cmosindex);
 
     // Backup ss
-    SET_LOW(Call32Data.ss, GET_SEG(SS));
+    SET_LOW(Call16Data.ss, GET_SEG(SS));
 
-    if (!CONFIG_CALL32_SMM || method != C32_SMM) {
+    if (!CONFIG_CALL32_SMM || method != C16_SMM) {
         // Backup fs/gs and gdt
-        SET_LOW(Call32Data.fs, GET_SEG(FS));
-        SET_LOW(Call32Data.gs, GET_SEG(GS));
+        SET_LOW(Call16Data.fs, GET_SEG(FS));
+        SET_LOW(Call16Data.gs, GET_SEG(GS));
         struct descloc_s gdt;
         sgdt(&gdt);
-        SET_LOW(Call32Data.gdt.length, gdt.length);
-        SET_LOW(Call32Data.gdt.addr, gdt.addr);
+        SET_LOW(Call16Data.gdt.length, gdt.length);
+        SET_LOW(Call16Data.gdt.addr, gdt.addr);
 
         // Enable a20 and backup its previous state
-        SET_LOW(Call32Data.a20, set_a20(1));
+        SET_LOW(Call16Data.a20, set_a20(1));
     }
 
-    SET_LOW(Call32Data.method, method);
+    SET_LOW(Call16Data.method, method);
 }
 
 // Restore state backed up during call32
 static u8
 call32_post(void)
 {
-    u8 method = GET_LOW(Call32Data.method);
-    SET_LOW(Call32Data.method, 0);
-    SET_LOW(Call32Data.ss, 0);
+    u8 method = GET_LOW(Call16Data.method);
+    SET_LOW(Call16Data.method, 0);
+    SET_LOW(Call16Data.ss, 0);
 
-    if (!CONFIG_CALL32_SMM || method != C32_SMM) {
+    if (!CONFIG_CALL32_SMM || method != C16_SMM) {
         // Restore a20
-        set_a20(GET_LOW(Call32Data.a20));
+        set_a20(GET_LOW(Call16Data.a20));
 
         // Restore gdt and fs/gs
         struct descloc_s gdt;
-        gdt.length = GET_LOW(Call32Data.gdt.length);
-        gdt.addr = GET_LOW(Call32Data.gdt.addr);
+        gdt.length = GET_LOW(Call16Data.gdt.length);
+        gdt.addr = GET_LOW(Call16Data.gdt.addr);
         lgdt(&gdt);
-        SET_SEG(FS, GET_LOW(Call32Data.fs));
-        SET_SEG(GS, GET_LOW(Call32Data.gs));
+        SET_SEG(FS, GET_LOW(Call16Data.fs));
+        SET_SEG(GS, GET_LOW(Call16Data.gs));
     }
 
     // Restore cmos index register
-    outb(GET_LOW(Call32Data.cmosindex), PORT_CMOS_INDEX);
+    outb(GET_LOW(Call16Data.cmosindex), PORT_CMOS_INDEX);
     inb(PORT_CMOS_DATA);
     return method;
 }
@@ -112,7 +112,7 @@ call32_smm(void *func, u32 eax)
 {
     ASSERT16();
     dprintf(9, "call32_smm %p %x\n", func, eax);
-    call32_prep(C32_SMM);
+    call32_prep(C16_SMM);
     u32 bkup_esp;
     asm volatile(
         // Backup esp / set esp to flat stack location
@@ -161,7 +161,7 @@ call16_smm(u32 eax, u32 edx, void *func)
         return eax;
     func -= BUILD_BIOS_ADDR;
     dprintf(9, "call16_smm %p %x %x\n", func, eax, edx);
-    u32 stackoffset = Call32Data.ss << 4;
+    u32 stackoffset = Call16Data.ss << 4;
     asm volatile(
         // Restore esp
         "  subl %0, %%esp\n"
@@ -202,7 +202,7 @@ static u32
 call32_sloppy(void *func, u32 eax)
 {
     ASSERT16();
-    call32_prep(C32_SLOPPY);
+    call32_prep(C16_SLOPPY);
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
@@ -240,7 +240,7 @@ call16_sloppy(u32 eax, u32 edx, void *func)
     if (getesp() > MAIN_STACK_MAX)
         panic("call16_sloppy with invalid stack\n");
     func -= BUILD_BIOS_ADDR;
-    u32 stackseg = Call32Data.ss;
+    u32 stackseg = Call16Data.ss;
     asm volatile(
         // Transition to 16bit mode
         "  movl $(1f - " __stringify(BUILD_BIOS_ADDR) "), %%edx\n"
@@ -339,9 +339,9 @@ static u32
 call16_back(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
-    if (CONFIG_CALL32_SMM && Call32Data.method == C32_SMM)
+    if (CONFIG_CALL32_SMM && Call16Data.method == C16_SMM)
         return call16_smm(eax, edx, func);
-    if (Call32Data.method == C32_SLOPPY)
+    if (Call16Data.method == C16_SLOPPY)
         return call16_sloppy(eax, edx, func);
     if (in_post())
         return call16big(eax, edx, func);
@@ -475,7 +475,7 @@ __call16_int(struct bregs *callregs, u16 offset)
     callregs->code.offset = offset;
     if (!MODESEGMENT) {
         callregs->code.seg = SEG_BIOS;
-        _farcall16((void*)callregs - Call32Data.ss * 16, Call32Data.ss);
+        _farcall16((void*)callregs - Call16Data.ss * 16, Call16Data.ss);
         return;
     }
     callregs->code.seg = GET_SEG(CS);
