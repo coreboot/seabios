@@ -158,9 +158,6 @@ device_hardware_setup(void)
 static void
 platform_hardware_setup(void)
 {
-    // Enable CPU caching
-    setcr0(getcr0() & ~(CR0_CD|CR0_NW));
-
     // Make sure legacy DMA isn't running.
     dma_setup();
 

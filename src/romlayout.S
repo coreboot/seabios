@@ -47,6 +47,7 @@ transition32_nmi_off:
 
         // Enable protected mode
         movl %cr0, %ecx
+        andl $~(CR0_PG|CR0_CD|CR0_NW), %ecx
         orl $CR0_PE, %ecx
         movl %ecx, %cr0
 

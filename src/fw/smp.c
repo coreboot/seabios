@@ -52,9 +52,6 @@ handle_smp(void)
     if (!CONFIG_QEMU)
         return;
 
-    // Enable CPU caching
-    setcr0(getcr0() & ~(CR0_CD|CR0_NW));
-
     // Detect apic_id
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);

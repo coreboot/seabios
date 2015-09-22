@@ -75,15 +75,18 @@ static inline void __cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
         : "0" (index));
 }
 
-static inline u32 getcr0(void) {
+static inline u32 cr0_read(void) {
     u32 cr0;
     asm("movl %%cr0, %0" : "=r"(cr0));
     return cr0;
 }
-static inline void setcr0(u32 cr0) {
+static inline void cr0_write(u32 cr0) {
     asm("movl %0, %%cr0" : : "r"(cr0));
 }
-static inline u16 getcr0_vm86(void) {
+static inline void cr0_mask(u32 off, u32 on) {
+    cr0_write((cr0_read() & ~off) | on);
+}
+static inline u16 cr0_vm86_read(void) {
     u16 cr0;
     asm("smsww %0" : "=r"(cr0));
     return cr0;

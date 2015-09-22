@@ -1,6 +1,6 @@
 // Code for manipulating stack locations.
 //
-// Copyright (C) 2009-2014  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2015  Kevin O'Connor <kevin@koconnor.net>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -28,6 +28,7 @@ struct {
     u8 cmosindex;
     u8 a20;
     u16 ss, fs, gs;
+    u32 cr0;
     struct descloc_s gdt;
 } Call16Data VARLOW;
 
@@ -37,19 +38,17 @@ struct {
 int HaveSmmCall32 VARFSEG;
 
 // Backup state in preparation for call32
-static void
+static int
 call32_prep(u8 method)
 {
-    // Backup cmos index register and disable nmi
-    u8 cmosindex = inb(PORT_CMOS_INDEX);
-    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
-    SET_LOW(Call16Data.cmosindex, cmosindex);
-
-    // Backup ss
-    SET_LOW(Call16Data.ss, GET_SEG(SS));
-
     if (!CONFIG_CALL32_SMM || method != C16_SMM) {
+        // Backup cr0
+        u32 cr0 = cr0_read();
+        if (cr0 & CR0_PE)
+            // Called in 16bit protected mode?!
+            return -1;
+        SET_LOW(Call16Data.cr0, cr0);
+
         // Backup fs/gs and gdt
         SET_LOW(Call16Data.fs, GET_SEG(FS));
         SET_LOW(Call16Data.gs, GET_SEG(GS));
@@ -62,7 +61,17 @@ call32_prep(u8 method)
         SET_LOW(Call16Data.a20, set_a20(1));
     }
 
+    // Backup ss
+    SET_LOW(Call16Data.ss, GET_SEG(SS));
+
+    // Backup cmos index register and disable nmi
+    u8 cmosindex = inb(PORT_CMOS_INDEX);
+    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
+    inb(PORT_CMOS_DATA);
+    SET_LOW(Call16Data.cmosindex, cmosindex);
+
     SET_LOW(Call16Data.method, method);
+    return 0;
 }
 
 // Restore state backed up during call32
@@ -84,6 +93,11 @@ call32_post(void)
         lgdt(&gdt);
         SET_SEG(FS, GET_LOW(Call16Data.fs));
         SET_SEG(GS, GET_LOW(Call16Data.gs));
+
+        // Restore cr0
+        u32 cr0_caching = GET_LOW(Call16Data.cr0) & (CR0_CD|CR0_NW);
+        if (cr0_caching)
+            cr0_mask(CR0_CD|CR0_NW, cr0_caching);
     }
 
     // Restore cmos index register
@@ -220,14 +234,11 @@ call32(void *func, u32 eax, u32 errret)
     ASSERT16();
     if (CONFIG_CALL32_SMM && GET_GLOBAL(HaveSmmCall32))
         return call32_smm(func, eax);
-    u32 cr0 = getcr0();
-    if (cr0 & CR0_PE)
-        // Called in 16bit protected mode?!
-        return errret;
-
     // Jump direclty to 32bit mode - this clobbers the 16bit segment
     // selector registers.
-    call32_prep(C16_BIG);
+    int ret = call32_prep(C16_BIG);
+    if (ret)
+        return errret;
     u32 bkup_ss, bkup_esp;
     asm volatile(
         // Backup ss/esp / set esp to flat stack location
