@@ -5,10 +5,8 @@
 #include "memmap.h" // PAGE_SIZE
 
 #define PAGE_SHIFT 12
-#define PAGE_MASK  (PAGE_SIZE-1)
 
 #define virt_to_phys(v) (unsigned long)(v)
-#define phys_to_virt(p) (void*)(p)
 /* Compiler barrier is enough as an x86 CPU does not reorder reads or writes */
 #define smp_rmb() barrier()
 #define smp_wmb() barrier()
@@ -73,10 +71,9 @@ struct vring {
 };
 
 #define vring_size(num) \
-   (((((sizeof(struct vring_desc) * num) + \
-      (sizeof(struct vring_avail) + sizeof(u16) * num)) \
-         + PAGE_MASK) & ~PAGE_MASK) + \
-         (sizeof(struct vring_used) + sizeof(struct vring_used_elem) * num))
+    (ALIGN(sizeof(struct vring_desc) * num + sizeof(struct vring_avail) \
+           + sizeof(u16) * num, PAGE_SIZE)                              \
+     + sizeof(struct vring_used) + sizeof(struct vring_used_elem) * num)
 
 typedef unsigned char virtio_queue_t[vring_size(MAX_QUEUE_NUM)];
 
@@ -96,33 +93,25 @@ struct vring_list {
   unsigned int length;
 };
 
-static inline void vring_init(struct vring *vr,
-                         unsigned int num, unsigned char *queue)
+static inline void
+vring_init(struct vring *vr, unsigned int num, unsigned char *queue)
 {
-   unsigned int i;
-   unsigned long pa;
-
    ASSERT32FLAT();
    vr->num = num;
 
    /* physical address of desc must be page aligned */
-
-   pa = virt_to_phys(queue);
-   pa = (pa + PAGE_MASK) & ~PAGE_MASK;
-   vr->desc = phys_to_virt(pa);
+   vr->desc = (void*)ALIGN((u32)queue, PAGE_SIZE);
 
    vr->avail = (struct vring_avail *)&vr->desc[num];
    /* disable interrupts */
    vr->avail->flags |= VRING_AVAIL_F_NO_INTERRUPT;
 
    /* physical address of used must be page aligned */
+   vr->used = (void*)ALIGN((u32)&vr->avail->ring[num], PAGE_SIZE);
 
-   pa = virt_to_phys(&vr->avail->ring[num]);
-   pa = (pa + PAGE_MASK) & ~PAGE_MASK;
-   vr->used = phys_to_virt(pa);
-
+   int i;
    for (i = 0; i < num - 1; i++)
-           vr->desc[i].next = i + 1;
+       vr->desc[i].next = i + 1;
    vr->desc[i].next = 0;
 }
 
