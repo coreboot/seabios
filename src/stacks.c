@@ -92,7 +92,23 @@ call32_post(void)
     return method;
 }
 
-// 16bit handler code called from call16_back() / call16_smm()
+// Force next call16() to restore to a pristine cpu environment state
+static void
+call16_override(int big)
+{
+    ASSERT32FLAT();
+    if (getesp() > BUILD_STACK_ADDR)
+        panic("call16_override with invalid stack\n");
+    memset(&Call16Data, 0, sizeof(Call16Data));
+    if (big) {
+        Call16Data.method = C16_BIG;
+        Call16Data.a20 = 1;
+    } else {
+        Call16Data.a20 = !CONFIG_DISABLE_A20;
+    }
+}
+
+// 16bit handler code called from call16() / call16_smm()
 u32 VISIBLE16
 call16_helper(u32 eax, u32 edx, u32 (*func)(u32 eax, u32 edx))
 {
@@ -243,11 +259,11 @@ call32(void *func, u32 eax, u32 errret)
 
 // Call a 16bit SeaBIOS function, restoring the mode from last call32().
 static u32
-call16_back(u32 eax, u32 edx, void *func)
+call16(u32 eax, u32 edx, void *func)
 {
     ASSERT32FLAT();
     if (getesp() > MAIN_STACK_MAX)
-        panic("call16_back with invalid stack\n");
+        panic("call16 with invalid stack\n");
     if (CONFIG_CALL32_SMM && Call16Data.method == C16_SMM)
         return call16_smm(eax, edx, func);
 
@@ -281,31 +297,6 @@ call16_back(u32 eax, u32 edx, void *func)
         : "r" (func), "r" (edx)
         : "edx", "cc", "memory");
     return eax;
-}
-
-// Call a 16bit SeaBIOS function in regular ("non-big") mode.
-static u32
-call16(u32 eax, u32 edx, void *func)
-{
-    ASSERT32FLAT();
-    if (getesp() > BUILD_STACK_ADDR)
-        panic("call16 with invalid stack\n");
-    memset(&Call16Data, 0, sizeof(Call16Data));
-    Call16Data.a20 = !CONFIG_DISABLE_A20;
-    return call16_back(eax, edx, func);
-}
-
-// Call a 16bit SeaBIOS function in "big real" mode.
-static u32
-call16big(u32 eax, u32 edx, void *func)
-{
-    ASSERT32FLAT();
-    if (getesp() > BUILD_STACK_ADDR)
-        panic("call16big with invalid stack\n");
-    memset(&Call16Data, 0, sizeof(Call16Data));
-    Call16Data.method = C16_BIG;
-    Call16Data.a20 = 1;
-    return call16_back(eax, edx, func);
 }
 
 
@@ -362,7 +353,7 @@ u32
 stack_hop_back(u32 eax, u32 edx, void *func)
 {
     if (!MODESEGMENT)
-        return call16_back(eax, edx, func);
+        return call16(eax, edx, func);
     if (!MODE16 || !on_extra_stack())
         return ((u32 (*)(u32, u32))func)(eax, edx);
     ASSERT16();
@@ -414,18 +405,20 @@ _farcall16(struct bregs *callregs, u16 callregseg)
         : "ebx", "ecx", "esi", "edi", "cc", "memory");
 }
 
+// Invoke external 16bit code.
 void
 farcall16(struct bregs *callregs)
 {
-    extern void _cfunc16__farcall16(void);
-    call16((u32)callregs, 0, _cfunc16__farcall16);
+    call16_override(0);
+    _farcall16(callregs, 0);
 }
 
+// Invoke external 16bit code in "big real" mode.
 void
 farcall16big(struct bregs *callregs)
 {
-    extern void _cfunc16__farcall16(void);
-    call16big((u32)callregs, 0, _cfunc16__farcall16);
+    call16_override(1);
+    _farcall16(callregs, 0);
 }
 
 // Invoke a 16bit software interrupt.
@@ -448,7 +441,7 @@ reset(void)
 {
     extern void reset_vector(void) __noreturn;
     if (!MODE16)
-        call16_back(0, 0, reset_vector);
+        call16(0, 0, reset_vector);
     reset_vector();
 }
 
