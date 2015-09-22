@@ -15,12 +15,13 @@ void malloc_preinit(void);
 extern u32 LegacyRamSize;
 void malloc_init(void);
 void malloc_prepboot(void);
+u32 malloc_palloc(struct zone_s *zone, u32 size, u32 align);
 void *_malloc(struct zone_s *zone, u32 size, u32 align);
-int _free(void *data);
+int malloc_pfree(u32 data);
 void free(void *data);
 u32 malloc_getspace(struct zone_s *zone);
-void malloc_sethandle(void *data, u32 handle);
-void *malloc_findhandle(u32 handle);
+void malloc_sethandle(u32 data, u32 handle);
+u32 malloc_findhandle(u32 handle);
 
 #define MALLOC_DEFAULT_HANDLE 0xFFFFFFFF
 // Minimum alignment of malloc'd memory

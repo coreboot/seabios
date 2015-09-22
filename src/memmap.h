@@ -10,5 +10,8 @@
 static inline u32 virt_to_phys(void *v) {
     return (u32)v;
 }
+static inline void *memremap(u32 addr, u32 len) {
+    return (void*)addr;
+}
 
 #endif // memmap.h
