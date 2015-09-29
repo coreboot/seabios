@@ -5,7 +5,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // BUILD_MAX_E820
-#include "memmap.h" // struct e820entry
+#include "e820map.h" // struct e820entry
 #include "output.h" // dprintf
 #include "string.h" // memmove
 
@@ -77,7 +77,7 @@ dump_map(void)
 // Add a new entry to the list.  This scans for overlaps and keeps the
 // list sorted.
 void
-add_e820(u64 start, u64 size, u32 type)
+e820_add(u64 start, u64 size, u32 type)
 {
     dprintf(8, "Add to e820 map: %08x %08x %d\n", (u32)start, (u32)size, type);
 
@@ -141,12 +141,12 @@ add_e820(u64 start, u64 size, u32 type)
 void
 e820_remove(u64 start, u64 size)
 {
-    add_e820(start, size, E820_HOLE);
+    e820_add(start, size, E820_HOLE);
 }
 
 // Report on final memory locations.
 void
-memmap_prepboot(void)
+e820_prepboot(void)
 {
     dump_map();
 }

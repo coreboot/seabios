@@ -6,9 +6,10 @@
 
 #include "biosvar.h" // GET_BDA
 #include "config.h" // BUILD_BIOS_ADDR
+#include "e820map.h" // struct e820entry
 #include "list.h" // hlist_node
 #include "malloc.h" // _malloc
-#include "memmap.h" // struct e820entry
+#include "memmap.h" // PAGE_SIZE
 #include "output.h" // dprintf
 #include "stacks.h" // wait_preempt
 #include "std/optionrom.h" // OPTION_ROM_ALIGN
@@ -399,7 +400,7 @@ malloc_preinit(void)
     e820_remove(BUILD_LOWRAM_END, BUILD_BIOS_ADDR-BUILD_LOWRAM_END);
 
     // Mark known areas as reserved.
-    add_e820(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
+    e820_add(BUILD_BIOS_ADDR, BUILD_BIOS_SIZE, E820_RESERVED);
 
     // Populate temp high ram
     u32 highram = 0;
@@ -427,7 +428,7 @@ malloc_preinit(void)
     if (highram) {
         addSpace(&ZoneHigh, (void*)highram
                  , (void*)highram + BUILD_MAX_HIGHTABLE);
-        add_e820(highram, BUILD_MAX_HIGHTABLE, E820_RESERVED);
+        e820_add(highram, BUILD_MAX_HIGHTABLE, E820_RESERVED);
     }
 }
 
@@ -521,7 +522,7 @@ malloc_prepboot(void)
 
     // Reserve more low-mem if needed.
     u32 endlow = GET_BDA(mem_size_kb)*1024;
-    add_e820(endlow, BUILD_LOWRAM_END-endlow, E820_RESERVED);
+    e820_add(endlow, BUILD_LOWRAM_END-endlow, E820_RESERVED);
 
     // Clear unused f-seg ram.
     struct allocinfo_s *info = findLast(&ZoneFSeg);
@@ -533,7 +534,7 @@ malloc_prepboot(void)
     info = findLast(&ZoneHigh);
     if (info) {
         u32 giveback = ALIGN_DOWN(info->allocend - info->dataend, PAGE_SIZE);
-        add_e820((u32)info->dataend, giveback, E820_RAM);
+        e820_add((u32)info->dataend, giveback, E820_RAM);
         dprintf(1, "Returned %d bytes of ZoneHigh\n", giveback);
     }
 

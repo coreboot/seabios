@@ -36,7 +36,7 @@ SRCBOTH=misc.c stacks.c output.c string.c block.c cdrom.c disk.c mouse.c kbd.c \
     hw/blockcmd.c hw/floppy.c hw/ata.c hw/ramdisk.c \
     hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
 SRC16=$(SRCBOTH)
-SRC32FLAT=$(SRCBOTH) post.c memmap.c malloc.c romfile.c x86.c optionroms.c \
+SRC32FLAT=$(SRCBOTH) post.c e820map.c malloc.c romfile.c x86.c optionroms.c \
     pmm.c font.c boot.c bootsplash.c jpeg.c bmp.c tcgbios.c sha1.c \
     hw/ahci.c hw/pvscsi.c hw/usb-xhci.c hw/usb-hub.c hw/sdcard.c \
     fw/coreboot.c fw/lzmadecode.c fw/multiboot.c fw/csm.c fw/biostables.c \

@@ -7,10 +7,10 @@
 #include "block.h" // MAXDESCSIZE
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_*
+#include "e820map.h" // e820_add
 #include "hw/pci.h" // pci_probe_devices
 #include "lzmadecode.h" // LzmaDecode
 #include "malloc.h" // free
-#include "memmap.h" // add_e820
 #include "output.h" // dprintf
 #include "paravirt.h" // PlatformRunningOn
 #include "romfile.h" // romfile_findprefix
@@ -184,12 +184,12 @@ coreboot_preinit(void)
         u32 type = m->type;
         if (type == CB_MEM_TABLE)
             type = E820_RESERVED;
-        add_e820(m->start, m->size, type);
+        e820_add(m->start, m->size, type);
     }
 
     // Ughh - coreboot likes to set a map at 0x0000-0x1000, but this
     // confuses grub.  So, override it.
-    add_e820(0, 16*1024, E820_RAM);
+    e820_add(0, 16*1024, E820_RAM);
 
     struct cb_cbmem_ref *cbref = find_cb_subtable(cbh, CB_TAG_CBMEM_CONSOLE);
     if (cbref) {
@@ -210,7 +210,7 @@ coreboot_preinit(void)
 fail:
     // No table found..  Use 16Megs as a dummy value.
     dprintf(1, "Unable to find coreboot table!\n");
-    add_e820(0, 16*1024*1024, E820_RAM);
+    e820_add(0, 16*1024*1024, E820_RAM);
     return;
 }
 

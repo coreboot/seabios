@@ -10,11 +10,11 @@
 
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_QEMU
+#include "e820map.h" // e820_add
 #include "hw/pci.h" // create_pirtable
 #include "hw/pci_regs.h" // PCI_DEVICE_ID
 #include "hw/rtc.h" // CMOS_*
 #include "malloc.h" // malloc_tmp
-#include "memmap.h" // add_e820
 #include "output.h" // dprintf
 #include "paravirt.h" // qemu_cfg_preinit
 #include "romfile.h" // romfile_loadint
@@ -114,10 +114,10 @@ qemu_preinit(void)
                | (rtc_read(CMOS_MEM_EXTMEM_HIGH) << 18))
               + 1 * 1024 * 1024);
     RamSize = rs;
-    add_e820(0, rs, E820_RAM);
+    e820_add(0, rs, E820_RAM);
 
     /* reserve 256KB BIOS area at the end of 4 GB */
-    add_e820(0xfffc0000, 256*1024, E820_RESERVED);
+    e820_add(0xfffc0000, 256*1024, E820_RESERVED);
 
     dprintf(1, "RamSize: 0x%08x [cmos]\n", RamSize);
 }
@@ -302,7 +302,7 @@ qemu_cfg_e820(void)
                 }
                 /* fall through */
             case E820_RESERVED:
-                add_e820(table[i].address, table[i].length, table[i].type);
+                e820_add(table[i].address, table[i].length, table[i].type);
                 break;
             default:
                 /*
@@ -324,13 +324,13 @@ qemu_cfg_e820(void)
         int i;
         for (i = 0; i < count32; i++) {
             qemu_cfg_read(&entry, sizeof(entry));
-            add_e820(entry.address, entry.length, entry.type);
+            e820_add(entry.address, entry.length, entry.type);
         }
     } else if (runningOnKVM()) {
         // Backwards compatibility - provide hard coded range.
         // 4 pages before the bios, 3 pages for vmx tss pages, the
         // other page for EPT real mode pagetable
-        add_e820(0xfffbc000, 4*4096, E820_RESERVED);
+        e820_add(0xfffbc000, 4*4096, E820_RESERVED);
     }
 
     // Check for memory over 4Gig in cmos
@@ -338,7 +338,7 @@ qemu_cfg_e820(void)
                 | ((u32)rtc_read(CMOS_MEM_HIGHMEM_MID) << 24)
                 | ((u64)rtc_read(CMOS_MEM_HIGHMEM_HIGH) << 32));
     RamSizeOver4G = high;
-    add_e820(0x100000000ull, high, E820_RAM);
+    e820_add(0x100000000ull, high, E820_RAM);
     dprintf(1, "RamSizeOver4G: 0x%016llx [cmos]\n", RamSizeOver4G);
 }
 

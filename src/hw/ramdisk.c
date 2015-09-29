@@ -7,8 +7,9 @@
 #include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "bregs.h" // struct bregs
+#include "e820map.h" // e820_add
 #include "malloc.h" // memalign_tmphigh
-#include "memmap.h" // add_e820
+#include "memmap.h" // PAGE_SIZE
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_findprefix
 #include "stacks.h" // call16_int
@@ -41,7 +42,7 @@ ramdisk_setup(void)
         warn_noalloc();
         return;
     }
-    add_e820((u32)pos, size, E820_RESERVED);
+    e820_add((u32)pos, size, E820_RESERVED);
 
     // Copy image into ram.
     int ret = file->copy(file, pos, size);

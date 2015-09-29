@@ -8,6 +8,7 @@
 #include "biosvar.h" // SET_BDA
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
+#include "e820map.h" // e820_add
 #include "fw/paravirt.h" // qemu_cfg_preinit
 #include "fw/xen.h" // xen_preinit
 #include "hw/ahci.h" // ahci_setup
@@ -24,7 +25,6 @@
 #include "hw/virtio-blk.h" // virtio_blk_setup
 #include "hw/virtio-scsi.h" // virtio_scsi_setup
 #include "malloc.h" // malloc_init
-#include "memmap.h" // add_e820
 #include "output.h" // dprintf
 #include "string.h" // memset
 #include "util.h" // kbd_init
@@ -102,7 +102,7 @@ bda_init(void)
     memset(ebda, 0, sizeof(*ebda));
     ebda->size = esize;
 
-    add_e820((u32)ebda, BUILD_LOWRAM_END-(u32)ebda, E820_RESERVED);
+    e820_add((u32)ebda, BUILD_LOWRAM_END-(u32)ebda, E820_RESERVED);
 
     // Init extra stack
     StackPos = (void*)(&ExtraStack[BUILD_EXTRA_STACK_SIZE] - zonelow_base);
@@ -191,7 +191,7 @@ prepareboot(void)
     cdrom_prepboot();
     pmm_prepboot();
     malloc_prepboot();
-    memmap_prepboot();
+    e820_prepboot();
 
     HaveRunPost = 2;
 
