@@ -4,13 +4,6 @@
 #include "types.h" // u64
 #include "memmap.h" // PAGE_SIZE
 
-#define PAGE_SHIFT 12
-
-#define virt_to_phys(v) (unsigned long)(v)
-/* Compiler barrier is enough as an x86 CPU does not reorder reads or writes */
-#define smp_rmb() barrier()
-#define smp_wmb() barrier()
-
 /* Status byte for guest to report progress, and synchronize features. */
 /* We have seen device and processed generic fields (VIRTIO_CONFIG_F_VIRTIO) */
 #define VIRTIO_CONFIG_S_ACKNOWLEDGE     1

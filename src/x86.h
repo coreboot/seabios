@@ -190,6 +190,14 @@ static inline void outsl(u16 port, u32 *data, u32 count) {
                  : "+c"(count), "+S"(data) : "d"(port) : "memory");
 }
 
+/* Compiler barrier is enough as an x86 CPU does not reorder reads or writes */
+static inline void smp_rmb(void) {
+    barrier();
+}
+static inline void smp_wmb(void) {
+    barrier();
+}
+
 static inline void writel(void *addr, u32 val) {
     barrier();
     *(volatile u32 *)addr = val;

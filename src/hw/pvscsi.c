@@ -11,6 +11,7 @@
 #include "blockcmd.h" // scsi_drive_setup
 #include "config.h" // CONFIG_*
 #include "malloc.h" // free
+#include "memmap.h" // PAGE_SHIFT, virt_to_phys
 #include "output.h" // dprintf
 #include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VMWARE_PVSCSI
@@ -19,7 +20,6 @@
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
-#include "virtio-ring.h" // PAGE_SHIFT, virt_to_phys
 #include "x86.h" // writel
 
 #define MASK(n) ((1 << (n)) - 1)
