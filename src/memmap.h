@@ -8,7 +8,6 @@
 #define E820_ACPI         3
 #define E820_NVS          4
 #define E820_UNUSABLE     5
-#define E820_HOLE         ((u32)-1) // Useful for removing entries
 
 struct e820entry {
     u64 start;
@@ -17,6 +16,7 @@ struct e820entry {
 };
 
 void add_e820(u64 start, u64 size, u32 type);
+void e820_remove(u64 start, u64 size);
 void memmap_prepboot(void);
 
 // A typical OS page size

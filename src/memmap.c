@@ -54,7 +54,6 @@ e820_type_name(u32 type)
     case E820_ACPI:     return "ACPI";
     case E820_NVS:      return "NVS";
     case E820_UNUSABLE: return "UNUSABLE";
-    case E820_HOLE:     return "HOLE";
     default:            return "UNKNOWN";
     }
 }
@@ -72,6 +71,8 @@ dump_map(void)
                 , e->start, e_end, e->type, e820_type_name(e->type));
     }
 }
+
+#define E820_HOLE         ((u32)-1) // Used internally to remove entries
 
 // Add a new entry to the list.  This scans for overlaps and keeps the
 // list sorted.
@@ -134,6 +135,13 @@ add_e820(u64 start, u64 size, u32 type)
     if (type != E820_HOLE)
         insert_e820(i, start, size, type);
     //dump_map();
+}
+
+// Remove any definitions in a memory range (make a memory hole).
+void
+e820_remove(u64 start, u64 size)
+{
+    add_e820(start, size, E820_HOLE);
 }
 
 // Report on final memory locations.
