@@ -57,8 +57,6 @@ alloc_new(struct zone_s *zone, u32 size, u32 align, struct allocinfo_s *fill)
         void *newallocend = (void*)ALIGN_DOWN((u32)allocend - size, align);
         if (newallocend >= dataend && newallocend <= allocend) {
             // Found space - now reserve it.
-            if (!fill)
-                fill = newallocend;
             fill->data = newallocend;
             fill->dataend = newallocend + size;
             fill->allocend = allocend;
@@ -69,6 +67,28 @@ alloc_new(struct zone_s *zone, u32 size, u32 align, struct allocinfo_s *fill)
         }
     }
     return NULL;
+}
+
+// Reserve space for a 'struct allocdetail_s' and fill
+static struct allocdetail_s *
+alloc_new_detail(struct allocdetail_s *temp)
+{
+    struct allocdetail_s *detail = alloc_new(
+        &ZoneTmpHigh, sizeof(*detail), MALLOC_MIN_ALIGN, &temp->detailinfo);
+    if (!detail) {
+        detail = alloc_new(&ZoneTmpLow, sizeof(*detail)
+                           , MALLOC_MIN_ALIGN, &temp->detailinfo);
+        if (!detail) {
+            warn_noalloc();
+            return NULL;
+        }
+    }
+
+    // Fill final 'detail' allocation from data in 'temp'
+    memcpy(detail, temp, sizeof(*detail));
+    hlist_replace(&temp->detailinfo.node, &detail->detailinfo.node);
+    hlist_replace(&temp->datainfo.node, &detail->datainfo.node);
+    return detail;
 }
 
 // Add new memory to a zone
@@ -85,29 +105,15 @@ alloc_add(struct zone_s *zone, void *start, void *end)
 
     // Add space using temporary allocation info.
     struct allocdetail_s tempdetail;
+    tempdetail.handle = MALLOC_DEFAULT_HANDLE;
     tempdetail.datainfo.data = tempdetail.datainfo.dataend = start;
     tempdetail.datainfo.allocend = end;
     hlist_add(&tempdetail.datainfo.node, pprev);
 
     // Allocate final allocation info.
-    struct allocdetail_s *detail = alloc_new(
-        &ZoneTmpHigh, sizeof(*detail), MALLOC_MIN_ALIGN, NULL);
-    if (!detail) {
-        detail = alloc_new(&ZoneTmpLow, sizeof(*detail)
-                           , MALLOC_MIN_ALIGN, NULL);
-        if (!detail) {
-            hlist_del(&tempdetail.datainfo.node);
-            warn_noalloc();
-            return;
-        }
-    }
-
-    // Replace temp alloc space with final alloc space
-    pprev = tempdetail.datainfo.node.pprev;
-    hlist_del(&tempdetail.datainfo.node);
-    memcpy(&detail->datainfo, &tempdetail.datainfo, sizeof(detail->datainfo));
-    detail->handle = MALLOC_DEFAULT_HANDLE;
-    hlist_add(&detail->datainfo.node, pprev);
+    struct allocdetail_s *detail = alloc_new_detail(&tempdetail);
+    if (!detail)
+        hlist_del(&tempdetail.datainfo.node);
 }
 
 // Release space allocated with alloc_new()
@@ -232,23 +238,19 @@ _malloc(struct zone_s *zone, u32 size, u32 align)
     if (!size)
         return NULL;
 
-    // Find and reserve space for bookkeeping.
-    struct allocdetail_s *detail = alloc_new(
-        &ZoneTmpHigh, sizeof(*detail), MALLOC_MIN_ALIGN, NULL);
-    if (!detail) {
-        detail = alloc_new(&ZoneTmpLow, sizeof(*detail)
-                           , MALLOC_MIN_ALIGN, NULL);
-        if (!detail)
-            return NULL;
-    }
-    detail->handle = MALLOC_DEFAULT_HANDLE;
-
     // Find and reserve space for main allocation
-    void *data = alloc_new(zone, size, align, &detail->datainfo);
+    struct allocdetail_s tempdetail;
+    tempdetail.handle = MALLOC_DEFAULT_HANDLE;
+    void *data = alloc_new(zone, size, align, &tempdetail.datainfo);
     if (!CONFIG_MALLOC_UPPERMEMORY && !data && zone == &ZoneLow)
-        data = zonelow_expand(size, align, &detail->datainfo);
-    if (!data) {
-        alloc_free(&detail->detailinfo);
+        data = zonelow_expand(size, align, &tempdetail.datainfo);
+    if (!data)
+        return NULL;
+
+    // Find and reserve space for bookkeeping.
+    struct allocdetail_s *detail = alloc_new_detail(&tempdetail);
+    if (!detail) {
+        alloc_free(&tempdetail.datainfo);
         return NULL;
     }
 
