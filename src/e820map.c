@@ -79,7 +79,7 @@ dump_map(void)
 void
 e820_add(u64 start, u64 size, u32 type)
 {
-    dprintf(8, "Add to e820 map: %08x %08x %d\n", (u32)start, (u32)size, type);
+    dprintf(8, "Add to e820 map: %08llx %08llx %d\n", start, size, type);
 
     if (! size)
         // Huh?  Nothing to do.
