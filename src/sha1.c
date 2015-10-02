@@ -33,7 +33,7 @@ sha1_block(u32 *w, sha1_ctx *ctx)
     static const u32 sha_ko[4] = {
         0x5a827999, 0x6ed9eba1, 0x8f1bbcdc, 0xca62c1d6 };
 
-    /* change endianess of given data */
+    /* change endianness of given data */
     for (i = 0; i < 16; i++)
         w[i] = be32_to_cpu(w[i]);
 
@@ -120,7 +120,7 @@ sha1_do(sha1_ctx *ctx, const u8 *data32, u32 length)
 
     sha1_block(w, ctx);
 
-    /* need to switch result's endianess */
+    /* need to switch result's endianness */
     for (num = 0; num < 5; num++)
         ctx->h[num] = cpu_to_be32(ctx->h[num]);
 }

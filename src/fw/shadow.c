@@ -65,7 +65,7 @@ make_bios_writable_intel(u16 bdf, u32 pam0)
     if (!(reg & 0x10)) {
         // QEMU doesn't fully implement the piix shadow capabilities -
         // if ram isn't backing the bios segment when shadowing is
-        // disabled, the code itself wont be in memory.  So, run the
+        // disabled, the code itself won't be in memory.  So, run the
         // code from the high-memory flash location.
         u32 pos = (u32)__make_bios_writable_intel + BIOS_SRC_OFFSET;
         void (*func)(u16 bdf, u32 pam0) = (void*)pos;

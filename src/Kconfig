@@ -20,7 +20,7 @@ choice
             Configure for an emulated machine (QEMU, Xen, KVM, or Bochs).
 
     config CSM
-       bool "Build as Compatibilty Support Module for EFI BIOS"
+       bool "Build as Compatibility Support Module for EFI BIOS"
        help
            Configure to be used by EFI firmware as Compatibility Support
            module (CSM) to provide legacy BIOS services.
