@@ -17,6 +17,7 @@ void malloc_init(void);
 void malloc_prepboot(void);
 void *_malloc(struct zone_s *zone, u32 size, u32 align);
 int _free(void *data);
+void free(void *data);
 u32 malloc_getspace(struct zone_s *zone);
 void malloc_sethandle(void *data, u32 handle);
 void *malloc_findhandle(u32 handle);
@@ -63,9 +64,6 @@ static inline void *memalign_tmp(u32 align, u32 size) {
     if (ret)
         return ret;
     return memalign_tmplow(align, size);
-}
-static inline void free(void *data) {
-    _free(data);
 }
 
 #endif // malloc.h

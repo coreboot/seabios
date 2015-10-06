@@ -276,6 +276,16 @@ _free(void *data)
     return 0;
 }
 
+void
+free(void *data)
+{
+    if (!data)
+        return;
+    int ret = _free(data);
+    if (ret)
+        warn_internalerror();
+}
+
 // Find the amount of free space in a given zone.
 u32
 malloc_getspace(struct zone_s *zone)
