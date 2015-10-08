@@ -23,6 +23,7 @@
 #include "util.h" // pci_setup
 #include "x86.h" // cpuid
 #include "xen.h" // xen_biostable_setup
+#include "stacks.h" // yield
 
 // Amount of continuous ram under 4Gig
 u32 RamSize;
@@ -30,6 +31,13 @@ u32 RamSize;
 u64 RamSizeOver4G;
 // Type of emulator platform.
 int PlatformRunningOn VARFSEG;
+// cfg_dma enabled
+int cfg_dma_enabled = 0;
+
+inline int qemu_cfg_dma_enabled(void)
+{
+    return cfg_dma_enabled;
+}
 
 /* This CPUID returns the signature 'KVMKVMKVM' in ebx, ecx, and edx.  It
  * should be used to determine that a VM is running under KVM.
@@ -199,23 +207,63 @@ qemu_cfg_select(u16 f)
 }
 
 static void
+qemu_cfg_dma_transfer(void *address, u32 length, u32 control)
+{
+    QemuCfgDmaAccess access;
+
+    access.address = cpu_to_be64((u64)(u32)address);
+    access.length = cpu_to_be32(length);
+    access.control = cpu_to_be32(control);
+
+    barrier();
+
+    outl(cpu_to_be32((u32)&access), PORT_QEMU_CFG_DMA_ADDR_LOW);
+
+    while(be32_to_cpu(access.control) & ~QEMU_CFG_DMA_CTL_ERROR) {
+        yield();
+    }
+}
+
+static void
 qemu_cfg_read(void *buf, int len)
 {
-    insb(PORT_QEMU_CFG_DATA, buf, len);
+    if (len == 0) {
+        return;
+    }
+
+    if (qemu_cfg_dma_enabled()) {
+        qemu_cfg_dma_transfer(buf, len, QEMU_CFG_DMA_CTL_READ);
+    } else {
+        insb(PORT_QEMU_CFG_DATA, buf, len);
+    }
 }
 
 static void
 qemu_cfg_skip(int len)
 {
-    while (len--)
-        inb(PORT_QEMU_CFG_DATA);
+    if (len == 0) {
+        return;
+    }
+
+    if (qemu_cfg_dma_enabled()) {
+        qemu_cfg_dma_transfer(0, len, QEMU_CFG_DMA_CTL_SKIP);
+    } else {
+        while (len--)
+            inb(PORT_QEMU_CFG_DATA);
+    }
 }
 
 static void
 qemu_cfg_read_entry(void *buf, int e, int len)
 {
-    qemu_cfg_select(e);
-    qemu_cfg_read(buf, len);
+    if (qemu_cfg_dma_enabled()) {
+        u32 control = (e << 16) | QEMU_CFG_DMA_CTL_SELECT
+                        | QEMU_CFG_DMA_CTL_READ;
+        qemu_cfg_dma_transfer(buf, len, control);
+    } else {
+        qemu_cfg_select(e);
+        qemu_cfg_read(buf, len);
+    }
 }
 
 struct qemu_romfile_s {
@@ -230,9 +278,14 @@ qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
         return -1;
     struct qemu_romfile_s *qfile;
     qfile = container_of(file, struct qemu_romfile_s, file);
-    qemu_cfg_select(qfile->select);
-    qemu_cfg_skip(qfile->skip);
-    qemu_cfg_read(dst, file->size);
+    if (qfile->skip == 0) {
+        /* Do it in one transfer */
+        qemu_cfg_read_entry(dst, qfile->select, file->size);
+    } else {
+        qemu_cfg_select(qfile->select);
+        qemu_cfg_skip(qfile->skip);
+        qemu_cfg_read(dst, file->size);
+    }
     return file->size;
 }
 
@@ -422,7 +475,17 @@ void qemu_cfg_init(void)
     for (i = 0; i < 4; i++)
         if (inb(PORT_QEMU_CFG_DATA) != sig[i])
             return;
+
     dprintf(1, "Found QEMU fw_cfg\n");
+
+    // Detect DMA interface.
+    u32 id;
+    qemu_cfg_read_entry(&id, QEMU_CFG_ID, sizeof(id));
+
+    if (id & QEMU_CFG_VERSION_DMA) {
+        dprintf(1, "QEMU fw_cfg DMA interface supported\n");
+        cfg_dma_enabled = 1;
+    }
 
     // Populate romfiles for legacy fw_cfg entries
     qemu_cfg_legacy();
