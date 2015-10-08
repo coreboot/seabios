@@ -366,8 +366,7 @@ rom_get_max(void)
     if (CONFIG_MALLOC_UPPERMEMORY)
         return ALIGN_DOWN(RomBase->range_end - OPROM_HEADER_RESERVE
                           , OPTION_ROM_ALIGN);
-    extern u8 final_readonly_start[];
-    return (u32)final_readonly_start;
+    return SYMBOL(final_readonly_start);
 }
 
 // Return the end of the last deployed option rom.
@@ -385,8 +384,8 @@ rom_reserve(u32 size)
     if (newend > rom_get_max())
         return NULL;
     if (CONFIG_MALLOC_UPPERMEMORY) {
-        if (newend < (u32)zonelow_base)
-            newend = (u32)zonelow_base;
+        if (newend < SYMBOL(zonelow_base))
+            newend = SYMBOL(zonelow_base);
         RomBase->range_start = newend + OPROM_HEADER_RESERVE;
     }
     return (void*)RomEnd;
@@ -504,21 +503,21 @@ malloc_init(void)
     }
 
     // Initialize low-memory region
-    extern u8 varlow_start[], varlow_end[], final_varlow_start[];
-    memmove(final_varlow_start, varlow_start, varlow_end - varlow_start);
+    memmove(VSYMBOL(final_varlow_start), VSYMBOL(varlow_start)
+            , SYMBOL(varlow_end) - SYMBOL(varlow_start));
     if (CONFIG_MALLOC_UPPERMEMORY) {
-        alloc_add(&ZoneLow, (u32)zonelow_base + OPROM_HEADER_RESERVE
-                  , (u32)final_varlow_start);
+        alloc_add(&ZoneLow, SYMBOL(zonelow_base) + OPROM_HEADER_RESERVE
+                  , SYMBOL(final_varlow_start));
         RomBase = alloc_find_lowest(&ZoneLow);
     } else {
-        alloc_add(&ZoneLow, ALIGN_DOWN((u32)final_varlow_start, 1024)
-                  , (u32)final_varlow_start);
+        alloc_add(&ZoneLow, ALIGN_DOWN(SYMBOL(final_varlow_start), 1024)
+                  , SYMBOL(final_varlow_start));
     }
 
     // Add space available in f-segment to ZoneFSeg
-    extern u8 zonefseg_start[], zonefseg_end[];
-    memset(zonefseg_start, 0, zonefseg_end - zonefseg_start);
-    alloc_add(&ZoneFSeg, (u32)zonefseg_start, (u32)zonefseg_end);
+    memset(VSYMBOL(zonefseg_start), 0
+           , SYMBOL(zonefseg_end) - SYMBOL(zonefseg_start));
+    alloc_add(&ZoneFSeg, SYMBOL(zonefseg_start), SYMBOL(zonefseg_end));
 
     calcRamSize();
 }

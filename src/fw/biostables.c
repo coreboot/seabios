@@ -6,14 +6,15 @@
 
 #include "byteorder.h" // le32_to_cpu
 #include "config.h" // CONFIG_*
-#include "malloc.h" // malloc_fseg
-#include "output.h" // dprintf
 #include "hw/pci.h" // pci_config_writeb
+#include "malloc.h" // malloc_fseg
+#include "memmap.h" // SYMBOL
+#include "output.h" // dprintf
+#include "romfile.h" // romfile_find
 #include "std/acpi.h" // struct rsdp_descriptor
 #include "std/mptable.h" // MPTABLE_SIGNATURE
 #include "std/pirtable.h" // struct pir_header
 #include "std/smbios.h" // struct smbios_entry_point
-#include "romfile.h"
 #include "string.h" // memcpy
 #include "util.h" // copy_table
 #include "x86.h" // outb
@@ -122,9 +123,8 @@ copy_acpi_rsdp(void *pos)
 
 void *find_acpi_rsdp(void)
 {
-    extern u8 zonefseg_start[], zonefseg_end[];
-    unsigned long start = (unsigned long)zonefseg_start;
-    unsigned long end = (unsigned long)zonefseg_end;
+    unsigned long start = SYMBOL(zonefseg_start);
+    unsigned long end = SYMBOL(zonefseg_end);
     unsigned long pos;
 
     for (pos = ALIGN(start, 0x10); pos <= ALIGN_DOWN(end, 0x10); pos += 0x10)

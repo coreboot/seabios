@@ -14,4 +14,8 @@ static inline void *memremap(u32 addr, u32 len) {
     return (void*)addr;
 }
 
+// Return the value of a linker script symbol (see scripts/layoutrom.py)
+#define SYMBOL(SYM) ({ extern char SYM; (u32)&SYM; })
+#define VSYMBOL(SYM) ((void*)SYMBOL(SYM))
+
 #endif // memmap.h
