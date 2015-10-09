@@ -525,9 +525,8 @@ process_op_both(struct disk_op_s *op)
         if (!MODESEGMENT)
             return DISK_RET_EPARAM;
         // In 16bit mode and driver not found - try in 32bit mode
-        extern void _cfunc32flat_process_op_32(void);
-        return call32(_cfunc32flat_process_op_32
-                      , (u32)MAKE_FLATPTR(GET_SEG(SS), op), DISK_RET_EPARAM);
+        return call32(process_op_32, MAKE_FLATPTR(GET_SEG(SS), op)
+                      , DISK_RET_EPARAM);
     }
 }
 
@@ -625,5 +624,5 @@ send_disk_op(struct disk_op_s *op)
     if (! CONFIG_DRIVES)
         return -1;
 
-    return stack_hop((u32)op, GET_SEG(SS), __send_disk_op);
+    return stack_hop(__send_disk_op, op, GET_SEG(SS));
 }

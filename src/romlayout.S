@@ -248,7 +248,7 @@ entry_pmm:
         movl $_cfunc32flat_handle_pmm, %eax // Setup: call32(handle_pmm, args, -1)
         leal PUSHBREGS_size+12(%esp, %ecx), %edx // %edx points to start of args
         movl $-1, %ecx
-        calll call32
+        calll __call32
         movw %ax, BREGS_eax(%esp)       // Modify %ax:%dx to return %eax
         shrl $16, %eax
         movw %ax, BREGS_edx(%esp)

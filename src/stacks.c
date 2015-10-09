@@ -229,7 +229,7 @@ call16_smm(u32 eax, u32 edx, void *func)
 
 // Call a 32bit SeaBIOS function from a 16bit SeaBIOS function.
 u32 VISIBLE16
-call32(void *func, u32 eax, u32 errret)
+__call32(void *func, u32 eax, u32 errret)
 {
     ASSERT16();
     if (CONFIG_CALL32_SMM && GET_GLOBAL(HaveSmmCall32))
@@ -328,7 +328,7 @@ on_extra_stack(void)
 
 // Switch to the extra stack and call a function.
 u32
-stack_hop(u32 eax, u32 edx, void *func)
+__stack_hop(u32 eax, u32 edx, void *func)
 {
     if (on_extra_stack())
         return ((u32 (*)(u32, u32))func)(eax, edx);
@@ -361,7 +361,7 @@ stack_hop(u32 eax, u32 edx, void *func)
 
 // Switch back to original caller's stack and call a function.
 u32
-stack_hop_back(u32 eax, u32 edx, void *func)
+__stack_hop_back(u32 eax, u32 edx, void *func)
 {
     if (!MODESEGMENT)
         return call16(eax, edx, func);
@@ -404,8 +404,7 @@ void VISIBLE16
 _farcall16(struct bregs *callregs, u16 callregseg)
 {
     if (need_hop_back()) {
-        extern void _cfunc16__farcall16(void);
-        stack_hop_back((u32)callregs, callregseg, _cfunc16__farcall16);
+        stack_hop_back(_farcall16, callregs, callregseg);
         return;
     }
     ASSERT16();
@@ -599,8 +598,7 @@ check_irqs(void)
         return;
     }
     if (need_hop_back()) {
-        extern void _cfunc16_check_irqs(void);
-        stack_hop_back(0, 0, _cfunc16_check_irqs);
+        stack_hop_back(check_irqs, 0, 0);
         return;
     }
     if (MODE16)
@@ -629,8 +627,7 @@ void VISIBLE16
 wait_irq(void)
 {
     if (need_hop_back()) {
-        extern void _cfunc16_wait_irq(void);
-        stack_hop_back(0, 0, _cfunc16_wait_irq);
+        stack_hop_back(wait_irq, 0, 0);
         return;
     }
     asm volatile("sti ; hlt ; cli ; cld": : :"memory");
@@ -735,9 +732,8 @@ yield_preempt(void)
 void
 check_preempt(void)
 {
-    extern void _cfunc32flat_yield_preempt(void);
     if (CONFIG_THREADS && GET_GLOBAL(CanPreempt) && have_threads())
-        call32(_cfunc32flat_yield_preempt, 0, 0);
+        call32(yield_preempt, 0, 0);
 }
 
 
@@ -758,11 +754,10 @@ call32_params_helper(struct call32_params_s *params)
 }
 
 u32
-call32_params(void *func, u32 eax, u32 edx, u32 ecx, u32 errret)
+__call32_params(void *func, u32 eax, u32 edx, u32 ecx, u32 errret)
 {
     ASSERT16();
     struct call32_params_s params = {func, eax, edx, ecx};
-    extern void _cfunc32flat_call32_params_helper(void);
-    return call32(_cfunc32flat_call32_params_helper
-                  , (u32)MAKE_FLATPTR(GET_SEG(SS), &params), errret);
+    return call32(call32_params_helper, MAKE_FLATPTR(GET_SEG(SS), &params)
+                  , errret);
 }

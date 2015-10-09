@@ -248,9 +248,7 @@ handle_1abb(struct bregs *regs)
         return;
 
     dprintf(DEBUG_tcg, "16: Calling tpm_interrupt_handler\n");
-    extern void _cfunc32flat_tpm_interrupt_handler32(void);
-    call32(_cfunc32flat_tpm_interrupt_handler32,
-           (u32)MAKE_FLATPTR(GET_SEG(SS), regs), 0);
+    call32(tpm_interrupt_handler32, MAKE_FLATPTR(GET_SEG(SS), regs), 0);
 }
 
 // Unsupported
