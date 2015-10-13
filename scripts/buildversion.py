@@ -92,14 +92,16 @@ def main():
     cleanbuild, toolstr = tool_versions(options.tools)
 
     ver = git_version()
+    cleanbuild = cleanbuild and ver and 'dirty' not in ver
     if not ver:
         ver = file_version()
         if not ver:
             ver = "?"
-    btime = time.strftime("%Y%m%d_%H%M%S")
-    hostname = socket.gethostname()
-    ver = "%s-%s-%s%s" % (ver, btime, hostname, options.extra)
-    write_version(outfile, ver, toolstr)
+    if not cleanbuild:
+        btime = time.strftime("%Y%m%d_%H%M%S")
+        hostname = socket.gethostname()
+        ver = "%s-%s-%s" % (ver, btime, hostname)
+    write_version(outfile, ver + options.extra, toolstr)
 
 if __name__ == '__main__':
     main()
