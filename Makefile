@@ -51,6 +51,8 @@ DIRS=src src/hw src/fw vgasrc
 cc-option=$(shell if test -z "`$(1) $(2) -S -o /dev/null -xc /dev/null 2>&1`" \
     ; then echo "$(2)"; else echo "$(3)"; fi ;)
 
+EXTRAVERSION=
+
 CPPFLAGS = -P -MD -MT $@
 
 COMMONCFLAGS := -I$(OUT) -Isrc -Os -MD -g \
@@ -154,10 +156,10 @@ $(OUT)romlayout.o: src/romlayout.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)ccode16.o $(OUT)romlayout.o scripts/layoutrom.py scripts/buildversion.sh
+$(OUT)romlayout16.lds: $(OUT)ccode32flat.o $(OUT)code32seg.o $(OUT)ccode16.o $(OUT)romlayout.o src/version.c scripts/layoutrom.py scripts/buildversion.py
 	@echo "  Building ld scripts"
-	$(Q)BUILD_VERSION="$(VERSION)" ./scripts/buildversion.sh $(OUT)version.c
-	$(Q)$(CC) $(CFLAGS32FLAT) -c $(OUT)version.c -o $(OUT)version.o
+	$(Q)$(PYTHON) ./scripts/buildversion.py -e "$(EXTRAVERSION)" $(OUT)autoversion.h
+	$(Q)$(CC) $(CFLAGS32FLAT) -c src/version.c -o $(OUT)version.o
 	$(Q)$(LD) $(LD32BIT_FLAG) -r $(OUT)ccode32flat.o $(OUT)version.o -o $(OUT)code32flat.o
 	$(Q)$(LD) $(LD32BIT_FLAG) -r $(OUT)ccode16.o $(OUT)romlayout.o -o $(OUT)code16.o
 	$(Q)$(OBJDUMP) -thr $(OUT)code32flat.o > $(OUT)code32flat.o.objdump
@@ -226,10 +228,10 @@ $(OUT)vgaentry.o: vgasrc/vgaentry.S $(OUT)autoconf.h $(OUT)asm-offsets.h
 	@echo "  Compiling (16bit) $@"
 	$(Q)$(CC) $(CFLAGS16) -c -D__ASSEMBLY__ $< -o $@
 
-$(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgasrc/vgalayout.lds scripts/buildversion.sh
+$(OUT)vgarom.o: $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgasrc/vgalayout.lds vgasrc/vgaversion.c scripts/buildversion.py
 	@echo "  Linking $@"
-	$(Q)BUILD_VERSION="$(VERSION)" ./scripts/buildversion.sh $(OUT)vgaversion.c VAR16
-	$(Q)$(CC) $(CFLAGS16) -c $(OUT)vgaversion.c -o $(OUT)vgaversion.o
+	$(Q)$(PYTHON) ./scripts/buildversion.py -e "$(EXTRAVERSION)" $(OUT)autovgaversion.h
+	$(Q)$(CC) $(CFLAGS16) -c vgasrc/vgaversion.c -o $(OUT)vgaversion.o
 	$(Q)$(LD) --gc-sections -T $(OUT)vgasrc/vgalayout.lds $(OUT)vgaccode16.o $(OUT)vgaentry.o $(OUT)vgaversion.o -o $@
 
 $(OUT)vgabios.bin.raw: $(OUT)vgarom.o
