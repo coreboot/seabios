@@ -236,6 +236,6 @@ void vgahook_setup(struct pci_device *pci);
 
 
 // version (auto generated file out/version.c)
-extern const char VERSION[];
+extern const char VERSION[], BUILDINFO[];
 
 #endif // util.h
