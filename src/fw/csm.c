@@ -10,7 +10,7 @@
 #include "farptr.h" // MAKE_FLATPTR
 #include "hw/pci.h" // pci_probe_devices
 #include "hw/pic.h" // pic_irqmask_read
-#include "malloc.h" // csm_malloc_preinit
+#include "malloc.h" // malloc_csm_preinit
 #include "memmap.h" // SYMBOL
 #include "output.h" // dprintf
 #include "paravirt.h" // qemu_preinit
@@ -95,7 +95,7 @@ handle_csm_0000(struct bregs *regs)
     dprintf(3, "LoPmmMemory     %08x\n", csm_init_table->LowPmmMemory);
     dprintf(3, "LoPmmMemorySize %08x\n", csm_init_table->LowPmmMemorySizeInBytes);
 
-    csm_malloc_preinit(csm_init_table->LowPmmMemory,
+    malloc_csm_preinit(csm_init_table->LowPmmMemory,
                        csm_init_table->LowPmmMemorySizeInBytes,
                        csm_init_table->HiPmmMemory,
                        csm_init_table->HiPmmMemorySizeInBytes);
