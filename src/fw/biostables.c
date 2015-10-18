@@ -452,7 +452,7 @@ void
 smbios_setup(void)
 {
     if (smbios_romfile_setup())
-      return;
+        return;
     smbios_legacy_setup();
 }
 
