@@ -211,8 +211,8 @@ virtio_blk_setup(void)
     struct pci_device *pci;
     foreachpci(pci) {
         if (pci->vendor != PCI_VENDOR_ID_REDHAT_QUMRANET ||
-	    (pci->device != PCI_DEVICE_ID_VIRTIO_BLK_09 &&
-	     pci->device != PCI_DEVICE_ID_VIRTIO_BLK_10))
+            (pci->device != PCI_DEVICE_ID_VIRTIO_BLK_09 &&
+             pci->device != PCI_DEVICE_ID_VIRTIO_BLK_10))
             continue;
         init_virtio_blk(pci);
     }
