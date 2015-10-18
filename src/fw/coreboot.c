@@ -506,7 +506,7 @@ cbfs_run_payload(struct cbfs_file *fhdr)
             break;
         case PAYLOAD_SEGMENT_ENTRY: {
             dprintf(1, "Calling addr %p\n", dest);
-            void (*func)() = dest;
+            void (*func)(void) = dest;
             func();
             return;
         }
