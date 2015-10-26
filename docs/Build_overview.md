@@ -89,11 +89,7 @@ drivers. The **src/fw/** directory contains source code for platform
 firmware initialization. The **src/std/** directory contains header
 files describing standard bios, firmware, and hardware interfaces.
 
-The **vgasrc/** directory contains code for VGA BIOS implementations.
-This code is separate from the main BIOS code in the src/ directory.
-When the build is configured to produce a VGA BIOS the resulting
-binary is found in out/vgabios.bin. The VGA BIOS code is always
-compiled in 16bit mode.
+The **vgasrc/** directory contains code for [SeaVGABIOS](SeaVGABIOS).
 
 The **scripts/** directory contains helper utilities for manipulating
 and building the final roms.

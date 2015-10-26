@@ -28,7 +28,8 @@ SeaVGABIOS code
 
 The source code for SeaVGABIOS is located in the SeaBIOS
 [git repository](Download). The main VGA BIOS code is located in the
-"vgasrc/" directory.
+"vgasrc/" directory. The VGA BIOS code is always compiled in 16bit
+mode.
 
 The SeaVGABIOS builds to a separate binary from the main SeaBIOS
 binary, and much of the VGA BIOS code is separate from the main BIOS
