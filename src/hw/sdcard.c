@@ -527,6 +527,7 @@ sdcard_pci_setup(void *data)
     wait_preempt();  // Avoid pci_config_readl when preempting
     // XXX - bars dependent on slot index register in pci config space
     u32 regs = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0);
+    regs &= PCI_BASE_ADDRESS_MEM_MASK;
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
                      PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
     int prio = bootprio_find_pci_device(pci);
