@@ -114,19 +114,10 @@ s3_resume(void)
     farcall16big(&br);
 }
 
-u8 HaveAttemptedReboot VARLOW;
-
 // Attempt to invoke a hard-reboot.
 static void
 tryReboot(void)
 {
-    if (HaveAttemptedReboot) {
-        // Hard reboot has failed - try to shutdown machine.
-        dprintf(1, "Unable to hard-reboot machine - attempting shutdown.\n");
-        apm_shutdown();
-    }
-    HaveAttemptedReboot = 1;
-
     dprintf(1, "Attempting a hard reboot\n");
 
     // Setup for reset on qemu.
