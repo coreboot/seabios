@@ -962,9 +962,25 @@ err_exit:
     return rc;
 }
 
+static u32
+hash_log_extend_event(const void *hashdata, u32 hashdata_length,
+                      struct pcpes *pcpes,
+                      const char *event, u32 event_length,
+                      u32 pcrindex, u16 *entry_count)
+{
+    u32 rc;
+
+    rc = hash_log_event(hashdata, hashdata_length, pcpes,
+                        event, event_length, entry_count);
+    if (rc)
+        return rc;
+
+    return tpm_extend(pcpes->digest, pcrindex);
+}
 
 static u32
-hash_log_extend_event(const struct hleei_short *hleei_s, struct hleeo *hleeo)
+hash_log_extend_event_int(const struct hleei_short *hleei_s,
+                          struct hleeo *hleeo)
 {
     u32 rc = 0;
     struct hleo hleo;
@@ -972,6 +988,7 @@ hash_log_extend_event(const struct hleei_short *hleei_s, struct hleeo *hleeo)
     const void *logdataptr;
     u32 logdatalen;
     struct pcpes *pcpes;
+    u32 pcrindex;
 
     /* short or long version? */
     switch (hleei_s->ipblength) {
@@ -979,12 +996,14 @@ hash_log_extend_event(const struct hleei_short *hleei_s, struct hleeo *hleeo)
         /* short */
         logdataptr = hleei_s->logdataptr;
         logdatalen = hleei_s->logdatalen;
+        pcrindex = hleei_s->pcrindex;
     break;
 
     case sizeof(struct hleei_long):
         /* long */
         logdataptr = hleei_l->logdataptr;
         logdatalen = hleei_l->logdatalen;
+        pcrindex = hleei_l->pcrindex;
     break;
 
     default:
@@ -994,19 +1013,24 @@ hash_log_extend_event(const struct hleei_short *hleei_s, struct hleeo *hleeo)
     }
 
     pcpes = (struct pcpes *)logdataptr;
-    (void)logdatalen; /* only temporary */
 
-    rc = hash_log_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
-                        pcpes, (char *)&pcpes->event, pcpes->eventdatasize,
-                        NULL);
+    if (pcpes->pcrindex >= 24 ||
+        pcpes->pcrindex != pcrindex ||
+        logdatalen != offsetof(struct pcpes, event) + pcpes->eventdatasize) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
+                               pcpes,
+                               (char *)&pcpes->event, pcpes->eventdatasize,
+                               pcrindex, NULL);
     if (rc)
         goto err_exit;
 
     hleeo->opblength = sizeof(struct hleeo);
     hleeo->reserved  = 0;
     hleeo->eventnumber = hleo.eventnumber;
-
-    rc = tpm_extend(pcpes->digest, hleei_s->pcrindex);
 
 err_exit:
     if (rc != 0) {
@@ -1045,25 +1069,21 @@ compact_hash_log_extend_event(u8 *buffer,
                               u32 *edx_ptr)
 {
     u32 rc = 0;
-    struct hleeo hleeo;
     struct pcpes pcpes = {
         .pcrindex      = pcrindex,
         .eventtype     = EV_COMPACT_HASH,
         .eventdatasize = sizeof(info),
         .event         = info,
     };
-    struct hleei_short hleei = {
-        .ipblength   = sizeof(hleei),
-        .hashdataptr = buffer,
-        .hashdatalen = length,
-        .pcrindex    = pcrindex,
-        .logdataptr  = &pcpes,
-        .logdatalen  = sizeof(pcpes),
-    };
+    u16 entry_count;
 
-    rc = hash_log_extend_event(&hleei, &hleeo);
+    rc = hash_log_extend_event(buffer, length,
+                               &pcpes,
+                               (char *)&pcpes.event, pcpes.eventdatasize,
+                               pcpes.pcrindex, &entry_count);
+
     if (rc == 0)
-        *edx_ptr = hleeo.eventnumber;
+        *edx_ptr = entry_count;
 
     return rc;
 }
@@ -1101,7 +1121,7 @@ tpm_interrupt_handler32(struct bregs *regs)
 
     case TCG_HashLogExtendEvent:
         regs->eax =
-            hash_log_extend_event(
+            hash_log_extend_event_int(
                   (struct hleei_short *)input_buf32(regs),
                   (struct hleeo *)output_buf32(regs));
         break;
@@ -1153,46 +1173,27 @@ tpm_interrupt_handler32(struct bregs *regs)
  * appended to the TCG_PCClientPCREventStruct
  *
  * Input parameters:
- *  pcrIndex   : which PCR to extend
+ *  pcrindex   : which PCR to extend
  *  event_type : type of event; specs section on 'Event Types'
- *  info       : pointer to info (e.g., string) to be added to log as-is
- *  info_length: length of the info
- *  data       : pointer to the data (i.e., string) to be added to the log
- *  data_length: length of the data
+ *  event       : pointer to info (e.g., string) to be added to log as-is
+ *  event_length: length of the event
+ *  hashdata    : pointer to the data to be hashed
+ *  hashdata_length: length of the data to be hashed
  */
 static u32
-tpm_add_measurement_to_log(u32 pcrIndex, u32 event_type,
-                           const char *info, u32 info_length,
-                           const u8 *data, u32 data_length)
+tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
+                           const char *event, u32 event_length,
+                           const u8 *hashdata, u32 hashdata_length)
 {
-    u32 rc = 0;
-    struct hleeo hleeo;
-    u8 _pcpes[offsetof(struct pcpes, event) + 400];
-    struct pcpes *pcpes = (struct pcpes *)_pcpes;
+    struct pcpes pcpes = {
+        .pcrindex = pcrindex,
+        .eventtype = event_type,
+    };
+    u16 entry_count;
 
-    if (info_length < sizeof(_pcpes) - offsetof(struct pcpes, event)) {
-
-        pcpes->pcrindex      = pcrIndex;
-        pcpes->eventtype     = event_type;
-        memset(&pcpes->digest, 0x0, sizeof(pcpes->digest));
-        pcpes->eventdatasize = info_length;
-        memcpy(&pcpes->event, info, info_length);
-
-        struct hleei_short hleei = {
-            .ipblength   = sizeof(hleei),
-            .hashdataptr = data,
-            .hashdatalen = data_length,
-            .pcrindex    = pcrIndex,
-            .logdataptr  = _pcpes,
-            .logdatalen  = info_length + offsetof(struct pcpes, event),
-        };
-
-        rc = hash_log_extend_event(&hleei, &hleeo);
-    } else {
-        rc = TCG_GENERAL_ERROR;
-    }
-
-    return rc;
+    return hash_log_extend_event(hashdata, hashdata_length, &pcpes,
+                                 event, event_length, pcrindex,
+                                 &entry_count);
 }
 
 
