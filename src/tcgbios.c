@@ -892,9 +892,28 @@ hash_all(const struct hai *hai, u8 *hash)
     return sha1_calc((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
 }
 
+static u32
+hash_log_event(const void *hashdata, u32 hashdata_length,
+               struct pcpes *pcpes,
+               const char *event, u32 event_length,
+               u16 *entry_count)
+{
+    u32 rc = 0;
+
+    if (pcpes->pcrindex >= 24)
+        return TCG_INVALID_INPUT_PARA;
+
+    if (hashdata) {
+        rc = sha1_calc(hashdata, hashdata_length, pcpes->digest);
+        if (rc)
+            return rc;
+    }
+
+    return tpm_extend_acpi_log(pcpes, event, event_length, entry_count);
+}
 
 static u32
-hash_log_event(const struct hlei *hlei, struct hleo *hleo)
+hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
 {
     u32 rc = 0;
     u16 size;
@@ -916,21 +935,16 @@ hash_log_event(const struct hlei *hlei, struct hleo *hleo)
 
     if (pcpes->pcrindex >= 24 ||
         pcpes->pcrindex  != hlei->pcrindex ||
-        pcpes->eventtype != hlei->logeventtype) {
+        pcpes->eventtype != hlei->logeventtype ||
+        hlei->logdatalen !=
+           offsetof(struct pcpes, event) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
 
-    if ((hlei->hashdataptr != 0) && (hlei->hashdatalen != 0)) {
-        rc = sha1_calc((const u8 *)hlei->hashdataptr,
-                       hlei->hashdatalen, pcpes->digest);
-        if (rc)
-            return rc;
-    }
-
-    rc = tpm_extend_acpi_log(pcpes,
-                             (char *)&pcpes->event, pcpes->eventdatasize,
-                             &entry_count);
+    rc = hash_log_event(hlei->hashdataptr, hlei->hashdatalen,
+                        pcpes, (char *)&pcpes->event, pcpes->eventdatasize,
+                        &entry_count);
     if (rc)
         goto err_exit;
 
@@ -980,18 +994,11 @@ hash_log_extend_event(const struct hleei_short *hleei_s, struct hleeo *hleeo)
     }
 
     pcpes = (struct pcpes *)logdataptr;
+    (void)logdatalen; /* only temporary */
 
-    struct hlei hlei = {
-        .ipblength   = sizeof(hlei),
-        .hashdataptr = hleei_s->hashdataptr,
-        .hashdatalen = hleei_s->hashdatalen,
-        .pcrindex    = hleei_s->pcrindex,
-        .logeventtype= pcpes->eventtype,
-        .logdataptr  = logdataptr,
-        .logdatalen  = logdatalen,
-    };
-
-    rc = hash_log_event(&hlei, &hleo);
+    rc = hash_log_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
+                        pcpes, (char *)&pcpes->event, pcpes->eventdatasize,
+                        NULL);
     if (rc)
         goto err_exit;
 
@@ -1110,8 +1117,8 @@ tpm_interrupt_handler32(struct bregs *regs)
         break;
 
     case TCG_HashLogEvent:
-        regs->eax = hash_log_event((struct hlei*)input_buf32(regs),
-                                   (struct hleo*)output_buf32(regs));
+        regs->eax = hash_log_event_int((struct hlei*)input_buf32(regs),
+                                       (struct hleo*)output_buf32(regs));
         break;
 
     case TCG_HashAll:
