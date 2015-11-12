@@ -702,20 +702,23 @@ sha1_calc(const u8 *data, u32 length, u8 *hash)
  * Extend the ACPI log with the given entry by copying the
  * entry data into the log.
  * Input
- *  Pointer to the structure to be copied into the log
+ *  pcpes : Pointer to the event 'header' to be copied into the log
+ *  event : Pointer to the event 'body' to be copied into the log
+ *  event_length: Length of the event array
+ *  entry_count : optional pointer to get the current entry count
  *
  * Output:
- *  lower 16 bits of return code contain entry number
- *  if entry number is '0', then upper 16 bits contain error code.
+ *  Returns an error code in case of faiure, 0 in case of success
  */
 static u32
-tpm_extend_acpi_log(void *entry_ptr, u16 *entry_count)
+tpm_extend_acpi_log(struct pcpes *pcpes,
+                    const char *event, u32 event_length,
+                    u16 *entry_count)
 {
     u32 log_area_minimum_length, size;
     u8 *log_area_start_address_base =
         get_lasa_base_ptr(&log_area_minimum_length);
     u8 *log_area_start_address_next = NULL;
-    struct pcpes *pcpes = (struct pcpes *)entry_ptr;
 
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
@@ -731,7 +734,7 @@ tpm_extend_acpi_log(void *entry_ptr, u16 *entry_count)
         return TCG_PC_LOGOVERFLOW;
     }
 
-    size = pcpes->eventdatasize + offsetof(struct pcpes, event);
+    size = offsetof(struct pcpes, event) + event_length;
 
     if ((log_area_start_address_next + size - log_area_start_address_base) >
         log_area_minimum_length) {
@@ -742,9 +745,14 @@ tpm_extend_acpi_log(void *entry_ptr, u16 *entry_count)
         return TCG_PC_LOGOVERFLOW;
     }
 
-    memcpy(log_area_start_address_next, entry_ptr, size);
+    pcpes->eventdatasize = event_length;
 
-    (*entry_count)++;
+    memcpy(log_area_start_address_next, pcpes, offsetof(struct pcpes, event));
+    memcpy(log_area_start_address_next + offsetof(struct pcpes, event),
+           event, event_length);
+
+    if (entry_count)
+        (*entry_count)++;
 
     return 0;
 }
@@ -920,7 +928,9 @@ hash_log_event(const struct hlei *hlei, struct hleo *hleo)
             return rc;
     }
 
-    rc = tpm_extend_acpi_log((void *)hlei->logdataptr, &entry_count);
+    rc = tpm_extend_acpi_log(pcpes,
+                             (char *)&pcpes->event, pcpes->eventdatasize,
+                             &entry_count);
     if (rc)
         goto err_exit;
 
