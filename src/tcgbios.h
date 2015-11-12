@@ -56,6 +56,7 @@
 #define TPM_ORD_PhysicalDisable          0x00000070
 #define TPM_ORD_SetOwnerInstall          0x00000071
 #define TPM_ORD_PhysicalSetDeactivated   0x00000072
+#define TPM_ORD_SetTempDeactivated       0x00000073
 #define TPM_ORD_Startup                  0x00000099
 #define TPM_ORD_PhysicalPresence         0x4000000a
 #define TPM_ORD_Extend                   0x00000014

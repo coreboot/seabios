@@ -64,6 +64,10 @@ static u8 evt_separator[] = {0xff,0xff,0xff,0xff};
 
 /* local function prototypes */
 
+static u32 build_and_send_cmd(u8 locty, u32 ordinal,
+                   const u8 *append, u32 append_size,
+                   u8 *resbuffer, u32 return_size, u32 *returnCode,
+                   enum tpmDurationType to_t);
 static u32 tpm_calling_int19h(void);
 static u32 tpm_add_event_separators(void);
 static u32 tpm_start_option_rom_scan(void);
@@ -136,6 +140,31 @@ has_working_tpm(void)
     probe_tpm();
 
     return tpm_state.tpm_working;
+}
+
+static void
+tpm_set_failure(void)
+{
+    u32 returnCode;
+
+    /* we will try to deactivate the TPM now - ignoring all errors */
+    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                       PhysicalPresence_CMD_ENABLE,
+                       sizeof(PhysicalPresence_CMD_ENABLE),
+                       NULL, 0, &returnCode,
+                       TPM_DURATION_TYPE_SHORT);
+
+    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                       PhysicalPresence_PRESENT,
+                       sizeof(PhysicalPresence_PRESENT),
+                       NULL, 0, &returnCode,
+                       TPM_DURATION_TYPE_SHORT);
+
+    build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
+                       NULL, 0, NULL, 0, &returnCode,
+                       TPM_DURATION_TYPE_SHORT);
+
+    tpm_state.tpm_working = 0;
 }
 
 static struct tcpa_descriptor_rev2 *
@@ -425,7 +454,7 @@ determine_timeouts(void)
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
-    tpm_state.tpm_working = 0;
+    tpm_set_failure();
     if (rc)
         return rc;
     return TCG_TCG_COMMAND_ERROR;
@@ -495,7 +524,7 @@ tpm_startup(void)
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
-    tpm_state.tpm_working = 0;
+    tpm_set_failure();
     if (rc)
         return rc;
     return TCG_TCG_COMMAND_ERROR;
@@ -555,7 +584,7 @@ tpm_prepboot(void)
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
-    tpm_state.tpm_working = 0;
+    tpm_set_failure();
 }
 
 static int
@@ -659,7 +688,7 @@ tpm_sha1_calc(const u8 *data, u32 length, u8 *hash)
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM SHA1 malfunctioning.\n");
 
-    tpm_state.tpm_working = 0;
+    tpm_set_failure();
     if (rc)
         return rc;
     return TCG_TCG_COMMAND_ERROR;
@@ -695,19 +724,28 @@ tpm_extend_acpi_log(void *entry_ptr, u16 *entry_count)
     u8 *log_area_start_address_next = NULL;
     struct pcpes *pcpes = (struct pcpes *)entry_ptr;
 
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
     get_lasa_last_ptr(entry_count, &log_area_start_address_next);
 
     dprintf(DEBUG_tcg, "TCGBIOS: LASA_BASE = %p, LASA_NEXT = %p\n",
             log_area_start_address_base, log_area_start_address_next);
 
-    if (log_area_start_address_next == NULL || log_area_minimum_length == 0)
+    if (log_area_start_address_next == NULL || log_area_minimum_length == 0) {
+        tpm_set_failure();
+
         return TCG_PC_LOGOVERFLOW;
+    }
 
     size = pcpes->eventdatasize + offsetof(struct pcpes, event);
 
     if ((log_area_start_address_next + size - log_area_start_address_base) >
         log_area_minimum_length) {
         dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
+
+        tpm_set_failure();
+
         return TCG_PC_LOGOVERFLOW;
     }
 
@@ -1476,5 +1514,5 @@ tpm_s3_resume(void)
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
-    tpm_state.tpm_working = 0;
+    tpm_set_failure();
 }
