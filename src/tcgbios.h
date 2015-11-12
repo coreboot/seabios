@@ -108,7 +108,7 @@ enum irq_ids {
 struct iovec
 {
     size_t length;
-    void   *data;
+    const void *data;
 };
 
 

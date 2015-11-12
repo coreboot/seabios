@@ -330,46 +330,39 @@ build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
                       const u8 *otherdata, u32 otherdata_size,
                       enum tpmDurationType to_t)
 {
-#define MAX_APPEND_SIZE   sizeof(GetCapability_Timeouts)
-#define MAX_RESPONSE_SIZE sizeof(struct tpm_res_getcap_perm_flags)
     u32 rc;
-    u8 ibuffer[TPM_REQ_HEADER_SIZE + MAX_APPEND_SIZE];
-    u8 obuffer[MAX_RESPONSE_SIZE];
-    struct tpm_req_header *trqh = (struct tpm_req_header *)ibuffer;
+    u8 obuffer[64];
+    struct tpm_req_header trqh;
     struct tpm_rsp_header *trsh = (struct tpm_rsp_header *)obuffer;
-    struct iovec iovec[3];
+    struct iovec iovec[4] = {{ 0 }};
     u32 obuffer_len = sizeof(obuffer);
     u32 idx = 1;
 
-    if (append_size > MAX_APPEND_SIZE ||
-        return_size > MAX_RESPONSE_SIZE) {
-        dprintf(DEBUG_tcg, "TCGBIOS: size of requested buffers too big.");
+    if (return_size > sizeof(obuffer)) {
+        dprintf(DEBUG_tcg, "TCGBIOS: size of requested response too big.");
         return TCG_FIRMWARE_ERROR;
     }
 
-    iovec[0].data   = trqh;
-    iovec[0].length = TPM_REQ_HEADER_SIZE + append_size;
+    trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD);
+    trqh.totlen = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size +
+                              otherdata_size);
+    trqh.ordinal = cpu_to_be32(ordinal);
 
-    if (otherdata) {
-        iovec[1].data   = (void *)otherdata;
-        iovec[1].length = otherdata_size;
+    iovec[0].data   = &trqh;
+    iovec[0].length = TPM_REQ_HEADER_SIZE;
+
+    if (append_size) {
+        iovec[1].data   = append;
+        iovec[1].length = append_size;
         idx = 2;
     }
 
-    iovec[idx].data   = NULL;
-    iovec[idx].length = 0;
+    if (otherdata) {
+        iovec[idx].data   = (void *)otherdata;
+        iovec[idx].length = otherdata_size;
+    }
 
-    memset(ibuffer, 0x0, sizeof(ibuffer));
     memset(obuffer, 0x0, sizeof(obuffer));
-
-    trqh->tag     = cpu_to_be16(TPM_TAG_RQU_CMD);
-    trqh->totlen  = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size +
-                                otherdata_size);
-    trqh->ordinal = cpu_to_be32(ordinal);
-
-    if (append_size)
-        memcpy((char *)trqh + sizeof(*trqh),
-               append, append_size);
 
     rc = transmit(locty, iovec, obuffer, &obuffer_len, to_t);
     if (rc)
