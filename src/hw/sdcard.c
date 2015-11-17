@@ -224,7 +224,7 @@ sdcard_pio_transfer(struct sddrive_s *drive, int cmd, u32 addr
                     , void *data, int count)
 {
     // Send command
-    writel(&drive->regs->block_size, DISK_SECTOR_SIZE);
+    writew(&drive->regs->block_size, DISK_SECTOR_SIZE);
     writew(&drive->regs->block_count, count);
     int isread = cmd != SC_WRITE_SINGLE && cmd != SC_WRITE_MULTIPLE;
     u16 tmode = ((count > 1 ? ST_MULTIPLE|ST_AUTO_CMD12|ST_BLOCKCOUNT : 0)
