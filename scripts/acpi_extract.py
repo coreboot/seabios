@@ -233,107 +233,6 @@ def aml_package_start(offset):
     offset += 1
     return offset + aml_pkglen_bytes(offset) + 1
 
-lineno = 0
-for line in fileinput.input():
-    # Strip trailing newline
-    line = line.rstrip()
-    # line number and debug string to output in case of errors
-    lineno = lineno + 1
-    debug = "input line %d: %s" % (lineno, line)
-    #ASL listing: space, then line#, then ...., then code
-    pasl = re.compile('^\s+([0-9]+)(:\s\s|\.\.\.\.)\s*')
-    m = pasl.search(line)
-    if (m):
-        add_asl(lineno, pasl.sub("", line))
-    # AML listing: offset in hex, then ...., then code
-    paml = re.compile('^([0-9A-Fa-f]+)(:\s\s|\.\.\.\.)\s*')
-    m = paml.search(line)
-    if (m):
-        add_aml(m.group(1), paml.sub("", line))
-
-# Now go over code
-# Track AML offset of a previous non-empty ASL command
-prev_aml_offset = -1
-for i in range(len(asl)):
-    debug = "input line %d: %s" % (asl[i].lineno, asl[i].line)
-
-    l = asl[i].line
-
-    # skip if not an extract directive
-    a = len(re.findall(r'ACPI_EXTRACT', l))
-    if (not a):
-        # If not empty, store AML offset. Will be used for sanity checks
-        # IASL seems to put {}. at random places in the listing.
-        # Ignore any non-words for the purpose of this test.
-        m = re.search(r'\w+', l)
-        if (m):
-            prev_aml_offset = asl[i].aml_offset
-        continue
-
-    if (a > 1):
-        die("Expected at most one ACPI_EXTRACT per line, actual %d" % a)
-
-    mext = re.search(r'''
-                      ^\s* # leading whitespace
-                      /\*\s* # start C comment
-                      (ACPI_EXTRACT_\w+) # directive: group(1)
-                      \s+ # whitspace separates directive from array name
-                      (\w+) # array name: group(2)
-                      \s*\*/ # end of C comment
-                      \s*$ # trailing whitespace
-                      ''', l, re.VERBOSE)
-    if (not mext):
-        die("Stray ACPI_EXTRACT in input")
-
-    # previous command must have produced some AML,
-    # otherwise we are in a middle of a block
-    if (prev_aml_offset == asl[i].aml_offset):
-        die("ACPI_EXTRACT directive in the middle of a block")
-
-    directive = mext.group(1)
-    array = mext.group(2)
-    offset = asl[i].aml_offset
-
-    if (directive == "ACPI_EXTRACT_ALL_CODE"):
-        if array in output:
-            die("%s directive used more than once" % directive)
-        output[array] = aml
-        continue
-    if (directive == "ACPI_EXTRACT_NAME_BUFFER8"):
-        offset = aml_name_buffer8(offset)
-    elif (directive == "ACPI_EXTRACT_NAME_DWORD_CONST"):
-        offset = aml_name_dword_const(offset)
-    elif (directive == "ACPI_EXTRACT_NAME_WORD_CONST"):
-        offset = aml_name_word_const(offset)
-    elif (directive == "ACPI_EXTRACT_NAME_BYTE_CONST"):
-        offset = aml_name_byte_const(offset)
-    elif (directive == "ACPI_EXTRACT_NAME_STRING"):
-        offset = aml_name_string(offset)
-    elif (directive == "ACPI_EXTRACT_METHOD_STRING"):
-        offset = aml_method_string(offset)
-    elif (directive == "ACPI_EXTRACT_DEVICE_START"):
-        offset = aml_device_start(offset)
-    elif (directive == "ACPI_EXTRACT_DEVICE_STRING"):
-        offset = aml_device_string(offset)
-    elif (directive == "ACPI_EXTRACT_DEVICE_END"):
-        offset = aml_device_end(offset)
-    elif (directive == "ACPI_EXTRACT_PROCESSOR_START"):
-        offset = aml_processor_start(offset)
-    elif (directive == "ACPI_EXTRACT_PROCESSOR_STRING"):
-        offset = aml_processor_string(offset)
-    elif (directive == "ACPI_EXTRACT_PROCESSOR_END"):
-        offset = aml_processor_end(offset)
-    elif (directive == "ACPI_EXTRACT_PKG_START"):
-        offset = aml_package_start(offset)
-    else:
-        die("Unsupported directive %s" % directive)
-
-    if array not in output:
-        output[array] = []
-    output[array].append(offset)
-
-debug = "at end of file"
-
 def get_value_type(maxvalue):
     #Use type large enough to fit the table
     if (maxvalue >= 0x10000):
@@ -343,12 +242,118 @@ def get_value_type(maxvalue):
     else:
         return "char"
 
-# Pretty print output
-for array in output.keys():
-    otype = get_value_type(max(output[array]))
-    odata = []
-    for value in output[array]:
-        odata.append("0x%x" % value)
-    sys.stdout.write("static unsigned %s %s[] = {\n" % (otype, array))
-    sys.stdout.write(",\n".join(odata))
-    sys.stdout.write('\n};\n')
+def main():
+    global debug
+    lineno = 0
+    for line in fileinput.input():
+        # Strip trailing newline
+        line = line.rstrip()
+        # line number and debug string to output in case of errors
+        lineno = lineno + 1
+        debug = "input line %d: %s" % (lineno, line)
+        #ASL listing: space, then line#, then ...., then code
+        pasl = re.compile('^\s+([0-9]+)(:\s\s|\.\.\.\.)\s*')
+        m = pasl.search(line)
+        if (m):
+            add_asl(lineno, pasl.sub("", line))
+        # AML listing: offset in hex, then ...., then code
+        paml = re.compile('^([0-9A-Fa-f]+)(:\s\s|\.\.\.\.)\s*')
+        m = paml.search(line)
+        if (m):
+            add_aml(m.group(1), paml.sub("", line))
+
+    # Now go over code
+    # Track AML offset of a previous non-empty ASL command
+    prev_aml_offset = -1
+    for i in range(len(asl)):
+        debug = "input line %d: %s" % (asl[i].lineno, asl[i].line)
+
+        l = asl[i].line
+
+        # skip if not an extract directive
+        a = len(re.findall(r'ACPI_EXTRACT', l))
+        if (not a):
+            # If not empty, store AML offset. Will be used for sanity checks
+            # IASL seems to put {}. at random places in the listing.
+            # Ignore any non-words for the purpose of this test.
+            m = re.search(r'\w+', l)
+            if (m):
+                prev_aml_offset = asl[i].aml_offset
+            continue
+
+        if (a > 1):
+            die("Expected at most one ACPI_EXTRACT per line, actual %d" % a)
+
+        mext = re.search(r'''
+                          ^\s* # leading whitespace
+                          /\*\s* # start C comment
+                          (ACPI_EXTRACT_\w+) # directive: group(1)
+                          \s+ # whitspace separates directive from array name
+                          (\w+) # array name: group(2)
+                          \s*\*/ # end of C comment
+                          \s*$ # trailing whitespace
+                          ''', l, re.VERBOSE)
+        if (not mext):
+            die("Stray ACPI_EXTRACT in input")
+
+        # previous command must have produced some AML,
+        # otherwise we are in a middle of a block
+        if (prev_aml_offset == asl[i].aml_offset):
+            die("ACPI_EXTRACT directive in the middle of a block")
+
+        directive = mext.group(1)
+        array = mext.group(2)
+        offset = asl[i].aml_offset
+
+        if (directive == "ACPI_EXTRACT_ALL_CODE"):
+            if array in output:
+                die("%s directive used more than once" % directive)
+            output[array] = aml
+            continue
+        if (directive == "ACPI_EXTRACT_NAME_BUFFER8"):
+            offset = aml_name_buffer8(offset)
+        elif (directive == "ACPI_EXTRACT_NAME_DWORD_CONST"):
+            offset = aml_name_dword_const(offset)
+        elif (directive == "ACPI_EXTRACT_NAME_WORD_CONST"):
+            offset = aml_name_word_const(offset)
+        elif (directive == "ACPI_EXTRACT_NAME_BYTE_CONST"):
+            offset = aml_name_byte_const(offset)
+        elif (directive == "ACPI_EXTRACT_NAME_STRING"):
+            offset = aml_name_string(offset)
+        elif (directive == "ACPI_EXTRACT_METHOD_STRING"):
+            offset = aml_method_string(offset)
+        elif (directive == "ACPI_EXTRACT_DEVICE_START"):
+            offset = aml_device_start(offset)
+        elif (directive == "ACPI_EXTRACT_DEVICE_STRING"):
+            offset = aml_device_string(offset)
+        elif (directive == "ACPI_EXTRACT_DEVICE_END"):
+            offset = aml_device_end(offset)
+        elif (directive == "ACPI_EXTRACT_PROCESSOR_START"):
+            offset = aml_processor_start(offset)
+        elif (directive == "ACPI_EXTRACT_PROCESSOR_STRING"):
+            offset = aml_processor_string(offset)
+        elif (directive == "ACPI_EXTRACT_PROCESSOR_END"):
+            offset = aml_processor_end(offset)
+        elif (directive == "ACPI_EXTRACT_PKG_START"):
+            offset = aml_package_start(offset)
+        else:
+            die("Unsupported directive %s" % directive)
+
+        if array not in output:
+            output[array] = []
+        output[array].append(offset)
+
+    debug = "at end of file"
+
+    # Pretty print output
+    for array in output.keys():
+        otype = get_value_type(max(output[array]))
+        odata = []
+        for value in output[array]:
+            odata.append("0x%x" % value)
+        sys.stdout.write("static unsigned %s %s[] = {\n" % (otype, array))
+        sys.stdout.write(",\n".join(odata))
+        sys.stdout.write('\n};\n')
+
+if __name__ == '__main__':
+    main()
