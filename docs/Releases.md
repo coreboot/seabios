@@ -1,6 +1,25 @@
 History of SeaBIOS releases. Please see [download](Download) for
 information on obtaining these releases.
 
+SeaBIOS 1.9.0
+=============
+
+Available on 20151117. Major changes in this release:
+
+* The default boot menu key is now the ESC key (instead of F12)
+* Initial support for Trusted Platform Module (TPM) hardware and BIOS calls
+* Initial support for chain loading SeaBIOS from Grub (via multiboot
+  support)
+* Initial support for booting from SD cards on real hardware
+* virtio 1.0 device support
+* The build will no longer include the build hostname or build time on
+  "clean" builds.  This makes the build binaries more "reproducible".
+* Basic support for running SeaBIOS on Baytrail Chromebooks
+* SeaVGABIOS improvements:
+    * Improved support for old versions of x86emu (the "leal"
+      instruction is now emulated)
+* Several bug fixes and code cleanups
+
 SeaBIOS 1.8.0
 =============
 
