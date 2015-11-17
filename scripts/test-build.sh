@@ -1,19 +1,6 @@
 #!/bin/sh
 # Script to test if the build works properly.
 
-# Test IASL is installed.
-$IASL -h > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    echo "The SeaBIOS project requires the 'iasl' package be installed." >&2
-    echo "Many Linux distributions have this package." >&2
-    echo "Try: sudo yum install iasl" >&2
-    echo "Or: sudo apt-get install iasl" >&2
-    echo "" >&2
-    echo "Please install iasl and retry." >&2
-    echo -1
-    exit 0
-fi
-
 mkdir -p ${OUT}
 TMPFILE1=${OUT}/tmp_testcompile1.c
 TMPFILE1o=${OUT}/tmp_testcompile1.o
