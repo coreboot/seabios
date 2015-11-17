@@ -248,7 +248,7 @@ $(OUT)vgabios.bin: $(OUT)vgabios.bin.raw scripts/buildrom.py
 iasl-option=$(shell if test -z "`$(1) $(2) 2>&1 > /dev/null`" \
     ; then echo "$(2)"; else echo "$(3)"; fi ;)
 
-$(OUT)%.hex: %.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extract.py
+%.hex: %.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extract.py
 	@echo "  Compiling IASL $@"
 	$(Q)$(CPP) $(CPPFLAGS) $< -o $(OUT)$*.dsl.i.orig
 	$(Q)$(PYTHON) ./scripts/acpi_extract_preprocess.py $(OUT)$*.dsl.i.orig > $(OUT)$*.dsl.i
@@ -256,7 +256,7 @@ $(OUT)%.hex: %.dsl ./scripts/acpi_extract_preprocess.py ./scripts/acpi_extract.p
 	$(Q)$(PYTHON) ./scripts/acpi_extract.py $(OUT)$*.lst > $(OUT)$*.off
 	$(Q)cat $(OUT)$*.off > $@
 
-$(OUT)src/fw/acpi.o: $(OUT)src/fw/acpi-dsdt.hex $(OUT)src/fw/ssdt-proc.hex $(OUT)src/fw/ssdt-pcihp.hex $(OUT)src/fw/ssdt-misc.hex
+iasl: src/fw/acpi-dsdt.hex src/fw/ssdt-proc.hex src/fw/ssdt-pcihp.hex src/fw/ssdt-misc.hex
 
 ################ Kconfig rules
 

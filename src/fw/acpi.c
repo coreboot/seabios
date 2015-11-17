@@ -22,7 +22,7 @@
 #include "util.h" // MaxCountCPUs
 #include "x86.h" // readl
 
-#include "src/fw/acpi-dsdt.hex"
+#include "fw/acpi-dsdt.hex"
 
 static void
 build_header(struct acpi_table_header *h, u32 sig, int len, u8 rev)
@@ -235,7 +235,7 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
     return ssdt_ptr + bytes;
 }
 
-#include "src/fw/ssdt-proc.hex"
+#include "fw/ssdt-proc.hex"
 
 /* 0x5B 0x83 ProcessorOp PkgLength NameString ProcID */
 #define PROC_OFFSET_CPUHEX (*ssdt_proc_name - *ssdt_proc_start + 2)
@@ -256,8 +256,8 @@ encodeLen(u8 *ssdt_ptr, int length, int bytes)
 #define SSDT_SIGNATURE 0x54445353 // SSDT
 #define SSDT_HEADER_LENGTH 36
 
-#include "src/fw/ssdt-misc.hex"
-#include "src/fw/ssdt-pcihp.hex"
+#include "fw/ssdt-misc.hex"
+#include "fw/ssdt-pcihp.hex"
 
 #define PCI_RMV_BASE 0xae0c
 
