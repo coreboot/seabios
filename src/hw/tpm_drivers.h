@@ -34,7 +34,7 @@ extern struct tpm_driver tpm_drivers[];
 #define TIS_DRIVER_IDX       0
 #define TPM_NUM_DRIVERS      1
 
-#define TPM_INVALID_DRIVER  -1
+#define TPM_INVALID_DRIVER   0xf
 
 /* TIS driver */
 /* address of locality 0 (TIS) */
