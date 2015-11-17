@@ -154,6 +154,7 @@ sdcard_waitw(u16 *reg, u16 mask)
         if (v & mask)
             return v;
         if (timer_check(end)) {
+            dprintf(1, "scard_waitw: %p %x %x\n", reg, mask, v);
             warn_timeout();
             return -1;
         }
