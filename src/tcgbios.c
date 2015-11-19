@@ -861,46 +861,6 @@ tpm_option_rom(const void *addr, u32 len)
                                       (u8 *)&pcctes, sizeof(pcctes));
 }
 
-/*
- * Add a measurement regarding the boot device (CDRom, Floppy, HDD) to
- * the list of measurements.
- */
-static u32
-tpm_add_bootdevice(u32 bootcd, u32 bootdrv)
-{
-    const char *string;
-
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    switch (bootcd) {
-    case 0:
-        switch (bootdrv) {
-        case 0:
-            string = "Booting BCV device 00h (Floppy)";
-            break;
-
-        case 0x80:
-            string = "Booting BCV device 80h (HDD)";
-            break;
-
-        default:
-            string = "Booting unknown device";
-            break;
-        }
-
-        break;
-
-    default:
-        string = "Booting from CD ROM device";
-    }
-
-    return tpm_add_action(4, string);
-}
-
 u32
 tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
 {
@@ -910,13 +870,16 @@ tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    u32 rc = tpm_add_bootdevice(0, bootdrv);
+    const char *string = "Booting BCV device 00h (Floppy)";
+    if (bootdrv == 0x80)
+        string = "Booting BCV device 80h (HDD)";
+    u32 rc = tpm_add_action(4, string);
     if (rc)
         return rc;
 
     /* specs: see section 'Hard Disk Device or Hard Disk-Like Devices' */
     /* equivalent to: dd if=/dev/hda ibs=1 count=440 | sha1sum */
-    const char *string = "MBR";
+    string = "MBR";
     rc = tpm_add_measurement_to_log(4, EV_IPL,
                                     string, strlen(string),
                                     addr, 0x1b8);
@@ -939,7 +902,7 @@ tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    u32 rc = tpm_add_bootdevice(1, bootdrv);
+    u32 rc = tpm_add_action(4, "Booting from CD ROM device");
     if (rc)
         return rc;
 
@@ -959,7 +922,7 @@ tpm_add_cdrom_catalog(const u8 *addr, u32 length)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    u32 rc = tpm_add_bootdevice(1, 0);
+    u32 rc = tpm_add_action(4, "Booting from CD ROM device");
     if (rc)
         return rc;
 
