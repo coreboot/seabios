@@ -183,6 +183,7 @@ void handle_15c2(struct bregs *regs);
 void process_key(u8 key);
 
 // misc.c
+extern int HaveRunPost;
 extern struct bios_config_table_s BIOS_CONFIG_TABLE __aligned(1);
 extern struct floppy_dbt_s diskette_param_table __aligned(1);
 extern u8 BiosChecksum;
@@ -221,9 +222,6 @@ void device_hardware_setup(void);
 void prepareboot(void);
 void startBoot(void);
 void reloc_preinit(void *f, void *arg);
-
-// resume.c
-extern int HaveRunPost;
 
 // serial.c
 void serial_setup(void);
