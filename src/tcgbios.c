@@ -9,22 +9,20 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-
-#include "config.h"
-
-#include "types.h"
+#include "bregs.h" // struct bregs
 #include "byteorder.h" // cpu_to_*
-#include "hw/tpm_drivers.h" // tpm_drivers[]
+#include "config.h" // CONFIG_TCGBIOS
 #include "farptr.h" // MAKE_FLATPTR
+#include "fw/paravirt.h" // runningOnXen
+#include "hw/tpm_drivers.h" // tpm_drivers[]
+#include "output.h" // dprintf
+#include "sha1.h" // sha1
+#include "std/acpi.h"  // RSDP_SIGNATURE, rsdt_descriptor
+#include "std/smbios.h" // struct smbios_entry_point
+#include "std/tcg.h" // TCG_PC_LOGOVERFLOW
 #include "string.h" // checksum
 #include "tcgbios.h"// tpm_*, prototypes
 #include "util.h" // printf, get_keystroke
-#include "output.h" // dprintf
-#include "std/acpi.h"  // RSDP_SIGNATURE, rsdt_descriptor
-#include "bregs.h" // struct bregs
-#include "sha1.h" // sha1
-#include "fw/paravirt.h" // runningOnXen
-#include "std/smbios.h"
 
 static const u8 Startup_ST_CLEAR[] = { 0x00, TPM_ST_CLEAR };
 static const u8 Startup_ST_STATE[] = { 0x00, TPM_ST_STATE };

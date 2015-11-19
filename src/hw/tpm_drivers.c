@@ -8,11 +8,11 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_TPM_TIS_SHA1THRESHOLD
+#include "hw/tpm_drivers.h" // struct tpm_driver
+#include "std/tcg.h" // TCG_NO_RESPONSE
 #include "string.h" // memcpy
 #include "util.h" // msleep
 #include "x86.h" // readl
-#include "hw/tpm_drivers.h" // struct tpm_driver
-#include "tcgbios.h" // TCG_*
 
 static const u32 tis_default_timeouts[4] = {
     TIS_DEFAULT_TIMEOUT_A,
