@@ -1136,7 +1136,7 @@ tpm_calling_int19h(void)
 /*
  * Add event separators for PCRs 0 to 7; specs on 'Measuring Boot Events'
  */
-u32
+static u32
 tpm_add_event_separators(void)
 {
     u32 rc;
@@ -1205,7 +1205,7 @@ tpm_add_bootdevice(u32 bootcd, u32 bootdrv)
 /*
  * Add measurement to the log about option rom scan
  */
-u32
+static u32
 tpm_start_option_rom_scan(void)
 {
     if (!CONFIG_TCGBIOS)
@@ -1248,7 +1248,7 @@ tpm_option_rom(const void *addr, u32 len)
 }
 
 
-u32
+static u32
 tpm_smbios_measure(void)
 {
     if (!CONFIG_TCGBIOS)
