@@ -161,6 +161,13 @@ transmit(u8 locty, struct tpm_req_header *req,
     return 0;
 }
 
+static void
+tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3])
+{
+    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
+    td->set_timeouts(timeouts, durations);
+}
+
 
 /****************************************************************
  * ACPI TCPA table interface
@@ -383,7 +390,6 @@ determine_timeouts(void)
     u32 returnCode;
     struct tpm_res_getcap_timeouts timeouts;
     struct tpm_res_getcap_durations durations;
-    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
     u32 i;
 
     rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
@@ -427,8 +433,7 @@ determine_timeouts(void)
             durations.durations[1],
             durations.durations[2]);
 
-
-    td->set_timeouts(timeouts.timeouts, durations.durations);
+    tpmhw_set_timeouts(timeouts.timeouts, durations.durations);
 
     return 0;
 
