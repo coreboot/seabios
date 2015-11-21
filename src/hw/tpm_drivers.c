@@ -10,8 +10,10 @@
 #include "config.h" // CONFIG_TPM_TIS_SHA1THRESHOLD
 #include "hw/tpm_drivers.h" // struct tpm_driver
 #include "std/tcg.h" // TCG_NO_RESPONSE
+#include "output.h" // warn_timeout
+#include "stacks.h" // yield
 #include "string.h" // memcpy
-#include "util.h" // msleep
+#include "util.h" // timer_calc_usec
 #include "x86.h" // readl
 
 static const u32 tis_default_timeouts[4] = {
@@ -93,15 +95,19 @@ static u32 tis_wait_sts(u8 locty, u32 time, u8 mask, u8 expect)
         return 0;
 
     u32 rc = 1;
+    u32 end = timer_calc_usec(time);
 
-    while (time > 0) {
+    for (;;) {
         u8 sts = readb(TIS_REG(locty, TIS_REG_STS));
         if ((sts & mask) == expect) {
             rc = 0;
             break;
         }
-        msleep(1);
-        time--;
+        if (timer_check(end)) {
+            warn_timeout();
+            break;
+        }
+        yield();
     }
     return rc;
 }
@@ -178,18 +184,21 @@ static u32 tis_senddata(const u8 *const data, u32 len)
 
     u32 rc = 0;
     u32 offset = 0;
-    u32 end = 0;
+    u32 end_loop = 0;
     u16 burst = 0;
-    u32 ctr = 0;
     u8 locty = tis_find_active_locality();
     u32 timeout_d = tpm_drivers[TIS_DRIVER_IDX].timeouts[TIS_TIMEOUT_TYPE_D];
+    u32 end = timer_calc_usec(timeout_d);
 
     do {
-        while (burst == 0 && ctr < timeout_d) {
+        while (burst == 0) {
                burst = readl(TIS_REG(locty, TIS_REG_STS)) >> 8;
             if (burst == 0) {
-                msleep(1);
-                ctr++;
+                if (timer_check(end)) {
+                    warn_timeout();
+                    break;
+                }
+                yield();
             }
         }
 
@@ -207,8 +216,8 @@ static u32 tis_senddata(const u8 *const data, u32 len)
         }
 
         if (offset == len)
-            end = 1;
-    } while (end == 0);
+            end_loop = 1;
+    } while (end_loop == 0);
 
     return rc;
 }

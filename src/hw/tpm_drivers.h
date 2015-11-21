@@ -66,12 +66,13 @@ extern struct tpm_driver tpm_drivers[];
 #define TIS_ACCESS_REQUEST_USE         (1 << 1) /* 0x02 */
 #define TIS_ACCESS_TPM_ESTABLISHMENT   (1 << 0) /* 0x01 */
 
-#define SCALER 10
-
-#define TIS_DEFAULT_TIMEOUT_A          (750  * SCALER)
-#define TIS_DEFAULT_TIMEOUT_B          (2000 * SCALER)
-#define TIS_DEFAULT_TIMEOUT_C          (750  * SCALER)
-#define TIS_DEFAULT_TIMEOUT_D          (750  * SCALER)
+/*
+ * Default TIS timeouts used before getting them from the TPM itself
+ */
+#define TIS_DEFAULT_TIMEOUT_A           750000 /* us */
+#define TIS_DEFAULT_TIMEOUT_B          2000000 /* us */
+#define TIS_DEFAULT_TIMEOUT_C           750000 /* us */
+#define TIS_DEFAULT_TIMEOUT_D           750000 /* us */
 
 enum tisTimeoutType {
     TIS_TIMEOUT_TYPE_A = 0,
@@ -80,8 +81,12 @@ enum tisTimeoutType {
     TIS_TIMEOUT_TYPE_D,
 };
 
-#define TPM_DEFAULT_DURATION_SHORT     (2000  * SCALER)
-#define TPM_DEFAULT_DURATION_MEDIUM    (20000 * SCALER)
-#define TPM_DEFAULT_DURATION_LONG      (60000 * SCALER)
+/*
+ * Default command durations used before getting them from the
+ * TPM itself
+ */
+#define TPM_DEFAULT_DURATION_SHORT      2000000 /* us */
+#define TPM_DEFAULT_DURATION_MEDIUM    20000000 /* us */
+#define TPM_DEFAULT_DURATION_LONG      60000000 /* us */
 
 #endif /* TPM_DRIVERS_H */

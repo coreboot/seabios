@@ -459,6 +459,10 @@ tpm_startup(void)
     if (rc || returnCode)
         goto err_exit;
 
+    rc = determine_timeouts();
+    if (rc)
+        goto err_exit;
+
     rc = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
                             NULL, 0, &returnCode, TPM_DURATION_TYPE_LONG);
 
@@ -475,10 +479,6 @@ tpm_startup(void)
             returnCode);
 
     if (rc || (returnCode != 0 && returnCode != TPM_BAD_LOCALITY))
-        goto err_exit;
-
-    rc = determine_timeouts();
-    if (rc)
         goto err_exit;
 
     rc = tpm_smbios_measure();
