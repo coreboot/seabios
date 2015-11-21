@@ -286,6 +286,5 @@ struct tpm_driver tpm_drivers[TPM_NUM_DRIVERS] = {
             .readresp      = tis_readresp,
             .waitdatavalid = tis_waitdatavalid,
             .waitrespready = tis_waitrespready,
-            .sha1threshold = 100 * 1024,
         },
 };

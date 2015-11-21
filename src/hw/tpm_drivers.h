@@ -23,9 +23,6 @@ struct tpm_driver {
     u32 (*readresp)(u8 *buffer, u32 *len);
     u32 (*waitdatavalid)(void);
     u32 (*waitrespready)(enum tpmDurationType to_t);
-    /* the TPM will be used for buffers of sizes below the sha1threshold
-       for calculating the hash */
-    u32 sha1threshold;
 };
 
 extern struct tpm_driver tpm_drivers[];

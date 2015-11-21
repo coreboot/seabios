@@ -60,9 +60,6 @@
 #define TPM_ORD_Startup                  0x00000099
 #define TPM_ORD_PhysicalPresence         0x4000000a
 #define TPM_ORD_Extend                   0x00000014
-#define TPM_ORD_SHA1Start                0x000000a0
-#define TPM_ORD_SHA1Update               0x000000a1
-#define TPM_ORD_SHA1Complete             0x000000a2
 #define TSC_ORD_ResetEstablishmentBit    0x4000000b
 
 

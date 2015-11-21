@@ -323,18 +323,16 @@ transmit(u8 locty, const struct iovec iovec[],
  * If a buffer is provided, the response will be copied into it.
  */
 static u32
-build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
-                      u8 *resbuffer, u32 return_size, u32 *returnCode,
-                      const u8 *otherdata, u32 otherdata_size,
-                      enum tpmDurationType to_t)
+build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
+                   u8 *resbuffer, u32 return_size, u32 *returnCode,
+                   enum tpmDurationType to_t)
 {
     u32 rc;
     u8 obuffer[64];
     struct tpm_req_header trqh;
     struct tpm_rsp_header *trsh = (struct tpm_rsp_header *)obuffer;
-    struct iovec iovec[4] = {{ 0 }};
+    struct iovec iovec[3] = {{ 0 }};
     u32 obuffer_len = sizeof(obuffer);
-    u32 idx = 1;
 
     if (return_size > sizeof(obuffer)) {
         dprintf(DEBUG_tcg, "TCGBIOS: size of requested response too big.");
@@ -342,8 +340,7 @@ build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
     }
 
     trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD);
-    trqh.totlen = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size +
-                              otherdata_size);
+    trqh.totlen = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size);
     trqh.ordinal = cpu_to_be32(ordinal);
 
     iovec[0].data   = &trqh;
@@ -352,12 +349,6 @@ build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
     if (append_size) {
         iovec[1].data   = append;
         iovec[1].length = append_size;
-        idx = 2;
-    }
-
-    if (otherdata) {
-        iovec[idx].data   = (void *)otherdata;
-        iovec[idx].length = otherdata_size;
     }
 
     memset(obuffer, 0x0, sizeof(obuffer));
@@ -373,18 +364,6 @@ build_and_send_cmd_od(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
 
     return 0;
 }
-
-
-static u32
-build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
-                   u8 *resbuffer, u32 return_size, u32 *returnCode,
-                   enum tpmDurationType to_t)
-{
-    return build_and_send_cmd_od(locty, ordinal, append, append_size,
-                                 resbuffer, return_size, returnCode,
-                                 NULL, 0, to_t);
-}
-
 
 static u32
 determine_timeouts(void)
@@ -619,83 +598,6 @@ get_lasa_last_ptr(u16 *entry_count, u8 **log_area_start_address_next)
     return log_area_start_address_last;
 }
 
-
-static u32
-tpm_sha1_calc(const u8 *data, u32 length, u8 *hash)
-{
-    u32 rc;
-    u32 returnCode;
-    struct tpm_res_sha1start start;
-    struct tpm_res_sha1complete complete;
-    u32 blocks = length / 64;
-    u32 rest = length & 0x3f;
-    u32 numbytes, numbytes_no;
-    u32 offset = 0;
-
-    rc = build_and_send_cmd(0, TPM_ORD_SHA1Start,
-                            NULL, 0,
-                            (u8 *)&start, sizeof(start),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    if (rc || returnCode)
-        goto err_exit;
-
-    while (blocks > 0) {
-
-        numbytes = be32_to_cpu(start.max_num_bytes);
-        if (numbytes > blocks * 64)
-             numbytes = blocks * 64;
-
-        numbytes_no = cpu_to_be32(numbytes);
-
-        rc = build_and_send_cmd_od(0, TPM_ORD_SHA1Update,
-                                   (u8 *)&numbytes_no, sizeof(numbytes_no),
-                                   NULL, 0, &returnCode,
-                                   &data[offset], numbytes,
-                                   TPM_DURATION_TYPE_SHORT);
-
-        if (rc || returnCode)
-            goto err_exit;
-
-        offset += numbytes;
-        blocks -= (numbytes / 64);
-    }
-
-    numbytes_no = cpu_to_be32(rest);
-
-    rc = build_and_send_cmd_od(0, TPM_ORD_SHA1Complete,
-                              (u8 *)&numbytes_no, sizeof(numbytes_no),
-                              (u8 *)&complete, sizeof(complete),
-                              &returnCode,
-                              &data[offset], rest, TPM_DURATION_TYPE_SHORT);
-
-    if (rc || returnCode)
-        goto err_exit;
-
-    memcpy(hash, complete.hash, sizeof(complete.hash));
-
-    return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM SHA1 malfunctioning.\n");
-
-    tpm_set_failure();
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
-}
-
-
-static u32
-sha1_calc(const u8 *data, u32 length, u8 *hash)
-{
-    if (length < tpm_drivers[tpm_state.tpm_driver_to_use].sha1threshold)
-        return tpm_sha1_calc(data, length, hash);
-
-    return sha1(data, length, hash);
-}
-
-
 /*
  * Extend the ACPI log with the given entry by copying the
  * entry data into the log.
@@ -887,7 +789,7 @@ hash_all(const struct hai *hai, u8 *hash)
         hai->algorithmid != TPM_ALG_SHA)
         return TCG_INVALID_INPUT_PARA;
 
-    return sha1_calc((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
+    return sha1((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
 }
 
 static u32
@@ -902,7 +804,7 @@ hash_log_event(const void *hashdata, u32 hashdata_length,
         return TCG_INVALID_INPUT_PARA;
 
     if (hashdata) {
-        rc = sha1_calc(hashdata, hashdata_length, pcpes->digest);
+        rc = sha1(hashdata, hashdata_length, pcpes->digest);
         if (rc)
             return rc;
     }
