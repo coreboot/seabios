@@ -757,7 +757,7 @@ tpm_extend(u8 *hash, u32 pcrindex)
 
 
 static u32
-hash_all(const struct hai *hai, u8 *hash)
+hash_all_int(const struct hai *hai, u8 *hash)
 {
     if (is_preboot_if_shutdown() != 0)
         return TCG_INTERFACE_SHUTDOWN;
@@ -869,6 +869,11 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
     struct pcpes *pcpes;
     u32 pcrindex;
 
+    if (is_preboot_if_shutdown() != 0) {
+        rc = TCG_INTERFACE_SHUTDOWN;
+        goto err_exit;
+    }
+
     /* short or long version? */
     switch (hleei_s->ipblength) {
     case sizeof(struct hleei_short):
@@ -923,7 +928,7 @@ err_exit:
 
 
 static u32
-tss(struct ti *ti, struct to *to)
+tss_int(struct ti *ti, struct to *to)
 {
     u32 rc = 0;
 
@@ -941,11 +946,11 @@ tss(struct ti *ti, struct to *to)
 
 
 static u32
-compact_hash_log_extend_event(u8 *buffer,
-                              u32 info,
-                              u32 length,
-                              u32 pcrindex,
-                              u32 *edx_ptr)
+compact_hash_log_extend_event_int(u8 *buffer,
+                                  u32 info,
+                                  u32 length,
+                                  u32 pcrindex,
+                                  u32 *edx_ptr)
 {
     u32 rc = 0;
     struct pcpes pcpes = {
@@ -955,6 +960,9 @@ compact_hash_log_extend_event(u8 *buffer,
         .event         = info,
     };
     u16 entry_count;
+
+    if (is_preboot_if_shutdown() != 0)
+        return TCG_INTERFACE_SHUTDOWN;
 
     rc = hash_log_extend_event(buffer, length,
                                &pcpes,
@@ -1021,22 +1029,22 @@ tpm_interrupt_handler32(struct bregs *regs)
 
     case TCG_HashAll:
         regs->eax =
-            hash_all((struct hai*)input_buf32(regs),
-                     (u8 *)output_buf32(regs));
+            hash_all_int((struct hai*)input_buf32(regs),
+                          (u8 *)output_buf32(regs));
         break;
 
     case TCG_TSS:
-        regs->eax = tss((struct ti*)input_buf32(regs),
-                    (struct to*)output_buf32(regs));
+        regs->eax = tss_int((struct ti*)input_buf32(regs),
+                            (struct to*)output_buf32(regs));
         break;
 
     case TCG_CompactHashLogExtendEvent:
         regs->eax =
-          compact_hash_log_extend_event((u8 *)input_buf32(regs),
-                                        regs->esi,
-                                        regs->ecx,
-                                        regs->edx,
-                                        &regs->edx);
+          compact_hash_log_extend_event_int((u8 *)input_buf32(regs),
+                                            regs->esi,
+                                            regs->ecx,
+                                            regs->edx,
+                                            &regs->edx);
         break;
 
     default:
