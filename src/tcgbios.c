@@ -90,10 +90,26 @@ typedef struct {
     u8            tpm_working:1;
     u8            if_shutdown:1;
     u8            tpm_driver_to_use:4;
+    struct tcpa_descriptor_rev2 *tcpa;
+
+    /* length of the TCPA log buffer */
+    u32           log_area_minimum_length;
+
+    /* start address of TCPA log buffer */
+    u8 *          log_area_start_address;
+
+    /* number of log entries written */
+    u32           entry_count;
+
+    /* address to write next log entry to */
+    u8 *          log_area_next_entry;
+
+    /* address of last entry written (need for TCG_StatusCheck) */
+    u8 *          log_area_last_entry;
 } tpm_state_t;
 
 
-static tpm_state_t tpm_state = {
+tpm_state_t tpm_state VARLOW = {
     .tpm_driver_to_use = TPM_INVALID_DRIVER,
 };
 
@@ -195,6 +211,10 @@ find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
         ctr++;
     }
 
+    /* cache it */
+    if (tcpa)
+        tpm_state.tcpa = tcpa;
+
     return tcpa;
 }
 
@@ -204,6 +224,9 @@ find_tcpa_table(void)
 {
     struct tcpa_descriptor_rev2 *tcpa = NULL;
     struct rsdp_descriptor *rsdp = RsdpAddr;
+
+    if (tpm_state.tcpa)
+        return tpm_state.tcpa;
 
     if (rsdp)
         tcpa = find_tcpa_by_rsdp(rsdp);
@@ -240,11 +263,16 @@ get_lasa_base_ptr(u32 *log_area_minimum_length)
 static void
 reset_acpi_log(void)
 {
-    u32 log_area_minimum_length;
-    u8 *log_area_start_address = get_lasa_base_ptr(&log_area_minimum_length);
+    tpm_state.log_area_start_address =
+        get_lasa_base_ptr(&tpm_state.log_area_minimum_length);
 
-    if (log_area_start_address)
-        memset(log_area_start_address, 0x0, log_area_minimum_length);
+    if (tpm_state.log_area_start_address)
+        memset(tpm_state.log_area_start_address, 0,
+               tpm_state.log_area_minimum_length);
+
+    tpm_state.log_area_next_entry = tpm_state.log_area_start_address;
+    tpm_state.log_area_last_entry = NULL;
+    tpm_state.entry_count = 0;
 }
 
 
@@ -557,47 +585,6 @@ err_exit:
     tpm_set_failure();
 }
 
-static int
-is_valid_pcpes(struct pcpes *pcpes)
-{
-    return (pcpes->eventtype != 0);
-}
-
-
-static u8 *
-get_lasa_last_ptr(u16 *entry_count, u8 **log_area_start_address_next)
-{
-    struct pcpes *pcpes;
-    u32 log_area_minimum_length = 0;
-    u8 *log_area_start_address_base =
-        get_lasa_base_ptr(&log_area_minimum_length);
-    u8 *log_area_start_address_last = NULL;
-    u8 *end = log_area_start_address_base + log_area_minimum_length;
-    u32 size;
-
-    if (entry_count)
-        *entry_count = 0;
-
-    if (!log_area_start_address_base)
-        return NULL;
-
-    while (log_area_start_address_base < end) {
-        pcpes = (struct pcpes *)log_area_start_address_base;
-        if (!is_valid_pcpes(pcpes))
-            break;
-        if (entry_count)
-            (*entry_count)++;
-        size = pcpes->eventdatasize + offsetof(struct pcpes, event);
-        log_area_start_address_last = log_area_start_address_base;
-        log_area_start_address_base += size;
-    }
-
-    if (log_area_start_address_next)
-        *log_area_start_address_next = log_area_start_address_base;
-
-    return log_area_start_address_last;
-}
-
 /*
  * Extend the ACPI log with the given entry by copying the
  * entry data into the log.
@@ -615,20 +602,16 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
                     const char *event, u32 event_length,
                     u16 *entry_count)
 {
-    u32 log_area_minimum_length, size;
-    u8 *log_area_start_address_base =
-        get_lasa_base_ptr(&log_area_minimum_length);
-    u8 *log_area_start_address_next = NULL;
+    u32 size;
 
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    get_lasa_last_ptr(entry_count, &log_area_start_address_next);
+    dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
+            tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
 
-    dprintf(DEBUG_tcg, "TCGBIOS: LASA_BASE = %p, LASA_NEXT = %p\n",
-            log_area_start_address_base, log_area_start_address_next);
+    if (tpm_state.log_area_next_entry == NULL) {
 
-    if (log_area_start_address_next == NULL || log_area_minimum_length == 0) {
         tpm_set_failure();
 
         return TCG_PC_LOGOVERFLOW;
@@ -636,8 +619,8 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
 
     size = offsetof(struct pcpes, event) + event_length;
 
-    if ((log_area_start_address_next + size - log_area_start_address_base) >
-        log_area_minimum_length) {
+    if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
+         tpm_state.log_area_minimum_length) {
         dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
 
         tpm_set_failure();
@@ -647,12 +630,16 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
 
     pcpes->eventdatasize = event_length;
 
-    memcpy(log_area_start_address_next, pcpes, offsetof(struct pcpes, event));
-    memcpy(log_area_start_address_next + offsetof(struct pcpes, event),
+    memcpy(tpm_state.log_area_next_entry, pcpes, offsetof(struct pcpes, event));
+    memcpy(tpm_state.log_area_next_entry + offsetof(struct pcpes, event),
            event, event_length);
 
+    tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
+    tpm_state.log_area_next_entry += size;
+    tpm_state.entry_count++;
+
     if (entry_count)
-        (*entry_count)++;
+        *entry_count = tpm_state.entry_count;
 
     return 0;
 }
@@ -1013,9 +1000,8 @@ tpm_interrupt_handler32(struct bregs *regs)
             regs->ch = TCG_VERSION_MAJOR;
             regs->cl = TCG_VERSION_MINOR;
             regs->edx = 0x0;
-            regs->esi = (u32)get_lasa_base_ptr(NULL);
-            regs->edi =
-                  (u32)get_lasa_last_ptr(NULL, NULL);
+            regs->esi = (u32)tpm_state.log_area_start_address;
+            regs->edi = (u32)tpm_state.log_area_last_entry;
         }
         break;
 
