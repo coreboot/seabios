@@ -666,24 +666,34 @@ shutdown_preboot_interface(void)
     return rc;
 }
 
-
-static void
-tpm_shutdown(void)
+static u32
+pass_through_to_tpm(u8 locty, const u8 *cmd, u32 cmd_length,
+                    u8 *resp, u32 *resp_length)
 {
-    reset_acpi_log();
-    shutdown_preboot_interface();
+    struct iovec iovec[2] = {{ 0 }};
+    const u32 *tmp;
+
+    if (cmd_length < TPM_REQ_HEADER_SIZE)
+        return TCG_INVALID_INPUT_PARA;
+
+    iovec[0].data = cmd;
+    tmp = (const u32 *)&((u8 *)iovec[0].data)[2];
+    iovec[0].length = cpu_to_be32(*tmp);
+
+    if (cmd_length != iovec[0].length)
+        return TCG_INVALID_INPUT_PARA;
+
+    return transmit(locty, iovec, resp, resp_length,
+                    TPM_DURATION_TYPE_LONG /* worst case */);
+
 }
 
-
 static u32
-pass_through_to_tpm(struct pttti *pttti, struct pttto *pttto)
+pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
 {
     u32 rc = 0;
     u32 resbuflen = 0;
     struct tpm_req_header *trh;
-    u8 locty = 0;
-    struct iovec iovec[2];
-    const u32 *tmp;
 
     if (is_preboot_if_shutdown()) {
         rc = TCG_INTERFACE_SHUTDOWN;
@@ -701,15 +711,10 @@ pass_through_to_tpm(struct pttti *pttti, struct pttto *pttto)
 
     resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
 
-    iovec[0].data   = pttti->tpmopin;
-    tmp = (const u32 *)&((u8 *)iovec[0].data)[2];
-    iovec[0].length = cpu_to_be32(*tmp);
+    rc = pass_through_to_tpm(0, pttti->tpmopin,
+                             pttti->ipblength - offsetof(struct pttti, tpmopin),
+                             pttto->tpmopout, &resbuflen);
 
-    iovec[1].data   = NULL;
-    iovec[1].length = 0;
-
-    rc = transmit(locty, iovec, pttto->tpmopout, &resbuflen,
-                  TPM_DURATION_TYPE_LONG /* worst case */);
     if (rc)
         goto err_exit;
 
@@ -730,35 +735,22 @@ static u32
 tpm_extend(u8 *hash, u32 pcrindex)
 {
     u32 rc;
-    struct pttto_extend pttto;
-    struct pttti_extend pttti = {
-        .pttti = {
-            .ipblength = sizeof(struct pttti_extend),
-            .opblength = sizeof(struct pttto_extend),
-        },
-        .req = {
-            .tag      = cpu_to_be16(0xc1),
-            .totlen   = cpu_to_be32(sizeof(pttti.req)),
-            .ordinal  = cpu_to_be32(TPM_ORD_Extend),
-            .pcrindex = cpu_to_be32(pcrindex),
-        },
+    struct tpm_req_extend tre = {
+        .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .totlen   = cpu_to_be32(sizeof(tre)),
+        .ordinal  = cpu_to_be32(TPM_ORD_Extend),
+        .pcrindex = cpu_to_be32(pcrindex),
     };
+    struct tpm_rsp_extend rsp;
+    u32 resp_length = sizeof(rsp);
 
-    memcpy(pttti.req.digest, hash, sizeof(pttti.req.digest));
+    memcpy(tre.digest, hash, sizeof(tre.digest));
 
-    rc = pass_through_to_tpm(&pttti.pttti, &pttto.pttto);
+    rc = pass_through_to_tpm(0, (u8 *)&tre, sizeof(tre),
+                             (u8 *)&rsp, &resp_length);
 
-    if (rc == 0) {
-        if (pttto.pttto.opblength < TPM_RSP_HEADER_SIZE ||
-            pttto.pttto.opblength !=
-                sizeof(struct pttto) + be32_to_cpu(pttto.rsp.totlen) ||
-            be16_to_cpu(pttto.rsp.tag) != 0xc4) {
-            rc = TCG_FATAL_COM_ERROR;
-        }
-    }
-
-    if (rc)
-        tpm_shutdown();
+    if (rc || resp_length != sizeof(rsp))
+        tpm_set_failure();
 
     return rc;
 }
@@ -1014,8 +1006,8 @@ tpm_interrupt_handler32(struct bregs *regs)
 
     case TCG_PassThroughToTPM:
         regs->eax =
-            pass_through_to_tpm((struct pttti *)input_buf32(regs),
-                                (struct pttto *)output_buf32(regs));
+            pass_through_to_tpm_int((struct pttti *)input_buf32(regs),
+                                    (struct pttto *)output_buf32(regs));
         break;
 
     case TCG_ShutdownPreBootInterface:

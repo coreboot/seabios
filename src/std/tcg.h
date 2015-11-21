@@ -329,15 +329,4 @@ struct tpm_res_sha1complete {
     u8     hash[20];
 } PACKED;
 
-struct pttti_extend {
-    struct pttti pttti;
-    struct tpm_req_extend req;
-} PACKED;
-
-
-struct pttto_extend {
-    struct pttto pttto;
-    struct tpm_rsp_extend rsp;
-} PACKED;
-
 #endif // tcg.h
