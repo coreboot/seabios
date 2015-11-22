@@ -280,8 +280,6 @@ reset_acpi_log(void)
     tpm_state.entry_count = 0;
 }
 
-static void tpm_set_failure(void);
-
 /*
  * Extend the ACPI log with the given entry by copying the
  * entry data into the log.
@@ -301,27 +299,17 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
 {
     u32 size;
 
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
     dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
             tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
 
-    if (tpm_state.log_area_next_entry == NULL) {
-
-        tpm_set_failure();
-
+    if (tpm_state.log_area_next_entry == NULL)
         return TCG_PC_LOGOVERFLOW;
-    }
 
     size = offsetof(struct pcpes, event) + event_length;
 
     if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
          tpm_state.log_area_minimum_length) {
         dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
-
-        tpm_set_failure();
-
         return TCG_PC_LOGOVERFLOW;
     }
 
@@ -548,7 +536,13 @@ hash_log_event(const void *hashdata, u32 hashdata_length,
             return rc;
     }
 
-    return tpm_extend_acpi_log(pcpes, event, event_length, entry_count);
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    rc = tpm_extend_acpi_log(pcpes, event, event_length, entry_count);
+    if (rc)
+        tpm_set_failure();
+    return rc;
 }
 
 static u32
