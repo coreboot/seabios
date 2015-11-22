@@ -58,31 +58,9 @@ static const u8 GetCapability_Durations[] = {
 static u8 evt_separator[] = {0xff,0xff,0xff,0xff};
 
 
-#define RSDP_CAST(ptr)   ((struct rsdp_descriptor *)ptr)
-
-/* local function prototypes */
-
-static u32 build_and_send_cmd(u8 locty, u32 ordinal,
-                   const u8 *append, u32 append_size,
-                   u8 *resbuffer, u32 return_size, u32 *returnCode,
-                   enum tpmDurationType to_t);
-static u32 tpm_calling_int19h(void);
-static u32 tpm_add_event_separators(void);
-static u32 tpm_start_option_rom_scan(void);
-static u32 tpm_smbios_measure(void);
-
-/* helper functions */
-
-static inline void *input_buf32(struct bregs *regs)
-{
-    return MAKE_FLATPTR(regs->es, regs->di);
-}
-
-static inline void *output_buf32(struct bregs *regs)
-{
-    return MAKE_FLATPTR(regs->ds, regs->si);
-}
-
+/****************************************************************
+ * TPM state tracking
+ ****************************************************************/
 
 typedef struct {
     u8            tpm_probed:1;
@@ -108,16 +86,20 @@ typedef struct {
     u8 *          log_area_last_entry;
 } tpm_state_t;
 
-
 tpm_state_t tpm_state VARLOW = {
     .tpm_driver_to_use = TPM_INVALID_DRIVER,
 };
 
+static u32
+is_preboot_if_shutdown(void)
+{
+    return tpm_state.if_shutdown;
+}
 
-/********************************************************
-  Extensions for TCG-enabled BIOS
- *******************************************************/
 
+/****************************************************************
+ * TPM hardware interface
+ ****************************************************************/
 
 static u32
 is_tpm_present(void)
@@ -155,147 +137,6 @@ has_working_tpm(void)
 
     return tpm_state.tpm_working;
 }
-
-static void
-tpm_set_failure(void)
-{
-    u32 returnCode;
-
-    /* we will try to deactivate the TPM now - ignoring all errors */
-    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                       PhysicalPresence_CMD_ENABLE,
-                       sizeof(PhysicalPresence_CMD_ENABLE),
-                       NULL, 0, &returnCode,
-                       TPM_DURATION_TYPE_SHORT);
-
-    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                       PhysicalPresence_PRESENT,
-                       sizeof(PhysicalPresence_PRESENT),
-                       NULL, 0, &returnCode,
-                       TPM_DURATION_TYPE_SHORT);
-
-    build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
-                       NULL, 0, NULL, 0, &returnCode,
-                       TPM_DURATION_TYPE_SHORT);
-
-    tpm_state.tpm_working = 0;
-}
-
-static struct tcpa_descriptor_rev2 *
-find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
-{
-    u32 ctr = 0;
-    struct tcpa_descriptor_rev2 *tcpa = NULL;
-    struct rsdt_descriptor *rsdt;
-    u32 length;
-    u16 off;
-
-    rsdt   = (struct rsdt_descriptor *)rsdp->rsdt_physical_address;
-    if (!rsdt)
-        return NULL;
-
-    length = rsdt->length;
-    off = offsetof(struct rsdt_descriptor, entry);
-
-    while ((off + sizeof(rsdt->entry[0])) <= length) {
-        /* try all pointers to structures */
-        tcpa = (struct tcpa_descriptor_rev2 *)(int)rsdt->entry[ctr];
-
-        /* valid TCPA ACPI table ? */
-        if (tcpa->signature == TCPA_SIGNATURE &&
-            checksum((u8 *)tcpa, tcpa->length) == 0)
-            break;
-
-        tcpa = NULL;
-        off += sizeof(rsdt->entry[0]);
-        ctr++;
-    }
-
-    /* cache it */
-    if (tcpa)
-        tpm_state.tcpa = tcpa;
-
-    return tcpa;
-}
-
-
-static struct tcpa_descriptor_rev2 *
-find_tcpa_table(void)
-{
-    struct tcpa_descriptor_rev2 *tcpa = NULL;
-    struct rsdp_descriptor *rsdp = RsdpAddr;
-
-    if (tpm_state.tcpa)
-        return tpm_state.tcpa;
-
-    if (rsdp)
-        tcpa = find_tcpa_by_rsdp(rsdp);
-    else
-        tpm_state.if_shutdown = 1;
-
-    if (!rsdp)
-        dprintf(DEBUG_tcg,
-                "TCGBIOS: RSDP was NOT found! -- Disabling interface.\n");
-    else if (!tcpa)
-        dprintf(DEBUG_tcg, "TCGBIOS: TCPA ACPI was NOT found!\n");
-
-    return tcpa;
-}
-
-
-static u8 *
-get_lasa_base_ptr(u32 *log_area_minimum_length)
-{
-    u8 *log_area_start_address = 0;
-    struct tcpa_descriptor_rev2 *tcpa = find_tcpa_table();
-
-    if (tcpa) {
-        log_area_start_address = (u8 *)(long)tcpa->log_area_start_address;
-        if (log_area_minimum_length)
-            *log_area_minimum_length = tcpa->log_area_minimum_length;
-    }
-
-    return log_area_start_address;
-}
-
-
-/* clear the ACPI log */
-static void
-reset_acpi_log(void)
-{
-    tpm_state.log_area_start_address =
-        get_lasa_base_ptr(&tpm_state.log_area_minimum_length);
-
-    if (tpm_state.log_area_start_address)
-        memset(tpm_state.log_area_start_address, 0,
-               tpm_state.log_area_minimum_length);
-
-    tpm_state.log_area_next_entry = tpm_state.log_area_start_address;
-    tpm_state.log_area_last_entry = NULL;
-    tpm_state.entry_count = 0;
-}
-
-
-/*
-   initialize the TCPA ACPI subsystem; find the ACPI tables and determine
-   where the TCPA table is.
- */
-static void
-tpm_acpi_init(void)
-{
-    tpm_state.if_shutdown = 0;
-    tpm_state.tpm_probed = 0;
-    tpm_state.tpm_found = 0;
-    tpm_state.tpm_working = 0;
-
-    if (!has_working_tpm()) {
-        tpm_state.if_shutdown = 1;
-        return;
-    }
-
-    reset_acpi_log();
-}
-
 
 static u32
 transmit(u8 locty, const struct iovec iovec[],
@@ -344,6 +185,167 @@ transmit(u8 locty, const struct iovec iovec[],
 }
 
 
+/****************************************************************
+ * ACPI TCPA table interface
+ ****************************************************************/
+
+static struct tcpa_descriptor_rev2 *
+find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
+{
+    u32 ctr = 0;
+    struct tcpa_descriptor_rev2 *tcpa = NULL;
+    struct rsdt_descriptor *rsdt;
+    u32 length;
+    u16 off;
+
+    rsdt   = (struct rsdt_descriptor *)rsdp->rsdt_physical_address;
+    if (!rsdt)
+        return NULL;
+
+    length = rsdt->length;
+    off = offsetof(struct rsdt_descriptor, entry);
+
+    while ((off + sizeof(rsdt->entry[0])) <= length) {
+        /* try all pointers to structures */
+        tcpa = (struct tcpa_descriptor_rev2 *)(int)rsdt->entry[ctr];
+
+        /* valid TCPA ACPI table ? */
+        if (tcpa->signature == TCPA_SIGNATURE &&
+            checksum((u8 *)tcpa, tcpa->length) == 0)
+            break;
+
+        tcpa = NULL;
+        off += sizeof(rsdt->entry[0]);
+        ctr++;
+    }
+
+    /* cache it */
+    if (tcpa)
+        tpm_state.tcpa = tcpa;
+
+    return tcpa;
+}
+
+static struct tcpa_descriptor_rev2 *
+find_tcpa_table(void)
+{
+    struct tcpa_descriptor_rev2 *tcpa = NULL;
+    struct rsdp_descriptor *rsdp = RsdpAddr;
+
+    if (tpm_state.tcpa)
+        return tpm_state.tcpa;
+
+    if (rsdp)
+        tcpa = find_tcpa_by_rsdp(rsdp);
+    else
+        tpm_state.if_shutdown = 1;
+
+    if (!rsdp)
+        dprintf(DEBUG_tcg,
+                "TCGBIOS: RSDP was NOT found! -- Disabling interface.\n");
+    else if (!tcpa)
+        dprintf(DEBUG_tcg, "TCGBIOS: TCPA ACPI was NOT found!\n");
+
+    return tcpa;
+}
+
+static u8 *
+get_lasa_base_ptr(u32 *log_area_minimum_length)
+{
+    u8 *log_area_start_address = 0;
+    struct tcpa_descriptor_rev2 *tcpa = find_tcpa_table();
+
+    if (tcpa) {
+        log_area_start_address = (u8 *)(long)tcpa->log_area_start_address;
+        if (log_area_minimum_length)
+            *log_area_minimum_length = tcpa->log_area_minimum_length;
+    }
+
+    return log_area_start_address;
+}
+
+/* clear the ACPI log */
+static void
+reset_acpi_log(void)
+{
+    tpm_state.log_area_start_address =
+        get_lasa_base_ptr(&tpm_state.log_area_minimum_length);
+
+    if (tpm_state.log_area_start_address)
+        memset(tpm_state.log_area_start_address, 0,
+               tpm_state.log_area_minimum_length);
+
+    tpm_state.log_area_next_entry = tpm_state.log_area_start_address;
+    tpm_state.log_area_last_entry = NULL;
+    tpm_state.entry_count = 0;
+}
+
+static void tpm_set_failure(void);
+
+/*
+ * Extend the ACPI log with the given entry by copying the
+ * entry data into the log.
+ * Input
+ *  pcpes : Pointer to the event 'header' to be copied into the log
+ *  event : Pointer to the event 'body' to be copied into the log
+ *  event_length: Length of the event array
+ *  entry_count : optional pointer to get the current entry count
+ *
+ * Output:
+ *  Returns an error code in case of faiure, 0 in case of success
+ */
+static u32
+tpm_extend_acpi_log(struct pcpes *pcpes,
+                    const char *event, u32 event_length,
+                    u16 *entry_count)
+{
+    u32 size;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
+            tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
+
+    if (tpm_state.log_area_next_entry == NULL) {
+
+        tpm_set_failure();
+
+        return TCG_PC_LOGOVERFLOW;
+    }
+
+    size = offsetof(struct pcpes, event) + event_length;
+
+    if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
+         tpm_state.log_area_minimum_length) {
+        dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
+
+        tpm_set_failure();
+
+        return TCG_PC_LOGOVERFLOW;
+    }
+
+    pcpes->eventdatasize = event_length;
+
+    memcpy(tpm_state.log_area_next_entry, pcpes, offsetof(struct pcpes, event));
+    memcpy(tpm_state.log_area_next_entry + offsetof(struct pcpes, event),
+           event, event_length);
+
+    tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
+    tpm_state.log_area_next_entry += size;
+    tpm_state.entry_count++;
+
+    if (entry_count)
+        *entry_count = tpm_state.entry_count;
+
+    return 0;
+}
+
+
+/****************************************************************
+ * Helper functions
+ ****************************************************************/
+
 /*
  * Send a TPM command with the given ordinal. Append the given buffer
  * containing all data in network byte order to the command (this is
@@ -391,6 +393,31 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
         memcpy(resbuffer, trsh, return_size);
 
     return 0;
+}
+
+static void
+tpm_set_failure(void)
+{
+    u32 returnCode;
+
+    /* we will try to deactivate the TPM now - ignoring all errors */
+    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                       PhysicalPresence_CMD_ENABLE,
+                       sizeof(PhysicalPresence_CMD_ENABLE),
+                       NULL, 0, &returnCode,
+                       TPM_DURATION_TYPE_SHORT);
+
+    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                       PhysicalPresence_PRESENT,
+                       sizeof(PhysicalPresence_PRESENT),
+                       NULL, 0, &returnCode,
+                       TPM_DURATION_TYPE_SHORT);
+
+    build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
+                       NULL, 0, NULL, 0, &returnCode,
+                       TPM_DURATION_TYPE_SHORT);
+
+    tpm_state.tpm_working = 0;
 }
 
 static u32
@@ -458,6 +485,242 @@ err_exit:
     return TCG_TCG_COMMAND_ERROR;
 }
 
+static u32
+pass_through_to_tpm(u8 locty, const u8 *cmd, u32 cmd_length,
+                    u8 *resp, u32 *resp_length)
+{
+    struct iovec iovec[2] = {{ 0 }};
+    const u32 *tmp;
+
+    if (cmd_length < TPM_REQ_HEADER_SIZE)
+        return TCG_INVALID_INPUT_PARA;
+
+    iovec[0].data = cmd;
+    tmp = (const u32 *)&((u8 *)iovec[0].data)[2];
+    iovec[0].length = cpu_to_be32(*tmp);
+
+    if (cmd_length != iovec[0].length)
+        return TCG_INVALID_INPUT_PARA;
+
+    return transmit(locty, iovec, resp, resp_length,
+                    TPM_DURATION_TYPE_LONG /* worst case */);
+
+}
+
+static u32
+tpm_extend(u8 *hash, u32 pcrindex)
+{
+    u32 rc;
+    struct tpm_req_extend tre = {
+        .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .totlen   = cpu_to_be32(sizeof(tre)),
+        .ordinal  = cpu_to_be32(TPM_ORD_Extend),
+        .pcrindex = cpu_to_be32(pcrindex),
+    };
+    struct tpm_rsp_extend rsp;
+    u32 resp_length = sizeof(rsp);
+
+    memcpy(tre.digest, hash, sizeof(tre.digest));
+
+    rc = pass_through_to_tpm(0, (u8 *)&tre, sizeof(tre),
+                             (u8 *)&rsp, &resp_length);
+
+    if (rc || resp_length != sizeof(rsp))
+        tpm_set_failure();
+
+    return rc;
+}
+
+static u32
+hash_log_event(const void *hashdata, u32 hashdata_length,
+               struct pcpes *pcpes,
+               const char *event, u32 event_length,
+               u16 *entry_count)
+{
+    u32 rc = 0;
+
+    if (pcpes->pcrindex >= 24)
+        return TCG_INVALID_INPUT_PARA;
+
+    if (hashdata) {
+        rc = sha1(hashdata, hashdata_length, pcpes->digest);
+        if (rc)
+            return rc;
+    }
+
+    return tpm_extend_acpi_log(pcpes, event, event_length, entry_count);
+}
+
+static u32
+hash_log_extend_event(const void *hashdata, u32 hashdata_length,
+                      struct pcpes *pcpes,
+                      const char *event, u32 event_length,
+                      u32 pcrindex, u16 *entry_count)
+{
+    u32 rc;
+
+    rc = hash_log_event(hashdata, hashdata_length, pcpes,
+                        event, event_length, entry_count);
+    if (rc)
+        return rc;
+
+    return tpm_extend(pcpes->digest, pcrindex);
+}
+
+/*
+ * Add a measurement to the log; the data at data_seg:data/length are
+ * appended to the TCG_PCClientPCREventStruct
+ *
+ * Input parameters:
+ *  pcrindex   : which PCR to extend
+ *  event_type : type of event; specs section on 'Event Types'
+ *  event       : pointer to info (e.g., string) to be added to log as-is
+ *  event_length: length of the event
+ *  hashdata    : pointer to the data to be hashed
+ *  hashdata_length: length of the data to be hashed
+ */
+static u32
+tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
+                           const char *event, u32 event_length,
+                           const u8 *hashdata, u32 hashdata_length)
+{
+    struct pcpes pcpes = {
+        .pcrindex = pcrindex,
+        .eventtype = event_type,
+    };
+    u16 entry_count;
+
+    return hash_log_extend_event(hashdata, hashdata_length, &pcpes,
+                                 event, event_length, pcrindex,
+                                 &entry_count);
+}
+
+
+/****************************************************************
+ * Setup and Measurements
+ ****************************************************************/
+
+/*
+ * Add a measurement to the list of measurements
+ * pcrIndex   : PCR to be extended
+ * event_type : type of event; specs section on 'Event Types'
+ * data       : additional parameter; used as parameter for
+ *              'action index'
+ */
+static u32
+tpm_add_measurement(u32 pcrIndex,
+                    u16 event_type,
+                    const char *string)
+{
+    u32 rc;
+    u32 len;
+
+    switch (event_type) {
+    case EV_SEPARATOR:
+        len = sizeof(evt_separator);
+        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
+                                        (char *)NULL, 0,
+                                        (u8 *)evt_separator, len);
+        break;
+
+    case EV_ACTION:
+        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
+                                        string, strlen(string),
+                                        (u8 *)string, strlen(string));
+        break;
+
+    default:
+        rc = TCG_INVALID_INPUT_PARA;
+    }
+
+    return rc;
+}
+
+static u32
+tpm_calling_int19h(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    return tpm_add_measurement(4, EV_ACTION,
+                               "Calling INT 19h");
+}
+
+/*
+ * Add event separators for PCRs 0 to 7; specs on 'Measuring Boot Events'
+ */
+static u32
+tpm_add_event_separators(void)
+{
+    u32 rc;
+    u32 pcrIndex = 0;
+
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    while (pcrIndex <= 7) {
+        rc = tpm_add_measurement(pcrIndex, EV_SEPARATOR, NULL);
+        if (rc)
+            break;
+        pcrIndex ++;
+    }
+
+    return rc;
+}
+
+/*
+ * Add measurement to the log about option rom scan
+ */
+static u32
+tpm_start_option_rom_scan(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    return tpm_add_measurement(2, EV_ACTION,
+                               "Start Option ROM Scan");
+}
+
+static u32
+tpm_smbios_measure(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (!has_working_tpm())
+        return TCG_GENERAL_ERROR;
+
+    u32 rc;
+    struct pcctes pcctes = {
+        .eventid = 1,
+        .eventdatasize = SHA1_BUFSIZE,
+    };
+    struct smbios_entry_point *sep = SMBiosAddr;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: SMBIOS at %p\n", sep);
+
+    if (!sep)
+        return 0;
+
+    rc = sha1((const u8 *)sep->structure_table_address,
+              sep->structure_table_length, pcctes.digest);
+    if (rc)
+        return rc;
+
+    return tpm_add_measurement_to_log(1,
+                                      EV_EVENT_TAG,
+                                      (const char *)&pcctes, sizeof(pcctes),
+                                      (u8 *)&pcctes, sizeof(pcctes));
+}
 
 static u32
 tpm_startup(void)
@@ -528,6 +791,25 @@ err_exit:
     return TCG_TCG_COMMAND_ERROR;
 }
 
+/*
+   initialize the TCPA ACPI subsystem; find the ACPI tables and determine
+   where the TCPA table is.
+ */
+static void
+tpm_acpi_init(void)
+{
+    tpm_state.if_shutdown = 0;
+    tpm_state.tpm_probed = 0;
+    tpm_state.tpm_found = 0;
+    tpm_state.tpm_working = 0;
+
+    if (!has_working_tpm()) {
+        tpm_state.if_shutdown = 1;
+        return;
+    }
+
+    reset_acpi_log();
+}
 
 void
 tpm_setup(void)
@@ -541,7 +823,6 @@ tpm_setup(void)
 
     tpm_startup();
 }
-
 
 void
 tpm_prepboot(void)
@@ -586,578 +867,32 @@ err_exit:
 }
 
 /*
- * Extend the ACPI log with the given entry by copying the
- * entry data into the log.
- * Input
- *  pcpes : Pointer to the event 'header' to be copied into the log
- *  event : Pointer to the event 'body' to be copied into the log
- *  event_length: Length of the event array
- *  entry_count : optional pointer to get the current entry count
- *
- * Output:
- *  Returns an error code in case of faiure, 0 in case of success
+ * Add measurement to the log about an option rom
  */
-static u32
-tpm_extend_acpi_log(struct pcpes *pcpes,
-                    const char *event, u32 event_length,
-                    u16 *entry_count)
+u32
+tpm_option_rom(const void *addr, u32 len)
 {
-    u32 size;
+    if (!CONFIG_TCGBIOS)
+        return 0;
 
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
-            tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
-
-    if (tpm_state.log_area_next_entry == NULL) {
-
-        tpm_set_failure();
-
-        return TCG_PC_LOGOVERFLOW;
-    }
-
-    size = offsetof(struct pcpes, event) + event_length;
-
-    if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
-         tpm_state.log_area_minimum_length) {
-        dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
-
-        tpm_set_failure();
-
-        return TCG_PC_LOGOVERFLOW;
-    }
-
-    pcpes->eventdatasize = event_length;
-
-    memcpy(tpm_state.log_area_next_entry, pcpes, offsetof(struct pcpes, event));
-    memcpy(tpm_state.log_area_next_entry + offsetof(struct pcpes, event),
-           event, event_length);
-
-    tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
-    tpm_state.log_area_next_entry += size;
-    tpm_state.entry_count++;
-
-    if (entry_count)
-        *entry_count = tpm_state.entry_count;
-
-    return 0;
-}
-
-
-static u32
-is_preboot_if_shutdown(void)
-{
-    return tpm_state.if_shutdown;
-}
-
-
-static u32
-shutdown_preboot_interface(void)
-{
-    u32 rc = 0;
-
-    if (!is_preboot_if_shutdown()) {
-        tpm_state.if_shutdown = 1;
-    } else {
-        rc = TCG_INTERFACE_SHUTDOWN;
-    }
-
-    return rc;
-}
-
-static u32
-pass_through_to_tpm(u8 locty, const u8 *cmd, u32 cmd_length,
-                    u8 *resp, u32 *resp_length)
-{
-    struct iovec iovec[2] = {{ 0 }};
-    const u32 *tmp;
-
-    if (cmd_length < TPM_REQ_HEADER_SIZE)
-        return TCG_INVALID_INPUT_PARA;
-
-    iovec[0].data = cmd;
-    tmp = (const u32 *)&((u8 *)iovec[0].data)[2];
-    iovec[0].length = cpu_to_be32(*tmp);
-
-    if (cmd_length != iovec[0].length)
-        return TCG_INVALID_INPUT_PARA;
-
-    return transmit(locty, iovec, resp, resp_length,
-                    TPM_DURATION_TYPE_LONG /* worst case */);
-
-}
-
-static u32
-pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
-{
-    u32 rc = 0;
-    u32 resbuflen = 0;
-    struct tpm_req_header *trh;
-
-    if (is_preboot_if_shutdown()) {
-        rc = TCG_INTERFACE_SHUTDOWN;
-        goto err_exit;
-    }
-
-    trh = (struct tpm_req_header *)pttti->tpmopin;
-
-    if (pttti->ipblength < sizeof(struct pttti) + TPM_REQ_HEADER_SIZE ||
-        pttti->opblength < sizeof(struct pttto) ||
-        be32_to_cpu(trh->totlen)  + sizeof(struct pttti) > pttti->ipblength ) {
-        rc = TCG_INVALID_INPUT_PARA;
-        goto err_exit;
-    }
-
-    resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
-
-    rc = pass_through_to_tpm(0, pttti->tpmopin,
-                             pttti->ipblength - offsetof(struct pttti, tpmopin),
-                             pttto->tpmopout, &resbuflen);
-
-    if (rc)
-        goto err_exit;
-
-    pttto->opblength = offsetof(struct pttto, tpmopout) + resbuflen;
-    pttto->reserved  = 0;
-
-err_exit:
-    if (rc != 0) {
-        pttto->opblength = 4;
-        pttto->reserved = 0;
-    }
-
-    return rc;
-}
-
-
-static u32
-tpm_extend(u8 *hash, u32 pcrindex)
-{
     u32 rc;
-    struct tpm_req_extend tre = {
-        .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
-        .totlen   = cpu_to_be32(sizeof(tre)),
-        .ordinal  = cpu_to_be32(TPM_ORD_Extend),
-        .pcrindex = cpu_to_be32(pcrindex),
+    struct pcctes_romex pcctes = {
+        .eventid = 7,
+        .eventdatasize = sizeof(u16) + sizeof(u16) + SHA1_BUFSIZE,
     };
-    struct tpm_rsp_extend rsp;
-    u32 resp_length = sizeof(rsp);
 
-    memcpy(tre.digest, hash, sizeof(tre.digest));
-
-    rc = pass_through_to_tpm(0, (u8 *)&tre, sizeof(tre),
-                             (u8 *)&rsp, &resp_length);
-
-    if (rc || resp_length != sizeof(rsp))
-        tpm_set_failure();
-
-    return rc;
-}
-
-
-static u32
-hash_all_int(const struct hai *hai, u8 *hash)
-{
-    if (is_preboot_if_shutdown() != 0)
-        return TCG_INTERFACE_SHUTDOWN;
-
-    if (hai->ipblength != sizeof(struct hai) ||
-        hai->hashdataptr == 0 ||
-        hai->hashdatalen == 0 ||
-        hai->algorithmid != TPM_ALG_SHA)
-        return TCG_INVALID_INPUT_PARA;
-
-    return sha1((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
-}
-
-static u32
-hash_log_event(const void *hashdata, u32 hashdata_length,
-               struct pcpes *pcpes,
-               const char *event, u32 event_length,
-               u16 *entry_count)
-{
-    u32 rc = 0;
-
-    if (pcpes->pcrindex >= 24)
-        return TCG_INVALID_INPUT_PARA;
-
-    if (hashdata) {
-        rc = sha1(hashdata, hashdata_length, pcpes->digest);
-        if (rc)
-            return rc;
-    }
-
-    return tpm_extend_acpi_log(pcpes, event, event_length, entry_count);
-}
-
-static u32
-hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
-{
-    u32 rc = 0;
-    u16 size;
-    struct pcpes *pcpes;
-    u16 entry_count;
-
-    if (is_preboot_if_shutdown() != 0) {
-        rc = TCG_INTERFACE_SHUTDOWN;
-        goto err_exit;
-    }
-
-    size = hlei->ipblength;
-    if (size != sizeof(*hlei)) {
-        rc = TCG_INVALID_INPUT_PARA;
-        goto err_exit;
-    }
-
-    pcpes = (struct pcpes *)hlei->logdataptr;
-
-    if (pcpes->pcrindex >= 24 ||
-        pcpes->pcrindex  != hlei->pcrindex ||
-        pcpes->eventtype != hlei->logeventtype ||
-        hlei->logdatalen !=
-           offsetof(struct pcpes, event) + pcpes->eventdatasize) {
-        rc = TCG_INVALID_INPUT_PARA;
-        goto err_exit;
-    }
-
-    rc = hash_log_event(hlei->hashdataptr, hlei->hashdatalen,
-                        pcpes, (char *)&pcpes->event, pcpes->eventdatasize,
-                        &entry_count);
-    if (rc)
-        goto err_exit;
-
-    /* updating the log was fine */
-    hleo->opblength = sizeof(struct hleo);
-    hleo->reserved  = 0;
-    hleo->eventnumber = entry_count;
-
-err_exit:
-    if (rc != 0) {
-        hleo->opblength = 2;
-        hleo->reserved = 0;
-    }
-
-    return rc;
-}
-
-static u32
-hash_log_extend_event(const void *hashdata, u32 hashdata_length,
-                      struct pcpes *pcpes,
-                      const char *event, u32 event_length,
-                      u32 pcrindex, u16 *entry_count)
-{
-    u32 rc;
-
-    rc = hash_log_event(hashdata, hashdata_length, pcpes,
-                        event, event_length, entry_count);
+    rc = sha1((const u8 *)addr, len, pcctes.digest);
     if (rc)
         return rc;
 
-    return tpm_extend(pcpes->digest, pcrindex);
+    return tpm_add_measurement_to_log(2,
+                                      EV_EVENT_TAG,
+                                      (const char *)&pcctes, sizeof(pcctes),
+                                      (u8 *)&pcctes, sizeof(pcctes));
 }
-
-static u32
-hash_log_extend_event_int(const struct hleei_short *hleei_s,
-                          struct hleeo *hleeo)
-{
-    u32 rc = 0;
-    struct hleo hleo;
-    struct hleei_long *hleei_l = (struct hleei_long *)hleei_s;
-    const void *logdataptr;
-    u32 logdatalen;
-    struct pcpes *pcpes;
-    u32 pcrindex;
-
-    if (is_preboot_if_shutdown() != 0) {
-        rc = TCG_INTERFACE_SHUTDOWN;
-        goto err_exit;
-    }
-
-    /* short or long version? */
-    switch (hleei_s->ipblength) {
-    case sizeof(struct hleei_short):
-        /* short */
-        logdataptr = hleei_s->logdataptr;
-        logdatalen = hleei_s->logdatalen;
-        pcrindex = hleei_s->pcrindex;
-    break;
-
-    case sizeof(struct hleei_long):
-        /* long */
-        logdataptr = hleei_l->logdataptr;
-        logdatalen = hleei_l->logdatalen;
-        pcrindex = hleei_l->pcrindex;
-    break;
-
-    default:
-        /* bad input block */
-        rc = TCG_INVALID_INPUT_PARA;
-        goto err_exit;
-    }
-
-    pcpes = (struct pcpes *)logdataptr;
-
-    if (pcpes->pcrindex >= 24 ||
-        pcpes->pcrindex != pcrindex ||
-        logdatalen != offsetof(struct pcpes, event) + pcpes->eventdatasize) {
-        rc = TCG_INVALID_INPUT_PARA;
-        goto err_exit;
-    }
-
-    rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
-                               pcpes,
-                               (char *)&pcpes->event, pcpes->eventdatasize,
-                               pcrindex, NULL);
-    if (rc)
-        goto err_exit;
-
-    hleeo->opblength = sizeof(struct hleeo);
-    hleeo->reserved  = 0;
-    hleeo->eventnumber = hleo.eventnumber;
-
-err_exit:
-    if (rc != 0) {
-        hleeo->opblength = 4;
-        hleeo->reserved  = 0;
-    }
-
-    return rc;
-
-}
-
-
-static u32
-tss_int(struct ti *ti, struct to *to)
-{
-    u32 rc = 0;
-
-    if (is_preboot_if_shutdown() == 0) {
-        rc = TCG_PC_UNSUPPORTED;
-    } else {
-        rc = TCG_INTERFACE_SHUTDOWN;
-    }
-
-    to->opblength = sizeof(struct to);
-    to->reserved  = 0;
-
-    return rc;
-}
-
-
-static u32
-compact_hash_log_extend_event_int(u8 *buffer,
-                                  u32 info,
-                                  u32 length,
-                                  u32 pcrindex,
-                                  u32 *edx_ptr)
-{
-    u32 rc = 0;
-    struct pcpes pcpes = {
-        .pcrindex      = pcrindex,
-        .eventtype     = EV_COMPACT_HASH,
-        .eventdatasize = sizeof(info),
-        .event         = info,
-    };
-    u16 entry_count;
-
-    if (is_preboot_if_shutdown() != 0)
-        return TCG_INTERFACE_SHUTDOWN;
-
-    rc = hash_log_extend_event(buffer, length,
-                               &pcpes,
-                               (char *)&pcpes.event, pcpes.eventdatasize,
-                               pcpes.pcrindex, &entry_count);
-
-    if (rc == 0)
-        *edx_ptr = entry_count;
-
-    return rc;
-}
-
-
-void VISIBLE32FLAT
-tpm_interrupt_handler32(struct bregs *regs)
-{
-    if (!CONFIG_TCGBIOS)
-        return;
-
-    set_cf(regs, 0);
-
-    if (!has_working_tpm()) {
-        regs->eax = TCG_GENERAL_ERROR;
-        return;
-    }
-
-    switch ((enum irq_ids)regs->al) {
-    case TCG_StatusCheck:
-        if (is_tpm_present() == 0) {
-            /* no TPM available */
-            regs->eax = TCG_PC_TPM_NOT_PRESENT;
-        } else {
-            regs->eax = 0;
-            regs->ebx = TCG_MAGIC;
-            regs->ch = TCG_VERSION_MAJOR;
-            regs->cl = TCG_VERSION_MINOR;
-            regs->edx = 0x0;
-            regs->esi = (u32)tpm_state.log_area_start_address;
-            regs->edi = (u32)tpm_state.log_area_last_entry;
-        }
-        break;
-
-    case TCG_HashLogExtendEvent:
-        regs->eax =
-            hash_log_extend_event_int(
-                  (struct hleei_short *)input_buf32(regs),
-                  (struct hleeo *)output_buf32(regs));
-        break;
-
-    case TCG_PassThroughToTPM:
-        regs->eax =
-            pass_through_to_tpm_int((struct pttti *)input_buf32(regs),
-                                    (struct pttto *)output_buf32(regs));
-        break;
-
-    case TCG_ShutdownPreBootInterface:
-        regs->eax = shutdown_preboot_interface();
-        break;
-
-    case TCG_HashLogEvent:
-        regs->eax = hash_log_event_int((struct hlei*)input_buf32(regs),
-                                       (struct hleo*)output_buf32(regs));
-        break;
-
-    case TCG_HashAll:
-        regs->eax =
-            hash_all_int((struct hai*)input_buf32(regs),
-                          (u8 *)output_buf32(regs));
-        break;
-
-    case TCG_TSS:
-        regs->eax = tss_int((struct ti*)input_buf32(regs),
-                            (struct to*)output_buf32(regs));
-        break;
-
-    case TCG_CompactHashLogExtendEvent:
-        regs->eax =
-          compact_hash_log_extend_event_int((u8 *)input_buf32(regs),
-                                            regs->esi,
-                                            regs->ecx,
-                                            regs->edx,
-                                            &regs->edx);
-        break;
-
-    default:
-        set_cf(regs, 1);
-    }
-
-    return;
-}
-
-/*
- * Add a measurement to the log; the data at data_seg:data/length are
- * appended to the TCG_PCClientPCREventStruct
- *
- * Input parameters:
- *  pcrindex   : which PCR to extend
- *  event_type : type of event; specs section on 'Event Types'
- *  event       : pointer to info (e.g., string) to be added to log as-is
- *  event_length: length of the event
- *  hashdata    : pointer to the data to be hashed
- *  hashdata_length: length of the data to be hashed
- */
-static u32
-tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
-                           const char *event, u32 event_length,
-                           const u8 *hashdata, u32 hashdata_length)
-{
-    struct pcpes pcpes = {
-        .pcrindex = pcrindex,
-        .eventtype = event_type,
-    };
-    u16 entry_count;
-
-    return hash_log_extend_event(hashdata, hashdata_length, &pcpes,
-                                 event, event_length, pcrindex,
-                                 &entry_count);
-}
-
-
-/*
- * Add a measurement to the list of measurements
- * pcrIndex   : PCR to be extended
- * event_type : type of event; specs section on 'Event Types'
- * data       : additional parameter; used as parameter for
- *              'action index'
- */
-static u32
-tpm_add_measurement(u32 pcrIndex,
-                    u16 event_type,
-                    const char *string)
-{
-    u32 rc;
-    u32 len;
-
-    switch (event_type) {
-    case EV_SEPARATOR:
-        len = sizeof(evt_separator);
-        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
-                                        (char *)NULL, 0,
-                                        (u8 *)evt_separator, len);
-        break;
-
-    case EV_ACTION:
-        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
-                                        string, strlen(string),
-                                        (u8 *)string, strlen(string));
-        break;
-
-    default:
-        rc = TCG_INVALID_INPUT_PARA;
-    }
-
-    return rc;
-}
-
-
-static u32
-tpm_calling_int19h(void)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    return tpm_add_measurement(4, EV_ACTION,
-                               "Calling INT 19h");
-}
-
-/*
- * Add event separators for PCRs 0 to 7; specs on 'Measuring Boot Events'
- */
-static u32
-tpm_add_event_separators(void)
-{
-    u32 rc;
-    u32 pcrIndex = 0;
-
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    while (pcrIndex <= 7) {
-        rc = tpm_add_measurement(pcrIndex, EV_SEPARATOR, NULL);
-        if (rc)
-            break;
-        pcrIndex ++;
-    }
-
-    return rc;
-}
-
 
 /*
  * Add a measurement regarding the boot device (CDRom, Floppy, HDD) to
@@ -1200,86 +935,6 @@ tpm_add_bootdevice(u32 bootcd, u32 bootdrv)
                                       string, strlen(string),
                                       (u8 *)string, strlen(string));
 }
-
-
-/*
- * Add measurement to the log about option rom scan
- */
-static u32
-tpm_start_option_rom_scan(void)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    return tpm_add_measurement(2, EV_ACTION,
-                               "Start Option ROM Scan");
-}
-
-
-/*
- * Add measurement to the log about an option rom
- */
-u32
-tpm_option_rom(const void *addr, u32 len)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    u32 rc;
-    struct pcctes_romex pcctes = {
-        .eventid = 7,
-        .eventdatasize = sizeof(u16) + sizeof(u16) + SHA1_BUFSIZE,
-    };
-
-    rc = sha1((const u8 *)addr, len, pcctes.digest);
-    if (rc)
-        return rc;
-
-    return tpm_add_measurement_to_log(2,
-                                      EV_EVENT_TAG,
-                                      (const char *)&pcctes, sizeof(pcctes),
-                                      (u8 *)&pcctes, sizeof(pcctes));
-}
-
-
-static u32
-tpm_smbios_measure(void)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    u32 rc;
-    struct pcctes pcctes = {
-        .eventid = 1,
-        .eventdatasize = SHA1_BUFSIZE,
-    };
-    struct smbios_entry_point *sep = SMBiosAddr;
-
-    dprintf(DEBUG_tcg, "TCGBIOS: SMBIOS at %p\n", sep);
-
-    if (!sep)
-        return 0;
-
-    rc = sha1((const u8 *)sep->structure_table_address,
-              sep->structure_table_length, pcctes.digest);
-    if (rc)
-        return rc;
-
-    return tpm_add_measurement_to_log(1,
-                                      EV_EVENT_TAG,
-                                      (const char *)&pcctes, sizeof(pcctes),
-                                      (u8 *)&pcctes, sizeof(pcctes));
-}
-
 
 /*
  * Add a measurement related to Initial Program Loader to the log.
@@ -1412,4 +1067,334 @@ err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
+}
+
+
+/****************************************************************
+ * BIOS interface
+ ****************************************************************/
+
+static inline void *input_buf32(struct bregs *regs)
+{
+    return MAKE_FLATPTR(regs->es, regs->di);
+}
+
+static inline void *output_buf32(struct bregs *regs)
+{
+    return MAKE_FLATPTR(regs->ds, regs->si);
+}
+
+static u32
+hash_log_extend_event_int(const struct hleei_short *hleei_s,
+                          struct hleeo *hleeo)
+{
+    u32 rc = 0;
+    struct hleo hleo;
+    struct hleei_long *hleei_l = (struct hleei_long *)hleei_s;
+    const void *logdataptr;
+    u32 logdatalen;
+    struct pcpes *pcpes;
+    u32 pcrindex;
+
+    if (is_preboot_if_shutdown() != 0) {
+        rc = TCG_INTERFACE_SHUTDOWN;
+        goto err_exit;
+    }
+
+    /* short or long version? */
+    switch (hleei_s->ipblength) {
+    case sizeof(struct hleei_short):
+        /* short */
+        logdataptr = hleei_s->logdataptr;
+        logdatalen = hleei_s->logdatalen;
+        pcrindex = hleei_s->pcrindex;
+    break;
+
+    case sizeof(struct hleei_long):
+        /* long */
+        logdataptr = hleei_l->logdataptr;
+        logdatalen = hleei_l->logdatalen;
+        pcrindex = hleei_l->pcrindex;
+    break;
+
+    default:
+        /* bad input block */
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    pcpes = (struct pcpes *)logdataptr;
+
+    if (pcpes->pcrindex >= 24 ||
+        pcpes->pcrindex != pcrindex ||
+        logdatalen != offsetof(struct pcpes, event) + pcpes->eventdatasize) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
+                               pcpes,
+                               (char *)&pcpes->event, pcpes->eventdatasize,
+                               pcrindex, NULL);
+    if (rc)
+        goto err_exit;
+
+    hleeo->opblength = sizeof(struct hleeo);
+    hleeo->reserved  = 0;
+    hleeo->eventnumber = hleo.eventnumber;
+
+err_exit:
+    if (rc != 0) {
+        hleeo->opblength = 4;
+        hleeo->reserved  = 0;
+    }
+
+    return rc;
+
+}
+
+static u32
+pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
+{
+    u32 rc = 0;
+    u32 resbuflen = 0;
+    struct tpm_req_header *trh;
+
+    if (is_preboot_if_shutdown()) {
+        rc = TCG_INTERFACE_SHUTDOWN;
+        goto err_exit;
+    }
+
+    trh = (struct tpm_req_header *)pttti->tpmopin;
+
+    if (pttti->ipblength < sizeof(struct pttti) + TPM_REQ_HEADER_SIZE ||
+        pttti->opblength < sizeof(struct pttto) ||
+        be32_to_cpu(trh->totlen)  + sizeof(struct pttti) > pttti->ipblength ) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
+
+    rc = pass_through_to_tpm(0, pttti->tpmopin,
+                             pttti->ipblength - offsetof(struct pttti, tpmopin),
+                             pttto->tpmopout, &resbuflen);
+
+    if (rc)
+        goto err_exit;
+
+    pttto->opblength = offsetof(struct pttto, tpmopout) + resbuflen;
+    pttto->reserved  = 0;
+
+err_exit:
+    if (rc != 0) {
+        pttto->opblength = 4;
+        pttto->reserved = 0;
+    }
+
+    return rc;
+}
+
+static u32
+shutdown_preboot_interface(void)
+{
+    u32 rc = 0;
+
+    if (!is_preboot_if_shutdown()) {
+        tpm_state.if_shutdown = 1;
+    } else {
+        rc = TCG_INTERFACE_SHUTDOWN;
+    }
+
+    return rc;
+}
+
+static u32
+hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
+{
+    u32 rc = 0;
+    u16 size;
+    struct pcpes *pcpes;
+    u16 entry_count;
+
+    if (is_preboot_if_shutdown() != 0) {
+        rc = TCG_INTERFACE_SHUTDOWN;
+        goto err_exit;
+    }
+
+    size = hlei->ipblength;
+    if (size != sizeof(*hlei)) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    pcpes = (struct pcpes *)hlei->logdataptr;
+
+    if (pcpes->pcrindex >= 24 ||
+        pcpes->pcrindex  != hlei->pcrindex ||
+        pcpes->eventtype != hlei->logeventtype ||
+        hlei->logdatalen !=
+           offsetof(struct pcpes, event) + pcpes->eventdatasize) {
+        rc = TCG_INVALID_INPUT_PARA;
+        goto err_exit;
+    }
+
+    rc = hash_log_event(hlei->hashdataptr, hlei->hashdatalen,
+                        pcpes, (char *)&pcpes->event, pcpes->eventdatasize,
+                        &entry_count);
+    if (rc)
+        goto err_exit;
+
+    /* updating the log was fine */
+    hleo->opblength = sizeof(struct hleo);
+    hleo->reserved  = 0;
+    hleo->eventnumber = entry_count;
+
+err_exit:
+    if (rc != 0) {
+        hleo->opblength = 2;
+        hleo->reserved = 0;
+    }
+
+    return rc;
+}
+
+static u32
+hash_all_int(const struct hai *hai, u8 *hash)
+{
+    if (is_preboot_if_shutdown() != 0)
+        return TCG_INTERFACE_SHUTDOWN;
+
+    if (hai->ipblength != sizeof(struct hai) ||
+        hai->hashdataptr == 0 ||
+        hai->hashdatalen == 0 ||
+        hai->algorithmid != TPM_ALG_SHA)
+        return TCG_INVALID_INPUT_PARA;
+
+    return sha1((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
+}
+
+static u32
+tss_int(struct ti *ti, struct to *to)
+{
+    u32 rc = 0;
+
+    if (is_preboot_if_shutdown() == 0) {
+        rc = TCG_PC_UNSUPPORTED;
+    } else {
+        rc = TCG_INTERFACE_SHUTDOWN;
+    }
+
+    to->opblength = sizeof(struct to);
+    to->reserved  = 0;
+
+    return rc;
+}
+
+static u32
+compact_hash_log_extend_event_int(u8 *buffer,
+                                  u32 info,
+                                  u32 length,
+                                  u32 pcrindex,
+                                  u32 *edx_ptr)
+{
+    u32 rc = 0;
+    struct pcpes pcpes = {
+        .pcrindex      = pcrindex,
+        .eventtype     = EV_COMPACT_HASH,
+        .eventdatasize = sizeof(info),
+        .event         = info,
+    };
+    u16 entry_count;
+
+    if (is_preboot_if_shutdown() != 0)
+        return TCG_INTERFACE_SHUTDOWN;
+
+    rc = hash_log_extend_event(buffer, length,
+                               &pcpes,
+                               (char *)&pcpes.event, pcpes.eventdatasize,
+                               pcpes.pcrindex, &entry_count);
+
+    if (rc == 0)
+        *edx_ptr = entry_count;
+
+    return rc;
+}
+
+void VISIBLE32FLAT
+tpm_interrupt_handler32(struct bregs *regs)
+{
+    if (!CONFIG_TCGBIOS)
+        return;
+
+    set_cf(regs, 0);
+
+    if (!has_working_tpm()) {
+        regs->eax = TCG_GENERAL_ERROR;
+        return;
+    }
+
+    switch ((enum irq_ids)regs->al) {
+    case TCG_StatusCheck:
+        if (is_tpm_present() == 0) {
+            /* no TPM available */
+            regs->eax = TCG_PC_TPM_NOT_PRESENT;
+        } else {
+            regs->eax = 0;
+            regs->ebx = TCG_MAGIC;
+            regs->ch = TCG_VERSION_MAJOR;
+            regs->cl = TCG_VERSION_MINOR;
+            regs->edx = 0x0;
+            regs->esi = (u32)tpm_state.log_area_start_address;
+            regs->edi = (u32)tpm_state.log_area_last_entry;
+        }
+        break;
+
+    case TCG_HashLogExtendEvent:
+        regs->eax =
+            hash_log_extend_event_int(
+                  (struct hleei_short *)input_buf32(regs),
+                  (struct hleeo *)output_buf32(regs));
+        break;
+
+    case TCG_PassThroughToTPM:
+        regs->eax =
+            pass_through_to_tpm_int((struct pttti *)input_buf32(regs),
+                                    (struct pttto *)output_buf32(regs));
+        break;
+
+    case TCG_ShutdownPreBootInterface:
+        regs->eax = shutdown_preboot_interface();
+        break;
+
+    case TCG_HashLogEvent:
+        regs->eax = hash_log_event_int((struct hlei*)input_buf32(regs),
+                                       (struct hleo*)output_buf32(regs));
+        break;
+
+    case TCG_HashAll:
+        regs->eax =
+            hash_all_int((struct hai*)input_buf32(regs),
+                          (u8 *)output_buf32(regs));
+        break;
+
+    case TCG_TSS:
+        regs->eax = tss_int((struct ti*)input_buf32(regs),
+                            (struct to*)output_buf32(regs));
+        break;
+
+    case TCG_CompactHashLogExtendEvent:
+        regs->eax =
+          compact_hash_log_extend_event_int((u8 *)input_buf32(regs),
+                                            regs->esi,
+                                            regs->ecx,
+                                            regs->edx,
+                                            &regs->edx);
+        break;
+
+    default:
+        set_cf(regs, 1);
+    }
+
+    return;
 }
