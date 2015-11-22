@@ -280,7 +280,7 @@ reset_acpi_log(void)
  *  Returns an error code in case of faiure, 0 in case of success
  */
 static u32
-tpm_extend_acpi_log(struct pcpes *pcpes, const void *event)
+tpm_log_event(struct pcpes *pcpes, const void *event)
 {
     dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
             tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
@@ -468,26 +468,19 @@ tpm_extend(u8 *hash, u32 pcrindex)
 }
 
 static u32
-tpm_log_event(struct pcpes *pcpes, const void *event)
+tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 {
-    if (pcpes->pcrindex >= 24)
-        return TCG_INVALID_INPUT_PARA;
-
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    u32 rc = tpm_extend_acpi_log(pcpes, event);
-    if (rc)
-        tpm_set_failure();
-    return rc;
-}
+    if (pcpes->pcrindex >= 24)
+        return TCG_INVALID_INPUT_PARA;
 
-static u32
-tpm_log_extend_event(struct pcpes *pcpes, const void *event)
-{
     u32 rc = tpm_log_event(pcpes, event);
-    if (rc)
+    if (rc) {
+        tpm_set_failure();
         return rc;
+    }
     return tpm_extend(pcpes->digest, pcpes->pcrindex);
 }
 
