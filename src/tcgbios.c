@@ -55,8 +55,6 @@ static const u8 GetCapability_Durations[] = {
     0x00, 0x00, 0x01, 0x20
 };
 
-static u8 evt_separator[] = {0xff,0xff,0xff,0xff};
-
 
 /****************************************************************
  * TPM state tracking
@@ -594,40 +592,13 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
  * Setup and Measurements
  ****************************************************************/
 
-/*
- * Add a measurement to the list of measurements
- * pcrIndex   : PCR to be extended
- * event_type : type of event; specs section on 'Event Types'
- * data       : additional parameter; used as parameter for
- *              'action index'
- */
+// Add an EV_ACTION measurement to the list of measurements
 static u32
-tpm_add_measurement(u32 pcrIndex,
-                    u16 event_type,
-                    const char *string)
+tpm_add_action(u32 pcrIndex, const char *string)
 {
-    u32 rc;
-    u32 len;
-
-    switch (event_type) {
-    case EV_SEPARATOR:
-        len = sizeof(evt_separator);
-        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
-                                        (char *)NULL, 0,
-                                        (u8 *)evt_separator, len);
-        break;
-
-    case EV_ACTION:
-        rc = tpm_add_measurement_to_log(pcrIndex, event_type,
-                                        string, strlen(string),
-                                        (u8 *)string, strlen(string));
-        break;
-
-    default:
-        rc = TCG_INVALID_INPUT_PARA;
-    }
-
-    return rc;
+    u32 len = strlen(string);
+    return tpm_add_measurement_to_log(pcrIndex, EV_ACTION,
+                                      string, len, (u8 *)string, len);
 }
 
 static u32
@@ -639,8 +610,7 @@ tpm_calling_int19h(void)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    return tpm_add_measurement(4, EV_ACTION,
-                               "Calling INT 19h");
+    return tpm_add_action(4, "Calling INT 19h");
 }
 
 /*
@@ -658,8 +628,12 @@ tpm_add_event_separators(void)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
+    static const u8 evt_separator[] = {0xff,0xff,0xff,0xff};
     while (pcrIndex <= 7) {
-        rc = tpm_add_measurement(pcrIndex, EV_SEPARATOR, NULL);
+        rc = tpm_add_measurement_to_log(pcrIndex, EV_SEPARATOR,
+                                        NULL, 0,
+                                        (u8 *)evt_separator,
+                                        sizeof(evt_separator));
         if (rc)
             break;
         pcrIndex ++;
@@ -680,8 +654,7 @@ tpm_start_option_rom_scan(void)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    return tpm_add_measurement(2, EV_ACTION,
-                               "Start Option ROM Scan");
+    return tpm_add_action(2, "Start Option ROM Scan");
 }
 
 static u32
@@ -925,9 +898,7 @@ tpm_add_bootdevice(u32 bootcd, u32 bootdrv)
         string = "Booting from CD ROM device";
     }
 
-    return tpm_add_measurement_to_log(4, EV_ACTION,
-                                      string, strlen(string),
-                                      (u8 *)string, strlen(string));
+    return tpm_add_action(4, string);
 }
 
 u32
