@@ -513,43 +513,34 @@ tpm_extend(u8 *hash, u32 pcrindex)
 }
 
 static u32
-hash_log_event(const void *hashdata, u32 hashdata_length,
-               struct pcpes *pcpes,
-               const void *event, u32 event_length)
+tpm_log_event(struct pcpes *pcpes, const void *event, u32 event_length)
 {
-    u32 rc = 0;
-
     if (pcpes->pcrindex >= 24)
         return TCG_INVALID_INPUT_PARA;
-
-    if (hashdata) {
-        rc = sha1(hashdata, hashdata_length, pcpes->digest);
-        if (rc)
-            return rc;
-    }
 
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    rc = tpm_extend_acpi_log(pcpes, event, event_length);
+    u32 rc = tpm_extend_acpi_log(pcpes, event, event_length);
     if (rc)
         tpm_set_failure();
     return rc;
 }
 
 static u32
-hash_log_extend_event(const void *hashdata, u32 hashdata_length,
-                      struct pcpes *pcpes,
-                      const void *event, u32 event_length)
+tpm_log_extend_event(struct pcpes *pcpes, const void *event, u32 event_length)
 {
-    u32 rc;
-
-    rc = hash_log_event(hashdata, hashdata_length, pcpes,
-                        event, event_length);
+    u32 rc = tpm_log_event(pcpes, event, event_length);
     if (rc)
         return rc;
-
     return tpm_extend(pcpes->digest, pcpes->pcrindex);
+}
+
+static void
+tpm_fill_hash(struct pcpes *pcpes, const void *hashdata, u32 hashdata_length)
+{
+    if (hashdata)
+        sha1(hashdata, hashdata_length, pcpes->digest);
 }
 
 /*
@@ -573,8 +564,8 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .pcrindex = pcrindex,
         .eventtype = event_type,
     };
-    return hash_log_extend_event(hashdata, hashdata_length, &pcpes,
-                                 event, event_length);
+    tpm_fill_hash(&pcpes, hashdata, hashdata_length);
+    return tpm_log_extend_event(&pcpes, event, event_length);
 }
 
 
@@ -991,9 +982,8 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
         goto err_exit;
     }
 
-    rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
-                               pcpes,
-                               pcpes->event, pcpes->eventdatasize);
+    tpm_fill_hash(pcpes, hleei_s->hashdataptr, hleei_s->hashdatalen);
+    rc = tpm_log_extend_event(pcpes, pcpes->event, pcpes->eventdatasize);
     if (rc)
         goto err_exit;
 
@@ -1008,7 +998,6 @@ err_exit:
     }
 
     return rc;
-
 }
 
 static u32
@@ -1095,8 +1084,8 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
         goto err_exit;
     }
 
-    rc = hash_log_event(hlei->hashdataptr, hlei->hashdatalen,
-                        pcpes, pcpes->event, pcpes->eventdatasize);
+    tpm_fill_hash(pcpes, hlei->hashdataptr, hlei->hashdatalen);
+    rc = tpm_log_event(pcpes, pcpes->event, pcpes->eventdatasize);
     if (rc)
         goto err_exit;
 
@@ -1153,7 +1142,6 @@ compact_hash_log_extend_event_int(u8 *buffer,
                                   u32 pcrindex,
                                   u32 *edx_ptr)
 {
-    u32 rc = 0;
     struct pcpes pcpes = {
         .pcrindex      = pcrindex,
         .eventtype     = EV_COMPACT_HASH,
@@ -1163,10 +1151,8 @@ compact_hash_log_extend_event_int(u8 *buffer,
     if (is_preboot_if_shutdown() != 0)
         return TCG_INTERFACE_SHUTDOWN;
 
-    rc = hash_log_extend_event(buffer, length,
-                               &pcpes,
-                               &info, pcpes.eventdatasize);
-
+    tpm_fill_hash(&pcpes, buffer, length);
+    u32 rc = tpm_log_extend_event(&pcpes, &info, pcpes.eventdatasize);
     if (rc == 0)
         *edx_ptr = tpm_state.entry_count;
 
