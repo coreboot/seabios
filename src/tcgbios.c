@@ -540,8 +540,7 @@ hash_log_event(const void *hashdata, u32 hashdata_length,
 static u32
 hash_log_extend_event(const void *hashdata, u32 hashdata_length,
                       struct pcpes *pcpes,
-                      const void *event, u32 event_length,
-                      u32 pcrindex)
+                      const void *event, u32 event_length)
 {
     u32 rc;
 
@@ -550,7 +549,7 @@ hash_log_extend_event(const void *hashdata, u32 hashdata_length,
     if (rc)
         return rc;
 
-    return tpm_extend(pcpes->digest, pcrindex);
+    return tpm_extend(pcpes->digest, pcpes->pcrindex);
 }
 
 /*
@@ -575,7 +574,7 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .eventtype = event_type,
     };
     return hash_log_extend_event(hashdata, hashdata_length, &pcpes,
-                                 event, event_length, pcrindex);
+                                 event, event_length);
 }
 
 
@@ -994,8 +993,7 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
 
     rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
                                pcpes,
-                               pcpes->event, pcpes->eventdatasize,
-                               pcrindex);
+                               pcpes->event, pcpes->eventdatasize);
     if (rc)
         goto err_exit;
 
@@ -1167,8 +1165,7 @@ compact_hash_log_extend_event_int(u8 *buffer,
 
     rc = hash_log_extend_event(buffer, length,
                                &pcpes,
-                               &info, pcpes.eventdatasize,
-                               pcpes.pcrindex);
+                               &info, pcpes.eventdatasize);
 
     if (rc == 0)
         *edx_ptr = tpm_state.entry_count;
