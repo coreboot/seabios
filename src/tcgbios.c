@@ -332,33 +332,30 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
                    u8 *resbuffer, u32 return_size, u32 *returnCode,
                    enum tpmDurationType to_t)
 {
-    u32 rc;
+    struct {
+        struct tpm_req_header trqh;
+        u8 cmd[20];
+    } PACKED req = {
+        .trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .trqh.totlen = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size),
+        .trqh.ordinal = cpu_to_be32(ordinal),
+    };
     u8 obuffer[64];
-    struct tpm_req_header trqh;
     struct tpm_rsp_header *trsh = (struct tpm_rsp_header *)obuffer;
-    struct iovec iovec[3] = {{ 0 }};
     u32 obuffer_len = sizeof(obuffer);
-
-    if (return_size > sizeof(obuffer)) {
-        dprintf(DEBUG_tcg, "TCGBIOS: size of requested response too big.");
-        return TCG_FIRMWARE_ERROR;
-    }
-
-    trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD);
-    trqh.totlen = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size);
-    trqh.ordinal = cpu_to_be32(ordinal);
-
-    iovec[0].data   = &trqh;
-    iovec[0].length = TPM_REQ_HEADER_SIZE;
-
-    if (append_size) {
-        iovec[1].data   = append;
-        iovec[1].length = append_size;
-    }
-
     memset(obuffer, 0x0, sizeof(obuffer));
 
-    rc = transmit(locty, iovec, obuffer, &obuffer_len, to_t);
+    if (return_size > sizeof(obuffer) || append_size > sizeof(req.cmd)) {
+        warn_internalerror();
+        return TCG_FIRMWARE_ERROR;
+    }
+    if (append_size)
+        memcpy(req.cmd, append, append_size);
+
+    struct iovec iovec[2] = {{ 0 }};
+    iovec[0].data   = &req;
+    iovec[0].length = TPM_REQ_HEADER_SIZE + append_size;
+    u32 rc = transmit(locty, iovec, obuffer, &obuffer_len, to_t);
     if (rc)
         return rc;
 
