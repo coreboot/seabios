@@ -284,24 +284,20 @@ reset_acpi_log(void)
  * Input
  *  pcpes : Pointer to the event 'header' to be copied into the log
  *  event : Pointer to the event 'body' to be copied into the log
- *  event_length: Length of the event array
  *
  * Output:
  *  Returns an error code in case of faiure, 0 in case of success
  */
 static u32
-tpm_extend_acpi_log(struct pcpes *pcpes,
-                    const void *event, u32 event_length)
+tpm_extend_acpi_log(struct pcpes *pcpes, const void *event)
 {
-    u32 size;
-
     dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
             tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
 
     if (tpm_state.log_area_next_entry == NULL)
         return TCG_PC_LOGOVERFLOW;
 
-    size = sizeof(*pcpes) + event_length;
+    u32 size = sizeof(*pcpes) + pcpes->eventdatasize;
 
     if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
          tpm_state.log_area_minimum_length) {
@@ -309,11 +305,9 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
         return TCG_PC_LOGOVERFLOW;
     }
 
-    pcpes->eventdatasize = event_length;
-
     memcpy(tpm_state.log_area_next_entry, pcpes, sizeof(*pcpes));
     memcpy(tpm_state.log_area_next_entry + sizeof(*pcpes),
-           event, event_length);
+           event, pcpes->eventdatasize);
 
     tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
     tpm_state.log_area_next_entry += size;
@@ -513,7 +507,7 @@ tpm_extend(u8 *hash, u32 pcrindex)
 }
 
 static u32
-tpm_log_event(struct pcpes *pcpes, const void *event, u32 event_length)
+tpm_log_event(struct pcpes *pcpes, const void *event)
 {
     if (pcpes->pcrindex >= 24)
         return TCG_INVALID_INPUT_PARA;
@@ -521,16 +515,16 @@ tpm_log_event(struct pcpes *pcpes, const void *event, u32 event_length)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    u32 rc = tpm_extend_acpi_log(pcpes, event, event_length);
+    u32 rc = tpm_extend_acpi_log(pcpes, event);
     if (rc)
         tpm_set_failure();
     return rc;
 }
 
 static u32
-tpm_log_extend_event(struct pcpes *pcpes, const void *event, u32 event_length)
+tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 {
-    u32 rc = tpm_log_event(pcpes, event, event_length);
+    u32 rc = tpm_log_event(pcpes, event);
     if (rc)
         return rc;
     return tpm_extend(pcpes->digest, pcpes->pcrindex);
@@ -563,9 +557,10 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
     struct pcpes pcpes = {
         .pcrindex = pcrindex,
         .eventtype = event_type,
+        .eventdatasize = event_length,
     };
     tpm_fill_hash(&pcpes, hashdata, hashdata_length);
-    return tpm_log_extend_event(&pcpes, event, event_length);
+    return tpm_log_extend_event(&pcpes, event);
 }
 
 
@@ -975,15 +970,14 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
 
     pcpes = (struct pcpes *)logdataptr;
 
-    if (pcpes->pcrindex >= 24 ||
-        pcpes->pcrindex != pcrindex ||
-        logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
+    if (pcpes->pcrindex >= 24 || pcpes->pcrindex != pcrindex
+        || logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
 
     tpm_fill_hash(pcpes, hleei_s->hashdataptr, hleei_s->hashdatalen);
-    rc = tpm_log_extend_event(pcpes, pcpes->event, pcpes->eventdatasize);
+    rc = tpm_log_extend_event(pcpes, pcpes->event);
     if (rc)
         goto err_exit;
 
@@ -1076,16 +1070,15 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
 
     pcpes = (struct pcpes *)hlei->logdataptr;
 
-    if (pcpes->pcrindex >= 24 ||
-        pcpes->pcrindex  != hlei->pcrindex ||
-        pcpes->eventtype != hlei->logeventtype ||
-        hlei->logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
+    if (pcpes->pcrindex >= 24 || pcpes->pcrindex != hlei->pcrindex
+        || pcpes->eventtype != hlei->logeventtype
+        || hlei->logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
 
     tpm_fill_hash(pcpes, hlei->hashdataptr, hlei->hashdatalen);
-    rc = tpm_log_event(pcpes, pcpes->event, pcpes->eventdatasize);
+    rc = tpm_log_event(pcpes, pcpes->event);
     if (rc)
         goto err_exit;
 
@@ -1152,7 +1145,7 @@ compact_hash_log_extend_event_int(u8 *buffer,
         return TCG_INTERFACE_SHUTDOWN;
 
     tpm_fill_hash(&pcpes, buffer, length);
-    u32 rc = tpm_log_extend_event(&pcpes, &info, pcpes.eventdatasize);
+    u32 rc = tpm_log_extend_event(&pcpes, &info);
     if (rc == 0)
         *edx_ptr = tpm_state.entry_count;
 
