@@ -601,18 +601,6 @@ tpm_add_action(u32 pcrIndex, const char *string)
                                       string, len, (u8 *)string, len);
 }
 
-static u32
-tpm_calling_int19h(void)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    return tpm_add_action(4, "Calling INT 19h");
-}
-
 /*
  * Add event separators for PCRs 0 to 7; specs on 'Measuring Boot Events'
  */
@@ -640,21 +628,6 @@ tpm_add_event_separators(void)
     }
 
     return rc;
-}
-
-/*
- * Add measurement to the log about option rom scan
- */
-static u32
-tpm_start_option_rom_scan(void)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
-        return TCG_GENERAL_ERROR;
-
-    return tpm_add_action(2, "Start Option ROM Scan");
 }
 
 static u32
@@ -743,7 +716,7 @@ tpm_startup(void)
     if (rc)
         goto err_exit;
 
-    rc = tpm_start_option_rom_scan();
+    rc = tpm_add_action(2, "Start Option ROM Scan");
     if (rc)
         goto err_exit;
 
@@ -817,7 +790,7 @@ tpm_prepboot(void)
     if (rc || returnCode)
         goto err_exit;
 
-    rc = tpm_calling_int19h();
+    rc = tpm_add_action(4, "Calling INT 19h");
     if (rc)
         goto err_exit;
 
