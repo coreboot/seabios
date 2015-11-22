@@ -285,15 +285,13 @@ reset_acpi_log(void)
  *  pcpes : Pointer to the event 'header' to be copied into the log
  *  event : Pointer to the event 'body' to be copied into the log
  *  event_length: Length of the event array
- *  entry_count : optional pointer to get the current entry count
  *
  * Output:
  *  Returns an error code in case of faiure, 0 in case of success
  */
 static u32
 tpm_extend_acpi_log(struct pcpes *pcpes,
-                    const void *event, u32 event_length,
-                    u16 *entry_count)
+                    const void *event, u32 event_length)
 {
     u32 size;
 
@@ -320,9 +318,6 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
     tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
     tpm_state.log_area_next_entry += size;
     tpm_state.entry_count++;
-
-    if (entry_count)
-        *entry_count = tpm_state.entry_count;
 
     return 0;
 }
@@ -520,8 +515,7 @@ tpm_extend(u8 *hash, u32 pcrindex)
 static u32
 hash_log_event(const void *hashdata, u32 hashdata_length,
                struct pcpes *pcpes,
-               const void *event, u32 event_length,
-               u16 *entry_count)
+               const void *event, u32 event_length)
 {
     u32 rc = 0;
 
@@ -537,7 +531,7 @@ hash_log_event(const void *hashdata, u32 hashdata_length,
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
-    rc = tpm_extend_acpi_log(pcpes, event, event_length, entry_count);
+    rc = tpm_extend_acpi_log(pcpes, event, event_length);
     if (rc)
         tpm_set_failure();
     return rc;
@@ -547,12 +541,12 @@ static u32
 hash_log_extend_event(const void *hashdata, u32 hashdata_length,
                       struct pcpes *pcpes,
                       const void *event, u32 event_length,
-                      u32 pcrindex, u16 *entry_count)
+                      u32 pcrindex)
 {
     u32 rc;
 
     rc = hash_log_event(hashdata, hashdata_length, pcpes,
-                        event, event_length, entry_count);
+                        event, event_length);
     if (rc)
         return rc;
 
@@ -580,11 +574,8 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .pcrindex = pcrindex,
         .eventtype = event_type,
     };
-    u16 entry_count;
-
     return hash_log_extend_event(hashdata, hashdata_length, &pcpes,
-                                 event, event_length, pcrindex,
-                                 &entry_count);
+                                 event, event_length, pcrindex);
 }
 
 
@@ -1004,7 +995,7 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
     rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
                                pcpes,
                                pcpes->event, pcpes->eventdatasize,
-                               pcrindex, NULL);
+                               pcrindex);
     if (rc)
         goto err_exit;
 
@@ -1084,7 +1075,6 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
     u32 rc = 0;
     u16 size;
     struct pcpes *pcpes;
-    u16 entry_count;
 
     if (is_preboot_if_shutdown() != 0) {
         rc = TCG_INTERFACE_SHUTDOWN;
@@ -1108,15 +1098,14 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
     }
 
     rc = hash_log_event(hlei->hashdataptr, hlei->hashdatalen,
-                        pcpes, pcpes->event, pcpes->eventdatasize,
-                        &entry_count);
+                        pcpes, pcpes->event, pcpes->eventdatasize);
     if (rc)
         goto err_exit;
 
     /* updating the log was fine */
     hleo->opblength = sizeof(struct hleo);
     hleo->reserved  = 0;
-    hleo->eventnumber = entry_count;
+    hleo->eventnumber = tpm_state.entry_count;
 
 err_exit:
     if (rc != 0) {
@@ -1172,7 +1161,6 @@ compact_hash_log_extend_event_int(u8 *buffer,
         .eventtype     = EV_COMPACT_HASH,
         .eventdatasize = sizeof(info),
     };
-    u16 entry_count;
 
     if (is_preboot_if_shutdown() != 0)
         return TCG_INTERFACE_SHUTDOWN;
@@ -1180,10 +1168,10 @@ compact_hash_log_extend_event_int(u8 *buffer,
     rc = hash_log_extend_event(buffer, length,
                                &pcpes,
                                &info, pcpes.eventdatasize,
-                               pcpes.pcrindex, &entry_count);
+                               pcpes.pcrindex);
 
     if (rc == 0)
-        *edx_ptr = entry_count;
+        *edx_ptr = tpm_state.entry_count;
 
     return rc;
 }
