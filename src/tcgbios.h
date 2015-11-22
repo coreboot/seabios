@@ -3,14 +3,6 @@
 
 #include "types.h"
 
-#define STATUS_FLAG_SHUTDOWN        (1 << 0)
-
-struct iovec
-{
-    size_t length;
-    const void *data;
-};
-
 struct bregs;
 void tpm_interrupt_handler32(struct bregs *regs);
 

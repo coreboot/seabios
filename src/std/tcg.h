@@ -232,14 +232,10 @@ struct pcctes_romex
     u32    totlen; \
     u32    ordinal;
 
-#define TPM_REQ_HEADER_SIZE  (sizeof(u16) + sizeof(u32) + sizeof(u32))
-
 #define TPM_RSP_HEADER \
     u16    tag; \
     u32    totlen; \
     u32    errcode;
-
-#define TPM_RSP_HEADER_SIZE  (sizeof(u16) + sizeof(u32) + sizeof(u32))
 
 struct tpm_req_header {
     TPM_REQ_HEADER;

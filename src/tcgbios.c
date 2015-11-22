@@ -137,32 +137,24 @@ has_working_tpm(void)
 }
 
 static u32
-transmit(u8 locty, const struct iovec iovec[],
-         u8 *respbuffer, u32 *respbufferlen,
+transmit(u8 locty, struct tpm_req_header *req,
+         void *respbuffer, u32 *respbufferlen,
          enum tpmDurationType to_t)
 {
-    u32 rc = 0;
-    u32 irc;
-    struct tpm_driver *td;
-    unsigned int i;
-
     if (tpm_state.tpm_driver_to_use == TPM_INVALID_DRIVER)
         return TCG_FATAL_COM_ERROR;
 
-    td = &tpm_drivers[tpm_state.tpm_driver_to_use];
+    struct tpm_driver *td = &tpm_drivers[tpm_state.tpm_driver_to_use];
 
-    irc = td->activate(locty);
+    u32 irc = td->activate(locty);
     if (irc != 0) {
         /* tpm could not be activated */
         return TCG_FATAL_COM_ERROR;
     }
 
-    for (i = 0; iovec[i].length; i++) {
-        irc = td->senddata(iovec[i].data,
-                           iovec[i].length);
-        if (irc != 0)
-            return TCG_FATAL_COM_ERROR;
-    }
+    irc = td->senddata((void*)req, be32_to_cpu(req->totlen));
+    if (irc != 0)
+        return TCG_FATAL_COM_ERROR;
 
     irc = td->waitdatavalid();
     if (irc != 0)
@@ -172,14 +164,13 @@ transmit(u8 locty, const struct iovec iovec[],
     if (irc != 0)
         return TCG_FATAL_COM_ERROR;
 
-    irc = td->readresp(respbuffer,
-                       respbufferlen);
+    irc = td->readresp(respbuffer, respbufferlen);
     if (irc != 0)
         return TCG_FATAL_COM_ERROR;
 
     td->ready();
 
-    return rc;
+    return 0;
 }
 
 
@@ -337,7 +328,7 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
         u8 cmd[20];
     } PACKED req = {
         .trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
-        .trqh.totlen = cpu_to_be32(TPM_REQ_HEADER_SIZE + append_size),
+        .trqh.totlen = cpu_to_be32(sizeof(req.trqh) + append_size),
         .trqh.ordinal = cpu_to_be32(ordinal),
     };
     u8 obuffer[64];
@@ -352,10 +343,7 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
     if (append_size)
         memcpy(req.cmd, append, append_size);
 
-    struct iovec iovec[2] = {{ 0 }};
-    iovec[0].data   = &req;
-    iovec[0].length = TPM_REQ_HEADER_SIZE + append_size;
-    u32 rc = transmit(locty, iovec, obuffer, &obuffer_len, to_t);
+    u32 rc = transmit(locty, &req.trqh, obuffer, &obuffer_len, to_t);
     if (rc)
         return rc;
 
@@ -458,31 +446,8 @@ err_exit:
 }
 
 static u32
-pass_through_to_tpm(u8 locty, const u8 *cmd, u32 cmd_length,
-                    u8 *resp, u32 *resp_length)
-{
-    struct iovec iovec[2] = {{ 0 }};
-    const u32 *tmp;
-
-    if (cmd_length < TPM_REQ_HEADER_SIZE)
-        return TCG_INVALID_INPUT_PARA;
-
-    iovec[0].data = cmd;
-    tmp = (const u32 *)&((u8 *)iovec[0].data)[2];
-    iovec[0].length = cpu_to_be32(*tmp);
-
-    if (cmd_length != iovec[0].length)
-        return TCG_INVALID_INPUT_PARA;
-
-    return transmit(locty, iovec, resp, resp_length,
-                    TPM_DURATION_TYPE_LONG /* worst case */);
-
-}
-
-static u32
 tpm_extend(u8 *hash, u32 pcrindex)
 {
-    u32 rc;
     struct tpm_req_extend tre = {
         .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
         .totlen   = cpu_to_be32(sizeof(tre)),
@@ -494,9 +459,8 @@ tpm_extend(u8 *hash, u32 pcrindex)
 
     memcpy(tre.digest, hash, sizeof(tre.digest));
 
-    rc = pass_through_to_tpm(0, (u8 *)&tre, sizeof(tre),
-                             (u8 *)&rsp, &resp_length);
-
+    u32 rc = transmit(0, (void*)&tre, &rsp, &resp_length,
+                      TPM_DURATION_TYPE_SHORT);
     if (rc || resp_length != sizeof(rsp))
         tpm_set_failure();
 
@@ -995,29 +959,24 @@ static u32
 pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
 {
     u32 rc = 0;
-    u32 resbuflen = 0;
-    struct tpm_req_header *trh;
 
     if (is_preboot_if_shutdown()) {
         rc = TCG_INTERFACE_SHUTDOWN;
         goto err_exit;
     }
 
-    trh = (struct tpm_req_header *)pttti->tpmopin;
+    struct tpm_req_header *trh = (void*)pttti->tpmopin;
 
-    if (pttti->ipblength < sizeof(struct pttti) + TPM_REQ_HEADER_SIZE ||
-        pttti->opblength < sizeof(struct pttto) ||
-        be32_to_cpu(trh->totlen)  + sizeof(struct pttti) > pttti->ipblength ) {
+    if (pttti->ipblength < sizeof(struct pttti) + sizeof(trh)
+        || pttti->ipblength != sizeof(struct pttti) + be32_to_cpu(trh->totlen)
+        || pttti->opblength < sizeof(struct pttto)) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
 
-    resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
-
-    rc = pass_through_to_tpm(0, pttti->tpmopin,
-                             pttti->ipblength - offsetof(struct pttti, tpmopin),
-                             pttto->tpmopout, &resbuflen);
-
+    u32 resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
+    rc = transmit(0, trh, pttto->tpmopout, &resbuflen,
+                  TPM_DURATION_TYPE_LONG /* worst case */);
     if (rc)
         goto err_exit;
 
