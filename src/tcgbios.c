@@ -930,59 +930,6 @@ tpm_add_bootdevice(u32 bootcd, u32 bootdrv)
                                       (u8 *)string, strlen(string));
 }
 
-/*
- * Add a measurement related to Initial Program Loader to the log.
- * Creates two log entries.
- *
- * Input parameter:
- *  bootcd : 0: MBR of hdd, 1: boot image, 2: boot catalog of El Torito
- *  addr   : address where the IP data are located
- *  length : IP data length in bytes
- */
-static u32
-tpm_ipl(enum ipltype bootcd, const u8 *addr, u32 length)
-{
-    u32 rc;
-    const char *string;
-
-    switch (bootcd) {
-    case IPL_EL_TORITO_1:
-        /* specs: see section 'El Torito' */
-        string = "EL TORITO IPL";
-        rc = tpm_add_measurement_to_log(4, EV_IPL,
-                                        string, strlen(string),
-                                        addr, length);
-        break;
-
-    case IPL_EL_TORITO_2:
-        /* specs: see section 'El Torito' */
-        string = "BOOT CATALOG";
-        rc = tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
-                                        string, strlen(string),
-                                        addr, length);
-        break;
-
-    default:
-        /* specs: see section 'Hard Disk Device or Hard Disk-Like Devices' */
-        /* equivalent to: dd if=/dev/hda ibs=1 count=440 | sha1sum */
-        string = "MBR";
-        rc = tpm_add_measurement_to_log(4, EV_IPL,
-                                        string, strlen(string),
-                                        addr, 0x1b8);
-
-        if (rc)
-            break;
-
-        /* equivalent to: dd if=/dev/hda ibs=1 count=72 skip=440 | sha1sum */
-        string = "MBR PARTITION_TABLE";
-        rc = tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
-                                        string, strlen(string),
-                                        addr + 0x1b8, 0x48);
-    }
-
-    return rc;
-}
-
 u32
 tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
 {
@@ -996,7 +943,20 @@ tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
     if (rc)
         return rc;
 
-    return tpm_ipl(IPL_BCV, addr, length);
+    /* specs: see section 'Hard Disk Device or Hard Disk-Like Devices' */
+    /* equivalent to: dd if=/dev/hda ibs=1 count=440 | sha1sum */
+    const char *string = "MBR";
+    rc = tpm_add_measurement_to_log(4, EV_IPL,
+                                    string, strlen(string),
+                                    addr, 0x1b8);
+    if (rc)
+        return rc;
+
+    /* equivalent to: dd if=/dev/hda ibs=1 count=72 skip=440 | sha1sum */
+    string = "MBR PARTITION_TABLE";
+    return tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
+                                      string, strlen(string),
+                                      addr + 0x1b8, 0x48);
 }
 
 u32
@@ -1012,7 +972,11 @@ tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
     if (rc)
         return rc;
 
-    return tpm_ipl(IPL_EL_TORITO_1, addr, length);
+    /* specs: see section 'El Torito' */
+    const char *string = "EL TORITO IPL";
+    return tpm_add_measurement_to_log(4, EV_IPL,
+                                      string, strlen(string),
+                                      addr, length);
 }
 
 u32
@@ -1028,7 +992,11 @@ tpm_add_cdrom_catalog(const u8 *addr, u32 length)
     if (rc)
         return rc;
 
-    return tpm_ipl(IPL_EL_TORITO_2, addr, length);
+    /* specs: see section 'El Torito' */
+    const char *string = "BOOT CATALOG";
+    return tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
+                                      string, strlen(string),
+                                      addr, length);
 }
 
 void

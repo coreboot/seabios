@@ -11,12 +11,6 @@ struct iovec
     const void *data;
 };
 
-enum ipltype {
-    IPL_BCV = 0,
-    IPL_EL_TORITO_1,
-    IPL_EL_TORITO_2
-};
-
 struct bregs;
 void tpm_interrupt_handler32(struct bregs *regs);
 
