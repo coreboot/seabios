@@ -446,28 +446,6 @@ err_exit:
 }
 
 static u32
-tpm_extend(u8 *hash, u32 pcrindex)
-{
-    struct tpm_req_extend tre = {
-        .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
-        .totlen   = cpu_to_be32(sizeof(tre)),
-        .ordinal  = cpu_to_be32(TPM_ORD_Extend),
-        .pcrindex = cpu_to_be32(pcrindex),
-    };
-    struct tpm_rsp_extend rsp;
-    u32 resp_length = sizeof(rsp);
-
-    memcpy(tre.digest, hash, sizeof(tre.digest));
-
-    u32 rc = transmit(0, (void*)&tre, &rsp, &resp_length,
-                      TPM_DURATION_TYPE_SHORT);
-    if (rc || resp_length != sizeof(rsp))
-        tpm_set_failure();
-
-    return rc;
-}
-
-static u32
 tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 {
     if (!has_working_tpm())
@@ -476,12 +454,27 @@ tpm_log_extend_event(struct pcpes *pcpes, const void *event)
     if (pcpes->pcrindex >= 24)
         return TCG_INVALID_INPUT_PARA;
 
-    u32 rc = tpm_log_event(pcpes, event);
-    if (rc) {
+    struct tpm_req_extend tre = {
+        .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .totlen   = cpu_to_be32(sizeof(tre)),
+        .ordinal  = cpu_to_be32(TPM_ORD_Extend),
+        .pcrindex = cpu_to_be32(pcpes->pcrindex),
+    };
+    memcpy(tre.digest, pcpes->digest, sizeof(tre.digest));
+
+    struct tpm_rsp_extend rsp;
+    u32 resp_length = sizeof(rsp);
+    u32 rc = transmit(0, (void*)&tre, &rsp, &resp_length,
+                      TPM_DURATION_TYPE_SHORT);
+    if (rc || resp_length != sizeof(rsp)) {
         tpm_set_failure();
         return rc;
     }
-    return tpm_extend(pcpes->digest, pcpes->pcrindex);
+
+    rc = tpm_log_event(pcpes, event);
+    if (rc)
+        tpm_set_failure();
+    return rc;
 }
 
 static void
