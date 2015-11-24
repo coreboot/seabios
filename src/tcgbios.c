@@ -292,7 +292,7 @@ reset_acpi_log(void)
  */
 static u32
 tpm_extend_acpi_log(struct pcpes *pcpes,
-                    const char *event, u32 event_length,
+                    const void *event, u32 event_length,
                     u16 *entry_count)
 {
     u32 size;
@@ -303,7 +303,7 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
     if (tpm_state.log_area_next_entry == NULL)
         return TCG_PC_LOGOVERFLOW;
 
-    size = offsetof(struct pcpes, event) + event_length;
+    size = sizeof(*pcpes) + event_length;
 
     if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
          tpm_state.log_area_minimum_length) {
@@ -313,8 +313,8 @@ tpm_extend_acpi_log(struct pcpes *pcpes,
 
     pcpes->eventdatasize = event_length;
 
-    memcpy(tpm_state.log_area_next_entry, pcpes, offsetof(struct pcpes, event));
-    memcpy(tpm_state.log_area_next_entry + offsetof(struct pcpes, event),
+    memcpy(tpm_state.log_area_next_entry, pcpes, sizeof(*pcpes));
+    memcpy(tpm_state.log_area_next_entry + sizeof(*pcpes),
            event, event_length);
 
     tpm_state.log_area_last_entry = tpm_state.log_area_next_entry;
@@ -520,7 +520,7 @@ tpm_extend(u8 *hash, u32 pcrindex)
 static u32
 hash_log_event(const void *hashdata, u32 hashdata_length,
                struct pcpes *pcpes,
-               const char *event, u32 event_length,
+               const void *event, u32 event_length,
                u16 *entry_count)
 {
     u32 rc = 0;
@@ -546,7 +546,7 @@ hash_log_event(const void *hashdata, u32 hashdata_length,
 static u32
 hash_log_extend_event(const void *hashdata, u32 hashdata_length,
                       struct pcpes *pcpes,
-                      const char *event, u32 event_length,
+                      const void *event, u32 event_length,
                       u32 pcrindex, u16 *entry_count)
 {
     u32 rc;
@@ -996,14 +996,14 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
 
     if (pcpes->pcrindex >= 24 ||
         pcpes->pcrindex != pcrindex ||
-        logdatalen != offsetof(struct pcpes, event) + pcpes->eventdatasize) {
+        logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
 
     rc = hash_log_extend_event(hleei_s->hashdataptr, hleei_s->hashdatalen,
                                pcpes,
-                               (char *)&pcpes->event, pcpes->eventdatasize,
+                               pcpes->event, pcpes->eventdatasize,
                                pcrindex, NULL);
     if (rc)
         goto err_exit;
@@ -1102,14 +1102,13 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
     if (pcpes->pcrindex >= 24 ||
         pcpes->pcrindex  != hlei->pcrindex ||
         pcpes->eventtype != hlei->logeventtype ||
-        hlei->logdatalen !=
-           offsetof(struct pcpes, event) + pcpes->eventdatasize) {
+        hlei->logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
 
     rc = hash_log_event(hlei->hashdataptr, hlei->hashdatalen,
-                        pcpes, (char *)&pcpes->event, pcpes->eventdatasize,
+                        pcpes, pcpes->event, pcpes->eventdatasize,
                         &entry_count);
     if (rc)
         goto err_exit;
@@ -1172,7 +1171,6 @@ compact_hash_log_extend_event_int(u8 *buffer,
         .pcrindex      = pcrindex,
         .eventtype     = EV_COMPACT_HASH,
         .eventdatasize = sizeof(info),
-        .event         = info,
     };
     u16 entry_count;
 
@@ -1181,7 +1179,7 @@ compact_hash_log_extend_event_int(u8 *buffer,
 
     rc = hash_log_extend_event(buffer, length,
                                &pcpes,
-                               (char *)&pcpes.event, pcpes.eventdatasize,
+                               &info, pcpes.eventdatasize,
                                pcpes.pcrindex, &entry_count);
 
     if (rc == 0)

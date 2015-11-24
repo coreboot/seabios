@@ -207,7 +207,7 @@ struct pcpes
     u32    eventtype;
     u8     digest[SHA1_BUFSIZE];
     u32    eventdatasize;
-    u32    event;
+    u8     event[0];
 } PACKED;
 
 struct pcctes
