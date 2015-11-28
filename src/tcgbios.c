@@ -61,14 +61,14 @@ static const u8 GetCapability_Durations[] = {
     0x00, 0x00, 0x01, 0x20
 };
 
+typedef u8 tpm_ppi_code;
+
 
 /****************************************************************
- * TPM state tracking
+ * ACPI TCPA table interface
  ****************************************************************/
 
-typedef struct {
-    struct tcpa_descriptor_rev2 *tcpa;
-
+struct {
     /* length of the TCPA log buffer */
     u32           log_area_minimum_length;
 
@@ -83,104 +83,59 @@ typedef struct {
 
     /* address of last entry written (need for TCG_StatusCheck) */
     u8 *          log_area_last_entry;
-} tpm_state_t;
-
-tpm_state_t tpm_state VARLOW;
-
-typedef u8 tpm_ppi_code;
-
-
-/****************************************************************
- * ACPI TCPA table interface
- ****************************************************************/
+} tpm_state VARLOW;
 
 static struct tcpa_descriptor_rev2 *
 find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
 {
-    u32 ctr = 0;
-    struct tcpa_descriptor_rev2 *tcpa = NULL;
-    struct rsdt_descriptor *rsdt;
-    u32 length;
-    u16 off;
-
-    rsdt   = (struct rsdt_descriptor *)rsdp->rsdt_physical_address;
+    if (!rsdp) {
+        dprintf(DEBUG_tcg,
+                "TCGBIOS: RSDP was NOT found! -- Disabling interface.\n");
+        return NULL;
+    }
+    struct rsdt_descriptor *rsdt = (void*)rsdp->rsdt_physical_address;
     if (!rsdt)
         return NULL;
 
-    length = rsdt->length;
-    off = offsetof(struct rsdt_descriptor, entry);
-
+    u32 length = rsdt->length;
+    u16 off = offsetof(struct rsdt_descriptor, entry);
+    u32 ctr = 0;
     while ((off + sizeof(rsdt->entry[0])) <= length) {
         /* try all pointers to structures */
-        tcpa = (struct tcpa_descriptor_rev2 *)(int)rsdt->entry[ctr];
+        struct tcpa_descriptor_rev2 *tcpa = (void*)rsdt->entry[ctr];
 
         /* valid TCPA ACPI table ? */
-        if (tcpa->signature == TCPA_SIGNATURE &&
-            checksum((u8 *)tcpa, tcpa->length) == 0)
-            break;
+        if (tcpa->signature == TCPA_SIGNATURE
+            && checksum(tcpa, tcpa->length) == 0)
+            return tcpa;
 
-        tcpa = NULL;
         off += sizeof(rsdt->entry[0]);
         ctr++;
     }
 
-    /* cache it */
-    if (tcpa)
-        tpm_state.tcpa = tcpa;
-
-    return tcpa;
+    dprintf(DEBUG_tcg, "TCGBIOS: TCPA ACPI was NOT found!\n");
+    return NULL;
 }
 
-static struct tcpa_descriptor_rev2 *
-find_tcpa_table(void)
+static int
+tpm_tcpa_probe(void)
 {
-    struct tcpa_descriptor_rev2 *tcpa = NULL;
-    struct rsdp_descriptor *rsdp = RsdpAddr;
+    struct tcpa_descriptor_rev2 *tcpa = find_tcpa_by_rsdp(RsdpAddr);
+    if (!tcpa)
+        return -1;
 
-    if (tpm_state.tcpa)
-        return tpm_state.tcpa;
+    u8 *log_area_start_address = (u8*)(long)tcpa->log_area_start_address;
+    u32 log_area_minimum_length = tcpa->log_area_minimum_length;
+    if (!log_area_start_address || !log_area_minimum_length)
+        return -1;
 
-    if (rsdp)
-        tcpa = find_tcpa_by_rsdp(rsdp);
-
-    if (!rsdp)
-        dprintf(DEBUG_tcg,
-                "TCGBIOS: RSDP was NOT found! -- Disabling interface.\n");
-    else if (!tcpa)
-        dprintf(DEBUG_tcg, "TCGBIOS: TCPA ACPI was NOT found!\n");
-
-    return tcpa;
-}
-
-static u8 *
-get_lasa_base_ptr(u32 *log_area_minimum_length)
-{
-    u8 *log_area_start_address = 0;
-    struct tcpa_descriptor_rev2 *tcpa = find_tcpa_table();
-
-    if (tcpa) {
-        log_area_start_address = (u8 *)(long)tcpa->log_area_start_address;
-        if (log_area_minimum_length)
-            *log_area_minimum_length = tcpa->log_area_minimum_length;
-    }
-
-    return log_area_start_address;
-}
-
-/* clear the ACPI log */
-static void
-reset_acpi_log(void)
-{
-    tpm_state.log_area_start_address =
-        get_lasa_base_ptr(&tpm_state.log_area_minimum_length);
-
-    if (tpm_state.log_area_start_address)
-        memset(tpm_state.log_area_start_address, 0,
-               tpm_state.log_area_minimum_length);
-
-    tpm_state.log_area_next_entry = tpm_state.log_area_start_address;
+    memset(log_area_start_address, 0, log_area_minimum_length);
+    tpm_state.log_area_start_address = log_area_start_address;
+    tpm_state.log_area_minimum_length = log_area_minimum_length;
+    tpm_state.log_area_next_entry = log_area_start_address;
     tpm_state.log_area_last_entry = NULL;
     tpm_state.entry_count = 0;
+    return 0;
 }
 
 /*
@@ -568,28 +523,22 @@ err_exit:
     return TCG_TCG_COMMAND_ERROR;
 }
 
-/*
-   initialize the TCPA ACPI subsystem; find the ACPI tables and determine
-   where the TCPA table is.
- */
-static void
-tpm_acpi_init(void)
-{
-    int ret = tpmhw_probe();
-    if (ret)
-        return;
-    TPM_working = 1;
-
-    reset_acpi_log();
-}
-
 void
 tpm_setup(void)
 {
     if (!CONFIG_TCGBIOS)
         return;
 
-    tpm_acpi_init();
+    int ret = tpmhw_probe();
+    if (ret)
+        return;
+
+    ret = tpm_tcpa_probe();
+    if (ret)
+        return;
+
+    TPM_working = 1;
+
     if (runningOnXen())
         return;
 
