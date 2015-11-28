@@ -67,11 +67,7 @@ static const u8 GetCapability_Durations[] = {
  ****************************************************************/
 
 typedef struct {
-    u8            tpm_probed:1;
-    u8            tpm_found:1;
-    u8            tpm_working:1;
     u8            if_shutdown:1;
-    u8            tpm_driver_to_use:4;
     struct tcpa_descriptor_rev2 *tcpa;
 
     /* length of the TCPA log buffer */
@@ -90,9 +86,7 @@ typedef struct {
     u8 *          log_area_last_entry;
 } tpm_state_t;
 
-tpm_state_t tpm_state VARLOW = {
-    .tpm_driver_to_use = TPM_INVALID_DRIVER,
-};
+tpm_state_t tpm_state VARLOW;
 
 typedef u8 tpm_ppi_code;
 
@@ -107,50 +101,27 @@ is_preboot_if_shutdown(void)
  * TPM hardware interface
  ****************************************************************/
 
-static u32
-is_tpm_present(void)
-{
-    u32 rc = 0;
-    unsigned int i;
+static u8 TPMHW_driver_to_use = TPM_INVALID_DRIVER;
 
+static int
+tpmhw_probe(void)
+{
+    unsigned int i;
     for (i = 0; i < TPM_NUM_DRIVERS; i++) {
         struct tpm_driver *td = &tpm_drivers[i];
         if (td->probe() != 0) {
             td->init();
-            tpm_state.tpm_driver_to_use = i;
-            rc = 1;
-            break;
+            TPMHW_driver_to_use = i;
+            return 0;
         }
     }
-
-    return rc;
-}
-
-static void
-probe_tpm(void)
-{
-    if (!tpm_state.tpm_probed) {
-        tpm_state.tpm_probed = 1;
-        tpm_state.tpm_found = (is_tpm_present() != 0);
-        tpm_state.tpm_working = tpm_state.tpm_found;
-    }
+    return -1;
 }
 
 static int
-has_working_tpm(void)
+tpmhw_is_present(void)
 {
-    probe_tpm();
-
-    return tpm_state.tpm_working;
-}
-
-int
-tpm_is_working(void)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    return tpm_state.tpm_working;
+    return TPMHW_driver_to_use != TPM_INVALID_DRIVER;
 }
 
 static u32
@@ -158,10 +129,10 @@ transmit(u8 locty, struct tpm_req_header *req,
          void *respbuffer, u32 *respbufferlen,
          enum tpmDurationType to_t)
 {
-    if (tpm_state.tpm_driver_to_use == TPM_INVALID_DRIVER)
+    if (TPMHW_driver_to_use == TPM_INVALID_DRIVER)
         return TCG_FATAL_COM_ERROR;
 
-    struct tpm_driver *td = &tpm_drivers[tpm_state.tpm_driver_to_use];
+    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
 
     u32 irc = td->activate(locty);
     if (irc != 0) {
@@ -329,6 +300,14 @@ tpm_log_event(struct pcpes *pcpes, const void *event)
  * Helper functions
  ****************************************************************/
 
+u8 TPM_working VARLOW;
+
+int
+tpm_is_working(void)
+{
+    return CONFIG_TCGBIOS && TPM_working;
+}
+
 /*
  * Send a TPM command with the given ordinal. Append the given buffer
  * containing all data in network byte order to the command (this is
@@ -394,7 +373,7 @@ tpm_set_failure(void)
                        NULL, 0, NULL, 0, &returnCode,
                        TPM_DURATION_TYPE_SHORT);
 
-    tpm_state.tpm_working = 0;
+    TPM_working = 0;
 }
 
 static u32
@@ -404,7 +383,7 @@ determine_timeouts(void)
     u32 returnCode;
     struct tpm_res_getcap_timeouts timeouts;
     struct tpm_res_getcap_durations durations;
-    struct tpm_driver *td = &tpm_drivers[tpm_state.tpm_driver_to_use];
+    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
     u32 i;
 
     rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
@@ -465,7 +444,7 @@ err_exit:
 static u32
 tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 {
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     if (pcpes->pcrindex >= 24)
@@ -549,10 +528,7 @@ tpm_add_event_separators(void)
     u32 rc;
     u32 pcrIndex = 0;
 
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     static const u8 evt_separator[] = {0xff,0xff,0xff,0xff};
@@ -572,10 +548,7 @@ tpm_add_event_separators(void)
 static u32
 tpm_smbios_measure(void)
 {
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     u32 rc;
@@ -607,7 +580,7 @@ tpm_startup(void)
     u32 rc;
     u32 returnCode;
 
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
@@ -677,15 +650,12 @@ err_exit:
 static void
 tpm_acpi_init(void)
 {
-    tpm_state.if_shutdown = 0;
-    tpm_state.tpm_probed = 0;
-    tpm_state.tpm_found = 0;
-    tpm_state.tpm_working = 0;
-
-    if (!has_working_tpm()) {
+    int ret = tpmhw_probe();
+    if (ret) {
         tpm_state.if_shutdown = 1;
         return;
     }
+    TPM_working = 1;
 
     reset_acpi_log();
 }
@@ -709,10 +679,7 @@ tpm_prepboot(void)
     u32 rc;
     u32 returnCode;
 
-    if (!CONFIG_TCGBIOS)
-        return;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return;
 
     rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
@@ -751,10 +718,7 @@ err_exit:
 u32
 tpm_option_rom(const void *addr, u32 len)
 {
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     u32 rc;
@@ -776,10 +740,7 @@ tpm_option_rom(const void *addr, u32 len)
 u32
 tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
 {
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     if (length < 0x200)
@@ -811,10 +772,7 @@ tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
 u32
 tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
 {
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     u32 rc = tpm_add_action(4, "Booting from CD ROM device");
@@ -831,10 +789,7 @@ tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
 u32
 tpm_add_cdrom_catalog(const u8 *addr, u32 length)
 {
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return TCG_GENERAL_ERROR;
 
     u32 rc = tpm_add_action(4, "Booting from CD ROM device");
@@ -854,10 +809,7 @@ tpm_s3_resume(void)
     u32 rc;
     u32 returnCode;
 
-    if (!CONFIG_TCGBIOS)
-        return;
-
-    if (!has_working_tpm())
+    if (!tpm_is_working())
         return;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Resuming with TPM_Startup(ST_STATE)\n");
@@ -1123,7 +1075,7 @@ tpm_interrupt_handler32(struct bregs *regs)
 
     switch ((enum irq_ids)regs->al) {
     case TCG_StatusCheck:
-        if (is_tpm_present() == 0) {
+        if (!tpmhw_is_present()) {
             /* no TPM available */
             regs->eax = TCG_PC_TPM_NOT_PRESENT;
         } else {
