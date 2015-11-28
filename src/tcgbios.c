@@ -67,7 +67,6 @@ static const u8 GetCapability_Durations[] = {
  ****************************************************************/
 
 typedef struct {
-    u8            if_shutdown:1;
     struct tcpa_descriptor_rev2 *tcpa;
 
     /* length of the TCPA log buffer */
@@ -89,12 +88,6 @@ typedef struct {
 tpm_state_t tpm_state VARLOW;
 
 typedef u8 tpm_ppi_code;
-
-static u32
-is_preboot_if_shutdown(void)
-{
-    return tpm_state.if_shutdown;
-}
 
 
 /****************************************************************
@@ -149,8 +142,6 @@ find_tcpa_table(void)
 
     if (rsdp)
         tcpa = find_tcpa_by_rsdp(rsdp);
-    else
-        tpm_state.if_shutdown = 1;
 
     if (!rsdp)
         dprintf(DEBUG_tcg,
@@ -585,10 +576,8 @@ static void
 tpm_acpi_init(void)
 {
     int ret = tpmhw_probe();
-    if (ret) {
-        tpm_state.if_shutdown = 1;
+    if (ret)
         return;
-    }
     TPM_working = 1;
 
     reset_acpi_log();
@@ -771,6 +760,8 @@ err_exit:
  * BIOS interface
  ****************************************************************/
 
+u8 TPM_interface_shutdown VARLOW;
+
 static inline void *input_buf32(struct bregs *regs)
 {
     return MAKE_FLATPTR(regs->es, regs->di);
@@ -792,11 +783,6 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
     u32 logdatalen;
     struct pcpes *pcpes;
     u32 pcrindex;
-
-    if (is_preboot_if_shutdown() != 0) {
-        rc = TCG_INTERFACE_SHUTDOWN;
-        goto err_exit;
-    }
 
     /* short or long version? */
     switch (hleei_s->ipblength) {
@@ -850,12 +836,6 @@ static u32
 pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
 {
     u32 rc = 0;
-
-    if (is_preboot_if_shutdown()) {
-        rc = TCG_INTERFACE_SHUTDOWN;
-        goto err_exit;
-    }
-
     struct tpm_req_header *trh = (void*)pttti->tpmopin;
 
     if (pttti->ipblength < sizeof(struct pttti) + sizeof(trh)
@@ -886,15 +866,8 @@ err_exit:
 static u32
 shutdown_preboot_interface(void)
 {
-    u32 rc = 0;
-
-    if (!is_preboot_if_shutdown()) {
-        tpm_state.if_shutdown = 1;
-    } else {
-        rc = TCG_INTERFACE_SHUTDOWN;
-    }
-
-    return rc;
+    TPM_interface_shutdown = 1;
+    return 0;
 }
 
 static u32
@@ -903,11 +876,6 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
     u32 rc = 0;
     u16 size;
     struct pcpes *pcpes;
-
-    if (is_preboot_if_shutdown() != 0) {
-        rc = TCG_INTERFACE_SHUTDOWN;
-        goto err_exit;
-    }
 
     size = hlei->ipblength;
     if (size != sizeof(*hlei)) {
@@ -946,9 +914,6 @@ err_exit:
 static u32
 hash_all_int(const struct hai *hai, u8 *hash)
 {
-    if (is_preboot_if_shutdown() != 0)
-        return TCG_INTERFACE_SHUTDOWN;
-
     if (hai->ipblength != sizeof(struct hai) ||
         hai->hashdataptr == 0 ||
         hai->hashdatalen == 0 ||
@@ -961,18 +926,10 @@ hash_all_int(const struct hai *hai, u8 *hash)
 static u32
 tss_int(struct ti *ti, struct to *to)
 {
-    u32 rc = 0;
-
-    if (is_preboot_if_shutdown() == 0) {
-        rc = TCG_PC_UNSUPPORTED;
-    } else {
-        rc = TCG_INTERFACE_SHUTDOWN;
-    }
-
     to->opblength = sizeof(struct to);
     to->reserved  = 0;
 
-    return rc;
+    return TCG_PC_UNSUPPORTED;
 }
 
 static u32
@@ -987,9 +944,6 @@ compact_hash_log_extend_event_int(u8 *buffer,
         .eventtype     = EV_COMPACT_HASH,
         .eventdatasize = sizeof(info),
     };
-
-    if (is_preboot_if_shutdown() != 0)
-        return TCG_INTERFACE_SHUTDOWN;
 
     tpm_fill_hash(&pcpes, buffer, length);
     u32 rc = tpm_log_extend_event(&pcpes, &info);
@@ -1006,6 +960,11 @@ tpm_interrupt_handler32(struct bregs *regs)
         return;
 
     set_cf(regs, 0);
+
+    if (TPM_interface_shutdown && regs->al) {
+        regs->eax = TCG_INTERFACE_SHUTDOWN;
+        return;
+    }
 
     switch ((enum irq_ids)regs->al) {
     case TCG_StatusCheck:
