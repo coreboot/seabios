@@ -7,6 +7,7 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
+#include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_TPM_TIS_SHA1THRESHOLD
 #include "hw/tpm_drivers.h" // struct tpm_driver
 #include "std/tcg.h" // TCG_NO_RESPONSE
@@ -15,6 +16,28 @@
 #include "string.h" // memcpy
 #include "util.h" // timer_calc_usec
 #include "x86.h" // readl
+
+/* low level driver implementation */
+struct tpm_driver {
+    u32 *timeouts;
+    u32 *durations;
+    void (*set_timeouts)(u32 timeouts[4], u32 durations[3]);
+    u32 (*probe)(void);
+    u32 (*init)(void);
+    u32 (*activate)(u8 locty);
+    u32 (*ready)(void);
+    u32 (*senddata)(const u8 *const data, u32 len);
+    u32 (*readresp)(u8 *buffer, u32 *len);
+    u32 (*waitdatavalid)(void);
+    u32 (*waitrespready)(enum tpmDurationType to_t);
+};
+
+extern struct tpm_driver tpm_drivers[];
+
+#define TIS_DRIVER_IDX       0
+#define TPM_NUM_DRIVERS      1
+
+#define TPM_INVALID_DRIVER   0xf
 
 static const u32 tis_default_timeouts[4] = {
     TIS_DEFAULT_TIMEOUT_A,
@@ -297,3 +320,70 @@ struct tpm_driver tpm_drivers[TPM_NUM_DRIVERS] = {
             .waitrespready = tis_waitrespready,
         },
 };
+
+static u8 TPMHW_driver_to_use = TPM_INVALID_DRIVER;
+
+int
+tpmhw_probe(void)
+{
+    unsigned int i;
+    for (i = 0; i < TPM_NUM_DRIVERS; i++) {
+        struct tpm_driver *td = &tpm_drivers[i];
+        if (td->probe() != 0) {
+            td->init();
+            TPMHW_driver_to_use = i;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+int
+tpmhw_is_present(void)
+{
+    return TPMHW_driver_to_use != TPM_INVALID_DRIVER;
+}
+
+u32
+tpmhw_transmit(u8 locty, struct tpm_req_header *req,
+               void *respbuffer, u32 *respbufferlen,
+               enum tpmDurationType to_t)
+{
+    if (TPMHW_driver_to_use == TPM_INVALID_DRIVER)
+        return TCG_FATAL_COM_ERROR;
+
+    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
+
+    u32 irc = td->activate(locty);
+    if (irc != 0) {
+        /* tpm could not be activated */
+        return TCG_FATAL_COM_ERROR;
+    }
+
+    irc = td->senddata((void*)req, be32_to_cpu(req->totlen));
+    if (irc != 0)
+        return TCG_FATAL_COM_ERROR;
+
+    irc = td->waitdatavalid();
+    if (irc != 0)
+        return TCG_FATAL_COM_ERROR;
+
+    irc = td->waitrespready(to_t);
+    if (irc != 0)
+        return TCG_FATAL_COM_ERROR;
+
+    irc = td->readresp(respbuffer, respbufferlen);
+    if (irc != 0)
+        return TCG_FATAL_COM_ERROR;
+
+    td->ready();
+
+    return 0;
+}
+
+void
+tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3])
+{
+    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
+    td->set_timeouts(timeouts, durations);
+}

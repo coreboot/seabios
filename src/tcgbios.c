@@ -98,78 +98,6 @@ is_preboot_if_shutdown(void)
 
 
 /****************************************************************
- * TPM hardware interface
- ****************************************************************/
-
-static u8 TPMHW_driver_to_use = TPM_INVALID_DRIVER;
-
-static int
-tpmhw_probe(void)
-{
-    unsigned int i;
-    for (i = 0; i < TPM_NUM_DRIVERS; i++) {
-        struct tpm_driver *td = &tpm_drivers[i];
-        if (td->probe() != 0) {
-            td->init();
-            TPMHW_driver_to_use = i;
-            return 0;
-        }
-    }
-    return -1;
-}
-
-static int
-tpmhw_is_present(void)
-{
-    return TPMHW_driver_to_use != TPM_INVALID_DRIVER;
-}
-
-static u32
-transmit(u8 locty, struct tpm_req_header *req,
-         void *respbuffer, u32 *respbufferlen,
-         enum tpmDurationType to_t)
-{
-    if (TPMHW_driver_to_use == TPM_INVALID_DRIVER)
-        return TCG_FATAL_COM_ERROR;
-
-    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
-
-    u32 irc = td->activate(locty);
-    if (irc != 0) {
-        /* tpm could not be activated */
-        return TCG_FATAL_COM_ERROR;
-    }
-
-    irc = td->senddata((void*)req, be32_to_cpu(req->totlen));
-    if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
-
-    irc = td->waitdatavalid();
-    if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
-
-    irc = td->waitrespready(to_t);
-    if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
-
-    irc = td->readresp(respbuffer, respbufferlen);
-    if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
-
-    td->ready();
-
-    return 0;
-}
-
-static void
-tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3])
-{
-    struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
-    td->set_timeouts(timeouts, durations);
-}
-
-
-/****************************************************************
  * ACPI TCPA table interface
  ****************************************************************/
 
@@ -346,7 +274,7 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
     if (append_size)
         memcpy(req.cmd, append, append_size);
 
-    u32 rc = transmit(locty, &req.trqh, obuffer, &obuffer_len, to_t);
+    u32 rc = tpmhw_transmit(locty, &req.trqh, obuffer, &obuffer_len, to_t);
     if (rc)
         return rc;
 
@@ -465,7 +393,8 @@ tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 
     struct tpm_rsp_extend rsp;
     u32 resp_length = sizeof(rsp);
-    u32 rc = transmit(0, &tre.hdr, &rsp, &resp_length, TPM_DURATION_TYPE_SHORT);
+    u32 rc = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
+                            TPM_DURATION_TYPE_SHORT);
     if (rc || resp_length != sizeof(rsp)) {
         tpm_set_failure();
         return rc;
@@ -937,8 +866,8 @@ pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
     }
 
     u32 resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
-    rc = transmit(0, trh, pttto->tpmopout, &resbuflen,
-                  TPM_DURATION_TYPE_LONG /* worst case */);
+    rc = tpmhw_transmit(0, trh, pttto->tpmopout, &resbuflen,
+                        TPM_DURATION_TYPE_LONG /* worst case */);
     if (rc)
         goto err_exit;
 

@@ -10,28 +10,13 @@ enum tpmDurationType {
     TPM_DURATION_TYPE_LONG,
 };
 
-/* low level driver implementation */
-struct tpm_driver {
-    u32 *timeouts;
-    u32 *durations;
-    void (*set_timeouts)(u32 timeouts[4], u32 durations[3]);
-    u32 (*probe)(void);
-    u32 (*init)(void);
-    u32 (*activate)(u8 locty);
-    u32 (*ready)(void);
-    u32 (*senddata)(const u8 *const data, u32 len);
-    u32 (*readresp)(u8 *buffer, u32 *len);
-    u32 (*waitdatavalid)(void);
-    u32 (*waitrespready)(enum tpmDurationType to_t);
-};
-
-extern struct tpm_driver tpm_drivers[];
-
-
-#define TIS_DRIVER_IDX       0
-#define TPM_NUM_DRIVERS      1
-
-#define TPM_INVALID_DRIVER   0xf
+int tpmhw_probe(void);
+int tpmhw_is_present(void);
+struct tpm_req_header;
+u32 tpmhw_transmit(u8 locty, struct tpm_req_header *req,
+                   void *respbuffer, u32 *respbufferlen,
+                   enum tpmDurationType to_t);
+void tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3]);
 
 /* TIS driver */
 /* address of locality 0 (TIS) */
