@@ -227,41 +227,35 @@ struct pcctes_romex
 } PACKED;
 
 
-#define TPM_REQ_HEADER \
-    u16    tag; \
-    u32    totlen; \
-    u32    ordinal;
-
-#define TPM_RSP_HEADER \
-    u16    tag; \
-    u32    totlen; \
-    u32    errcode;
-
 struct tpm_req_header {
-    TPM_REQ_HEADER;
+    u16    tag;
+    u32    totlen;
+    u32    ordinal;
 } PACKED;
 
 
 struct tpm_rsp_header {
-    TPM_RSP_HEADER;
+    u16    tag;
+    u32    totlen;
+    u32    errcode;
 } PACKED;
 
 
 struct tpm_req_extend {
-    TPM_REQ_HEADER
+    struct tpm_req_header hdr;
     u32    pcrindex;
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
 
 
 struct tpm_rsp_extend {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
 
 
 struct tpm_req_getcap_perm_flags {
-    TPM_REQ_HEADER
+    struct tpm_req_header hdr;
     u32    capArea;
     u32    subCapSize;
     u32    subCap;
@@ -287,13 +281,13 @@ enum permFlagsIndex {
 
 
 struct tpm_res_getcap_perm_flags {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     struct tpm_permanent_flags perm_flags;
 } PACKED;
 
 struct tpm_req_getcap_stclear_flags {
-    TPM_REQ_HEADER
+    struct tpm_req_header hdr;
     u32    capArea;
     u32    subCapSize;
     u32    subCap;
@@ -311,40 +305,40 @@ struct tpm_stclear_flags {
 #define STCLEAR_FLAG_IDX_GLOBAL_LOCK 4
 
 struct tpm_res_getcap_stclear_flags {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     struct tpm_stclear_flags stclear_flags;
 } PACKED;
 
 struct tpm_res_getcap_ownerauth {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     u8     flag;
 } PACKED;
 
 
 struct tpm_res_getcap_timeouts {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     u32    timeouts[4];
 } PACKED;
 
 
 struct tpm_res_getcap_durations {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    size;
     u32    durations[3];
 } PACKED;
 
 
 struct tpm_res_sha1start {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u32    max_num_bytes;
 } PACKED;
 
 
 struct tpm_res_sha1complete {
-    TPM_RSP_HEADER
+    struct tpm_rsp_header hdr;
     u8     hash[20];
 } PACKED;
 

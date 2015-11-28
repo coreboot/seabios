@@ -472,17 +472,16 @@ tpm_log_extend_event(struct pcpes *pcpes, const void *event)
         return TCG_INVALID_INPUT_PARA;
 
     struct tpm_req_extend tre = {
-        .tag      = cpu_to_be16(TPM_TAG_RQU_CMD),
-        .totlen   = cpu_to_be32(sizeof(tre)),
-        .ordinal  = cpu_to_be32(TPM_ORD_Extend),
-        .pcrindex = cpu_to_be32(pcpes->pcrindex),
+        .hdr.tag     = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .hdr.totlen  = cpu_to_be32(sizeof(tre)),
+        .hdr.ordinal = cpu_to_be32(TPM_ORD_Extend),
+        .pcrindex    = cpu_to_be32(pcpes->pcrindex),
     };
     memcpy(tre.digest, pcpes->digest, sizeof(tre.digest));
 
     struct tpm_rsp_extend rsp;
     u32 resp_length = sizeof(rsp);
-    u32 rc = transmit(0, (void*)&tre, &rsp, &resp_length,
-                      TPM_DURATION_TYPE_SHORT);
+    u32 rc = transmit(0, &tre.hdr, &rsp, &resp_length, TPM_DURATION_TYPE_SHORT);
     if (rc || resp_length != sizeof(rsp)) {
         tpm_set_failure();
         return rc;
