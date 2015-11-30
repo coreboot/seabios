@@ -1102,11 +1102,6 @@ tpm_interrupt_handler32(struct bregs *regs)
 
     set_cf(regs, 0);
 
-    if (!has_working_tpm()) {
-        regs->eax = TCG_GENERAL_ERROR;
-        return;
-    }
-
     switch ((enum irq_ids)regs->al) {
     case TCG_StatusCheck:
         if (is_tpm_present() == 0) {
