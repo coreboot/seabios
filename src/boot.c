@@ -427,7 +427,7 @@ get_raw_keystroke(void)
 }
 
 // Read a keystroke - waiting up to 'msec' milliseconds.
-static int
+int
 get_keystroke(int msec)
 {
     u32 end = irqtimer_calc(msec);
@@ -486,6 +486,9 @@ interactive_bootmenu(void)
         printf("%d. %s\n", maxmenu
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
+    if (tpm_is_working()) {
+        printf("\nt. TPM Configuration\n");
+    }
 
     // Get key press.  If the menu key is ESC, do not restart boot unless
     // 1.5 seconds have passed.  Otherwise users (trained by years of
@@ -496,6 +499,10 @@ interactive_bootmenu(void)
         scan_code = get_keystroke(1000);
         if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
             continue;
+        if (tpm_is_working() && scan_code == 20 /* t */) {
+            printf("\n");
+            tpm_menu();
+        }
         if (scan_code >= 1 && scan_code <= maxmenu+1)
             break;
     }
