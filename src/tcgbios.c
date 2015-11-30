@@ -766,6 +766,9 @@ tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
     if (!has_working_tpm())
         return TCG_GENERAL_ERROR;
 
+    if (length < 0x200)
+        return TCG_INVALID_INPUT_PARA;
+
     const char *string = "Booting BCV device 00h (Floppy)";
     if (bootdrv == 0x80)
         string = "Booting BCV device 80h (HDD)";
