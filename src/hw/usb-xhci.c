@@ -350,42 +350,41 @@ xhci_hub_reset(struct usbhub_s *hub, u32 port)
 {
     struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
     u32 portsc = readl(&xhci->pr[port].portsc);
-    int rc;
     if (!(portsc & XHCI_PORTSC_CCS))
         // Device no longer connected?!
         return -1;
 
     switch (xhci_get_field(portsc, XHCI_PORTSC_PLS)) {
     case PLS_U0:
-        // A USB3 port - no reset necessary.
-        rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
+        // A USB3 port - controller automatically performs reset
         break;
     case PLS_POLLING:
-        // A USB2 port - perform device reset and wait for completion
+        // A USB2 port - perform device reset
         xhci_print_port_state(3, __func__, port, portsc);
         writel(&xhci->pr[port].portsc, portsc | XHCI_PORTSC_PR);
-        u32 end = timer_calc(100);
-        for (;;) {
-            portsc = readl(&xhci->pr[port].portsc);
-            if (!(portsc & XHCI_PORTSC_CCS))
-                // Device disconnected during reset
-                return -1;
-            if (portsc & XHCI_PORTSC_PED)
-                // Reset complete
-                break;
-            if (timer_check(end)) {
-                warn_timeout();
-                return -1;
-            }
-            yield();
-        }
-        rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
         break;
     default:
-        rc = -1;
-        break;
+        return -1;
     }
 
+    // Wait for device to complete reset and be enabled
+    u32 end = timer_calc(100);
+    for (;;) {
+        portsc = readl(&xhci->pr[port].portsc);
+        if (!(portsc & XHCI_PORTSC_CCS))
+            // Device disconnected during reset
+            return -1;
+        if (portsc & XHCI_PORTSC_PED)
+            // Reset complete
+            break;
+        if (timer_check(end)) {
+            warn_timeout();
+            return -1;
+        }
+        yield();
+    }
+
+    int rc = speed_from_xhci[xhci_get_field(portsc, XHCI_PORTSC_SPEED)];
     xhci_print_port_state(1, "XHCI", port, portsc);
     return rc;
 }
