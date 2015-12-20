@@ -785,7 +785,6 @@ static int xhci_cmd_enable_slot(struct usb_xhci_s *xhci)
     return (xhci->cmds->evt.control >> 24) & 0xff;
 }
 
-#if 0
 static int xhci_cmd_disable_slot(struct usb_xhci_s *xhci, u32 slotid)
 {
     struct xhci_trb cmd = {
@@ -797,7 +796,6 @@ static int xhci_cmd_disable_slot(struct usb_xhci_s *xhci, u32 slotid)
     dprintf(3, "%s: slotid %d\n", __func__, slotid);
     return xhci_cmd_submit(xhci, &cmd);
 }
-#endif
 
 static int xhci_cmd_address_device(struct usb_xhci_s *xhci, u32 slotid
                                    , struct xhci_inctx *inctx)
@@ -992,7 +990,6 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         }
         dprintf(3, "%s: enable slot: got slotid %d\n", __func__, slotid);
         memset(dev, 0, size);
-        pipe->slotid = usbdev->slotid = slotid;
         xhci->devs[slotid].ptr_low = (u32)dev;
         xhci->devs[slotid].ptr_high = 0;
 
@@ -1000,8 +997,16 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
         int cc = xhci_cmd_address_device(xhci, slotid, in);
         if (cc != CC_SUCCESS) {
             dprintf(1, "%s: address device: failed (cc %d)\n", __func__, cc);
+            cc = xhci_cmd_disable_slot(xhci, slotid);
+            if (cc != CC_SUCCESS) {
+                dprintf(1, "%s: disable failed (cc %d)\n", __func__, cc);
+                goto fail;
+            }
+            xhci->devs[slotid].ptr_low = 0;
+            free(dev);
             goto fail;
         }
+        pipe->slotid = usbdev->slotid = slotid;
     } else {
         pipe->slotid = usbdev->slotid;
         // Send configure command.
