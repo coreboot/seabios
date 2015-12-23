@@ -168,7 +168,7 @@ scsi_is_ready(struct disk_op_s *op)
 
         if (sense.asc == 0x04 && sense.ascq == 0x01 && !in_progress) {
             /* IN PROGRESS OF BECOMING READY */
-            printf("Waiting for device to detect medium... ");
+            dprintf(1, "Waiting for device to detect medium... ");
             /* Allow 30 seconds more */
             end = timer_calc(30000);
             in_progress = 1;
