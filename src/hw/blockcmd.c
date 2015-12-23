@@ -232,7 +232,7 @@ scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
         return -1;
     }
     drive->sectors = (u64)be32_to_cpu(capdata.sectors) + 1;
-    dprintf(1, "%s blksize=%d sectors=%d\n"
+    dprintf(1, "%s blksize=%d sectors=%u\n"
             , s, drive->blksize, (unsigned)drive->sectors);
 
     // We do not recover from USB stalls, so try to be safe and avoid
