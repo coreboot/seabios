@@ -87,7 +87,7 @@ def tool_versions(tools):
         if versions[isbinutils] and versions[isbinutils] != ver:
             logging.debug("Mixed version %s vs %s" % (
                 repr(versions[isbinutils]), repr(ver)))
-            vers[isbinutils] = "mixed"
+            versions[isbinutils] = "mixed"
             continue
         versions[isbinutils] = ver
         success += 1
