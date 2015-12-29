@@ -254,12 +254,20 @@ struct tpm_rsp_extend {
 } PACKED;
 
 
-struct tpm_req_getcap_perm_flags {
+struct tpm_req_getcap {
     struct tpm_req_header hdr;
     u32    capArea;
     u32    subCapSize;
     u32    subCap;
 } PACKED;
+
+#define TPM_CAP_FLAG     0x04
+#define TPM_CAP_PROPERTY 0x05
+#define TPM_CAP_FLAG_PERMANENT   0x108
+#define TPM_CAP_FLAG_VOLATILE    0x109
+#define TPM_CAP_PROP_OWNER       0x111
+#define TPM_CAP_PROP_TIS_TIMEOUT 0x115
+#define TPM_CAP_PROP_DURATION    0x120
 
 
 struct tpm_permanent_flags {
@@ -284,13 +292,6 @@ struct tpm_res_getcap_perm_flags {
     struct tpm_rsp_header hdr;
     u32    size;
     struct tpm_permanent_flags perm_flags;
-} PACKED;
-
-struct tpm_req_getcap_stclear_flags {
-    struct tpm_req_header hdr;
-    u32    capArea;
-    u32    subCapSize;
-    u32    subCap;
 } PACKED;
 
 struct tpm_stclear_flags {

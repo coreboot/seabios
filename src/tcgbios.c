@@ -36,31 +36,6 @@ static const u8 PhysicalPresence_NOT_PRESENT_LOCK[] = { 0x00, 0x14 };
 static const u8 CommandFlag_FALSE[1] = { 0x00 };
 static const u8 CommandFlag_TRUE[1]  = { 0x01 };
 
-static const u8 GetCapability_Permanent_Flags[] = {
-    0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04,
-    0x00, 0x00, 0x01, 0x08
-};
-
-static const u8 GetCapability_STClear_Flags[] = {
-    0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00, 0x04,
-    0x00, 0x00, 0x01, 0x09
-};
-
-static const u8 GetCapability_OwnerAuth[] = {
-    0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x04,
-    0x00, 0x00, 0x01, 0x11
-};
-
-static const u8 GetCapability_Timeouts[] = {
-    0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x04,
-    0x00, 0x00, 0x01, 0x15
-};
-
-static const u8 GetCapability_Durations[] = {
-    0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x04,
-    0x00, 0x00, 0x01, 0x20
-};
-
 typedef u8 tpm_ppi_code;
 
 
@@ -257,39 +232,46 @@ tpm_set_failure(void)
     TPM_working = 0;
 }
 
-static u32
+static int
+tpm_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
+{
+    struct tpm_req_getcap trgc = {
+        .hdr.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .hdr.totlen = cpu_to_be32(sizeof(trgc)),
+        .hdr.ordinal = cpu_to_be32(TPM_ORD_GetCapability),
+        .capArea = cpu_to_be32(cap),
+        .subCapSize = cpu_to_be32(sizeof(trgc.subCap)),
+        .subCap = cpu_to_be32(subcap)
+    };
+    u32 resp_size = rsize;
+    u32 rc = tpmhw_transmit(0, &trgc.hdr, rsp, &resp_size,
+                            TPM_DURATION_TYPE_SHORT);
+    int ret = (rc || resp_size != rsize) ? -1 : be32_to_cpu(rsp->errcode);
+    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(%d, %d)"
+            " = %x\n", cap, subcap, ret);
+    if (ret) {
+        dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
+        tpm_set_failure();
+    }
+    return ret;
+}
+
+static int
 determine_timeouts(void)
 {
-    u32 rc;
-    u32 returnCode;
     struct tpm_res_getcap_timeouts timeouts;
+    int ret = tpm_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_TIS_TIMEOUT
+                                 , &timeouts.hdr, sizeof(timeouts));
+    if (ret)
+        return ret;
+
     struct tpm_res_getcap_durations durations;
-    u32 i;
+    ret = tpm_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_DURATION
+                             , &durations.hdr, sizeof(durations));
+    if (ret)
+        return ret;
 
-    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
-                            GetCapability_Timeouts,
-                            sizeof(GetCapability_Timeouts),
-                            (u8 *)&timeouts, sizeof(timeouts),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(Timeouts)"
-            " = 0x%08x\n", returnCode);
-
-    if (rc || returnCode)
-        goto err_exit;
-
-    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
-                            GetCapability_Durations,
-                            sizeof(GetCapability_Durations),
-                            (u8 *)&durations, sizeof(durations),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(Durations)"
-            " = 0x%08x\n", returnCode);
-
-    if (rc || returnCode)
-        goto err_exit;
-
+    int i;
     for (i = 0; i < 3; i++)
         durations.durations[i] = be32_to_cpu(durations.durations[i]);
 
@@ -310,14 +292,6 @@ determine_timeouts(void)
     tpmhw_set_timeouts(timeouts.timeouts, durations.durations);
 
     return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
 }
 
 static u32
@@ -482,9 +456,9 @@ tpm_startup(void)
     if (rc || returnCode)
         goto err_exit;
 
-    rc = determine_timeouts();
-    if (rc)
-        goto err_exit;
+    int ret = determine_timeouts();
+    if (ret)
+        return TCG_TCG_COMMAND_ERROR;
 
     rc = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
                             NULL, 0, &returnCode, TPM_DURATION_TYPE_LONG);
@@ -988,35 +962,17 @@ tpm_interrupt_handler32(struct bregs *regs)
 static u32
 read_stclear_flags(char *buf, int buf_len)
 {
-    u32 rc;
-    u32 returnCode;
-    struct tpm_res_getcap_stclear_flags stcf;
-
     memset(buf, 0, buf_len);
 
-    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
-                            GetCapability_STClear_Flags,
-                            sizeof(GetCapability_STClear_Flags),
-                            (u8 *)&stcf, sizeof(stcf),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability() "
-            "= 0x%08x\n", returnCode);
-
-    if (rc || returnCode)
-        goto err_exit;
+    struct tpm_res_getcap_stclear_flags stcf;
+    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_VOLATILE
+                                 , &stcf.hdr, sizeof(stcf));
+    if (ret)
+        return TCG_TCG_COMMAND_ERROR;
 
     memcpy(buf, &stcf.stclear_flags, buf_len);
 
     return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
 }
 
 static u32
@@ -1081,67 +1037,31 @@ err_exit:
 static u32
 read_permanent_flags(char *buf, int buf_len)
 {
-    u32 rc;
-    u32 returnCode;
-    struct tpm_res_getcap_perm_flags pf;
-
     memset(buf, 0, buf_len);
 
-    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
-                            GetCapability_Permanent_Flags,
-                            sizeof(GetCapability_Permanent_Flags),
-                            (u8 *)&pf, sizeof(pf),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability() "
-            "= 0x%08x\n", returnCode);
-
-    if (rc || returnCode)
-        goto err_exit;
+    struct tpm_res_getcap_perm_flags pf;
+    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
+                                 , &pf.hdr, sizeof(pf));
+    if (ret)
+        return TCG_TCG_COMMAND_ERROR;
 
     memcpy(buf, &pf.perm_flags, buf_len);
 
     return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
 }
 
 static u32
 read_has_owner(int *has_owner)
 {
-    u32 rc;
-    u32 returnCode;
     struct tpm_res_getcap_ownerauth oauth;
-
-    rc = build_and_send_cmd(0, TPM_ORD_GetCapability,
-                            GetCapability_OwnerAuth,
-                            sizeof(GetCapability_OwnerAuth),
-                            (u8 *)&oauth, sizeof(oauth),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability() "
-            "= 0x%08x\n", returnCode);
-
-    if (rc || returnCode)
-        goto err_exit;
+    int ret = tpm_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_OWNER
+                                 , &oauth.hdr, sizeof(oauth));
+    if (ret)
+        return TCG_TCG_COMMAND_ERROR;
 
     *has_owner = oauth.flag;
 
     return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg,"TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
 }
 
 static u32
