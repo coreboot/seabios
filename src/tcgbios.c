@@ -1187,6 +1187,11 @@ tpm_interrupt_handler32(struct bregs *regs)
     return;
 }
 
+
+/****************************************************************
+ * TPM Configuration Menu
+ ****************************************************************/
+
 static u32
 read_stclear_flags(char *buf, int buf_len)
 {
