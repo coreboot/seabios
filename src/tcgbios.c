@@ -169,13 +169,13 @@ tpm_is_working(void)
  * containing all data in network byte order to the command (this is
  * the custom part per command) and expect a response of the given size.
  */
-static u32
+static int
 build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
-                   u32 *returnCode, enum tpmDurationType to_t)
+                   enum tpmDurationType to_t)
 {
     struct {
         struct tpm_req_header trqh;
-        u8 cmd[20];
+        u8 cmd[2];
     } PACKED req = {
         .trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
         .trqh.totlen = cpu_to_be32(sizeof(req.trqh) + append_size),
@@ -188,37 +188,34 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
 
     if (append_size > sizeof(req.cmd)) {
         warn_internalerror();
-        return TCG_FIRMWARE_ERROR;
+        return -1;
     }
     if (append_size)
         memcpy(req.cmd, append, append_size);
 
     u32 rc = tpmhw_transmit(locty, &req.trqh, obuffer, &obuffer_len, to_t);
-    if (rc)
-        return rc;
-
-    *returnCode = be32_to_cpu(trsh->errcode);
-    return 0;
+    int ret = rc ? -1 : be32_to_cpu(trsh->errcode);
+    dprintf(DEBUG_tcg, "Return from build_and_send_cmd(%x, %x %x) = %x\n",
+            ordinal, req.cmd[0], req.cmd[1], ret);
+    return ret;
 }
 
 static void
 tpm_set_failure(void)
 {
-    u32 returnCode;
-
     /* we will try to deactivate the TPM now - ignoring all errors */
     build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                        PhysicalPresence_CMD_ENABLE,
                        sizeof(PhysicalPresence_CMD_ENABLE),
-                       &returnCode, TPM_DURATION_TYPE_SHORT);
+                       TPM_DURATION_TYPE_SHORT);
 
     build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
                        PhysicalPresence_PRESENT,
                        sizeof(PhysicalPresence_PRESENT),
-                       &returnCode, TPM_DURATION_TYPE_SHORT);
+                       TPM_DURATION_TYPE_SHORT);
 
     build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
-                       NULL, 0, &returnCode, TPM_DURATION_TYPE_SHORT);
+                       NULL, 0, TPM_DURATION_TYPE_SHORT);
 
     TPM_working = 0;
 }
@@ -401,48 +398,30 @@ tpm_smbios_measure(void)
 static int
 tpm_startup(void)
 {
-    u32 rc;
-    u32 returnCode;
-
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
-    rc = build_and_send_cmd(0, TPM_ORD_Startup,
-                            Startup_ST_CLEAR, sizeof(Startup_ST_CLEAR),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "Return code from TPM_Startup = 0x%08x\n",
-            returnCode);
-
-    if (CONFIG_COREBOOT) {
+    int ret = build_and_send_cmd(0, TPM_ORD_Startup,
+                                 Startup_ST_CLEAR, sizeof(Startup_ST_CLEAR),
+                                 TPM_DURATION_TYPE_SHORT);
+    if (CONFIG_COREBOOT && ret == TPM_INVALID_POSTINIT)
         /* with other firmware on the system the TPM may already have been
          * initialized
          */
-        if (returnCode == TPM_INVALID_POSTINIT)
-            returnCode = 0;
-    }
-
-    if (rc || returnCode)
+        ret = 0;
+    if (ret)
         goto err_exit;
 
-    int ret = determine_timeouts();
+    ret = determine_timeouts();
     if (ret)
         return -1;
 
-    rc = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
-                            &returnCode, TPM_DURATION_TYPE_LONG);
-
-    dprintf(DEBUG_tcg, "Return code from TPM_SelfTestFull = 0x%08x\n",
-            returnCode);
-
-    if (rc || returnCode)
+    ret = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
+                             TPM_DURATION_TYPE_LONG);
+    if (ret)
         goto err_exit;
 
-    rc = build_and_send_cmd(3, TSC_ORD_ResetEstablishmentBit, NULL, 0,
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "Return code from TSC_ResetEstablishmentBit = 0x%08x\n",
-            returnCode);
-
-    if (rc || (returnCode != 0 && returnCode != TPM_BAD_LOCALITY))
+    ret = build_and_send_cmd(3, TSC_ORD_ResetEstablishmentBit, NULL, 0,
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret && ret != TPM_BAD_LOCALITY)
         goto err_exit;
 
     return 0;
@@ -484,24 +463,21 @@ tpm_setup(void)
 void
 tpm_prepboot(void)
 {
-    u32 rc;
-    u32 returnCode;
-
     if (!tpm_is_working())
         return;
 
-    rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                            PhysicalPresence_CMD_ENABLE,
-                            sizeof(PhysicalPresence_CMD_ENABLE),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-    if (rc || returnCode)
+    int ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                 PhysicalPresence_CMD_ENABLE,
+                                 sizeof(PhysicalPresence_CMD_ENABLE),
+                                 TPM_DURATION_TYPE_SHORT);
+    if (ret)
         goto err_exit;
 
-    rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                            PhysicalPresence_NOT_PRESENT_LOCK,
-                            sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-    if (rc || returnCode)
+    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                             PhysicalPresence_NOT_PRESENT_LOCK,
+                             sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret)
         goto err_exit;
 
     tpm_add_action(4, "Calling INT 19h");
@@ -596,22 +572,15 @@ tpm_add_cdrom_catalog(const u8 *addr, u32 length)
 void
 tpm_s3_resume(void)
 {
-    u32 rc;
-    u32 returnCode;
-
     if (!tpm_is_working())
         return;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Resuming with TPM_Startup(ST_STATE)\n");
 
-    rc = build_and_send_cmd(0, TPM_ORD_Startup,
-                            Startup_ST_STATE, sizeof(Startup_ST_STATE),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: ReturnCode from TPM_Startup = 0x%08x\n",
-            returnCode);
-
-    if (rc || returnCode)
+    int ret = build_and_send_cmd(0, TPM_ORD_Startup,
+                                 Startup_ST_STATE, sizeof(Startup_ST_STATE),
+                                 TPM_DURATION_TYPE_SHORT);
+    if (ret)
         goto err_exit;
 
     return;
@@ -923,11 +892,8 @@ read_stclear_flags(char *buf, int buf_len)
 static u32
 assert_physical_presence(int verbose)
 {
-    u32 rc = 0;
-    u32 returnCode;
     struct tpm_stclear_flags stcf;
-
-    rc = read_stclear_flags((char *)&stcf, sizeof(stcf));
+    u32 rc = read_stclear_flags((char *)&stcf, sizeof(stcf));
     if (rc) {
         dprintf(DEBUG_tcg,
                 "Error reading STClear flags: 0x%08x\n", rc);
@@ -938,31 +904,21 @@ assert_physical_presence(int verbose)
         /* physical presence already asserted */
         return 0;
 
-    rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                            PhysicalPresence_CMD_ENABLE,
-                            sizeof(PhysicalPresence_CMD_ENABLE),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg,
-           "Return code from TSC_PhysicalPresence(CMD_ENABLE) = 0x%08x\n",
-           returnCode);
-
-    if (rc || returnCode) {
+    int ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                 PhysicalPresence_CMD_ENABLE,
+                                 sizeof(PhysicalPresence_CMD_ENABLE),
+                                 TPM_DURATION_TYPE_SHORT);
+    if (ret) {
         if (verbose)
             printf("Error: Could not enable physical presence.\n\n");
         goto err_exit;
     }
 
-    rc = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                            PhysicalPresence_PRESENT,
-                            sizeof(PhysicalPresence_PRESENT),
-                            &returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg,
-           "Return code from TSC_PhysicalPresence(PRESENT) = 0x%08x\n",
-           returnCode);
-
-    if (rc || returnCode) {
+    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                             PhysicalPresence_PRESENT,
+                             sizeof(PhysicalPresence_PRESENT),
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret) {
         if (verbose)
             printf("Error: Could not set presence flag.\n\n");
         goto err_exit;
@@ -974,8 +930,6 @@ err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
-    if (rc)
-        return rc;
     return TCG_TCG_COMMAND_ERROR;
 }
 
@@ -1028,17 +982,11 @@ enable_tpm(int enable, u32 *returnCode, int verbose)
         return rc;
     }
 
-    rc = build_and_send_cmd(0, enable ? TPM_ORD_PhysicalEnable
-                                      : TPM_ORD_PhysicalDisable,
-                            NULL, 0, returnCode, TPM_DURATION_TYPE_SHORT);
-    if (enable)
-        dprintf(DEBUG_tcg, "Return code from TPM_PhysicalEnable = 0x%08x\n",
-                *returnCode);
-    else
-        dprintf(DEBUG_tcg, "Return code from TPM_PhysicalDisable = 0x%08x\n",
-                *returnCode);
-
-    if (rc || *returnCode)
+    int ret = build_and_send_cmd(0, enable ? TPM_ORD_PhysicalEnable
+                                           : TPM_ORD_PhysicalDisable,
+                                 NULL, 0, TPM_DURATION_TYPE_SHORT);
+    *returnCode = ret;
+    if (ret)
         goto err_exit;
 
     return 0;
@@ -1052,8 +1000,6 @@ err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
-    if (rc)
-        return rc;
     return TCG_TCG_COMMAND_ERROR;
 }
 
@@ -1079,18 +1025,14 @@ activate_tpm(int activate, int allow_reset, u32 *returnCode, int verbose)
         return rc;
     }
 
-    rc = build_and_send_cmd(0, TPM_ORD_PhysicalSetDeactivated,
-                            activate ? CommandFlag_FALSE
-                                     : CommandFlag_TRUE,
-                            activate ? sizeof(CommandFlag_FALSE)
-                                     : sizeof(CommandFlag_TRUE),
-                            returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg,
-            "Return code from PhysicalSetDeactivated(%d) = 0x%08x\n",
-            activate ? 0 : 1, *returnCode);
-
-    if (rc || *returnCode)
+    int ret = build_and_send_cmd(0, TPM_ORD_PhysicalSetDeactivated,
+                                 activate ? CommandFlag_FALSE
+                                          : CommandFlag_TRUE,
+                                 activate ? sizeof(CommandFlag_FALSE)
+                                          : sizeof(CommandFlag_TRUE),
+                                 TPM_DURATION_TYPE_SHORT);
+    *returnCode = ret;
+    if (ret)
         goto err_exit;
 
     if (activate && allow_reset) {
@@ -1108,8 +1050,6 @@ err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
-    if (rc)
-        return rc;
     return TCG_TCG_COMMAND_ERROR;
 }
 
@@ -1158,13 +1098,10 @@ force_clear(int enable_activate_before, int enable_activate_after,
         return rc;
     }
 
-    rc = build_and_send_cmd(0, TPM_ORD_ForceClear,
-                            NULL, 0, returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "Return code from TPM_ForceClear() = 0x%08x\n",
-            *returnCode);
-
-    if (rc || *returnCode)
+    int ret = build_and_send_cmd(0, TPM_ORD_ForceClear,
+                                 NULL, 0, TPM_DURATION_TYPE_SHORT);
+    *returnCode = ret;
+    if (ret)
         goto err_exit;
 
     if (!enable_activate_after) {
@@ -1182,8 +1119,6 @@ err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
-    if (rc)
-        return rc;
     return TCG_TCG_COMMAND_ERROR;
 }
 
@@ -1219,16 +1154,13 @@ set_owner_install(int allow, u32 *returnCode, int verbose)
         return rc;
     }
 
-    rc = build_and_send_cmd(0, TPM_ORD_SetOwnerInstall,
-                            (allow) ? CommandFlag_TRUE :
-                                      CommandFlag_FALSE,
-                            sizeof(CommandFlag_TRUE),
-                            returnCode, TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "Return code from TPM_SetOwnerInstall() = 0x%08x\n",
-            *returnCode);
-
-    if (rc || *returnCode)
+    int ret = build_and_send_cmd(0, TPM_ORD_SetOwnerInstall,
+                                 (allow) ? CommandFlag_TRUE
+                                         : CommandFlag_FALSE,
+                                 sizeof(CommandFlag_TRUE),
+                                 TPM_DURATION_TYPE_SHORT);
+    *returnCode = ret;
+    if (ret)
         goto err_exit;
 
     if (verbose)
@@ -1239,8 +1171,6 @@ set_owner_install(int allow, u32 *returnCode, int verbose)
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
     tpm_set_failure();
-    if (rc)
-        return rc;
     return TCG_TCG_COMMAND_ERROR;
 }
 
