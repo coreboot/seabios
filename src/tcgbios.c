@@ -288,9 +288,6 @@ determine_timeouts(void)
 static u32
 tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 {
-    if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
-
     if (pcpes->pcrindex >= 24)
         return TCG_INVALID_INPUT_PARA;
 
@@ -306,15 +303,10 @@ tpm_log_extend_event(struct pcpes *pcpes, const void *event)
     u32 resp_length = sizeof(rsp);
     u32 rc = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
                             TPM_DURATION_TYPE_SHORT);
-    if (rc || resp_length != sizeof(rsp)) {
-        tpm_set_failure();
-        return rc;
-    }
+    if (rc || resp_length != sizeof(rsp) || rsp.hdr.errcode)
+        return rc ?: TCG_TCG_COMMAND_ERROR;
 
-    rc = tpm_log_event(pcpes, event);
-    if (rc)
-        tpm_set_failure();
-    return rc;
+    return tpm_log_event(pcpes, event);
 }
 
 static void
@@ -341,13 +333,18 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
                            const char *event, u32 event_length,
                            const u8 *hashdata, u32 hashdata_length)
 {
+    if (!tpm_is_working())
+        return;
+
     struct pcpes pcpes = {
         .pcrindex = pcrindex,
         .eventtype = event_type,
         .eventdatasize = event_length,
     };
     tpm_fill_hash(&pcpes, hashdata, hashdata_length);
-    tpm_log_extend_event(&pcpes, event);
+    u32 rc = tpm_log_extend_event(&pcpes, event);
+    if (rc)
+        tpm_set_failure();
 }
 
 
