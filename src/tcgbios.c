@@ -552,43 +552,41 @@ err_exit:
 /*
  * Add measurement to the log about an option rom
  */
-u32
+void
 tpm_option_rom(const void *addr, u32 len)
 {
     if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
+        return;
 
-    u32 rc;
     struct pcctes_romex pcctes = {
         .eventid = 7,
         .eventdatasize = sizeof(u16) + sizeof(u16) + SHA1_BUFSIZE,
     };
-
-    rc = sha1((const u8 *)addr, len, pcctes.digest);
+    u32 rc = sha1((const u8 *)addr, len, pcctes.digest);
     if (rc)
-        return rc;
+        return;
 
-    return tpm_add_measurement_to_log(2,
-                                      EV_EVENT_TAG,
-                                      (const char *)&pcctes, sizeof(pcctes),
-                                      (u8 *)&pcctes, sizeof(pcctes));
+    tpm_add_measurement_to_log(2,
+                               EV_EVENT_TAG,
+                               (const char *)&pcctes, sizeof(pcctes),
+                               (u8 *)&pcctes, sizeof(pcctes));
 }
 
-u32
+void
 tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
 {
     if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
+        return;
 
     if (length < 0x200)
-        return TCG_INVALID_INPUT_PARA;
+        return;
 
     const char *string = "Booting BCV device 00h (Floppy)";
     if (bootdrv == 0x80)
         string = "Booting BCV device 80h (HDD)";
     u32 rc = tpm_add_action(4, string);
     if (rc)
-        return rc;
+        return;
 
     /* specs: see section 'Hard Disk Device or Hard Disk-Like Devices' */
     /* equivalent to: dd if=/dev/hda ibs=1 count=440 | sha1sum */
@@ -597,47 +595,47 @@ tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
                                     string, strlen(string),
                                     addr, 0x1b8);
     if (rc)
-        return rc;
+        return;
 
     /* equivalent to: dd if=/dev/hda ibs=1 count=72 skip=440 | sha1sum */
     string = "MBR PARTITION_TABLE";
-    return tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
-                                      string, strlen(string),
-                                      addr + 0x1b8, 0x48);
+    tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
+                               string, strlen(string),
+                               addr + 0x1b8, 0x48);
 }
 
-u32
+void
 tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
 {
     if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
+        return;
 
     u32 rc = tpm_add_action(4, "Booting from CD ROM device");
     if (rc)
-        return rc;
+        return;
 
     /* specs: see section 'El Torito' */
     const char *string = "EL TORITO IPL";
-    return tpm_add_measurement_to_log(4, EV_IPL,
-                                      string, strlen(string),
-                                      addr, length);
+    tpm_add_measurement_to_log(4, EV_IPL,
+                               string, strlen(string),
+                               addr, length);
 }
 
-u32
+void
 tpm_add_cdrom_catalog(const u8 *addr, u32 length)
 {
     if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
+        return;
 
     u32 rc = tpm_add_action(4, "Booting from CD ROM device");
     if (rc)
-        return rc;
+        return;
 
     /* specs: see section 'El Torito' */
     const char *string = "BOOT CATALOG";
-    return tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
-                                      string, strlen(string),
-                                      addr, length);
+    tpm_add_measurement_to_log(5, EV_IPL_PARTITION_DATA,
+                               string, strlen(string),
+                               addr, length);
 }
 
 void
