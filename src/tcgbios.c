@@ -336,7 +336,7 @@ tpm_fill_hash(struct pcpes *pcpes, const void *hashdata, u32 hashdata_length)
  *  hashdata    : pointer to the data to be hashed
  *  hashdata_length: length of the data to be hashed
  */
-static u32
+static void
 tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
                            const char *event, u32 event_length,
                            const u8 *hashdata, u32 hashdata_length)
@@ -347,7 +347,7 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .eventdatasize = event_length,
     };
     tpm_fill_hash(&pcpes, hashdata, hashdata_length);
-    return tpm_log_extend_event(&pcpes, event);
+    tpm_log_extend_event(&pcpes, event);
 }
 
 
@@ -356,47 +356,32 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
  ****************************************************************/
 
 // Add an EV_ACTION measurement to the list of measurements
-static u32
+static void
 tpm_add_action(u32 pcrIndex, const char *string)
 {
     u32 len = strlen(string);
-    return tpm_add_measurement_to_log(pcrIndex, EV_ACTION,
-                                      string, len, (u8 *)string, len);
+    tpm_add_measurement_to_log(pcrIndex, EV_ACTION,
+                               string, len, (u8 *)string, len);
 }
 
 /*
  * Add event separators for PCRs 0 to 7; specs on 'Measuring Boot Events'
  */
-static u32
+static void
 tpm_add_event_separators(void)
 {
-    u32 rc;
-    u32 pcrIndex = 0;
-
-    if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
-
     static const u8 evt_separator[] = {0xff,0xff,0xff,0xff};
-    while (pcrIndex <= 7) {
-        rc = tpm_add_measurement_to_log(pcrIndex, EV_SEPARATOR,
-                                        NULL, 0,
-                                        (u8 *)evt_separator,
-                                        sizeof(evt_separator));
-        if (rc)
-            break;
-        pcrIndex ++;
-    }
-
-    return rc;
+    u32 pcrIndex;
+    for (pcrIndex = 0; pcrIndex <= 7; pcrIndex++)
+        tpm_add_measurement_to_log(pcrIndex, EV_SEPARATOR,
+                                   NULL, 0,
+                                   evt_separator,
+                                   sizeof(evt_separator));
 }
 
-static u32
+static void
 tpm_smbios_measure(void)
 {
-    if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
-
-    u32 rc;
     struct pcctes pcctes = {
         .eventid = 1,
         .eventdatasize = SHA1_BUFSIZE,
@@ -406,27 +391,21 @@ tpm_smbios_measure(void)
     dprintf(DEBUG_tcg, "TCGBIOS: SMBIOS at %p\n", sep);
 
     if (!sep)
-        return 0;
+        return;
 
-    rc = sha1((const u8 *)sep->structure_table_address,
-              sep->structure_table_length, pcctes.digest);
-    if (rc)
-        return rc;
-
-    return tpm_add_measurement_to_log(1,
-                                      EV_EVENT_TAG,
-                                      (const char *)&pcctes, sizeof(pcctes),
-                                      (u8 *)&pcctes, sizeof(pcctes));
+    sha1((const u8 *)sep->structure_table_address,
+         sep->structure_table_length, pcctes.digest);
+    tpm_add_measurement_to_log(1,
+                               EV_EVENT_TAG,
+                               (const char *)&pcctes, sizeof(pcctes),
+                               (u8 *)&pcctes, sizeof(pcctes));
 }
 
-static u32
+static int
 tpm_startup(void)
 {
     u32 rc;
     u32 returnCode;
-
-    if (!tpm_is_working())
-        return TCG_GENERAL_ERROR;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
     rc = build_and_send_cmd(0, TPM_ORD_Startup,
@@ -449,7 +428,7 @@ tpm_startup(void)
 
     int ret = determine_timeouts();
     if (ret)
-        return TCG_TCG_COMMAND_ERROR;
+        return -1;
 
     rc = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
                             &returnCode, TPM_DURATION_TYPE_LONG);
@@ -469,23 +448,13 @@ tpm_startup(void)
     if (rc || (returnCode != 0 && returnCode != TPM_BAD_LOCALITY))
         goto err_exit;
 
-    rc = tpm_smbios_measure();
-    if (rc)
-        goto err_exit;
-
-    rc = tpm_add_action(2, "Start Option ROM Scan");
-    if (rc)
-        goto err_exit;
-
     return 0;
 
 err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
-    if (rc)
-        return rc;
-    return TCG_TCG_COMMAND_ERROR;
+    return -1;
 }
 
 void
@@ -507,7 +476,12 @@ tpm_setup(void)
     if (runningOnXen())
         return;
 
-    tpm_startup();
+    ret = tpm_startup();
+    if (ret)
+        return;
+
+    tpm_smbios_measure();
+    tpm_add_action(2, "Start Option ROM Scan");
 }
 
 void
@@ -533,13 +507,8 @@ tpm_prepboot(void)
     if (rc || returnCode)
         goto err_exit;
 
-    rc = tpm_add_action(4, "Calling INT 19h");
-    if (rc)
-        goto err_exit;
-
-    rc = tpm_add_event_separators();
-    if (rc)
-        goto err_exit;
+    tpm_add_action(4, "Calling INT 19h");
+    tpm_add_event_separators();
 
     return;
 
@@ -562,10 +531,7 @@ tpm_option_rom(const void *addr, u32 len)
         .eventid = 7,
         .eventdatasize = sizeof(u16) + sizeof(u16) + SHA1_BUFSIZE,
     };
-    u32 rc = sha1((const u8 *)addr, len, pcctes.digest);
-    if (rc)
-        return;
-
+    sha1((const u8 *)addr, len, pcctes.digest);
     tpm_add_measurement_to_log(2,
                                EV_EVENT_TAG,
                                (const char *)&pcctes, sizeof(pcctes),
@@ -584,18 +550,14 @@ tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length)
     const char *string = "Booting BCV device 00h (Floppy)";
     if (bootdrv == 0x80)
         string = "Booting BCV device 80h (HDD)";
-    u32 rc = tpm_add_action(4, string);
-    if (rc)
-        return;
+    tpm_add_action(4, string);
 
     /* specs: see section 'Hard Disk Device or Hard Disk-Like Devices' */
     /* equivalent to: dd if=/dev/hda ibs=1 count=440 | sha1sum */
     string = "MBR";
-    rc = tpm_add_measurement_to_log(4, EV_IPL,
-                                    string, strlen(string),
-                                    addr, 0x1b8);
-    if (rc)
-        return;
+    tpm_add_measurement_to_log(4, EV_IPL,
+                               string, strlen(string),
+                               addr, 0x1b8);
 
     /* equivalent to: dd if=/dev/hda ibs=1 count=72 skip=440 | sha1sum */
     string = "MBR PARTITION_TABLE";
@@ -610,9 +572,7 @@ tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length)
     if (!tpm_is_working())
         return;
 
-    u32 rc = tpm_add_action(4, "Booting from CD ROM device");
-    if (rc)
-        return;
+    tpm_add_action(4, "Booting from CD ROM device");
 
     /* specs: see section 'El Torito' */
     const char *string = "EL TORITO IPL";
@@ -627,9 +587,7 @@ tpm_add_cdrom_catalog(const u8 *addr, u32 length)
     if (!tpm_is_working())
         return;
 
-    u32 rc = tpm_add_action(4, "Booting from CD ROM device");
-    if (rc)
-        return;
+    tpm_add_action(4, "Booting from CD ROM device");
 
     /* specs: see section 'El Torito' */
     const char *string = "BOOT CATALOG";
@@ -832,7 +790,8 @@ hash_all_int(const struct hai *hai, u8 *hash)
         hai->algorithmid != TPM_ALG_SHA)
         return TCG_INVALID_INPUT_PARA;
 
-    return sha1((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
+    sha1((const u8 *)hai->hashdataptr, hai->hashdatalen, hash);
+    return 0;
 }
 
 static u32
