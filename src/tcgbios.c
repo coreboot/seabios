@@ -123,21 +123,21 @@ tpm_tcpa_probe(void)
  * Output:
  *  Returns an error code in case of faiure, 0 in case of success
  */
-static u32
+static int
 tpm_log_event(struct pcpes *pcpes, const void *event)
 {
     dprintf(DEBUG_tcg, "TCGBIOS: LASA = %p, next entry = %p\n",
             tpm_state.log_area_start_address, tpm_state.log_area_next_entry);
 
     if (tpm_state.log_area_next_entry == NULL)
-        return TCG_PC_LOGOVERFLOW;
+        return -1;
 
     u32 size = sizeof(*pcpes) + pcpes->eventdatasize;
 
     if ((tpm_state.log_area_next_entry + size - tpm_state.log_area_start_address) >
          tpm_state.log_area_minimum_length) {
         dprintf(DEBUG_tcg, "TCGBIOS: LOG OVERFLOW: size = %d\n", size);
-        return TCG_PC_LOGOVERFLOW;
+        return -1;
     }
 
     memcpy(tpm_state.log_area_next_entry, pcpes, sizeof(*pcpes));
@@ -282,11 +282,11 @@ determine_timeouts(void)
     return 0;
 }
 
-static u32
+static int
 tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 {
     if (pcpes->pcrindex >= 24)
-        return TCG_INVALID_INPUT_PARA;
+        return -1;
 
     struct tpm_req_extend tre = {
         .hdr.tag     = cpu_to_be16(TPM_TAG_RQU_CMD),
@@ -301,7 +301,7 @@ tpm_log_extend_event(struct pcpes *pcpes, const void *event)
     u32 rc = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
                             TPM_DURATION_TYPE_SHORT);
     if (rc || resp_length != sizeof(rsp) || rsp.hdr.errcode)
-        return rc ?: TCG_TCG_COMMAND_ERROR;
+        return -1;
 
     return tpm_log_event(pcpes, event);
 }
@@ -339,8 +339,8 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .eventdatasize = event_length,
     };
     tpm_fill_hash(&pcpes, hashdata, hashdata_length);
-    u32 rc = tpm_log_extend_event(&pcpes, event);
-    if (rc)
+    int ret = tpm_log_extend_event(&pcpes, event);
+    if (ret)
         tpm_set_failure();
 }
 
@@ -651,9 +651,11 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
     }
 
     tpm_fill_hash(pcpes, hleei_s->hashdataptr, hleei_s->hashdatalen);
-    rc = tpm_log_extend_event(pcpes, pcpes->event);
-    if (rc)
+    int ret = tpm_log_extend_event(pcpes, pcpes->event);
+    if (ret) {
+        rc = TCG_TCG_COMMAND_ERROR;
         goto err_exit;
+    }
 
     hleeo->opblength = sizeof(struct hleeo);
     hleeo->reserved  = 0;
@@ -729,9 +731,11 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
     }
 
     tpm_fill_hash(pcpes, hlei->hashdataptr, hlei->hashdatalen);
-    rc = tpm_log_event(pcpes, pcpes->event);
-    if (rc)
+    int ret = tpm_log_event(pcpes, pcpes->event);
+    if (ret) {
+        rc = TCG_PC_LOGOVERFLOW;
         goto err_exit;
+    }
 
     /* updating the log was fine */
     hleo->opblength = sizeof(struct hleo);
@@ -783,11 +787,11 @@ compact_hash_log_extend_event_int(u8 *buffer,
     };
 
     tpm_fill_hash(&pcpes, buffer, length);
-    u32 rc = tpm_log_extend_event(&pcpes, &info);
-    if (rc == 0)
-        *edx_ptr = tpm_state.entry_count;
-
-    return rc;
+    int ret = tpm_log_extend_event(&pcpes, &info);
+    if (ret)
+        return TCG_TCG_COMMAND_ERROR;
+    *edx_ptr = tpm_state.entry_count;
+    return 0;
 }
 
 void VISIBLE32FLAT
