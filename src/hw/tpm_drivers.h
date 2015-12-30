@@ -13,7 +13,7 @@ enum tpmDurationType {
 int tpmhw_probe(void);
 int tpmhw_is_present(void);
 struct tpm_req_header;
-u32 tpmhw_transmit(u8 locty, struct tpm_req_header *req,
+int tpmhw_transmit(u8 locty, struct tpm_req_header *req,
                    void *respbuffer, u32 *respbufferlen,
                    enum tpmDurationType to_t);
 void tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3]);

@@ -193,8 +193,8 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
     if (append_size)
         memcpy(req.cmd, append, append_size);
 
-    u32 rc = tpmhw_transmit(locty, &req.trqh, obuffer, &obuffer_len, to_t);
-    int ret = rc ? -1 : be32_to_cpu(trsh->errcode);
+    int ret = tpmhw_transmit(locty, &req.trqh, obuffer, &obuffer_len, to_t);
+    ret = ret ? -1 : be32_to_cpu(trsh->errcode);
     dprintf(DEBUG_tcg, "Return from build_and_send_cmd(%x, %x %x) = %x\n",
             ordinal, req.cmd[0], req.cmd[1], ret);
     return ret;
@@ -232,9 +232,9 @@ tpm_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
         .subCap = cpu_to_be32(subcap)
     };
     u32 resp_size = rsize;
-    u32 rc = tpmhw_transmit(0, &trgc.hdr, rsp, &resp_size,
-                            TPM_DURATION_TYPE_SHORT);
-    int ret = (rc || resp_size != rsize) ? -1 : be32_to_cpu(rsp->errcode);
+    int ret = tpmhw_transmit(0, &trgc.hdr, rsp, &resp_size,
+                             TPM_DURATION_TYPE_SHORT);
+    ret = (ret || resp_size != rsize) ? -1 : be32_to_cpu(rsp->errcode);
     dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(%d, %d)"
             " = %x\n", cap, subcap, ret);
     if (ret) {
@@ -298,9 +298,9 @@ tpm_log_extend_event(struct pcpes *pcpes, const void *event)
 
     struct tpm_rsp_extend rsp;
     u32 resp_length = sizeof(rsp);
-    u32 rc = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
-                            TPM_DURATION_TYPE_SHORT);
-    if (rc || resp_length != sizeof(rsp) || rsp.hdr.errcode)
+    int ret = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret || resp_length != sizeof(rsp) || rsp.hdr.errcode)
         return -1;
 
     return tpm_log_event(pcpes, event);
@@ -684,10 +684,12 @@ pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
     }
 
     u32 resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
-    rc = tpmhw_transmit(0, trh, pttto->tpmopout, &resbuflen,
-                        TPM_DURATION_TYPE_LONG /* worst case */);
-    if (rc)
+    int ret = tpmhw_transmit(0, trh, pttto->tpmopout, &resbuflen,
+                             TPM_DURATION_TYPE_LONG /* worst case */);
+    if (ret) {
+        rc = TCG_FATAL_COM_ERROR;
         goto err_exit;
+    }
 
     pttto->opblength = offsetof(struct pttto, tpmopout) + resbuflen;
     pttto->reserved  = 0;

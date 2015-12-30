@@ -10,7 +10,7 @@
 #include "byteorder.h" // be32_to_cpu
 #include "config.h" // CONFIG_TPM_TIS_SHA1THRESHOLD
 #include "hw/tpm_drivers.h" // struct tpm_driver
-#include "std/tcg.h" // TCG_NO_RESPONSE
+#include "std/tcg.h" // TCG_RESPONSE_TIMEOUT
 #include "output.h" // warn_timeout
 #include "stacks.h" // yield
 #include "string.h" // memcpy
@@ -280,7 +280,7 @@ static u32 tis_waitdatavalid(void)
     u32 timeout_c = tpm_drivers[TIS_DRIVER_IDX].timeouts[TIS_TIMEOUT_TYPE_C];
 
     if (tis_wait_sts(locty, timeout_c, TIS_STS_VALID, TIS_STS_VALID) != 0)
-        rc = TCG_NO_RESPONSE;
+        rc = 1;
 
     return rc;
 }
@@ -298,7 +298,7 @@ static u32 tis_waitrespready(enum tpmDurationType to_t)
 
     if (tis_wait_sts(locty, timeout,
                      TIS_STS_DATA_AVAILABLE, TIS_STS_DATA_AVAILABLE) != 0)
-        rc = TCG_NO_RESPONSE;
+        rc = 1;
 
     return rc;
 }
@@ -344,37 +344,37 @@ tpmhw_is_present(void)
     return TPMHW_driver_to_use != TPM_INVALID_DRIVER;
 }
 
-u32
+int
 tpmhw_transmit(u8 locty, struct tpm_req_header *req,
                void *respbuffer, u32 *respbufferlen,
                enum tpmDurationType to_t)
 {
     if (TPMHW_driver_to_use == TPM_INVALID_DRIVER)
-        return TCG_FATAL_COM_ERROR;
+        return -1;
 
     struct tpm_driver *td = &tpm_drivers[TPMHW_driver_to_use];
 
     u32 irc = td->activate(locty);
     if (irc != 0) {
         /* tpm could not be activated */
-        return TCG_FATAL_COM_ERROR;
+        return -1;
     }
 
     irc = td->senddata((void*)req, be32_to_cpu(req->totlen));
     if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
+        return -1;
 
     irc = td->waitdatavalid();
     if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
+        return -1;
 
     irc = td->waitrespready(to_t);
     if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
+        return -1;
 
     irc = td->readresp(respbuffer, respbufferlen);
     if (irc != 0)
-        return TCG_FATAL_COM_ERROR;
+        return -1;
 
     td->ready();
 
