@@ -1006,9 +1006,11 @@ xhci_alloc_pipe(struct usbdevice_s *usbdev
             free(dev);
             goto fail;
         }
-        pipe->slotid = usbdev->slotid = slotid;
+        pipe->slotid = slotid;
     } else {
-        pipe->slotid = usbdev->slotid;
+        struct xhci_pipe *defpipe = container_of(
+            usbdev->defpipe, struct xhci_pipe, pipe);
+        pipe->slotid = defpipe->slotid;
         // Send configure command.
         int cc = xhci_cmd_configure_endpoint(xhci, pipe->slotid, in);
         if (cc != CC_SUCCESS) {
