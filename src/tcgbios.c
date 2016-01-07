@@ -660,6 +660,7 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
     hleeo->opblength = sizeof(struct hleeo);
     hleeo->reserved  = 0;
     hleeo->eventnumber = hleo.eventnumber;
+    memcpy(hleeo->digest, pcpes->digest, sizeof(hleeo->digest));
 
 err_exit:
     if (rc != 0) {
