@@ -60,6 +60,8 @@ struct {
     u8 *          log_area_last_entry;
 } tpm_state VARLOW;
 
+static int TPM_has_physical_presence;
+
 static struct tcpa_descriptor_rev2 *
 find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
 {
@@ -158,10 +160,16 @@ tpm_log_event(struct pcpes *pcpes, const void *event)
 
 u8 TPM_working VARLOW;
 
-int
+static int
 tpm_is_working(void)
 {
     return CONFIG_TCGBIOS && TPM_working;
+}
+
+int
+tpm_can_show_menu(void)
+{
+    return tpm_is_working() && TPM_has_physical_presence;
 }
 
 /*
@@ -461,6 +469,11 @@ tpm_startup(void)
         ret = 0;
     if (ret)
         goto err_exit;
+
+    /* assertion of physical presence is only possible after startup */
+    ret = assert_physical_presence();
+    if (!ret)
+        TPM_has_physical_presence = 1;
 
     ret = determine_timeouts();
     if (ret)
@@ -957,10 +970,6 @@ enable_tpm(int enable, int verbose)
     if (pf.flags[PERM_FLAG_IDX_DISABLE] && !enable)
         return 0;
 
-    ret = assert_physical_presence();
-    if (ret)
-        return -1;
-
     ret = build_and_send_cmd(0, enable ? TPM_ORD_PhysicalEnable
                                        : TPM_ORD_PhysicalDisable,
                              NULL, 0, TPM_DURATION_TYPE_SHORT);
@@ -994,10 +1003,6 @@ activate_tpm(int activate, int allow_reset, int verbose)
 
     if (pf.flags[PERM_FLAG_IDX_DISABLE])
         return 0;
-
-    ret = assert_physical_presence();
-    if (ret)
-        return -1;
 
     ret = build_and_send_cmd(0, TPM_ORD_PhysicalSetDeactivated,
                              activate ? CommandFlag_FALSE
@@ -1058,10 +1063,6 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
         }
     }
 
-    ret = assert_physical_presence();
-    if (ret)
-        return -1;
-
     ret = build_and_send_cmd(0, TPM_ORD_ForceClear,
                              NULL, 0, TPM_DURATION_TYPE_SHORT);
     if (ret)
@@ -1106,10 +1107,6 @@ set_owner_install(int allow, int verbose)
             printf("TPM must first be enable.\n");
         return 0;
     }
-
-    ret = assert_physical_presence();
-    if (ret)
-        return -1;
 
     ret = build_and_send_cmd(0, TPM_ORD_SetOwnerInstall,
                              (allow) ? CommandFlag_TRUE

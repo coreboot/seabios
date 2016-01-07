@@ -486,7 +486,7 @@ interactive_bootmenu(void)
         printf("%d. %s\n", maxmenu
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
     }
-    if (tpm_is_working()) {
+    if (tpm_can_show_menu()) {
         printf("\nt. TPM Configuration\n");
     }
 
@@ -499,7 +499,7 @@ interactive_bootmenu(void)
         scan_code = get_keystroke(1000);
         if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
             continue;
-        if (tpm_is_working() && scan_code == 20 /* t */) {
+        if (tpm_can_show_menu() && scan_code == 20 /* t */) {
             printf("\n");
             tpm_menu();
         }

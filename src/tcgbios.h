@@ -13,7 +13,7 @@ void tpm_add_bcv(u32 bootdrv, const u8 *addr, u32 length);
 void tpm_add_cdrom(u32 bootdrv, const u8 *addr, u32 length);
 void tpm_add_cdrom_catalog(const u8 *addr, u32 length);
 void tpm_option_rom(const void *addr, u32 len);
-int tpm_is_working(void);
+int tpm_can_show_menu(void);
 void tpm_menu(void);
 
 #endif /* TCGBIOS_H */
