@@ -396,6 +396,81 @@ tpm_smbios_measure(void)
 }
 
 static int
+read_stclear_flags(char *buf, int buf_len)
+{
+    memset(buf, 0, buf_len);
+
+    struct tpm_res_getcap_stclear_flags stcf;
+    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_VOLATILE
+                                 , &stcf.hdr, sizeof(stcf));
+    if (ret) {
+        dprintf(DEBUG_tcg, "Error reading STClear flags: 0x%08x\n", ret);
+        return -1;
+    }
+
+    memcpy(buf, &stcf.stclear_flags, buf_len);
+
+    return 0;
+}
+
+static int
+read_permanent_flags(char *buf, int buf_len)
+{
+    memset(buf, 0, buf_len);
+
+    struct tpm_res_getcap_perm_flags pf;
+    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
+                                 , &pf.hdr, sizeof(pf));
+    if (ret)
+        return -1;
+
+    memcpy(buf, &pf.perm_flags, buf_len);
+
+    return 0;
+}
+
+static int
+assert_physical_presence(int verbose)
+{
+    struct tpm_stclear_flags stcf;
+    int ret = read_stclear_flags((char *)&stcf, sizeof(stcf));
+    if (ret)
+        return -1;
+
+    if (stcf.flags[STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE])
+        /* physical presence already asserted */
+        return 0;
+
+    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                             PhysicalPresence_CMD_ENABLE,
+                             sizeof(PhysicalPresence_CMD_ENABLE),
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret) {
+        if (verbose)
+            printf("Error: Could not enable physical presence.\n\n");
+        goto err_exit;
+    }
+
+    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                             PhysicalPresence_PRESENT,
+                             sizeof(PhysicalPresence_PRESENT),
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret) {
+        if (verbose)
+            printf("Error: Could not set presence flag.\n\n");
+        goto err_exit;
+    }
+
+    return 0;
+
+err_exit:
+    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
+    tpm_set_failure();
+    dprintf(DEBUG_tcg, "TCGBIOS: Asserting physical presence failed: %x\n", ret);
+    return -1;
+}
+
+static int
 tpm_startup(void)
 {
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
@@ -879,81 +954,6 @@ tpm_interrupt_handler32(struct bregs *regs)
 /****************************************************************
  * TPM Configuration Menu
  ****************************************************************/
-
-static int
-read_stclear_flags(char *buf, int buf_len)
-{
-    memset(buf, 0, buf_len);
-
-    struct tpm_res_getcap_stclear_flags stcf;
-    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_VOLATILE
-                                 , &stcf.hdr, sizeof(stcf));
-    if (ret) {
-        dprintf(DEBUG_tcg, "Error reading STClear flags: 0x%08x\n", ret);
-        return -1;
-    }
-
-    memcpy(buf, &stcf.stclear_flags, buf_len);
-
-    return 0;
-}
-
-static int
-assert_physical_presence(int verbose)
-{
-    struct tpm_stclear_flags stcf;
-    int ret = read_stclear_flags((char *)&stcf, sizeof(stcf));
-    if (ret)
-        return -1;
-
-    if (stcf.flags[STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE])
-        /* physical presence already asserted */
-        return 0;
-
-    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                             PhysicalPresence_CMD_ENABLE,
-                             sizeof(PhysicalPresence_CMD_ENABLE),
-                             TPM_DURATION_TYPE_SHORT);
-    if (ret) {
-        if (verbose)
-            printf("Error: Could not enable physical presence.\n\n");
-        goto err_exit;
-    }
-
-    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                             PhysicalPresence_PRESENT,
-                             sizeof(PhysicalPresence_PRESENT),
-                             TPM_DURATION_TYPE_SHORT);
-    if (ret) {
-        if (verbose)
-            printf("Error: Could not set presence flag.\n\n");
-        goto err_exit;
-    }
-
-    return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-    tpm_set_failure();
-    dprintf(DEBUG_tcg, "TCGBIOS: Asserting physical presence failed: %x\n", ret);
-    return -1;
-}
-
-static int
-read_permanent_flags(char *buf, int buf_len)
-{
-    memset(buf, 0, buf_len);
-
-    struct tpm_res_getcap_perm_flags pf;
-    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
-                                 , &pf.hdr, sizeof(pf));
-    if (ret)
-        return -1;
-
-    memcpy(buf, &pf.perm_flags, buf_len);
-
-    return 0;
-}
 
 static int
 read_has_owner(int *has_owner)
