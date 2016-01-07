@@ -211,16 +211,10 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
 static void
 tpm_set_failure(void)
 {
-    /* we will try to deactivate the TPM now - ignoring all errors */
-    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                       PhysicalPresence_CMD_ENABLE,
-                       sizeof(PhysicalPresence_CMD_ENABLE),
-                       TPM_DURATION_TYPE_SHORT);
-
-    build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                       PhysicalPresence_PRESENT,
-                       sizeof(PhysicalPresence_PRESENT),
-                       TPM_DURATION_TYPE_SHORT);
+    /*
+     * We will try to deactivate the TPM now - ignoring all errors
+     * Physical presence is asserted.
+     */
 
     build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
                        NULL, 0, TPM_DURATION_TYPE_SHORT);
@@ -528,32 +522,17 @@ tpm_setup(void)
 void
 tpm_prepboot(void)
 {
-    if (!tpm_is_working())
+    if (!CONFIG_TCGBIOS)
         return;
 
-    int ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                                 PhysicalPresence_CMD_ENABLE,
-                                 sizeof(PhysicalPresence_CMD_ENABLE),
-                                 TPM_DURATION_TYPE_SHORT);
-    if (ret)
-        goto err_exit;
-
-    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                             PhysicalPresence_NOT_PRESENT_LOCK,
-                             sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
-                             TPM_DURATION_TYPE_SHORT);
-    if (ret)
-        goto err_exit;
+    if (TPM_has_physical_presence)
+        build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                           PhysicalPresence_NOT_PRESENT_LOCK,
+                           sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
+                           TPM_DURATION_TYPE_SHORT);
 
     tpm_add_action(4, "Calling INT 19h");
     tpm_add_event_separators();
-
-    return;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
 }
 
 /*
