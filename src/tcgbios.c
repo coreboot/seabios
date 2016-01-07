@@ -396,24 +396,6 @@ tpm_smbios_measure(void)
 }
 
 static int
-read_stclear_flags(char *buf, int buf_len)
-{
-    memset(buf, 0, buf_len);
-
-    struct tpm_res_getcap_stclear_flags stcf;
-    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_VOLATILE
-                                 , &stcf.hdr, sizeof(stcf));
-    if (ret) {
-        dprintf(DEBUG_tcg, "Error reading STClear flags: 0x%08x\n", ret);
-        return -1;
-    }
-
-    memcpy(buf, &stcf.stclear_flags, buf_len);
-
-    return 0;
-}
-
-static int
 read_permanent_flags(char *buf, int buf_len)
 {
     memset(buf, 0, buf_len);
@@ -430,43 +412,38 @@ read_permanent_flags(char *buf, int buf_len)
 }
 
 static int
-assert_physical_presence(int verbose)
+assert_physical_presence(void)
 {
-    struct tpm_stclear_flags stcf;
-    int ret = read_stclear_flags((char *)&stcf, sizeof(stcf));
+    int ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                 PhysicalPresence_PRESENT,
+                                 sizeof(PhysicalPresence_PRESENT),
+                                 TPM_DURATION_TYPE_SHORT);
+    if (!ret)
+        return 0;
+
+    struct tpm_permanent_flags pf;
+    ret = read_permanent_flags((char *)&pf, sizeof(pf));
     if (ret)
         return -1;
 
-    if (stcf.flags[STCLEAR_FLAG_IDX_PHYSICAL_PRESENCE])
-        /* physical presence already asserted */
+    /* check if hardware physical presence is supported */
+    if (pf.flags[PERM_FLAG_IDX_PHYSICAL_PRESENCE_HW_ENABLE]) {
+        /* HW phys. presence may not be asserted... */
         return 0;
-
-    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                             PhysicalPresence_CMD_ENABLE,
-                             sizeof(PhysicalPresence_CMD_ENABLE),
-                             TPM_DURATION_TYPE_SHORT);
-    if (ret) {
-        if (verbose)
-            printf("Error: Could not enable physical presence.\n\n");
-        goto err_exit;
     }
 
-    ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                             PhysicalPresence_PRESENT,
-                             sizeof(PhysicalPresence_PRESENT),
-                             TPM_DURATION_TYPE_SHORT);
-    if (ret) {
-        if (verbose)
-            printf("Error: Could not set presence flag.\n\n");
-        goto err_exit;
+    if (!pf.flags[PERM_FLAG_IDX_PHYSICAL_PRESENCE_LIFETIME_LOCK]
+        && !pf.flags[PERM_FLAG_IDX_PHYSICAL_PRESENCE_CMD_ENABLE]) {
+        build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                           PhysicalPresence_CMD_ENABLE,
+                           sizeof(PhysicalPresence_CMD_ENABLE),
+                           TPM_DURATION_TYPE_SHORT);
+
+        return build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                  PhysicalPresence_PRESENT,
+                                  sizeof(PhysicalPresence_PRESENT),
+                                  TPM_DURATION_TYPE_SHORT);
     }
-
-    return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-    tpm_set_failure();
-    dprintf(DEBUG_tcg, "TCGBIOS: Asserting physical presence failed: %x\n", ret);
     return -1;
 }
 
@@ -980,7 +957,7 @@ enable_tpm(int enable, int verbose)
     if (pf.flags[PERM_FLAG_IDX_DISABLE] && !enable)
         return 0;
 
-    ret = assert_physical_presence(verbose);
+    ret = assert_physical_presence();
     if (ret)
         return -1;
 
@@ -1018,7 +995,7 @@ activate_tpm(int activate, int allow_reset, int verbose)
     if (pf.flags[PERM_FLAG_IDX_DISABLE])
         return 0;
 
-    ret = assert_physical_presence(verbose);
+    ret = assert_physical_presence();
     if (ret)
         return -1;
 
@@ -1081,7 +1058,7 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
         }
     }
 
-    ret = assert_physical_presence(verbose);
+    ret = assert_physical_presence();
     if (ret)
         return -1;
 
@@ -1130,7 +1107,7 @@ set_owner_install(int allow, int verbose)
         return 0;
     }
 
-    ret = assert_physical_presence(verbose);
+    ret = assert_physical_presence();
     if (ret)
         return -1;
 
