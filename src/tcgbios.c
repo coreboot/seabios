@@ -952,20 +952,12 @@ enable_tpm(int enable, int verbose)
     ret = build_and_send_cmd(0, enable ? TPM_ORD_PhysicalEnable
                                        : TPM_ORD_PhysicalDisable,
                              NULL, 0, TPM_DURATION_TYPE_SHORT);
-    if (ret)
-        goto err_exit;
-
-    return 0;
-
-err_exit:
-    if (enable)
-        dprintf(DEBUG_tcg, "TCGBIOS: Enabling the TPM failed.\n");
-    else
-        dprintf(DEBUG_tcg, "TCGBIOS: Disabling the TPM failed.\n");
-
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
+    if (ret) {
+        if (enable)
+            dprintf(DEBUG_tcg, "TCGBIOS: Enabling the TPM failed.\n");
+        else
+            dprintf(DEBUG_tcg, "TCGBIOS: Disabling the TPM failed.\n");
+    }
     return ret;
 }
 
@@ -990,7 +982,7 @@ activate_tpm(int activate, int allow_reset, int verbose)
                                       : sizeof(CommandFlag_TRUE),
                              TPM_DURATION_TYPE_SHORT);
     if (ret)
-        goto err_exit;
+        return ret;
 
     if (activate && allow_reset) {
         if (verbose) {
@@ -1002,12 +994,6 @@ activate_tpm(int activate, int allow_reset, int verbose)
     }
 
     return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
-    return ret;
 }
 
 static int
@@ -1045,7 +1031,7 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
     ret = build_and_send_cmd(0, TPM_ORD_ForceClear,
                              NULL, 0, TPM_DURATION_TYPE_SHORT);
     if (ret)
-        goto err_exit;
+        return ret;
 
     if (!enable_activate_after) {
         if (verbose)
@@ -1055,12 +1041,6 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
     }
 
     return enable_activate(1, verbose);
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-
-    tpm_set_failure();
-    return ret;
 }
 
 static int
@@ -1093,17 +1073,12 @@ set_owner_install(int allow, int verbose)
                              sizeof(CommandFlag_TRUE),
                              TPM_DURATION_TYPE_SHORT);
     if (ret)
-        goto err_exit;
+        return ret;
 
     if (verbose)
         printf("Installation of owner %s.\n", allow ? "enabled" : "disabled");
 
     return 0;
-
-err_exit:
-    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-    tpm_set_failure();
-    return ret;
 }
 
 static int
