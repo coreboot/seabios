@@ -52,7 +52,7 @@ kbd_init(void)
 }
 
 static u8
-enqueue_key(u8 scan_code, u8 ascii_code)
+enqueue_key(u16 keycode)
 {
     u16 buffer_start = GET_BDA(kbd_buf_start_offset);
     u16 buffer_end   = GET_BDA(kbd_buf_end_offset);
@@ -68,8 +68,7 @@ enqueue_key(u8 scan_code, u8 ascii_code)
     if (buffer_tail == buffer_head)
         return 0;
 
-    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+0), ascii_code);
-    SET_FARVAR(SEG_BDA, *(u8*)(temp_tail+1), scan_code);
+    SET_FARVAR(SEG_BDA, *(u16*)(temp_tail+0), keycode);
     SET_BDA(kbd_buf_tail, buffer_tail);
     return 1;
 }
@@ -93,12 +92,11 @@ dequeue_key(struct bregs *regs, int incr, int extended)
         yield_toirq();
     }
 
-    u8 ascii_code = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+0));
-    u8 scan_code  = GET_FARVAR(SEG_BDA, *(u8*)(buffer_head+1));
-    if ((ascii_code == 0xF0 && scan_code != 0)
-        || (ascii_code == 0xE0 && !extended))
-        ascii_code = 0;
-    regs->ax = (scan_code << 8) | ascii_code;
+    u16 keycode = GET_FARVAR(SEG_BDA, *(u16*)(buffer_head+0));
+    u8 ascii = keycode & 0xff;
+    if ((ascii == 0xf0 && keycode > 0xff) || (ascii == 0xe0 && !extended))
+        keycode &= 0xff00;
+    regs->ax = keycode;
 
     if (!incr) {
         regs->flags &= ~F_ZF;
@@ -147,7 +145,7 @@ handle_1602(struct bregs *regs)
 static void
 handle_1605(struct bregs *regs)
 {
-    regs->al = !enqueue_key(regs->ch, regs->cl);
+    regs->al = !enqueue_key(regs->cx);
 }
 
 // GET KEYBOARD FUNCTIONALITY
@@ -289,7 +287,7 @@ static struct scaninfo {
     u16 control;
     u16 alt;
     u8 lock_flags;
-} scan_to_scanascii[] VAR16 = {
+} scan_to_keycode[] VAR16 = {
     {   none,   none,   none,   none, none },
     { 0x011b, 0x011b, 0x011b, 0x0100, none }, /* escape */
     { 0x0231, 0x0221,   none, 0x7800, none }, /* 1! */
@@ -504,48 +502,38 @@ __process_key(u8 scancode)
             SET_BDA(soft_reset_flag, 0x1234);
             reset();
         }
-        if (scancode >= ARRAY_SIZE(scan_to_scanascii)) {
+        if (scancode >= ARRAY_SIZE(scan_to_keycode)) {
             dprintf(1, "KBD: int09h_handler(): unknown scancode read: 0x%02x!\n"
                     , scancode);
             return;
         }
-        u8 asciicode;
-        struct scaninfo *info = &scan_to_scanascii[scancode];
+        u16 keycode;
+        struct scaninfo *info = &scan_to_keycode[scancode];
         if (flags0 & KF0_ALTACTIVE) {
-            asciicode = GET_GLOBAL(info->alt);
-            scancode = GET_GLOBAL(info->alt) >> 8;
+            keycode = GET_GLOBAL(info->alt);
         } else if (flags0 & KF0_CTRLACTIVE) {
-            asciicode = GET_GLOBAL(info->control);
-            scancode = GET_GLOBAL(info->control) >> 8;
+            keycode = GET_GLOBAL(info->control);
         } else if (flags2 & KF2_LAST_E0
                    && scancode >= 0x47 && scancode <= 0x53) {
             /* extended keys handling */
-            asciicode = 0xe0;
-            scancode = GET_GLOBAL(info->normal) >> 8;
+            keycode = (scancode << 8) | 0xe0;
         } else if (flags0 & (KF0_RSHIFT|KF0_LSHIFT)) {
             /* check if lock state should be ignored because a SHIFT
              * key is pressed */
-
-            if (flags0 & GET_GLOBAL(info->lock_flags)) {
-                asciicode = GET_GLOBAL(info->normal);
-                scancode = GET_GLOBAL(info->normal) >> 8;
-            } else {
-                asciicode = GET_GLOBAL(info->shift);
-                scancode = GET_GLOBAL(info->shift) >> 8;
-            }
+            if (flags0 & GET_GLOBAL(info->lock_flags))
+                keycode = GET_GLOBAL(info->normal);
+            else
+                keycode = GET_GLOBAL(info->shift);
         } else {
             /* check if lock is on */
-            if (flags0 & GET_GLOBAL(info->lock_flags)) {
-                asciicode = GET_GLOBAL(info->shift);
-                scancode = GET_GLOBAL(info->shift) >> 8;
-            } else {
-                asciicode = GET_GLOBAL(info->normal);
-                scancode = GET_GLOBAL(info->normal) >> 8;
-            }
+            if (flags0 & GET_GLOBAL(info->lock_flags))
+                keycode = GET_GLOBAL(info->shift);
+            else
+                keycode = GET_GLOBAL(info->normal);
         }
-        if (scancode==0 && asciicode==0)
-            dprintf(1, "KBD: scancode & asciicode are zero?\n");
-        enqueue_key(scancode, asciicode);
+        if (!keycode)
+            dprintf(1, "KBD: keycode is zero?\n");
+        enqueue_key(keycode);
         break;
     }
     flags2 &= ~KF2_LAST_E0;
