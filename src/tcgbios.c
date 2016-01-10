@@ -71,42 +71,10 @@ struct {
     u8 *          log_area_last_entry;
 } tpm_state VARLOW;
 
-static struct tcpa_descriptor_rev2 *
-find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
-{
-    if (!rsdp) {
-        dprintf(DEBUG_tcg,
-                "TCGBIOS: RSDP was NOT found! -- Disabling interface.\n");
-        return NULL;
-    }
-    struct rsdt_descriptor *rsdt = (void*)rsdp->rsdt_physical_address;
-    if (!rsdt)
-        return NULL;
-
-    u32 length = rsdt->length;
-    u16 off = offsetof(struct rsdt_descriptor, entry);
-    u32 ctr = 0;
-    while ((off + sizeof(rsdt->entry[0])) <= length) {
-        /* try all pointers to structures */
-        struct tcpa_descriptor_rev2 *tcpa = (void*)rsdt->entry[ctr];
-
-        /* valid TCPA ACPI table ? */
-        if (tcpa->signature == TCPA_SIGNATURE
-            && checksum(tcpa, tcpa->length) == 0)
-            return tcpa;
-
-        off += sizeof(rsdt->entry[0]);
-        ctr++;
-    }
-
-    dprintf(DEBUG_tcg, "TCGBIOS: TCPA ACPI was NOT found!\n");
-    return NULL;
-}
-
 static int
 tpm_tcpa_probe(void)
 {
-    struct tcpa_descriptor_rev2 *tcpa = find_tcpa_by_rsdp(RsdpAddr);
+    struct tcpa_descriptor_rev2 *tcpa = find_acpi_table(TCPA_SIGNATURE);
     if (!tcpa)
         return -1;
 

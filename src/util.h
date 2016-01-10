@@ -72,6 +72,7 @@ extern struct rsdp_descriptor *RsdpAddr;
 extern u32 acpi_pm1a_cnt;
 extern u16 acpi_pm_base;
 void *find_acpi_rsdp(void);
+void *find_acpi_table(u32 signature);
 u32 find_resume_vector(void);
 void acpi_reboot(void);
 void find_acpi_features(void);
