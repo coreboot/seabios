@@ -223,6 +223,7 @@ void device_hardware_setup(void);
 void prepareboot(void);
 void startBoot(void);
 void reloc_preinit(void *f, void *arg);
+void code_mutable_preinit(void);
 
 // serial.c
 void serial_setup(void);

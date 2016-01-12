@@ -289,6 +289,7 @@ handle_csm(struct bregs *regs)
 
     dprintf(3, "handle_csm regs %p AX=%04x\n", regs, regs->ax);
 
+    code_mutable_preinit();
     pic_irqmask_write(PICMask);
 
     switch(regs->ax) {

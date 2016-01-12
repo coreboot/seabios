@@ -71,6 +71,7 @@ void xen_preinit(void)
                 signature, base);
         if (strcmp(signature, "XenVMMXenVMM") == 0) {
             /* Set debug_io_port first, so the following messages work. */
+            code_mutable_preinit();
             DebugOutputPort = 0xe9;
             debug_banner();
             dprintf(1, "\nFound Xen hypervisor signature at %x\n", base);

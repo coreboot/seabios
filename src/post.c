@@ -41,10 +41,6 @@ ivt_init(void)
 {
     dprintf(3, "init ivt\n");
 
-    // Setup reset-vector entry point (controls legacy reboots).
-    HaveRunPost = 1;
-    rtc_write(CMOS_RESET_CODE, 0);
-
     // Initialize all vectors to the default handler.
     int i;
     for (i=0; i<256; i++)
@@ -304,10 +300,26 @@ reloc_preinit(void *f, void *arg)
     func(arg);
 }
 
+// Runs after all code is present and prior to any modifications
+void
+code_mutable_preinit(void)
+{
+    if (HaveRunPost)
+        // Already run
+        return;
+    // Setup reset-vector entry point (controls legacy reboots).
+    rtc_write(CMOS_RESET_CODE, 0);
+    barrier();
+    HaveRunPost = 1;
+    barrier();
+}
+
 // Setup for code relocation and then relocate.
 void VISIBLE32INIT
 dopost(void)
 {
+    code_mutable_preinit();
+
     // Detect ram and setup internal malloc.
     qemu_preinit();
     coreboot_preinit();
