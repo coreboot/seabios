@@ -421,6 +421,10 @@ coreboot_cbfs_init(void)
         return;
 
     struct cbfs_header *hdr = *(void **)(CONFIG_CBFS_LOCATION - 4);
+    if ((u32)hdr & 0x03) {
+        dprintf(1, "Invalid CBFS pointer %p\n", hdr);
+        return;
+    }
     if (CONFIG_CBFS_LOCATION && (u32)hdr > CONFIG_CBFS_LOCATION)
         // Looks like the pointer is relative to CONFIG_CBFS_LOCATION
         hdr = (void*)hdr + CONFIG_CBFS_LOCATION;
