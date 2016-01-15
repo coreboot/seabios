@@ -306,17 +306,42 @@ display_uuid(void)
             if (memcmp(uuid, empty_uuid, sizeof(empty_uuid)) == 0)
                 return;
 
-            printf("Machine UUID"
-                   " %02x%02x%02x%02x"
-                   "-%02x%02x"
-                   "-%02x%02x"
-                   "-%02x%02x"
-                   "-%02x%02x%02x%02x%02x%02x\n"
-                   , uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3]
-                   , uuid[ 4], uuid[ 5]
-                   , uuid[ 6], uuid[ 7]
-                   , uuid[ 8], uuid[ 9]
-                   , uuid[10], uuid[11], uuid[12], uuid[13], uuid[14], uuid[15]);
+            /*
+             * According to SMBIOS v2.6 the first three fields are encoded in
+             * little-endian format.  Versions prior to v2.6 did not specify
+             * the encoding, but we follow dmidecode and assume big-endian
+             * encoding.
+             */
+            if (SMBiosAddr->smbios_major_version > 2 ||
+                (SMBiosAddr->smbios_major_version == 2 &&
+                 SMBiosAddr->smbios_minor_version >= 6)) {
+                printf("Machine UUID"
+                       " %02x%02x%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x%02x%02x%02x%02x\n"
+                       , uuid[ 3], uuid[ 2], uuid[ 1], uuid[ 0]
+                       , uuid[ 5], uuid[ 4]
+                       , uuid[ 7], uuid[ 6]
+                       , uuid[ 8], uuid[ 9]
+                       , uuid[10], uuid[11], uuid[12]
+                       , uuid[13], uuid[14], uuid[15]);
+            } else {
+                printf("Machine UUID"
+                       " %02x%02x%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x"
+                       "-%02x%02x%02x%02x%02x%02x\n"
+                       , uuid[ 0], uuid[ 1], uuid[ 2], uuid[ 3]
+                       , uuid[ 4], uuid[ 5]
+                       , uuid[ 6], uuid[ 7]
+                       , uuid[ 8], uuid[ 9]
+                       , uuid[10], uuid[11], uuid[12]
+                       , uuid[13], uuid[14], uuid[15]);
+            }
+
             return;
         }
 }
