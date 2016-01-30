@@ -274,7 +274,7 @@ static const struct pci_device_id pci_device_tbl[] = {
     PCI_DEVICE_CLASS(PCI_ANY_ID, PCI_ANY_ID, PCI_CLASS_STORAGE_IDE,
                      storage_ide_setup),
 
-    /* PIC, IBM, MIPC & MPIC2 */
+    /* PIC, IBM, MPIC & MPIC2 */
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0x0046, PCI_CLASS_SYSTEM_PIC,
                      pic_ibm_setup),
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_IBM, 0xFFFF, PCI_CLASS_SYSTEM_PIC,

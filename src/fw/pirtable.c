@@ -66,7 +66,7 @@ static struct pir_table PIR_TABLE = {
             },
             .slot_nr = 3,
         }, {
-            // 5th slot entry: 4rd PCI slot
+            // 5th slot entry: 4th PCI slot
             .dev = 5<<3,
             .links = {
                 {.link = 0x60, .bitmap = 0xdef8}, // INTA#
@@ -76,7 +76,7 @@ static struct pir_table PIR_TABLE = {
             },
             .slot_nr = 4,
         }, {
-            // 6th slot entry: 5rd PCI slot
+            // 6th slot entry: 5th PCI slot
             .dev = 6<<3,
             .links = {
                 {.link = 0x61, .bitmap = 0xdef8}, // INTA#
