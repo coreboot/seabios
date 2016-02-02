@@ -362,4 +362,24 @@ struct tpm_res_sha1complete {
 #define TPM_PPI_OP_SET_OWNERINSTALL_TRUE 8
 #define TPM_PPI_OP_SET_OWNERINSTALL_FALSE 9
 
+/*
+ * TPM 2
+ */
+
+#define TPM2_NO                     0
+#define TPM2_YES                    1
+
+#define TPM2_SU_CLEAR               0x0000
+#define TPM2_SU_STATE               0x0001
+
+/* TPM 2 command tags */
+#define TPM2_ST_NO_SESSIONS         0x8001
+
+/* TPM 2 commands */
+#define TPM2_CC_SelfTest            0x143
+#define TPM2_CC_Startup             0x144
+
+/* TPM 2 error codes */
+#define TPM2_RC_INITIALIZE          0x100
+
 #endif // tcg.h

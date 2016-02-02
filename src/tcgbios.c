@@ -25,6 +25,10 @@
 #include "util.h" // printf, get_keystroke
 #include "stacks.h" // wait_threads, reset
 
+/****************************************************************
+ * TPM 1.2 commands
+ ****************************************************************/
+
 static const u8 Startup_ST_CLEAR[] = { 0x00, TPM_ST_CLEAR };
 static const u8 Startup_ST_STATE[] = { 0x00, TPM_ST_STATE };
 
@@ -36,8 +40,17 @@ static const u8 PhysicalPresence_NOT_PRESENT_LOCK[] = { 0x00, 0x14 };
 static const u8 CommandFlag_FALSE[1] = { 0x00 };
 static const u8 CommandFlag_TRUE[1]  = { 0x01 };
 
-typedef u8 tpm_ppi_code;
+/****************************************************************
+ * TPM 2 commands
+ ****************************************************************/
 
+static const u8 Startup_SU_CLEAR[] = { 0x00, TPM2_SU_CLEAR};
+static const u8 Startup_SU_STATE[] = { 0x00, TPM2_SU_STATE};
+
+static const u8 TPM2_SelfTest_YES[] =  { TPM2_YES }; /* full test */
+
+
+typedef u8 tpm_ppi_code;
 
 /****************************************************************
  * ACPI TCPA table interface
@@ -191,12 +204,22 @@ tpm_build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append,
 {
     struct {
         struct tpm_req_header trqh;
-        u8 cmd[2];
+        u8 cmd[6];
     } PACKED req = {
         .trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
         .trqh.totlen = cpu_to_be32(sizeof(req.trqh) + append_size),
         .trqh.ordinal = cpu_to_be32(ordinal),
     };
+
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        req.trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD);
+        break;
+    case TPM_VERSION_2:
+        req.trqh.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS);
+        break;
+    }
+
     u8 obuffer[64];
     struct tpm_rsp_header *trsh = (struct tpm_rsp_header *)obuffer;
     u32 obuffer_len = sizeof(obuffer);
@@ -532,14 +555,53 @@ err_exit:
 }
 
 static int
+tpm20_startup(void)
+{
+    int ret = tpm_build_and_send_cmd(0, TPM2_CC_Startup,
+                                     Startup_SU_CLEAR,
+                                     sizeof(Startup_SU_CLEAR),
+                                     TPM_DURATION_TYPE_SHORT);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_Startup(SU_CLEAR) = 0x%08x\n",
+            ret);
+
+    if (CONFIG_COREBOOT && ret == TPM2_RC_INITIALIZE)
+        /* with other firmware on the system the TPM may already have been
+         * initialized
+         */
+        ret = 0;
+
+    if (ret)
+        goto err_exit;
+
+    ret = tpm_build_and_send_cmd(0, TPM2_CC_SelfTest,
+                                 TPM2_SelfTest_YES,
+                                 sizeof(TPM2_SelfTest_YES),
+                                 TPM_DURATION_TYPE_LONG);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_SelfTest = 0x%08x\n",
+            ret);
+
+    if (ret)
+        goto err_exit;
+
+    return 0;
+
+err_exit:
+    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
+
+    tpm_set_failure();
+    return -1;
+}
+
+static int
 tpm_startup(void)
 {
     switch (TPM_version) {
     case TPM_VERSION_1_2:
         return tpm12_startup();
     case TPM_VERSION_2:
-        // FIXME: missing code
-        return -1;
+        return tpm20_startup();
     }
     return -1;
 }
@@ -694,8 +756,25 @@ tpm_s3_resume(void)
                                      TPM_DURATION_TYPE_SHORT);
         break;
     case TPM_VERSION_2:
-        // FIXME: missing code
-        ret = -1;
+        ret = tpm_build_and_send_cmd(0, TPM2_CC_Startup,
+                                     Startup_SU_STATE,
+                                     sizeof(Startup_SU_STATE),
+                                     TPM_DURATION_TYPE_SHORT);
+
+        dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_Startup(SU_STATE) = 0x%08x\n",
+                ret);
+
+        if (ret)
+            goto err_exit;
+
+
+        ret = tpm_build_and_send_cmd(0, TPM2_CC_SelfTest,
+                                     TPM2_SelfTest_YES, sizeof(TPM2_SelfTest_YES),
+                                     TPM_DURATION_TYPE_LONG);
+
+        dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_SelfTest() = 0x%08x\n",
+                ret);
+
         break;
     }
 
