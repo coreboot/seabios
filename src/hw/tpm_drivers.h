@@ -10,7 +10,13 @@ enum tpmDurationType {
     TPM_DURATION_TYPE_LONG,
 };
 
-int tpmhw_probe(void);
+typedef u8 TPMVersion;
+
+#define TPM_VERSION_NONE 0
+#define TPM_VERSION_1_2  1
+#define TPM_VERSION_2    2
+
+TPMVersion tpmhw_probe(void);
 int tpmhw_is_present(void);
 struct tpm_req_header;
 int tpmhw_transmit(u8 locty, struct tpm_req_header *req,
@@ -33,6 +39,7 @@ void tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3]);
 #define TIS_REG_INTF_CAPABILITY        0x14
 #define TIS_REG_STS                    0x18
 #define TIS_REG_DATA_FIFO              0x24
+#define TIS_REG_IFACE_ID               0x30
 #define TIS_REG_DID_VID                0xf00
 #define TIS_REG_RID                    0xf04
 

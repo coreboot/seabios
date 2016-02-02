@@ -62,6 +62,8 @@ struct {
 
 static int TPM_has_physical_presence;
 
+static TPMVersion TPM_version;
+
 static struct tcpa_descriptor_rev2 *
 find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
 {
@@ -498,11 +500,15 @@ tpm_setup(void)
     if (!CONFIG_TCGBIOS)
         return;
 
-    int ret = tpmhw_probe();
-    if (ret)
+    TPM_version = tpmhw_probe();
+    if (TPM_version == TPM_VERSION_NONE)
         return;
 
-    ret = tpm_tcpa_probe();
+    dprintf(DEBUG_tcg,
+            "TCGBIOS: Detected a TPM %s.\n",
+             (TPM_version == TPM_VERSION_1_2) ? "1.2" : "2");
+
+    int ret = tpm_tcpa_probe();
     if (ret)
         return;
 

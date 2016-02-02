@@ -23,6 +23,7 @@ struct tpm_driver {
     u32 *durations;
     void (*set_timeouts)(u32 timeouts[4], u32 durations[3]);
     u32 (*probe)(void);
+    TPMVersion (*get_tpm_version)(void);
     u32 (*init)(void);
     u32 (*activate)(u8 locty);
     u32 (*ready)(void);
@@ -56,7 +57,6 @@ static const u32 tpm_default_durations[3] = {
 static u32 tpm_default_dur[3];
 static u32 tpm_default_to[4];
 
-
 /* if device is not there, return '0', '1' otherwise */
 static u32 tis_probe(void)
 {
@@ -69,7 +69,37 @@ static u32 tis_probe(void)
     if ((didvid != 0) && (didvid != 0xffffffff))
         rc = 1;
 
+    /* TPM 2 has an interface register */
+    u32 ifaceid = readl(TIS_REG(0, TIS_REG_IFACE_ID));
+
+    if ((ifaceid & 0xf) != 0xf) {
+        if ((ifaceid & 0xf) == 1) {
+            /* CRB is active; no TIS */
+            return 0;
+        }
+        if ((ifaceid & (1 << 13)) == 0) {
+            /* TIS cannot be selected */
+            return 0;
+        }
+        /* write of 0 to bits 17-18 selects TIS */
+        writel(TIS_REG(0, TIS_REG_IFACE_ID), 0);
+        /* since we only support TIS, we lock it */
+        writel(TIS_REG(0, TIS_REG_IFACE_ID), (1 << 19));
+    }
+
     return rc;
+}
+
+static TPMVersion tis_get_tpm_version(void)
+{
+    /* TPM 2 has an interface register */
+    u32 ifaceid = readl(TIS_REG(0, TIS_REG_IFACE_ID));
+
+    if ((ifaceid & 0xf) == 0) {
+        /* TPM 2 */
+        return TPM_VERSION_2;
+    }
+    return TPM_VERSION_1_2;
 }
 
 static u32 tis_init(void)
@@ -323,7 +353,7 @@ struct tpm_driver tpm_drivers[TPM_NUM_DRIVERS] = {
 
 static u8 TPMHW_driver_to_use = TPM_INVALID_DRIVER;
 
-int
+TPMVersion
 tpmhw_probe(void)
 {
     unsigned int i;
@@ -332,10 +362,10 @@ tpmhw_probe(void)
         if (td->probe() != 0) {
             td->init();
             TPMHW_driver_to_use = i;
-            return 0;
+            return tis_get_tpm_version();
         }
     }
-    return -1;
+    return TPM_VERSION_NONE;
 }
 
 int
