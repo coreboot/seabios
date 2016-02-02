@@ -485,21 +485,15 @@ usb_enumerate(struct usbhub_s *hub)
 }
 
 void
-__usb_setup(void *data)
-{
-    dprintf(3, "init usb\n");
-    xhci_setup();
-    ehci_setup();
-    uhci_setup();
-    ohci_setup();
-}
-
-void
 usb_setup(void)
 {
     ASSERT32FLAT();
     if (! CONFIG_USB)
         return;
+    dprintf(3, "init usb\n");
     usb_time_sigatt = romfile_loadint("etc/usb-time-sigatt", USB_TIME_SIGATT);
-    run_thread(__usb_setup, NULL);
+    xhci_setup();
+    ehci_setup();
+    uhci_setup();
+    ohci_setup();
 }

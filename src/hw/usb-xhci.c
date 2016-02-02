@@ -534,7 +534,6 @@ xhci_controller_setup(struct pci_device *pci)
     }
     memset(xhci, 0, sizeof(*xhci));
 
-    wait_preempt();  // Avoid pci_config_readl when preempting
     xhci->baseaddr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
         & PCI_BASE_ADDRESS_MEM_MASK;
     xhci->caps  = (void*)(xhci->baseaddr);

@@ -250,7 +250,6 @@ uhci_controller_setup(struct pci_device *pci)
         warn_noalloc();
         return;
     }
-    wait_preempt();  // Avoid pci_config_readl when preempting
     memset(cntl, 0, sizeof(*cntl));
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_UHCI;

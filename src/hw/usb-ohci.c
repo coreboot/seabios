@@ -277,7 +277,6 @@ ohci_controller_setup(struct pci_device *pci)
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_OHCI;
 
-    wait_preempt();  // Avoid pci_config_readl when preempting
     u16 bdf = pci->bdf;
     u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
     cntl->regs = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
