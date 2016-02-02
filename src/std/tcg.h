@@ -372,7 +372,9 @@ struct tpm_res_sha1complete {
 #define TPM2_SU_CLEAR               0x0000
 #define TPM2_SU_STATE               0x0001
 
+#define TPM2_RH_OWNER               0x40000001
 #define TPM2_RS_PW                  0x40000009
+#define TPM2_RH_ENDORSEMENT         0x4000000b
 #define TPM2_RH_PLATFORM            0x4000000c
 
 #define TPM2_ALG_SHA1               0x0004
@@ -382,6 +384,7 @@ struct tpm_res_sha1complete {
 #define TPM2_ST_SESSIONS            0x8002
 
 /* TPM 2 commands */
+#define TPM2_CC_HierarchyControl    0x121
 #define TPM2_CC_Clear               0x126
 #define TPM2_CC_ClearControl        0x127
 #define TPM2_CC_HierarchyChangeAuth 0x129
@@ -458,6 +461,15 @@ struct tpm2_req_clear {
     u32 authhandle;
     u32 authblocksize;
     struct tpm2_authblock authblock;
+} PACKED;
+
+struct tpm2_req_hierarchycontrol {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    u32 enable;
+    u8 state;
 } PACKED;
 
 #endif // tcg.h

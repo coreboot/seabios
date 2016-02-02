@@ -239,6 +239,38 @@ tpm_build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append,
     return ret;
 }
 
+static int
+tpm20_hierarchycontrol(u32 hierarchy, u8 state)
+{
+    /* we will try to deactivate the TPM now - ignoring all errors */
+    struct tpm2_req_hierarchycontrol trh = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trh)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_HierarchyControl),
+        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
+        .authblocksize = cpu_to_be32(sizeof(trh.authblock)),
+        .authblock = {
+            .handle = cpu_to_be32(TPM2_RS_PW),
+            .noncesize = cpu_to_be16(0),
+            .contsession = TPM2_YES,
+            .pwdsize = cpu_to_be16(0),
+        },
+        .enable = cpu_to_be32(hierarchy),
+        .state = state,
+    };
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &trh.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_HierarchyControl = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
 static void
 tpm_set_failure(void)
 {
@@ -253,7 +285,8 @@ tpm_set_failure(void)
                                NULL, 0, TPM_DURATION_TYPE_SHORT);
         break;
     case TPM_VERSION_2:
-        // FIXME: missing code
+        tpm20_hierarchycontrol(TPM2_RH_ENDORSEMENT, TPM2_NO);
+        tpm20_hierarchycontrol(TPM2_RH_OWNER, TPM2_NO);
         break;
     }
 
