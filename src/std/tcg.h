@@ -372,14 +372,58 @@ struct tpm_res_sha1complete {
 #define TPM2_SU_CLEAR               0x0000
 #define TPM2_SU_STATE               0x0001
 
+#define TPM2_RS_PW                  0x40000009
+#define TPM2_RH_PLATFORM            0x4000000c
+
 /* TPM 2 command tags */
 #define TPM2_ST_NO_SESSIONS         0x8001
+#define TPM2_ST_SESSIONS            0x8002
 
 /* TPM 2 commands */
+#define TPM2_CC_HierarchyChangeAuth 0x129
 #define TPM2_CC_SelfTest            0x143
 #define TPM2_CC_Startup             0x144
+#define TPM2_CC_StirRandom          0x146
+#define TPM2_CC_GetRandom           0x17b
 
 /* TPM 2 error codes */
 #define TPM2_RC_INITIALIZE          0x100
+
+/* TPM 2 data structures */
+
+struct tpm2b_stir {
+    u16 size;
+    u64 stir;
+} PACKED;
+
+struct tpm2_req_getrandom {
+    struct tpm_req_header hdr;
+    u16 bytesRequested;
+} PACKED;
+
+struct tpm2b_20 {
+    u16 size;
+    u8 buffer[20];
+} PACKED;
+
+struct tpm2_res_getrandom {
+    struct tpm_rsp_header hdr;
+    struct tpm2b_20 rnd;
+} PACKED;
+
+struct tpm2_authblock {
+    u32 handle;
+    u16 noncesize;  /* always 0 */
+    u8 contsession; /* always TPM2_YES */
+    u16 pwdsize;    /* always 0 */
+} PACKED;
+
+struct tpm2_req_hierarchychangeauth {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    struct tpm2b_20 newAuth;
+} PACKED;
 
 #endif // tcg.h

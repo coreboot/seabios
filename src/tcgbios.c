@@ -204,7 +204,7 @@ tpm_build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append,
 {
     struct {
         struct tpm_req_header trqh;
-        u8 cmd[6];
+        u8 cmd[10];
     } PACKED req = {
         .trqh.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
         .trqh.totlen = cpu_to_be32(sizeof(req.trqh) + append_size),
@@ -657,6 +657,113 @@ tpm_setup(void)
     tpm_add_action(2, "Start Option ROM Scan");
 }
 
+static int
+tpm20_stirrandom(void)
+{
+    struct tpm2b_stir stir = {
+        .size = cpu_to_be16(sizeof(stir.stir)),
+        .stir = rdtscll(),
+    };
+    /* set more bits to stir with */
+    stir.stir += swab64(rdtscll());
+
+    int ret = tpm_build_and_send_cmd(0, TPM2_CC_StirRandom,
+                                     (u8 *)&stir, sizeof(stir),
+                                     TPM_DURATION_TYPE_SHORT);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_StirRandom = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_getrandom(u8 *buf, u16 buf_len)
+{
+    struct tpm2_res_getrandom rsp;
+
+    if (buf_len > sizeof(rsp.rnd.buffer))
+        return -1;
+
+    struct tpm2_req_getrandom trgr = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trgr)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_GetRandom),
+        .bytesRequested = cpu_to_be16(buf_len),
+    };
+    u32 resp_length = sizeof(rsp);
+
+    int ret = tpmhw_transmit(0, &trgr.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.hdr.errcode)
+        ret = -1;
+    else
+        memcpy(buf, rsp.rnd.buffer, buf_len);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_GetRandom = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_hierarchychangeauth(u8 auth[20])
+{
+    struct tpm2_req_hierarchychangeauth trhca = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trhca)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_HierarchyChangeAuth),
+        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
+        .authblocksize = cpu_to_be32(sizeof(trhca.authblock)),
+        .authblock = {
+            .handle = cpu_to_be32(TPM2_RS_PW),
+            .noncesize = cpu_to_be16(0),
+            .contsession = TPM2_YES,
+            .pwdsize = cpu_to_be16(0),
+        },
+        .newAuth = {
+            .size = cpu_to_be16(sizeof(trhca.newAuth.buffer)),
+        },
+    };
+    memcpy(trhca.newAuth.buffer, auth, sizeof(trhca.newAuth.buffer));
+
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &trhca.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_HierarchyChangeAuth = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static void
+tpm20_prepboot(void)
+{
+    int ret = tpm20_stirrandom();
+    if (ret)
+         goto err_exit;
+
+    u8 auth[20];
+    ret = tpm20_getrandom(&auth[0], sizeof(auth));
+    if (ret)
+        goto err_exit;
+
+    ret = tpm20_hierarchychangeauth(auth);
+    if (ret)
+        goto err_exit;
+
+    return;
+
+err_exit:
+    dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
+
+    tpm_set_failure();
+}
+
 void
 tpm_prepboot(void)
 {
@@ -672,7 +779,7 @@ tpm_prepboot(void)
                                    TPM_DURATION_TYPE_SHORT);
         break;
     case TPM_VERSION_2:
-        // FIXME: missing code
+        tpm20_prepboot();
         break;
     }
 
