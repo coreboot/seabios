@@ -1441,6 +1441,87 @@ tpm12_process_cfg(tpm_ppi_code msgCode, int verbose)
 }
 
 static int
+tpm20_clearcontrol(u8 disable, int verbose)
+{
+    struct tpm2_req_clearcontrol trc = {
+        .hdr.tag     = cpu_to_be16(TPM2_ST_SESSIONS),
+        .hdr.totlen  = cpu_to_be32(sizeof(trc)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_ClearControl),
+        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
+        .authblocksize = cpu_to_be32(sizeof(trc.authblock)),
+        .authblock = {
+            .handle = cpu_to_be32(TPM2_RS_PW),
+            .noncesize = cpu_to_be16(0),
+            .contsession = TPM2_YES,
+            .pwdsize = cpu_to_be16(0),
+        },
+        .disable = disable,
+    };
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &trc.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_ClearControl = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_clear(void)
+{
+    struct tpm2_req_clear trq = {
+        .hdr.tag     = cpu_to_be16(TPM2_ST_SESSIONS),
+        .hdr.totlen  = cpu_to_be32(sizeof(trq)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_Clear),
+        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
+        .authblocksize = cpu_to_be32(sizeof(trq.authblock)),
+        .authblock = {
+            .handle = cpu_to_be32(TPM2_RS_PW),
+            .noncesize = cpu_to_be16(0),
+            .contsession = TPM2_YES,
+            .pwdsize = cpu_to_be16(0),
+        },
+    };
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &trq.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_Clear = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_process_cfg(tpm_ppi_code msgCode, int verbose)
+{
+    int ret = 0;
+
+    switch (msgCode) {
+        case TPM_PPI_OP_NOOP: /* no-op */
+            break;
+
+        case TPM_PPI_OP_CLEAR:
+            ret = tpm20_clearcontrol(0, verbose);
+            if (!ret)
+                 ret = tpm20_clear();
+            break;
+    }
+
+    if (ret)
+        printf("Op %d: An error occurred: 0x%x\n", msgCode, ret);
+
+    return ret;
+}
+
+static int
 tpm12_get_tpm_state(void)
 {
     int state = 0;
@@ -1614,6 +1695,40 @@ tpm12_menu(void)
     }
 }
 
+static void
+tpm20_menu(void)
+{
+    int scan_code;
+    tpm_ppi_code msgCode;
+
+    for (;;) {
+        printf("1. Clear TPM\n");
+
+        printf("\nIf no change is desired or if this menu was reached by "
+               "mistake, press ESC to\n"
+               "reboot the machine.\n");
+
+        msgCode = TPM_PPI_OP_NOOP;
+
+        while ((scan_code = get_keystroke(1000)) == ~0)
+            ;
+
+        switch (scan_code) {
+        case 1:
+            // ESC
+            reset();
+            break;
+        case 2:
+            msgCode = TPM_PPI_OP_CLEAR;
+            break;
+        default:
+            continue;
+        }
+
+        tpm20_process_cfg(msgCode, 0);
+    }
+}
+
 void
 tpm_menu(void)
 {
@@ -1629,7 +1744,7 @@ tpm_menu(void)
         tpm12_menu();
         break;
     case TPM_VERSION_2:
-        // FIXME: missing code
+        tpm20_menu();
         break;
     }
 }

@@ -382,6 +382,8 @@ struct tpm_res_sha1complete {
 #define TPM2_ST_SESSIONS            0x8002
 
 /* TPM 2 commands */
+#define TPM2_CC_Clear               0x126
+#define TPM2_CC_ClearControl        0x127
 #define TPM2_CC_HierarchyChangeAuth 0x129
 #define TPM2_CC_SelfTest            0x143
 #define TPM2_CC_Startup             0x144
@@ -441,6 +443,21 @@ struct tpm2_req_extend {
     u32 authblocksize;
     struct tpm2_authblock authblock;
     struct tpm2_digest_value digest;
+} PACKED;
+
+struct tpm2_req_clearcontrol {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    u8 disable;
+} PACKED;
+
+struct tpm2_req_clear {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
 } PACKED;
 
 #endif // tcg.h
