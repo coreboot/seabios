@@ -13,6 +13,7 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_4
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
+#include "usb-ehci.h" // ehci_wait_controllers
 #include "usb-uhci.h" // USBLEGSUP
 #include "util.h" // msleep
 #include "x86.h" // outw
@@ -94,6 +95,9 @@ static int
 check_uhci_ports(struct usb_uhci_s *cntl)
 {
     ASSERT32FLAT();
+    // Wait for ehci init - in case this is a "companion controller"
+    ehci_wait_controllers();
+
     struct usbhub_s hub;
     memset(&hub, 0, sizeof(hub));
     hub.cntl = &cntl->usb;

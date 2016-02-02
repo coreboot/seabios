@@ -337,10 +337,14 @@ ehci_setup(void)
         if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_EHCI)
             ehci_controller_setup(pci);
     }
+}
 
-    // Wait for all EHCI controllers to initialize.  This forces OHCI/UHCI
-    // setup to always be after any EHCI ports are routed to EHCI.
-    while (PendingEHCI)
+// Wait for all EHCI controllers to initialize.  This forces OHCI/UHCI
+// setup to always be after any EHCI ports are routed to EHCI.
+void
+ehci_wait_controllers(void)
+{
+    while (CONFIG_USB_EHCI && CONFIG_THREADS && PendingEHCI)
         yield();
 }
 

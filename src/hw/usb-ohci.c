@@ -14,6 +14,7 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
 #include "usb.h" // struct usb_s
+#include "usb-ehci.h" // ehci_wait_controllers
 #include "usb-ohci.h" // struct ohci_hcca
 #include "util.h" // msleep
 #include "x86.h" // readl
@@ -96,6 +97,8 @@ static int
 check_ohci_ports(struct usb_ohci_s *cntl)
 {
     ASSERT32FLAT();
+    // Wait for ehci init - in case this is a "companion controller"
+    ehci_wait_controllers();
     // Turn on power for all devices on roothub.
     u32 rha = readl(&cntl->regs->roothub_a);
     rha &= ~(RH_A_PSM | RH_A_OCPM);
