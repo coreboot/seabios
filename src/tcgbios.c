@@ -287,24 +287,34 @@ determine_timeouts(void)
 }
 
 static int
-tpm_log_extend_event(struct pcpes *pcpes, const void *event)
+tpm_extend(u32 pcrindex, const u8 *digest)
 {
-    if (pcpes->pcrindex >= 24)
+    if (pcrindex >= 24)
         return -1;
 
     struct tpm_req_extend tre = {
         .hdr.tag     = cpu_to_be16(TPM_TAG_RQU_CMD),
         .hdr.totlen  = cpu_to_be32(sizeof(tre)),
         .hdr.ordinal = cpu_to_be32(TPM_ORD_Extend),
-        .pcrindex    = cpu_to_be32(pcpes->pcrindex),
+        .pcrindex    = cpu_to_be32(pcrindex),
     };
-    memcpy(tre.digest, pcpes->digest, sizeof(tre.digest));
+    memcpy(tre.digest, digest, sizeof(tre.digest));
 
     struct tpm_rsp_extend rsp;
     u32 resp_length = sizeof(rsp);
     int ret = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
                              TPM_DURATION_TYPE_SHORT);
     if (ret || resp_length != sizeof(rsp) || rsp.hdr.errcode)
+        return -1;
+
+    return 0;
+}
+
+static int
+tpm_log_extend_event(struct pcpes *pcpes, const void *event)
+{
+    int ret = tpm_extend(pcpes->pcrindex, pcpes->digest);
+    if (ret)
         return -1;
 
     return tpm_log_event(pcpes, event);
