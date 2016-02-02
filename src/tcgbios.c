@@ -171,7 +171,13 @@ tpm_is_working(void)
 int
 tpm_can_show_menu(void)
 {
-    return tpm_is_working() && TPM_has_physical_presence;
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        return tpm_is_working() && TPM_has_physical_presence;
+    case TPM_VERSION_2:
+        return tpm_is_working();
+    }
+    return 0;
 }
 
 /*
@@ -180,8 +186,8 @@ tpm_can_show_menu(void)
  * the custom part per command) and expect a response of the given size.
  */
 static int
-build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
-                   enum tpmDurationType to_t)
+tpm_build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append,
+                       u32 append_size, enum tpmDurationType to_t)
 {
     struct {
         struct tpm_req_header trqh;
@@ -213,19 +219,26 @@ build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append, u32 append_size,
 static void
 tpm_set_failure(void)
 {
-    /*
-     * We will try to deactivate the TPM now - ignoring all errors
-     * Physical presence is asserted.
-     */
+   switch (TPM_version) {
+   case TPM_VERSION_1_2:
+        /*
+         * We will try to deactivate the TPM now - ignoring all errors
+         * Physical presence is asserted.
+         */
 
-    build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
-                       NULL, 0, TPM_DURATION_TYPE_SHORT);
+        tpm_build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
+                               NULL, 0, TPM_DURATION_TYPE_SHORT);
+        break;
+    case TPM_VERSION_2:
+        // FIXME: missing code
+        break;
+    }
 
     TPM_working = 0;
 }
 
 static int
-tpm_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
+tpm12_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
 {
     struct tpm_req_getcap trgc = {
         .hdr.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
@@ -249,17 +262,17 @@ tpm_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
 }
 
 static int
-determine_timeouts(void)
+tpm12_determine_timeouts(void)
 {
     struct tpm_res_getcap_timeouts timeouts;
-    int ret = tpm_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_TIS_TIMEOUT
-                                 , &timeouts.hdr, sizeof(timeouts));
+    int ret = tpm12_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_TIS_TIMEOUT
+                                   , &timeouts.hdr, sizeof(timeouts));
     if (ret)
         return ret;
 
     struct tpm_res_getcap_durations durations;
-    ret = tpm_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_DURATION
-                             , &durations.hdr, sizeof(durations));
+    ret = tpm12_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_DURATION
+                               , &durations.hdr, sizeof(durations));
     if (ret)
         return ret;
 
@@ -287,11 +300,8 @@ determine_timeouts(void)
 }
 
 static int
-tpm_extend(u32 pcrindex, const u8 *digest)
+tpm12_extend(u32 pcrindex, const u8 *digest)
 {
-    if (pcrindex >= 24)
-        return -1;
-
     struct tpm_req_extend tre = {
         .hdr.tag     = cpu_to_be16(TPM_TAG_RQU_CMD),
         .hdr.totlen  = cpu_to_be32(sizeof(tre)),
@@ -308,6 +318,22 @@ tpm_extend(u32 pcrindex, const u8 *digest)
         return -1;
 
     return 0;
+}
+
+static int
+tpm_extend(u32 pcrindex, const u8 *digest)
+{
+    if (pcrindex >= 24)
+        return -1;
+
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        return tpm12_extend(pcrindex, digest);
+    case TPM_VERSION_2:
+        // FIXME: missing code
+        return -1;
+    }
+    return -1;
 }
 
 static int
@@ -410,13 +436,13 @@ tpm_smbios_measure(void)
 }
 
 static int
-read_permanent_flags(char *buf, int buf_len)
+tpm12_read_permanent_flags(char *buf, int buf_len)
 {
     memset(buf, 0, buf_len);
 
     struct tpm_res_getcap_perm_flags pf;
-    int ret = tpm_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
-                                 , &pf.hdr, sizeof(pf));
+    int ret = tpm12_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
+                                   , &pf.hdr, sizeof(pf));
     if (ret)
         return -1;
 
@@ -426,17 +452,17 @@ read_permanent_flags(char *buf, int buf_len)
 }
 
 static int
-assert_physical_presence(void)
+tpm12_assert_physical_presence(void)
 {
-    int ret = build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                                 PhysicalPresence_PRESENT,
-                                 sizeof(PhysicalPresence_PRESENT),
-                                 TPM_DURATION_TYPE_SHORT);
+    int ret = tpm_build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                     PhysicalPresence_PRESENT,
+                                     sizeof(PhysicalPresence_PRESENT),
+                                     TPM_DURATION_TYPE_SHORT);
     if (!ret)
         return 0;
 
     struct tpm_permanent_flags pf;
-    ret = read_permanent_flags((char *)&pf, sizeof(pf));
+    ret = tpm12_read_permanent_flags((char *)&pf, sizeof(pf));
     if (ret)
         return -1;
 
@@ -448,26 +474,27 @@ assert_physical_presence(void)
 
     if (!pf.flags[PERM_FLAG_IDX_PHYSICAL_PRESENCE_LIFETIME_LOCK]
         && !pf.flags[PERM_FLAG_IDX_PHYSICAL_PRESENCE_CMD_ENABLE]) {
-        build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                           PhysicalPresence_CMD_ENABLE,
-                           sizeof(PhysicalPresence_CMD_ENABLE),
-                           TPM_DURATION_TYPE_SHORT);
+        tpm_build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                               PhysicalPresence_CMD_ENABLE,
+                               sizeof(PhysicalPresence_CMD_ENABLE),
+                               TPM_DURATION_TYPE_SHORT);
 
-        return build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                                  PhysicalPresence_PRESENT,
-                                  sizeof(PhysicalPresence_PRESENT),
-                                  TPM_DURATION_TYPE_SHORT);
+        return tpm_build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                      PhysicalPresence_PRESENT,
+                                      sizeof(PhysicalPresence_PRESENT),
+                                      TPM_DURATION_TYPE_SHORT);
     }
     return -1;
 }
 
 static int
-tpm_startup(void)
+tpm12_startup(void)
 {
     dprintf(DEBUG_tcg, "TCGBIOS: Starting with TPM_Startup(ST_CLEAR)\n");
-    int ret = build_and_send_cmd(0, TPM_ORD_Startup,
-                                 Startup_ST_CLEAR, sizeof(Startup_ST_CLEAR),
-                                 TPM_DURATION_TYPE_SHORT);
+    int ret = tpm_build_and_send_cmd(0, TPM_ORD_Startup,
+                                     Startup_ST_CLEAR,
+                                     sizeof(Startup_ST_CLEAR),
+                                     TPM_DURATION_TYPE_SHORT);
     if (CONFIG_COREBOOT && ret == TPM_INVALID_POSTINIT)
         /* with other firmware on the system the TPM may already have been
          * initialized
@@ -477,21 +504,21 @@ tpm_startup(void)
         goto err_exit;
 
     /* assertion of physical presence is only possible after startup */
-    ret = assert_physical_presence();
+    ret = tpm12_assert_physical_presence();
     if (!ret)
         TPM_has_physical_presence = 1;
 
-    ret = determine_timeouts();
+    ret = tpm12_determine_timeouts();
     if (ret)
         return -1;
 
-    ret = build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
-                             TPM_DURATION_TYPE_LONG);
+    ret = tpm_build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
+                                 TPM_DURATION_TYPE_LONG);
     if (ret)
         goto err_exit;
 
-    ret = build_and_send_cmd(3, TSC_ORD_ResetEstablishmentBit, NULL, 0,
-                             TPM_DURATION_TYPE_SHORT);
+    ret = tpm_build_and_send_cmd(3, TSC_ORD_ResetEstablishmentBit, NULL, 0,
+                                 TPM_DURATION_TYPE_SHORT);
     if (ret && ret != TPM_BAD_LOCALITY)
         goto err_exit;
 
@@ -501,6 +528,19 @@ err_exit:
     dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
 
     tpm_set_failure();
+    return -1;
+}
+
+static int
+tpm_startup(void)
+{
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        return tpm12_startup();
+    case TPM_VERSION_2:
+        // FIXME: missing code
+        return -1;
+    }
     return -1;
 }
 
@@ -541,11 +581,18 @@ tpm_prepboot(void)
     if (!CONFIG_TCGBIOS)
         return;
 
-    if (TPM_has_physical_presence)
-        build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
-                           PhysicalPresence_NOT_PRESENT_LOCK,
-                           sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
-                           TPM_DURATION_TYPE_SHORT);
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        if (TPM_has_physical_presence)
+            tpm_build_and_send_cmd(0, TPM_ORD_PhysicalPresence,
+                                   PhysicalPresence_NOT_PRESENT_LOCK,
+                                   sizeof(PhysicalPresence_NOT_PRESENT_LOCK),
+                                   TPM_DURATION_TYPE_SHORT);
+        break;
+    case TPM_VERSION_2:
+        // FIXME: missing code
+        break;
+    }
 
     tpm_add_action(4, "Calling INT 19h");
     tpm_add_event_separators();
@@ -637,9 +684,21 @@ tpm_s3_resume(void)
 
     dprintf(DEBUG_tcg, "TCGBIOS: Resuming with TPM_Startup(ST_STATE)\n");
 
-    int ret = build_and_send_cmd(0, TPM_ORD_Startup,
-                                 Startup_ST_STATE, sizeof(Startup_ST_STATE),
-                                 TPM_DURATION_TYPE_SHORT);
+    int ret = -1;
+
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        ret = tpm_build_and_send_cmd(0, TPM_ORD_Startup,
+                                     Startup_ST_STATE,
+                                     sizeof(Startup_ST_STATE),
+                                     TPM_DURATION_TYPE_SHORT);
+        break;
+    case TPM_VERSION_2:
+        // FIXME: missing code
+        ret = -1;
+        break;
+    }
+
     if (ret)
         goto err_exit;
 
@@ -941,11 +1000,11 @@ tpm_interrupt_handler32(struct bregs *regs)
  ****************************************************************/
 
 static int
-read_has_owner(int *has_owner)
+tpm12_read_has_owner(int *has_owner)
 {
     struct tpm_res_getcap_ownerauth oauth;
-    int ret = tpm_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_OWNER
-                                 , &oauth.hdr, sizeof(oauth));
+    int ret = tpm12_get_capability(TPM_CAP_PROPERTY, TPM_CAP_PROP_OWNER
+                                   , &oauth.hdr, sizeof(oauth));
     if (ret)
         return -1;
 
@@ -955,19 +1014,19 @@ read_has_owner(int *has_owner)
 }
 
 static int
-enable_tpm(int enable, int verbose)
+tpm12_enable_tpm(int enable, int verbose)
 {
     struct tpm_permanent_flags pf;
-    int ret = read_permanent_flags((char *)&pf, sizeof(pf));
+    int ret = tpm12_read_permanent_flags((char *)&pf, sizeof(pf));
     if (ret)
         return -1;
 
     if (pf.flags[PERM_FLAG_IDX_DISABLE] && !enable)
         return 0;
 
-    ret = build_and_send_cmd(0, enable ? TPM_ORD_PhysicalEnable
-                                       : TPM_ORD_PhysicalDisable,
-                             NULL, 0, TPM_DURATION_TYPE_SHORT);
+    ret = tpm_build_and_send_cmd(0, enable ? TPM_ORD_PhysicalEnable
+                                           : TPM_ORD_PhysicalDisable,
+                                 NULL, 0, TPM_DURATION_TYPE_SHORT);
     if (ret) {
         if (enable)
             dprintf(DEBUG_tcg, "TCGBIOS: Enabling the TPM failed.\n");
@@ -978,10 +1037,10 @@ enable_tpm(int enable, int verbose)
 }
 
 static int
-activate_tpm(int activate, int allow_reset, int verbose)
+tpm12_activate_tpm(int activate, int allow_reset, int verbose)
 {
     struct tpm_permanent_flags pf;
-    int ret = read_permanent_flags((char *)&pf, sizeof(pf));
+    int ret = tpm12_read_permanent_flags((char *)&pf, sizeof(pf));
     if (ret)
         return -1;
 
@@ -991,12 +1050,12 @@ activate_tpm(int activate, int allow_reset, int verbose)
     if (pf.flags[PERM_FLAG_IDX_DISABLE])
         return 0;
 
-    ret = build_and_send_cmd(0, TPM_ORD_PhysicalSetDeactivated,
-                             activate ? CommandFlag_FALSE
-                                      : CommandFlag_TRUE,
-                             activate ? sizeof(CommandFlag_FALSE)
-                                      : sizeof(CommandFlag_TRUE),
-                             TPM_DURATION_TYPE_SHORT);
+    ret = tpm_build_and_send_cmd(0, TPM_ORD_PhysicalSetDeactivated,
+                                 activate ? CommandFlag_FALSE
+                                          : CommandFlag_TRUE,
+                                 activate ? sizeof(CommandFlag_FALSE)
+                                          : sizeof(CommandFlag_TRUE),
+                                 TPM_DURATION_TYPE_SHORT);
     if (ret)
         return ret;
 
@@ -1013,20 +1072,21 @@ activate_tpm(int activate, int allow_reset, int verbose)
 }
 
 static int
-enable_activate(int allow_reset, int verbose)
+tpm12_enable_activate(int allow_reset, int verbose)
 {
-    int ret = enable_tpm(1, verbose);
+    int ret = tpm12_enable_tpm(1, verbose);
     if (ret)
         return ret;
 
-    return activate_tpm(1, allow_reset, verbose);
+    return tpm12_activate_tpm(1, allow_reset, verbose);
 }
 
 static int
-force_clear(int enable_activate_before, int enable_activate_after, int verbose)
+tpm12_force_clear(int enable_activate_before, int enable_activate_after,
+                  int verbose)
 {
     int has_owner;
-    int ret = read_has_owner(&has_owner);
+    int ret = tpm12_read_has_owner(&has_owner);
     if (ret)
         return -1;
     if (!has_owner) {
@@ -1036,7 +1096,7 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
     }
 
     if (enable_activate_before) {
-        ret = enable_activate(0, verbose);
+        ret = tpm12_enable_activate(0, verbose);
         if (ret) {
             dprintf(DEBUG_tcg,
                     "TCGBIOS: Enabling/activating the TPM failed.\n");
@@ -1044,8 +1104,8 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
         }
     }
 
-    ret = build_and_send_cmd(0, TPM_ORD_ForceClear,
-                             NULL, 0, TPM_DURATION_TYPE_SHORT);
+    ret = tpm_build_and_send_cmd(0, TPM_ORD_ForceClear,
+                                 NULL, 0, TPM_DURATION_TYPE_SHORT);
     if (ret)
         return ret;
 
@@ -1056,14 +1116,14 @@ force_clear(int enable_activate_before, int enable_activate_after, int verbose)
         return 0;
     }
 
-    return enable_activate(1, verbose);
+    return tpm12_enable_activate(1, verbose);
 }
 
 static int
-set_owner_install(int allow, int verbose)
+tpm12_set_owner_install(int allow, int verbose)
 {
     int has_owner;
-    int ret = read_has_owner(&has_owner);
+    int ret = tpm12_read_has_owner(&has_owner);
     if (ret)
         return -1;
     if (has_owner) {
@@ -1073,7 +1133,7 @@ set_owner_install(int allow, int verbose)
     }
 
     struct tpm_permanent_flags pf;
-    ret = read_permanent_flags((char *)&pf, sizeof(pf));
+    ret = tpm12_read_permanent_flags((char *)&pf, sizeof(pf));
     if (ret)
         return -1;
 
@@ -1083,11 +1143,11 @@ set_owner_install(int allow, int verbose)
         return 0;
     }
 
-    ret = build_and_send_cmd(0, TPM_ORD_SetOwnerInstall,
-                             (allow) ? CommandFlag_TRUE
-                                     : CommandFlag_FALSE,
-                             sizeof(CommandFlag_TRUE),
-                             TPM_DURATION_TYPE_SHORT);
+    ret = tpm_build_and_send_cmd(0, TPM_ORD_SetOwnerInstall,
+                                 (allow) ? CommandFlag_TRUE
+                                         : CommandFlag_FALSE,
+                                 sizeof(CommandFlag_TRUE),
+                                 TPM_DURATION_TYPE_SHORT);
     if (ret)
         return ret;
 
@@ -1098,7 +1158,7 @@ set_owner_install(int allow, int verbose)
 }
 
 static int
-tpm_process_cfg(tpm_ppi_code msgCode, int verbose)
+tpm12_process_cfg(tpm_ppi_code msgCode, int verbose)
 {
     int ret = 0;
 
@@ -1107,31 +1167,31 @@ tpm_process_cfg(tpm_ppi_code msgCode, int verbose)
             break;
 
         case TPM_PPI_OP_ENABLE:
-            ret = enable_tpm(1, verbose);
+            ret = tpm12_enable_tpm(1, verbose);
             break;
 
         case TPM_PPI_OP_DISABLE:
-            ret = enable_tpm(0, verbose);
+            ret = tpm12_enable_tpm(0, verbose);
             break;
 
         case TPM_PPI_OP_ACTIVATE:
-            ret = activate_tpm(1, 1, verbose);
+            ret = tpm12_activate_tpm(1, 1, verbose);
             break;
 
         case TPM_PPI_OP_DEACTIVATE:
-            ret = activate_tpm(0, 1, verbose);
+            ret = tpm12_activate_tpm(0, 1, verbose);
             break;
 
         case TPM_PPI_OP_CLEAR:
-            ret = force_clear(1, 0, verbose);
+            ret = tpm12_force_clear(1, 0, verbose);
             break;
 
         case TPM_PPI_OP_SET_OWNERINSTALL_TRUE:
-            ret = set_owner_install(1, verbose);
+            ret = tpm12_set_owner_install(1, verbose);
             break;
 
         case TPM_PPI_OP_SET_OWNERINSTALL_FALSE:
-            ret = set_owner_install(0, verbose);
+            ret = tpm12_set_owner_install(0, verbose);
             break;
 
         default:
@@ -1145,14 +1205,14 @@ tpm_process_cfg(tpm_ppi_code msgCode, int verbose)
 }
 
 static int
-get_tpm_state(void)
+tpm12_get_tpm_state(void)
 {
     int state = 0;
     struct tpm_permanent_flags pf;
     int has_owner;
 
-    if (read_permanent_flags((char *)&pf, sizeof(pf)) ||
-        read_has_owner(&has_owner))
+    if (tpm12_read_permanent_flags((char *)&pf, sizeof(pf)) ||
+        tpm12_read_has_owner(&has_owner))
         return ~0;
 
     if (!pf.flags[PERM_FLAG_IDX_DISABLE])
@@ -1172,7 +1232,7 @@ get_tpm_state(void)
 }
 
 static void
-show_tpm_menu(int state, int next_scancodes[7])
+tpm12_show_tpm_menu(int state, int next_scancodes[7])
 {
     int i = 0;
 
@@ -1238,28 +1298,21 @@ show_tpm_menu(int state, int next_scancodes[7])
     next_scancodes[i++] = 0;
 }
 
-void
-tpm_menu(void)
+static void
+tpm12_menu(void)
 {
-    if (!CONFIG_TCGBIOS)
-        return;
-
     int scancode, next_scancodes[7];
     tpm_ppi_code msgCode;
     int state = 0, i;
     int waitkey;
-
-    while (get_keystroke(0) >= 0)
-        ;
-    wait_threads();
 
     printf("The Trusted Platform Module (TPM) is a hardware device in "
            "this machine.\n"
            "It can help verify the integrity of system software.\n\n");
 
     for (;;) {
-        if ((state = get_tpm_state()) != ~0) {
-            show_tpm_menu(state, next_scancodes);
+        if ((state = tpm12_get_tpm_state()) != ~0) {
+            tpm12_show_tpm_menu(state, next_scancodes);
         } else {
             printf("TPM is not working correctly.\n");
             return;
@@ -1316,11 +1369,31 @@ tpm_menu(void)
                     break;
 
                 if (next_scancodes[i] == scancode) {
-                    tpm_process_cfg(msgCode, 1);
+                    tpm12_process_cfg(msgCode, 1);
                     waitkey = 0;
                     break;
                 }
             }
         }
+    }
+}
+
+void
+tpm_menu(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return;
+
+    while (get_keystroke(0) >= 0)
+        ;
+    wait_threads();
+
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        tpm12_menu();
+        break;
+    case TPM_VERSION_2:
+        // FIXME: missing code
+        break;
     }
 }
