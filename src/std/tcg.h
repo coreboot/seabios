@@ -375,6 +375,8 @@ struct tpm_res_sha1complete {
 #define TPM2_RS_PW                  0x40000009
 #define TPM2_RH_PLATFORM            0x4000000c
 
+#define TPM2_ALG_SHA1               0x0004
+
 /* TPM 2 command tags */
 #define TPM2_ST_NO_SESSIONS         0x8001
 #define TPM2_ST_SESSIONS            0x8002
@@ -385,6 +387,7 @@ struct tpm_res_sha1complete {
 #define TPM2_CC_Startup             0x144
 #define TPM2_CC_StirRandom          0x146
 #define TPM2_CC_GetRandom           0x17b
+#define TPM2_CC_PCR_Extend          0x182
 
 /* TPM 2 error codes */
 #define TPM2_RC_INITIALIZE          0x100
@@ -424,6 +427,20 @@ struct tpm2_req_hierarchychangeauth {
     u32 authblocksize;
     struct tpm2_authblock authblock;
     struct tpm2b_20 newAuth;
+} PACKED;
+
+struct tpm2_digest_value {
+    u32 count; /* 1 entry only */
+    u16 hashalg; /* TPM2_ALG_SHA1 */
+    u8 sha1[SHA1_BUFSIZE];
+} PACKED;
+
+struct tpm2_req_extend {
+    struct tpm_req_header hdr;
+    u32 pcrindex;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    struct tpm2_digest_value digest;
 } PACKED;
 
 #endif // tcg.h
