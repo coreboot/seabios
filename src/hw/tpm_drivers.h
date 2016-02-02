@@ -66,6 +66,14 @@ void tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3]);
 #define TIS_DEFAULT_TIMEOUT_C           750000 /* us */
 #define TIS_DEFAULT_TIMEOUT_D           750000 /* us */
 
+/*
+ * Default TIS 2 timeouts given in TPM Profile (TPT) Spec
+ */
+#define TIS2_DEFAULT_TIMEOUT_A          750000 /* us */
+#define TIS2_DEFAULT_TIMEOUT_B         2000000 /* us */
+#define TIS2_DEFAULT_TIMEOUT_C          200000 /* us */
+#define TIS2_DEFAULT_TIMEOUT_D           30000 /* us */
+
 enum tisTimeoutType {
     TIS_TIMEOUT_TYPE_A = 0,
     TIS_TIMEOUT_TYPE_B,
@@ -80,5 +88,14 @@ enum tisTimeoutType {
 #define TPM_DEFAULT_DURATION_SHORT      2000000 /* us */
 #define TPM_DEFAULT_DURATION_MEDIUM    20000000 /* us */
 #define TPM_DEFAULT_DURATION_LONG      60000000 /* us */
+
+/*
+ * TPM 2 command durations; we set them to the timeout values
+ * given in TPM Profile (PTP) Specification; exceeding those
+ * timeout values indicates a faulty TPM.
+ */
+#define TPM2_DEFAULT_DURATION_SHORT       750000 /* us */
+#define TPM2_DEFAULT_DURATION_MEDIUM     2000000 /* us */
+#define TPM2_DEFAULT_DURATION_LONG       2000000 /* us */
 
 #endif /* TPM_DRIVERS_H */

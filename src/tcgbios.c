@@ -322,6 +322,24 @@ tpm12_determine_timeouts(void)
     return 0;
 }
 
+static void
+tpm20_set_timeouts(void)
+{
+    u32 durations[3] = {
+        TPM2_DEFAULT_DURATION_SHORT,
+        TPM2_DEFAULT_DURATION_MEDIUM,
+        TPM2_DEFAULT_DURATION_LONG,
+    };
+    u32 timeouts[4] = {
+        TIS2_DEFAULT_TIMEOUT_A,
+        TIS2_DEFAULT_TIMEOUT_B,
+        TIS2_DEFAULT_TIMEOUT_C,
+        TIS2_DEFAULT_TIMEOUT_D,
+    };
+
+    tpmhw_set_timeouts(timeouts, durations);
+}
+
 static int
 tpm12_extend(u32 pcrindex, const u8 *digest)
 {
@@ -557,6 +575,8 @@ err_exit:
 static int
 tpm20_startup(void)
 {
+    tpm20_set_timeouts();
+
     int ret = tpm_build_and_send_cmd(0, TPM2_CC_Startup,
                                      Startup_SU_CLEAR,
                                      sizeof(Startup_SU_CLEAR),
