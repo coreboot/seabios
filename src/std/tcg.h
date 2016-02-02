@@ -74,6 +74,8 @@
 
 /* TPM command tags */
 #define TPM_TAG_RQU_CMD                  0x00c1
+#define TPM_TAG_RQU_AUTH1_CMD            0x00c2
+#define TPM_TAG_RQU_AUTH2_CMD            0x00c3
 
 /* interrupt identifiers (al register) */
 enum irq_ids {

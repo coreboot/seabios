@@ -1065,11 +1065,28 @@ pass_through_to_tpm_int(struct pttti *pttti, struct pttto *pttto)
     u32 rc = 0;
     struct tpm_req_header *trh = (void*)pttti->tpmopin;
 
-    if (pttti->ipblength < sizeof(struct pttti) + sizeof(trh)
+    if (pttti->ipblength < sizeof(struct pttti) + sizeof(*trh)
         || pttti->ipblength != sizeof(struct pttti) + be32_to_cpu(trh->totlen)
         || pttti->opblength < sizeof(struct pttto)) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
+    }
+
+    u16 tag = be16_to_cpu(trh->tag);
+
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        if (tag != TPM_TAG_RQU_CMD && tag != TPM_TAG_RQU_AUTH1_CMD
+            && tag != TPM_TAG_RQU_AUTH2_CMD) {
+            rc = TCG_INVALID_INPUT_PARA;
+            goto err_exit;
+        }
+        break;
+    case TPM_VERSION_2:
+        if (tag != TPM2_ST_NO_SESSIONS && tag != TPM2_ST_SESSIONS) {
+            rc = TCG_INVALID_INPUT_PARA;
+            goto err_exit;
+        }
     }
 
     u32 resbuflen = pttti->opblength - offsetof(struct pttto, tpmopout);
