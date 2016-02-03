@@ -295,9 +295,9 @@ fail:
 static void
 ehci_controller_setup(struct pci_device *pci)
 {
-    u16 bdf = pci->bdf;
-    u32 baseaddr = pci_config_readl(bdf, PCI_BASE_ADDRESS_0);
-    struct ehci_caps *caps = (void*)(baseaddr & PCI_BASE_ADDRESS_MEM_MASK);
+    struct ehci_caps *caps = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    if (!caps)
+        return;
     u32 hcc_params = readl(&caps->hccparams);
 
     struct usb_ehci_s *cntl = malloc_tmphigh(sizeof(*cntl));
@@ -316,10 +316,10 @@ ehci_controller_setup(struct pci_device *pci)
     PendingEHCI++;
 
     dprintf(1, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
-            , pci_bdf_to_fn(bdf), cntl->regs);
+            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
+            , pci_bdf_to_fn(pci->bdf), cntl->regs);
 
-    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+    pci_enable_busmaster(pci);
 
     // XXX - check for and disable SMM control?
 
