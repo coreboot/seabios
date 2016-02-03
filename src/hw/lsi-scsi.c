@@ -147,7 +147,7 @@ lsi_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
     llun->lun = lun;
     llun->iobase = iobase;
 
-    char *name = znprintf(16, "lsi %pP %d:%d", pci, target, lun);
+    char *name = znprintf(MAXDESCSIZE, "lsi %pP %d:%d", pci, target, lun);
     int prio = bootprio_find_scsi_device(pci, target, lun);
     int ret = scsi_drive_setup(&llun->drive, name, prio);
     free(name);
