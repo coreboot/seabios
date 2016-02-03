@@ -10,6 +10,7 @@
 #include "pci.h" // pci_config_writel
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "romfile.h" // romfile_loadint
+#include "stacks.h" // wait_preempt
 #include "string.h" // memset
 #include "util.h" // udelay
 #include "x86.h" // outl
@@ -269,6 +270,63 @@ int pci_bridge_has_region(struct pci_device *pci,
     pci_config_writeb(pci->bdf, base, 0xFF);
 
     return pci_config_readb(pci->bdf, base) != 0;
+}
+
+// Enable PCI bus-mastering (ie, DMA) support on a pci device
+void
+pci_enable_busmaster(struct pci_device *pci)
+{
+    ASSERT32FLAT();
+    wait_preempt();
+    pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+}
+
+// Verify an IO bar and return it to the caller
+u16
+pci_enable_iobar(struct pci_device *pci, u32 addr)
+{
+    ASSERT32FLAT();
+    wait_preempt();
+    u32 bar = pci_config_readl(pci->bdf, addr);
+    if (!(bar & PCI_BASE_ADDRESS_SPACE_IO)) {
+        warn_internalerror();
+        return 0;
+    }
+    bar &= PCI_BASE_ADDRESS_IO_MASK;
+    if (bar == 0 || bar > 0xffff) {
+        warn_internalerror();
+        return 0;
+    }
+    pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_IO);
+    return bar;
+}
+
+// Verify a memory bar and return it to the caller
+void *
+pci_enable_membar(struct pci_device *pci, u32 addr)
+{
+    ASSERT32FLAT();
+    wait_preempt();
+    u32 bar = pci_config_readl(pci->bdf, addr);
+    if (bar & PCI_BASE_ADDRESS_SPACE_IO) {
+        warn_internalerror();
+        return NULL;
+    }
+    if (bar & PCI_BASE_ADDRESS_MEM_TYPE_64) {
+        u32 high = pci_config_readl(pci->bdf, addr+4);
+        if (high) {
+            dprintf(1, "Can not map memory bar over 4Gig\n");
+            return NULL;
+        }
+    }
+    bar &= PCI_BASE_ADDRESS_MEM_MASK;
+    if (bar + 4*1024*1024 < 20*1024*1024) {
+        // Bar doesn't look valid (it is in last 4M or first 16M)
+        warn_internalerror();
+        return NULL;
+    }
+    pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MEMORY);
+    return (void*)bar;
 }
 
 void

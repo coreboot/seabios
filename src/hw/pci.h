@@ -126,6 +126,9 @@ struct pci_device *pci_find_init_device(const struct pci_device_id *ids
 u8 pci_find_capability(struct pci_device *pci, u8 cap_id, u8 cap);
 int pci_bridge_has_region(struct pci_device *pci,
                           enum pci_region_type region_type);
+void pci_enable_busmaster(struct pci_device *pci);
+u16 pci_enable_iobar(struct pci_device *pci, u32 addr);
+void *pci_enable_membar(struct pci_device *pci, u32 addr);
 void pci_reboot(void);
 
 #endif
