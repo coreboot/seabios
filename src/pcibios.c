@@ -8,6 +8,7 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
 #include "hw/pci.h" // pci_config_readl
+#include "hw/pcidevice.h" // MaxPCIBus
 #include "hw/pci_regs.h" // PCI_VENDOR_ID
 #include "output.h" // dprintf
 #include "std/pirtable.h" // struct pir_header

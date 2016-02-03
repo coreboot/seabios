@@ -7,8 +7,9 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_*
-#include "hw/pci.h"
-#include "hw/pci_regs.h"
+#include "hw/pci.h" // pci_bdf_to_bus
+#include "hw/pcidevice.h" // foreachpci
+#include "hw/pci_regs.h" // PCI_INTERRUPT_PIN
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "romfile.h" // romfile_loadint

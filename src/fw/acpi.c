@@ -10,7 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "dev-q35.h"
 #include "dev-piix.h"
-#include "hw/pci.h" // pci_find_init_device
+#include "hw/pcidevice.h" // pci_find_init_device
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_INTERRUPT_LINE
 #include "malloc.h" // free

@@ -8,7 +8,8 @@
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "farptr.h" // FLATPTR_TO_SEG
-#include "hw/pci.h" // foreachpci
+#include "hw/pci.h" // pci_config_readl
+#include "hw/pcidevice.h" // foreachpci
 #include "hw/pci_ids.h" // PCI_CLASS_DISPLAY_VGA
 #include "hw/pci_regs.h" // PCI_ROM_ADDRESS
 #include "malloc.h" // rom_confirm

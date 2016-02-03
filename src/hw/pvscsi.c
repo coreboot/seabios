@@ -13,7 +13,7 @@
 #include "malloc.h" // free
 #include "memmap.h" // PAGE_SHIFT, virt_to_phys
 #include "output.h" // dprintf
-#include "pci.h" // foreachpci
+#include "pcidevice.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VMWARE_PVSCSI
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pvscsi.h" // pvscsi_setup

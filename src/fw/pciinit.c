@@ -12,6 +12,7 @@
 #include "e820map.h" // e820_add
 #include "hw/ata.h" // PORT_ATA1_CMD_BASE
 #include "hw/pci.h" // pci_config_readl
+#include "hw/pcidevice.h" // pci_probe_devices
 #include "hw/pci_ids.h" // PCI_VENDOR_ID_INTEL
 #include "hw/pci_regs.h" // PCI_COMMAND
 #include "list.h" // struct hlist_node

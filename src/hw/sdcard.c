@@ -7,7 +7,7 @@
 #include "block.h" // struct drive_s
 #include "malloc.h" // malloc_fseg
 #include "output.h" // znprintf
-#include "pci.h" // foreachpci
+#include "pcidevice.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_SYSTEM_SDHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "romfile.h" // romfile_findprefix

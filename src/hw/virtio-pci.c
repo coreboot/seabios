@@ -19,6 +19,7 @@
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // pci_config_readl
+#include "pcidevice.h" // pci_find_capability
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
 #include "virtio-pci.h"

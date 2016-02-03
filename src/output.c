@@ -11,6 +11,7 @@
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
 #include "hw/pci.h" // pci_bdf_to_bus
+#include "hw/pcidevice.h" // pci_device
 #include "hw/serialio.h" // serial_debug_putc
 #include "malloc.h" // malloc_tmp
 #include "output.h" // dprintf

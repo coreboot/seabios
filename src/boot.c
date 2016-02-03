@@ -10,6 +10,7 @@
 #include "config.h" // CONFIG_*
 #include "fw/paravirt.h" // qemu_cfg_show_boot_menu
 #include "hw/pci.h" // pci_bdf_to_*
+#include "hw/pcidevice.h" // struct pci_device
 #include "hw/rtc.h" // rtc_read
 #include "hw/usb.h" // struct usbdevice_s
 #include "list.h" // hlist_node
