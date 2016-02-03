@@ -298,21 +298,20 @@ pvscsi_scan_target(struct pci_device *pci, void *iobase,
 static void
 init_pvscsi(struct pci_device *pci)
 {
-    struct pvscsi_ring_dsc_s *ring_dsc = NULL;
-    int i;
-    u16 bdf = pci->bdf;
-    void *iobase = (void*)(pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
-                           & PCI_BASE_ADDRESS_MEM_MASK);
-
-    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+    void *iobase = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    if (!iobase)
+        return;
+    pci_enable_busmaster(pci);
 
     dprintf(1, "found pvscsi at %02x:%02x.%x, io @ %p\n",
-            pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf),
-            pci_bdf_to_fn(bdf), iobase);
+            pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
+            pci_bdf_to_fn(pci->bdf), iobase);
 
     pvscsi_write_cmd_desc(iobase, PVSCSI_CMD_ADAPTER_RESET, NULL, 0);
 
+    struct pvscsi_ring_dsc_s *ring_dsc = NULL;
     pvscsi_init_rings(iobase, &ring_dsc);
+    int i;
     for (i = 0; i < 7; i++)
         pvscsi_scan_target(pci, iobase, ring_dsc, i);
 
