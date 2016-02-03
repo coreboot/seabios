@@ -946,24 +946,23 @@ static void
 init_pciata(struct pci_device *pci, u8 prog_if)
 {
     pci->have_driver = 1;
-    u16 bdf = pci->bdf;
-    u8 pciirq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
+    u8 pciirq = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
     int master = 0;
     if (CONFIG_ATA_DMA && prog_if & 0x80) {
         // Check for bus-mastering.
-        u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_4);
+        u32 bar = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_4);
         if (bar & PCI_BASE_ADDRESS_SPACE_IO) {
-            master = bar & PCI_BASE_ADDRESS_IO_MASK;
-            pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+            master = pci_enable_iobar(pci, PCI_BASE_ADDRESS_4);
+            pci_enable_busmaster(pci);
         }
     }
 
     u32 port1, port2, irq;
     if (prog_if & 1) {
-        port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_0)
-                 & PCI_BASE_ADDRESS_IO_MASK);
-        port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_1)
-                 & PCI_BASE_ADDRESS_IO_MASK);
+        port1 = pci_enable_iobar(pci, PCI_BASE_ADDRESS_0);
+        port2 = pci_enable_iobar(pci, PCI_BASE_ADDRESS_1);
+        if (!port1 || !port2)
+            return;
         irq = pciirq;
     } else {
         port1 = PORT_ATA1_CMD_BASE;
@@ -973,10 +972,10 @@ init_pciata(struct pci_device *pci, u8 prog_if)
     init_controller(pci, 0, irq, port1, port2, master);
 
     if (prog_if & 4) {
-        port1 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_2)
-                 & PCI_BASE_ADDRESS_IO_MASK);
-        port2 = (pci_config_readl(bdf, PCI_BASE_ADDRESS_3)
-                 & PCI_BASE_ADDRESS_IO_MASK);
+        port1 = pci_enable_iobar(pci, PCI_BASE_ADDRESS_2);
+        port2 = pci_enable_iobar(pci, PCI_BASE_ADDRESS_3);
+        if (!port1 || !port2)
+            return;
         irq = pciirq;
     } else {
         port1 = PORT_ATA2_CMD_BASE;
