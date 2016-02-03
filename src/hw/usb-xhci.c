@@ -230,7 +230,6 @@ struct usb_xhci_s {
     struct usb_s         usb;
 
     /* devinfo */
-    u32                  baseaddr;
     u32                  xcap;
     u32                  ports;
     u32                  slots;
@@ -527,20 +526,21 @@ fail:
 static void
 xhci_controller_setup(struct pci_device *pci)
 {
+    void *baseaddr = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    if (!baseaddr)
+        return;
+
     struct usb_xhci_s *xhci = malloc_high(sizeof(*xhci));
     if (!xhci) {
         warn_noalloc();
         return;
     }
     memset(xhci, 0, sizeof(*xhci));
-
-    xhci->baseaddr = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0)
-        & PCI_BASE_ADDRESS_MEM_MASK;
-    xhci->caps  = (void*)(xhci->baseaddr);
-    xhci->op    = (void*)(xhci->baseaddr + readb(&xhci->caps->caplength));
-    xhci->pr    = (void*)(xhci->baseaddr + readb(&xhci->caps->caplength) + 0x400);
-    xhci->db    = (void*)(xhci->baseaddr + readl(&xhci->caps->dboff));
-    xhci->ir    = (void*)(xhci->baseaddr + readl(&xhci->caps->rtsoff) + 0x20);
+    xhci->caps  = baseaddr;
+    xhci->op    = baseaddr + readb(&xhci->caps->caplength);
+    xhci->pr    = baseaddr + readb(&xhci->caps->caplength) + 0x400;
+    xhci->db    = baseaddr + readl(&xhci->caps->dboff);
+    xhci->ir    = baseaddr + readl(&xhci->caps->rtsoff) + 0x20;
 
     u32 hcs1 = readl(&xhci->caps->hcsparams1);
     u32 hcc  = readl(&xhci->caps->hccparams);
@@ -559,9 +559,10 @@ xhci_controller_setup(struct pci_device *pci)
             , xhci->ports, xhci->slots, xhci->context64 ? 64 : 32);
 
     if (xhci->xcap) {
-        u32 off, addr = xhci->baseaddr + xhci->xcap;
+        u32 off;
+        void *addr = baseaddr + xhci->xcap;
         do {
-            struct xhci_xcap *xcap = (void*)addr;
+            struct xhci_xcap *xcap = addr;
             u32 ports, name, cap = readl(&xcap->cap);
             switch (cap & 0xff) {
             case 0x02:
@@ -580,7 +581,7 @@ xhci_controller_setup(struct pci_device *pci)
                         , ports >> 16);
                 break;
             default:
-                dprintf(1, "XHCI    extcap 0x%x @ %x\n", cap & 0xff, addr);
+                dprintf(1, "XHCI    extcap 0x%x @ %p\n", cap & 0xff, addr);
                 break;
             }
             off = (cap >> 8) & 0xff;
@@ -596,7 +597,7 @@ xhci_controller_setup(struct pci_device *pci)
         return;
     }
 
-    pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+    pci_enable_busmaster(pci);
 
     run_thread(configure_xhci, xhci);
 }
