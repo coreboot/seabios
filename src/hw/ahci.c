@@ -71,14 +71,12 @@ static void sata_prep_atapi(struct sata_cmd_fis *fis, u16 blocksize)
 // ahci register access helpers
 static u32 ahci_ctrl_readl(struct ahci_ctrl_s *ctrl, u32 reg)
 {
-    u32 addr = ctrl->iobase + reg;
-    return readl((void*)addr);
+    return readl(ctrl->iobase + reg);
 }
 
 static void ahci_ctrl_writel(struct ahci_ctrl_s *ctrl, u32 reg, u32 val)
 {
-    u32 addr = ctrl->iobase + reg;
-    writel((void*)addr, val);
+    writel(ctrl->iobase + reg, val);
 }
 
 static u32 ahci_port_to_ctrl(u32 pnr, u32 port_reg)
@@ -567,31 +565,30 @@ ahci_port_detect(void *data)
 static void
 ahci_controller_setup(struct pci_device *pci)
 {
-    struct ahci_ctrl_s *ctrl = malloc_fseg(sizeof(*ctrl));
     struct ahci_port_s *port;
-    u16 bdf = pci->bdf;
     u32 val, pnr, max;
 
+    if (create_bounce_buf() < 0)
+        return;
+
+    void *iobase = pci_enable_membar(pci, PCI_BASE_ADDRESS_5);
+    if (!iobase)
+        return;
+
+    struct ahci_ctrl_s *ctrl = malloc_fseg(sizeof(*ctrl));
     if (!ctrl) {
         warn_noalloc();
         return;
     }
 
-    if (create_bounce_buf() < 0) {
-        warn_noalloc();
-        free(ctrl);
-        return;
-    }
-
     ctrl->pci_tmp = pci;
-    ctrl->pci_bdf = bdf;
-    ctrl->iobase = pci_config_readl(bdf, PCI_BASE_ADDRESS_5);
-    ctrl->irq = pci_config_readb(bdf, PCI_INTERRUPT_LINE);
-    dprintf(1, "AHCI controller at %02x.%x, iobase %x, irq %d\n",
-            bdf >> 3, bdf & 7, ctrl->iobase, ctrl->irq);
+    ctrl->iobase = iobase;
+    ctrl->irq = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
+    dprintf(1, "AHCI controller at %02x:%02x.%x, iobase %p, irq %d\n"
+            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
+            , pci_bdf_to_fn(pci->bdf), ctrl->iobase, ctrl->irq);
 
-    pci_config_maskw(bdf, PCI_COMMAND, 0,
-                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+    pci_enable_busmaster(pci);
 
     val = ahci_ctrl_readl(ctrl, HOST_CTL);
     ahci_ctrl_writel(ctrl, HOST_CTL, val | HOST_CTL_AHCI_EN);

@@ -30,9 +30,8 @@ struct sata_cmd_fis {
 
 struct ahci_ctrl_s {
     struct pci_device *pci_tmp;
-    u16 pci_bdf;
     u8  irq;
-    u32 iobase;
+    void *iobase;
     u32 caps;
     u32 ports;
 };
