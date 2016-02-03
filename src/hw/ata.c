@@ -945,7 +945,6 @@ init_controller(struct pci_device *pci, int chanid, int irq
 static void
 init_pciata(struct pci_device *pci, u8 prog_if)
 {
-    pci->have_driver = 1;
     u8 pciirq = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
     int master = 0;
     if (CONFIG_ATA_DMA && prog_if & 0x80) {

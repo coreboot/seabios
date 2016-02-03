@@ -279,6 +279,7 @@ pci_enable_busmaster(struct pci_device *pci)
     ASSERT32FLAT();
     wait_preempt();
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+    pci->have_driver = 1;
 }
 
 // Verify an IO bar and return it to the caller
@@ -298,6 +299,7 @@ pci_enable_iobar(struct pci_device *pci, u32 addr)
         return 0;
     }
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_IO);
+    pci->have_driver = 1;
     return bar;
 }
 
@@ -326,6 +328,7 @@ pci_enable_membar(struct pci_device *pci, u32 addr)
         return NULL;
     }
     pci_config_maskw(pci->bdf, PCI_COMMAND, 0, PCI_COMMAND_MEMORY);
+    pci->have_driver = 1;
     return (void*)bar;
 }
 
