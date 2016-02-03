@@ -7,11 +7,11 @@
 #include "block.h" // struct drive_s
 #include "malloc.h" // malloc_fseg
 #include "output.h" // znprintf
-#include "pci.h" // pci_config_readl
+#include "pci.h" // foreachpci
 #include "pci_ids.h" // PCI_CLASS_SYSTEM_SDHCI
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "romfile.h" // romfile_findprefix
-#include "stacks.h" // wait_preempt
+#include "stacks.h" // yield
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // boot_add_hd
@@ -525,14 +525,12 @@ static void
 sdcard_pci_setup(void *data)
 {
     struct pci_device *pci = data;
-    wait_preempt();  // Avoid pci_config_readl when preempting
     // XXX - bars dependent on slot index register in pci config space
-    u32 regs = pci_config_readl(pci->bdf, PCI_BASE_ADDRESS_0);
-    regs &= PCI_BASE_ADDRESS_MEM_MASK;
-    pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
-                     PCI_COMMAND_IO | PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
+    struct sdhci_s *regs = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    if (!regs)
+        return;
     int prio = bootprio_find_pci_device(pci);
-    sdcard_controller_setup((void*)regs, prio);
+    sdcard_controller_setup(regs, prio);
 }
 
 static void
