@@ -9,7 +9,6 @@
 #include "block.h" // process_op
 #include "hw/ata.h" // process_ata_op
 #include "hw/ahci.h" // process_ahci_op
-#include "hw/blockcmd.h" // cdb_*
 #include "hw/esp-scsi.h" // esp_scsi_process_op
 #include "hw/lsi-scsi.h" // lsi_scsi_process_op
 #include "hw/megasas.h" // megasas_process_op
@@ -486,6 +485,22 @@ fill_edd(struct segoff_s edd, struct drive_s *drive_gf)
 /****************************************************************
  * Disk driver dispatch
  ****************************************************************/
+
+void
+block_setup(void)
+{
+    floppy_setup();
+    ata_setup();
+    ahci_setup();
+    sdcard_setup();
+    ramdisk_setup();
+    virtio_blk_setup();
+    virtio_scsi_setup();
+    lsi_scsi_setup();
+    esp_scsi_setup();
+    megasas_setup();
+    pvscsi_setup();
+}
 
 // Fallback handler for command requests not implemented by drivers
 int

@@ -6,24 +6,17 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // SET_BDA
+#include "block.h" // block_setup
 #include "bregs.h" // struct bregs
 #include "config.h" // CONFIG_*
 #include "e820map.h" // e820_add
 #include "fw/paravirt.h" // qemu_cfg_preinit
 #include "fw/xen.h" // xen_preinit
-#include "hw/ahci.h" // ahci_setup
-#include "hw/ata.h" // ata_setup
-#include "hw/esp-scsi.h" // esp_scsi_setup
-#include "hw/lsi-scsi.h" // lsi_scsi_setup
-#include "hw/megasas.h" // megasas_setup
-#include "hw/pvscsi.h" // pvscsi_setup
 #include "hw/pic.h" // pic_setup
 #include "hw/ps2port.h" // ps2port_setup
 #include "hw/rtc.h" // rtc_write
 #include "hw/serialio.h" // serial_debug_preinit
 #include "hw/usb.h" // usb_setup
-#include "hw/virtio-blk.h" // virtio_blk_setup
-#include "hw/virtio-scsi.h" // virtio_scsi_setup
 #include "malloc.h" // malloc_init
 #include "memmap.h" // SYMBOL
 #include "output.h" // dprintf
@@ -134,21 +127,10 @@ device_hardware_setup(void)
 {
     usb_setup();
     ps2port_setup();
+    block_setup();
     lpt_setup();
     serial_setup();
-
-    floppy_setup();
-    ata_setup();
-    ahci_setup();
-    sdcard_setup();
     cbfs_payload_setup();
-    ramdisk_setup();
-    virtio_blk_setup();
-    virtio_scsi_setup();
-    lsi_scsi_setup();
-    esp_scsi_setup();
-    megasas_setup();
-    pvscsi_setup();
 }
 
 static void
