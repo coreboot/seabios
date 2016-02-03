@@ -315,9 +315,7 @@ ehci_controller_setup(struct pci_device *pci)
         cntl->regs->ctrldssegment = 0;
     PendingEHCI++;
 
-    dprintf(1, "EHCI init on dev %02x:%02x.%x (regs=%p)\n"
-            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
-            , pci_bdf_to_fn(pci->bdf), cntl->regs);
+    dprintf(1, "EHCI init on dev %pP (regs=%p)\n", pci, cntl->regs);
 
     pci_enable_busmaster(pci);
 

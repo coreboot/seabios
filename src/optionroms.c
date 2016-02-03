@@ -243,9 +243,7 @@ copy_rom(struct rom_header *rom)
 static struct rom_header *
 map_pcirom(struct pci_device *pci)
 {
-    u16 bdf = pci->bdf;
-    dprintf(6, "Attempting to map option rom on dev %02x:%02x.%x\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
+    dprintf(6, "Attempting to map option rom on dev %pP\n", pci);
 
     if ((pci->header_type & 0x7f) != PCI_HEADER_TYPE_NORMAL) {
         dprintf(6, "Skipping non-normal pci device (type=%x)\n"
@@ -253,6 +251,7 @@ map_pcirom(struct pci_device *pci)
         return NULL;
     }
 
+    u16 bdf = pci->bdf;
     u32 orig = pci_config_readl(bdf, PCI_ROM_ADDRESS);
     pci_config_writel(bdf, PCI_ROM_ADDRESS, ~PCI_ROM_ADDRESS_ENABLE);
     u32 sz = pci_config_readl(bdf, PCI_ROM_ADDRESS);
@@ -274,10 +273,8 @@ map_pcirom(struct pci_device *pci)
 
     struct rom_header *rom = (void*)orig;
     for (;;) {
-        dprintf(5, "Inspecting possible rom at %p (vd=%04x:%04x"
-                " bdf=%02x:%02x.%x)\n"
-                , rom, pci->vendor, pci->device
-                , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
+        dprintf(5, "Inspecting possible rom at %p (vd=%04x:%04x bdf=%pP)\n"
+                , rom, pci->vendor, pci->device, pci);
         if (rom->signature != OPTION_ROM_SIGNATURE) {
             dprintf(6, "No option rom signature (got %x)\n", rom->signature);
             goto fail;
@@ -314,10 +311,8 @@ fail:
 static void
 init_pcirom(struct pci_device *pci, int isvga, u64 *sources)
 {
-    u16 bdf = pci->bdf;
-    dprintf(4, "Attempting to init PCI bdf %02x:%02x.%x (vd %04x:%04x)\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf)
-            , pci->vendor, pci->device);
+    dprintf(4, "Attempting to init PCI bdf %pP (vd %04x:%04x)\n"
+            , pci, pci->vendor, pci->device);
 
     char fname[17];
     snprintf(fname, sizeof(fname), "pci%04x,%04x.rom"
@@ -332,7 +327,7 @@ init_pcirom(struct pci_device *pci, int isvga, u64 *sources)
         // No ROM present.
         return;
     setRomSource(sources, rom, RS_PCIROM | (u32)pci);
-    init_optionrom(rom, bdf, isvga);
+    init_optionrom(rom, pci->bdf, isvga);
 }
 
 

@@ -224,9 +224,7 @@ megasas_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
         free(mlun);
         return -1;
     }
-    name = znprintf(36, "MegaRAID SAS (PCI %02x:%02x.%x) LD %d:%d",
-                    pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                    pci_bdf_to_fn(pci->bdf), target, lun);
+    name = znprintf(36, "MegaRAID SAS (PCI %pP) LD %d:%d", pci, target, lun);
     prio = bootprio_find_scsi_device(pci, target, lun);
     ret = scsi_drive_setup(&mlun->drive, name, prio);
     free(name);
@@ -367,9 +365,7 @@ init_megasas(struct pci_device *pci)
         return;
     pci_enable_busmaster(pci);
 
-    dprintf(1, "found MegaRAID SAS at %02x:%02x.%x, io @ %x\n",
-            pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-            pci_bdf_to_fn(pci->bdf), iobase);
+    dprintf(1, "found MegaRAID SAS at %pP, io @ %x\n", pci, iobase);
 
     // reset
     if (megasas_transition_to_ready(pci, iobase) == 0)

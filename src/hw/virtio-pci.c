@@ -252,10 +252,9 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
                     return;
                 vp_cap->memaddr = addr + offset;
             }
-            dprintf(3, "pci dev %x:%x virtio cap at 0x%x type %d "
+            dprintf(3, "pci dev %pP virtio cap at 0x%x type %d "
                     "bar %d at 0x%08x off +0x%04x [%s]\n",
-                    pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                    vp_cap->cap, type, vp_cap->bar, vp_cap->ioaddr, offset,
+                    pci, vp_cap->cap, type, vp_cap->bar, vp_cap->ioaddr, offset,
                     vp_cap->is_io ? "io" : "mmio");
         }
 
@@ -263,12 +262,10 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
     }
 
     if (vp->common.cap && vp->notify.cap && vp->isr.cap && vp->device.cap) {
-        dprintf(1, "pci dev %x:%x using modern (1.0) virtio mode\n",
-                pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf));
+        dprintf(1, "pci dev %pP using modern (1.0) virtio mode\n", pci);
         vp->use_modern = 1;
     } else {
-        dprintf(1, "pci dev %x:%x using legacy (0.9.5) virtio mode\n",
-                pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf));
+        dprintf(1, "pci dev %pP using legacy (0.9.5) virtio mode\n", pci);
         vp->legacy.bar = 0;
         vp->legacy.ioaddr = pci_enable_iobar(pci, PCI_BASE_ADDRESS_0);
         if (!vp->legacy.ioaddr)

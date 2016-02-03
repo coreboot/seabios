@@ -552,11 +552,10 @@ xhci_controller_setup(struct pci_device *pci)
     xhci->usb.pci = pci;
     xhci->usb.type = USB_TYPE_XHCI;
 
-    dprintf(1, "XHCI init on dev %02x:%02x.%x: regs @ %p, %d ports, %d slots"
+    dprintf(1, "XHCI init on dev %pP: regs @ %p, %d ports, %d slots"
             ", %d byte contexts\n"
-            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
-            , pci_bdf_to_fn(pci->bdf), xhci->caps
-            , xhci->ports, xhci->slots, xhci->context64 ? 64 : 32);
+            , pci, xhci->caps, xhci->ports, xhci->slots
+            , xhci->context64 ? 64 : 32);
 
     if (xhci->xcap) {
         u32 off;

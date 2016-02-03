@@ -258,9 +258,7 @@ uhci_controller_setup(struct pci_device *pci)
     cntl->usb.type = USB_TYPE_UHCI;
     cntl->iobase = iobase;
 
-    dprintf(1, "UHCI init on dev %02x:%02x.%x (io=%x)\n"
-            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
-            , pci_bdf_to_fn(pci->bdf), cntl->iobase);
+    dprintf(1, "UHCI init on dev %pP (io=%x)\n", pci, cntl->iobase);
 
     pci_enable_busmaster(pci);
 

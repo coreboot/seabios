@@ -147,9 +147,7 @@ lsi_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
     llun->lun = lun;
     llun->iobase = iobase;
 
-    char *name = znprintf(16, "lsi %02x:%02x.%x %d:%d",
-                          pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                          pci_bdf_to_fn(pci->bdf), target, lun);
+    char *name = znprintf(16, "lsi %pP %d:%d", pci, target, lun);
     int prio = bootprio_find_scsi_device(pci, target, lun);
     int ret = scsi_drive_setup(&llun->drive, name, prio);
     free(name);
@@ -177,9 +175,7 @@ init_lsi_scsi(struct pci_device *pci)
         return;
     pci_enable_busmaster(pci);
 
-    dprintf(1, "found lsi53c895a at %02x:%02x.%x, io @ %x\n",
-            pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-            pci_bdf_to_fn(pci->bdf), iobase);
+    dprintf(1, "found lsi53c895a at %pP, io @ %x\n", pci, iobase);
 
     // reset
     outb(LSI_ISTAT0_SRST, iobase + LSI_REG_ISTAT0);

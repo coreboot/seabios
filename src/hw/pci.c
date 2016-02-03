@@ -162,10 +162,8 @@ pci_probe_devices(void)
                 if (secbus > MaxPCIBus)
                     MaxPCIBus = secbus;
             }
-            dprintf(4, "PCI device %02x:%02x.%x (vd=%04x:%04x c=%04x)\n"
-                    , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
-                    , pci_bdf_to_fn(bdf)
-                    , dev->vendor, dev->device, dev->class);
+            dprintf(4, "PCI device %pP (vd=%04x:%04x c=%04x)\n"
+                    , dev, dev->vendor, dev->device, dev->class);
         }
     }
     dprintf(1, "Found %d PCI devices (max PCI bus is %02x)\n", count, MaxPCIBus);

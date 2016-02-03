@@ -584,9 +584,8 @@ ahci_controller_setup(struct pci_device *pci)
     ctrl->pci_tmp = pci;
     ctrl->iobase = iobase;
     ctrl->irq = pci_config_readb(pci->bdf, PCI_INTERRUPT_LINE);
-    dprintf(1, "AHCI controller at %02x:%02x.%x, iobase %p, irq %d\n"
-            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
-            , pci_bdf_to_fn(pci->bdf), ctrl->iobase, ctrl->irq);
+    dprintf(1, "AHCI controller at %pP, iobase %p, irq %d\n"
+            , pci, ctrl->iobase, ctrl->irq);
 
     pci_enable_busmaster(pci);
 

@@ -272,9 +272,7 @@ pvscsi_add_lun(struct pci_device *pci, void *iobase,
     plun->iobase = iobase;
     plun->ring_dsc = ring_dsc;
 
-    char *name = znprintf(16, "pvscsi %02x:%02x.%x %d:%d",
-                          pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                          pci_bdf_to_fn(pci->bdf), target, lun);
+    char *name = znprintf(16, "pvscsi %pP %d:%d", pci, target, lun);
     int prio = bootprio_find_scsi_device(pci, target, lun);
     int ret = scsi_drive_setup(&plun->drive, name, prio);
     free(name);
@@ -303,9 +301,7 @@ init_pvscsi(struct pci_device *pci)
         return;
     pci_enable_busmaster(pci);
 
-    dprintf(1, "found pvscsi at %02x:%02x.%x, io @ %p\n",
-            pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-            pci_bdf_to_fn(pci->bdf), iobase);
+    dprintf(1, "found pvscsi at %pP, io @ %p\n", pci, iobase);
 
     pvscsi_write_cmd_desc(iobase, PVSCSI_CMD_ADAPTER_RESET, NULL, 0);
 
