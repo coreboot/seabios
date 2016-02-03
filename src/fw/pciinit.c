@@ -27,6 +27,17 @@
 #define PCI_BRIDGE_MEM_MIN    (1<<21)  // 2M == hugepage size
 #define PCI_BRIDGE_IO_MIN      0x1000  // mandated by pci bridge spec
 
+#define PCI_ROM_SLOT 6
+#define PCI_NUM_REGIONS 7
+#define PCI_BRIDGE_NUM_REGIONS 2
+
+enum pci_region_type {
+    PCI_REGION_TYPE_IO,
+    PCI_REGION_TYPE_MEM,
+    PCI_REGION_TYPE_PREFMEM,
+    PCI_REGION_TYPE_COUNT,
+};
+
 static const char *region_type_name[] = {
     [ PCI_REGION_TYPE_IO ]      = "io",
     [ PCI_REGION_TYPE_MEM ]     = "mem",
@@ -665,6 +676,32 @@ static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
 
     shpc_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_SHPC, 0);
     return !!shpc_cap;
+}
+
+/* Test whether bridge support forwarding of transactions
+ * of a specific type.
+ * Note: disables bridge's window registers as a side effect.
+ */
+static int pci_bridge_has_region(struct pci_device *pci,
+                                 enum pci_region_type region_type)
+{
+    u8 base;
+
+    switch (region_type) {
+        case PCI_REGION_TYPE_IO:
+            base = PCI_IO_BASE;
+            break;
+        case PCI_REGION_TYPE_PREFMEM:
+            base = PCI_PREF_MEMORY_BASE;
+            break;
+        default:
+            /* Regular memory support is mandatory */
+            return 1;
+    }
+
+    pci_config_writeb(pci->bdf, base, 0xFF);
+
+    return pci_config_readb(pci->bdf, base) != 0;
 }
 
 static int pci_bios_check_devices(struct pci_bus *busses)

@@ -110,6 +110,8 @@ void mtrr_setup(void);
 void multiboot_init(void);
 
 // fw/pciinit.c
+extern u64 pcimem_start, pcimem_end;
+extern u64 pcimem64_start, pcimem64_end;
 extern const u8 pci_irqs[4];
 void pci_setup(void);
 void pci_resume(void);

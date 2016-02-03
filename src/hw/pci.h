@@ -8,17 +8,6 @@
 #define PORT_PCI_REBOOT        0x0cf9
 #define PORT_PCI_DATA          0x0cfc
 
-#define PCI_ROM_SLOT 6
-#define PCI_NUM_REGIONS 7
-#define PCI_BRIDGE_NUM_REGIONS 2
-
-enum pci_region_type {
-    PCI_REGION_TYPE_IO,
-    PCI_REGION_TYPE_MEM,
-    PCI_REGION_TYPE_PREFMEM,
-    PCI_REGION_TYPE_COUNT,
-};
-
 static inline u8 pci_bdf_to_bus(u16 bdf) {
     return bdf >> 8;
 }
@@ -68,8 +57,6 @@ struct pci_device {
     // Local information on device.
     int have_driver;
 };
-extern u64 pcimem_start, pcimem_end;
-extern u64 pcimem64_start, pcimem64_end;
 extern struct hlist_head PCIDevices;
 extern int MaxPCIBus;
 int pci_probe_host(void);
@@ -124,8 +111,6 @@ int pci_init_device(const struct pci_device_id *ids
 struct pci_device *pci_find_init_device(const struct pci_device_id *ids
                                         , void *arg);
 u8 pci_find_capability(struct pci_device *pci, u8 cap_id, u8 cap);
-int pci_bridge_has_region(struct pci_device *pci,
-                          enum pci_region_type region_type);
 void pci_enable_busmaster(struct pci_device *pci);
 u16 pci_enable_iobar(struct pci_device *pci, u32 addr);
 void *pci_enable_membar(struct pci_device *pci, u32 addr);

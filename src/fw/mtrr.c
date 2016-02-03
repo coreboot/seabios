@@ -5,7 +5,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "config.h" // CONFIG_*
-#include "hw/pci.h" // pcimem_start
 #include "output.h" // dprintf
 #include "paravirt.h" // RamSize
 #include "util.h" // mtrr_setup
