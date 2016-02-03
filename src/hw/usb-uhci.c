@@ -244,7 +244,10 @@ fail:
 static void
 uhci_controller_setup(struct pci_device *pci)
 {
-    u16 bdf = pci->bdf;
+    u16 iobase = pci_enable_iobar(pci, PCI_BASE_ADDRESS_4);
+    if (!iobase)
+        return;
+
     struct usb_uhci_s *cntl = malloc_tmphigh(sizeof(*cntl));
     if (!cntl) {
         warn_noalloc();
@@ -253,16 +256,15 @@ uhci_controller_setup(struct pci_device *pci)
     memset(cntl, 0, sizeof(*cntl));
     cntl->usb.pci = pci;
     cntl->usb.type = USB_TYPE_UHCI;
-    cntl->iobase = (pci_config_readl(bdf, PCI_BASE_ADDRESS_4)
-                    & PCI_BASE_ADDRESS_IO_MASK);
+    cntl->iobase = iobase;
 
     dprintf(1, "UHCI init on dev %02x:%02x.%x (io=%x)\n"
-            , pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf)
-            , pci_bdf_to_fn(bdf), cntl->iobase);
+            , pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf)
+            , pci_bdf_to_fn(pci->bdf), cntl->iobase);
 
-    pci_config_maskw(bdf, PCI_COMMAND, 0, PCI_COMMAND_MASTER);
+    pci_enable_busmaster(pci);
 
-    reset_uhci(cntl, bdf);
+    reset_uhci(cntl, pci->bdf);
 
     run_thread(configure_uhci, cntl);
 }
