@@ -91,6 +91,7 @@ enum irq_ids {
 
 /* event types: 10.4.1 / table 11 */
 #define EV_POST_CODE             1
+#define EV_NO_ACTION             3
 #define EV_SEPARATOR             4
 #define EV_ACTION                5
 #define EV_EVENT_TAG             6
@@ -473,5 +474,39 @@ struct tpm2_req_hierarchycontrol {
     u32 enable;
     u8 state;
 } PACKED;
+
+/* TPM 2 log entry */
+
+struct tpml_digest_values_sha1 {
+    u16 hashtype;
+    u8 sha1[SHA1_BUFSIZE];
+};
+
+struct tcg_pcr_event2_sha1 {
+    u32 pcrindex;
+    u32 eventtype;
+    u32 count; /* number of digests */
+    struct tpml_digest_values_sha1 digests[1];
+    u32 eventdatasize;
+    u8 event[0];
+} PACKED;
+
+struct TCG_EfiSpecIdEventStruct {
+    u8 signature[16];
+    u32 platformClass;
+    u8 specVersionMinor;
+    u8 specVersionMajor;
+    u8 specErrata;
+    u8 uintnSize;
+    u32 numberOfAlgorithms;
+    struct TCG_EfiSpecIdEventAlgorithmSize {
+        u16 algorithmId;
+        u16 digestSize;
+    } digestSizes[1];
+    u8 vendorInfoSize;
+    u8 vendorInfo[0];
+};
+
+#define TPM_TCPA_ACPI_CLASS_CLIENT 0
 
 #endif // tcg.h
