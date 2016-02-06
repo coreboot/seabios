@@ -428,9 +428,6 @@ static int tpm20_extend(u32 pcrindex, const u8 *digest)
 static int
 tpm_extend(u32 pcrindex, const u8 *digest)
 {
-    if (pcrindex >= 24)
-        return -1;
-
     switch (TPM_version) {
     case TPM_VERSION_1_2:
         return tpm12_extend(pcrindex, digest);
@@ -438,23 +435,6 @@ tpm_extend(u32 pcrindex, const u8 *digest)
         return tpm20_extend(pcrindex, digest);
     }
     return -1;
-}
-
-static int
-tpm_log_extend_event(struct pcpes *pcpes, const void *event)
-{
-    int ret = tpm_extend(pcpes->pcrindex, pcpes->digest);
-    if (ret)
-        return -1;
-
-    return tpm_log_event(pcpes, event);
-}
-
-static void
-tpm_fill_hash(struct pcpes *pcpes, const void *hashdata, u32 hashdata_length)
-{
-    if (hashdata)
-        sha1(hashdata, hashdata_length, pcpes->digest);
 }
 
 /*
@@ -482,10 +462,13 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .eventtype = event_type,
         .eventdatasize = event_length,
     };
-    tpm_fill_hash(&pcpes, hashdata, hashdata_length);
-    int ret = tpm_log_extend_event(&pcpes, event);
-    if (ret)
+    sha1(hashdata, hashdata_length, pcpes.digest);
+    int ret = tpm_extend(pcpes.pcrindex, pcpes.digest);
+    if (ret) {
         tpm_set_failure();
+        return;
+    }
+    tpm_log_event(&pcpes, event);
 }
 
 
@@ -997,6 +980,25 @@ static inline void *output_buf32(struct bregs *regs)
 }
 
 static u32
+hash_log_extend(struct pcpes *pcpes, const void *hashdata, u32 hashdata_length
+                , void *event, int extend)
+{
+    if (pcpes->pcrindex >= 24)
+        return TCG_INVALID_INPUT_PARA;
+    if (hashdata)
+        sha1(hashdata, hashdata_length, pcpes->digest);
+    if (extend) {
+        int ret = tpm_extend(pcpes->pcrindex, pcpes->digest);
+        if (ret)
+            return TCG_TCG_COMMAND_ERROR;
+    }
+    int ret = tpm_log_event(pcpes, pcpes->event);
+    if (ret)
+        return TCG_PC_LOGOVERFLOW;
+    return 0;
+}
+
+static u32
 hash_log_extend_event_int(const struct hleei_short *hleei_s,
                           struct hleeo *hleeo)
 {
@@ -1032,18 +1034,15 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
 
     pcpes = (struct pcpes *)logdataptr;
 
-    if (pcpes->pcrindex >= 24 || pcpes->pcrindex != pcrindex
+    if (pcpes->pcrindex != pcrindex
         || logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
-
-    tpm_fill_hash(pcpes, hleei_s->hashdataptr, hleei_s->hashdatalen);
-    int ret = tpm_log_extend_event(pcpes, pcpes->event);
-    if (ret) {
-        rc = TCG_TCG_COMMAND_ERROR;
+    rc = hash_log_extend(pcpes, hleei_s->hashdataptr, hleei_s->hashdatalen
+                         , pcpes->event, 1);
+    if (rc)
         goto err_exit;
-    }
 
     hleeo->opblength = sizeof(struct hleeo);
     hleeo->reserved  = 0;
@@ -1131,19 +1130,16 @@ hash_log_event_int(const struct hlei *hlei, struct hleo *hleo)
 
     pcpes = (struct pcpes *)hlei->logdataptr;
 
-    if (pcpes->pcrindex >= 24 || pcpes->pcrindex != hlei->pcrindex
+    if (pcpes->pcrindex != hlei->pcrindex
         || pcpes->eventtype != hlei->logeventtype
         || hlei->logdatalen != sizeof(*pcpes) + pcpes->eventdatasize) {
         rc = TCG_INVALID_INPUT_PARA;
         goto err_exit;
     }
-
-    tpm_fill_hash(pcpes, hlei->hashdataptr, hlei->hashdatalen);
-    int ret = tpm_log_event(pcpes, pcpes->event);
-    if (ret) {
-        rc = TCG_PC_LOGOVERFLOW;
+    rc = hash_log_extend(pcpes, hlei->hashdataptr, hlei->hashdatalen
+                         , pcpes->event, 0);
+    if (rc)
         goto err_exit;
-    }
 
     /* updating the log was fine */
     hleo->opblength = sizeof(struct hleo);
@@ -1193,11 +1189,10 @@ compact_hash_log_extend_event_int(u8 *buffer,
         .eventtype     = EV_COMPACT_HASH,
         .eventdatasize = sizeof(info),
     };
+    u32 rc = hash_log_extend(&pcpes, buffer, length, &info, 1);
+    if (rc)
+        return rc;
 
-    tpm_fill_hash(&pcpes, buffer, length);
-    int ret = tpm_log_extend_event(&pcpes, &info);
-    if (ret)
-        return TCG_TCG_COMMAND_ERROR;
     *edx_ptr = tpm_state.entry_count;
     return 0;
 }
