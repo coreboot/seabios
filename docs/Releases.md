@@ -20,6 +20,11 @@ Available on 20151117. Major changes in this release:
       instruction is now emulated)
 * Several bug fixes and code cleanups
 
+SeaBIOS 1.9.1
+-------------
+
+Available on 20160215. Stable release containing only bug fixes.
+
 SeaBIOS 1.8.0
 =============
 
