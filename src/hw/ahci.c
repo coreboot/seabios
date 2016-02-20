@@ -515,6 +515,63 @@ static int ahci_port_setup(struct ahci_port_s *port)
                               , ata_extract_version(buffer)
                               , (u32)adjsize, adjprefix);
         port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+
+        s8 multi_dma = -1;
+        s8 pio_mode = -1;
+        s8 udma_mode = -1;
+        // If bit 2 in word 53 is set, udma information is valid in word 88.
+        if (buffer[53] & 0x04) {
+            udma_mode = 6;
+            while ((udma_mode >= 0) &&
+                   !((buffer[88] & 0x7f) & ( 1 << udma_mode ))) {
+                udma_mode--;
+            }
+        }
+        // If bit 1 in word 53 is set, multiword-dma and advanced pio modes
+        // are available in words 63 and 64.
+        if (buffer[53] & 0x02) {
+            pio_mode = 4;
+            multi_dma = 3;
+            while ((multi_dma >= 0) &&
+                   !((buffer[63] & 0x7) & ( 1 << multi_dma ))) {
+                multi_dma--;
+            }
+            while ((pio_mode >= 3) &&
+                   !((buffer[64] & 0x3) & ( 1 << ( pio_mode - 3 ) ))) {
+                pio_mode--;
+            }
+        }
+        dprintf(2, "AHCI/%d: supported modes: udma %d, multi-dma %d, pio %d\n",
+                port->pnr, udma_mode, multi_dma, pio_mode);
+
+        sata_prep_simple(&port->cmd->fis, ATA_CMD_SET_FEATURES);
+        port->cmd->fis.feature = ATA_SET_FEATRUE_TRANSFER_MODE;
+        // Select used mode. UDMA first, then Multi-DMA followed by
+        // advanced PIO modes 3 or 4. If non, set default PIO.
+        if (udma_mode >= 0) {
+            dprintf(1, "AHCI/%d: Set transfer mode to UDMA-%d\n",
+                    port->pnr, udma_mode);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_ULTRA_DMA
+                                          | udma_mode;
+        } else if (multi_dma >= 0) {
+            dprintf(1, "AHCI/%d: Set transfer mode to Multi-DMA-%d\n",
+                    port->pnr, multi_dma);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_MULTIWORD_DMA
+                                          | multi_dma;
+        } else if (pio_mode >= 3) {
+            dprintf(1, "AHCI/%d: Set transfer mode to PIO-%d\n",
+                    port->pnr, pio_mode);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_PIO_FLOW_CTRL
+                                          | pio_mode;
+        } else {
+            dprintf(1, "AHCI/%d: Set transfer mode to default PIO\n",
+                    port->pnr);
+            port->cmd->fis.sector_count = ATA_TRANSFER_MODE_DEFAULT_PIO;
+        }
+        rc = ahci_command(port, 1, 0, 0, 0);
+        if (rc < 0) {
+            dprintf(1, "AHCI/%d: Set transfer mode failed.\n", port->pnr);
+        }
     } else {
         // found cdrom (atapi)
         port->drive.type = DTYPE_AHCI_ATAPI;

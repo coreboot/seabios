@@ -155,4 +155,9 @@ void ata_setup(void);
 #define ATA_CMD_READ_NATIVE_MAX_ADDRESS      0xF8
 #define ATA_CMD_SET_MAX                      0xF9
 
+#define ATA_SET_FEATRUE_TRANSFER_MODE        0x03
+#define ATA_TRANSFER_MODE_ULTRA_DMA          0x40
+#define ATA_TRANSFER_MODE_MULTIWORD_DMA      0x20
+#define ATA_TRANSFER_MODE_PIO_FLOW_CTRL      0x08
+#define ATA_TRANSFER_MODE_DEFAULT_PIO        0x00
 #endif // ata.h
