@@ -34,18 +34,22 @@ COMMONTRAILER = """
 # Determine section locations
 ######################################################################
 
-# Align 'pos' to 'alignbytes' offset
+# Align 'pos' up to 'alignbytes' offset
 def alignpos(pos, alignbytes):
     mask = alignbytes - 1
     return (pos + mask) & ~mask
+
+# Align 'pos' down to 'alignbytes' offset
+def aligndown(pos, alignbytes):
+    mask = alignbytes - 1
+    return pos & ~mask
 
 # Determine the final addresses for a list of sections that end at an
 # address.
 def setSectionsStart(sections, endaddr, minalign=1, segoffset=0):
     totspace = 0
     for section in sections:
-        if section.align > minalign:
-            minalign = section.align
+        minalign = max(minalign, section.align)
         totspace = alignpos(totspace, section.align) + section.size
     startaddr = int((endaddr - totspace) / minalign) * minalign
     curaddr = startaddr
@@ -269,7 +273,7 @@ def doLayout(sections, config, genreloc):
         final_sec32low_end = BUILD_LOWRAM_END
         zonelow_base = final_sec32low_end - 64*1024
     relocdelta = final_sec32low_end - sec32low_end
-    li.sec32low_start, li.sec32low_align = setSectionsStart(
+    li.sec32low_start, sec32low_align = setSectionsStart(
         sections32low, sec32low_end, 16
         , segoffset=zonelow_base - relocdelta)
     li.sec32low_end = sec32low_end
@@ -405,6 +409,8 @@ def writeLinkerScripts(li, out16, out32seg, out32flat):
     if li.config.get('CONFIG_MULTIBOOT'):
         multiboot_header = "LONG(0x1BADB002) LONG(0) LONG(-0x1BADB002)"
         sec32all_start -= 3 * 4
+    sec32all_align = max([section.align for section in li.sections])
+    sec32all_start = aligndown(sec32all_start, sec32all_align)
     out += outXRefs(filesections32flat, exportsyms=[li.entrysym]) + """
     _reloc_min_align = 0x%x ;
     zonefseg_start = 0x%x ;
