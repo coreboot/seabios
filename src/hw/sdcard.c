@@ -550,12 +550,17 @@ sdcard_setup(void)
         return;
 
     struct romfile_s *file = NULL;
+    int num_romfiles = 0;
     for (;;) {
         file = romfile_findprefix("etc/sdcard", file);
         if (!file)
             break;
         run_thread(sdcard_romfile_setup, file);
+        num_romfiles++;
     }
+    if (num_romfiles)
+        // only scan for PCI controllers if etc/sdcard not used
+        return;
 
     struct pci_device *pci;
     foreachpci(pci) {
