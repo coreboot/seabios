@@ -12,6 +12,7 @@
 #include "hw/esp-scsi.h" // esp_scsi_process_op
 #include "hw/lsi-scsi.h" // lsi_scsi_process_op
 #include "hw/megasas.h" // megasas_process_op
+#include "hw/mpt-scsi.h" // mpt_scsi_process_op
 #include "hw/pci.h" // pci_bdf_to_bus
 #include "hw/pvscsi.h" // pvscsi_process_op
 #include "hw/rtc.h" // rtc_read
@@ -500,6 +501,7 @@ block_setup(void)
     esp_scsi_setup();
     megasas_setup();
     pvscsi_setup();
+    mpt_scsi_setup();
 }
 
 // Fallback handler for command requests not implemented by drivers
@@ -536,6 +538,8 @@ process_op_both(struct disk_op_s *op)
         return esp_scsi_process_op(op);
     case DTYPE_MEGASAS:
         return megasas_process_op(op);
+    case DTYPE_MPT_SCSI:
+        return mpt_scsi_process_op(op);
     default:
         if (!MODESEGMENT)
             return DISK_RET_EPARAM;

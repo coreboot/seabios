@@ -80,6 +80,7 @@ struct drive_s {
 #define DTYPE_ESP_SCSI     0x81
 #define DTYPE_MEGASAS      0x82
 #define DTYPE_PVSCSI       0x83
+#define DTYPE_MPT_SCSI     0x84
 #define DTYPE_SDCARD       0x90
 
 #define MAXDESCSIZE 80

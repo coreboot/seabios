@@ -208,6 +208,12 @@ menu "Hardware support"
         default y
         help
             Support boot from LSI MegaRAID SAS scsi storage.
+    config MPT_SCSI
+        depends on DRIVES && QEMU_HARDWARE
+        bool "LSI MPT Fusion controllers"
+        default y
+        help
+            Support boot from LSI MPT Fusion scsi storage.
     config FLOPPY
         depends on DRIVES && HARDWARE_IRQ
         bool "Floppy controller"

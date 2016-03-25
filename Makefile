@@ -34,7 +34,7 @@ SRCBOTH=misc.c stacks.c output.c string.c block.c cdrom.c disk.c mouse.c kbd.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c \
     hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \
     hw/blockcmd.c hw/floppy.c hw/ata.c hw/ramdisk.c \
-    hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c
+    hw/lsi-scsi.c hw/esp-scsi.c hw/megasas.c hw/mpt-scsi.c
 SRC16=$(SRCBOTH)
 SRC32FLAT=$(SRCBOTH) post.c e820map.c malloc.c romfile.c x86.c optionroms.c \
     pmm.c font.c boot.c bootsplash.c jpeg.c bmp.c tcgbios.c sha1.c \
