@@ -115,7 +115,6 @@ int fill_edd(struct segoff_s edd, struct drive_s *drive_gf);
 void block_setup(void);
 int default_process_op(struct disk_op_s *op);
 int process_op(struct disk_op_s *op);
-int send_disk_op(struct disk_op_s *op);
 int create_bounce_buf(void);
 
 #endif // block.h
