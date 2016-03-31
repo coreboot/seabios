@@ -278,7 +278,8 @@ init_mpt_scsi(struct pci_device *pci, const char *dev_name)
     // Post reply message used for SCSI errors
     outl((u32)&reply_msg[0], iobase + MPT_REG_REP_Q);
 
-    for (int i = 0; i < 7; i++)
+    int i;
+    for (i = 0; i < 7; i++)
         mpt_scsi_scan_target(pci, iobase, i);
 }
 
