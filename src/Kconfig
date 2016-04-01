@@ -395,14 +395,6 @@ menu "BIOS interfaces"
         default y
         help
             Support finding and running option roms during POST.
-    config OPTIONROMS_DEPLOYED
-        depends on OPTIONROMS && QEMU
-        bool "Option roms are already at 0xc0000-0xf0000"
-        default n
-        help
-            Select this if option ROMs are already copied to
-            0xc0000-0xf0000.  This must only be selected when using
-            Bochs or QEMU versions older than 0.12.
     config PMM
         depends on OPTIONROMS
         bool "PMM interface"

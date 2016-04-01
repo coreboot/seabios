@@ -26,24 +26,11 @@ static void
 __make_bios_writable_intel(u16 bdf, u32 pam0)
 {
     // Make ram from 0xc0000-0xf0000 writable
-    int clear = 0;
     int i;
     for (i=0; i<6; i++) {
         u32 pam = pam0 + 1 + i;
-        int reg = pci_config_readb(bdf, pam);
-        if (CONFIG_OPTIONROMS_DEPLOYED && (reg & 0x11) != 0x11) {
-            // Need to copy optionroms to work around qemu implementation
-            void *mem = (void*)(BUILD_ROM_START + i * 32*1024);
-            memcpy((void*)BUILD_BIOS_TMP_ADDR, mem, 32*1024);
-            pci_config_writeb(bdf, pam, 0x33);
-            memcpy(mem, (void*)BUILD_BIOS_TMP_ADDR, 32*1024);
-            clear = 1;
-        } else {
-            pci_config_writeb(bdf, pam, 0x33);
-        }
+        pci_config_writeb(bdf, pam, 0x33);
     }
-    if (clear)
-        memset((void*)BUILD_BIOS_TMP_ADDR, 0, 32*1024);
 
     // Make ram from 0xf0000-0x100000 writable
     int reg = pci_config_readb(bdf, pam0);

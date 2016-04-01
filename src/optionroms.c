@@ -347,28 +347,16 @@ optionrom_setup(void)
     memset(sources, 0, sizeof(sources));
     u32 post_vga = rom_get_last();
 
-    if (CONFIG_OPTIONROMS_DEPLOYED) {
-        // Option roms are already deployed on the system.
-        u32 pos = post_vga;
-        while (pos < rom_get_max()) {
-            int ret = init_optionrom((void*)pos, 0, 0);
-            if (ret)
-                pos += OPTION_ROM_ALIGN;
-            else
-                pos = rom_get_last();
-        }
-    } else {
-        // Find and deploy PCI roms.
-        struct pci_device *pci;
-        foreachpci(pci) {
-            if (pci->class == PCI_CLASS_DISPLAY_VGA || pci->have_driver)
-                continue;
-            init_pcirom(pci, 0, sources);
-        }
-
-        // Find and deploy CBFS roms not associated with a device.
-        run_file_roms("genroms/", 0, sources);
+    // Find and deploy PCI roms.
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (pci->class == PCI_CLASS_DISPLAY_VGA || pci->have_driver)
+            continue;
+        init_pcirom(pci, 0, sources);
     }
+
+    // Find and deploy CBFS roms not associated with a device.
+    run_file_roms("genroms/", 0, sources);
     rom_reserve(0);
 
     // All option roms found and deployed - now build BEV/BCV vectors.
@@ -427,26 +415,21 @@ vgarom_setup(void)
     RunPCIroms = romfile_loadint("etc/pci-optionrom-exec", 2);
     ScreenAndDebug = romfile_loadint("etc/screen-and-debug", 1);
 
-    if (CONFIG_OPTIONROMS_DEPLOYED) {
-        // Option roms are already deployed on the system.
-        init_optionrom((void*)BUILD_ROM_START, 0, 1);
-    } else {
-        // Clear option rom memory
-        memset((void*)BUILD_ROM_START, 0, rom_get_max() - BUILD_ROM_START);
+    // Clear option rom memory
+    memset((void*)BUILD_ROM_START, 0, rom_get_max() - BUILD_ROM_START);
 
-        // Find and deploy PCI VGA rom.
-        struct pci_device *pci;
-        foreachpci(pci) {
-            if (!is_pci_vga(pci))
-                continue;
-            vgahook_setup(pci);
-            init_pcirom(pci, 1, NULL);
-            break;
-        }
-
-        // Find and deploy CBFS vga-style roms not associated with a device.
-        run_file_roms("vgaroms/", 1, NULL);
+    // Find and deploy PCI VGA rom.
+    struct pci_device *pci;
+    foreachpci(pci) {
+        if (!is_pci_vga(pci))
+            continue;
+        vgahook_setup(pci);
+        init_pcirom(pci, 1, NULL);
+        break;
     }
+
+    // Find and deploy CBFS vga-style roms not associated with a device.
+    run_file_roms("vgaroms/", 1, NULL);
     rom_reserve(0);
 
     if (rom_get_last() == BUILD_ROM_START)
