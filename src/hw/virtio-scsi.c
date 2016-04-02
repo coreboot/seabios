@@ -16,6 +16,7 @@
 #include "pcidevice.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
+#include "stacks.h" // run_thread
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
@@ -132,8 +133,9 @@ virtio_scsi_scan_target(struct pci_device *pci, struct vp_device *vp,
 }
 
 static void
-init_virtio_scsi(struct pci_device *pci)
+init_virtio_scsi(void *data)
 {
+    struct pci_device *pci = data;
     dprintf(1, "found virtio-scsi at %pP\n", pci);
     struct vring_virtqueue *vq = NULL;
     struct vp_device *vp = malloc_high(sizeof(*vp));
@@ -199,6 +201,6 @@ virtio_scsi_setup(void)
             (pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_09 &&
              pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_10))
             continue;
-        init_virtio_scsi(pci);
+        run_thread(init_virtio_scsi, pci);
     }
 }

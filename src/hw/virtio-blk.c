@@ -15,6 +15,7 @@
 #include "pcidevice.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
+#include "stacks.h" // run_thread
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
@@ -93,8 +94,9 @@ virtio_blk_process_op(struct disk_op_s *op)
 }
 
 static void
-init_virtio_blk(struct pci_device *pci)
+init_virtio_blk(void *data)
 {
+    struct pci_device *pci = data;
     u8 status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
     dprintf(1, "found virtio-blk at %pP\n", pci);
     struct virtiodrive_s *vdrive = malloc_fseg(sizeof(*vdrive));
@@ -203,6 +205,6 @@ virtio_blk_setup(void)
             (pci->device != PCI_DEVICE_ID_VIRTIO_BLK_09 &&
              pci->device != PCI_DEVICE_ID_VIRTIO_BLK_10))
             continue;
-        init_virtio_blk(pci);
+        run_thread(init_virtio_blk, pci);
     }
 }
