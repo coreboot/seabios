@@ -15,6 +15,7 @@
 #include "pcidevice.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID
 #include "pci_regs.h" // PCI_VENDOR_ID
+#include "stacks.h" // run_thread
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
@@ -241,8 +242,9 @@ mpt_out_doorbell(u8 func, u8 arg, u16 iobase)
 }
 
 static void
-init_mpt_scsi(struct pci_device *pci, const char *dev_name)
+init_mpt_scsi(void *data)
 {
+    struct pci_device *pci = data;
     u16 *msg_in_p;
     u32 iobase = pci_enable_iobar(pci, PCI_BASE_ADDRESS_0);
     if (!iobase)
@@ -250,7 +252,8 @@ init_mpt_scsi(struct pci_device *pci, const char *dev_name)
     struct MptIOCInitReply MptIOCInitReply;
     pci_enable_busmaster(pci);
 
-    dprintf(1, "found %s at %pP, io @ %x\n", dev_name, pci, iobase);
+    dprintf(1, "found mpt-scsi(%04x) at %pP, io @ %x\n"
+            , pci->device, pci, iobase);
 
     // reset
     mpt_out_doorbell(MPT_DOORBELL_MSG_RESET, 0, iobase);
@@ -295,16 +298,10 @@ mpt_scsi_setup(void)
 
     struct pci_device *pci;
     foreachpci(pci) {
-        if (pci->vendor == PCI_VENDOR_ID_LSI_LOGIC) {
-            if (pci->device == PCI_DEVICE_ID_LSI_53C1030) {
-                init_mpt_scsi(pci, "lsi53c1030");
-            }
-            if (pci->device == PCI_DEVICE_ID_LSI_SAS1068) {
-                init_mpt_scsi(pci, "sas1068");
-            }
-            if (pci->device == PCI_DEVICE_ID_LSI_SAS1068E) {
-                init_mpt_scsi(pci, "sas1068e");
-            }
-        }
+        if (pci->vendor == PCI_VENDOR_ID_LSI_LOGIC
+            && (pci->device == PCI_DEVICE_ID_LSI_53C1030
+                || pci->device == PCI_DEVICE_ID_LSI_SAS1068
+                || pci->device == PCI_DEVICE_ID_LSI_SAS1068E))
+            run_thread(init_mpt_scsi, pci);
     }
 }

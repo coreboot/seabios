@@ -20,6 +20,7 @@
 #include "pcidevice.h" // foreachpci
 #include "pci_ids.h" // PCI_DEVICE_ID_VIRTIO_BLK
 #include "pci_regs.h" // PCI_VENDOR_ID
+#include "stacks.h" // run_thread
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
@@ -168,8 +169,9 @@ lsi_scsi_scan_target(struct pci_device *pci, u32 iobase, u8 target)
 }
 
 static void
-init_lsi_scsi(struct pci_device *pci)
+init_lsi_scsi(void *data)
 {
+    struct pci_device *pci = data;
     u32 iobase = pci_enable_iobar(pci, PCI_BASE_ADDRESS_0);
     if (!iobase)
         return;
@@ -183,8 +185,6 @@ init_lsi_scsi(struct pci_device *pci)
     int i;
     for (i = 0; i < 7; i++)
         lsi_scsi_scan_target(pci, iobase, i);
-
-    return;
 }
 
 void
@@ -201,6 +201,6 @@ lsi_scsi_setup(void)
         if (pci->vendor != PCI_VENDOR_ID_LSI_LOGIC
             || pci->device != PCI_DEVICE_ID_LSI_53C895A)
             continue;
-        init_lsi_scsi(pci);
+        run_thread(init_lsi_scsi, pci);
     }
 }

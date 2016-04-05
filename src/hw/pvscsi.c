@@ -17,6 +17,7 @@
 #include "pci_ids.h" // PCI_DEVICE_ID_VMWARE_PVSCSI
 #include "pci_regs.h" // PCI_VENDOR_ID
 #include "pvscsi.h" // pvscsi_setup
+#include "stacks.h" // run_thread
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
 #include "util.h" // usleep
@@ -294,8 +295,9 @@ pvscsi_scan_target(struct pci_device *pci, void *iobase,
 }
 
 static void
-init_pvscsi(struct pci_device *pci)
+init_pvscsi(void *data)
 {
+    struct pci_device *pci = data;
     void *iobase = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
     if (!iobase)
         return;
@@ -310,8 +312,6 @@ init_pvscsi(struct pci_device *pci)
     int i;
     for (i = 0; i < 7; i++)
         pvscsi_scan_target(pci, iobase, ring_dsc, i);
-
-    return;
 }
 
 void
@@ -328,6 +328,6 @@ pvscsi_setup(void)
         if (pci->vendor != PCI_VENDOR_ID_VMWARE
             || pci->device != PCI_DEVICE_ID_VMWARE_PVSCSI)
             continue;
-        init_pvscsi(pci);
+        run_thread(init_pvscsi, pci);
     }
 }

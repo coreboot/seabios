@@ -357,8 +357,9 @@ static int megasas_transition_to_ready(struct pci_device *pci, u32 ioaddr)
 }
 
 static void
-init_megasas(struct pci_device *pci)
+init_megasas(void *data)
 {
+    struct pci_device *pci = data;
     u32 bar = PCI_BASE_ADDRESS_2;
     if (!(pci_config_readl(pci->bdf, bar) & PCI_BASE_ADDRESS_IO_MASK))
         bar = PCI_BASE_ADDRESS_0;
@@ -372,8 +373,6 @@ init_megasas(struct pci_device *pci)
     // reset
     if (megasas_transition_to_ready(pci, iobase) == 0)
         megasas_scan_target(pci, iobase);
-
-    return;
 }
 
 void
@@ -401,6 +400,6 @@ megasas_setup(void)
             pci->device == PCI_DEVICE_ID_DELL_PERC5 ||
             pci->device == PCI_DEVICE_ID_LSI_SAS2208 ||
             pci->device == PCI_DEVICE_ID_LSI_SAS3108)
-            init_megasas(pci);
+            run_thread(init_megasas, pci);
     }
 }
