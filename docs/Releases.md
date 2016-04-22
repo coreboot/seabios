@@ -25,6 +25,11 @@ SeaBIOS 1.9.1
 
 Available on 20160215. Stable release containing only bug fixes.
 
+SeaBIOS 1.9.2
+-------------
+
+Available on 20160422. Stable release containing only bug fixes.
+
 SeaBIOS 1.8.0
 =============
 
