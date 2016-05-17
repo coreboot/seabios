@@ -275,6 +275,50 @@ static void ich9_smbus_setup(struct pci_device *dev, void *arg)
     ich9_smbus_enable(dev->bdf);
 }
 
+static void intel_igd_setup(struct pci_device *dev, void *arg)
+{
+    struct romfile_s *opregion = romfile_find("etc/igd-opregion");
+    u64 bdsm_size = le64_to_cpu(romfile_loadint("etc/igd-bdsm-size", 0));
+    void *addr;
+    u16 bdf = dev->bdf;
+
+    /* Apply OpRegion to any Intel VGA device, more than one is undefined */
+    if (opregion && opregion->size) {
+        addr = memalign_high(PAGE_SIZE, opregion->size);
+        if (!addr) {
+            warn_noalloc();
+            return;
+        }
+
+        if (opregion->copy(opregion, addr, opregion->size) < 0) {
+            free(addr);
+            return;
+        }
+
+        pci_config_writel(bdf, 0xFC, cpu_to_le32((u32)addr));
+
+        dprintf(1, "Intel IGD OpRegion enabled at 0x%08x, size %dKB, dev "
+                "%02x:%02x.%x\n", (u32)addr, opregion->size >> 10,
+                pci_bdf_to_bus(bdf), pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf));
+    }
+
+    /* Apply BDSM only to Intel VGA at 00:02.0 */
+    if (bdsm_size && (bdf == pci_to_bdf(0, 2, 0))) {
+        addr = memalign_tmphigh(1024 * 1024, bdsm_size);
+        if (!addr) {
+            warn_noalloc();
+            return;
+        }
+
+        e820_add((u32)addr, bdsm_size, E820_RESERVED);
+
+        pci_config_writel(bdf, 0x5C, cpu_to_le32((u32)addr));
+
+        dprintf(1, "Intel IGD BDSM enabled at 0x%08x, size %lldMB, dev "
+                "00:02.0\n", (u32)addr, bdsm_size >> 20);
+    }
+}
+
 static const struct pci_device_id pci_device_tbl[] = {
     /* PIIX3/PIIX4 PCI to ISA bridge */
     PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371SB_0,
@@ -307,6 +351,10 @@ static const struct pci_device_id pci_device_tbl[] = {
     /* 0xff00 */
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0017, 0xff00, apple_macio_setup),
     PCI_DEVICE_CLASS(PCI_VENDOR_ID_APPLE, 0x0022, 0xff00, apple_macio_setup),
+
+    /* Intel IGD OpRegion setup */
+    PCI_DEVICE_CLASS(PCI_VENDOR_ID_INTEL, PCI_ANY_ID, PCI_CLASS_DISPLAY_VGA,
+                     intel_igd_setup),
 
     PCI_DEVICE_END,
 };
