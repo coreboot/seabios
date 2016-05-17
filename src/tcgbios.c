@@ -33,7 +33,6 @@ static const u8 Startup_ST_CLEAR[] = { 0x00, TPM_ST_CLEAR };
 static const u8 Startup_ST_STATE[] = { 0x00, TPM_ST_STATE };
 
 static const u8 PhysicalPresence_CMD_ENABLE[]  = { 0x00, 0x20 };
-static const u8 PhysicalPresence_CMD_DISABLE[] = { 0x01, 0x00 };
 static const u8 PhysicalPresence_PRESENT[]     = { 0x00, 0x08 };
 static const u8 PhysicalPresence_NOT_PRESENT_LOCK[] = { 0x00, 0x14 };
 
