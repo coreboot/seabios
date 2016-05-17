@@ -286,20 +286,6 @@ static const int speed_to_xhci[] = {
     [ USB_SUPERSPEED ] = 4,
 };
 
-static const int eptype_to_xhci_in[] = {
-    [ USB_ENDPOINT_XFER_CONTROL] = 4,
-    [ USB_ENDPOINT_XFER_ISOC   ] = 5,
-    [ USB_ENDPOINT_XFER_BULK   ] = 6,
-    [ USB_ENDPOINT_XFER_INT    ] = 7,
-};
-
-static const int eptype_to_xhci_out[] = {
-    [ USB_ENDPOINT_XFER_CONTROL] = 4,
-    [ USB_ENDPOINT_XFER_ISOC   ] = 1,
-    [ USB_ENDPOINT_XFER_BULK   ] = 2,
-    [ USB_ENDPOINT_XFER_INT    ] = 3,
-};
-
 static int wait_bit(u32 *reg, u32 mask, int value, u32 timeout)
 {
     u32 end = timer_calc(timeout);
