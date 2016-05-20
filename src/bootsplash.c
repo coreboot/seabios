@@ -81,7 +81,8 @@ find_videomode(struct vbe_info *vesa_info, struct vbe_mode_info *mode_info
             continue;
         u8 depth = mode_info->bits_per_pixel;
         if (bpp_req == 0) {
-            if (depth != 16 && depth != 24 && depth != 32)
+            if ((depth != 16 && depth != 24 && depth != 32)
+                || mode_info->green_size == 5)
                 continue;
         } else {
             if (depth != bpp_req)
