@@ -101,84 +101,8 @@ struct vp_device {
     u8 use_modern;
 };
 
-static inline u64 _vp_read(struct vp_cap *cap, u32 offset, u8 size)
-{
-    u64 var;
-
-    if (cap->is_io) {
-        u32 addr = cap->ioaddr + offset;
-        switch (size) {
-        case 8:
-            var = inl(addr);
-            var |= (u64)inl(addr+4) << 32;
-            break;
-        case 4:
-            var = inl(addr);
-            break;
-        case 2:
-            var = inw(addr);
-            break;
-        case 1:
-            var = inb(addr);
-            break;
-        default:
-            var = 0;
-        }
-    } else {
-        void *addr = cap->memaddr + offset;
-        switch (size) {
-        case 8:
-            var = readl(addr);
-            var |= (u64)readl(addr+4) << 32;
-            break;
-        case 4:
-            var = readl(addr);
-            break;
-        case 2:
-            var = readw(addr);
-            break;
-        case 1:
-            var = readb(addr);
-            break;
-        default:
-            var = 0;
-        }
-    }
-    dprintf(9, "vp read   %x (%d) -> 0x%llx\n", cap->ioaddr + offset, size, var);
-    return var;
-}
-
-static inline void _vp_write(struct vp_cap *cap, u32 offset, u8 size, u64 var)
-{
-    dprintf(9, "vp write  %x (%d) <- 0x%llx\n", cap->ioaddr + offset, size, var);
-    if (cap->is_io) {
-        u32 addr = cap->ioaddr + offset;
-        switch (size) {
-        case 4:
-            outl(var, addr);
-            break;
-        case 2:
-            outw(var, addr);
-            break;
-        case 1:
-            outb(var, addr);
-            break;
-        }
-    } else {
-        void *addr = cap->memaddr + offset;
-        switch (size) {
-        case 4:
-            writel(addr, var);
-            break;
-        case 2:
-            writew(addr, var);
-            break;
-        case 1:
-            writeb(addr, var);
-            break;
-        }
-    }
-}
+u64 _vp_read(struct vp_cap *cap, u32 offset, u8 size);
+void _vp_write(struct vp_cap *cap, u32 offset, u8 size, u64 var);
 
 #define vp_read(_cap, _struct, _field)        \
     _vp_read(_cap, offsetof(_struct, _field), \
