@@ -131,6 +131,15 @@ qemu_preinit(void)
     dprintf(1, "RamSize: 0x%08x [cmos]\n", RamSize);
 }
 
+#define MSR_IA32_FEATURE_CONTROL 0x0000003a
+
+static void msr_feature_control_setup(void)
+{
+    u64 feature_control_bits = romfile_loadint("etc/msr_feature_control", 0);
+    if (feature_control_bits)
+        wrmsr_smp(MSR_IA32_FEATURE_CONTROL, feature_control_bits);
+}
+
 void
 qemu_platform_setup(void)
 {
@@ -149,8 +158,9 @@ qemu_platform_setup(void)
     smm_device_setup();
     smm_setup();
 
-    // Initialize mtrr and smp
+    // Initialize mtrr, msr_feature_control and smp
     mtrr_setup();
+    msr_feature_control_setup();
     smp_setup();
 
     // Create bios tables
