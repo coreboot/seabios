@@ -1030,13 +1030,7 @@ handle_1012(struct bregs *regs)
 static void noinline
 handle_1013(struct bregs *regs)
 {
-    struct cursorpos cp;
-    if (regs->dh == 0xff)
-        // if row=0xff special case : use current cursor position
-        cp = get_cursor_pos(regs->bh);
-    else
-        cp = (struct cursorpos) {regs->dl, regs->dh, regs->bh};
-
+    struct cursorpos cp = {regs->dl, regs->dh, regs->bh};
     u16 count = regs->cx;
     u8 *offset_far = (void*)(regs->bp + 0);
     u8 attr = regs->bl;
