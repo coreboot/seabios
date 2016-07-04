@@ -83,27 +83,19 @@ set_cursor_shape(u16 cursor_type)
 static void
 set_cursor_pos(struct cursorpos cp)
 {
-    u8 page = cp.page, x = cp.x, y = cp.y;
-
-    // Should not happen...
-    if (page > 7)
+    if (cp.page > 7)
+        // Should not happen...
         return;
 
-    vgafb_set_swcursor(0);
+    if (cp.page == GET_BDA(video_page)) {
+        // Update cursor in hardware
+        vgafb_set_swcursor(0);
+        if (CONFIG_VGA_STDVGA_PORTS)
+            stdvga_set_cursor_pos((int)text_address(cp));
+    }
 
-    // Bios cursor pos
-    SET_BDA(cursor_pos[page], (y << 8) | x);
-
-    if (!CONFIG_VGA_STDVGA_PORTS)
-        return;
-
-    // Set the hardware cursor
-    u8 current = GET_BDA(video_page);
-    if (cp.page != current)
-        return;
-
-    // Calculate the memory address
-    stdvga_set_cursor_pos((int)text_address(cp));
+    // Update BIOS cursor pos
+    SET_BDA(cursor_pos[cp.page], (cp.y << 8) | cp.x);
 }
 
 struct cursorpos
