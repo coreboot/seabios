@@ -674,7 +674,7 @@ vgafb_set_swcursor(int enable)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
-    struct cursorpos cp = get_cursor_pos(0xff);
+    struct cursorpos cp = get_cursor_pos(GET_BDA(video_page));
     if (cp.x >= GET_BDA(video_cols) || cp.y > GET_BDA(video_rows)
         || GET_BDA(cursor_type) >= 0x2000)
         // Cursor not visible

@@ -109,16 +109,10 @@ set_cursor_pos(struct cursorpos cp)
 struct cursorpos
 get_cursor_pos(u8 page)
 {
-    if (page == 0xff)
-        // special case - use current page
-        page = GET_BDA(video_page);
-    if (page > 7) {
-        struct cursorpos cp = { 0, 0, 0xfe };
-        return cp;
-    }
+    if (page > 7)
+        return (struct cursorpos) { 0, 0, 0 };
     u16 xy = GET_BDA(cursor_pos[page]);
-    struct cursorpos cp = {xy, xy>>8, page};
-    return cp;
+    return (struct cursorpos) { xy, xy>>8, page };
 }
 
 static void
@@ -555,7 +549,7 @@ handle_100e(struct bregs *regs)
     // Ralf Brown Interrupt list is WRONG on bh(page)
     // We do output only on the current page !
     struct carattr ca = {regs->al, regs->bl, 0};
-    struct cursorpos cp = get_cursor_pos(0xff);
+    struct cursorpos cp = get_cursor_pos(GET_BDA(video_page));
     write_teletype(&cp, ca);
     set_cursor_pos(cp);
 }
