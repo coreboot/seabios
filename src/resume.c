@@ -97,6 +97,7 @@ s3_resume(void)
 
     pic_setup();
     smm_setup();
+    smp_resume();
 
     pci_resume();
 

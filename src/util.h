@@ -135,6 +135,7 @@ void smm_setup(void);
 extern u32 MaxCountCPUs;
 void wrmsr_smp(u32 index, u64 val);
 void smp_setup(void);
+void smp_resume(void);
 int apic_id_is_present(u8 apic_id);
 
 // hw/dma.c
