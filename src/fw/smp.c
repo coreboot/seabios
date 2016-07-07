@@ -36,6 +36,15 @@ wrmsr_smp(u32 index, u64 val)
     smp_msr_count++;
 }
 
+static void
+smp_write_msrs(void)
+{
+    // MTRR and MSR_IA32_FEATURE_CONTROL setup
+    int i;
+    for (i=0; i<smp_msr_count; i++)
+        wrmsr(smp_msr[i].index, smp_msr[i].val);
+}
+
 u32 MaxCountCPUs;
 static u32 CountCPUs;
 // 256 bits for the found APIC IDs
@@ -58,10 +67,7 @@ handle_smp(void)
     u8 apic_id = ebx>>24;
     dprintf(DEBUG_HDL_smp, "handle_smp: apic_id=%d\n", apic_id);
 
-    // MTRR and MSR_IA32_FEATURE_CONTROL setup
-    int i;
-    for (i=0; i<smp_msr_count; i++)
-        wrmsr(smp_msr[i].index, smp_msr[i].val);
+    smp_write_msrs();
 
     // Set bit on FoundAPICIDs
     FoundAPICIDs[apic_id/32] |= (1 << (apic_id % 32));
@@ -74,12 +80,9 @@ u32 SMPLock __VISIBLE;
 u32 SMPStack __VISIBLE;
 
 // find and initialize the CPUs by launching a SIPI to them
-void
-smp_setup(void)
+static void
+smp_scan(void)
 {
-    if (!CONFIG_QEMU)
-        return;
-
     ASSERT32FLAT();
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
@@ -87,7 +90,6 @@ smp_setup(void)
         // No apic - only the main cpu is present.
         dprintf(1, "No apic - only the main cpu is present.\n");
         CountCPUs= 1;
-        MaxCountCPUs = 1;
         return;
     }
 
@@ -141,10 +143,30 @@ smp_setup(void)
     // Restore memory.
     *(u64*)BUILD_AP_BOOT_ADDR = old;
 
-    MaxCountCPUs = romfile_loadint("etc/max-cpus", 0);
-    if (!MaxCountCPUs || MaxCountCPUs < CountCPUs)
-        MaxCountCPUs = CountCPUs;
-
     dprintf(1, "Found %d cpu(s) max supported %d cpu(s)\n", CountCPUs,
             MaxCountCPUs);
+}
+
+void
+smp_setup(void)
+{
+    if (!CONFIG_QEMU)
+        return;
+
+    MaxCountCPUs = romfile_loadint("etc/max-cpus", 0);
+    u8 cmos_smp_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
+    if (MaxCountCPUs < cmos_smp_count)
+        MaxCountCPUs = cmos_smp_count;
+
+    smp_scan();
+}
+
+void
+smp_resume(void)
+{
+    if (!CONFIG_QEMU)
+        return;
+
+    smp_write_msrs();
+    smp_scan();
 }
