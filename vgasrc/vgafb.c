@@ -346,7 +346,7 @@ handle_gfx_op(struct gfx_op *op)
 // Move characters when in graphics mode.
 static void
 gfx_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-               , struct cursorpos src, struct cursorpos movesize)
+               , struct cursorpos movesize, int lines)
 {
     struct gfx_op op;
     init_gfx_op(&op, vmode_g);
@@ -355,23 +355,23 @@ gfx_move_chars(struct vgamode_s *vmode_g, struct cursorpos dest
     int cheight = GET_BDA(char_height);
     op.y = dest.y * cheight;
     op.ylen = movesize.y * cheight;
-    op.srcy = src.y * cheight;
+    op.srcy = op.y + lines * cheight;
     op.op = GO_MEMMOVE;
     handle_gfx_op(&op);
 }
 
 // Clear area of screen in graphics mode.
 static void
-gfx_clear_chars(struct vgamode_s *vmode_g, struct cursorpos dest
-                , struct carattr ca, struct cursorpos clearsize)
+gfx_clear_chars(struct vgamode_s *vmode_g, struct cursorpos win
+                , struct cursorpos winsize, struct carattr ca)
 {
     struct gfx_op op;
     init_gfx_op(&op, vmode_g);
-    op.x = dest.x * 8;
-    op.xlen = clearsize.x * 8;
+    op.x = win.x * 8;
+    op.xlen = winsize.x * 8;
     int cheight = GET_BDA(char_height);
-    op.y = dest.y * cheight;
-    op.ylen = clearsize.y * cheight;
+    op.y = win.y * cheight;
+    op.ylen = winsize.y * cheight;
     op.pixels[0] = ca.attr;
     if (vga_emulate_text())
         op.pixels[0] = ca.attr >> 4;
@@ -580,45 +580,71 @@ text_address(struct cursorpos cp)
 }
 
 // Move characters on screen.
-void
-vgafb_move_chars(struct cursorpos dest
-                 , struct cursorpos src, struct cursorpos movesize)
+static void
+vgafb_move_chars(struct cursorpos dest, struct cursorpos movesize, int lines)
 {
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
-    vgafb_set_swcursor(0);
 
     if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
-        gfx_move_chars(vmode_g, dest, src, movesize);
+        gfx_move_chars(vmode_g, dest, movesize, lines);
         return;
     }
 
     int stride = GET_BDA(video_cols) * 2;
-    memmove_stride(GET_GLOBAL(vmode_g->sstart)
-                   , text_address(dest), text_address(src)
+    void *dest_addr = text_address(dest), *src_addr = dest_addr + lines * stride;
+    memmove_stride(GET_GLOBAL(vmode_g->sstart), dest_addr, src_addr
                    , movesize.x * 2, stride, movesize.y);
 }
 
 // Clear area of screen.
-void
-vgafb_clear_chars(struct cursorpos dest
-                  , struct carattr ca, struct cursorpos clearsize)
+static void
+vgafb_clear_chars(struct cursorpos win, struct cursorpos winsize
+                  , struct carattr ca)
 {
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
-    vgafb_set_swcursor(0);
 
     if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
-        gfx_clear_chars(vmode_g, dest, ca, clearsize);
+        gfx_clear_chars(vmode_g, win, winsize, ca);
         return;
     }
 
     int stride = GET_BDA(video_cols) * 2;
     u16 attr = ((ca.use_attr ? ca.attr : 0x07) << 8) | ca.car;
-    memset16_stride(GET_GLOBAL(vmode_g->sstart), text_address(dest), attr
-                    , clearsize.x * 2, stride, clearsize.y);
+    memset16_stride(GET_GLOBAL(vmode_g->sstart), text_address(win), attr
+                    , winsize.x * 2, stride, winsize.y);
+}
+
+// Scroll characters within a window on the screen
+void
+vgafb_scroll(struct cursorpos win, struct cursorpos winsize
+             , int lines, struct carattr ca)
+{
+    vgafb_set_swcursor(0);
+    if (!lines) {
+        // Clear window
+        vgafb_clear_chars(win, winsize, ca);
+    } else if (lines > 0) {
+        // Scroll the window up (eg, from page down key)
+        winsize.y -= lines;
+        vgafb_move_chars(win, winsize, lines);
+
+        win.y += winsize.y;
+        winsize.y = lines;
+        vgafb_clear_chars(win, winsize, ca);
+    } else {
+        // Scroll the window down (eg, from page up key)
+        win.y -= lines;
+        winsize.y += lines;
+        vgafb_move_chars(win, winsize, lines);
+
+        win.y += lines;
+        winsize.y = -lines;
+        vgafb_clear_chars(win, winsize, ca);
+    }
 }
 
 // Write a character to the screen.

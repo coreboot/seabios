@@ -126,10 +126,8 @@ extern struct video_func_static static_functionality;
 void init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g);
 void handle_gfx_op(struct gfx_op *op);
 void *text_address(struct cursorpos cp);
-void vgafb_move_chars(struct cursorpos dest
-                      , struct cursorpos src, struct cursorpos movesize);
-void vgafb_clear_chars(struct cursorpos dest
-                       , struct carattr ca, struct cursorpos movesize);
+void vgafb_scroll(struct cursorpos win, struct cursorpos winsize
+                  , int lines, struct carattr ca);
 void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);
 void vgafb_write_pixel(u8 color, u16 x, u16 y);
