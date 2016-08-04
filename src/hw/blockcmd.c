@@ -118,6 +118,8 @@ scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
         cmd->count = cpu_to_be16(op->count);
         return GET_GLOBALFLAT(op->drive_gf->blksize);
     case CMD_SCSI:
+        if (MODESEGMENT)
+            return -1;
         memcpy(cdbcmd, op->cdbcmd, maxcdb);
         return op->blocksize;
     default:
@@ -129,13 +131,15 @@ scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
 int
 scsi_is_read(struct disk_op_s *op)
 {
-    return op->command == CMD_READ || (op->command == CMD_SCSI && op->blocksize);
+    return op->command == CMD_READ || (
+        !MODESEGMENT && op->command == CMD_SCSI && op->blocksize);
 }
 
 // Check if a SCSI device is ready to receive commands
 int
 scsi_is_ready(struct disk_op_s *op)
 {
+    ASSERT32FLAT();
     dprintf(6, "scsi_is_ready (drive=%p)\n", op->drive_gf);
 
     /* Retry TEST UNIT READY for 5 seconds unless MEDIUM NOT PRESENT is
@@ -181,6 +185,7 @@ scsi_is_ready(struct disk_op_s *op)
 int
 scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
 {
+    ASSERT32FLAT();
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
     dop.drive_gf = drive;
