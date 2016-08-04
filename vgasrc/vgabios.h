@@ -132,6 +132,8 @@ void vgafb_write_char(struct cursorpos cp, struct carattr ca);
 struct carattr vgafb_read_char(struct cursorpos cp);
 void vgafb_write_pixel(u8 color, u16 x, u16 y);
 u8 vgafb_read_pixel(u16 x, u16 y);
+
+// swcursor.c
 void vgafb_set_swcursor(int enable);
 
 // vbe.c
