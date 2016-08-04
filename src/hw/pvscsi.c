@@ -167,7 +167,7 @@ pvscsi_init_rings(void *iobase, struct pvscsi_ring_dsc_s **ring_dsc)
 {
     struct PVSCSICmdDescSetupRings cmd = {0,};
 
-    struct pvscsi_ring_dsc_s *dsc = memalign_low(sizeof(*dsc), PAGE_SIZE);
+    struct pvscsi_ring_dsc_s *dsc = memalign_low(PAGE_SIZE, sizeof(*dsc));
     if (!dsc) {
         warn_noalloc();
         return;
