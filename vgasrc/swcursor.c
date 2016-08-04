@@ -6,7 +6,8 @@
 
 #include "biosvar.h" // GET_BDA
 #include "bregs.h" // struct bregs
-#include "vgabios.h" // handle_gfx_op
+#include "vgabios.h" // get_cursor_pos
+#include "vgafb.h" // handle_gfx_op
 
 // Draw/undraw a cursor on the framebuffer by xor'ing the cursor cell
 static void

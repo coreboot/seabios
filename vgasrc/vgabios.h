@@ -43,25 +43,6 @@ struct vgamode_s {
     u16 sstart;
 };
 
-// Graphics pixel operations.
-struct gfx_op {
-    struct vgamode_s *vmode_g;
-    u32 linelength;
-    u32 displaystart;
-
-    u8 op;
-    u16 x, y;
-
-    u8 pixels[8];
-    u16 xlen, ylen;
-    u16 srcy;
-};
-
-#define GO_READ8   1
-#define GO_WRITE8  2
-#define GO_MEMSET  3
-#define GO_MEMMOVE 4
-
 // Custom internal storage in BDA (don't change here without also
 // updating vgaentry.S)
 #define VGA_CUSTOM_BDA 0xb9
@@ -107,12 +88,6 @@ extern struct video_param_s video_param_table[29];
 extern int VgaBDF;
 extern int HaveRunInit;
 #define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
-struct carattr {
-    u8 car, attr, use_attr, pad;
-};
-struct cursorpos {
-    u8 x, y, page, pad;
-};
 int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
 u16 get_cursor_shape(void);
@@ -121,17 +96,6 @@ int bda_save_restore(int cmd, u16 seg, void *data);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
 extern struct video_func_static static_functionality;
-
-// vgafb.c
-void init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g);
-void handle_gfx_op(struct gfx_op *op);
-void *text_address(struct cursorpos cp);
-void vgafb_scroll(struct cursorpos win, struct cursorpos winsize
-                  , int lines, struct carattr ca);
-void vgafb_write_char(struct cursorpos cp, struct carattr ca);
-struct carattr vgafb_read_char(struct cursorpos cp);
-void vgafb_write_pixel(u8 color, u16 x, u16 y);
-u8 vgafb_read_pixel(u16 x, u16 y);
 
 // swcursor.c
 struct bregs;

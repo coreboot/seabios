@@ -14,6 +14,7 @@
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "string.h" // memset_far
 #include "vgabios.h" // calc_page_size
+#include "vgafb.h" // vgafb_write_char
 #include "vgahw.h" // vgahw_set_mode
 
 

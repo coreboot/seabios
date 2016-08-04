@@ -11,6 +11,7 @@
 #include "stdvga.h" // stdvga_planar4_plane
 #include "string.h" // memset_far
 #include "vgabios.h" // vgafb_scroll
+#include "vgafb.h" // vgafb_write_char
 #include "vgahw.h" // vgahw_get_linelength
 
 static inline void

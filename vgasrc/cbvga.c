@@ -11,6 +11,7 @@
 #include "string.h" // memset16_far
 #include "util.h" // find_cb_table
 #include "vgabios.h" // VGAREG_*
+#include "vgafb.h" // handle_gfx_op
 
 static int CBmode VAR16;
 static struct vgamode_s CBmodeinfo VAR16;
