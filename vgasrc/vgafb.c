@@ -504,7 +504,6 @@ vgafb_write_pixel(u8 color, u16 x, u16 y)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
-    vgafb_set_swcursor(0);
 
     struct gfx_op op;
     init_gfx_op(&op, vmode_g);
@@ -529,7 +528,6 @@ vgafb_read_pixel(u16 x, u16 y)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return 0;
-    vgafb_set_swcursor(0);
 
     struct gfx_op op;
     init_gfx_op(&op, vmode_g);
@@ -599,7 +597,6 @@ void
 vgafb_scroll(struct cursorpos win, struct cursorpos winsize
              , int lines, struct carattr ca)
 {
-    vgafb_set_swcursor(0);
     if (!lines) {
         // Clear window
         vgafb_clear_chars(win, winsize, ca);
@@ -630,7 +627,6 @@ vgafb_write_char(struct cursorpos cp, struct carattr ca)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
-    vgafb_set_swcursor(0);
 
     if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT) {
         gfx_write_char(vmode_g, cp, ca);
@@ -653,7 +649,6 @@ vgafb_read_char(struct cursorpos cp)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return (struct carattr){0, 0, 0};
-    vgafb_set_swcursor(0);
 
     if (GET_GLOBAL(vmode_g->memmodel) != MM_TEXT)
         return gfx_read_char(vmode_g, cp);

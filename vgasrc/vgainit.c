@@ -96,9 +96,7 @@ struct segoff_s Timer_Hook_Resume VAR16 VISIBLE16;
 void VISIBLE16
 handle_timer_hook(void)
 {
-    if (!vga_emulate_text())
-        return;
-    vgafb_set_swcursor(GET_BDA(timer_counter) % 18 < 9);
+    swcursor_check_event();
 }
 
 static void

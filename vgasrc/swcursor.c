@@ -5,6 +5,7 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "biosvar.h" // GET_BDA
+#include "bregs.h" // struct bregs
 #include "vgabios.h" // handle_gfx_op
 
 // Draw/undraw a cursor on the framebuffer by xor'ing the cursor cell
@@ -32,11 +33,9 @@ gfx_set_swcursor(struct vgamode_s *vmode_g, int enable, struct cursorpos cp)
 }
 
 // Draw/undraw a cursor on the screen
-void
-vgafb_set_swcursor(int enable)
+static void
+set_swcursor(int enable)
 {
-    if (!vga_emulate_text())
-        return;
     u8 flags = GET_BDA_EXT(flags);
     if (!!(flags & BF_SWCURSOR) == enable)
         // Already in requested mode.
@@ -62,4 +61,34 @@ vgafb_set_swcursor(int enable)
     u8 attr = GET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)dest_far);
     attr = (attr >> 4) | (attr << 4);
     SET_FARVAR(GET_GLOBAL(vmode_g->sstart), *(u8*)dest_far, attr);
+}
+
+// Disable virtual cursor if a vgabios call accesses the framebuffer
+void
+swcursor_pre_handle10(struct bregs *regs)
+{
+    if (!vga_emulate_text())
+        return;
+    switch (regs->ah) {
+    case 0x4f:
+        if (!CONFIG_VGA_VBE || regs->al != 0x02)
+            break;
+        // NO BREAK
+    case 0x00 ... 0x02:
+    case 0x05 ... 0x0e:
+    case 0x13:
+        set_swcursor(0);
+        break;
+    default:
+        break;
+    }
+}
+
+// Called by periodic (18.2hz) timer
+void
+swcursor_check_event(void)
+{
+    if (!vga_emulate_text())
+        return;
+    set_swcursor(GET_BDA(timer_counter) % 18 < 9);
 }

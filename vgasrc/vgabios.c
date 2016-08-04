@@ -74,7 +74,6 @@ get_cursor_shape(void)
 static void
 set_cursor_shape(u16 cursor_type)
 {
-    vgafb_set_swcursor(0);
     SET_BDA(cursor_type, cursor_type);
     if (CONFIG_VGA_STDVGA_PORTS)
         stdvga_set_cursor_shape(get_cursor_shape());
@@ -89,7 +88,6 @@ set_cursor_pos(struct cursorpos cp)
 
     if (cp.page == GET_BDA(video_page)) {
         // Update cursor in hardware
-        vgafb_set_swcursor(0);
         if (CONFIG_VGA_STDVGA_PORTS)
             stdvga_set_cursor_pos((int)text_address(cp));
     }
@@ -117,8 +115,6 @@ set_active_page(u8 page)
     struct vgamode_s *vmode_g = get_current_mode();
     if (!vmode_g)
         return;
-
-    vgafb_set_swcursor(0);
 
     // Calculate memory address of start of page
     struct cursorpos cp = {0, 0, page};
@@ -267,8 +263,6 @@ vga_set_mode(int mode, int flags)
     struct vgamode_s *vmode_g = vgahw_find_mode(mode);
     if (!vmode_g)
         return VBE_RETURN_STATUS_FAILED;
-
-    vgafb_set_swcursor(0);
 
     int ret = vgahw_set_mode(vmode_g, flags);
     if (ret)
@@ -1103,6 +1097,8 @@ void VISIBLE16
 handle_10(struct bregs *regs)
 {
     debug_enter(regs, DEBUG_VGA_10);
+    swcursor_pre_handle10(regs);
+
     switch (regs->ah) {
     case 0x00: handle_1000(regs); break;
     case 0x01: handle_1001(regs); break;
