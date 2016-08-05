@@ -10,9 +10,10 @@
 #include "output.h" // dprintf
 #include "stdvga.h" // stdvga_planar4_plane
 #include "string.h" // memset_far
-#include "vgabios.h" // vgafb_scroll
+#include "vgabios.h" // get_current_mode
 #include "vgafb.h" // vgafb_write_char
 #include "vgahw.h" // vgahw_get_linelength
+#include "vgautil.h" // VBE_framebuffer
 
 static inline void
 memmove_stride(u16 seg, void *dst, void *src, int copylen, int stride, int lines)

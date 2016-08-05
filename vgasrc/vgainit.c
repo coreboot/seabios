@@ -15,8 +15,9 @@
 #include "std/pmm.h" // struct pmmheader
 #include "string.h" // checksum_far
 #include "util.h" // VERSION
-#include "vgabios.h" // video_save_pointer_table
+#include "vgabios.h" // SET_VGA
 #include "vgahw.h" // vgahw_setup
+#include "vgautil.h" // swcursor_check_event
 
 // Type of emulator platform - for dprintf with certain compile options.
 int PlatformRunningOn VAR16;

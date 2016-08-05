@@ -13,7 +13,8 @@
 #include "output.h" // dprintf
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
 #include "string.h" // memset16_far
-#include "vgabios.h" // VBE_VENDOR_STRING
+#include "vgabios.h" // SET_VGA
+#include "vgautil.h" // VBE_total_memory
 
 
 /****************************************************************

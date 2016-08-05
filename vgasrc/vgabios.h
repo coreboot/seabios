@@ -68,23 +68,14 @@ static inline int vga_emulate_text(void) {
     return CONFIG_VGA_EMULATE_TEXT && GET_BDA_EXT(flags) & BF_EMULATE_TEXT;
 }
 
+// Write to global variables (during "post" phase only)
+#define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
+
 // Debug settings
 #define DEBUG_VGA_POST 1
 #define DEBUG_VGA_10 3
 
-// vgafonts.c
-extern u8 vgafont8[];
-extern u8 vgafont14[];
-extern u8 vgafont16[];
-extern u8 vgafont14alt[];
-extern u8 vgafont16alt[];
-
-// vgainit.c
-extern int VgaBDF;
-extern int HaveRunInit;
-
 // vgabios.c
-#define SET_VGA(var, val) SET_FARVAR(get_global_seg(), (var), (val))
 int vga_bpp(struct vgamode_s *vmode_g);
 u16 calc_page_size(u8 memmodel, u16 width, u16 height);
 u16 get_cursor_shape(void);
@@ -93,21 +84,5 @@ int bda_save_restore(int cmd, u16 seg, void *data);
 struct vgamode_s *get_current_mode(void);
 int vga_set_mode(int mode, int flags);
 extern struct video_func_static static_functionality;
-
-// swcursor.c
-struct bregs;
-void swcursor_pre_handle10(struct bregs *regs);
-void swcursor_check_event(void);
-
-// vbe.c
-extern u32 VBE_total_memory;
-extern u32 VBE_capabilities;
-extern u32 VBE_framebuffer;
-extern u16 VBE_win_granularity;
-#define VBE_OEM_STRING "SeaBIOS VBE(C) 2011"
-#define VBE_VENDOR_STRING "SeaBIOS Developers"
-#define VBE_PRODUCT_STRING "SeaBIOS VBE Adapter"
-#define VBE_REVISION_STRING "Rev. 1"
-void handle_104f(struct bregs *regs);
 
 #endif // vgabios.h

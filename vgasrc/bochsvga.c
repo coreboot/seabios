@@ -14,7 +14,8 @@
 #include "output.h" // dprintf
 #include "std/vbe.h" // VBE_CAPABILITY_8BIT_DAC
 #include "stdvga.h" // VGAREG_SEQU_ADDRESS
-#include "vgabios.h" // struct vbe_modeinfo
+#include "vgabios.h" // SET_VGA
+#include "vgautil.h" // VBE_total_memory
 #include "x86.h" // outw
 
 

@@ -10,7 +10,8 @@
 #include "std/vga.h" // struct video_param_s
 #include "stdvga.h" // stdvga_find_mode
 #include "string.h" // memcpy_far
-#include "vgabios.h" // video_param_table
+#include "vgabios.h" // SET_VGA
+#include "vgautil.h" // vgafont16
 
 
 /****************************************************************

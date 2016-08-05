@@ -17,6 +17,7 @@
 #include "vgabios.h" // calc_page_size
 #include "vgafb.h" // vgafb_write_char
 #include "vgahw.h" // vgahw_set_mode
+#include "vgautil.h" // swcursor_pre_handle10
 
 
 /****************************************************************
