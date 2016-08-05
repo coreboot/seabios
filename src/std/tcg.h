@@ -507,15 +507,15 @@ struct tpml_pcr_selection {
 /* TPM 2 log entry */
 
 struct tpml_digest_values_sha1 {
+    u32 count; /* number of digests */
     u16 hashtype;
     u8 sha1[SHA1_BUFSIZE];
-};
+} PACKED;
 
 struct tcg_pcr_event2_sha1 {
     u32 pcrindex;
     u32 eventtype;
-    u32 count; /* number of digests */
-    struct tpml_digest_values_sha1 digests[1];
+    struct tpml_digest_values_sha1 digest;
     u32 eventdatasize;
     u8 event[0];
 } PACKED;

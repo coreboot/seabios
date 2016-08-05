@@ -166,7 +166,7 @@ tpm_log_event(struct tcg_pcr_event2_sha1 *entry, const void *event
         struct pcpes *pcpes = (void*)tpm_state.log_area_next_entry;
         pcpes->pcrindex = entry->pcrindex;
         pcpes->eventtype = entry->eventtype;
-        memcpy(pcpes->digest, entry->digests[0].sha1, sizeof(pcpes->digest));
+        memcpy(pcpes->digest, entry->digest.sha1, sizeof(pcpes->digest));
         pcpes->eventdatasize = entry->eventdatasize;
         memcpy(pcpes->event, event, entry->eventdatasize);
         size = sizeof(*pcpes) + entry->eventdatasize;
@@ -567,11 +567,13 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
         .pcrindex = pcrindex,
         .eventtype = event_type,
         .eventdatasize = event_length,
-        .count = 1,
-        .digests[0].hashtype  = TPM2_ALG_SHA1,
+        .digest = {
+            .count = 1,
+            .hashtype  = TPM2_ALG_SHA1,
+        }
     };
-    sha1(hashdata, hashdata_length, entry.digests[0].sha1);
-    int ret = tpm_extend(entry.pcrindex, entry.digests[0].sha1);
+    sha1(hashdata, hashdata_length, entry.digest.sha1);
+    int ret = tpm_extend(entry.pcrindex, entry.digest.sha1);
     if (ret) {
         tpm_set_failure();
         return;
@@ -1110,10 +1112,12 @@ hash_log_extend(struct pcpes *pcpes, const void *hashdata, u32 hashdata_length
         .pcrindex = pcpes->pcrindex,
         .eventtype = pcpes->eventtype,
         .eventdatasize = pcpes->eventdatasize,
-        .count = 1,
-        .digests[0].hashtype = TPM2_ALG_SHA1,
+        .digest = {
+            .count = 1,
+            .hashtype = TPM2_ALG_SHA1,
+        }
     };
-    memcpy(entry.digests[0].sha1, pcpes->digest, sizeof(entry.digests[0].sha1));
+    memcpy(entry.digest.sha1, pcpes->digest, sizeof(entry.digest.sha1));
     int ret = tpm_log_event(&entry, pcpes->event, TPM_version);
     if (ret)
         return TCG_PC_LOGOVERFLOW;
