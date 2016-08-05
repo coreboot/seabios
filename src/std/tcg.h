@@ -442,7 +442,6 @@ struct tpm2_req_hierarchychangeauth {
 } PACKED;
 
 struct tpm2_digest_value {
-    u32 count; /* 1 entry only */
     u16 hashalg; /* TPM2_ALG_SHA1 */
     u8 sha1[SHA1_BUFSIZE];
 } PACKED;
@@ -452,6 +451,7 @@ struct tpm2_req_extend {
     u32 pcrindex;
     u32 authblocksize;
     struct tpm2_authblock authblock;
+    u32 count;
     struct tpm2_digest_value digest;
 } PACKED;
 

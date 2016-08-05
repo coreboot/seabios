@@ -499,28 +499,31 @@ tpm12_extend(u32 pcrindex, const u8 *digest)
 
 static int tpm20_extend(u32 pcrindex, const u8 *digest)
 {
-    struct tpm2_req_extend tre = {
+    struct tpm2_req_extend tmp_tre = {
         .hdr.tag     = cpu_to_be16(TPM2_ST_SESSIONS),
-        .hdr.totlen  = cpu_to_be32(sizeof(tre)),
+        .hdr.totlen  = cpu_to_be32(sizeof(tmp_tre)),
         .hdr.ordinal = cpu_to_be32(TPM2_CC_PCR_Extend),
         .pcrindex    = cpu_to_be32(pcrindex),
-        .authblocksize = cpu_to_be32(sizeof(tre.authblock)),
+        .authblocksize = cpu_to_be32(sizeof(tmp_tre.authblock)),
         .authblock = {
             .handle = cpu_to_be32(TPM2_RS_PW),
             .noncesize = cpu_to_be16(0),
             .contsession = TPM2_YES,
             .pwdsize = cpu_to_be16(0),
         },
-        .digest = {
-            .count = cpu_to_be32(1),
-            .hashalg = cpu_to_be16(TPM2_ALG_SHA1),
-        },
     };
-    memcpy(tre.digest.sha1, digest, sizeof(tre.digest.sha1));
+    u32 count = 1;
+    u8 buffer[sizeof(tmp_tre) + sizeof(struct tpm2_digest_value)];
+    struct tpm2_req_extend *tre = (struct tpm2_req_extend *)buffer;
+
+    memcpy(tre, &tmp_tre, sizeof(tmp_tre));
+    tre->count = cpu_to_be32(count);
+    tre->digest.hashalg = cpu_to_be16(TPM2_ALG_SHA1);
+    memcpy(tre->digest.sha1, digest, sizeof(tmp_tre.digest.sha1));
 
     struct tpm_rsp_header rsp;
     u32 resp_length = sizeof(rsp);
-    int ret = tpmhw_transmit(0, &tre.hdr, &rsp, &resp_length,
+    int ret = tpmhw_transmit(0, &tre->hdr, &rsp, &resp_length,
                              TPM_DURATION_TYPE_SHORT);
     if (ret || resp_length != sizeof(rsp) || rsp.errcode)
         return -1;
