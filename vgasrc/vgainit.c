@@ -14,7 +14,6 @@
 #include "std/optionrom.h" // struct pci_data
 #include "std/pmm.h" // struct pmmheader
 #include "string.h" // checksum_far
-#include "util.h" // VERSION
 #include "vgabios.h" // SET_VGA
 #include "vgahw.h" // vgahw_setup
 #include "vgautil.h" // swcursor_check_event

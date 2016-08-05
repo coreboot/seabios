@@ -87,4 +87,7 @@ extern u8 vgafont16alt[];
 extern int VgaBDF;
 extern int HaveRunInit;
 
+// vgaversion.c
+extern const char VERSION[], BUILDINFO[];
+
 #endif // vgautil.h
