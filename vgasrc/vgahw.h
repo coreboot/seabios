@@ -4,8 +4,6 @@
 #include "types.h" // u8
 #include "config.h" // CONFIG_*
 
-#include "cbvga.h" // cbvga_setup
-#include "clext.h" // clext_set_mode
 #include "bochsvga.h" // bochsvga_set_mode
 #include "stdvga.h" // stdvga_set_mode
 #include "geodevga.h" // geodevga_setup

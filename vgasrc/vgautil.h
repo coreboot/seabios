@@ -4,6 +4,36 @@
 
 #include "types.h" // u8
 
+// cbvga.c
+struct vgamode_s *cbvga_find_mode(int mode);
+void cbvga_list_modes(u16 seg, u16 *dest, u16 *last);
+int cbvga_get_window(struct vgamode_s *vmode_g, int window);
+int cbvga_set_window(struct vgamode_s *vmode_g, int window, int val);
+int cbvga_get_linelength(struct vgamode_s *vmode_g);
+int cbvga_set_linelength(struct vgamode_s *vmode_g, int val);
+int cbvga_get_displaystart(struct vgamode_s *vmode_g);
+int cbvga_set_displaystart(struct vgamode_s *vmode_g, int val);
+int cbvga_get_dacformat(struct vgamode_s *vmode_g);
+int cbvga_set_dacformat(struct vgamode_s *vmode_g, int val);
+int cbvga_save_restore(int cmd, u16 seg, void *data);
+int cbvga_set_mode(struct vgamode_s *vmode_g, int flags);
+int cbvga_setup(void);
+
+// clext.c
+struct vgamode_s *clext_find_mode(int mode);
+void clext_list_modes(u16 seg, u16 *dest, u16 *last);
+int clext_get_window(struct vgamode_s *vmode_g, int window);
+int clext_set_window(struct vgamode_s *vmode_g, int window, int val);
+int clext_get_linelength(struct vgamode_s *vmode_g);
+int clext_set_linelength(struct vgamode_s *vmode_g, int val);
+int clext_get_displaystart(struct vgamode_s *vmode_g);
+int clext_set_displaystart(struct vgamode_s *vmode_g, int val);
+int clext_save_restore(int cmd, u16 seg, void *data);
+int clext_set_mode(struct vgamode_s *vmode_g, int flags);
+struct bregs;
+void clext_1012(struct bregs *regs);
+int clext_setup(void);
+
 // stdvgaio.c
 u8 stdvga_pelmask_read(void);
 void stdvga_pelmask_write(u8 val);
@@ -36,7 +66,6 @@ int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
 void stdvga_set_packed_palette(void);
 
 // swcursor.c
-struct bregs;
 void swcursor_pre_handle10(struct bregs *regs);
 void swcursor_check_event(void);
 

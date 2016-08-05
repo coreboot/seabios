@@ -7,7 +7,6 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "bregs.h" // struct bregs
-#include "clext.h" // clext_setup
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "output.h" // dprintf

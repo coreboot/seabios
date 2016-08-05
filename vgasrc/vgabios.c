@@ -7,7 +7,6 @@
 
 #include "biosvar.h" // GET_BDA
 #include "bregs.h" // struct bregs
-#include "clext.h" // clext_1012
 #include "config.h" // CONFIG_*
 #include "output.h" // dprintf
 #include "std/vbe.h" // VBE_RETURN_STATUS_FAILED
