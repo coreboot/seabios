@@ -10,6 +10,7 @@
 #include "stdvga.h" // stdvga_setup
 #include "string.h" // memset_far
 #include "vgabios.h" // struct vgamode_s
+#include "vgautil.h" // stdvga_attr_write
 #include "x86.h" // outb
 
 
