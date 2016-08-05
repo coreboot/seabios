@@ -7,6 +7,7 @@
 
 #include "biosvar.h" // GET_GLOBAL
 #include "output.h" // warn_internalerror
+#include "std/vga.h" // struct video_param_s
 #include "stdvga.h" // stdvga_find_mode
 #include "string.h" // memcpy_far
 #include "vgabios.h" // video_param_table
@@ -348,9 +349,18 @@ stdvga_list_modes(u16 seg, u16 *dest, u16 *last)
     SET_FARVAR(seg, *dest, 0xffff);
 }
 
+static struct video_save_pointer_s video_save_pointer_table VAR16;
+
+static struct video_param_s video_param_table[29] VAR16;
+
 void
 stdvga_build_video_param(void)
 {
+    SET_BDA(video_savetable
+            , SEGOFF(get_global_seg(), (u32)&video_save_pointer_table));
+    SET_VGA(video_save_pointer_table.videoparam
+            , SEGOFF(get_global_seg(), (u32)video_param_table));
+
     static u8 parammodes[] VAR16 = {
         0, 0, 0, 0, 0x04, 0x05, 0x06, 0x07,
         0, 0, 0, 0, 0, 0x0d, 0x0e, 0,

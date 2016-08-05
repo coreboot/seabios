@@ -11,6 +11,7 @@
 #include "config.h" // CONFIG_*
 #include "output.h" // dprintf
 #include "std/vbe.h" // VBE_RETURN_STATUS_FAILED
+#include "std/vga.h" // struct video_func_static
 #include "stdvga.h" // stdvga_set_cursor_shape
 #include "string.h" // memset_far
 #include "vgabios.h" // calc_page_size

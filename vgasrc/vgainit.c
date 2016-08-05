@@ -18,10 +18,6 @@
 #include "vgabios.h" // video_save_pointer_table
 #include "vgahw.h" // vgahw_setup
 
-struct video_save_pointer_s video_save_pointer_table VAR16;
-
-struct video_param_s video_param_table[29] VAR16;
-
 // Type of emulator platform - for dprintf with certain compile options.
 int PlatformRunningOn VAR16;
 
@@ -132,8 +128,6 @@ init_bios_area(void)
     SET_BDA(modeset_ctl, 0x51);
 
     SET_BDA(dcc_index, CONFIG_VGA_STDVGA_PORTS ? 0x08 : 0xff);
-    SET_BDA(video_savetable
-            , SEGOFF(get_global_seg(), (u32)&video_save_pointer_table));
 
     // FIXME
     SET_BDA(video_msr, 0x00); // Unavailable on vanilla vga, but...
@@ -171,8 +165,6 @@ vga_post(struct bregs *regs)
 
     init_bios_area();
 
-    SET_VGA(video_save_pointer_table.videoparam
-            , SEGOFF(get_global_seg(), (u32)video_param_table));
     if (CONFIG_VGA_STDVGA_PORTS)
         stdvga_build_video_param();
 
