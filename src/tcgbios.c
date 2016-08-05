@@ -24,6 +24,7 @@
 #include "tcgbios.h"// tpm_*, prototypes
 #include "util.h" // printf, get_keystroke
 #include "stacks.h" // wait_threads, reset
+#include "malloc.h" // malloc_high
 
 /****************************************************************
  * TPM 1.2 commands
@@ -75,6 +76,9 @@ struct {
 static int TPM_has_physical_presence;
 
 static TPMVersion TPM_version;
+
+static u32 tpm20_pcr_selection_size;
+static struct tpml_pcr_selection *tpm20_pcr_selection;
 
 static struct tcpa_descriptor_rev2 *
 find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
@@ -362,6 +366,57 @@ tpm12_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
         dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
         tpm_set_failure();
     }
+    return ret;
+}
+
+static int
+tpm20_getcapability(u32 capability, u32 property, u32 count,
+                    struct tpm_rsp_header *rsp, u32 rsize)
+{
+    struct tpm2_req_getcapability trg = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trg)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_GetCapability),
+        .capability = cpu_to_be32(capability),
+        .property = cpu_to_be32(property),
+        .propertycount = cpu_to_be32(count),
+    };
+
+    u32 resp_size = rsize;
+    int ret = tpmhw_transmit(0, &trg.hdr, rsp, &resp_size,
+                             TPM_DURATION_TYPE_SHORT);
+    ret = (ret ||
+           rsize < be32_to_cpu(rsp->totlen)) ? -1 : be32_to_cpu(rsp->errcode);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_GetCapability = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_get_pcrbanks(void)
+{
+    u8 buffer[128];
+    struct tpm2_res_getcapability *trg =
+      (struct tpm2_res_getcapability *)&buffer;
+
+    int ret = tpm20_getcapability(TPM2_CAP_PCRS, 0, 8, &trg->hdr,
+                                  sizeof(buffer));
+    if (ret)
+        return ret;
+
+    u32 size = be32_to_cpu(trg->hdr.totlen) -
+                           offsetof(struct tpm2_res_getcapability, data);
+    tpm20_pcr_selection = malloc_high(size);
+    if (tpm20_pcr_selection) {
+        memcpy(tpm20_pcr_selection, &trg->data, size);
+        tpm20_pcr_selection_size = size;
+    } else {
+        warn_noalloc();
+        ret = -1;
+    }
+
     return ret;
 }
 
@@ -698,6 +753,10 @@ tpm20_startup(void)
     dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_SelfTest = 0x%08x\n",
             ret);
 
+    if (ret)
+        goto err_exit;
+
+    ret = tpm20_get_pcrbanks();
     if (ret)
         goto err_exit;
 

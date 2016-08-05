@@ -394,11 +394,15 @@ struct tpm_res_sha1complete {
 #define TPM2_CC_SelfTest            0x143
 #define TPM2_CC_Startup             0x144
 #define TPM2_CC_StirRandom          0x146
+#define TPM2_CC_GetCapability       0x17a
 #define TPM2_CC_GetRandom           0x17b
 #define TPM2_CC_PCR_Extend          0x182
 
 /* TPM 2 error codes */
 #define TPM2_RC_INITIALIZE          0x100
+
+/* TPM 2 Capabilities */
+#define TPM2_CAP_PCRS               0x00000005
 
 /* TPM 2 data structures */
 
@@ -473,6 +477,31 @@ struct tpm2_req_hierarchycontrol {
     struct tpm2_authblock authblock;
     u32 enable;
     u8 state;
+} PACKED;
+
+struct tpm2_req_getcapability {
+    struct tpm_req_header hdr;
+    u32 capability;
+    u32 property;
+    u32 propertycount;
+} PACKED;
+
+struct tpm2_res_getcapability {
+    struct tpm_rsp_header hdr;
+    u8 moreData;
+    u32 capability;
+    u8 data[0]; /* capability dependent data */
+} PACKED;
+
+struct tpms_pcr_selection {
+    u16 hashAlg;
+    u8 sizeOfSelect;
+    u8 pcrSelect[0];
+} PACKED;
+
+struct tpml_pcr_selection {
+    u32 count;
+    struct tpms_pcr_selection selections[0];
 } PACKED;
 
 /* TPM 2 log entry */
