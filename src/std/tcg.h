@@ -100,6 +100,10 @@ enum irq_ids {
 #define EV_IPL_PARTITION_DATA   14
 
 #define SHA1_BUFSIZE                20
+#define SHA256_BUFSIZE              32
+#define SHA384_BUFSIZE              48
+#define SHA512_BUFSIZE              64
+#define SM3_256_BUFSIZE             32
 
 /* Input and Output blocks for the TCG BIOS commands */
 
@@ -381,6 +385,10 @@ struct tpm_res_sha1complete {
 #define TPM2_RH_PLATFORM            0x4000000c
 
 #define TPM2_ALG_SHA1               0x0004
+#define TPM2_ALG_SHA256             0x000b
+#define TPM2_ALG_SHA384             0x000c
+#define TPM2_ALG_SHA512             0x000d
+#define TPM2_ALG_SM3_256            0x0012
 
 /* TPM 2 command tags */
 #define TPM2_ST_NO_SESSIONS         0x8001
@@ -441,18 +449,12 @@ struct tpm2_req_hierarchychangeauth {
     struct tpm2b_20 newAuth;
 } PACKED;
 
-struct tpm2_digest_value {
-    u16 hashalg; /* TPM2_ALG_SHA1 */
-    u8 sha1[SHA1_BUFSIZE];
-} PACKED;
-
 struct tpm2_req_extend {
     struct tpm_req_header hdr;
     u32 pcrindex;
     u32 authblocksize;
     struct tpm2_authblock authblock;
-    u32 count;
-    struct tpm2_digest_value digest;
+    u8 digest[0];
 } PACKED;
 
 struct tpm2_req_clearcontrol {
@@ -505,6 +507,22 @@ struct tpml_pcr_selection {
 } PACKED;
 
 /* TPM 2 log entry */
+
+struct tpm2_digest_value {
+    u16 hashAlg;
+    u8 hash[0]; /* size depends on hashAlg */
+} PACKED;
+
+struct tpm2_digest_values {
+    u32 count;
+    struct tpm2_digest_value digest[0];
+} PACKED;
+
+struct tpm_log_header {
+    u32 pcrindex;
+    u32 eventtype;
+    u8 digest[0];
+} PACKED;
 
 struct tpml_digest_values_sha1 {
     u32 count; /* number of digests */
