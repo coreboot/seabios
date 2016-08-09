@@ -518,22 +518,20 @@ struct tpm2_digest_values {
     struct tpm2_digest_value digest[0];
 } PACKED;
 
+// Each entry in the TPM log contains: a tpm_log_header, a variable
+// length digest, a tpm_log_trailer, and a variable length event.  The
+// 'digest' matches what is sent to the TPM hardware via the Extend
+// command.  On TPM1.2 the digest is a SHA1 hash; on TPM2.0 the digest
+// contains a tpm2_digest_values struct followed by a variable number
+// of tpm2_digest_value structs (as specified by the hardware via the
+// TPM2_CAP_PCRS request).
 struct tpm_log_header {
     u32 pcrindex;
     u32 eventtype;
     u8 digest[0];
 } PACKED;
 
-struct tpml_digest_values_sha1 {
-    u32 count; /* number of digests */
-    u16 hashtype;
-    u8 sha1[SHA1_BUFSIZE];
-} PACKED;
-
-struct tcg_pcr_event2_sha1 {
-    u32 pcrindex;
-    u32 eventtype;
-    struct tpml_digest_values_sha1 digest;
+struct tpm_log_trailer {
     u32 eventdatasize;
     u8 event[0];
 } PACKED;
@@ -549,10 +547,12 @@ struct TCG_EfiSpecIdEventStruct {
     struct TCG_EfiSpecIdEventAlgorithmSize {
         u16 algorithmId;
         u16 digestSize;
-    } digestSizes[1];
+    } digestSizes[0];
+    /*
     u8 vendorInfoSize;
     u8 vendorInfo[0];
-};
+    */
+} PACKED;
 
 #define TPM_TCPA_ACPI_CLASS_CLIENT 0
 
