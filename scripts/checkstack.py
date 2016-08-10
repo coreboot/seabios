@@ -153,6 +153,11 @@ def main():
             if '%esp' in insn or insn.startswith('leal'):
                 # Still part of initial header
                 continue
+            if not stackusage and (
+                    insn.startswith('test') or insn.startswith('cmp')
+                    or insn.startswith('j')):
+                # There may be conditional checks prior to stack frame
+                continue
             cur.basic_stack_usage = stackusage
             atstart = 0
 
