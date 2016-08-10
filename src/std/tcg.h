@@ -191,9 +191,13 @@ struct pcpes
 #define TPM_ORD_Extend                   0x00000014
 #define TSC_ORD_ResetEstablishmentBit    0x4000000b
 
-#define TPM_ST_CLEAR                     0x1
-#define TPM_ST_STATE                     0x2
-#define TPM_ST_DEACTIVATED               0x3
+#define TPM_ST_CLEAR                     0x0001
+#define TPM_ST_STATE                     0x0002
+#define TPM_ST_DEACTIVATED               0x0003
+
+#define TPM_PP_CMD_ENABLE                0x0020
+#define TPM_PP_PRESENT                   0x0008
+#define TPM_PP_NOT_PRESENT_LOCK          0x0014
 
 /* TPM command error codes */
 #define TPM_INVALID_POSTINIT             0x26
