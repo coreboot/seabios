@@ -591,16 +591,22 @@ tpm_extend(struct tpm_log_entry *le, int digest_len)
 static int
 tpm20_stirrandom(void)
 {
-    struct tpm2b_stir stir = {
+    struct tpm2_req_stirrandom stir = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(stir)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_StirRandom),
         .size = cpu_to_be16(sizeof(stir.stir)),
         .stir = rdtscll(),
     };
     /* set more bits to stir with */
     stir.stir += swab64(rdtscll());
 
-    int ret = tpm_build_and_send_cmd(0, TPM2_CC_StirRandom,
-                                     (u8 *)&stir, sizeof(stir),
-                                     TPM_DURATION_TYPE_SHORT);
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &stir.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_SHORT);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
 
     dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_StirRandom = 0x%08x\n",
             ret);

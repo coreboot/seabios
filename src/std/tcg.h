@@ -356,7 +356,8 @@ struct tpm_res_sha1complete {
 
 /* TPM 2 data structures */
 
-struct tpm2b_stir {
+struct tpm2_req_stirrandom {
+    struct tpm_req_header hdr;
     u16 size;
     u64 stir;
 } PACKED;
