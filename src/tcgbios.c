@@ -502,10 +502,6 @@ tpm12_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
     ret = (ret || resp_size != rsize) ? -1 : be32_to_cpu(rsp->errcode);
     dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(%d, %d)"
             " = %x\n", cap, subcap, ret);
-    if (ret) {
-        dprintf(DEBUG_tcg, "TCGBIOS: TPM malfunctioning (line %d).\n", __LINE__);
-        tpm_set_failure();
-    }
     return ret;
 }
 
@@ -846,7 +842,7 @@ tpm12_startup(void)
 
     ret = tpm12_determine_timeouts();
     if (ret)
-        return -1;
+        goto err_exit;
 
     ret = tpm_build_and_send_cmd(0, TPM_ORD_SelfTestFull, NULL, 0,
                                  TPM_DURATION_TYPE_LONG);
