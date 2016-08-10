@@ -50,8 +50,6 @@ static const u8 Startup_SU_STATE[] = { 0x00, TPM2_SU_STATE};
 static const u8 TPM2_SelfTest_YES[] =  { TPM2_YES }; /* full test */
 
 
-typedef u8 tpm_ppi_code;
-
 /****************************************************************
  * ACPI TCPA table interface
  ****************************************************************/
@@ -72,13 +70,6 @@ struct {
     /* address of last entry written (need for TCG_StatusCheck) */
     u8 *          log_area_last_entry;
 } tpm_state VARLOW;
-
-static int TPM_has_physical_presence;
-
-static TPMVersion TPM_version;
-
-static u32 tpm20_pcr_selection_size;
-static struct tpml_pcr_selection *tpm20_pcr_selection;
 
 static struct tcpa_descriptor_rev2 *
 find_tcpa_by_rsdp(struct rsdp_descriptor *rsdp)
@@ -179,28 +170,12 @@ tpm_log_event(struct tpm_log_header *entry, int digest_len
 
 
 /****************************************************************
- * Helper functions
+ * Digest formatting
  ****************************************************************/
 
-u8 TPM_working VARLOW;
-
-static int
-tpm_is_working(void)
-{
-    return CONFIG_TCGBIOS && TPM_working;
-}
-
-int
-tpm_can_show_menu(void)
-{
-    switch (TPM_version) {
-    case TPM_VERSION_1_2:
-        return tpm_is_working() && TPM_has_physical_presence;
-    case TPM_VERSION_2:
-        return tpm_is_working();
-    }
-    return 0;
-}
+static TPMVersion TPM_version;
+static u32 tpm20_pcr_selection_size;
+static struct tpml_pcr_selection *tpm20_pcr_selection;
 
 // A 'struct tpm_log_entry' is a local data structure containing a
 // 'tpm_log_header' followed by space for the maximum supported
@@ -385,6 +360,11 @@ tpm_build_digest(struct tpm_log_entry *le, const u8 *sha1)
     return -1;
 }
 
+
+/****************************************************************
+ * TPM hardware command wrappers
+ ****************************************************************/
+
 /*
  * Send a TPM command with the given ordinal. Append the given buffer
  * containing all data in network byte order to the command (this is
@@ -428,80 +408,6 @@ tpm_build_and_send_cmd(u8 locty, u32 ordinal, const u8 *append,
     ret = ret ? -1 : be32_to_cpu(trsh->errcode);
     dprintf(DEBUG_tcg, "Return from build_and_send_cmd(%x, %x %x) = %x\n",
             ordinal, req.cmd[0], req.cmd[1], ret);
-    return ret;
-}
-
-static int
-tpm20_hierarchycontrol(u32 hierarchy, u8 state)
-{
-    /* we will try to deactivate the TPM now - ignoring all errors */
-    struct tpm2_req_hierarchycontrol trh = {
-        .hdr.tag = cpu_to_be16(TPM2_ST_SESSIONS),
-        .hdr.totlen = cpu_to_be32(sizeof(trh)),
-        .hdr.ordinal = cpu_to_be32(TPM2_CC_HierarchyControl),
-        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
-        .authblocksize = cpu_to_be32(sizeof(trh.authblock)),
-        .authblock = {
-            .handle = cpu_to_be32(TPM2_RS_PW),
-            .noncesize = cpu_to_be16(0),
-            .contsession = TPM2_YES,
-            .pwdsize = cpu_to_be16(0),
-        },
-        .enable = cpu_to_be32(hierarchy),
-        .state = state,
-    };
-    struct tpm_rsp_header rsp;
-    u32 resp_length = sizeof(rsp);
-    int ret = tpmhw_transmit(0, &trh.hdr, &rsp, &resp_length,
-                             TPM_DURATION_TYPE_MEDIUM);
-    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
-        ret = -1;
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_HierarchyControl = 0x%08x\n",
-            ret);
-
-    return ret;
-}
-
-static void
-tpm_set_failure(void)
-{
-   switch (TPM_version) {
-   case TPM_VERSION_1_2:
-        /*
-         * We will try to deactivate the TPM now - ignoring all errors
-         * Physical presence is asserted.
-         */
-
-        tpm_build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
-                               NULL, 0, TPM_DURATION_TYPE_SHORT);
-        break;
-    case TPM_VERSION_2:
-        tpm20_hierarchycontrol(TPM2_RH_ENDORSEMENT, TPM2_NO);
-        tpm20_hierarchycontrol(TPM2_RH_OWNER, TPM2_NO);
-        break;
-    }
-
-    TPM_working = 0;
-}
-
-static int
-tpm12_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
-{
-    struct tpm_req_getcap trgc = {
-        .hdr.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
-        .hdr.totlen = cpu_to_be32(sizeof(trgc)),
-        .hdr.ordinal = cpu_to_be32(TPM_ORD_GetCapability),
-        .capArea = cpu_to_be32(cap),
-        .subCapSize = cpu_to_be32(sizeof(trgc.subCap)),
-        .subCap = cpu_to_be32(subcap)
-    };
-    u32 resp_size = rsize;
-    int ret = tpmhw_transmit(0, &trgc.hdr, rsp, &resp_size,
-                             TPM_DURATION_TYPE_SHORT);
-    ret = (ret || resp_size != rsize) ? -1 : be32_to_cpu(rsp->errcode);
-    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(%d, %d)"
-            " = %x\n", cap, subcap, ret);
     return ret;
 }
 
@@ -554,6 +460,42 @@ tpm20_get_pcrbanks(void)
     }
 
     return ret;
+}
+
+static int
+tpm12_get_capability(u32 cap, u32 subcap, struct tpm_rsp_header *rsp, u32 rsize)
+{
+    struct tpm_req_getcap trgc = {
+        .hdr.tag = cpu_to_be16(TPM_TAG_RQU_CMD),
+        .hdr.totlen = cpu_to_be32(sizeof(trgc)),
+        .hdr.ordinal = cpu_to_be32(TPM_ORD_GetCapability),
+        .capArea = cpu_to_be32(cap),
+        .subCapSize = cpu_to_be32(sizeof(trgc.subCap)),
+        .subCap = cpu_to_be32(subcap)
+    };
+    u32 resp_size = rsize;
+    int ret = tpmhw_transmit(0, &trgc.hdr, rsp, &resp_size,
+                             TPM_DURATION_TYPE_SHORT);
+    ret = (ret || resp_size != rsize) ? -1 : be32_to_cpu(rsp->errcode);
+    dprintf(DEBUG_tcg, "TCGBIOS: Return code from TPM_GetCapability(%d, %d)"
+            " = %x\n", cap, subcap, ret);
+    return ret;
+}
+
+static int
+tpm12_read_permanent_flags(char *buf, int buf_len)
+{
+    memset(buf, 0, buf_len);
+
+    struct tpm_res_getcap_perm_flags pf;
+    int ret = tpm12_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
+                                   , &pf.hdr, sizeof(pf));
+    if (ret)
+        return -1;
+
+    memcpy(buf, &pf.perm_flags, buf_len);
+
+    return 0;
 }
 
 static int
@@ -678,6 +620,157 @@ tpm_extend(struct tpm_log_entry *le, int digest_len)
     return -1;
 }
 
+static int
+tpm20_stirrandom(void)
+{
+    struct tpm2b_stir stir = {
+        .size = cpu_to_be16(sizeof(stir.stir)),
+        .stir = rdtscll(),
+    };
+    /* set more bits to stir with */
+    stir.stir += swab64(rdtscll());
+
+    int ret = tpm_build_and_send_cmd(0, TPM2_CC_StirRandom,
+                                     (u8 *)&stir, sizeof(stir),
+                                     TPM_DURATION_TYPE_SHORT);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_StirRandom = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_getrandom(u8 *buf, u16 buf_len)
+{
+    struct tpm2_res_getrandom rsp;
+
+    if (buf_len > sizeof(rsp.rnd.buffer))
+        return -1;
+
+    struct tpm2_req_getrandom trgr = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trgr)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_GetRandom),
+        .bytesRequested = cpu_to_be16(buf_len),
+    };
+    u32 resp_length = sizeof(rsp);
+
+    int ret = tpmhw_transmit(0, &trgr.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.hdr.errcode)
+        ret = -1;
+    else
+        memcpy(buf, rsp.rnd.buffer, buf_len);
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_GetRandom = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_hierarchycontrol(u32 hierarchy, u8 state)
+{
+    /* we will try to deactivate the TPM now - ignoring all errors */
+    struct tpm2_req_hierarchycontrol trh = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trh)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_HierarchyControl),
+        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
+        .authblocksize = cpu_to_be32(sizeof(trh.authblock)),
+        .authblock = {
+            .handle = cpu_to_be32(TPM2_RS_PW),
+            .noncesize = cpu_to_be16(0),
+            .contsession = TPM2_YES,
+            .pwdsize = cpu_to_be16(0),
+        },
+        .enable = cpu_to_be32(hierarchy),
+        .state = state,
+    };
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &trh.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_HierarchyControl = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+static int
+tpm20_hierarchychangeauth(u8 auth[20])
+{
+    struct tpm2_req_hierarchychangeauth trhca = {
+        .hdr.tag = cpu_to_be16(TPM2_ST_SESSIONS),
+        .hdr.totlen = cpu_to_be32(sizeof(trhca)),
+        .hdr.ordinal = cpu_to_be32(TPM2_CC_HierarchyChangeAuth),
+        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
+        .authblocksize = cpu_to_be32(sizeof(trhca.authblock)),
+        .authblock = {
+            .handle = cpu_to_be32(TPM2_RS_PW),
+            .noncesize = cpu_to_be16(0),
+            .contsession = TPM2_YES,
+            .pwdsize = cpu_to_be16(0),
+        },
+        .newAuth = {
+            .size = cpu_to_be16(sizeof(trhca.newAuth.buffer)),
+        },
+    };
+    memcpy(trhca.newAuth.buffer, auth, sizeof(trhca.newAuth.buffer));
+
+    struct tpm_rsp_header rsp;
+    u32 resp_length = sizeof(rsp);
+    int ret = tpmhw_transmit(0, &trhca.hdr, &rsp, &resp_length,
+                             TPM_DURATION_TYPE_MEDIUM);
+    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
+        ret = -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_HierarchyChangeAuth = 0x%08x\n",
+            ret);
+
+    return ret;
+}
+
+
+/****************************************************************
+ * Setup and Measurements
+ ****************************************************************/
+
+static int TPM_has_physical_presence;
+u8 TPM_working VARLOW;
+
+static int
+tpm_is_working(void)
+{
+    return CONFIG_TCGBIOS && TPM_working;
+}
+
+static void
+tpm_set_failure(void)
+{
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        /*
+         * We will try to deactivate the TPM now - ignoring all errors
+         * Physical presence is asserted.
+         */
+
+        tpm_build_and_send_cmd(0, TPM_ORD_SetTempDeactivated,
+                               NULL, 0, TPM_DURATION_TYPE_SHORT);
+        break;
+    case TPM_VERSION_2:
+        tpm20_hierarchycontrol(TPM2_RH_ENDORSEMENT, TPM2_NO);
+        tpm20_hierarchycontrol(TPM2_RH_OWNER, TPM2_NO);
+        break;
+    }
+
+    TPM_working = 0;
+}
+
 /*
  * Add a measurement to the log; the data at data_seg:data/length are
  * appended to the TCG_PCClientPCREventStruct
@@ -715,11 +808,6 @@ tpm_add_measurement_to_log(u32 pcrindex, u32 event_type,
     }
     tpm_log_event(&le.hdr, digest_len, event, event_length);
 }
-
-
-/****************************************************************
- * Setup and Measurements
- ****************************************************************/
 
 // Add an EV_ACTION measurement to the list of measurements
 static void
@@ -765,22 +853,6 @@ tpm_smbios_measure(void)
                                EV_EVENT_TAG,
                                (const char *)&pcctes, sizeof(pcctes),
                                (u8 *)&pcctes, sizeof(pcctes));
-}
-
-static int
-tpm12_read_permanent_flags(char *buf, int buf_len)
-{
-    memset(buf, 0, buf_len);
-
-    struct tpm_res_getcap_perm_flags pf;
-    int ret = tpm12_get_capability(TPM_CAP_FLAG, TPM_CAP_FLAG_PERMANENT
-                                   , &pf.hdr, sizeof(pf));
-    if (ret)
-        return -1;
-
-    memcpy(buf, &pf.perm_flags, buf_len);
-
-    return 0;
 }
 
 static int
@@ -954,89 +1026,6 @@ tpm_setup(void)
 
     tpm_smbios_measure();
     tpm_add_action(2, "Start Option ROM Scan");
-}
-
-static int
-tpm20_stirrandom(void)
-{
-    struct tpm2b_stir stir = {
-        .size = cpu_to_be16(sizeof(stir.stir)),
-        .stir = rdtscll(),
-    };
-    /* set more bits to stir with */
-    stir.stir += swab64(rdtscll());
-
-    int ret = tpm_build_and_send_cmd(0, TPM2_CC_StirRandom,
-                                     (u8 *)&stir, sizeof(stir),
-                                     TPM_DURATION_TYPE_SHORT);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_StirRandom = 0x%08x\n",
-            ret);
-
-    return ret;
-}
-
-static int
-tpm20_getrandom(u8 *buf, u16 buf_len)
-{
-    struct tpm2_res_getrandom rsp;
-
-    if (buf_len > sizeof(rsp.rnd.buffer))
-        return -1;
-
-    struct tpm2_req_getrandom trgr = {
-        .hdr.tag = cpu_to_be16(TPM2_ST_NO_SESSIONS),
-        .hdr.totlen = cpu_to_be32(sizeof(trgr)),
-        .hdr.ordinal = cpu_to_be32(TPM2_CC_GetRandom),
-        .bytesRequested = cpu_to_be16(buf_len),
-    };
-    u32 resp_length = sizeof(rsp);
-
-    int ret = tpmhw_transmit(0, &trgr.hdr, &rsp, &resp_length,
-                             TPM_DURATION_TYPE_MEDIUM);
-    if (ret || resp_length != sizeof(rsp) || rsp.hdr.errcode)
-        ret = -1;
-    else
-        memcpy(buf, rsp.rnd.buffer, buf_len);
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_GetRandom = 0x%08x\n",
-            ret);
-
-    return ret;
-}
-
-static int
-tpm20_hierarchychangeauth(u8 auth[20])
-{
-    struct tpm2_req_hierarchychangeauth trhca = {
-        .hdr.tag = cpu_to_be16(TPM2_ST_SESSIONS),
-        .hdr.totlen = cpu_to_be32(sizeof(trhca)),
-        .hdr.ordinal = cpu_to_be32(TPM2_CC_HierarchyChangeAuth),
-        .authhandle = cpu_to_be32(TPM2_RH_PLATFORM),
-        .authblocksize = cpu_to_be32(sizeof(trhca.authblock)),
-        .authblock = {
-            .handle = cpu_to_be32(TPM2_RS_PW),
-            .noncesize = cpu_to_be16(0),
-            .contsession = TPM2_YES,
-            .pwdsize = cpu_to_be16(0),
-        },
-        .newAuth = {
-            .size = cpu_to_be16(sizeof(trhca.newAuth.buffer)),
-        },
-    };
-    memcpy(trhca.newAuth.buffer, auth, sizeof(trhca.newAuth.buffer));
-
-    struct tpm_rsp_header rsp;
-    u32 resp_length = sizeof(rsp);
-    int ret = tpmhw_transmit(0, &trhca.hdr, &rsp, &resp_length,
-                             TPM_DURATION_TYPE_MEDIUM);
-    if (ret || resp_length != sizeof(rsp) || rsp.errcode)
-        ret = -1;
-
-    dprintf(DEBUG_tcg, "TCGBIOS: Return value from sending TPM2_CC_HierarchyChangeAuth = 0x%08x\n",
-            ret);
-
-    return ret;
 }
 
 static void
@@ -1541,6 +1530,8 @@ tpm_interrupt_handler32(struct bregs *regs)
 /****************************************************************
  * TPM Configuration Menu
  ****************************************************************/
+
+typedef u8 tpm_ppi_code;
 
 static int
 tpm12_read_has_owner(int *has_owner)
@@ -2054,4 +2045,16 @@ tpm_menu(void)
         tpm20_menu();
         break;
     }
+}
+
+int
+tpm_can_show_menu(void)
+{
+    switch (TPM_version) {
+    case TPM_VERSION_1_2:
+        return tpm_is_working() && TPM_has_physical_presence;
+    case TPM_VERSION_2:
+        return tpm_is_working();
+    }
+    return 0;
 }
