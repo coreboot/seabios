@@ -3,6 +3,17 @@
 
 #include "types.h"
 
+#define SHA1_BUFSIZE                20
+#define SHA256_BUFSIZE              32
+#define SHA384_BUFSIZE              48
+#define SHA512_BUFSIZE              64
+#define SM3_256_BUFSIZE             32
+
+
+/****************************************************************
+ * 16bit BIOS interface
+ ****************************************************************/
+
 /* Define for section 12.3 */
 #define TCG_PC_OK                       0x0
 #define TCG_PC_TPMERROR                 0x1
@@ -48,35 +59,6 @@
 #define TCG_PC_TPM_NOT_PRESENT          (TPM_RET_BASE + 0x22)
 #define TCG_PC_TPM_DEACTIVATED          (TPM_RET_BASE + 0x23)
 
-
-#define TPM_ORD_SelfTestFull             0x00000050
-#define TPM_ORD_ForceClear               0x0000005d
-#define TPM_ORD_GetCapability            0x00000065
-#define TPM_ORD_PhysicalEnable           0x0000006f
-#define TPM_ORD_PhysicalDisable          0x00000070
-#define TPM_ORD_SetOwnerInstall          0x00000071
-#define TPM_ORD_PhysicalSetDeactivated   0x00000072
-#define TPM_ORD_SetTempDeactivated       0x00000073
-#define TPM_ORD_Startup                  0x00000099
-#define TPM_ORD_PhysicalPresence         0x4000000a
-#define TPM_ORD_Extend                   0x00000014
-#define TSC_ORD_ResetEstablishmentBit    0x4000000b
-
-
-#define TPM_ST_CLEAR                     0x1
-#define TPM_ST_STATE                     0x2
-#define TPM_ST_DEACTIVATED               0x3
-
-
-/* TPM command error codes */
-#define TPM_INVALID_POSTINIT             0x26
-#define TPM_BAD_LOCALITY                 0x3d
-
-/* TPM command tags */
-#define TPM_TAG_RQU_CMD                  0x00c1
-#define TPM_TAG_RQU_AUTH1_CMD            0x00c2
-#define TPM_TAG_RQU_AUTH2_CMD            0x00c3
-
 /* interrupt identifiers (al register) */
 enum irq_ids {
     TCG_StatusCheck = 0,
@@ -88,22 +70,6 @@ enum irq_ids {
     TCG_TSS = 6,
     TCG_CompactHashLogExtendEvent = 7,
 };
-
-/* event types: 10.4.1 / table 11 */
-#define EV_POST_CODE             1
-#define EV_NO_ACTION             3
-#define EV_SEPARATOR             4
-#define EV_ACTION                5
-#define EV_EVENT_TAG             6
-#define EV_COMPACT_HASH         12
-#define EV_IPL                  13
-#define EV_IPL_PARTITION_DATA   14
-
-#define SHA1_BUFSIZE                20
-#define SHA256_BUFSIZE              32
-#define SHA384_BUFSIZE              48
-#define SHA512_BUFSIZE              64
-#define SM3_256_BUFSIZE             32
 
 /* Input and Output blocks for the TCG BIOS commands */
 
@@ -118,7 +84,6 @@ struct hleei_short
     u32   logdatalen;
 } PACKED;
 
-
 struct hleei_long
 {
     u16   ipblength;
@@ -131,7 +96,6 @@ struct hleei_long
     u32   logdatalen;
 } PACKED;
 
-
 struct hleeo
 {
     u16    opblength;
@@ -139,7 +103,6 @@ struct hleeo
     u32    eventnumber;
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
-
 
 struct pttti
 {
@@ -150,14 +113,12 @@ struct pttti
     u8     tpmopin[0];
 } PACKED;
 
-
 struct pttto
 {
     u16    opblength;
     u16    reserved;
     u8     tpmopout[0];
 };
-
 
 struct hlei
 {
@@ -171,14 +132,12 @@ struct hlei
     u32    logdatalen;
 } PACKED;
 
-
 struct hleo
 {
     u16    opblength;
     u16    reserved;
     u32    eventnumber;
 } PACKED;
-
 
 struct hai
 {
@@ -189,7 +148,6 @@ struct hai
     u32    algorithmid;
 } PACKED;
 
-
 struct ti
 {
     u16    ipblength;
@@ -199,14 +157,12 @@ struct ti
     u8     tssoperandin[0];
 } PACKED;
 
-
 struct to
 {
     u16    opblength;
     u16    reserved;
     u8     tssoperandout[0];
 } PACKED;
-
 
 struct pcpes
 {
@@ -217,22 +173,36 @@ struct pcpes
     u8     event[0];
 } PACKED;
 
-struct pcctes
-{
-    u32 eventid;
-    u32 eventdatasize;
-    u8  digest[SHA1_BUFSIZE];
-} PACKED;
 
-struct pcctes_romex
-{
-    u32 eventid;
-    u32 eventdatasize;
-    u16 reserved;
-    u16 pfa;
-    u8  digest[SHA1_BUFSIZE];
-} PACKED;
+/****************************************************************
+ * TPM v1.2 hardware commands
+ ****************************************************************/
 
+#define TPM_ORD_SelfTestFull             0x00000050
+#define TPM_ORD_ForceClear               0x0000005d
+#define TPM_ORD_GetCapability            0x00000065
+#define TPM_ORD_PhysicalEnable           0x0000006f
+#define TPM_ORD_PhysicalDisable          0x00000070
+#define TPM_ORD_SetOwnerInstall          0x00000071
+#define TPM_ORD_PhysicalSetDeactivated   0x00000072
+#define TPM_ORD_SetTempDeactivated       0x00000073
+#define TPM_ORD_Startup                  0x00000099
+#define TPM_ORD_PhysicalPresence         0x4000000a
+#define TPM_ORD_Extend                   0x00000014
+#define TSC_ORD_ResetEstablishmentBit    0x4000000b
+
+#define TPM_ST_CLEAR                     0x1
+#define TPM_ST_STATE                     0x2
+#define TPM_ST_DEACTIVATED               0x3
+
+/* TPM command error codes */
+#define TPM_INVALID_POSTINIT             0x26
+#define TPM_BAD_LOCALITY                 0x3d
+
+/* TPM command tags */
+#define TPM_TAG_RQU_CMD                  0x00c1
+#define TPM_TAG_RQU_AUTH1_CMD            0x00c2
+#define TPM_TAG_RQU_AUTH2_CMD            0x00c3
 
 struct tpm_req_header {
     u16    tag;
@@ -240,13 +210,11 @@ struct tpm_req_header {
     u32    ordinal;
 } PACKED;
 
-
 struct tpm_rsp_header {
     u16    tag;
     u32    totlen;
     u32    errcode;
 } PACKED;
-
 
 struct tpm_req_extend {
     struct tpm_req_header hdr;
@@ -254,12 +222,10 @@ struct tpm_req_extend {
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
 
-
 struct tpm_rsp_extend {
     struct tpm_rsp_header hdr;
     u8     digest[SHA1_BUFSIZE];
 } PACKED;
-
 
 struct tpm_req_getcap {
     struct tpm_req_header hdr;
@@ -276,12 +242,10 @@ struct tpm_req_getcap {
 #define TPM_CAP_PROP_TIS_TIMEOUT 0x115
 #define TPM_CAP_PROP_DURATION    0x120
 
-
 struct tpm_permanent_flags {
     u16    tag;
     u8     flags[20];
 } PACKED;
-
 
 enum permFlagsIndex {
     PERM_FLAG_IDX_DISABLE = 0,
@@ -294,7 +258,6 @@ enum permFlagsIndex {
     PERM_FLAG_IDX_PHYSICAL_PRESENCE_HW_ENABLE,
     PERM_FLAG_IDX_PHYSICAL_PRESENCE_CMD_ENABLE,
 };
-
 
 struct tpm_res_getcap_perm_flags {
     struct tpm_rsp_header hdr;
@@ -325,13 +288,11 @@ struct tpm_res_getcap_ownerauth {
     u8     flag;
 } PACKED;
 
-
 struct tpm_res_getcap_timeouts {
     struct tpm_rsp_header hdr;
     u32    size;
     u32    timeouts[4];
 } PACKED;
-
 
 struct tpm_res_getcap_durations {
     struct tpm_rsp_header hdr;
@@ -339,39 +300,20 @@ struct tpm_res_getcap_durations {
     u32    durations[3];
 } PACKED;
 
-
 struct tpm_res_sha1start {
     struct tpm_rsp_header hdr;
     u32    max_num_bytes;
 } PACKED;
-
 
 struct tpm_res_sha1complete {
     struct tpm_rsp_header hdr;
     u8     hash[20];
 } PACKED;
 
-#define TPM_STATE_ENABLED 1
-#define TPM_STATE_ACTIVE 2
-#define TPM_STATE_OWNED 4
-#define TPM_STATE_OWNERINSTALL 8
 
-/*
- * physical presence interface
- */
-
-#define TPM_PPI_OP_NOOP 0
-#define TPM_PPI_OP_ENABLE 1
-#define TPM_PPI_OP_DISABLE 2
-#define TPM_PPI_OP_ACTIVATE 3
-#define TPM_PPI_OP_DEACTIVATE 4
-#define TPM_PPI_OP_CLEAR 5
-#define TPM_PPI_OP_SET_OWNERINSTALL_TRUE 8
-#define TPM_PPI_OP_SET_OWNERINSTALL_FALSE 9
-
-/*
- * TPM 2
- */
+/****************************************************************
+ * TPM v2.0 hardware commands
+ ****************************************************************/
 
 #define TPM2_NO                     0
 #define TPM2_YES                    1
@@ -506,7 +448,20 @@ struct tpml_pcr_selection {
     struct tpms_pcr_selection selections[0];
 } PACKED;
 
-/* TPM 2 log entry */
+
+/****************************************************************
+ * ACPI TCPA table interface
+ ****************************************************************/
+
+/* event types: 10.4.1 / table 11 */
+#define EV_POST_CODE             1
+#define EV_NO_ACTION             3
+#define EV_SEPARATOR             4
+#define EV_ACTION                5
+#define EV_EVENT_TAG             6
+#define EV_COMPACT_HASH         12
+#define EV_IPL                  13
+#define EV_IPL_PARTITION_DATA   14
 
 struct tpm2_digest_value {
     u16 hashAlg;
@@ -555,5 +510,40 @@ struct TCG_EfiSpecIdEventStruct {
 } PACKED;
 
 #define TPM_TCPA_ACPI_CLASS_CLIENT 0
+
+struct pcctes
+{
+    u32 eventid;
+    u32 eventdatasize;
+    u8  digest[SHA1_BUFSIZE];
+} PACKED;
+
+struct pcctes_romex
+{
+    u32 eventid;
+    u32 eventdatasize;
+    u16 reserved;
+    u16 pfa;
+    u8  digest[SHA1_BUFSIZE];
+} PACKED;
+
+
+/****************************************************************
+ * Physical presence interface
+ ****************************************************************/
+
+#define TPM_STATE_ENABLED 1
+#define TPM_STATE_ACTIVE 2
+#define TPM_STATE_OWNED 4
+#define TPM_STATE_OWNERINSTALL 8
+
+#define TPM_PPI_OP_NOOP 0
+#define TPM_PPI_OP_ENABLE 1
+#define TPM_PPI_OP_DISABLE 2
+#define TPM_PPI_OP_ACTIVATE 3
+#define TPM_PPI_OP_DEACTIVATE 4
+#define TPM_PPI_OP_CLEAR 5
+#define TPM_PPI_OP_SET_OWNERINSTALL_TRUE 8
+#define TPM_PPI_OP_SET_OWNERINSTALL_FALSE 9
 
 #endif // tcg.h
