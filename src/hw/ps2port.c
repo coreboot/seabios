@@ -465,6 +465,14 @@ ps2_keyboard_setup(void *data)
     if (ret)
         return;
 
+    // Disable KB/mouse interfaces
+    ret = i8042_command(I8042_CMD_KBD_DISABLE, NULL);
+    if (ret)
+        return;
+    ret = i8042_command(I8042_CMD_AUX_DISABLE, NULL);
+    if (ret)
+        return;
+
     // Controller self-test.
     u8 param[2];
     ret = i8042_command(I8042_CMD_CTL_TEST, param);
@@ -474,6 +482,11 @@ ps2_keyboard_setup(void *data)
         dprintf(1, "i8042 self test failed (got %x not 0x55)\n", param[0]);
         return;
     }
+
+    // KB write CMD
+    ret = i8042_command(I8042_CMD_CTL_WCTR, NULL);
+    if (ret)
+        return;
 
     // Controller keyboard test.
     ret = i8042_command(I8042_CMD_KBD_TEST, param);
@@ -504,11 +517,6 @@ ps2_keyboard_setup(void *data)
         dprintf(1, "keyboard self test failed (got %x not 0xaa)\n", param[0]);
         return;
     }
-
-    /* Disable keyboard */
-    ret = ps2_kbd_command(ATKBD_CMD_RESET_DIS, NULL);
-    if (ret)
-        return;
 
     // Set scancode command (mode 2)
     param[0] = 0x02;
