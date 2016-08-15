@@ -179,9 +179,7 @@ ps2_recvbyte(int aux, int needack, int timeout)
         }
 
         if (timer_check(end)) {
-            // Don't warn on second byte of a reset
-            if (timeout > 100)
-                warn_timeout();
+            warn_timeout();
             return -1;
         }
         yield();
