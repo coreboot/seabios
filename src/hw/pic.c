@@ -101,14 +101,14 @@ pic_isr2_read(void)
 
 // Handler for otherwise unused hardware irqs.
 void VISIBLE16
-handle_hwpic1(struct bregs *regs)
+handle_hwpic1(void)
 {
     dprintf(DEBUG_ISR_hwpic1, "handle_hwpic1 irq=%x\n", pic_isr1_read());
     pic_eoi1();
 }
 
 void VISIBLE16
-handle_hwpic2(struct bregs *regs)
+handle_hwpic2(void)
 {
     dprintf(DEBUG_ISR_hwpic2, "handle_hwpic2 irq=%x\n", pic_isr2_read());
     pic_eoi2();
