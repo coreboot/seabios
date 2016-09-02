@@ -98,6 +98,12 @@ dequeue_key(struct bregs *regs, int incr, int extended)
         // Translate extended keys
         if (ascii == 0xe0 && keycode & 0xff00)
             keycode &= 0xff00;
+        else if (keycode == 0xe00d || keycode == 0xe00a)
+            // Extended enter key
+            keycode = 0x1c00 | ascii;
+        else if (keycode == 0xe02f)
+            // Extended '/' key
+            keycode = 0x352f;
         // Technically, if the ascii value is 0xf0 or if the
         // 'scancode' is greater than 0x84 then the key should be
         // discarded.  However, there seems no harm in passing on the
@@ -385,6 +391,13 @@ static struct scaninfo {
     { 0x8600, 0x8800, 0x8a00, 0x8c00 }, /* F12 */
 };
 
+struct scaninfo key_ext_enter VAR16 = {
+    0xe00d, 0xe00d, 0xe00a, 0xa600
+};
+struct scaninfo key_ext_slash VAR16 = {
+    0xe02f, 0xe02f, 0x9500, 0xa400
+};
+
 // Handle a ps2 style scancode read from the keyboard.
 static void
 __process_key(u8 scancode)
@@ -515,6 +528,8 @@ __process_key(u8 scancode)
         }
         u16 keycode;
         struct scaninfo *info = &scan_to_keycode[scancode];
+        if (flags2 & KF2_LAST_E0 && (scancode == 0x1c || scancode == 0x35))
+            info = (scancode == 0x1c ? &key_ext_enter : &key_ext_slash);
         if (flags0 & KF0_ALTACTIVE) {
             keycode = GET_GLOBAL(info->alt);
         } else if (flags0 & KF0_CTRLACTIVE) {
