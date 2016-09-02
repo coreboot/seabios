@@ -553,9 +553,8 @@ __process_key(u8 scancode)
             else
                 keycode = (keycode & 0xff00) | 0xe0;
         }
-        if (!keycode)
-            dprintf(1, "KBD: keycode is zero?\n");
-        enqueue_key(keycode);
+        if (keycode)
+            enqueue_key(keycode);
         break;
     }
     flags2 &= ~KF2_LAST_E0;
