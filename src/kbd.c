@@ -375,21 +375,35 @@ struct scaninfo key_ext_slash VAR16 = {
     0xe02f, 0xe02f, 0x9500, 0xa400
 };
 
+static void
+kbd_set_flag(int key_release, u16 set_bit0, u8 set_bit1, u16 toggle_bit)
+{
+    u16 flags0 = GET_BDA(kbd_flag0);
+    u8 flags1 = GET_BDA(kbd_flag1);
+    if (key_release) {
+        flags0 &= ~set_bit0;
+        flags1 &= ~set_bit1;
+    } else {
+        flags0 ^= toggle_bit;
+        flags0 |= set_bit0;
+        flags1 |= set_bit1;
+    }
+    SET_BDA(kbd_flag0, flags0);
+    SET_BDA(kbd_flag1, flags1);
+}
+
 // Handle a ps2 style scancode read from the keyboard.
 static void
 __process_key(u8 scancode)
 {
-    u16 flags0 = GET_BDA(kbd_flag0);
     u8 flags1 = GET_BDA(kbd_flag1);
-
     if (flags1 & KF1_LAST_E1) {
         // Part of "pause" key (sequence is e1 1d 45 e1 9d c5)
         if ((scancode & ~0x80) == 0x1d)
             // Second key of sequence
             return;
         // Third key of sequence - clear flag.
-        flags1 &= ~KF1_LAST_E1;
-        SET_BDA(kbd_flag1, flags1);
+        SET_BDA(kbd_flag1, flags1 & ~KF1_LAST_E1);
 
         if (scancode == 0xc5) {
             // Final key in sequence.
@@ -398,98 +412,69 @@ __process_key(u8 scancode)
         }
         return;
     }
+    if (flags1 & KF1_LAST_E0)
+        // Clear E0 flag in memory for next key event
+        SET_BDA(kbd_flag1, flags1 & ~KF1_LAST_E0);
 
     // XXX - PrtScr should cause int 0x05 (ctrl-prtscr has keycode 0x7200?)
     // XXX - Ctrl+Break should cause int 0x1B
     // XXX - SysReq should cause int 0x15/0x85
 
+    int key_release = scancode & 0x80;
     switch (scancode) {
     case 0x00:
         dprintf(1, "KBD: int09 handler: AL=0\n");
         return;
 
     case 0x3a: /* Caps Lock press */
-        flags0 ^= KF0_CAPSACTIVE;
-        flags0 |= KF0_CAPS;
-        break;
     case 0xba: /* Caps Lock release */
-        flags0 &= ~KF0_CAPS;
-        break;
-
+        kbd_set_flag(key_release, KF0_CAPS, 0, KF0_CAPSACTIVE);
+        return;
     case 0x2a: /* L Shift press */
-        flags0 |= KF0_LSHIFT;
-        break;
     case 0xaa: /* L Shift release */
-        flags0 &= ~KF0_LSHIFT;
-        break;
-
+        kbd_set_flag(key_release, KF0_LSHIFT, 0, 0);
+        return;
     case 0x36: /* R Shift press */
-        flags0 |= KF0_RSHIFT;
-        break;
     case 0xb6: /* R Shift release */
-        flags0 &= ~KF0_RSHIFT;
-        break;
-
+        kbd_set_flag(key_release, KF0_RSHIFT, 0, 0);
+        return;
     case 0x1d: /* Ctrl press */
-        flags0 |= KF0_CTRLACTIVE;
-        if (flags1 & KF1_LAST_E0)
-            flags1 |= KF1_RCTRL;
-        else
-            flags0 |= KF0_LCTRL;
-        break;
     case 0x9d: /* Ctrl release */
-        flags0 &= ~KF0_CTRLACTIVE;
         if (flags1 & KF1_LAST_E0)
-            flags1 &= ~KF1_RCTRL;
+            kbd_set_flag(key_release, KF0_CTRLACTIVE, KF1_RCTRL, 0);
         else
-            flags0 &= ~KF0_LCTRL;
-        break;
-
+            kbd_set_flag(key_release, KF0_CTRLACTIVE | KF0_LCTRL, 0, 0);
+        return;
     case 0x38: /* Alt press */
-        flags0 |= KF0_ALTACTIVE;
-        if (flags1 & KF1_LAST_E0)
-            flags1 |= KF1_RALT;
-        else
-            flags0 |= KF0_LALT;
-        break;
     case 0xb8: /* Alt release */
-        flags0 &= ~KF0_ALTACTIVE;
         if (flags1 & KF1_LAST_E0)
-            flags1 &= ~KF1_RALT;
+            kbd_set_flag(key_release, KF0_ALTACTIVE, KF1_RALT, 0);
         else
-            flags0 &= ~KF0_LALT;
-        break;
-
+            kbd_set_flag(key_release, KF0_ALTACTIVE | KF0_LALT, 0, 0);
+        return;
     case 0x45: /* Num Lock press */
-        flags0 |= KF0_NUM;
-        flags0 ^= KF0_NUMACTIVE;
-        break;
     case 0xc5: /* Num Lock release */
-        flags0 &= ~KF0_NUM;
-        break;
-
+        kbd_set_flag(key_release, KF0_NUM, 0, KF0_NUMACTIVE);
+        return;
     case 0x46: /* Scroll Lock press */
-        flags0 |= KF0_SCROLL;
-        flags0 ^= KF0_SCROLLACTIVE;
-        break;
     case 0xc6: /* Scroll Lock release */
-        flags0 &= ~KF0_SCROLL;
-        break;
+        kbd_set_flag(key_release, KF0_SCROLL, 0, KF0_SCROLLACTIVE);
+        return;
 
     case 0xe0:
         // Extended key
-        flags1 |= KF1_LAST_E0;
-        SET_BDA(kbd_flag1, flags1);
+        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E0);
         return;
     case 0xe1:
         // Start of pause key sequence
-        flags1 |= KF1_LAST_E1;
-        break;
+        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E1);
+        return;
 
     default:
-        if (scancode & 0x80)
+        if (key_release)
             // toss key releases
             break;
+        u16 flags0 = GET_BDA(kbd_flag0);
         if (scancode == 0x53
             && ((flags0 & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
                 == (KF0_CTRLACTIVE|KF0_ALTACTIVE))) {
@@ -533,10 +518,6 @@ __process_key(u8 scancode)
             enqueue_key(keycode);
         break;
     }
-    flags1 &= ~KF1_LAST_E0;
-
-    SET_BDA(kbd_flag0, flags0);
-    SET_BDA(kbd_flag1, flags1);
 }
 
 void
