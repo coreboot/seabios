@@ -30,8 +30,7 @@ struct bios_data_area_s {
     u16 mem_size_kb;
     u8 pad2;
     u8 ps2_ctrl_flag;
-    u8 kbd_flag0;
-    u8 kbd_flag1;
+    u16 kbd_flag0;
     u8 alt_keypad;
     u16 kbd_buf_head;
     u16 kbd_buf_tail;
@@ -85,7 +84,7 @@ struct bios_data_area_s {
     // 40:90
     u8 floppy_media_state[4];
     u8 floppy_track[2];
-    u8 kbd_flag2;
+    u8 kbd_flag1;
     u8 kbd_led;
     struct segoff_s user_wait_complete_flag;
     u32 user_wait_timeout;
@@ -110,6 +109,27 @@ struct bios_data_area_s {
 #define FMS_MEDIA_DRIVE_ESTABLISHED (1<<4)
 #define FMS_DOUBLE_STEPPING         (1<<5)
 #define FMS_DATA_RATE_MASK          (0xc0)
+
+// BDA kbd_flag[01] bitdefs
+#define KF0_RSHIFT       (1<<0)
+#define KF0_LSHIFT       (1<<1)
+#define KF0_CTRLACTIVE   (1<<2)
+#define KF0_ALTACTIVE    (1<<3)
+#define KF0_SCROLLACTIVE (1<<4)
+#define KF0_NUMACTIVE    (1<<5)
+#define KF0_CAPSACTIVE   (1<<6)
+#define KF0_LCTRL        (1<<8)
+#define KF0_LALT         (1<<9)
+#define KF0_PAUSEACTIVE  (1<<11)
+#define KF0_SCROLL       (1<<12)
+#define KF0_NUM          (1<<13)
+#define KF0_CAPS         (1<<14)
+
+#define KF1_LAST_E1    (1<<0)
+#define KF1_LAST_E0    (1<<1)
+#define KF1_RCTRL      (1<<2)
+#define KF1_RALT       (1<<3)
+#define KF1_101KBD     (1<<4)
 
 // Limit of BDA timer_counter field
 #define TICKS_PER_DAY 1573040
