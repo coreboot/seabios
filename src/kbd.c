@@ -94,7 +94,16 @@ dequeue_key(struct bregs *regs, int incr, int extended)
 
     u16 keycode = GET_FARVAR(SEG_BDA, *(u16*)(buffer_head+0));
     u8 ascii = keycode & 0xff;
-    if ((ascii == 0xf0 && keycode > 0xff) || (ascii == 0xe0 && !extended))
+    if (!extended) {
+        // Translate extended keys
+        if (ascii == 0xe0 && keycode & 0xff00)
+            keycode &= 0xff00;
+        // Technically, if the ascii value is 0xf0 or if the
+        // 'scancode' is greater than 0x84 then the key should be
+        // discarded.  However, there seems no harm in passing on the
+        // extended values in these cases.
+    }
+    if (ascii == 0xf0 && keycode & 0xff00)
         keycode &= 0xff00;
     regs->ax = keycode;
 
@@ -286,7 +295,7 @@ static struct scaninfo {
     u16 alt;
 } scan_to_keycode[] VAR16 = {
     {   none,   none,   none,   none },
-    { 0x011b, 0x011b, 0x011b, 0x0100 }, /* escape */
+    { 0x011b, 0x011b, 0x011b, 0x01f0 }, /* escape */
     { 0x0231, 0x0221,   none, 0x7800 }, /* 1! */
     { 0x0332, 0x0340, 0x0300, 0x7900 }, /* 2@ */
     { 0x0433, 0x0423,   none, 0x7a00 }, /* 3# */
@@ -299,8 +308,8 @@ static struct scaninfo {
     { 0x0b30, 0x0b29,   none, 0x8100 }, /* 0) */
     { 0x0c2d, 0x0c5f, 0x0c1f, 0x8200 }, /* -_ */
     { 0x0d3d, 0x0d2b,   none, 0x8300 }, /* =+ */
-    { 0x0e08, 0x0e08, 0x0e7f,   none }, /* backspace */
-    { 0x0f09, 0x0f00,   none,   none }, /* tab */
+    { 0x0e08, 0x0e08, 0x0e7f, 0x0ef0 }, /* backspace */
+    { 0x0f09, 0x0f00, 0x9400, 0xa5f0 }, /* tab */
     { 0x1071, 0x1051, 0x1011, 0x1000 }, /* Q */
     { 0x1177, 0x1157, 0x1117, 0x1100 }, /* W */
     { 0x1265, 0x1245, 0x1205, 0x1200 }, /* E */
@@ -311,9 +320,9 @@ static struct scaninfo {
     { 0x1769, 0x1749, 0x1709, 0x1700 }, /* I */
     { 0x186f, 0x184f, 0x180f, 0x1800 }, /* O */
     { 0x1970, 0x1950, 0x1910, 0x1900 }, /* P */
-    { 0x1a5b, 0x1a7b, 0x1a1b,   none }, /* [{ */
-    { 0x1b5d, 0x1b7d, 0x1b1d,   none }, /* ]} */
-    { 0x1c0d, 0x1c0d, 0x1c0a,   none }, /* Enter */
+    { 0x1a5b, 0x1a7b, 0x1a1b, 0x1af0 }, /* [{ */
+    { 0x1b5d, 0x1b7d, 0x1b1d, 0x1bf0 }, /* ]} */
+    { 0x1c0d, 0x1c0d, 0x1c0a, 0x1cf0 }, /* Enter */
     {   none,   none,   none,   none }, /* L Ctrl */
     { 0x1e61, 0x1e41, 0x1e01, 0x1e00 }, /* A */
     { 0x1f73, 0x1f53, 0x1f13, 0x1f00 }, /* S */
@@ -324,11 +333,11 @@ static struct scaninfo {
     { 0x246a, 0x244a, 0x240a, 0x2400 }, /* J */
     { 0x256b, 0x254b, 0x250b, 0x2500 }, /* K */
     { 0x266c, 0x264c, 0x260c, 0x2600 }, /* L */
-    { 0x273b, 0x273a,   none,   none }, /* ;: */
-    { 0x2827, 0x2822,   none,   none }, /* '" */
-    { 0x2960, 0x297e,   none,   none }, /* `~ */
+    { 0x273b, 0x273a,   none, 0x27f0 }, /* ;: */
+    { 0x2827, 0x2822,   none, 0x28f0 }, /* '" */
+    { 0x2960, 0x297e,   none, 0x29f0 }, /* `~ */
     {   none,   none,   none,   none }, /* L shift */
-    { 0x2b5c, 0x2b7c, 0x2b1c,   none }, /* |\ */
+    { 0x2b5c, 0x2b7c, 0x2b1c, 0x2bf0 }, /* |\ */
     { 0x2c7a, 0x2c5a, 0x2c1a, 0x2c00 }, /* Z */
     { 0x2d78, 0x2d58, 0x2d18, 0x2d00 }, /* X */
     { 0x2e63, 0x2e43, 0x2e03, 0x2e00 }, /* C */
@@ -336,11 +345,11 @@ static struct scaninfo {
     { 0x3062, 0x3042, 0x3002, 0x3000 }, /* B */
     { 0x316e, 0x314e, 0x310e, 0x3100 }, /* N */
     { 0x326d, 0x324d, 0x320d, 0x3200 }, /* M */
-    { 0x332c, 0x333c,   none,   none }, /* ,< */
-    { 0x342e, 0x343e,   none,   none }, /* .> */
-    { 0x352f, 0x353f,   none,   none }, /* /? */
+    { 0x332c, 0x333c,   none, 0x33f0 }, /* ,< */
+    { 0x342e, 0x343e,   none, 0x34f0 }, /* .> */
+    { 0x352f, 0x353f,   none, 0x35f0 }, /* /? */
     {   none,   none,   none,   none }, /* R Shift */
-    { 0x372a, 0x372a,   none,   none }, /* * */
+    { 0x372a, 0x372a, 0x9600, 0x37f0 }, /* * */
     {   none,   none,   none,   none }, /* L Alt */
     { 0x3920, 0x3920, 0x3920, 0x3920 }, /* space */
     {   none,   none,   none,   none }, /* caps lock */
@@ -357,19 +366,19 @@ static struct scaninfo {
     {   none,   none,   none,   none }, /* Num Lock */
     {   none,   none,   none,   none }, /* Scroll Lock */
     { 0x4700, 0x4737, 0x7700,   none }, /* 7 Home */
-    { 0x4800, 0x4838,   none,   none }, /* 8 UP */
+    { 0x4800, 0x4838, 0x8d00,   none }, /* 8 UP */
     { 0x4900, 0x4939, 0x8400,   none }, /* 9 PgUp */
-    { 0x4a2d, 0x4a2d,   none,   none }, /* - */
+    { 0x4a2d, 0x4a2d, 0x8e00, 0x4af0 }, /* - */
     { 0x4b00, 0x4b34, 0x7300,   none }, /* 4 Left */
-    { 0x4c00, 0x4c35,   none,   none }, /* 5 */
+    { 0x4c00, 0x4c35, 0x8f00,   none }, /* 5 */
     { 0x4d00, 0x4d36, 0x7400,   none }, /* 6 Right */
-    { 0x4e2b, 0x4e2b,   none,   none }, /* + */
+    { 0x4e2b, 0x4e2b, 0x9000, 0x4ef0 }, /* + */
     { 0x4f00, 0x4f31, 0x7500,   none }, /* 1 End */
-    { 0x5000, 0x5032,   none,   none }, /* 2 Down */
+    { 0x5000, 0x5032, 0x9100,   none }, /* 2 Down */
     { 0x5100, 0x5133, 0x7600,   none }, /* 3 PgDn */
-    { 0x5200, 0x5230,   none,   none }, /* 0 Ins */
-    { 0x5300, 0x532e,   none,   none }, /* Del */
-    {   none,   none,   none,   none },
+    { 0x5200, 0x5230, 0x9200,   none }, /* 0 Ins */
+    { 0x5300, 0x532e, 0x9300,   none }, /* Del */
+    {   none,   none,   none,   none }, /* SysReq */
     {   none,   none,   none,   none },
     { 0x565c, 0x567c,   none,   none }, /* \| */
     { 0x8500, 0x8700, 0x8900, 0x8b00 }, /* F11 */
@@ -401,7 +410,7 @@ __process_key(u8 scancode)
         return;
     }
 
-    // XXX - PrtScr should cause int 0x05
+    // XXX - PrtScr should cause int 0x05 (ctrl-prtscr has keycode 0x7200?)
     // XXX - Ctrl+Break should cause int 0x1B
     // XXX - SysReq should cause int 0x15/0x85
 
@@ -510,10 +519,6 @@ __process_key(u8 scancode)
             keycode = GET_GLOBAL(info->alt);
         } else if (flags0 & KF0_CTRLACTIVE) {
             keycode = GET_GLOBAL(info->control);
-        } else if (flags2 & KF2_LAST_E0
-                   && scancode >= 0x47 && scancode <= 0x53) {
-            /* extended keys handling */
-            keycode = (scancode << 8) | 0xe0;
         } else {
             u8 useshift = flags0 & (KF0_RSHIFT|KF0_LSHIFT) ? 1 : 0;
             u8 ascii = GET_GLOBAL(info->normal) & 0xff;
@@ -525,6 +530,13 @@ __process_key(u8 scancode)
                 keycode = GET_GLOBAL(info->shift);
             else
                 keycode = GET_GLOBAL(info->normal);
+        }
+        if (flags2 & KF2_LAST_E0 && scancode >= 0x47 && scancode <= 0x53) {
+            /* extended keys handling */
+            if (flags0 & KF0_ALTACTIVE)
+                keycode = (scancode + 0x50) << 8;
+            else
+                keycode = (keycode & 0xff00) | 0xe0;
         }
         if (!keycode)
             dprintf(1, "KBD: keycode is zero?\n");
