@@ -396,34 +396,30 @@ kbd_set_flag(int key_release, u16 set_bit0, u8 set_bit1, u16 toggle_bit)
 static void
 __process_key(u8 scancode)
 {
+    // Check for multi-key sequences
     u8 flags1 = GET_BDA(kbd_flag1);
     if (flags1 & KF1_LAST_E1) {
         // Part of "pause" key (sequence is e1 1d 45 e1 9d c5)
         if ((scancode & ~0x80) == 0x1d)
-            // Second key of sequence
+            // Second key of sequence - ignore
             return;
-        // Third key of sequence - clear flag.
+        // Third key of sequence - clear flag for next key
         SET_BDA(kbd_flag1, flags1 & ~KF1_LAST_E1);
-
-        if (scancode == 0xc5) {
-            // Final key in sequence.
-
-            // XXX - do actual pause.
-        }
-        return;
     }
     if (flags1 & KF1_LAST_E0)
         // Clear E0 flag in memory for next key event
         SET_BDA(kbd_flag1, flags1 & ~KF1_LAST_E0);
 
-    // XXX - PrtScr should cause int 0x05 (ctrl-prtscr has keycode 0x7200?)
-    // XXX - Ctrl+Break should cause int 0x1B
-    // XXX - SysReq should cause int 0x15/0x85
-
+    // Check for special keys
     int key_release = scancode & 0x80;
     switch (scancode) {
-    case 0x00:
-        dprintf(1, "KBD: int09 handler: AL=0\n");
+    case 0xe0:
+        // Extended key
+        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E0);
+        return;
+    case 0xe1:
+        // Start of pause key sequence
+        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E1);
         return;
 
     case 0x3a: /* Caps Lock press */
@@ -454,70 +450,80 @@ __process_key(u8 scancode)
         return;
     case 0x45: /* Num Lock press */
     case 0xc5: /* Num Lock release */
+        if (flags1 & KF1_LAST_E1)
+            // XXX - pause key.
+            return;
         kbd_set_flag(key_release, KF0_NUM, 0, KF0_NUMACTIVE);
         return;
     case 0x46: /* Scroll Lock press */
     case 0xc6: /* Scroll Lock release */
+        if (flags1 & KF1_LAST_E0)
+            // XXX - Ctrl+Break should cause int 0x1B
+            return;
         kbd_set_flag(key_release, KF0_SCROLL, 0, KF0_SCROLLACTIVE);
         return;
 
-    case 0xe0:
-        // Extended key
-        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E0);
+    case 0x37:
+    case 0xb7:
+        if (flags1 & KF1_LAST_E0)
+            // XXX - PrtScr should cause int 0x05 (ctrl-prtscr keycode 0x7200?)
+            return;
+        break;
+    case 0x54:
+    case 0xd4:
+        // XXX - SysReq should cause int 0x15/0x85
         return;
-    case 0xe1:
-        // Start of pause key sequence
-        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E1);
-        return;
-
-    default:
-        if (key_release)
-            // toss key releases
-            break;
-        u16 flags0 = GET_BDA(kbd_flag0);
-        if (scancode == 0x53
-            && ((flags0 & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
-                == (KF0_CTRLACTIVE|KF0_ALTACTIVE))) {
+    case 0x53:
+        if ((GET_BDA(kbd_flag0) & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
+            == (KF0_CTRLACTIVE|KF0_ALTACTIVE)) {
             // Ctrl+alt+del - reset machine.
             SET_BDA(soft_reset_flag, 0x1234);
             reset();
         }
-        if (scancode >= ARRAY_SIZE(scan_to_keycode)) {
-            dprintf(1, "KBD: int09h_handler(): unknown scancode read: 0x%02x!\n"
-                    , scancode);
-            return;
-        }
-        u16 keycode;
-        struct scaninfo *info = &scan_to_keycode[scancode];
-        if (flags1 & KF1_LAST_E0 && (scancode == 0x1c || scancode == 0x35))
-            info = (scancode == 0x1c ? &key_ext_enter : &key_ext_slash);
-        if (flags0 & KF0_ALTACTIVE) {
-            keycode = GET_GLOBAL(info->alt);
-        } else if (flags0 & KF0_CTRLACTIVE) {
-            keycode = GET_GLOBAL(info->control);
-        } else {
-            u8 useshift = flags0 & (KF0_RSHIFT|KF0_LSHIFT) ? 1 : 0;
-            u8 ascii = GET_GLOBAL(info->normal) & 0xff;
-            if ((flags0 & KF0_NUMACTIVE && scancode >= 0x47 && scancode <= 0x53)
-                || (flags0 & KF0_CAPSACTIVE && ascii >= 'a' && ascii <= 'z'))
-                // Numlock/capslock toggles shift on certain keys
-                useshift ^= 1;
-            if (useshift)
-                keycode = GET_GLOBAL(info->shift);
-            else
-                keycode = GET_GLOBAL(info->normal);
-        }
-        if (flags1 & KF1_LAST_E0 && scancode >= 0x47 && scancode <= 0x53) {
-            /* extended keys handling */
-            if (flags0 & KF0_ALTACTIVE)
-                keycode = (scancode + 0x50) << 8;
-            else
-                keycode = (keycode & 0xff00) | 0xe0;
-        }
-        if (keycode)
-            enqueue_key(keycode);
+        break;
+
+    default:
         break;
     }
+
+    // Handle generic keys
+    if (key_release)
+        // ignore key releases
+        return;
+    if (!scancode || scancode >= ARRAY_SIZE(scan_to_keycode)) {
+        dprintf(1, "__process_key unknown scancode read: 0x%02x!\n", scancode);
+        return;
+    }
+    struct scaninfo *info = &scan_to_keycode[scancode];
+    if (flags1 & KF1_LAST_E0 && (scancode == 0x1c || scancode == 0x35))
+        info = (scancode == 0x1c ? &key_ext_enter : &key_ext_slash);
+    u16 flags0 = GET_BDA(kbd_flag0);
+    u16 keycode;
+    if (flags0 & KF0_ALTACTIVE) {
+        keycode = GET_GLOBAL(info->alt);
+    } else if (flags0 & KF0_CTRLACTIVE) {
+        keycode = GET_GLOBAL(info->control);
+    } else {
+        u8 useshift = flags0 & (KF0_RSHIFT|KF0_LSHIFT) ? 1 : 0;
+        u8 ascii = GET_GLOBAL(info->normal) & 0xff;
+        if ((flags0 & KF0_NUMACTIVE && scancode >= 0x47 && scancode <= 0x53)
+            || (flags0 & KF0_CAPSACTIVE && ascii >= 'a' && ascii <= 'z'))
+            // Numlock/capslock toggles shift on certain keys
+            useshift ^= 1;
+        if (useshift)
+            keycode = GET_GLOBAL(info->shift);
+        else
+            keycode = GET_GLOBAL(info->normal);
+    }
+    if (flags1 & KF1_LAST_E0 && scancode >= 0x47 && scancode <= 0x53) {
+        /* extended keys handling */
+        if (flags0 & KF0_ALTACTIVE)
+            keycode = (scancode + 0x50) << 8;
+        else
+            keycode = (keycode & 0xff00) | 0xe0;
+    }
+    if (keycode)
+        enqueue_key(keycode);
 }
 
 void
