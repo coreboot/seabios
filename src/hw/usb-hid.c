@@ -149,7 +149,7 @@ static u16 KeyToScanCode[] VAR16 = {
     0x001b, 0x002b, 0x0000, 0x0027, 0x0028, 0x0029, 0x0033, 0x0034,
     0x0035, 0x003a, 0x003b, 0x003c, 0x003d, 0x003e, 0x003f, 0x0040,
     0x0041, 0x0042, 0x0043, 0x0044, 0x0057, 0x0058, 0xe037, 0x0046,
-    0xe11d, 0xe052, 0xe047, 0xe049, 0xe053, 0xe04f, 0xe051, 0xe04d,
+    0xe145, 0xe052, 0xe047, 0xe049, 0xe053, 0xe04f, 0xe051, 0xe04d,
     0xe04b, 0xe050, 0xe048, 0x0045, 0xe035, 0x0037, 0x004a, 0x004e,
     0xe01c, 0x004f, 0x0050, 0x0051, 0x004b, 0x004c, 0x004d, 0x0047,
     0x0048, 0x0049, 0x0052, 0x0053
@@ -172,42 +172,52 @@ struct keyevent {
 
 // Translate data from KeyToScanCode[] to calls to process_key().
 static void
-prockeys(u16 keys)
+prockeys(u16 scancode, u8 key_release, u8 mods)
 {
-    if (keys > 0xff) {
-        u8 key = keys>>8;
-        if (key == 0xe1) {
-            // Pause key
-            process_key(0xe1);
-            process_key(0x1d | (keys & RELEASEBIT));
-            process_key(0x45 | (keys & RELEASEBIT));
+    if (scancode > 0xff) {
+        if (scancode == 0xe145) {
+            // XXX - a real AT keyboard would immediately send the key release
+            if (mods & ((1<<0) | (1<<4))) {
+                // Cntr+Break key
+                process_key(0xe0);
+                process_key(0x46 | key_release);
+            } else {
+                // Pause key
+                process_key(0xe1);
+                process_key(0x1d | key_release);
+                process_key(0x45 | key_release);
+            }
+            return;
+        } else if (scancode == 0xe037 && mods & ((1<<2) | (1<<6))) {
+            // Alt+SysReq key
+            process_key(0x54 | key_release);
             return;
         }
-        process_key(key);
+        process_key(0xe0);
     }
-    process_key(keys);
+    process_key(scancode | key_release);
 }
 
 // Handle a USB key press/release event.
 static void
-procscankey(u8 key, u8 flags)
+procscankey(u8 key, u8 key_release, u8 mods)
 {
     if (key >= ARRAY_SIZE(KeyToScanCode))
         return;
-    u16 keys = GET_GLOBAL(KeyToScanCode[key]);
-    if (keys)
-        prockeys(keys | flags);
+    u16 scancode = GET_GLOBAL(KeyToScanCode[key]);
+    if (scancode)
+        prockeys(scancode, key_release, mods);
 }
 
 // Handle a USB modifier press/release event.
 static void
-procmodkey(u8 mods, u8 flags)
+procmodkey(u8 mods, u8 key_release)
 {
     int i;
     for (i=0; mods; i++)
         if (mods & (1<<i)) {
             // Modifier key change.
-            prockeys(GET_GLOBAL(ModifierToScanCode[i]) | flags);
+            prockeys(GET_GLOBAL(ModifierToScanCode[i]), key_release, 0);
             mods &= ~(1<<i);
         }
 }
@@ -245,7 +255,7 @@ handle_key(struct keyevent *data)
         for (j=0;; j++) {
             if (j>=ARRAY_SIZE(data->keys)) {
                 // Key released.
-                procscankey(key, RELEASEBIT);
+                procscankey(key, RELEASEBIT, data->modifiers);
                 if (i+1 >= ARRAY_SIZE(old.keys) || !old.keys[i+1])
                     // Last pressed key released - disable repeat.
                     old.repeatcount = 0xff;
@@ -269,7 +279,7 @@ handle_key(struct keyevent *data)
         if (!key)
             continue;
         // New key pressed.
-        procscankey(key, 0);
+        procscankey(key, 0, data->modifiers);
         old.keys[addpos++] = key;
         old.repeatcount = KEYREPEATWAITMS / KEYREPEATMS + 1;
     }
@@ -279,7 +289,7 @@ handle_key(struct keyevent *data)
     // Check for key repeat event.
     if (addpos) {
         if (!old.repeatcount)
-            procscankey(old.keys[addpos-1], 0);
+            procscankey(old.keys[addpos-1], 0, data->modifiers);
         else if (old.repeatcount != 0xff)
             old.repeatcount--;
     }
