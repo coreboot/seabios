@@ -47,6 +47,7 @@ ivt_init(void)
 
     // Initialize software handlers.
     SET_IVT(0x02, FUNC16(entry_02));
+    SET_IVT(0x05, FUNC16(entry_05));
     SET_IVT(0x10, FUNC16(entry_10));
     SET_IVT(0x11, FUNC16(entry_11));
     SET_IVT(0x12, FUNC16(entry_12));
