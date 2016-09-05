@@ -171,12 +171,14 @@ __farcall16:
         .endm
 
         IRQ_TRAMPOLINE 02
+        IRQ_TRAMPOLINE 05
         IRQ_TRAMPOLINE 10
         IRQ_TRAMPOLINE 13
         IRQ_TRAMPOLINE 15
         IRQ_TRAMPOLINE 16
         IRQ_TRAMPOLINE 18
         IRQ_TRAMPOLINE 19
+        IRQ_TRAMPOLINE 1b
         IRQ_TRAMPOLINE 1c
         IRQ_TRAMPOLINE 4a
 

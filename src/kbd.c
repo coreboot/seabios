@@ -392,6 +392,49 @@ kbd_set_flag(int key_release, u16 set_bit0, u8 set_bit1, u16 toggle_bit)
     SET_BDA(kbd_flag1, flags1);
 }
 
+static void
+kbd_ctrl_break(int key_release)
+{
+    if (!key_release)
+        return;
+    // Clear keyboard buffer and place 0x0000 in buffer
+    u16 buffer_start = GET_BDA(kbd_buf_start_offset);
+    SET_BDA(kbd_buf_head, buffer_start);
+    SET_BDA(kbd_buf_tail, buffer_start+2);
+    SET_FARVAR(SEG_BDA, *(u16*)(buffer_start+0), 0x0000);
+    // Set break flag
+    SET_BDA(break_flag, 0x80);
+    // Generate int 0x1b
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    call16_int(0x1b, &br);
+}
+
+static void
+kbd_sysreq(int key_release)
+{
+    // SysReq generates int 0x15/0x85
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.ah = 0x85;
+    br.al = key_release ? 0x01 : 0x00;
+    br.flags = F_IF;
+    call16_int(0x15, &br);
+}
+
+static void
+kbd_prtscr(int key_release)
+{
+    if (key_release)
+        return;
+    // PrtScr generates int 0x05 (ctrl-prtscr has keycode 0x7200?)
+    struct bregs br;
+    memset(&br, 0, sizeof(br));
+    br.flags = F_IF;
+    call16_int(0x05, &br);
+}
+
 // Handle a ps2 style scancode read from the keyboard.
 static void
 __process_key(u8 scancode)
@@ -463,21 +506,23 @@ __process_key(u8 scancode)
         return;
     case 0x46: /* Scroll Lock press */
     case 0xc6: /* Scroll Lock release */
-        if (flags1 & KF1_LAST_E0)
-            // XXX - Ctrl+Break should cause int 0x1B
+        if (flags1 & KF1_LAST_E0) {
+            kbd_ctrl_break(key_release);
             return;
+        }
         kbd_set_flag(key_release, KF0_SCROLL, 0, KF0_SCROLLACTIVE);
         return;
 
     case 0x37:
     case 0xb7:
-        if (flags1 & KF1_LAST_E0)
-            // XXX - PrtScr should cause int 0x05 (ctrl-prtscr keycode 0x7200?)
+        if (flags1 & KF1_LAST_E0) {
+            kbd_prtscr(key_release);
             return;
+        }
         break;
     case 0x54:
     case 0xd4:
-        // XXX - SysReq should cause int 0x15/0x85
+        kbd_sysreq(key_release);
         return;
     case 0x53:
         if ((GET_BDA(kbd_flag0) & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
