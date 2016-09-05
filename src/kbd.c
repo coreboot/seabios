@@ -428,10 +428,16 @@ __process_key(u8 scancode)
         return;
     case 0x2a: /* L Shift press */
     case 0xaa: /* L Shift release */
+        if (flags1 & KF1_LAST_E0)
+            // Ignore fake shifts
+            return;
         kbd_set_flag(key_release, KF0_LSHIFT, 0, 0);
         return;
     case 0x36: /* R Shift press */
     case 0xb6: /* R Shift release */
+        if (flags1 & KF1_LAST_E0)
+            // Ignore fake shifts
+            return;
         kbd_set_flag(key_release, KF0_RSHIFT, 0, 0);
         return;
     case 0x1d: /* Ctrl press */
