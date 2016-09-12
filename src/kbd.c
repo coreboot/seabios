@@ -439,73 +439,60 @@ kbd_prtscr(int key_release)
 static void
 __process_key(u8 scancode)
 {
-    // Check for multi-key sequences
+    // Check for multi-scancode key sequences
     u8 flags1 = GET_BDA(kbd_flag1);
-    if (flags1 & KF1_LAST_E1) {
-        // Part of "pause" key (sequence is e1 1d 45 e1 9d c5)
-        if ((scancode & ~0x80) == 0x1d)
-            // Second key of sequence - ignore
-            return;
-        // Third key of sequence - clear flag for next key
-        SET_BDA(kbd_flag1, flags1 & ~KF1_LAST_E1);
+    if (scancode == 0xe0 || scancode == 0xe1) {
+        // Start of two byte extended (e0) or three byte pause key (e1) sequence
+        u8 eflag = scancode == 0xe0 ? KF1_LAST_E0 : KF1_LAST_E1;
+        SET_BDA(kbd_flag1, flags1 | eflag);
+        return;
     }
-    if (flags1 & KF1_LAST_E0)
-        // Clear E0 flag in memory for next key event
-        SET_BDA(kbd_flag1, flags1 & ~KF1_LAST_E0);
+    int key_release = scancode & 0x80;
+    scancode &= ~0x80;
+    if (flags1 & (KF1_LAST_E0|KF1_LAST_E1)) {
+        if (flags1 & KF1_LAST_E1 && scancode == 0x1d)
+            // Ignore second byte of pause key (e1 1d 45 / e1 9d c5)
+            return;
+        // Clear E0/E1 flag in memory for next key event
+        SET_BDA(kbd_flag1, flags1 & ~(KF1_LAST_E0|KF1_LAST_E1));
+    }
 
     // Check for special keys
-    int key_release = scancode & 0x80;
     switch (scancode) {
-    case 0xe0:
-        // Extended key
-        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E0);
-        return;
-    case 0xe1:
-        // Start of pause key sequence
-        SET_BDA(kbd_flag1, flags1 | KF1_LAST_E1);
-        return;
-
-    case 0x3a: /* Caps Lock press */
-    case 0xba: /* Caps Lock release */
+    case 0x3a: /* Caps Lock */
         kbd_set_flag(key_release, KF0_CAPS, 0, KF0_CAPSACTIVE);
         return;
-    case 0x2a: /* L Shift press */
-    case 0xaa: /* L Shift release */
+    case 0x2a: /* L Shift */
         if (flags1 & KF1_LAST_E0)
             // Ignore fake shifts
             return;
         kbd_set_flag(key_release, KF0_LSHIFT, 0, 0);
         return;
-    case 0x36: /* R Shift press */
-    case 0xb6: /* R Shift release */
+    case 0x36: /* R Shift */
         if (flags1 & KF1_LAST_E0)
             // Ignore fake shifts
             return;
         kbd_set_flag(key_release, KF0_RSHIFT, 0, 0);
         return;
-    case 0x1d: /* Ctrl press */
-    case 0x9d: /* Ctrl release */
+    case 0x1d: /* Ctrl */
         if (flags1 & KF1_LAST_E0)
             kbd_set_flag(key_release, KF0_CTRLACTIVE, KF1_RCTRL, 0);
         else
             kbd_set_flag(key_release, KF0_CTRLACTIVE | KF0_LCTRL, 0, 0);
         return;
-    case 0x38: /* Alt press */
-    case 0xb8: /* Alt release */
+    case 0x38: /* Alt */
         if (flags1 & KF1_LAST_E0)
             kbd_set_flag(key_release, KF0_ALTACTIVE, KF1_RALT, 0);
         else
             kbd_set_flag(key_release, KF0_ALTACTIVE | KF0_LALT, 0, 0);
         return;
-    case 0x45: /* Num Lock press */
-    case 0xc5: /* Num Lock release */
+    case 0x45: /* Num Lock */
         if (flags1 & KF1_LAST_E1)
             // XXX - pause key.
             return;
         kbd_set_flag(key_release, KF0_NUM, 0, KF0_NUMACTIVE);
         return;
-    case 0x46: /* Scroll Lock press */
-    case 0xc6: /* Scroll Lock release */
+    case 0x46: /* Scroll Lock */
         if (flags1 & KF1_LAST_E0) {
             kbd_ctrl_break(key_release);
             return;
@@ -513,20 +500,18 @@ __process_key(u8 scancode)
         kbd_set_flag(key_release, KF0_SCROLL, 0, KF0_SCROLLACTIVE);
         return;
 
-    case 0x37:
-    case 0xb7:
+    case 0x37: /* * */
         if (flags1 & KF1_LAST_E0) {
             kbd_prtscr(key_release);
             return;
         }
         break;
-    case 0x54:
-    case 0xd4:
+    case 0x54: /* SysReq */
         kbd_sysreq(key_release);
         return;
-    case 0x53:
+    case 0x53: /* Del */
         if ((GET_BDA(kbd_flag0) & (KF0_CTRLACTIVE|KF0_ALTACTIVE))
-            == (KF0_CTRLACTIVE|KF0_ALTACTIVE)) {
+            == (KF0_CTRLACTIVE|KF0_ALTACTIVE) && !key_release) {
             // Ctrl+alt+del - reset machine.
             SET_BDA(soft_reset_flag, 0x1234);
             reset();
