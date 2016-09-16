@@ -449,7 +449,7 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
             switch (vp_cap->mode) {
             case VP_ACCESS_IO:
             {
-                u32 addr = pci_enable_iobar(pci, vp_cap->bar);
+                u32 addr = pci_enable_iobar(pci, base);
                 if (!addr)
                     return;
                 vp_cap->ioaddr = addr + offset;
@@ -458,7 +458,7 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
             }
             case VP_ACCESS_MMIO:
             {
-                void *addr = pci_enable_membar(pci, vp_cap->bar);
+                void *addr = pci_enable_membar(pci, base);
                 if (!addr)
                     return;
                 vp_cap->memaddr = addr + offset;
