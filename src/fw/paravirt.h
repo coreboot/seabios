@@ -52,4 +52,7 @@ void qemu_preinit(void);
 void qemu_platform_setup(void);
 void qemu_cfg_init(void);
 
+u16 qemu_init_present_cpus_count(void);
+u16 qemu_get_present_cpus_count(void);
+
 #endif

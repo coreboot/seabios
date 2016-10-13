@@ -12,6 +12,7 @@
 #include "stacks.h" // yield
 #include "util.h" // smp_setup, msr_feature_control_setup
 #include "x86.h" // wrmsr
+#include "paravirt.h" // qemu_*_present_cpus_count
 
 #define APIC_ICR_LOW ((u8*)BUILD_APIC_ADDR + 0x300)
 #define APIC_SVR     ((u8*)BUILD_APIC_ADDR + 0x0F0)
@@ -131,8 +132,8 @@ smp_scan(void)
     writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
 
     // Wait for other CPUs to process the SIPI.
-    u8 cmos_smp_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
-    while (cmos_smp_count != CountCPUs)
+    u16 expected_cpus_count = qemu_get_present_cpus_count();
+    while (expected_cpus_count != CountCPUs)
         asm volatile(
             // Release lock and allow other processors to use the stack.
             "  movl %%esp, %1\n"
@@ -159,9 +160,9 @@ smp_setup(void)
         return;
 
     MaxCountCPUs = romfile_loadint("etc/max-cpus", 0);
-    u8 cmos_smp_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
-    if (MaxCountCPUs < cmos_smp_count)
-        MaxCountCPUs = cmos_smp_count;
+    u16 smp_count = qemu_init_present_cpus_count();
+    if (MaxCountCPUs < smp_count)
+        MaxCountCPUs = smp_count;
 
     smp_scan();
 }

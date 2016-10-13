@@ -319,6 +319,44 @@ qemu_romfile_add(char *name, int select, int skip, int size)
     romfile_add(&qfile->file);
 }
 
+static int
+qemu_romfile_get_fwcfg_entry(char *name, int *select)
+{
+    struct romfile_s *file = romfile_find(name);
+    if (!file)
+        return 0;
+    struct qemu_romfile_s *qfile;
+    qfile = container_of(file, struct qemu_romfile_s, file);
+    if (select)
+        *select = qfile->select;
+    return file->size;
+}
+
+static int boot_cpus_sel;
+static int boot_cpus_file_sz;
+
+u16
+qemu_init_present_cpus_count(void)
+{
+    u16 smp_count = romfile_loadint("etc/boot-cpus",
+                                    rtc_read(CMOS_BIOS_SMP_COUNT) + 1);
+    boot_cpus_file_sz =
+        qemu_romfile_get_fwcfg_entry("etc/boot-cpus", &boot_cpus_sel);
+    return smp_count;
+}
+
+u16
+qemu_get_present_cpus_count(void)
+{
+    u16 smp_count;
+    if (!boot_cpus_file_sz) {
+        smp_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
+    } else {
+        qemu_cfg_read_entry(&smp_count, boot_cpus_sel, boot_cpus_file_sz);
+    }
+    return smp_count;
+}
+
 struct e820_reservation {
     u64 address;
     u64 length;
