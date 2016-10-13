@@ -20,6 +20,9 @@
 #define APIC_LINT1   ((u8*)BUILD_APIC_ADDR + 0x360)
 
 #define APIC_ENABLED 0x0100
+#define MSR_IA32_APIC_BASE 0x01B
+#define MSR_LOCAL_APIC_ID 0x802
+#define MSR_IA32_APICBASE_EXTD (1ULL << 10) /* Enable x2APIC mode */
 
 static struct { u32 index; u64 val; } smp_msr[32];
 static u32 smp_msr_count;
@@ -59,11 +62,21 @@ int apic_id_is_present(u8 apic_id)
 static int
 apic_id_init(void)
 {
-    // Track found apic id for use in legacy internal bios tables
     u32 eax, ebx, ecx, cpuid_features;
     cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
-    u8 apic_id = ebx>>24;
-    FoundAPICIDs[apic_id/32] |= 1 << (apic_id % 32);
+    u32 apic_id = ebx>>24;
+    if (MaxCountCPUs < 256) { // xAPIC mode
+        // Track found apic id for use in legacy internal bios tables
+        FoundAPICIDs[apic_id/32] |= 1 << (apic_id % 32);
+    } else if (ecx & CPUID_X2APIC) {
+        // switch to x2APIC mode
+        u64 apic_base = rdmsr(MSR_IA32_APIC_BASE);
+        wrmsr(MSR_IA32_APIC_BASE, apic_base | MSR_IA32_APICBASE_EXTD);
+        apic_id = rdmsr(MSR_LOCAL_APIC_ID);
+    } else {
+        // x2APIC is masked by CPUID
+        apic_id = -1;
+    }
     return apic_id;
 }
 
@@ -101,7 +114,6 @@ smp_scan(void)
     }
 
     // mark the BSP initial APIC ID as found, too:
-    apic_id_init();
     CountCPUs = 1;
 
     // Setup jump trampoline to counter code.
@@ -130,6 +142,10 @@ smp_scan(void)
     writel(APIC_ICR_LOW, 0x000C4500);
     u32 sipi_vector = BUILD_AP_BOOT_ADDR >> 12;
     writel(APIC_ICR_LOW, 0x000C4600 | sipi_vector);
+
+    // switch to x2APIC mode after sending SIPI so that
+    // x2APIC and xAPIC mode could share AP wake up code
+    apic_id_init();
 
     // Wait for other CPUs to process the SIPI.
     u16 expected_cpus_count = qemu_get_present_cpus_count();

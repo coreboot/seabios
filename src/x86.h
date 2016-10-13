@@ -68,6 +68,7 @@ static inline void wbinvd(void)
 #define CPUID_MSR (1 << 5)
 #define CPUID_APIC (1 << 9)
 #define CPUID_MTRR (1 << 12)
+#define CPUID_X2APIC (1 << 21)
 static inline void __cpuid(u32 index, u32 *eax, u32 *ebx, u32 *ecx, u32 *edx)
 {
     asm("cpuid"
