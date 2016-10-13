@@ -55,22 +55,28 @@ int apic_id_is_present(u8 apic_id)
     return !!(FoundAPICIDs[apic_id/32] & (1ul << (apic_id % 32)));
 }
 
+static int
+apic_id_init(void)
+{
+    // Track found apic id for use in legacy internal bios tables
+    u32 eax, ebx, ecx, cpuid_features;
+    cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
+    u8 apic_id = ebx>>24;
+    FoundAPICIDs[apic_id/32] |= 1 << (apic_id % 32);
+    return apic_id;
+}
+
 void VISIBLE32FLAT
 handle_smp(void)
 {
     if (!CONFIG_QEMU)
         return;
 
-    // Detect apic_id
-    u32 eax, ebx, ecx, cpuid_features;
-    cpuid(1, &eax, &ebx, &ecx, &cpuid_features);
-    u8 apic_id = ebx>>24;
-    dprintf(DEBUG_HDL_smp, "handle_smp: apic_id=%d\n", apic_id);
+    // Track this CPU and detect the apic_id
+    int apic_id = apic_id_init();
+    dprintf(DEBUG_HDL_smp, "handle_smp: apic_id=0x%x\n", apic_id);
 
     smp_write_msrs();
-
-    // Set bit on FoundAPICIDs
-    FoundAPICIDs[apic_id/32] |= (1 << (apic_id % 32));
 
     CountCPUs++;
 }
@@ -94,8 +100,7 @@ smp_scan(void)
     }
 
     // mark the BSP initial APIC ID as found, too:
-    u8 apic_id = ebx>>24;
-    FoundAPICIDs[apic_id/32] |= (1 << (apic_id % 32));
+    apic_id_init();
     CountCPUs = 1;
 
     // Setup jump trampoline to counter code.
