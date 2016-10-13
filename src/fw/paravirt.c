@@ -164,8 +164,10 @@ qemu_platform_setup(void)
     smp_setup();
 
     // Create bios tables
-    pirtable_setup();
-    mptable_setup();
+    if (MaxCountCPUs <= 255) {
+        pirtable_setup();
+        mptable_setup();
+    }
     smbios_setup();
 
     if (CONFIG_FW_ROMFILE_LOAD) {
