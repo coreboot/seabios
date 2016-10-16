@@ -30,7 +30,7 @@ called in 32bit mode. This then calls post.c:handle_post().
 On CSM, the build arranges for romlayout.S:entry_csm() to be called
 (in 16bit mode). This then calls csm.c:handle_csm() in 32bit mode.
 Unlike on the emulators and coreboot, the SeaBIOS CSM POST phase is
-orchastrated with UEFI and there are several calls back and forth
+orchestrated with UEFI and there are several calls back and forth
 between SeaBIOS and UEFI via handle_csm() throughout the POST
 process.
 
@@ -58,7 +58,7 @@ transition to 32bit mode and call boot.c:handle_19() or
 boot.c:handle_18().
 
 The boot phase is technically also part of the "runtime" phase of
-SeaBIOS. It is typically invoked immiediately after the POST phase,
+SeaBIOS. It is typically invoked immediately after the POST phase,
 but it can also be invoked by an operating system or be invoked
 multiple times in an attempt to find a valid boot media. Although the
 boot phase C code runs in 32bit mode it does not have write access to
@@ -120,7 +120,7 @@ atomic memory accesses and complex locking is not required.
 
 The goal of these threads is to reduce overall boot time by
 parallelizing hardware delays. (For example, by allowing the wait for
-an ATA harddrive to spinup and respond to commands to occur in
+an ATA hard drive to spin-up and respond to commands to occur in
 parallel with the wait for a PS/2 keyboard to respond to a setup
 command.) These hardware setup threads are only available during the
 "setup" sub-phase of the [POST phase](#POST_phase).
@@ -144,7 +144,7 @@ interrupts disabled. The first reason is that external software may
 override the default SeaBIOS handlers that are called on a hardware
 interrupt event. Indeed, it is common for DOS based applications to do
 this. These legacy third party interrupt handlers may have
-undocumented expections (such as stack location and stack size) and
+undocumented expectations (such as stack location and stack size) and
 may attempt to call back into the various SeaBIOS software services.
 Greater compatibility and more reproducible results can be achieved by
 only permitting hardware interrupts at specific points (via yield()
@@ -171,7 +171,7 @@ memory"](Memory Model). It ensures SeaBIOS uses a minimal amount of a
 callers stack (typically no more than 16 bytes) for these legacy
 calls. (More recently defined BIOS interfaces such as those that
 support 16bit protected and 32bit protected mode calls standardize a
-minimum stack size with adequete space, and SeaBIOS generally will not
+minimum stack size with adequate space, and SeaBIOS generally will not
 use its extra stack in these cases.)
 
 The code to implement this stack "hopping" is in romlayout.S and in

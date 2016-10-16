@@ -60,7 +60,7 @@ mkfifo qemudebugpipe
 qemu -chardev pipe,path=qemudebugpipe,id=seabios -device isa-debugcon,iobase=0x402,chardev=seabios ...
 ```
 
-and then in another session:
+And then in another session:
 
 `/path/to/seabios/scripts/readserial.py -nf qemudebugpipe`
 
@@ -77,7 +77,7 @@ Debugging with gdb on QEMU
 ==========================
 
 One can use gdb with QEMU to debug system images. To do this, add '-s
--S' to the qemu command line. For example:
+-S' to the QEMU command line. For example:
 
 `qemu -bios out/bios.bin -fda myfdimage.img -s -S`
 
