@@ -456,7 +456,7 @@ resetfail:
     goto done;
 }
 
-u32 usb_time_sigatt;
+static u32 usb_time_sigatt;
 
 void
 usb_enumerate(struct usbhub_s *hub)
