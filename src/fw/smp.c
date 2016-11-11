@@ -176,7 +176,7 @@ smp_setup(void)
         return;
 
     MaxCountCPUs = romfile_loadint("etc/max-cpus", 0);
-    u16 smp_count = qemu_init_present_cpus_count();
+    u16 smp_count = qemu_get_present_cpus_count();
     if (MaxCountCPUs < smp_count)
         MaxCountCPUs = smp_count;
 
