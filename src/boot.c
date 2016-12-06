@@ -482,7 +482,7 @@ interactive_bootmenu(void)
     int maxmenu = 0;
     struct bootentry_s *pos;
     hlist_for_each_entry(pos, &BootList, node) {
-        char desc[60];
+        char desc[80];
         maxmenu++;
         printf("%d. %s\n", maxmenu
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
