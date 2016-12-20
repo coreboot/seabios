@@ -532,6 +532,19 @@ menu "Debugging"
         default 0x3f8
         help
             Base port for serial - generally 0x3f8, 0x2f8, 0x3e8, or 0x2e8.
+   config DEBUG_SERIAL_MMIO
+        depends on DEBUG_LEVEL != 0 && !DEBUG_SERIAL
+        bool "Serial port debugging via memory mapped IO"
+        default n
+        help
+            Send debugging information to serial port mapped in memory.
+   config DEBUG_SERIAL_MEM_ADDRESS
+        depends on DEBUG_SERIAL_MMIO
+        hex "Serial port memory mapped IO address"
+        help
+            On some chipsets the serial port is memory mapped, in those cases
+            provide the 32 bit address. E.g. 0xFEDC6000 for the AMD Kern
+            (a.k.a Hudson UART).
 
     config DEBUG_IO
         depends on QEMU_HARDWARE && DEBUG_LEVEL != 0
