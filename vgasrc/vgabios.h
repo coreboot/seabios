@@ -73,7 +73,7 @@ static inline int vga_emulate_text(void) {
 
 // Debug settings
 #define DEBUG_VGA_POST 1
-#define DEBUG_VGA_10 3
+#define DEBUG_VGA_10 9
 
 // vgabios.c
 int vga_bpp(struct vgamode_s *vmode_g);
