@@ -227,6 +227,12 @@ menu "Hardware support"
         help
             Support floppy images stored in coreboot flash or from
             QEMU fw_cfg.
+    config NVME
+        depends on DRIVES && QEMU_HARDWARE
+        bool "NVMe controllers"
+        default y
+        help
+            Support for NVMe disk code.
 
     config PS2PORT
         depends on KEYBOARD || MOUSE
