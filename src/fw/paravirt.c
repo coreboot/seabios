@@ -253,6 +253,20 @@ qemu_cfg_read(void *buf, int len)
 }
 
 static void
+qemu_cfg_write(void *buf, int len)
+{
+    if (len == 0) {
+        return;
+    }
+
+    if (qemu_cfg_dma_enabled()) {
+        qemu_cfg_dma_transfer(buf, len, QEMU_CFG_DMA_CTL_WRITE);
+    } else {
+        warn_internalerror();
+    }
+}
+
+static void
 qemu_cfg_skip(int len)
 {
     if (len == 0) {
@@ -280,6 +294,18 @@ qemu_cfg_read_entry(void *buf, int e, int len)
     }
 }
 
+static void
+qemu_cfg_write_entry(void *buf, int e, int len)
+{
+    if (qemu_cfg_dma_enabled()) {
+        u32 control = (e << 16) | QEMU_CFG_DMA_CTL_SELECT
+                        | QEMU_CFG_DMA_CTL_WRITE;
+        qemu_cfg_dma_transfer(buf, len, control);
+    } else {
+        warn_internalerror();
+    }
+}
+
 struct qemu_romfile_s {
     struct romfile_s file;
     int select, skip;
@@ -301,6 +327,29 @@ qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
         qemu_cfg_read(dst, file->size);
     }
     return file->size;
+}
+
+int
+qemu_cfg_write_file(void *src, struct romfile_s *file, u32 offset, u32 len)
+{
+    if ((offset + len) > file->size)
+        return -1;
+
+    if (!qemu_cfg_dma_enabled() || (file->copy != qemu_cfg_read_file)) {
+        warn_internalerror();
+        return -1;
+    }
+    struct qemu_romfile_s *qfile;
+    qfile = container_of(file, struct qemu_romfile_s, file);
+    if (offset == 0) {
+        /* Do it in one transfer */
+        qemu_cfg_write_entry(src, qfile->select, len);
+    } else {
+        qemu_cfg_select(qfile->select);
+        qemu_cfg_skip(offset);
+        qemu_cfg_write(src, len);
+    }
+    return len;
 }
 
 static void

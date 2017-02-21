@@ -3,6 +3,7 @@
 
 #include "config.h" // CONFIG_*
 #include "biosvar.h" // GET_GLOBAL
+#include "romfile.h" // struct romfile_s
 
 // Types of paravirtualized platforms.
 #define PF_QEMU     (1<<0)
@@ -43,6 +44,7 @@ static inline int runningOnKVM(void) {
 #define QEMU_CFG_DMA_CTL_READ    0x02
 #define QEMU_CFG_DMA_CTL_SKIP    0x04
 #define QEMU_CFG_DMA_CTL_SELECT  0x08
+#define QEMU_CFG_DMA_CTL_WRITE   0x10
 
 // QEMU_CFG_DMA ID bit
 #define QEMU_CFG_VERSION_DMA    2
@@ -53,5 +55,6 @@ void qemu_platform_setup(void);
 void qemu_cfg_init(void);
 
 u16 qemu_get_present_cpus_count(void);
+int qemu_cfg_write_file(void *src, struct romfile_s *file, u32 offset, u32 len);
 
 #endif
