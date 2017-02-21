@@ -51,15 +51,32 @@ struct romfile_loader_entry_s {
             u32 length;
         } cksum;
 
+        /*
+         * COMMAND_WRITE_POINTER - Write back to a host file via DMA,
+         * @wr_pointer.dest_file at offset @wr_pointer.dst_offset, a pointer
+         * to the table originating from @wr_pointer.src_file at offset
+         * @wr_pointer.src_offset.
+         * 1,2,4 or 8 byte unsigned addition is used depending on
+         * @wr_pointer.size.
+         */
+        struct {
+            char dest_file[ROMFILE_LOADER_FILESZ];
+            char src_file[ROMFILE_LOADER_FILESZ];
+            u32 dst_offset;
+            u32 src_offset;
+            u8 size;
+        } wr_pointer;
+
         /* padding */
         char pad[124];
     };
 };
 
 enum {
-    ROMFILE_LOADER_COMMAND_ALLOCATE     = 0x1,
-    ROMFILE_LOADER_COMMAND_ADD_POINTER  = 0x2,
-    ROMFILE_LOADER_COMMAND_ADD_CHECKSUM = 0x3,
+    ROMFILE_LOADER_COMMAND_ALLOCATE      = 0x1,
+    ROMFILE_LOADER_COMMAND_ADD_POINTER   = 0x2,
+    ROMFILE_LOADER_COMMAND_ADD_CHECKSUM  = 0x3,
+    ROMFILE_LOADER_COMMAND_WRITE_POINTER = 0x4,
 };
 
 enum {

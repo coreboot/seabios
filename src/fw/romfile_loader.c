@@ -5,6 +5,7 @@
 #include "romfile.h" // struct romfile_s
 #include "malloc.h" // Zone*, _malloc
 #include "output.h" // warn_*
+#include "paravirt.h" // qemu_cfg_write_file
 
 struct romfile_loader_file {
     struct romfile_s *file;
@@ -127,6 +128,46 @@ err:
     warn_internalerror();
 }
 
+static void romfile_loader_write_pointer(struct romfile_loader_entry_s *entry,
+                                         struct romfile_loader_files *files)
+{
+    struct romfile_s *dest_file;
+    struct romfile_loader_file *src_file;
+    unsigned dst_offset = le32_to_cpu(entry->wr_pointer.dst_offset);
+    unsigned src_offset = le32_to_cpu(entry->wr_pointer.src_offset);
+    u64 pointer = 0;
+
+    /* Writing back to a file that may not be loaded in RAM */
+    dest_file = romfile_find(entry->wr_pointer.dest_file);
+    src_file = romfile_loader_find(entry->wr_pointer.src_file, files);
+
+    if (!dest_file || !src_file || !src_file->data ||
+        dst_offset + entry->wr_pointer.size < dst_offset ||
+        dst_offset + entry->wr_pointer.size > dest_file->size ||
+        src_offset >= src_file->file->size ||
+        entry->wr_pointer.size < 1 || entry->wr_pointer.size > 8 ||
+        entry->wr_pointer.size & (entry->wr_pointer.size - 1)) {
+        goto err;
+    }
+
+    pointer = (unsigned long)src_file->data + src_offset;
+    /* Make sure the pointer fits within wr_pointer.size */
+    if ((entry->wr_pointer.size != sizeof(u64)) &&
+        ((pointer >> (entry->wr_pointer.size * 8)) > 0)) {
+        goto err;
+    }
+    pointer = cpu_to_le64(pointer);
+
+    /* Only supported on QEMU */
+    if (qemu_cfg_write_file(&pointer, dest_file, dst_offset,
+                            entry->wr_pointer.size) != entry->wr_pointer.size) {
+        goto err;
+    }
+    return;
+ err:
+    warn_internalerror();
+}
+
 int romfile_loader_execute(const char *name)
 {
     struct romfile_loader_entry_s *entry;
@@ -161,6 +202,10 @@ int romfile_loader_execute(const char *name)
                         break;
                 case ROMFILE_LOADER_COMMAND_ADD_CHECKSUM:
                         romfile_loader_add_checksum(entry, files);
+                        break;
+                case ROMFILE_LOADER_COMMAND_WRITE_POINTER:
+                        romfile_loader_write_pointer(entry, files);
+                        break;
                 default:
                         /* Skip commands that we don't recognize. */
                         break;
