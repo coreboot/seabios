@@ -329,6 +329,22 @@ qemu_cfg_read_file(struct romfile_s *file, void *dst, u32 maxlen)
     return file->size;
 }
 
+// Bare-bones function for writing a file knowing only its unique
+// identifying key (select)
+int
+qemu_cfg_write_file_simple(void *src, u16 key, u32 offset, u32 len)
+{
+    if (offset == 0) {
+        /* Do it in one transfer */
+        qemu_cfg_write_entry(src, key, len);
+    } else {
+        qemu_cfg_select(key);
+        qemu_cfg_skip(offset);
+        qemu_cfg_write(src, len);
+    }
+    return len;
+}
+
 int
 qemu_cfg_write_file(void *src, struct romfile_s *file, u32 offset, u32 len)
 {
@@ -339,17 +355,8 @@ qemu_cfg_write_file(void *src, struct romfile_s *file, u32 offset, u32 len)
         warn_internalerror();
         return -1;
     }
-    struct qemu_romfile_s *qfile;
-    qfile = container_of(file, struct qemu_romfile_s, file);
-    if (offset == 0) {
-        /* Do it in one transfer */
-        qemu_cfg_write_entry(src, qfile->select, len);
-    } else {
-        qemu_cfg_select(qfile->select);
-        qemu_cfg_skip(offset);
-        qemu_cfg_write(src, len);
-    }
-    return len;
+    return qemu_cfg_write_file_simple(src, qemu_get_romfile_key(file),
+                                      offset, len);
 }
 
 static void
@@ -367,6 +374,18 @@ qemu_romfile_add(char *name, int select, int skip, int size)
     qfile->skip = skip;
     qfile->file.copy = qemu_cfg_read_file;
     romfile_add(&qfile->file);
+}
+
+u16
+qemu_get_romfile_key(struct romfile_s *file)
+{
+    struct qemu_romfile_s *qfile;
+    if (file->copy != qemu_cfg_read_file) {
+        warn_internalerror();
+        return 0;
+    }
+    qfile = container_of(file, struct qemu_romfile_s, file);
+    return qfile->select;
 }
 
 u16
