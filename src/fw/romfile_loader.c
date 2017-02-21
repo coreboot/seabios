@@ -35,12 +35,12 @@ static void romfile_loader_allocate(struct romfile_loader_entry_s *entry,
     struct romfile_loader_file *file = &files->files[files->nfiles];
     void *data;
     int ret;
-    unsigned alloc_align = le32_to_cpu(entry->alloc_align);
+    unsigned alloc_align = le32_to_cpu(entry->alloc.align);
 
     if (alloc_align & (alloc_align - 1))
         goto err;
 
-    switch (entry->alloc_zone) {
+    switch (entry->alloc.zone) {
         case ROMFILE_LOADER_ALLOC_ZONE_HIGH:
             zone = &ZoneHigh;
             break;
@@ -52,9 +52,9 @@ static void romfile_loader_allocate(struct romfile_loader_entry_s *entry,
     }
     if (alloc_align < MALLOC_MIN_ALIGN)
         alloc_align = MALLOC_MIN_ALIGN;
-    if (entry->alloc_file[ROMFILE_LOADER_FILESZ - 1])
+    if (entry->alloc.file[ROMFILE_LOADER_FILESZ - 1])
         goto err;
-    file->file = romfile_find(entry->alloc_file);
+    file->file = romfile_find(entry->alloc.file);
     if (!file->file || !file->file->size)
         return;
     data = _malloc(zone, file->file->size, alloc_align);
@@ -80,24 +80,24 @@ static void romfile_loader_add_pointer(struct romfile_loader_entry_s *entry,
 {
     struct romfile_loader_file *dest_file;
     struct romfile_loader_file *src_file;
-    unsigned offset = le32_to_cpu(entry->pointer_offset);
+    unsigned offset = le32_to_cpu(entry->pointer.offset);
     u64 pointer = 0;
 
-    dest_file = romfile_loader_find(entry->pointer_dest_file, files);
-    src_file = romfile_loader_find(entry->pointer_src_file, files);
+    dest_file = romfile_loader_find(entry->pointer.dest_file, files);
+    src_file = romfile_loader_find(entry->pointer.src_file, files);
 
     if (!dest_file || !src_file || !dest_file->data || !src_file->data ||
-        offset + entry->pointer_size < offset ||
-        offset + entry->pointer_size > dest_file->file->size ||
-        entry->pointer_size < 1 || entry->pointer_size > 8 ||
-        entry->pointer_size & (entry->pointer_size - 1))
+        offset + entry->pointer.size < offset ||
+        offset + entry->pointer.size > dest_file->file->size ||
+        entry->pointer.size < 1 || entry->pointer.size > 8 ||
+        entry->pointer.size & (entry->pointer.size - 1))
         goto err;
 
-    memcpy(&pointer, dest_file->data + offset, entry->pointer_size);
+    memcpy(&pointer, dest_file->data + offset, entry->pointer.size);
     pointer = le64_to_cpu(pointer);
     pointer += (unsigned long)src_file->data;
     pointer = cpu_to_le64(pointer);
-    memcpy(dest_file->data + offset, &pointer, entry->pointer_size);
+    memcpy(dest_file->data + offset, &pointer, entry->pointer.size);
 
     return;
 err:
@@ -108,12 +108,12 @@ static void romfile_loader_add_checksum(struct romfile_loader_entry_s *entry,
                                         struct romfile_loader_files *files)
 {
     struct romfile_loader_file *file;
-    unsigned offset = le32_to_cpu(entry->cksum_offset);
-    unsigned start = le32_to_cpu(entry->cksum_start);
-    unsigned len = le32_to_cpu(entry->cksum_length);
+    unsigned offset = le32_to_cpu(entry->cksum.offset);
+    unsigned start = le32_to_cpu(entry->cksum.start);
+    unsigned len = le32_to_cpu(entry->cksum.length);
     u8 *data;
 
-    file = romfile_loader_find(entry->cksum_file, files);
+    file = romfile_loader_find(entry->cksum.file, files);
 
     if (!file || !file->data || offset >= file->file->size ||
         start + len < start || start + len > file->file->size)
