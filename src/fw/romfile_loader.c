@@ -4,6 +4,7 @@
 #include "string.h" // strcmp
 #include "romfile.h" // struct romfile_s
 #include "malloc.h" // Zone*, _malloc
+#include "list.h" // struct hlist_node
 #include "output.h" // warn_*
 #include "paravirt.h" // qemu_cfg_write_file
 
@@ -16,6 +17,16 @@ struct romfile_loader_files {
     struct romfile_loader_file files[];
 };
 
+// Data structures for storing "write pointer" entries for possible replay
+struct romfile_wr_pointer_entry {
+    u64 pointer;
+    u32 offset;
+    u16 key;
+    u8 ptr_size;
+    struct hlist_node node;
+};
+static struct hlist_head romfile_pointer_list;
+
 static struct romfile_loader_file *
 romfile_loader_find(const char *name,
                     struct romfile_loader_files *files)
@@ -27,6 +38,19 @@ romfile_loader_find(const char *name,
         if (!strcmp(files->files[i].file->name, name))
             return &files->files[i];
     return NULL;
+}
+
+// Replay "write pointer" entries back to QEMU
+void romfile_fw_cfg_resume(void)
+{
+    if (!CONFIG_QEMU)
+        return;
+
+    struct romfile_wr_pointer_entry *entry;
+    hlist_for_each_entry(entry, &romfile_pointer_list, node) {
+        qemu_cfg_write_file_simple(&entry->pointer, entry->key,
+                                   entry->offset, entry->ptr_size);
+    }
 }
 
 static void romfile_loader_allocate(struct romfile_loader_entry_s *entry,
@@ -163,6 +187,19 @@ static void romfile_loader_write_pointer(struct romfile_loader_entry_s *entry,
                             entry->wr_pointer.size) != entry->wr_pointer.size) {
         goto err;
     }
+
+    /* Store the info so it can replayed later if necessary */
+    struct romfile_wr_pointer_entry *store = malloc_high(sizeof(*store));
+    if (!store) {
+        warn_noalloc();
+        return;
+    }
+    store->pointer = pointer;
+    store->key = qemu_get_romfile_key(dest_file);
+    store->offset = dst_offset;
+    store->ptr_size = entry->wr_pointer.size;
+    hlist_add_head(&store->node, &romfile_pointer_list);
+
     return;
  err:
     warn_internalerror();

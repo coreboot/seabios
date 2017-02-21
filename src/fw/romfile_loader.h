@@ -86,4 +86,6 @@ enum {
 
 int romfile_loader_execute(const char *name);
 
+void romfile_fw_cfg_resume(void);
+
 #endif
