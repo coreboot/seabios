@@ -17,6 +17,7 @@
 #include "string.h" // memset
 #include "util.h" // dma_setup
 #include "tcgbios.h" // tpm_s3_resume
+#include "fw/romfile_loader.h" // romfile_fw_cfg_resume
 
 // Handler for post calls that look like a resume.
 void VISIBLE16
@@ -104,6 +105,9 @@ s3_resume(void)
     /* resume TPM before we may measure option roms */
     tpm_s3_resume();
     s3_resume_vga();
+
+    /* Replay any fw_cfg entries that go back to the host */
+    romfile_fw_cfg_resume();
 
     make_bios_readonly();
 
