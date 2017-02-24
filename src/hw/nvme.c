@@ -549,7 +549,7 @@ nvme_controller_setup(void *opaque)
 static void
 nvme_scan(void)
 {
-    // Scan PCI bus for ATA adapters
+    // Scan PCI bus for NVMe adapters
     struct pci_device *pci;
 
     foreachpci(pci) {
