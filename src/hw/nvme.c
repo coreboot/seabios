@@ -571,7 +571,7 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
     u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
     u16 i;
 
-    for (i = 0; i < op->count || res != DISK_RET_SUCCESS;) {
+    for (i = 0; i < op->count && res == DISK_RET_SUCCESS;) {
         u16 blocks_remaining = op->count - i;
         u16 blocks = blocks_remaining < max_blocks ? blocks_remaining
                                                    : max_blocks;
