@@ -74,7 +74,7 @@ nvme_poll_cq(struct nvme_cq *cq)
 static int
 nvme_is_cqe_success(struct nvme_cqe const *cqe)
 {
-    return (cqe->status & 0xFF) >> 1 == 0;
+    return ((cqe->status >> 1) & 0xFF) == 0;
 }
 
 
