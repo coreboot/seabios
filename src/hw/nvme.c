@@ -218,13 +218,6 @@ nvme_admin_identify_ctrl(struct nvme_ctrl *ctrl)
     return &nvme_admin_identify(ctrl, NVME_ADMIN_IDENTIFY_CNS_ID_CTRL, 0)->ctrl;
 }
 
-static struct nvme_identify_ns_list *
-nvme_admin_identify_get_ns_list(struct nvme_ctrl *ctrl)
-{
-    return &nvme_admin_identify(ctrl, NVME_ADMIN_IDENTIFY_CNS_GET_NS_LIST,
-                                0)->ns_list;
-}
-
 static struct nvme_identify_ns *
 nvme_admin_identify_ns(struct nvme_ctrl *ctrl, u32 ns_id)
 {
@@ -253,6 +246,10 @@ nvme_probe_ns(struct nvme_ctrl *ctrl, struct nvme_namespace *ns, u32 ns_id)
     }
 
     ns->lba_count = id->nsze;
+    if (!ns->lba_count) {
+        dprintf(2, "NVMe NS %u is inactive.\n", ns_id);
+        goto free_buffer;
+    }
 
     struct nvme_lba_format *fmt = &id->lbaf[current_lba_format];
 
@@ -493,29 +490,10 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
     if (!ctrl->ns) goto out_of_memory;
     memset(ctrl->ns, 0, sizeof(*ctrl->ns) * ctrl->ns_count);
 
-    struct nvme_identify_ns_list *ns_list = nvme_admin_identify_get_ns_list(ctrl);
-    if (!ns_list) {
-        dprintf(2, "NVMe couldn't get namespace list.\n");
-        goto failed;
-    }
-
     /* Populate namespace IDs */
     int ns_idx;
-    for (ns_idx = 0;
-         ns_idx < ARRAY_SIZE(ns_list->ns_id)
-             && ns_idx < ctrl->ns_count
-             && ns_list->ns_id[ns_idx];
-         ns_idx++) {
-        nvme_probe_ns(ctrl, &ctrl->ns[ns_idx], ns_list->ns_id[ns_idx]);
-    }
-
-    free(ns_list);
-
-    /* If for some reason the namespace list gives us fewer namespaces, we just
-       go along. */
-    if (ns_idx != ctrl->ns_count) {
-        dprintf(2, "NVMe namespace list has only %u namespaces?\n", ns_idx);
-        ctrl->ns_count = ns_idx;
+    for (ns_idx = 0; ns_idx < ctrl->ns_count; ns_idx++) {
+        nvme_probe_ns(ctrl, &ctrl->ns[ns_idx], ns_idx + 1);
     }
 
     dprintf(3, "NVMe initialization complete!\n");
@@ -544,11 +522,6 @@ nvme_controller_setup(void *opaque)
     dprintf(3, "Found NVMe controller with version %u.%u.%u.\n",
             version >> 16, (version >> 8) & 0xFF, version & 0xFF);
     dprintf(3, "  Capabilities %016llx\n", reg->cap);
-
-    if (version < 0x00010100U) {
-        dprintf(3, "Need at least 1.1.0! Skipping.\n");
-        return;
-    }
 
     if (~reg->cap & NVME_CAP_CSS_NVME) {
         dprintf(3, "Controller doesn't speak NVMe command set. Skipping.\n");
