@@ -123,7 +123,7 @@ nvme_consume_cqe(struct nvme_sq *sq)
 static struct nvme_cqe
 nvme_wait(struct nvme_sq *sq)
 {
-    static const unsigned nvme_timeout = 500 /* ms */;
+    static const unsigned nvme_timeout = 5000 /* ms */;
     u32 to = timer_calc(nvme_timeout);
     while (!nvme_poll_cq(sq->cq)) {
         yield();
