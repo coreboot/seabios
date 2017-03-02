@@ -12,6 +12,17 @@ Available on 20161026. Major changes in this release:
 * Support for virtio devices mapped above 4GB
 * Several bug fixes and code cleanups
 
+SeaBIOS 1.10.1
+--------------
+
+Available on 20161122. Stable release containing only bug fixes.
+
+
+SeaBIOS 1.10.2
+--------------
+
+Available on 20170228. Stable release containing only bug fixes.
+
 SeaBIOS 1.9.0
 =============
 
