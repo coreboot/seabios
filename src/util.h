@@ -122,7 +122,7 @@ void pirtable_setup(void);
 // fw/shadow.c
 void make_bios_writable(void);
 void make_bios_readonly(void);
-void qemu_prep_reset(void);
+void qemu_reboot(void);
 
 // fw/smbios.c
 void smbios_legacy_setup(void);
