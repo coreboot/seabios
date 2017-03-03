@@ -167,7 +167,7 @@ make_bios_readonly(void)
 }
 
 void
-qemu_prep_reset(void)
+qemu_reboot(void)
 {
     if (!CONFIG_QEMU || runningOnXen())
         return;
@@ -187,4 +187,16 @@ qemu_prep_reset(void)
     memcpy(hrp + 4, hrp + 4 + BIOS_SRC_OFFSET, cend - (hrp + 4));
     barrier();
     HaveRunPost = 0;
+    barrier();
+
+    // Request a QEMU system reset.  Do the reset in this function as
+    // the BIOS code was overwritten above and not all BIOS
+    // functionality may be available.
+
+    // Attempt PCI style reset
+    outb(0x02, PORT_PCI_REBOOT);
+    outb(0x06, PORT_PCI_REBOOT);
+
+    // Next try triple faulting the CPU to force a reset
+    asm volatile("int3");
 }

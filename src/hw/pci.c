@@ -12,7 +12,6 @@
 #include "x86.h" // outl
 
 #define PORT_PCI_CMD           0x0cf8
-#define PORT_PCI_REBOOT        0x0cf9
 #define PORT_PCI_DATA          0x0cfc
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val)

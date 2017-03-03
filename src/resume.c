@@ -125,8 +125,8 @@ tryReboot(void)
 {
     dprintf(1, "Attempting a hard reboot\n");
 
-    // Setup for reset on qemu.
-    qemu_prep_reset();
+    // Use a QEMU specific reboot on QEMU
+    qemu_reboot();
 
     // Reboot using ACPI RESET_REG
     acpi_reboot();
