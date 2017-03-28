@@ -32,8 +32,15 @@ u32 RamSize;
 u64 RamSizeOver4G;
 // Type of emulator platform.
 int PlatformRunningOn VARFSEG;
+// cfg enabled
+int cfg_enabled = 0;
 // cfg_dma enabled
 int cfg_dma_enabled = 0;
+
+inline int qemu_cfg_enabled(void)
+{
+    return cfg_enabled;
+}
 
 inline int qemu_cfg_dma_enabled(void)
 {
@@ -392,7 +399,9 @@ u16
 qemu_get_present_cpus_count(void)
 {
     u16 smp_count = 0;
-    qemu_cfg_read_entry(&smp_count, QEMU_CFG_NB_CPUS, sizeof(smp_count));
+    if (qemu_cfg_enabled()) {
+        qemu_cfg_read_entry(&smp_count, QEMU_CFG_NB_CPUS, sizeof(smp_count));
+    }
     u16 cmos_cpu_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
     if (smp_count < cmos_cpu_count) {
         smp_count = cmos_cpu_count;
@@ -571,6 +580,7 @@ void qemu_cfg_init(void)
             return;
 
     dprintf(1, "Found QEMU fw_cfg\n");
+    cfg_enabled = 1;
 
     // Detect DMA interface.
     u32 id;

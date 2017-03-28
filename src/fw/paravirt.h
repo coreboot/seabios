@@ -49,6 +49,7 @@ static inline int runningOnKVM(void) {
 // QEMU_CFG_DMA ID bit
 #define QEMU_CFG_VERSION_DMA    2
 
+int qemu_cfg_enabled(void);
 int qemu_cfg_dma_enabled(void);
 void qemu_preinit(void);
 void qemu_platform_setup(void);
