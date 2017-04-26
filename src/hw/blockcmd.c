@@ -13,6 +13,7 @@
 #include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
 #include "util.h" // timer_calc
+#include "malloc.h"
 
 
 /****************************************************************
@@ -179,6 +180,99 @@ scsi_is_ready(struct disk_op_s *op)
         }
     }
     return 0;
+}
+
+#define CDB_CMD_REPORT_LUNS  0xA0
+
+struct cdb_report_luns {
+    u8 command;
+    u8 reserved_01[5];
+    u32 length;
+    u8 pad[6];
+} PACKED;
+
+struct scsi_lun {
+    u16 lun[4];
+};
+
+struct cdbres_report_luns {
+    u32 length;
+    u32 reserved;
+    struct scsi_lun luns[];
+};
+
+static u64 scsilun2u64(struct scsi_lun *scsi_lun)
+{
+    int i;
+    u64 ret = 0;
+    for (i = 0; i < ARRAY_SIZE(scsi_lun->lun); i++)
+        ret |= be16_to_cpu(scsi_lun->lun[i]) << (16 * i);
+    return ret;
+}
+
+// Issue REPORT LUNS on a temporary drive and iterate reported luns calling
+// @add_lun for each
+int scsi_rep_luns_scan(struct drive_s *tmp_drive, scsi_add_lun add_lun)
+{
+    int ret = -1;
+    u32 maxluns = 511;
+    u32 nluns, i;
+    struct cdb_report_luns cdb = {
+        .command = CDB_CMD_REPORT_LUNS,
+    };
+    struct disk_op_s op = {
+        .drive_gf = tmp_drive,
+        .command = CMD_SCSI,
+        .count = 1,
+        .cdbcmd = &cdb,
+    };
+    struct cdbres_report_luns *resp;
+
+    ASSERT32FLAT();
+
+    while (1) {
+        op.blocksize = sizeof(struct cdbres_report_luns) +
+            maxluns * sizeof(struct scsi_lun);
+        op.buf_fl = malloc_tmp(op.blocksize);
+        if (!op.buf_fl) {
+            warn_noalloc();
+            return -1;
+        }
+
+        cdb.length = cpu_to_be32(op.blocksize);
+        if (process_op(&op) != DISK_RET_SUCCESS)
+            goto out;
+
+        resp = op.buf_fl;
+        nluns = be32_to_cpu(resp->length) / sizeof(struct scsi_lun);
+        if (nluns <= maxluns)
+            break;
+
+        free(op.buf_fl);
+        maxluns = nluns;
+    }
+
+    for (i = 0, ret = 0; i < nluns; i++) {
+        u64 lun = scsilun2u64(&resp->luns[i]);
+        if (lun >> 32)
+            continue;
+        ret += !add_lun((u32)lun, tmp_drive);
+    }
+out:
+    free(op.buf_fl);
+    return ret;
+}
+
+// Iterate LUNs on the target and call @add_lun for each
+int scsi_sequential_scan(struct drive_s *tmp_drive, u32 maxluns,
+                         scsi_add_lun add_lun)
+{
+    int ret;
+    u32 lun;
+
+    for (lun = 0, ret = 0; lun < maxluns; lun++)
+        ret += !add_lun(lun, tmp_drive);
+    return ret;
 }
 
 // Validate drive, find block size / sector count, and register drive.
