@@ -290,7 +290,7 @@ static void
 pvscsi_scan_target(struct pci_device *pci, void *iobase,
                    struct pvscsi_ring_dsc_s *ring_dsc, u8 target)
 {
-    /* TODO: send REPORT LUNS.  For now, only LUN 0 is recognized.  */
+    /* pvscsi has no more than a single lun per target */
     pvscsi_add_lun(pci, iobase, ring_dsc, target, 0);
 }
 
