@@ -134,14 +134,10 @@ fail:
     return DISK_RET_EBADTRACK;
 }
 
-static int
-lsi_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
+static void
+lsi_scsi_init_lun(struct lsi_lun_s *llun, struct pci_device *pci, u32 iobase,
+                  u8 target, u8 lun)
 {
-    struct lsi_lun_s *llun = malloc_fseg(sizeof(*llun));
-    if (!llun) {
-        warn_noalloc();
-        return -1;
-    }
     memset(llun, 0, sizeof(*llun));
     llun->drive.type = DTYPE_LSI_SCSI;
     llun->drive.cntl_id = pci->bdf;
@@ -149,9 +145,24 @@ lsi_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
     llun->target = target;
     llun->lun = lun;
     llun->iobase = iobase;
+}
 
-    char *name = znprintf(MAXDESCSIZE, "lsi %pP %d:%d", pci, target, lun);
-    int prio = bootprio_find_scsi_device(pci, target, lun);
+static int
+lsi_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
+{
+    struct lsi_lun_s *tmpl_llun =
+        container_of(tmpl_drv, struct lsi_lun_s, drive);
+    struct lsi_lun_s *llun = malloc_fseg(sizeof(*llun));
+    if (!llun) {
+        warn_noalloc();
+        return -1;
+    }
+    lsi_scsi_init_lun(llun, tmpl_llun->pci, tmpl_llun->iobase,
+                      tmpl_llun->target, lun);
+
+    char *name = znprintf(MAXDESCSIZE, "lsi %pP %d:%d",
+                          llun->pci, llun->target, llun->lun);
+    int prio = bootprio_find_scsi_device(llun->pci, llun->target, llun->lun);
     int ret = scsi_drive_setup(&llun->drive, name, prio);
     free(name);
     if (ret)
@@ -166,8 +177,12 @@ fail:
 static void
 lsi_scsi_scan_target(struct pci_device *pci, u32 iobase, u8 target)
 {
-    /* TODO: send REPORT LUNS.  For now, only LUN 0 is recognized.  */
-    lsi_scsi_add_lun(pci, iobase, target, 0);
+    struct lsi_lun_s llun0;
+
+    lsi_scsi_init_lun(&llun0, pci, iobase, target, 0);
+
+    if (scsi_rep_luns_scan(&llun0.drive, lsi_scsi_add_lun) < 0)
+        scsi_sequential_scan(&llun0.drive, 8, lsi_scsi_add_lun);
 }
 
 static void
