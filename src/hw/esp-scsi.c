@@ -153,14 +153,10 @@ esp_scsi_process_op(struct disk_op_s *op)
     return DISK_RET_EBADTRACK;
 }
 
-static int
-esp_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
+static void
+esp_scsi_init_lun(struct esp_lun_s *llun, struct pci_device *pci, u32 iobase,
+                  u8 target, u8 lun)
 {
-    struct esp_lun_s *llun = malloc_fseg(sizeof(*llun));
-    if (!llun) {
-        warn_noalloc();
-        return -1;
-    }
     memset(llun, 0, sizeof(*llun));
     llun->drive.type = DTYPE_ESP_SCSI;
     llun->drive.cntl_id = pci->bdf;
@@ -168,9 +164,24 @@ esp_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
     llun->target = target;
     llun->lun = lun;
     llun->iobase = iobase;
+}
 
-    char *name = znprintf(MAXDESCSIZE, "esp %pP %d:%d", pci, target, lun);
-    int prio = bootprio_find_scsi_device(pci, target, lun);
+static int
+esp_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
+{
+    struct esp_lun_s *tmpl_llun =
+        container_of(tmpl_drv, struct esp_lun_s, drive);
+    struct esp_lun_s *llun = malloc_fseg(sizeof(*llun));
+    if (!llun) {
+        warn_noalloc();
+        return -1;
+    }
+    esp_scsi_init_lun(llun, tmpl_llun->pci, tmpl_llun->iobase,
+                      tmpl_llun->target, lun);
+
+    char *name = znprintf(MAXDESCSIZE, "esp %pP %d:%d",
+                          llun->pci, llun->target, llun->lun);
+    int prio = bootprio_find_scsi_device(llun->pci, llun->target, llun->lun);
     int ret = scsi_drive_setup(&llun->drive, name, prio);
     free(name);
     if (ret)
@@ -185,7 +196,11 @@ fail:
 static void
 esp_scsi_scan_target(struct pci_device *pci, u32 iobase, u8 target)
 {
-    esp_scsi_add_lun(pci, iobase, target, 0);
+    struct esp_lun_s llun0;
+
+    esp_scsi_init_lun(&llun0, pci, iobase, target, 0);
+
+    scsi_rep_luns_scan(&llun0.drive, esp_scsi_add_lun);
 }
 
 static void
