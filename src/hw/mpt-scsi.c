@@ -118,9 +118,6 @@ static int
 mpt_scsi_cmd(u32 iobase, struct disk_op_s *op,
              u8 *cdb, u16 target, u16 lun, u16 blocksize)
 {
-    if (lun != 0)
-        return DISK_RET_ENOTREADY;
-
     u32 end = timer_calc(MPT_POLL_TIMEOUT);
 
     u8 sense_buf[18];
@@ -198,14 +195,10 @@ mpt_scsi_process_op(struct disk_op_s *op)
     return mpt_scsi_cmd(iobase, op, cdbcmd, target, lun, blocksize);
 }
 
-static int
-mpt_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
+static void
+mpt_scsi_init_lun(struct mpt_lun_s *llun, struct pci_device *pci,
+                  u32 iobase, u8 target, u8 lun)
 {
-    struct mpt_lun_s *llun = malloc_fseg(sizeof(*llun));
-    if (!llun) {
-        warn_noalloc();
-        return -1;
-    }
     memset(llun, 0, sizeof(*llun));
     llun->drive.type = DTYPE_MPT_SCSI;
     llun->drive.cntl_id = pci->bdf;
@@ -213,9 +206,24 @@ mpt_scsi_add_lun(struct pci_device *pci, u32 iobase, u8 target, u8 lun)
     llun->target = target;
     llun->lun = lun;
     llun->iobase = iobase;
+}
 
-    char *name = znprintf(MAXDESCSIZE, "mpt %pP %d:%d", pci, target, lun);
-    int prio = bootprio_find_scsi_device(pci, target, lun);
+static int
+mpt_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
+{
+    struct mpt_lun_s *tmpl_llun =
+        container_of(tmpl_drv, struct mpt_lun_s, drive);
+    struct mpt_lun_s *llun = malloc_fseg(sizeof(*llun));
+    if (!llun) {
+        warn_noalloc();
+        return -1;
+    }
+    mpt_scsi_init_lun(llun, tmpl_llun->pci, tmpl_llun->iobase,
+                      tmpl_llun->target, lun);
+
+    char *name = znprintf(MAXDESCSIZE, "mpt %pP %d:%d",
+                          llun->pci, llun->target, llun->lun);
+    int prio = bootprio_find_scsi_device(llun->pci, llun->target, llun->lun);
     int ret = scsi_drive_setup(&llun->drive, name, prio);
     free(name);
     if (ret) {
@@ -231,8 +239,12 @@ fail:
 static void
 mpt_scsi_scan_target(struct pci_device *pci, u32 iobase, u8 target)
 {
-    /* TODO: send REPORT LUNS.  For now, only LUN 0 is recognized.  */
-    mpt_scsi_add_lun(pci, iobase, target, 0);
+    struct mpt_lun_s llun0;
+
+    mpt_scsi_init_lun(&llun0, pci, iobase, target, 0);
+
+    if (scsi_rep_luns_scan(&llun0.drive, mpt_scsi_add_lun) < 0)
+        scsi_sequential_scan(&llun0.drive, 8, mpt_scsi_add_lun);
 }
 
 static inline void
