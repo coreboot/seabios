@@ -225,7 +225,7 @@ void coreboot_debug_putc(char c)
     u32 cursor = cbcon->cursor & CBMC_CURSOR_MASK;
     u32 flags = cbcon->cursor & ~CBMC_CURSOR_MASK;
     if (cursor >= cbcon->size)
-        return;	// Old coreboot version with legacy overflow mechanism.
+        return; // Old coreboot version with legacy overflow mechanism.
     cbcon->body[cursor++] = c;
     if (cursor >= cbcon->size) {
         cursor = 0;

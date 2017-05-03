@@ -274,12 +274,12 @@ init_mpt_scsi(void *data)
 
     // send IOC Init message through the doorbell
     mpt_out_doorbell(MPT_DOORBELL_HANDSHAKE,
-		     sizeof(MptIOCInitRequest)/sizeof(u32),
-		     iobase);
+                     sizeof(MptIOCInitRequest)/sizeof(u32),
+                     iobase);
 
     outsl(iobase + MPT_REG_DOORBELL,
-	  (u32 *)&MptIOCInitRequest,
-	  sizeof(MptIOCInitRequest)/sizeof(u32));
+          (u32 *)&MptIOCInitRequest,
+          sizeof(MptIOCInitRequest)/sizeof(u32));
 
     // Read the reply 16 bits at a time.  Cannot use insl
     // because the port is 32 bits wide.
