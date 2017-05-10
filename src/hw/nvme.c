@@ -618,7 +618,7 @@ void
 nvme_setup(void)
 {
     ASSERT32FLAT();
-    if (!CONFIG_NVME || !runningOnQEMU())
+    if (!CONFIG_NVME)
         return;
 
     dprintf(3, "init nvme\n");

@@ -228,7 +228,7 @@ menu "Hardware support"
             Support floppy images stored in coreboot flash or from
             QEMU fw_cfg.
     config NVME
-        depends on DRIVES && QEMU_HARDWARE
+        depends on DRIVES
         bool "NVMe controllers"
         default y
         help
