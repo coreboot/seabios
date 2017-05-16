@@ -66,8 +66,10 @@ call32_prep(u8 method)
 
     // Backup cmos index register and disable nmi
     u8 cmosindex = inb(PORT_CMOS_INDEX);
-    outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
+    if (!(cmosindex & NMI_DISABLE_BIT)) {
+        outb(cmosindex | NMI_DISABLE_BIT, PORT_CMOS_INDEX);
+        inb(PORT_CMOS_DATA);
+    }
     SET_LOW(Call16Data.cmosindex, cmosindex);
 
     SET_LOW(Call16Data.method, method);
@@ -103,8 +105,11 @@ call32_post(void)
     }
 
     // Restore cmos index register
-    outb(GET_LOW(Call16Data.cmosindex), PORT_CMOS_INDEX);
-    inb(PORT_CMOS_DATA);
+    u8 cmosindex = GET_LOW(Call16Data.cmosindex);
+    if (!(cmosindex & NMI_DISABLE_BIT)) {
+        outb(cmosindex, PORT_CMOS_INDEX);
+        inb(PORT_CMOS_DATA);
+    }
     return method;
 }
 
