@@ -496,6 +496,7 @@ void
 thread_setup(void)
 {
     CanInterrupt = 1;
+    call16_override(1);
     if (! CONFIG_THREADS)
         return;
     ThreadControl = romfile_loadint("etc/threads", 1);
