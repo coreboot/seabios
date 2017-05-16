@@ -52,7 +52,8 @@ struct smm_state {
 struct smm_layout {
     struct smm_state backup1;
     struct smm_state backup2;
-    u8 stack[0x7c00];
+    u32 backup_a20;
+    u8 stack[0x8000 - sizeof(struct smm_state)*2 - sizeof(u32)];
     u64 codeentry;
     u8 pad_8008[0x7df8];
     struct smm_state cpu;
@@ -102,10 +103,13 @@ handle_smi(u16 cs)
                 memcpy(&smm->cpu, &smm->backup1, sizeof(smm->cpu));
                 memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
                 smm->cpu.i32.eip = regs[3];
+                // Enable a20 and backup its previous state
+                smm->backup_a20 = set_a20(1);
             } else if (smm->cpu.i32.ecx == CALL32SMM_RETURNID) {
                 dprintf(9, "smm cpu ret %x esp=%x\n", regs[3], regs[4]);
                 memcpy(&smm->cpu, &smm->backup2, sizeof(smm->cpu));
                 memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
+                set_a20(smm->backup_a20);
                 smm->cpu.i32.eip = regs[3];
             }
         } else if (rev == SMM_REV_I64) {
@@ -116,9 +120,12 @@ handle_smi(u16 cs)
                 memcpy(&smm->cpu, &smm->backup1, sizeof(smm->cpu));
                 memcpy(&smm->cpu.i64.rdi, regs, sizeof(regs));
                 smm->cpu.i64.rip = (u32)regs[4];
+                // Enable a20 and backup its previous state
+                smm->backup_a20 = set_a20(1);
             } else if ((u32)smm->cpu.i64.rcx == CALL32SMM_RETURNID) {
                 memcpy(&smm->cpu, &smm->backup2, sizeof(smm->cpu));
                 memcpy(&smm->cpu.i64.rdi, regs, sizeof(regs));
+                set_a20(smm->backup_a20);
                 smm->cpu.i64.rip = (u32)regs[4];
             }
         }
