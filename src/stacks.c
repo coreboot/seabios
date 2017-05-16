@@ -84,7 +84,9 @@ call32_post(void)
 
     if (!CONFIG_CALL32_SMM || method != C16_SMM) {
         // Restore a20
-        set_a20(GET_LOW(Call16Data.a20));
+        u8 a20 = GET_LOW(Call16Data.a20);
+        if (!a20)
+            set_a20(0);
 
         // Restore gdt and fs/gs
         struct descloc_s gdt;

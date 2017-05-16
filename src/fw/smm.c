@@ -109,7 +109,8 @@ handle_smi(u16 cs)
                 dprintf(9, "smm cpu ret %x esp=%x\n", regs[3], regs[4]);
                 memcpy(&smm->cpu, &smm->backup2, sizeof(smm->cpu));
                 memcpy(&smm->cpu.i32.eax, regs, sizeof(regs));
-                set_a20(smm->backup_a20);
+                if (!smm->backup_a20)
+                    set_a20(0);
                 smm->cpu.i32.eip = regs[3];
             }
         } else if (rev == SMM_REV_I64) {
@@ -125,7 +126,8 @@ handle_smi(u16 cs)
             } else if ((u32)smm->cpu.i64.rcx == CALL32SMM_RETURNID) {
                 memcpy(&smm->cpu, &smm->backup2, sizeof(smm->cpu));
                 memcpy(&smm->cpu.i64.rdi, regs, sizeof(regs));
-                set_a20(smm->backup_a20);
+                if (!smm->backup_a20)
+                    set_a20(0);
                 smm->cpu.i64.rip = (u32)regs[4];
             }
         }

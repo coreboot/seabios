@@ -258,9 +258,10 @@ static inline u8 get_a20(void) {
 }
 
 static inline u8 set_a20(u8 cond) {
-    u8 val = inb(PORT_A20);
-    outb((val & ~A20_ENABLE_BIT) | (cond ? A20_ENABLE_BIT : 0), PORT_A20);
-    return (val & A20_ENABLE_BIT) != 0;
+    u8 val = inb(PORT_A20), a20_enabled = (val & A20_ENABLE_BIT) != 0;
+    if (a20_enabled != !!cond)
+        outb(val ^ A20_ENABLE_BIT, PORT_A20);
+    return a20_enabled;
 }
 
 // x86.c
