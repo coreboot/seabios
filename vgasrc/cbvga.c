@@ -1,6 +1,7 @@
 // Simple framebuffer vgabios for use with coreboot native vga init.
 //
 // Copyright (C) 2014  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2017  Patrick Rudolph <siro@das-labor.org>
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
@@ -164,7 +165,8 @@ cbvga_setup(void)
     }
 
     u64 addr = GET_FARVAR(0, cbfb->physical_address);
-    u8 bpp = GET_FARVAR(0, cbfb->bits_per_pixel);
+    u8 bpp = cbfb->blue_mask_size + cbfb->green_mask_size
+             + cbfb->red_mask_size + cbfb->reserved_mask_size;
     u32 xlines = GET_FARVAR(0, cbfb->x_resolution);
     u32 ylines = GET_FARVAR(0, cbfb->y_resolution);
     u32 linelength = GET_FARVAR(0, cbfb->bytes_per_line);
