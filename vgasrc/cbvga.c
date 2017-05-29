@@ -105,7 +105,7 @@ cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
             return 0;
         }
         struct gfx_op op;
-        init_gfx_op(&op, vmode_g);
+        init_gfx_op(&op, &CBmodeinfo);
         op.x = op.y = 0;
         op.xlen = GET_GLOBAL(CBmodeinfo.width);
         op.ylen = GET_GLOBAL(CBmodeinfo.height);
