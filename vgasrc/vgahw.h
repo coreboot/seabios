@@ -139,4 +139,10 @@ static inline int vgahw_save_restore(int cmd, u16 seg, void *data) {
     return stdvga_save_restore(cmd, seg, data);
 }
 
+static inline int vgahw_get_linesize(struct vgamode_s *vmode_g) {
+    if (CONFIG_VGA_COREBOOT)
+        return cbvga_get_linesize(vmode_g);
+    return stdvga_get_linesize(vmode_g);
+}
+
 #endif // vgahw.h

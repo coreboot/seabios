@@ -115,6 +115,13 @@ cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
     return 0;
 }
 
+int
+cbvga_get_linesize(struct vgamode_s *vmode_g)
+{
+    /* Can't change mode, always report active pitch. */
+    return GET_GLOBAL(CBlinelength);
+}
+
 #define CB_TAG_FRAMEBUFFER      0x0012
 struct cb_framebuffer {
     u32 tag;
