@@ -116,8 +116,6 @@ lsi_scsi_process_op(struct disk_op_s *op)
         u8 sist0 = inb(iobase + LSI_REG_SIST0);
         u8 sist1 = inb(iobase + LSI_REG_SIST1);
         if (sist0 || sist1) {
-            /* serious problem, can't continue w/o reset */
-            outb(LSI_ISTAT0_SRST, iobase + LSI_REG_ISTAT0);
             goto fail;
         }
         if (dstat & 0x04) {
