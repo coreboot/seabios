@@ -215,7 +215,9 @@ static u64 scsilun2u64(struct scsi_lun *scsi_lun)
 int scsi_rep_luns_scan(struct drive_s *tmp_drive, scsi_add_lun add_lun)
 {
     int ret = -1;
-    u32 maxluns = 511;
+    /* start with the smallest possible buffer, otherwise some devices in QEMU
+     * may (incorrectly) error out on returning less data than fits in it */
+    u32 maxluns = 1;
     u32 nluns, i;
     struct cdb_report_luns cdb = {
         .command = CDB_CMD_REPORT_LUNS,
