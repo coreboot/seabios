@@ -5,7 +5,6 @@
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
 #include "blockcmd.h"
-#include "fw/paravirt.h" // runningOnQEMU
 #include "malloc.h" // malloc_high
 #include "output.h" // dprintf
 #include "pci.h"
@@ -599,7 +598,7 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
 int
 nvme_process_op(struct disk_op_s *op)
 {
-    if (!CONFIG_NVME || !runningOnQEMU())
+    if (!CONFIG_NVME)
         return DISK_RET_SUCCESS;
 
     struct nvme_namespace *ns = container_of(op->drive_gf, struct nvme_namespace,
