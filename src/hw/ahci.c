@@ -130,7 +130,6 @@ static int ahci_command(struct ahci_port_s *port_gf, int iswrite, int isatapi,
     intbits = ahci_port_readl(ctrl, pnr, PORT_IRQ_STAT);
     if (intbits)
         ahci_port_writel(ctrl, pnr, PORT_IRQ_STAT, intbits);
-    ahci_port_writel(ctrl, pnr, PORT_SCR_ACT, 1);
     ahci_port_writel(ctrl, pnr, PORT_CMD_ISSUE, 1);
 
     u32 end = timer_calc(AHCI_REQUEST_TIMEOUT);
