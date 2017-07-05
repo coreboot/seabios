@@ -118,13 +118,14 @@ init_virtio_blk(void *data)
         struct vp_device *vp = &vdrive->vp;
         u64 features = vp_get_features(vp);
         u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+        u64 iommu_platform = 1ull << VIRTIO_F_IOMMU_PLATFORM;
         u64 blk_size = 1ull << VIRTIO_BLK_F_BLK_SIZE;
         if (!(features & version1)) {
             dprintf(1, "modern device without virtio_1 feature bit: %pP\n", pci);
             goto fail;
         }
 
-        features = features & (version1 | blk_size);
+        features = features & (version1 | iommu_platform | blk_size);
         vp_set_features(vp, features);
         status |= VIRTIO_CONFIG_S_FEATURES_OK;
         vp_set_status(vp, status);

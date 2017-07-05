@@ -163,12 +163,13 @@ init_virtio_scsi(void *data)
     if (vp->use_modern) {
         u64 features = vp_get_features(vp);
         u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+        u64 iommu_platform = 1ull << VIRTIO_F_IOMMU_PLATFORM;
         if (!(features & version1)) {
             dprintf(1, "modern device without virtio_1 feature bit: %pP\n", pci);
             goto fail;
         }
 
-        vp_set_features(vp, version1);
+        vp_set_features(vp, features & (version1 | iommu_platform));
         status |= VIRTIO_CONFIG_S_FEATURES_OK;
         vp_set_status(vp, status);
         if (!(vp_get_status(vp) & VIRTIO_CONFIG_S_FEATURES_OK)) {
