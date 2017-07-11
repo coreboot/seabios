@@ -33,7 +33,7 @@ static int
 virtio_blk_op(struct disk_op_s *op, int write)
 {
     struct virtiodrive_s *vdrive_gf =
-        container_of(op->drive_gf, struct virtiodrive_s, drive);
+        container_of(op->drive_fl, struct virtiodrive_s, drive);
     struct vring_virtqueue *vq = vdrive_gf->vq;
     struct virtio_blk_outhdr hdr = {
         .type = write ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN,

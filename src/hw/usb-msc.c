@@ -69,9 +69,9 @@ usb_process_op(struct disk_op_s *op)
         return 0;
 
     dprintf(16, "usb_cmd_data id=%p write=%d count=%d buf=%p\n"
-            , op->drive_gf, 0, op->count, op->buf_fl);
+            , op->drive_fl, 0, op->count, op->buf_fl);
     struct usbdrive_s *udrive_gf = container_of(
-        op->drive_gf, struct usbdrive_s, drive);
+        op->drive_fl, struct usbdrive_s, drive);
 
     // Setup command block wrapper.
     struct cbw_s cbw;

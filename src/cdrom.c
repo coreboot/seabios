@@ -31,7 +31,7 @@ cdemu_read(struct disk_op_s *op)
 {
     struct drive_s *drive_gf = GET_LOW(emulated_drive_gf);
     struct disk_op_s dop;
-    dop.drive_gf = drive_gf;
+    dop.drive_fl = drive_gf;
     dop.command = op->command;
     dop.lba = GET_LOW(CDEmu.ilba) + op->lba / 4;
 
@@ -136,8 +136,8 @@ cdrom_boot(struct drive_s *drive)
     struct disk_op_s dop;
     int cdid = getDriveId(EXTTYPE_CD, drive);
     memset(&dop, 0, sizeof(dop));
-    dop.drive_gf = drive;
-    if (!dop.drive_gf || cdid < 0)
+    dop.drive_fl = drive;
+    if (!dop.drive_fl || cdid < 0)
         return 1;
 
     int ret = scsi_is_ready(&dop);

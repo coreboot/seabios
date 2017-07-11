@@ -601,7 +601,7 @@ nvme_process_op(struct disk_op_s *op)
     if (!CONFIG_NVME)
         return DISK_RET_SUCCESS;
 
-    struct nvme_namespace *ns = container_of(op->drive_gf, struct nvme_namespace,
+    struct nvme_namespace *ns = container_of(op->drive_fl, struct nvme_namespace,
                                              drive);
 
     switch (op->command) {

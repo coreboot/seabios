@@ -266,7 +266,7 @@ static int
 sdcard_readwrite(struct disk_op_s *op, int iswrite)
 {
     struct sddrive_s *drive = container_of(
-        op->drive_gf, struct sddrive_s, drive);
+        op->drive_fl, struct sddrive_s, drive);
     int cmd = iswrite ? SC_WRITE_SINGLE : SC_READ_SINGLE;
     if (op->count > 1)
         cmd = iswrite ? SC_WRITE_MULTIPLE : SC_READ_MULTIPLE;

@@ -98,7 +98,7 @@ uas_process_op(struct disk_op_s *op)
         return DISK_RET_EBADTRACK;
 
     struct uasdrive_s *drive_gf = container_of(
-        op->drive_gf, struct uasdrive_s, drive);
+        op->drive_fl, struct uasdrive_s, drive);
 
     uas_ui ui;
     memset(&ui, 0, sizeof(ui));

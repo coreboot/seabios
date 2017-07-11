@@ -213,7 +213,7 @@ pvscsi_process_op(struct disk_op_s *op)
     if (!CONFIG_PVSCSI)
         return DISK_RET_EBADTRACK;
     struct pvscsi_lun_s *plun =
-        container_of(op->drive_gf, struct pvscsi_lun_s, drive);
+        container_of(op->drive_fl, struct pvscsi_lun_s, drive);
     struct pvscsi_ring_dsc_s *ring_dsc = plun->ring_dsc;
     struct PVSCSIRingsState *s = ring_dsc->ring_state;
     u32 req_entries = s->reqNumEntriesLog2;

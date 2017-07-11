@@ -117,7 +117,7 @@ scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
                         : CDB_CMD_WRITE_10);
         cmd->lba = cpu_to_be32(op->lba);
         cmd->count = cpu_to_be16(op->count);
-        return GET_FLATPTR(op->drive_gf->blksize);
+        return GET_FLATPTR(op->drive_fl->blksize);
     case CMD_SCSI:
         if (MODESEGMENT)
             return -1;
@@ -141,7 +141,7 @@ int
 scsi_is_ready(struct disk_op_s *op)
 {
     ASSERT32FLAT();
-    dprintf(6, "scsi_is_ready (drive=%p)\n", op->drive_gf);
+    dprintf(6, "scsi_is_ready (drive=%p)\n", op->drive_fl);
 
     /* Retry TEST UNIT READY for 5 seconds unless MEDIUM NOT PRESENT is
      * reported by the device.  If the device reports "IN PROGRESS",
@@ -223,7 +223,7 @@ int scsi_rep_luns_scan(struct drive_s *tmp_drive, scsi_add_lun add_lun)
         .command = CDB_CMD_REPORT_LUNS,
     };
     struct disk_op_s op = {
-        .drive_gf = tmp_drive,
+        .drive_fl = tmp_drive,
         .command = CMD_SCSI,
         .count = 1,
         .cdbcmd = &cdb,
@@ -284,7 +284,7 @@ scsi_drive_setup(struct drive_s *drive, const char *s, int prio)
     ASSERT32FLAT();
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
-    dop.drive_gf = drive;
+    dop.drive_fl = drive;
     struct cdbres_inquiry data;
     int ret = cdb_get_inquiry(&dop, &data);
     if (ret)

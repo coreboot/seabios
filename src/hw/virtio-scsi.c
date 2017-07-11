@@ -39,7 +39,7 @@ virtio_scsi_process_op(struct disk_op_s *op)
     if (! CONFIG_VIRTIO_SCSI)
         return 0;
     struct virtio_lun_s *vlun =
-        container_of(op->drive_gf, struct virtio_lun_s, drive);
+        container_of(op->drive_fl, struct virtio_lun_s, drive);
     struct vp_device *vp = vlun->vp;
     struct vring_virtqueue *vq = vlun->vq;
     struct virtio_scsi_req_cmd req;

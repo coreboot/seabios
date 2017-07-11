@@ -62,7 +62,7 @@ ramdisk_setup(void)
 static int
 ramdisk_copy(struct disk_op_s *op, int iswrite)
 {
-    u32 offset = GET_GLOBALFLAT(op->drive_gf->cntl_id);
+    u32 offset = GET_GLOBALFLAT(op->drive_fl->cntl_id);
     offset += (u32)op->lba * DISK_SECTOR_SIZE;
     u64 opd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)op->buf_fl);
     u64 ramd = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE(offset);

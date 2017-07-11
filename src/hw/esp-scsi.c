@@ -83,7 +83,7 @@ esp_scsi_process_op(struct disk_op_s *op)
     if (!CONFIG_ESP_SCSI)
         return DISK_RET_EBADTRACK;
     struct esp_lun_s *llun_gf =
-        container_of(op->drive_gf, struct esp_lun_s, drive);
+        container_of(op->drive_fl, struct esp_lun_s, drive);
     u16 target = GET_GLOBALFLAT(llun_gf->target);
     u16 lun = GET_GLOBALFLAT(llun_gf->lun);
     u8 cdbcmd[16];

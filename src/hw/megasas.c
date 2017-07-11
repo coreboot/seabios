@@ -167,7 +167,7 @@ megasas_process_op(struct disk_op_s *op)
     if (blocksize < 0)
         return default_process_op(op);
     struct megasas_lun_s *mlun_gf =
-        container_of(op->drive_gf, struct megasas_lun_s, drive);
+        container_of(op->drive_fl, struct megasas_lun_s, drive);
     struct megasas_cmd_frame *frame = GET_GLOBALFLAT(mlun_gf->frame);
     u16 pci_id = GET_GLOBALFLAT(mlun_gf->pci_id);
     int i;

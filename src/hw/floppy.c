@@ -473,7 +473,7 @@ floppy_dma_cmd(struct disk_op_s *op, int count, int command, u8 *param)
         return DISK_RET_EBOUNDARY;
 
     // Invoke floppy controller
-    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
+    u8 floppyid = GET_GLOBALFLAT(op->drive_fl->cntl_id);
     ret = floppy_drive_pio(floppyid, command, param);
     if (ret)
         return ret;
@@ -506,11 +506,11 @@ lba2chs(struct disk_op_s *op)
     struct chs_s res = { };
 
     u32 tmp = op->lba;
-    u16 nls = GET_GLOBALFLAT(op->drive_gf->lchs.sector);
+    u16 nls = GET_GLOBALFLAT(op->drive_fl->lchs.sector);
     res.sector = (tmp % nls) + 1;
 
     tmp /= nls;
-    u16 nlh = GET_GLOBALFLAT(op->drive_gf->lchs.head);
+    u16 nlh = GET_GLOBALFLAT(op->drive_fl->lchs.head);
     res.head = tmp % nlh;
 
     tmp /= nlh;
@@ -538,12 +538,12 @@ static int
 floppy_read(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    int ret = floppy_prep(op->drive_fl, chs.cylinder);
     if (ret)
         return ret;
 
     // send read-normal-data command to controller
-    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
+    u8 floppyid = GET_GLOBALFLAT(op->drive_fl->cntl_id);
     u8 param[8];
     param[0] = (chs.head << 2) | floppyid; // HD DR1 DR2
     param[1] = chs.cylinder;
@@ -561,12 +561,12 @@ static int
 floppy_write(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    int ret = floppy_prep(op->drive_fl, chs.cylinder);
     if (ret)
         return ret;
 
     // send write-normal-data command to controller
-    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
+    u8 floppyid = GET_GLOBALFLAT(op->drive_fl->cntl_id);
     u8 param[8];
     param[0] = (chs.head << 2) | floppyid; // HD DR1 DR2
     param[1] = chs.cylinder;
@@ -584,7 +584,7 @@ static int
 floppy_verify(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    int ret = floppy_prep(op->drive_fl, chs.cylinder);
     if (ret)
         return ret;
 
@@ -597,12 +597,12 @@ static int
 floppy_format(struct disk_op_s *op)
 {
     struct chs_s chs = lba2chs(op);
-    int ret = floppy_prep(op->drive_gf, chs.cylinder);
+    int ret = floppy_prep(op->drive_fl, chs.cylinder);
     if (ret)
         return ret;
 
     // send format-track command to controller
-    u8 floppyid = GET_GLOBALFLAT(op->drive_gf->cntl_id);
+    u8 floppyid = GET_GLOBALFLAT(op->drive_fl->cntl_id);
     u8 param[7];
     param[0] = (chs.head << 2) | floppyid; // HD DR1 DR2
     param[1] = FLOPPY_SIZE_CODE;

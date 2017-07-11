@@ -271,15 +271,15 @@ fail:
  ****************************************************************/
 
 // Transfer 'op->count' blocks (of 'blocksize' bytes) to/from drive
-// 'op->drive_gf'.
+// 'op->drive_fl'.
 static int
 ata_pio_transfer(struct disk_op_s *op, int iswrite, int blocksize)
 {
     dprintf(16, "ata_pio_transfer id=%p write=%d count=%d bs=%d buf=%p\n"
-            , op->drive_gf, iswrite, op->count, blocksize, op->buf_fl);
+            , op->drive_fl, iswrite, op->count, blocksize, op->buf_fl);
 
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
     u16 iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
     u16 iobase2 = GET_GLOBALFLAT(chan_gf->iobase2);
@@ -289,14 +289,14 @@ ata_pio_transfer(struct disk_op_s *op, int iswrite, int blocksize)
     for (;;) {
         if (iswrite) {
             // Write data to controller
-            dprintf(16, "Write sector id=%p dest=%p\n", op->drive_gf, buf_fl);
+            dprintf(16, "Write sector id=%p dest=%p\n", op->drive_fl, buf_fl);
             if (CONFIG_ATA_PIO32)
                 outsl_fl(iobase1, buf_fl, blocksize / 4);
             else
                 outsw_fl(iobase1, buf_fl, blocksize / 2);
         } else {
             // Read data from controller
-            dprintf(16, "Read sector id=%p dest=%p\n", op->drive_gf, buf_fl);
+            dprintf(16, "Read sector id=%p dest=%p\n", op->drive_fl, buf_fl);
             if (CONFIG_ATA_PIO32)
                 insl_fl(iobase1, buf_fl, blocksize / 4);
             else
@@ -366,7 +366,7 @@ ata_try_dma(struct disk_op_s *op, int iswrite, int blocksize)
         // Need minimum alignment of 1.
         return -1;
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
     u16 iomaster = GET_GLOBALFLAT(chan_gf->iomaster);
     if (! iomaster)
@@ -413,10 +413,10 @@ ata_dma_transfer(struct disk_op_s *op)
 {
     if (! CONFIG_ATA_DMA)
         return -1;
-    dprintf(16, "ata_dma_transfer id=%p buf=%p\n", op->drive_gf, op->buf_fl);
+    dprintf(16, "ata_dma_transfer id=%p buf=%p\n", op->drive_fl, op->buf_fl);
 
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
     u16 iomaster = GET_GLOBALFLAT(chan_gf->iomaster);
 
@@ -466,7 +466,7 @@ static int
 ata_pio_cmd_data(struct disk_op_s *op, int iswrite, struct ata_pio_command *cmd)
 {
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
     u16 iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
     u16 iobase2 = GET_GLOBALFLAT(chan_gf->iobase2);
@@ -495,7 +495,7 @@ ata_dma_cmd_data(struct disk_op_s *op, struct ata_pio_command *cmd)
     if (! CONFIG_ATA_DMA)
         return -1;
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     int ret = send_cmd(adrive_gf, cmd);
     if (ret)
         return ret;
@@ -559,7 +559,7 @@ ata_process_op(struct disk_op_s *op)
         return 0;
 
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     switch (op->command) {
     case CMD_READ:
         return ata_readwrite(op, 0);
@@ -597,7 +597,7 @@ ata_atapi_process_op(struct disk_op_s *op)
         return default_process_op(op);
 
     struct atadrive_s *adrive_gf = container_of(
-        op->drive_gf, struct atadrive_s, drive);
+        op->drive_fl, struct atadrive_s, drive);
     struct ata_channel_s *chan_gf = GET_GLOBALFLAT(adrive_gf->chan_gf);
     u16 iobase1 = GET_GLOBALFLAT(chan_gf->iobase1);
     u16 iobase2 = GET_GLOBALFLAT(chan_gf->iobase2);
@@ -667,7 +667,7 @@ send_ata_identity(struct atadrive_s *adrive, u16 *buffer, int command)
 
     struct disk_op_s dop;
     memset(&dop, 0, sizeof(dop));
-    dop.drive_gf = &adrive->drive;
+    dop.drive_fl = &adrive->drive;
     dop.count = 1;
     dop.lba = 1;
     dop.buf_fl = MAKE_FLATPTR(GET_SEG(SS), buffer);

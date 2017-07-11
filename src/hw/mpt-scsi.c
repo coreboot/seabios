@@ -188,7 +188,7 @@ mpt_scsi_process_op(struct disk_op_s *op)
         return default_process_op(op);
 
     struct mpt_lun_s *llun_gf =
-        container_of(op->drive_gf, struct mpt_lun_s, drive);
+        container_of(op->drive_fl, struct mpt_lun_s, drive);
     u16 target = GET_GLOBALFLAT(llun_gf->target);
     u16 lun = GET_GLOBALFLAT(llun_gf->lun);
     u32 iobase = GET_GLOBALFLAT(llun_gf->iobase);
