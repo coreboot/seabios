@@ -5,10 +5,10 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct disk_op_s
 #include "blockcmd.h" // struct cdb_request_sense
 #include "byteorder.h" // be32_to_cpu
+#include "farptr.h" // GET_FLATPTR
 #include "output.h" // dprintf
 #include "std/disk.h" // DISK_RET_EPARAM
 #include "string.h" // memset
@@ -117,7 +117,7 @@ scsi_fill_cmd(struct disk_op_s *op, void *cdbcmd, int maxcdb)
                         : CDB_CMD_WRITE_10);
         cmd->lba = cpu_to_be32(op->lba);
         cmd->count = cpu_to_be16(op->count);
-        return GET_GLOBALFLAT(op->drive_gf->blksize);
+        return GET_FLATPTR(op->drive_gf->blksize);
     case CMD_SCSI:
         if (MODESEGMENT)
             return -1;

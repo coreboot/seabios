@@ -81,9 +81,9 @@ getLCHS(struct drive_s *drive_gf)
         res.sector = sptcyl & 0x3f;
         return res;
     }
-    res.cylinder = GET_GLOBALFLAT(drive_gf->lchs.cylinder);
-    res.head = GET_GLOBALFLAT(drive_gf->lchs.head);
-    res.sector = GET_GLOBALFLAT(drive_gf->lchs.sector);
+    res.cylinder = GET_FLATPTR(drive_gf->lchs.cylinder);
+    res.head = GET_FLATPTR(drive_gf->lchs.head);
+    res.sector = GET_FLATPTR(drive_gf->lchs.sector);
     return res;
 }
 
@@ -168,7 +168,7 @@ extended_access(struct bregs *regs, struct drive_s *drive_gf, u16 command)
     dop.lba = GET_FARVAR(regs->ds, param_far->lba);
     dop.command = command;
     dop.drive_gf = drive_gf;
-    if (dop.lba >= GET_GLOBALFLAT(drive_gf->sectors)) {
+    if (dop.lba >= GET_FLATPTR(drive_gf->sectors)) {
         warn_invalid(regs);
         disk_ret(regs, DISK_RET_EPARAM);
         return;
@@ -287,7 +287,7 @@ disk_1308(struct bregs *regs, struct drive_s *drive_gf)
         if (CONFIG_CDROM_EMU && drive_gf == GET_GLOBAL(cdemu_drive_gf))
             regs->bx = GET_LOW(CDEmu.media) * 2;
         else
-            regs->bx = GET_GLOBALFLAT(drive_gf->floppy_type);
+            regs->bx = GET_FLATPTR(drive_gf->floppy_type);
 
         // set es & di to point to 11 byte diskette param table in ROM
         regs->es = SEG_BIOS;
