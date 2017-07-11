@@ -7,7 +7,6 @@
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
 
-#include "biosvar.h" // GET_GLOBALFLAT
 #include "block.h" // struct drive_s
 #include "blockcmd.h" // scsi_drive_setup
 #include "config.h" // CONFIG_*
@@ -114,7 +113,7 @@ virtio_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
 {
     struct virtio_lun_s *tmpl_vlun =
         container_of(tmpl_drv, struct virtio_lun_s, drive);
-    struct virtio_lun_s *vlun = malloc_fseg(sizeof(*vlun));
+    struct virtio_lun_s *vlun = malloc_low(sizeof(*vlun));
     if (!vlun) {
         warn_noalloc();
         return -1;
