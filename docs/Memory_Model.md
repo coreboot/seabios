@@ -192,7 +192,7 @@ There are three low-level memory access macros:
 * GET_FARVAR / SET_FARVAR : Assigns the extra segment (%es) to the
   given segment id and then performs the given memory access via %es.
 
-* GET_FLATVAR / SET_FLATVAR : These macros take a 32bit pointer,
+* GET_FLATPTR / SET_FLATPTR : These macros take a 32bit pointer,
   construct a segment/offset pair valid in real mode, and then perform
   the given access. These macros must not be used in 16bit protected
   mode or 32bit segmented mode.
@@ -209,11 +209,11 @@ macros are also available.
 
 * GET_LOW / SET_LOW : Access internal variables marked with
   VARLOW. (There are also related macros GET_LOWFLAT / SET_LOWFLAT for
-  accessing storage allocated with malloc_low).
+  accessing storage allocated with malloc_low.)
 
 * GET_GLOBAL : Access internal variables marked with the VAR16 or
   VARFSEG flags. (There is also the related macro GET_GLOBALFLAT for
-  accessing storage allocated with malloc_fseg).
+  accessing storage allocated with malloc_fseg.)
 
 Memory available during initialization
 ======================================
