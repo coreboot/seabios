@@ -379,24 +379,24 @@ boot_add_bcv(u16 seg, u16 ip, u16 desc, int prio)
 }
 
 void
-boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio)
+boot_add_floppy(struct drive_s *drive, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_FLOPPY, defPrio(prio, DefaultFloppyPrio)
-                  , (u32)drive_g, desc);
+                  , (u32)drive, desc);
 }
 
 void
-boot_add_hd(struct drive_s *drive_g, const char *desc, int prio)
+boot_add_hd(struct drive_s *drive, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
-                  , (u32)drive_g, desc);
+                  , (u32)drive, desc);
 }
 
 void
-boot_add_cd(struct drive_s *drive_g, const char *desc, int prio)
+boot_add_cd(struct drive_s *drive, const char *desc, int prio)
 {
     bootentry_add(IPL_TYPE_CDROM, defPrio(prio, DefaultCDPrio)
-                  , (u32)drive_g, desc);
+                  , (u32)drive, desc);
 }
 
 // Add a CBFS payload entry
@@ -655,13 +655,13 @@ boot_disk(u8 bootdrv, int checksig)
 
 // Boot from a CD-ROM
 static void
-boot_cdrom(struct drive_s *drive_g)
+boot_cdrom(struct drive_s *drive)
 {
     if (! CONFIG_CDROM_BOOT)
         return;
     printf("Booting from DVD/CD...\n");
 
-    int status = cdrom_boot(drive_g);
+    int status = cdrom_boot(drive);
     if (status) {
         printf("Boot failed: Could not read from CDROM (code %04x)\n", status);
         return;
