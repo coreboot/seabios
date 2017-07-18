@@ -226,6 +226,11 @@ struct xhci_ring {
     struct mutex_s       lock;
 };
 
+struct xhci_portmap {
+    u8 start;
+    u8 count;
+};
+
 struct usb_xhci_s {
     struct usb_s         usb;
 
@@ -234,6 +239,8 @@ struct usb_xhci_s {
     u32                  ports;
     u32                  slots;
     u8                   context64;
+    struct xhci_portmap  usb2;
+    struct xhci_portmap  usb3;
 
     /* xhci registers */
     struct xhci_caps     *caps;
@@ -374,6 +381,23 @@ xhci_hub_reset(struct usbhub_s *hub, u32 port)
     return rc;
 }
 
+static int
+xhci_hub_portmap(struct usbhub_s *hub, u32 vport)
+{
+    struct usb_xhci_s *xhci = container_of(hub->cntl, struct usb_xhci_s, usb);
+    u32 pport = vport + 1;
+
+    if (vport + 1 >= xhci->usb3.start &&
+        vport + 1 < xhci->usb3.start + xhci->usb3.count)
+        pport = vport + 2 - xhci->usb3.start;
+
+    if (vport + 1 >= xhci->usb2.start &&
+        vport + 1 < xhci->usb2.start + xhci->usb2.count)
+        pport = vport + 2 - xhci->usb2.start;
+
+    return pport;
+}
+
 static void
 xhci_hub_disconnect(struct usbhub_s *hub, u32 port)
 {
@@ -383,6 +407,7 @@ xhci_hub_disconnect(struct usbhub_s *hub, u32 port)
 static struct usbhub_op_s xhci_hub_ops = {
     .detect = xhci_hub_detect,
     .reset = xhci_hub_reset,
+    .portmap = xhci_hub_portmap,
     .disconnect = xhci_hub_disconnect,
 };
 
@@ -553,17 +578,29 @@ xhci_controller_setup(struct pci_device *pci)
             case 0x02:
                 name  = readl(&xcap->data[0]);
                 ports = readl(&xcap->data[1]);
+                u8 major = (cap >> 24) & 0xff;
+                u8 minor = (cap >> 16) & 0xff;
+                u8 count = (ports >> 8) & 0xff;
+                u8 start = (ports >> 0) & 0xff;
                 dprintf(1, "XHCI    protocol %c%c%c%c %x.%02x"
                         ", %d ports (offset %d), def %x\n"
                         , (name >>  0) & 0xff
                         , (name >>  8) & 0xff
                         , (name >> 16) & 0xff
                         , (name >> 24) & 0xff
-                        , (cap >> 24) & 0xff
-                        , (cap >> 16) & 0xff
-                        , (ports >>  8) & 0xff
-                        , (ports >>  0) & 0xff
+                        , major, minor
+                        , count, start
                         , ports >> 16);
+                if (name == 0x20425355 /* "USB " */) {
+                    if (major == 2) {
+                        xhci->usb2.start = start;
+                        xhci->usb2.count = count;
+                    }
+                    if (major == 3) {
+                        xhci->usb3.start = start;
+                        xhci->usb3.count = count;
+                    }
+                }
                 break;
             default:
                 dprintf(1, "XHCI    extcap 0x%x @ %p\n", cap & 0xff, addr);
