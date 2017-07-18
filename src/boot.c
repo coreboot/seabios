@@ -207,6 +207,13 @@ int bootprio_find_named_rom(const char *name, int instance)
     return find_prio(desc);
 }
 
+static int usb_portmap(struct usbdevice_s *usbdev)
+{
+    if (usbdev->hub->op->portmap)
+        return usbdev->hub->op->portmap(usbdev->hub, usbdev->port);
+    return usbdev->port + 1;
+}
+
 static char *
 build_usb_path(char *buf, int max, struct usbhub_s *hub)
 {
@@ -214,7 +221,7 @@ build_usb_path(char *buf, int max, struct usbhub_s *hub)
         // Root hub - nothing to add.
         return buf;
     char *p = build_usb_path(buf, max, hub->usbdev->hub);
-    p += snprintf(p, buf+max-p, "/hub@%x", hub->usbdev->port+1);
+    p += snprintf(p, buf+max-p, "/hub@%x", usb_portmap(hub->usbdev));
     return p;
 }
 
@@ -227,12 +234,12 @@ int bootprio_find_usb(struct usbdevice_s *usbdev, int lun)
     p = build_pci_path(desc, sizeof(desc), "usb", usbdev->hub->cntl->pci);
     p = build_usb_path(p, desc+sizeof(desc)-p, usbdev->hub);
     snprintf(p, desc+sizeof(desc)-p, "/storage@%x/*@0/*@0,%x"
-             , usbdev->port+1, lun);
+             , usb_portmap(usbdev), lun);
     int ret = find_prio(desc);
     if (ret >= 0)
         return ret;
     // Try usb-host/redir - for example: /pci@i0cf8/usb@1,2/usb-host@1
-    snprintf(p, desc+sizeof(desc)-p, "/usb-*@%x", usbdev->port+1);
+    snprintf(p, desc+sizeof(desc)-p, "/usb-*@%x", usb_portmap(usbdev));
     return find_prio(desc);
 }
 

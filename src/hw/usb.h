@@ -56,6 +56,7 @@ struct usbhub_s {
 struct usbhub_op_s {
     int (*detect)(struct usbhub_s *hub, u32 port);
     int (*reset)(struct usbhub_s *hub, u32 port);
+    int (*portmap)(struct usbhub_s *hub, u32 port);
     void (*disconnect)(struct usbhub_s *hub, u32 port);
 };
 
