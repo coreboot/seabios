@@ -762,7 +762,7 @@ static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
         return downstream_port && slot_implemented;
     }
 
-    shpc_cap = pci_find_capability(bus->bus_dev, PCI_CAP_ID_SHPC, 0);
+    shpc_cap = pci_find_capability(bus->bus_dev->bdf, PCI_CAP_ID_SHPC, 0);
     return !!shpc_cap;
 }
 
@@ -844,7 +844,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
              */
             parent = &busses[0];
         int type;
-        u8 pcie_cap = pci_find_capability(s->bus_dev, PCI_CAP_ID_EXP, 0);
+        u8 pcie_cap = pci_find_capability(s->bus_dev->bdf, PCI_CAP_ID_EXP, 0);
         int hotplug_support = pci_bus_hotplug_support(s, pcie_cap);
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u64 align = (type == PCI_REGION_TYPE_IO) ?

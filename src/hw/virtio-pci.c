@@ -19,7 +19,7 @@
 #include "malloc.h" // free
 #include "output.h" // dprintf
 #include "pci.h" // pci_config_readl
-#include "pcidevice.h" // pci_find_capability
+#include "pcidevice.h" // struct pci_device
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
 #include "virtio-pci.h"
@@ -381,7 +381,7 @@ fail:
 
 void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
 {
-    u8 cap = pci_find_capability(pci, PCI_CAP_ID_VNDR, 0);
+    u8 cap = pci_find_capability(pci->bdf, PCI_CAP_ID_VNDR, 0);
     struct vp_cap *vp_cap;
     const char *mode;
     u32 offset, base, mul;
@@ -479,7 +479,7 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
                     vp_cap->cap, type, vp_cap->bar, addr, offset, mode);
         }
 
-        cap = pci_find_capability(pci, PCI_CAP_ID_VNDR, cap);
+        cap = pci_find_capability(pci->bdf, PCI_CAP_ID_VNDR, cap);
     }
 
     if (vp->common.cap && vp->notify.cap && vp->isr.cap && vp->device.cap) {
