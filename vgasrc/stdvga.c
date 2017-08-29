@@ -324,7 +324,7 @@ stdvga_set_dacformat(struct vgamode_s *vmode_g, int val)
 int
 stdvga_get_linesize(struct vgamode_s *vmode_g)
 {
-    return DIV_ROUND_UP(vmode_g->width * vga_bpp(vmode_g), 8);
+    return DIV_ROUND_UP(GET_GLOBAL(vmode_g->width) * vga_bpp(vmode_g), 8);
 }
 
 /****************************************************************
