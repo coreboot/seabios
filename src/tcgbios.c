@@ -1186,7 +1186,6 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
                           struct hleeo *hleeo)
 {
     u32 rc = 0;
-    struct hleo hleo;
     struct hleei_long *hleei_l = (struct hleei_long *)hleei_s;
     const void *logdataptr;
     u32 logdatalen;
@@ -1229,7 +1228,7 @@ hash_log_extend_event_int(const struct hleei_short *hleei_s,
 
     hleeo->opblength = sizeof(struct hleeo);
     hleeo->reserved  = 0;
-    hleeo->eventnumber = hleo.eventnumber;
+    hleeo->eventnumber = tpm_state.entry_count;
     memcpy(hleeo->digest, pcpes->digest, sizeof(hleeo->digest));
 
 err_exit:
