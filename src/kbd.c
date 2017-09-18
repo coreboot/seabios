@@ -29,7 +29,7 @@ kbd_init(void)
             , x + FIELD_SIZEOF(struct bios_data_area_s, kbd_buf));
 }
 
-static u8
+u8
 enqueue_key(u16 keycode)
 {
     u16 buffer_start = GET_BDA(kbd_buf_start_offset);
@@ -375,6 +375,22 @@ struct scaninfo key_ext_slash VAR16 = {
     0xe02f, 0xe02f, 0x9500, 0xa400
 };
 
+u16 ascii_to_keycode(u8 ascii)
+{
+    int i;
+
+    for (i = 0; i < ARRAY_SIZE(scan_to_keycode); i++) {
+        if ((GET_GLOBAL(scan_to_keycode[i].normal) & 0xff) == ascii)
+            return GET_GLOBAL(scan_to_keycode[i].normal);
+        if ((GET_GLOBAL(scan_to_keycode[i].shift) & 0xff) == ascii)
+            return GET_GLOBAL(scan_to_keycode[i].shift);
+        if ((GET_GLOBAL(scan_to_keycode[i].control) & 0xff) == ascii)
+            return GET_GLOBAL(scan_to_keycode[i].control);
+    }
+    return 0;
+}
+
+// Handle a ps2 style scancode read from the keyboard.
 static void
 kbd_set_flag(int key_release, u16 set_bit0, u8 set_bit1, u16 toggle_bit)
 {
