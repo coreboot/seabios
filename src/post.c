@@ -208,6 +208,8 @@ maininit(void)
 
     // Run vga option rom
     vgarom_setup();
+    sercon_setup();
+    enable_vga_console();
 
     // Do hardware initialization (if running synchronously)
     if (!threads_during_optionroms()) {

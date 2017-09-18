@@ -51,14 +51,6 @@ handle_05(struct bregs *regs)
     debug_enter(regs, DEBUG_HDL_05);
 }
 
-// INT 10h Video Support Service Entry Point
-void VISIBLE16
-handle_10(struct bregs *regs)
-{
-    debug_enter(regs, DEBUG_HDL_10);
-    // don't do anything, since the VGA BIOS handles int10h requests
-}
-
 // NMI handler
 void VISIBLE16
 handle_02(void)

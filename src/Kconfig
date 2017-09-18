@@ -306,6 +306,11 @@ menu "Hardware support"
         default y
         help
             Support serial ports.  This also enables int 14 serial port calls.
+    config SERCON
+        bool "Serial console"
+        default y
+        help
+            Support redirecting vga output to the serial console.
     config LPT
         bool "Parallel port"
         default y

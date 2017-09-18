@@ -29,8 +29,8 @@ LD32BIT_FLAG:=-melf_i386
 
 # Source files
 SRCBOTH=misc.c stacks.c output.c string.c block.c cdrom.c disk.c mouse.c kbd.c \
-    system.c serial.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c apm.c \
-    cp437.c \
+    system.c serial.c sercon.c clock.c resume.c pnpbios.c vgahooks.c pcibios.c \
+    apm.c cp437.c \
     hw/pci.c hw/timer.c hw/rtc.c hw/dma.c hw/pic.c hw/ps2port.c hw/serialio.c \
     hw/usb.c hw/usb-uhci.c hw/usb-ohci.c hw/usb-ehci.c \
     hw/usb-hid.c hw/usb-msc.c hw/usb-uas.c \

@@ -295,6 +295,7 @@ clock_update(void)
     floppy_tick();
     usb_check_event();
     ps2_check_event();
+    sercon_check_event();
 }
 
 // INT 08h System Timer ISR Entry Point

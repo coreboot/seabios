@@ -432,12 +432,9 @@ vgarom_setup(void)
     run_file_roms("vgaroms/", 1, NULL);
     rom_reserve(0);
 
-    if (rom_get_last() == BUILD_ROM_START)
-        // No VGA rom found
-        return;
-
-    VgaROM = (void*)BUILD_ROM_START;
-    enable_vga_console();
+    if (rom_get_last() != BUILD_ROM_START)
+        // VGA rom found
+        VgaROM = (void*)BUILD_ROM_START;
 }
 
 void

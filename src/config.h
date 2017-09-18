@@ -76,7 +76,6 @@
 #define DEBUG_ISR_08 20
 #define DEBUG_ISR_09 9
 #define DEBUG_ISR_0e 9
-#define DEBUG_HDL_10 20
 #define DEBUG_HDL_11 2
 #define DEBUG_HDL_12 2
 #define DEBUG_HDL_13 10
