@@ -98,3 +98,49 @@ romfile_loadint(const char *name, u64 defval)
         return defval;
     return val;
 }
+
+struct const_romfile_s {
+    struct romfile_s file;
+    void *data;
+};
+
+static int
+const_read_file(struct romfile_s *file, void *dst, u32 maxlen)
+{
+    if (file->size > maxlen)
+        return -1;
+    struct const_romfile_s *cfile;
+    cfile = container_of(file, struct const_romfile_s, file);
+    if (maxlen > file->size)
+        maxlen = file->size;
+    memcpy(dst, cfile->data, maxlen);
+    return file->size;
+}
+
+static void
+const_romfile_add(char *name, void *data, int size)
+{
+    struct const_romfile_s *cfile = malloc_tmp(sizeof(*cfile));
+    if (!cfile) {
+        warn_noalloc();
+        return;
+    }
+    memset(cfile, 0, sizeof(*cfile));
+    strtcpy(cfile->file.name, name, sizeof(cfile->file.name));
+    cfile->file.size = size;
+    cfile->file.copy = const_read_file;
+    cfile->data = data;
+    romfile_add(&cfile->file);
+}
+
+void
+const_romfile_add_int(char *name, u32 value)
+{
+    u32 *data = malloc_tmp(sizeof(*data));
+    if (!data) {
+        warn_noalloc();
+        return;
+    }
+    *data = value;
+    const_romfile_add(name, data, sizeof(*data));
+}
