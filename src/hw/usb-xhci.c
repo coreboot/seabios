@@ -780,6 +780,17 @@ static void xhci_trb_queue(struct xhci_ring *ring,
 static int xhci_cmd_submit(struct usb_xhci_s *xhci, struct xhci_inctx *inctx
                            , u32 flags)
 {
+    if (inctx) {
+        struct xhci_slotctx *slot = (void*)&inctx[1 << xhci->context64];
+        u32 port = ((slot->ctx[1] >> 16) & 0xff) - 1;
+        u32 portsc = readl(&xhci->pr[port].portsc);
+        if (!(portsc & XHCI_PORTSC_CCS)) {
+            // Device no longer connected?!
+            xhci_print_port_state(1, __func__, port, portsc);
+            return -1;
+        }
+    }
+
     mutex_lock(&xhci->cmds->lock);
     xhci_trb_queue(xhci->cmds, inctx, 0, flags);
     xhci_doorbell(xhci, 0, 0);
