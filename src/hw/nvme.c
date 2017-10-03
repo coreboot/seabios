@@ -38,29 +38,43 @@ nvme_init_queue_common(struct nvme_ctrl *ctrl, struct nvme_queue *q, u16 q_idx,
     q->mask = length - 1;
 }
 
-static void
+static int
 nvme_init_sq(struct nvme_ctrl *ctrl, struct nvme_sq *sq, u16 q_idx, u16 length,
              struct nvme_cq *cq)
 {
     nvme_init_queue_common(ctrl, &sq->common, q_idx, length);
     sq->sqe = zalloc_page_aligned(&ZoneHigh, sizeof(*sq->sqe) * length);
+
+    if (!sq->sqe) {
+        warn_noalloc();
+        return -1;
+    }
+
     dprintf(3, "sq %p q_idx %u sqe %p\n", sq, q_idx, sq->sqe);
     sq->cq   = cq;
     sq->head = 0;
     sq->tail = 0;
+
+    return 0;
 }
 
-static void
+static int
 nvme_init_cq(struct nvme_ctrl *ctrl, struct nvme_cq *cq, u16 q_idx, u16 length)
 {
     nvme_init_queue_common(ctrl, &cq->common, q_idx, length);
     cq->cqe = zalloc_page_aligned(&ZoneHigh, sizeof(*cq->cqe) * length);
+    if (!cq->cqe) {
+        warn_noalloc();
+        return -1;
+    }
 
     cq->head = 0;
 
     /* All CQE phase bits are initialized to zero. This means initially we wait
        for the host controller to set these to 1. */
     cq->phase = 1;
+
+    return 0;
 }
 
 static int
@@ -75,7 +89,6 @@ nvme_is_cqe_success(struct nvme_cqe const *cqe)
 {
     return ((cqe->status >> 1) & 0xFF) == 0;
 }
-
 
 static struct nvme_cqe
 nvme_error_cqe(void)
@@ -278,22 +291,44 @@ nvme_probe_ns(struct nvme_ctrl *ctrl, struct nvme_namespace *ns, u32 ns_id)
     dprintf(3, "%s", desc);
     boot_add_hd(&ns->drive, desc, bootprio_find_pci_device(ctrl->pci));
 
- free_buffer:
+free_buffer:
     free (id);
- }
+}
+
+
+/* Release memory allocated for a completion queue */
+static void
+nvme_destroy_cq(struct nvme_cq *cq)
+{
+    free(cq->cqe);
+    cq->cqe = NULL;
+}
+
+/* Release memory allocated for a submission queue */
+static void
+nvme_destroy_sq(struct nvme_sq *sq)
+{
+    free(sq->sqe);
+    sq->sqe = NULL;
+}
 
 /* Returns 0 on success. */
 static int
 nvme_create_io_cq(struct nvme_ctrl *ctrl, struct nvme_cq *cq, u16 q_idx)
 {
+    int rc;
     struct nvme_sqe *cmd_create_cq;
 
-    nvme_init_cq(ctrl, cq, q_idx, NVME_PAGE_SIZE / sizeof(struct nvme_cqe));
+    rc = nvme_init_cq(ctrl, cq, q_idx, NVME_PAGE_SIZE / sizeof(struct nvme_cqe));
+    if (rc) {
+        goto err;
+    }
+
     cmd_create_cq = nvme_get_next_sqe(&ctrl->admin_sq,
                                       NVME_SQE_OPC_ADMIN_CREATE_IO_CQ, NULL,
                                       cq->cqe);
     if (!cmd_create_cq) {
-        return -1;
+        goto err_destroy_cq;
     }
 
     cmd_create_cq->dword[10] = (cq->common.mask << 16) | (q_idx >> 1);
@@ -307,24 +342,34 @@ nvme_create_io_cq(struct nvme_ctrl *ctrl, struct nvme_cq *cq, u16 q_idx)
         dprintf(2, "create io cq failed: %08x %08x %08x %08x\n",
                 cqe.dword[0], cqe.dword[1], cqe.dword[2], cqe.dword[3]);
 
-        return -1;
+        goto err_destroy_cq;
     }
 
     return 0;
+
+err_destroy_cq:
+    nvme_destroy_cq(cq);
+err:
+    return -1;
 }
 
 /* Returns 0 on success. */
 static int
 nvme_create_io_sq(struct nvme_ctrl *ctrl, struct nvme_sq *sq, u16 q_idx, struct nvme_cq *cq)
 {
+    int rc;
     struct nvme_sqe *cmd_create_sq;
 
-    nvme_init_sq(ctrl, sq, q_idx, NVME_PAGE_SIZE / sizeof(struct nvme_cqe), cq);
+    rc = nvme_init_sq(ctrl, sq, q_idx, NVME_PAGE_SIZE / sizeof(struct nvme_cqe), cq);
+    if (rc) {
+        goto err;
+    }
+
     cmd_create_sq = nvme_get_next_sqe(&ctrl->admin_sq,
                                       NVME_SQE_OPC_ADMIN_CREATE_IO_SQ, NULL,
                                       sq->sqe);
     if (!cmd_create_sq) {
-        return -1;
+        goto err_destroy_sq;
     }
 
     cmd_create_sq->dword[10] = (sq->common.mask << 16) | (q_idx >> 1);
@@ -339,10 +384,15 @@ nvme_create_io_sq(struct nvme_ctrl *ctrl, struct nvme_sq *sq, u16 q_idx, struct 
     if (!nvme_is_cqe_success(&cqe)) {
         dprintf(2, "create io sq failed: %08x %08x %08x %08x\n",
                 cqe.dword[0], cqe.dword[1], cqe.dword[2], cqe.dword[3]);
-        return -1;
+        goto err_destroy_sq;
     }
 
     return 0;
+
+err_destroy_sq:
+    nvme_destroy_sq(sq);
+err:
+    return -1;
 }
 
 /* Reads count sectors into buf. Returns DISK_RET_*. The buffer cannot cross
@@ -384,17 +434,28 @@ nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
     return DISK_RET_SUCCESS;
 }
 
-
 static int
 nvme_create_io_queues(struct nvme_ctrl *ctrl)
 {
     if (nvme_create_io_cq(ctrl, &ctrl->io_cq, 3))
-        return -1;
+        goto err;
 
     if (nvme_create_io_sq(ctrl, &ctrl->io_sq, 2, &ctrl->io_cq))
-        return -1;
+        goto err_free_cq;
 
     return 0;
+
+ err_free_cq:
+    nvme_destroy_cq(&ctrl->io_cq);
+ err:
+    return -1;
+}
+
+static void
+nvme_destroy_io_queues(struct nvme_ctrl *ctrl)
+{
+    nvme_destroy_sq(&ctrl->io_sq);
+    nvme_destroy_cq(&ctrl->io_cq);
 }
 
 /* Waits for CSTS.RDY to match rdy. Returns 0 on success. */
@@ -426,6 +487,8 @@ nvme_wait_csts_rdy(struct nvme_ctrl *ctrl, unsigned rdy)
 static int
 nvme_controller_enable(struct nvme_ctrl *ctrl)
 {
+    int rc;
+
     pci_enable_busmaster(ctrl->pci);
 
     /* Turn the controller off. */
@@ -437,17 +500,20 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
 
     ctrl->doorbell_stride = 4U << ((ctrl->reg->cap >> 32) & 0xF);
 
-    nvme_init_cq(ctrl, &ctrl->admin_cq, 1,
-                 NVME_PAGE_SIZE / sizeof(struct nvme_cqe));
+    rc = nvme_init_cq(ctrl, &ctrl->admin_cq, 1,
+                      NVME_PAGE_SIZE / sizeof(struct nvme_cqe));
+    if (rc) {
+        return -1;
+    }
 
-    nvme_init_sq(ctrl, &ctrl->admin_sq, 0,
-                 NVME_PAGE_SIZE / sizeof(struct nvme_sqe), &ctrl->admin_cq);
+    rc = nvme_init_sq(ctrl, &ctrl->admin_sq, 0,
+                      NVME_PAGE_SIZE / sizeof(struct nvme_sqe), &ctrl->admin_cq);
+    if (rc) {
+        goto err_destroy_admin_cq;
+    }
 
     ctrl->reg->aqa = ctrl->admin_cq.common.mask << 16
         | ctrl->admin_sq.common.mask;
-
-    /* Create the admin queue pair */
-    if (!ctrl->admin_sq.sqe || !ctrl->admin_cq.cqe) goto out_of_memory;
 
     ctrl->reg->asq = (u32)ctrl->admin_sq.sqe;
     ctrl->reg->acq = (u32)ctrl->admin_cq.cqe;
@@ -460,8 +526,9 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
 
     if (nvme_wait_csts_rdy(ctrl, 1)) {
         dprintf(2, "NVMe fatal error while enabling controller\n");
-        goto failed;
+        goto err_destroy_admin_sq;
     }
+
     /* The admin queue is set up and the controller is ready. Let's figure out
        what namespaces we have. */
 
@@ -469,10 +536,9 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
 
     if (!identify) {
         dprintf(2, "NVMe couldn't identify controller.\n");
-        goto failed;
+        goto err_destroy_admin_sq;
     }
 
-    /* TODO Print model/serial info. */
     dprintf(3, "NVMe has %u namespace%s.\n",
             identify->nn, (identify->nn == 1) ? "" : "s");
 
@@ -482,11 +548,14 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
     if ((ctrl->ns_count == 0) || nvme_create_io_queues(ctrl)) {
         /* No point to continue, if the controller says it doesn't have
            namespaces or we couldn't create I/O queues. */
-        goto failed;
+        goto err_destroy_admin_sq;
     }
 
     ctrl->ns = malloc_fseg(sizeof(*ctrl->ns) * ctrl->ns_count);
-    if (!ctrl->ns) goto out_of_memory;
+    if (!ctrl->ns) {
+        warn_noalloc();
+        goto err_destroy_ioq;
+    }
     memset(ctrl->ns, 0, sizeof(*ctrl->ns) * ctrl->ns_count);
 
     /* Populate namespace IDs */
@@ -498,12 +567,12 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
     dprintf(3, "NVMe initialization complete!\n");
     return 0;
 
- out_of_memory:
-    warn_noalloc();
- failed:
-    free(ctrl->admin_sq.sqe);
-    free(ctrl->admin_cq.cqe);
-    free(ctrl->ns);
+ err_destroy_ioq:
+    nvme_destroy_io_queues(ctrl);
+ err_destroy_admin_sq:
+    nvme_destroy_sq(&ctrl->admin_sq);
+ err_destroy_admin_cq:
+    nvme_destroy_cq(&ctrl->admin_cq);
     return -1;
 }
 
@@ -524,13 +593,13 @@ nvme_controller_setup(void *opaque)
 
     if (~reg->cap & NVME_CAP_CSS_NVME) {
         dprintf(3, "Controller doesn't speak NVMe command set. Skipping.\n");
-        return;
+        goto err;
     }
 
     struct nvme_ctrl *ctrl = malloc_high(sizeof(*ctrl));
     if (!ctrl) {
         warn_noalloc();
-        return;
+        goto err;
     }
 
     memset(ctrl, 0, sizeof(*ctrl));
@@ -539,9 +608,15 @@ nvme_controller_setup(void *opaque)
     ctrl->pci = pci;
 
     if (nvme_controller_enable(ctrl)) {
-        /* Initialization failed */
-        free(ctrl);
+        goto err_free_ctrl;
     }
+
+    return;
+
+ err_free_ctrl:
+    free(ctrl);
+ err:
+    dprintf(2, "Failed to enable NVMe controller.\n");
 }
 
 // Locate and init NVMe controllers
