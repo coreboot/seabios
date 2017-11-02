@@ -159,51 +159,6 @@ timer_read(void)
     return timer_adjust_bits(v, 0xffff);
 }
 
-// Check if the current time is past a previously calculated end time.
-int
-timer_check(u32 end)
-{
-    return (s32)(timer_read() - end) > 0;
-}
-
-static void
-timer_delay(u32 diff)
-{
-    u32 start = timer_read();
-    u32 end = start + diff;
-    while (!timer_check(end))
-        cpu_relax();
-}
-
-static void
-timer_sleep(u32 diff)
-{
-    u32 start = timer_read();
-    u32 end = start + diff;
-    while (!timer_check(end))
-        yield();
-}
-
-void ndelay(u32 count) {
-    timer_delay(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000000));
-}
-void udelay(u32 count) {
-    timer_delay(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000));
-}
-void mdelay(u32 count) {
-    timer_delay(count * GET_GLOBAL(TimerKHz));
-}
-
-void nsleep(u32 count) {
-    timer_sleep(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000000));
-}
-void usleep(u32 count) {
-    timer_sleep(DIV_ROUND_UP(count * GET_GLOBAL(TimerKHz), 1000));
-}
-void msleep(u32 count) {
-    timer_sleep(count * GET_GLOBAL(TimerKHz));
-}
-
 // Return the TSC value that is 'msecs' time in the future.
 u32
 timer_calc(u32 msecs)
@@ -213,7 +168,59 @@ timer_calc(u32 msecs)
 u32
 timer_calc_usec(u32 usecs)
 {
-    return timer_read() + DIV_ROUND_UP(GET_GLOBAL(TimerKHz) * usecs, 1000);
+    u32 cur = timer_read(), khz = GET_GLOBAL(TimerKHz);
+    if (usecs > 500000)
+        return cur + DIV_ROUND_UP(usecs, 1000) * khz;
+    return cur + DIV_ROUND_UP(usecs * khz, 1000);
+}
+static u32
+timer_calc_nsec(u32 nsecs)
+{
+    u32 cur = timer_read(), khz = GET_GLOBAL(TimerKHz);
+    if (nsecs > 500000)
+        return cur + DIV_ROUND_UP(nsecs, 1000000) * khz;
+    return cur + DIV_ROUND_UP(nsecs * khz, 1000000);
+}
+
+// Check if the current time is past a previously calculated end time.
+int
+timer_check(u32 end)
+{
+    return (s32)(timer_read() - end) > 0;
+}
+
+static void
+timer_delay(u32 end)
+{
+    while (!timer_check(end))
+        cpu_relax();
+}
+
+static void
+timer_sleep(u32 end)
+{
+    while (!timer_check(end))
+        yield();
+}
+
+void ndelay(u32 count) {
+    timer_delay(timer_calc_nsec(count));
+}
+void udelay(u32 count) {
+    timer_delay(timer_calc_usec(count));
+}
+void mdelay(u32 count) {
+    timer_delay(timer_calc(count));
+}
+
+void nsleep(u32 count) {
+    timer_sleep(timer_calc_nsec(count));
+}
+void usleep(u32 count) {
+    timer_sleep(timer_calc_usec(count));
+}
+void msleep(u32 count) {
+    timer_sleep(timer_calc(count));
 }
 
 
