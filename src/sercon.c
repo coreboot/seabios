@@ -521,6 +521,10 @@ void sercon_setup(void)
         return;
     dprintf(1, "sercon: using ioport 0x%x\n", addr);
 
+    if (CONFIG_DEBUG_SERIAL)
+        if (addr == CONFIG_DEBUG_SERIAL_PORT)
+            ScreenAndDebug = 0;
+
     vgabios = GET_IVT(0x10);
     seabios = FUNC16(entry_10);
     if (vgabios.seg != seabios.seg ||
