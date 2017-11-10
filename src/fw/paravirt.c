@@ -513,12 +513,6 @@ qemu_cfg_legacy(void)
     qemu_romfile_add("etc/irq0-override", QEMU_CFG_IRQ0_OVERRIDE, 0, 1);
     qemu_romfile_add("etc/max-cpus", QEMU_CFG_MAX_CPUS, 0, 2);
 
-    // serial console
-    u16 nogfx = 0;
-    qemu_cfg_read_entry(&nogfx, QEMU_CFG_NOGRAPHIC, sizeof(nogfx));
-    if (nogfx)
-        const_romfile_add_int("etc/sercon-port", PORT_SERIAL1);
-
     // NUMA data
     u64 numacount;
     qemu_cfg_read_entry(&numacount, QEMU_CFG_NUMA, sizeof(numacount));
@@ -620,4 +614,11 @@ void qemu_cfg_init(void)
         acpi_pm_base = 0x0600;
         dprintf(1, "Moving pm_base to 0x%x\n", acpi_pm_base);
     }
+
+    // serial console
+    u16 nogfx = 0;
+    qemu_cfg_read_entry(&nogfx, QEMU_CFG_NOGRAPHIC, sizeof(nogfx));
+    if (nogfx && !romfile_find("etc/sercon-port")
+        && !romfile_find("vgaroms/sgabios.bin"))
+        const_romfile_add_int("etc/sercon-port", PORT_SERIAL1);
 }
