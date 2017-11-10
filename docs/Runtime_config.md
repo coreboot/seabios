@@ -185,6 +185,7 @@ There are several additional configuration options available in the
 | s3-resume-vga-init  | Set this to a non-zero value to instruct SeaBIOS to run the vga rom on an S3 resume.
 | screen-and-debug    | Set this to a zero value to instruct SeaBIOS to not write characters it sends to the screen to the debug ports. This can be useful when using sgabios.
 | advertise-serial-debug-port | If using a serial debug port, one can set this file to a zero value to prevent SeaBIOS from listing that serial port as available for operating system use. This can be useful when running old DOS programs that are known to reset the baud rate of all advertised serial ports.
+| sercon-port         | Set this to the IO address of a serial port to enable SeaBIOS' VGA adapter emulation on the given serial port.
 | floppy0             | Set this to the type of the first floppy drive in the system (only type 4 for 3.5 inch drives is supported).
 | floppy1             | The type of the second floppy drive in the system. See the description of **floppy0** for more info.
 | threads             | By default, SeaBIOS will parallelize hardware initialization during bootup to reduce boot time. Multiple hardware devices can be initialized in parallel between vga initialization and option rom initialization. One can set this file to a value of zero to force hardware initialization to run serially. Alternatively, one can set this file to 2 to enable early hardware initialization that runs in parallel with vga, option rom initialization, and the boot menu.
