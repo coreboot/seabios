@@ -307,4 +307,17 @@ struct tcpa_descriptor_rev2
 #define TCPA_ACPI_CLASS_CLIENT          0
 #define TCPA_ACPI_CLASS_SERVER          1
 
+#define TPM2_SIGNATURE 0x324D5054
+struct tpm2_descriptor_rev2
+{
+    ACPI_TABLE_HEADER_DEF
+    u16  platform_class;
+    u16  reserved;
+    u64  address_of_control_area;
+    u32  start_method;
+    u8   start_method_params[12];
+    u32  log_area_minimum_length;
+    u64  log_area_start_address;
+} PACKED;
+
 #endif // acpi.h

@@ -48,15 +48,9 @@ struct {
     u8 *          log_area_last_entry;
 } tpm_state VARLOW;
 
-static int
-tpm_tcpa_probe(void)
+static int tpm_set_log_area(u8 *log_area_start_address,
+                            u32 log_area_minimum_length)
 {
-    struct tcpa_descriptor_rev2 *tcpa = find_acpi_table(TCPA_SIGNATURE);
-    if (!tcpa)
-        return -1;
-
-    u8 *log_area_start_address = (u8*)(long)tcpa->log_area_start_address;
-    u32 log_area_minimum_length = tcpa->log_area_minimum_length;
     if (!log_area_start_address || !log_area_minimum_length)
         return -1;
 
@@ -67,6 +61,39 @@ tpm_tcpa_probe(void)
     tpm_state.log_area_last_entry = NULL;
     tpm_state.entry_count = 0;
     return 0;
+}
+
+static int
+tpm_tcpa_probe(void)
+{
+    struct tcpa_descriptor_rev2 *tcpa = find_acpi_table(TCPA_SIGNATURE);
+    if (!tcpa)
+        return -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: TCPA: LASA = %p, LAML = %u\n",
+            (u8 *)(long)tcpa->log_area_start_address,
+            tcpa->log_area_minimum_length);
+
+    return tpm_set_log_area((u8*)(long)tcpa->log_area_start_address,
+                            tcpa->log_area_minimum_length);
+}
+
+static int
+tpm_tpm2_probe(void)
+{
+    struct tpm2_descriptor_rev2 *tpm2 = find_acpi_table(TPM2_SIGNATURE);
+    if (!tpm2)
+        return -1;
+
+    if (tpm2->length < 76)
+        return -1;
+
+    dprintf(DEBUG_tcg, "TCGBIOS: TPM2: LASA = %p, LAML = %u\n",
+            (u8 *)(long)tpm2->log_area_start_address,
+            tpm2->log_area_minimum_length);
+
+    return tpm_set_log_area((u8*)(long)tpm2->log_area_start_address,
+                            tpm2->log_area_minimum_length);
 }
 
 /*
@@ -949,9 +976,12 @@ tpm_setup(void)
             "TCGBIOS: Detected a TPM %s.\n",
              (TPM_version == TPM_VERSION_1_2) ? "1.2" : "2");
 
-    int ret = tpm_tcpa_probe();
-    if (ret)
-        return;
+    int ret = tpm_tpm2_probe();
+    if (ret) {
+        ret = tpm_tcpa_probe();
+        if (ret)
+            return;
+    }
 
     TPM_working = 1;
 
