@@ -55,6 +55,21 @@ menu "VGA ROM"
                 Build support for a vgabios wrapper around video
                 devices initialized using coreboot native vga init.
 
+        config DISPLAY_BOCHS
+            depends on QEMU
+            bool "qemu bochs-display support"
+            select VGA_EMULATE_TEXT
+            help
+                Build support for the qemu bochs-display device, which
+                is basically qemu stdvga without the legacy vga
+                emulation, supporting only 16+32 bpp VESA video modes
+                in a linear framebuffer.  So this uses cbvga text mode
+                emulation.
+
+                The bochs-display device is available in qemu
+                v3.0+. The vgabios works with the qemu stdvga too (use
+                "qemu -device VGA,romfile=/path/to/vgabios.bin")".
+
     endchoice
 
     choice
@@ -166,6 +181,7 @@ menu "VGA ROM"
         default 0x1af4 if VGA_BOCHS_VIRTIO
         default 0x100b if VGA_GEODEGX2
         default 0x1022 if VGA_GEODELX
+        default 0x1234 if DISPLAY_BOCHS
         default 0x0000
         help
             Vendor ID for the PCI ROM
@@ -181,6 +197,7 @@ menu "VGA ROM"
         default 0x1050 if VGA_BOCHS_VIRTIO
         default 0x0030 if VGA_GEODEGX2
         default 0x2081 if VGA_GEODELX
+        default 0x1111 if DISPLAY_BOCHS
         default 0x0000
         help
             Device ID for the PCI ROM
