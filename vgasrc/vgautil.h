@@ -21,6 +21,9 @@ int cbvga_get_linesize(struct vgamode_s *vmode_g);
 void cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength);
 int cbvga_setup(void);
 
+// bochsdisplay.c
+int bochs_display_setup(void);
+
 // clext.c
 struct vgamode_s *clext_find_mode(int mode);
 void clext_list_modes(u16 seg, u16 *dest, u16 *last);
