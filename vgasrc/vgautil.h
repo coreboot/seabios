@@ -24,6 +24,9 @@ int cbvga_setup(void);
 // bochsdisplay.c
 int bochs_display_setup(void);
 
+// ramfb.c
+int ramfb_setup(void);
+
 // clext.c
 struct vgamode_s *clext_find_mode(int mode);
 void clext_list_modes(u16 seg, u16 *dest, u16 *last);
