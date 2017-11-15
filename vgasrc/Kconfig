@@ -70,6 +70,13 @@ menu "VGA ROM"
                 v3.0+. The vgabios works with the qemu stdvga too (use
                 "qemu -device VGA,romfile=/path/to/vgabios.bin")".
 
+        config VGA_RAMFB
+            depends on QEMU
+            bool "qemu ramfb"
+            select VGA_EMULATE_TEXT
+            help
+                qemu ram framebuffer support (-device ramfb).
+
     endchoice
 
     choice
