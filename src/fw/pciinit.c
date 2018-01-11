@@ -540,8 +540,6 @@ static u8 pci_find_resource_reserve_capability(u16 bdf)
                 dprintf(1, "PCI: QEMU resource reserve cap length %d is invalid\n",
                         cap_len);
             }
-        } else {
-            dprintf(1, "PCI: invalid QEMU resource reserve cap offset\n");
         }
         return cap;
     } else {
@@ -619,13 +617,11 @@ pci_bios_init_bus_rec(int bus, u8 *pci_bus)
                                 res_bus);
                         res_bus = 0;
                     }
-                }
-                if (secbus + res_bus > *pci_bus) {
-                    dprintf(1, "PCI: QEMU resource reserve cap: bus = %u\n",
-                            res_bus);
-                    res_bus = secbus + res_bus;
-                } else {
-                    res_bus = *pci_bus;
+                    if (secbus + res_bus > *pci_bus) {
+                        dprintf(1, "PCI: QEMU resource reserve cap: bus = %u\n",
+                                res_bus);
+                        res_bus = secbus + res_bus;
+                    }
                 }
             }
             dprintf(1, "PCI: subordinate bus = 0x%x -> 0x%x\n",
