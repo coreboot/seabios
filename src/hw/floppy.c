@@ -35,6 +35,15 @@
 #define FLOPPY_FORMAT_GAPLEN 0x6c
 #define FLOPPY_PIO_TIMEOUT 1000
 
+#define FLOPPY_DOR_MOTOR_D     0x80 // Set to turn drive 3's motor ON
+#define FLOPPY_DOR_MOTOR_C     0x40 // Set to turn drive 2's motor ON
+#define FLOPPY_DOR_MOTOR_B     0x20 // Set to turn drive 1's motor ON
+#define FLOPPY_DOR_MOTOR_A     0x10 // Set to turn drive 0's motor ON
+#define FLOPPY_DOR_MOTOR_MASK  0xf0
+#define FLOPPY_DOR_IRQ         0x08 // Set to enable IRQs and DMA
+#define FLOPPY_DOR_RESET       0x04 // Clear = enter reset mode, Set = normal operation
+#define FLOPPY_DOR_DSEL_MASK   0x03 // "Select" drive number for next access
+
 // New diskette parameter table adding 3 parameters from IBM
 // Since no provisions are made for multiple drive types, most
 // values in this table are ignored.  I set parameters for 1.44M
@@ -316,7 +325,7 @@ floppy_enable_controller(void)
     dprintf(2, "Floppy_enable_controller\n");
     SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
     floppy_dor_write(0x00);
-    floppy_dor_write(0x0c);
+    floppy_dor_write(FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET);
     int ret = floppy_wait_irq();
     if (ret)
         return ret;
@@ -330,7 +339,7 @@ static int
 floppy_drive_pio(u8 floppyid, int command, u8 *param)
 {
     // Enable controller if it isn't running.
-    if (!(floppy_dor_read() & 0x04)) {
+    if (!(floppy_dor_read() & FLOPPY_DOR_RESET)) {
         int ret = floppy_enable_controller();
         if (ret)
             return ret;
@@ -340,7 +349,7 @@ floppy_drive_pio(u8 floppyid, int command, u8 *param)
     SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
 
     // Turn on motor of selected drive, DMA & int enabled, normal operation
-    floppy_dor_write((floppyid ? 0x20 : 0x10) | 0x0c | floppyid);
+    floppy_dor_write((floppyid ? FLOPPY_DOR_MOTOR_B : FLOPPY_DOR_MOTOR_A) | FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET | floppyid);
 
     // Send command.
     int ret = floppy_pio(command, param);
@@ -680,6 +689,6 @@ floppy_tick(void)
         SET_BDA(floppy_motor_counter, fcount);
         if (fcount == 0)
             // turn motor(s) off
-            floppy_dor_mask(0xf0, 0);
+            floppy_dor_mask(FLOPPY_DOR_MOTOR_MASK, 0);
     }
 }
