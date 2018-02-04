@@ -193,6 +193,12 @@ floppy_dor_write(u8 val)
     SET_LOW(FloppyDOR, val);
 }
 
+static inline void
+floppy_dor_mask(u8 off, u8 on)
+{
+    floppy_dor_write((floppy_dor_read() & ~off) | on);
+}
+
 static void
 floppy_disable_controller(void)
 {
@@ -674,6 +680,6 @@ floppy_tick(void)
         SET_BDA(floppy_motor_counter, fcount);
         if (fcount == 0)
             // turn motor(s) off
-            floppy_dor_write(floppy_dor_read() & ~0xf0);
+            floppy_dor_mask(0xf0, 0);
     }
 }
