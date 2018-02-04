@@ -34,6 +34,7 @@
 #define FLOPPY_GAPLEN 0x1B
 #define FLOPPY_FORMAT_GAPLEN 0x6c
 #define FLOPPY_PIO_TIMEOUT 1000
+#define FLOPPY_IRQ_TIMEOUT 5000
 
 #define FLOPPY_DOR_MOTOR_D     0x80 // Set to turn drive 3's motor ON
 #define FLOPPY_DOR_MOTOR_C     0x40 // Set to turn drive 2's motor ON
@@ -221,8 +222,9 @@ floppy_wait_irq(void)
 {
     u8 frs = GET_BDA(floppy_recalibration_status);
     SET_BDA(floppy_recalibration_status, frs & ~FRS_IRQ);
+    u32 end = timer_calc(FLOPPY_IRQ_TIMEOUT);
     for (;;) {
-        if (!GET_BDA(floppy_motor_counter)) {
+        if (timer_check(end)) {
             warn_timeout();
             floppy_disable_controller();
             return DISK_RET_ETIMEOUT;
@@ -324,7 +326,6 @@ static int
 floppy_enable_controller(void)
 {
     dprintf(2, "Floppy_enable_controller\n");
-    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
     // Clear the reset bit (enter reset state), but set 'enable IRQ and DMA'
     floppy_dor_mask(FLOPPY_DOR_RESET, FLOPPY_DOR_IRQ);
     // Set the reset bit (normal operation) and keep 'enable IRQ and DMA' on
@@ -348,8 +349,8 @@ floppy_drive_pio(u8 floppyid, int command, u8 *param)
             return ret;
     }
 
-    // reset the disk motor timeout value of INT 08
-    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
+    // set the disk motor timeout value of INT 08 to the highest value
+    SET_BDA(floppy_motor_counter, 255);
 
     // Turn on motor of selected drive, DMA & int enabled, normal operation
     floppy_dor_write((floppyid ? FLOPPY_DOR_MOTOR_B : FLOPPY_DOR_MOTOR_A) | FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET | floppyid);
