@@ -180,6 +180,12 @@ find_floppy_type(u32 size)
 
 u8 FloppyDOR VARLOW;
 
+static inline u8
+floppy_dor_read(void)
+{
+    return GET_LOW(FloppyDOR);
+}
+
 static inline void
 floppy_dor_write(u8 val)
 {
@@ -318,7 +324,7 @@ static int
 floppy_drive_pio(u8 floppyid, int command, u8 *param)
 {
     // Enable controller if it isn't running.
-    if (!(GET_LOW(FloppyDOR) & 0x04)) {
+    if (!(floppy_dor_read() & 0x04)) {
         int ret = floppy_enable_controller();
         if (ret)
             return ret;
@@ -668,6 +674,6 @@ floppy_tick(void)
         SET_BDA(floppy_motor_counter, fcount);
         if (fcount == 0)
             // turn motor(s) off
-            floppy_dor_write(GET_LOW(FloppyDOR) & ~0xf0);
+            floppy_dor_write(floppy_dor_read() & ~0xf0);
     }
 }
