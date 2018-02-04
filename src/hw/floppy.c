@@ -212,7 +212,8 @@ static void
 floppy_disable_controller(void)
 {
     dprintf(2, "Floppy_disable_controller\n");
-    floppy_dor_write(0x00);
+    // Clear the reset bit (enter reset state) and clear 'enable IRQ and DMA'
+    floppy_dor_mask(FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET, 0);
 }
 
 static int
@@ -324,8 +325,10 @@ floppy_enable_controller(void)
 {
     dprintf(2, "Floppy_enable_controller\n");
     SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS);
-    floppy_dor_write(0x00);
-    floppy_dor_write(FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET);
+    // Clear the reset bit (enter reset state), but set 'enable IRQ and DMA'
+    floppy_dor_mask(FLOPPY_DOR_RESET, FLOPPY_DOR_IRQ);
+    // Set the reset bit (normal operation) and keep 'enable IRQ and DMA' on
+    floppy_dor_mask(0, FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET);
     int ret = floppy_wait_irq();
     if (ret)
         return ret;
