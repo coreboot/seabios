@@ -356,6 +356,7 @@ floppy_drive_pio(u8 floppyid, int command, u8 *param)
 
     // Send command.
     int ret = floppy_pio(command, param);
+    SET_BDA(floppy_motor_counter, FLOPPY_MOTOR_TICKS); // reset motor timeout
     if (ret)
         return ret;
 
