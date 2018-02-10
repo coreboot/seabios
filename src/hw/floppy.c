@@ -37,6 +37,7 @@
 #define FLOPPY_IRQ_TIMEOUT 5000
 #define FLOPPY_SPECIFY1 0xAF  // step rate 12ms, head unload 240ms
 #define FLOPPY_SPECIFY2 0x02  // head load time 4ms, DMA used
+#define FLOPPY_STARTUP_TIME 8 // 1 second
 
 #define FLOPPY_DOR_MOTOR_D     0x80 // Set to turn drive 3's motor ON
 #define FLOPPY_DOR_MOTOR_C     0x40 // Set to turn drive 2's motor ON
@@ -63,7 +64,7 @@ struct floppy_ext_dbt_s diskette_param_table2 VARFSEG = {
         .gap_len        = FLOPPY_FORMAT_GAPLEN,
         .fill_byte      = FLOPPY_FILLBYTE,
         .settle_time    = 0x0F, // 15ms
-        .startup_time   = 0x08, // 1 second
+        .startup_time   = FLOPPY_STARTUP_TIME,
     },
     .max_track      = 79,   // maximum track
     .data_rate      = 0,    // data transfer rate
@@ -357,8 +358,16 @@ floppy_drive_pio(u8 floppyid, int command, u8 *param)
     // set the disk motor timeout value of INT 08 to the highest value
     SET_BDA(floppy_motor_counter, 255);
 
+    // Check if the motor is already running
+    u8 motor_mask = FLOPPY_DOR_MOTOR_A << floppyid;
+    int motor_already_running = floppy_dor_read() & motor_mask;
+
     // Turn on motor of selected drive, DMA & int enabled, normal operation
-    floppy_dor_write((FLOPPY_DOR_MOTOR_A << floppyid) | FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET | floppyid);
+    floppy_dor_write(motor_mask | FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET | floppyid);
+
+    // If the motor was just started, wait for it to get up to speed
+    if (!motor_already_running && !CONFIG_QEMU)
+        msleep(FLOPPY_STARTUP_TIME * 125);
 
     // Send command.
     int ret = floppy_pio(command, param);
