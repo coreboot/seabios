@@ -358,7 +358,7 @@ floppy_drive_pio(u8 floppyid, int command, u8 *param)
     SET_BDA(floppy_motor_counter, 255);
 
     // Turn on motor of selected drive, DMA & int enabled, normal operation
-    floppy_dor_write((floppyid ? FLOPPY_DOR_MOTOR_B : FLOPPY_DOR_MOTOR_A) | FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET | floppyid);
+    floppy_dor_write((FLOPPY_DOR_MOTOR_A << floppyid) | FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET | floppyid);
 
     // Send command.
     int ret = floppy_pio(command, param);
