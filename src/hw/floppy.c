@@ -340,8 +340,21 @@ floppy_enable_controller(void)
     if (ret)
         return ret;
 
+    // After the interrupt is received, send 4 SENSE INTERRUPT commands to
+    // clear the interrupt status for each of the four logical drives,
+    // supported by the controller.
+    // See section 7.4 - "Drive Polling" of the Intel 82077AA datasheet for
+    // a more detailed description of why this voodoo needs to be done.
+    // Without this, initialization fails on real controllers (but still works
+    // in QEMU)
     u8 param[2];
-    return floppy_pio(FC_CHECKIRQ, param);
+    int i;
+    for (i=0; i<4; i++) {
+        ret = floppy_pio(FC_CHECKIRQ, param);
+        if (ret)
+            return ret;
+    }
+    return DISK_RET_SUCCESS;
 }
 
 // Activate a drive and send a command to it.
