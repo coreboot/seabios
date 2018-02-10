@@ -328,6 +328,8 @@ floppy_enable_controller(void)
     dprintf(2, "Floppy_enable_controller\n");
     // Clear the reset bit (enter reset state), but set 'enable IRQ and DMA'
     floppy_dor_mask(FLOPPY_DOR_RESET, FLOPPY_DOR_IRQ);
+    // Real hardware needs a 4 microsecond delay
+    usleep(4);
     // Set the reset bit (normal operation) and keep 'enable IRQ and DMA' on
     floppy_dor_mask(0, FLOPPY_DOR_IRQ | FLOPPY_DOR_RESET);
     int ret = floppy_wait_irq();
