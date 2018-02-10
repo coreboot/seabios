@@ -35,6 +35,8 @@
 #define FLOPPY_FORMAT_GAPLEN 0x6c
 #define FLOPPY_PIO_TIMEOUT 1000
 #define FLOPPY_IRQ_TIMEOUT 5000
+#define FLOPPY_SPECIFY1 0xAF  // step rate 12ms, head unload 240ms
+#define FLOPPY_SPECIFY2 0x02  // head load time 4ms, DMA used
 
 #define FLOPPY_DOR_MOTOR_D     0x80 // Set to turn drive 3's motor ON
 #define FLOPPY_DOR_MOTOR_C     0x40 // Set to turn drive 2's motor ON
@@ -51,8 +53,8 @@
 // floppy here
 struct floppy_ext_dbt_s diskette_param_table2 VARFSEG = {
     .dbt = {
-        .specify1       = 0xAF, // step rate 12ms, head unload 240ms
-        .specify2       = 0x02, // head load time 4ms, DMA used
+        .specify1       = FLOPPY_SPECIFY1,
+        .specify2       = FLOPPY_SPECIFY2,
         .shutoff_ticks  = FLOPPY_MOTOR_TICKS, // ~2 seconds
         .bps_code       = FLOPPY_SIZE_CODE,
         .sectors        = 18,
@@ -250,6 +252,7 @@ floppy_wait_irq(void)
 #define FC_READ        (0xe6 | (8<<8) | (7<<12) | FCF_WAITIRQ)
 #define FC_WRITE       (0xc5 | (8<<8) | (7<<12) | FCF_WAITIRQ)
 #define FC_FORMAT      (0x4d | (5<<8) | (7<<12) | FCF_WAITIRQ)
+#define FC_SPECIFY     (0x03 | (2<<8) | (0<<12))
 
 // Send the specified command and it's parameters to the floppy controller.
 static int
@@ -392,6 +395,15 @@ floppy_drive_recal(u8 floppyid)
 }
 
 static int
+floppy_drive_specify(void)
+{
+    u8 param[2];
+    param[0] = FLOPPY_SPECIFY1;
+    param[1] = FLOPPY_SPECIFY2;
+    return floppy_pio(FC_SPECIFY, param);
+}
+
+static int
 floppy_drive_readid(u8 floppyid, u8 data_rate, u8 head)
 {
     // Set data rate.
@@ -466,6 +478,12 @@ floppy_prep(struct drive_s *drive_gf, u8 cylinder)
 
         // Sense media.
         ret = floppy_media_sense(drive_gf);
+        if (ret)
+            return ret;
+
+        // Execute a SPECIFY command (sets the Step Rate Time,
+        // Head Load Time, Head Unload Time and the DMA enable/disable bit).
+        ret = floppy_drive_specify();
         if (ret)
             return ret;
     }
