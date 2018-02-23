@@ -176,18 +176,23 @@ qemu_reboot(void)
     void *cstart = VSYMBOL(code32flat_start), *cend = VSYMBOL(code32flat_end);
     void *hrp = &HaveRunPost;
     if (readl(hrp + BIOS_SRC_OFFSET)) {
-        // Some old versions of KVM don't store a pristine copy of the
-        // BIOS in high memory.  Try to shutdown the machine instead.
-        dprintf(1, "Unable to hard-reboot machine - attempting shutdown.\n");
-        apm_shutdown();
+        // There isn't a pristine copy of the BIOS at 0xffff0000 to copy
+        if (HaveRunPost == 3) {
+            // In a reboot loop.  Try to shutdown the machine instead.
+            dprintf(1, "Unable to hard-reboot machine - attempting shutdown.\n");
+            apm_shutdown();
+        }
+        make_bios_writable();
+        HaveRunPost = 3;
+    } else {
+        // Copy the BIOS making sure to only reset HaveRunPost at end
+        make_bios_writable();
+        memcpy(cstart, cstart + BIOS_SRC_OFFSET, hrp - cstart);
+        memcpy(hrp + 4, hrp + 4 + BIOS_SRC_OFFSET, cend - (hrp + 4));
+        barrier();
+        HaveRunPost = 0;
+        barrier();
     }
-    // Copy the BIOS making sure to only reset HaveRunPost at end
-    make_bios_writable();
-    memcpy(cstart, cstart + BIOS_SRC_OFFSET, hrp - cstart);
-    memcpy(hrp + 4, hrp + 4 + BIOS_SRC_OFFSET, cend - (hrp + 4));
-    barrier();
-    HaveRunPost = 0;
-    barrier();
 
     // Request a QEMU system reset.  Do the reset in this function as
     // the BIOS code was overwritten above and not all BIOS
