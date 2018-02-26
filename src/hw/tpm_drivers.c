@@ -36,7 +36,8 @@ struct tpm_driver {
 extern struct tpm_driver tpm_drivers[];
 
 #define TIS_DRIVER_IDX       0
-#define TPM_NUM_DRIVERS      1
+#define CRB_DRIVER_IDX       1
+#define TPM_NUM_DRIVERS      2
 
 #define TPM_INVALID_DRIVER   0xf
 
@@ -56,6 +57,11 @@ static const u32 tpm_default_durations[3] = {
 /* determined values */
 static u32 tpm_default_dur[3];
 static u32 tpm_default_to[4];
+
+static u32 crb_cmd_size;
+static void *crb_cmd;
+static u32 crb_resp_size;
+static void *crb_resp;
 
 /* if device is not there, return '0', '1' otherwise */
 static u32 tis_probe(void)
@@ -338,6 +344,179 @@ static u32 tis_waitrespready(enum tpmDurationType to_t)
     return rc;
 }
 
+/* if device is not there, return '0', '1' otherwise */
+static u32 crb_probe(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    u32 ifaceid = readl(CRB_REG(0, CRB_REG_INTF_ID));
+
+    if ((ifaceid & 0xf) != 0xf) {
+        if ((ifaceid & 0xf) == 1) {
+            /* CRB is active */
+            return 1;
+        }
+        if ((ifaceid & (1 << 14)) == 0) {
+            /* CRB cannot be selected */
+            return 0;
+        }
+        /* write of 1 to bits 17-18 selects CRB */
+        writel(CRB_REG(0, CRB_REG_INTF_ID), (1 << 17));
+        /* lock it */
+        writel(CRB_REG(0, CRB_REG_INTF_ID), (1 << 19));
+    }
+
+    /* no support for 64 bit addressing yet */
+    if (readl(CRB_REG(0, CRB_REG_CTRL_CMD_HADDR)))
+        return 1;
+
+    u64 addr = readq(CRB_REG(0, CRB_REG_CTRL_RSP_ADDR));
+    if (addr > 0xffffffff)
+        return 1;
+
+    return 0;
+}
+
+static TPMVersion crb_get_tpm_version(void)
+{
+    /* CRB is supposed to be TPM 2.0 only */
+    return TPM_VERSION_2;
+}
+
+static u32 crb_init(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 1;
+
+    crb_cmd = (void*)readl(CRB_REG(0, CRB_REG_CTRL_CMD_LADDR));
+    crb_cmd_size = readl(CRB_REG(0, CRB_REG_CTRL_CMD_SIZE));
+    crb_resp = (void*)readl(CRB_REG(0, CRB_REG_CTRL_RSP_ADDR));
+    crb_resp_size = readl(CRB_REG(0, CRB_REG_CTRL_RSP_SIZE));
+
+    init_timeout(CRB_DRIVER_IDX);
+
+    return 0;
+}
+
+static u32 crb_wait_reg(u8 locty, u8 reg, u32 time, u8 mask, u8 expect)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    u32 rc = 1;
+    u32 end = timer_calc_usec(time);
+
+    for (;;) {
+        u8 sts = readl(CRB_REG(locty, reg));
+        if ((sts & mask) == expect) {
+            rc = 0;
+            break;
+        }
+        if (timer_check(end)) {
+            warn_timeout();
+            break;
+        }
+        yield();
+    }
+    return rc;
+}
+
+static u32 crb_activate(u8 locty)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    return 0;
+}
+
+static u32 crb_find_active_locality(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    return 0;
+}
+
+#define CRB_CTRL_REQ_CMD_READY 0b1
+#define CRB_START_INVOKE 0b1
+#define CRB_CTRL_STS_ERROR 0b1
+
+static u32 crb_ready(void)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    u32 rc = 0;
+    u8 locty = crb_find_active_locality();
+    u32 timeout_c = tpm_drivers[CRB_DRIVER_IDX].timeouts[TIS_TIMEOUT_TYPE_C];
+
+    writel(CRB_REG(locty, CRB_REG_CTRL_REQ), CRB_CTRL_REQ_CMD_READY);
+    rc = crb_wait_reg(locty, CRB_REG_CTRL_REQ, timeout_c,
+                      CRB_CTRL_REQ_CMD_READY, 0);
+
+    return rc;
+}
+
+static u32 crb_senddata(const u8 *const data, u32 len)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    if (len > crb_cmd_size)
+        return 1;
+
+    u8 locty = crb_find_active_locality();
+    memcpy(crb_cmd, data, len);
+    writel(CRB_REG(locty, CRB_REG_CTRL_START), CRB_START_INVOKE);
+
+    return 0;
+}
+
+static u32 crb_readresp(u8 *buffer, u32 *len)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    u8 locty = crb_find_active_locality();
+    if (readl(CRB_REG(locty, CRB_REG_CTRL_STS)) & CRB_CTRL_STS_ERROR)
+        return 1;
+
+    if (*len < 6)
+        return 1;
+
+    memcpy(buffer, crb_resp, 6);
+    u32 expected = be32_to_cpu(*(u32 *) &buffer[2]);
+    if (expected < 6)
+        return 1;
+
+    *len = (*len < expected) ? *len : expected;
+
+    memcpy(buffer + 6, crb_resp + 6, *len - 6);
+
+    return 0;
+}
+
+
+static u32 crb_waitdatavalid(void)
+{
+    return 0;
+}
+
+static u32 crb_waitrespready(enum tpmDurationType to_t)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    u32 rc = 0;
+    u8 locty = crb_find_active_locality();
+    u32 timeout = tpm_drivers[CRB_DRIVER_IDX].durations[to_t];
+
+    rc = crb_wait_reg(locty, CRB_REG_CTRL_START, timeout,
+                      CRB_START_INVOKE, 0);
+
+    return rc;
+}
 
 struct tpm_driver tpm_drivers[TPM_NUM_DRIVERS] = {
     [TIS_DRIVER_IDX] =
@@ -354,6 +533,21 @@ struct tpm_driver tpm_drivers[TPM_NUM_DRIVERS] = {
             .readresp      = tis_readresp,
             .waitdatavalid = tis_waitdatavalid,
             .waitrespready = tis_waitrespready,
+        },
+    [CRB_DRIVER_IDX] =
+        {
+            .timeouts      = NULL,
+            .durations     = NULL,
+            .set_timeouts  = set_timeouts,
+            .probe         = crb_probe,
+            .get_tpm_version = crb_get_tpm_version,
+            .init          = crb_init,
+            .activate      = crb_activate,
+            .ready         = crb_ready,
+            .senddata      = crb_senddata,
+            .readresp      = crb_readresp,
+            .waitdatavalid = crb_waitdatavalid,
+            .waitrespready = crb_waitrespready,
         },
 };
 

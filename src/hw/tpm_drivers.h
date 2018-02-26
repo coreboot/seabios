@@ -24,6 +24,32 @@ int tpmhw_transmit(u8 locty, struct tpm_req_header *req,
                    enum tpmDurationType to_t);
 void tpmhw_set_timeouts(u32 timeouts[4], u32 durations[3]);
 
+/* CRB driver */
+/* address of locality 0 (CRB) */
+#define TPM_CRB_BASE_ADDRESS        0xfed40000
+
+#define CRB_REG(LOCTY, REG)                                 \
+    (void *)(TPM_CRB_BASE_ADDRESS + (LOCTY << 12) + REG)
+
+/* hardware registers */
+#define CRB_REG_LOC_STATE              0x0
+#define CRB_REG_LOC_CTRL               0x8
+#define CRB_REG_LOC_STS                0xC
+#define CRB_REG_INTF_ID                0x30
+#define CRB_REG_CTRL_EXT               0x38
+#define CRB_REG_CTRL_REQ               0x40
+#define CRB_REG_CTRL_STS               0x44
+#define CRB_REG_CTRL_CANCEL            0x48
+#define CRB_REG_CTRL_START             0x4C
+#define CRB_REG_INT_ENABLE             0x50
+#define CRB_REG_INT_STS                0x54
+#define CRB_REG_CTRL_CMD_SIZE          0x58
+#define CRB_REG_CTRL_CMD_LADDR         0x5C
+#define CRB_REG_CTRL_CMD_HADDR         0x60
+#define CRB_REG_CTRL_RSP_SIZE          0x64
+#define CRB_REG_CTRL_RSP_ADDR          0x68
+#define CRB_REG_DATA_BUFFER            0x80
+
 /* TIS driver */
 /* address of locality 0 (TIS) */
 #define TPM_TIS_BASE_ADDRESS        0xfed40000
