@@ -211,6 +211,11 @@ static inline void writeb(void *addr, u8 val) {
     barrier();
     *(volatile u8 *)addr = val;
 }
+static inline u64 readq(const void *addr) {
+    u64 val = *(volatile const u64 *)addr;
+    barrier();
+    return val;
+}
 static inline u32 readl(const void *addr) {
     u32 val = *(volatile const u32 *)addr;
     barrier();
