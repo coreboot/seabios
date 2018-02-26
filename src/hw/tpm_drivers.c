@@ -102,6 +102,23 @@ static TPMVersion tis_get_tpm_version(void)
     return TPM_VERSION_1_2;
 }
 
+static void init_timeout(int driver)
+{
+    if (tpm_drivers[driver].durations == NULL) {
+        u32 *durations = tpm_default_dur;
+        memcpy(durations, tpm_default_durations,
+               sizeof(tpm_default_durations));
+        tpm_drivers[driver].durations = durations;
+    }
+
+    if (tpm_drivers[driver].timeouts == NULL) {
+        u32 *timeouts = tpm_default_to;
+        memcpy(timeouts, tis_default_timeouts,
+               sizeof(tis_default_timeouts));
+        tpm_drivers[driver].timeouts = timeouts;
+    }
+}
+
 static u32 tis_init(void)
 {
     if (!CONFIG_TCGBIOS)
@@ -109,19 +126,7 @@ static u32 tis_init(void)
 
     writeb(TIS_REG(0, TIS_REG_INT_ENABLE), 0);
 
-    if (tpm_drivers[TIS_DRIVER_IDX].durations == NULL) {
-        u32 *durations = tpm_default_dur;
-        memcpy(durations, tpm_default_durations,
-               sizeof(tpm_default_durations));
-        tpm_drivers[TIS_DRIVER_IDX].durations = durations;
-    }
-
-    if (tpm_drivers[TIS_DRIVER_IDX].timeouts == NULL) {
-        u32 *timeouts = tpm_default_to;
-        memcpy(timeouts, tis_default_timeouts,
-               sizeof(tis_default_timeouts));
-        tpm_drivers[TIS_DRIVER_IDX].timeouts = timeouts;
-    }
+    init_timeout(TIS_DRIVER_IDX);
 
     return 1;
 }
