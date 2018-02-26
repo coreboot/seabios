@@ -346,6 +346,7 @@ struct tpm_driver tpm_drivers[TPM_NUM_DRIVERS] = {
             .durations     = NULL,
             .set_timeouts  = set_timeouts,
             .probe         = tis_probe,
+            .get_tpm_version = tis_get_tpm_version,
             .init          = tis_init,
             .activate      = tis_activate,
             .ready         = tis_ready,
@@ -367,7 +368,7 @@ tpmhw_probe(void)
         if (td->probe() != 0) {
             td->init();
             TPMHW_driver_to_use = i;
-            return tis_get_tpm_version();
+            return td->get_tpm_version();
         }
     }
     return TPM_VERSION_NONE;
