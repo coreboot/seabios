@@ -142,13 +142,23 @@ static u32 tis_probe(void)
 
 static TPMVersion tis_get_tpm_version(void)
 {
-    /* TPM 2 has an interface register */
-    u32 ifaceid = readl(TIS_REG(0, TIS_REG_IFACE_ID));
+    u32 reg = readl(TIS_REG(0, TIS_REG_IFACE_ID));
 
-    if ((ifaceid & 0xf) == 0) {
-        /* TPM 2 */
+    /*
+     * FIFO interface as defined in TIS1.3 is active
+     * Interface capabilities are defined in TIS_REG_INTF_CAPABILITY
+     */
+    if ((reg & 0xf) == 0xf) {
+        reg = readl(TIS_REG(0, TIS_REG_INTF_CAPABILITY));
+        /* Interface 1.3 for TPM 2.0 */
+        if (((reg >> 28) & 0x7) == 3)
+            return TPM_VERSION_2;
+    }
+    /* FIFO interface as defined in PTP for TPM 2.0 is active */
+    else if ((reg & 0xf) == 0) {
         return TPM_VERSION_2;
     }
+
     return TPM_VERSION_1_2;
 }
 
