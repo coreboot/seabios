@@ -86,6 +86,11 @@ static u32 wait_reg8(u8* reg, u32 time, u8 mask, u8 expect)
     return rc;
 }
 
+static u32 tis_wait_access(u8 locty, u32 time, u8 mask, u8 expect)
+{
+    return wait_reg8(TIS_REG(locty, TIS_REG_ACCESS), time, mask, expect);
+}
+
 static u32 tis_wait_sts(u8 locty, u32 time, u8 mask, u8 expect)
 {
     return wait_reg8(TIS_REG(locty, TIS_REG_STS), time, mask, expect);
@@ -102,7 +107,13 @@ static u32 tis_probe(void)
     if (!CONFIG_TCGBIOS)
         return 0;
 
-    u32 rc = 0;
+    /* Wait for the interface to report it's ready */
+    u32 rc = tis_wait_access(0, TIS_DEFAULT_TIMEOUT_A,
+                             TIS_ACCESS_TPM_REG_VALID_STS,
+                             TIS_ACCESS_TPM_REG_VALID_STS);
+    if (rc)
+        return 0;
+
     u32 didvid = readl(TIS_REG(0, TIS_REG_DID_VID));
 
     if ((didvid != 0) && (didvid != 0xffffffff))
