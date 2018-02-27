@@ -63,6 +63,39 @@ static void *crb_cmd;
 static u32 crb_resp_size;
 static void *crb_resp;
 
+static u32 wait_reg8(u8* reg, u32 time, u8 mask, u8 expect)
+{
+    if (!CONFIG_TCGBIOS)
+        return 0;
+
+    u32 rc = 1;
+    u32 end = timer_calc_usec(time);
+
+    for (;;) {
+        u8 value = readl(reg);
+        if ((value & mask) == expect) {
+            rc = 0;
+            break;
+        }
+        if (timer_check(end)) {
+            warn_timeout();
+            break;
+        }
+        yield();
+    }
+    return rc;
+}
+
+static u32 tis_wait_sts(u8 locty, u32 time, u8 mask, u8 expect)
+{
+    return wait_reg8(TIS_REG(locty, TIS_REG_STS), time, mask, expect);
+}
+
+static u32 crb_wait_reg(u8 locty, u16 reg, u32 time, u8 mask, u8 expect)
+{
+    return wait_reg8(CRB_REG(locty, reg), time, mask, expect);
+}
+
 /* if device is not there, return '0', '1' otherwise */
 static u32 tis_probe(void)
 {
@@ -150,30 +183,6 @@ static void set_timeouts(u32 timeouts[4], u32 durations[3])
         memcpy(tos, timeouts, 4 * sizeof(u32));
     if (dus && dus != tpm_default_durations && durations)
         memcpy(dus, durations, 3 * sizeof(u32));
-}
-
-
-static u32 tis_wait_sts(u8 locty, u32 time, u8 mask, u8 expect)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    u32 rc = 1;
-    u32 end = timer_calc_usec(time);
-
-    for (;;) {
-        u8 sts = readb(TIS_REG(locty, TIS_REG_STS));
-        if ((sts & mask) == expect) {
-            rc = 0;
-            break;
-        }
-        if (timer_check(end)) {
-            warn_timeout();
-            break;
-        }
-        yield();
-    }
-    return rc;
 }
 
 static u32 tis_activate(u8 locty)
@@ -397,29 +406,6 @@ static u32 crb_init(void)
     init_timeout(CRB_DRIVER_IDX);
 
     return 0;
-}
-
-static u32 crb_wait_reg(u8 locty, u8 reg, u32 time, u8 mask, u8 expect)
-{
-    if (!CONFIG_TCGBIOS)
-        return 0;
-
-    u32 rc = 1;
-    u32 end = timer_calc_usec(time);
-
-    for (;;) {
-        u8 sts = readl(CRB_REG(locty, reg));
-        if ((sts & mask) == expect) {
-            rc = 0;
-            break;
-        }
-        if (timer_check(end)) {
-            warn_timeout();
-            break;
-        }
-        yield();
-    }
-    return rc;
 }
 
 static u32 crb_activate(u8 locty)
