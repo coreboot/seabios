@@ -968,6 +968,13 @@ tpm_setup(void)
     if (!CONFIG_TCGBIOS)
         return;
 
+    int ret = tpm_tpm2_probe();
+    if (ret) {
+        ret = tpm_tcpa_probe();
+        if (ret)
+            return;
+    }
+
     TPM_version = tpmhw_probe();
     if (TPM_version == TPM_VERSION_NONE)
         return;
@@ -975,13 +982,6 @@ tpm_setup(void)
     dprintf(DEBUG_tcg,
             "TCGBIOS: Detected a TPM %s.\n",
              (TPM_version == TPM_VERSION_1_2) ? "1.2" : "2");
-
-    int ret = tpm_tpm2_probe();
-    if (ret) {
-        ret = tpm_tcpa_probe();
-        if (ret)
-            return;
-    }
 
     TPM_working = 1;
 
