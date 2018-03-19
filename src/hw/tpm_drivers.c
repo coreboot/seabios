@@ -395,9 +395,7 @@ static u32 crb_probe(void)
     if ((ifaceid & 0xf) != 0xf) {
         if ((ifaceid & 0xf) == 1) {
             /* CRB is active */
-            return 1;
-        }
-        if ((ifaceid & (1 << 14)) == 0) {
+        } else if ((ifaceid & (1 << 14)) == 0) {
             /* CRB cannot be selected */
             return 0;
         }
