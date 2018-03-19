@@ -409,13 +409,13 @@ static u32 crb_probe(void)
 
     /* no support for 64 bit addressing yet */
     if (readl(CRB_REG(0, CRB_REG_CTRL_CMD_HADDR)))
-        return 1;
+        return 0;
 
     u64 addr = readq(CRB_REG(0, CRB_REG_CTRL_RSP_ADDR));
     if (addr > 0xffffffff)
-        return 1;
+        return 0;
 
-    return 0;
+    return 1;
 }
 
 static TPMVersion crb_get_tpm_version(void)
