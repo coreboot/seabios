@@ -442,6 +442,8 @@ static u32 crb_activate(u8 locty)
     if (!CONFIG_TCGBIOS)
         return 0;
 
+    writeb(CRB_REG(locty, CRB_REG_LOC_CTRL), 1);
+
     return 0;
 }
 
