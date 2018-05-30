@@ -192,8 +192,16 @@ int
 cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
 {
     u8 emul = vmode_g == &CBemulinfo || GET_GLOBAL(CBmode) == 0x03;
+    /*
+     * The extra_stack flag is false when running in windows x86
+     * emulator, to avoid stack switching triggering bugs.  Using the
+     * same flag here to skip screen clearing, because the windows
+     * emulator seems to have problems to handle the int 1587 call
+     * too, and GO_MEMSET uses that.
+     */
+    u8 extra_stack = GET_BDA_EXT(flags) & BF_EXTRA_STACK;
     MASK_BDA_EXT(flags, BF_EMULATE_TEXT, emul ? BF_EMULATE_TEXT : 0);
-    if (!(flags & MF_NOCLEARMEM)) {
+    if (!(flags & MF_NOCLEARMEM) && extra_stack) {
         if (GET_GLOBAL(CBmodeinfo.memmodel) == MM_TEXT) {
             memset16_far(SEG_CTEXT, (void*)0, 0x0720, 80*25*2);
             return 0;
