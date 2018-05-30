@@ -350,7 +350,9 @@ optionrom_setup(void)
     // Find and deploy PCI roms.
     struct pci_device *pci;
     foreachpci(pci) {
-        if (pci->class == PCI_CLASS_DISPLAY_VGA || pci->have_driver)
+        if (pci->class == PCI_CLASS_DISPLAY_VGA ||
+            pci->class == PCI_CLASS_DISPLAY_OTHER ||
+            pci->have_driver)
             continue;
         init_pcirom(pci, 0, sources);
     }
@@ -400,10 +402,32 @@ optionrom_setup(void)
 int ScreenAndDebug;
 struct rom_header *VgaROM;
 
+static void try_setup_display_other(void)
+{
+    struct pci_device *pci;
+
+    dprintf(1, "No VGA found, scan for other display\n");
+
+    foreachpci(pci) {
+        if (pci->class != PCI_CLASS_DISPLAY_OTHER)
+            continue;
+        struct rom_header *rom = map_pcirom(pci);
+        if (!rom)
+            continue;
+        dprintf(1, "Other display found at %pP\n", pci);
+        pci_config_maskw(pci->bdf, PCI_COMMAND, 0,
+                         PCI_COMMAND_IO | PCI_COMMAND_MEMORY);
+        init_optionrom(rom, pci->bdf, 1);
+        return;
+    }
+}
+
 // Call into vga code to turn on console.
 void
 vgarom_setup(void)
 {
+    int have_vga = 0;
+
     if (! CONFIG_OPTIONROMS)
         return;
 
@@ -425,8 +449,11 @@ vgarom_setup(void)
             continue;
         vgahook_setup(pci);
         init_pcirom(pci, 1, NULL);
+        have_vga = 1;
         break;
     }
+    if (!have_vga)
+        try_setup_display_other();
 
     // Find and deploy CBFS vga-style roms not associated with a device.
     run_file_roms("vgaroms/", 1, NULL);
