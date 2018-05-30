@@ -260,6 +260,11 @@ cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength)
             dprintf(3, "Removing mode %x\n", GET_GLOBAL(cbmode_g->mode));
             SET_VGA(cbmode_g->mode, 0xffff);
         }
+        if ((GET_GLOBAL(cbmode_g->info.height) == ylines)
+            && (GET_GLOBAL(cbmode_g->info.width) == xlines)
+            && (GET_GLOBAL(cbmode_g->info.depth) == bpp)) {
+            SET_VGA(CBmode, GET_GLOBAL(cbmode_g->mode));
+        }
     }
 }
 
