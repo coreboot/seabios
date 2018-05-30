@@ -104,6 +104,8 @@ struct vgamode_s *cbvga_find_mode(int mode)
 void
 cbvga_list_modes(u16 seg, u16 *dest, u16 *last)
 {
+    int seen = 0;
+
     if (GET_GLOBAL(CBmode) != 0x3) {
         /* Advertise additional SVGA modes for Microsoft NTLDR graphical mode.
          * Microsoft NTLDR:
@@ -119,9 +121,11 @@ cbvga_list_modes(u16 seg, u16 *dest, u16 *last)
                 continue;
             SET_FARVAR(seg, *dest, mode);
             dest++;
+            if (GET_GLOBAL(CBmode) == mode)
+                seen = 1;
         }
     }
-    if (dest < last) {
+    if (dest < last && !seen) {
         SET_FARVAR(seg, *dest, GET_GLOBAL(CBmode));
         dest++;
     }
