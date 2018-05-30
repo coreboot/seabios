@@ -232,10 +232,40 @@ struct cb_framebuffer {
     u8 reserved_mask_size;
 };
 
+void
+cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength)
+{
+    int i;
+
+    SET_VGA(CBmode, 0x140);
+    SET_VGA(VBE_framebuffer, addr);
+    SET_VGA(VBE_total_memory, linelength * ylines);
+    SET_VGA(CBlinelength, linelength);
+    SET_VGA(CBmodeinfo.memmodel, MM_DIRECT);
+    SET_VGA(CBmodeinfo.width, xlines);
+    SET_VGA(CBmodeinfo.height, ylines);
+    SET_VGA(CBmodeinfo.depth, bpp);
+    SET_VGA(CBmodeinfo.cwidth, 8);
+    SET_VGA(CBmodeinfo.cheight, 16);
+    memcpy_far(get_global_seg(), &CBemulinfo
+               , get_global_seg(), &CBmodeinfo, sizeof(CBemulinfo));
+
+    // Validate modes
+    for (i = 0; i < ARRAY_SIZE(cbvesa_modes); i++) {
+        struct cbvga_mode_s *cbmode_g = &cbvesa_modes[i];
+        /* Skip VBE modes that doesn't fit into coreboot's framebuffer */
+        if ((GET_GLOBAL(cbmode_g->info.height) > ylines)
+            || (GET_GLOBAL(cbmode_g->info.width) > xlines)
+            || (GET_GLOBAL(cbmode_g->info.depth) != bpp)) {
+            dprintf(3, "Removing mode %x\n", GET_GLOBAL(cbmode_g->mode));
+            SET_VGA(cbmode_g->mode, 0xffff);
+        }
+    }
+}
+
 int
 cbvga_setup(void)
 {
-    int i;
     dprintf(1, "coreboot vga init\n");
 
     if (GET_GLOBAL(HaveRunInit))
@@ -277,29 +307,6 @@ cbvga_setup(void)
         return -1;
     }
 
-    SET_VGA(CBmode, 0x140);
-    SET_VGA(VBE_framebuffer, addr);
-    SET_VGA(VBE_total_memory, linelength * ylines);
-    SET_VGA(CBlinelength, linelength);
-    SET_VGA(CBmodeinfo.memmodel, MM_DIRECT);
-    SET_VGA(CBmodeinfo.width, xlines);
-    SET_VGA(CBmodeinfo.height, ylines);
-    SET_VGA(CBmodeinfo.depth, bpp);
-    SET_VGA(CBmodeinfo.cwidth, 8);
-    SET_VGA(CBmodeinfo.cheight, 16);
-    memcpy_far(get_global_seg(), &CBemulinfo
-               , get_global_seg(), &CBmodeinfo, sizeof(CBemulinfo));
-
-    // Validate modes
-    for (i = 0; i < ARRAY_SIZE(cbvesa_modes); i++) {
-        struct cbvga_mode_s *cbmode_g = &cbvesa_modes[i];
-        /* Skip VBE modes that doesn't fit into coreboot's framebuffer */
-        if ((GET_GLOBAL(cbmode_g->info.height) > ylines)
-            || (GET_GLOBAL(cbmode_g->info.width) > xlines)
-            || (GET_GLOBAL(cbmode_g->info.depth) != bpp)) {
-            dprintf(3, "Removing mode %x\n", GET_GLOBAL(cbmode_g->mode));
-            SET_VGA(cbmode_g->mode, 0xffff);
-        }
-    }
+    cbvga_setup_modes(addr, bpp, xlines, ylines, linelength);
     return 0;
 }
