@@ -10,7 +10,7 @@ control system. To download the latest source from revision control,
 run:
 
 ```
-$ git clone git://git.seabios.org/seabios.git seabios
+$ git clone https://git.seabios.org/seabios.git
 $ cd seabios
 ```
 
