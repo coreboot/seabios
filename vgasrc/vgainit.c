@@ -42,13 +42,9 @@ struct pci_data rom_pci_data VAR16 VISIBLE16 = {
  * PMM call and extra stack setup
  ****************************************************************/
 
-u16 ExtraStackSeg VAR16 VISIBLE16;
-
-static void
-allocate_extra_stack(void)
+u32
+allocate_pmm(u32 size, int highmem, int aligned)
 {
-    if (!CONFIG_VGA_ALLOCATE_EXTRA_STACK)
-        return;
     u32 pmmscan;
     for (pmmscan=0; pmmscan < BUILD_BIOS_SIZE; pmmscan+=16) {
         struct pmmheader *pmm = (void*)pmmscan;
@@ -57,29 +53,49 @@ allocate_extra_stack(void)
         if (checksum_far(SEG_BIOS, pmm, GET_FARVAR(SEG_BIOS, pmm->length)))
             continue;
         struct segoff_s entry = GET_FARVAR(SEG_BIOS, pmm->entry);
-        dprintf(1, "Attempting to allocate VGA stack via pmm call to %04x:%04x\n"
+        dprintf(1, "Attempting to allocate %u bytes %s via pmm call to %04x:%04x\n"
+                , size, highmem ? "highmem" : "lowmem"
                 , entry.seg, entry.offset);
         u16 res1, res2;
+        u16 flags = 8 |
+            ( highmem ? 2 : 1 )|
+            ( aligned ? 4 : 0 );
+        size >>= 4;
         asm volatile(
             "pushl %0\n"
-            "pushw $(8|1)\n"            // Permanent low memory request
+            "pushw %2\n"                // flags
             "pushl $0xffffffff\n"       // Anonymous handle
-            "pushl $" __stringify(CONFIG_VGA_EXTRA_STACK_SIZE/16) "\n"
+            "pushl %1\n"                // size
             "pushw $0x00\n"             // PMM allocation request
             "lcallw *12(%%esp)\n"
             "addl $16, %%esp\n"
             "cli\n"
             "cld\n"
-            : "+r" (entry.segoff), "=a" (res1), "=d" (res2) : : "cc", "memory");
+            : "+r" (entry.segoff), "+r" (size), "+r" (flags),
+              "=a" (res1), "=d" (res2) : : "cc", "memory");
         u32 res = res1 | (res2 << 16);
         if (!res || res == PMM_FUNCTION_NOT_SUPPORTED)
-            return;
-        dprintf(1, "VGA stack allocated at %x\n", res);
-        SET_VGA(ExtraStackSeg, res >> 4);
-        extern void entry_10_extrastack(void);
-        SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10_extrastack));
-        return;
+            return 0;
+        return res;
     }
+    return 0;
+}
+
+u16 ExtraStackSeg VAR16 VISIBLE16;
+
+static void
+allocate_extra_stack(void)
+{
+    if (!CONFIG_VGA_ALLOCATE_EXTRA_STACK)
+        return;
+    u32 res = allocate_pmm(CONFIG_VGA_EXTRA_STACK_SIZE, 0, 0);
+    if (!res)
+        return;
+    dprintf(1, "VGA stack allocated at %x\n", res);
+    SET_VGA(ExtraStackSeg, res >> 4);
+    extern void entry_10_extrastack(void);
+    SET_IVT(0x10, SEGOFF(get_global_seg(), (u32)entry_10_extrastack));
+    return;
 }
 
 

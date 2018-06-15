@@ -92,6 +92,7 @@ extern u8 vgafont16alt[];
 // vgainit.c
 extern int VgaBDF;
 extern int HaveRunInit;
+u32 allocate_pmm(u32 size, int highmem, int aligned);
 
 // vgaversion.c
 extern const char VERSION[], BUILDINFO[];
