@@ -8,6 +8,7 @@
 #include "config.h" // CONFIG_*
 #include "malloc.h" // _malloc
 #include "output.h" // dprintf
+#include "e820map.h" // struct e820entry
 #include "std/pmm.h" // PMM_SIGNATURE
 #include "string.h" // checksum
 #include "util.h" // pmm_init
@@ -75,6 +76,18 @@ handle_pmm00(u16 *args)
         break;
     case 2:
         data = malloc_palloc(highzone, size, align);
+        if (!data && (flags & 8)) {
+            /*
+             * We are out of meory.  So go allocate from the (big)
+             * ZoneTmpHigh instead and reserve the block in the e820
+             * map so the OS will not override it.  That way we can
+             * handle big permanent allocations without needing a big
+             * ZoneHigh.
+             */
+            data = malloc_palloc(&ZoneTmpHigh, size, align);
+            if (data)
+                e820_add(data, size, E820_RESERVED);
+        }
         break;
     case 3: {
         data = malloc_palloc(lowzone, size, align);
