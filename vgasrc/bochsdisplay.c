@@ -38,7 +38,7 @@ bochs_display_setup(void)
     dprintf(1, "bochs-display: id is 0x%x, %s\n", id
             , id == VBE_DISPI_ID5 ? "good" : "FAIL");
     if (id != VBE_DISPI_ID5)
-        return 0;
+        return -1;
 
      dprintf(1, "bochs-display: using %dx%d, %d bpp (%d stride)\n"
             , FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT
