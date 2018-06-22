@@ -201,18 +201,20 @@ cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
      */
     u8 extra_stack = GET_BDA_EXT(flags) & BF_EXTRA_STACK;
     MASK_BDA_EXT(flags, BF_EMULATE_TEXT, emul ? BF_EMULATE_TEXT : 0);
-    if (!(flags & MF_NOCLEARMEM) && extra_stack) {
+    if (!(flags & MF_NOCLEARMEM)) {
         if (GET_GLOBAL(CBmodeinfo.memmodel) == MM_TEXT) {
             memset16_far(SEG_CTEXT, (void*)0, 0x0720, 80*25*2);
             return 0;
         }
-        struct gfx_op op;
-        init_gfx_op(&op, &CBmodeinfo);
-        op.x = op.y = 0;
-        op.xlen = GET_GLOBAL(CBmodeinfo.width);
-        op.ylen = GET_GLOBAL(CBmodeinfo.height);
-        op.op = GO_MEMSET;
-        handle_gfx_op(&op);
+        if (extra_stack || flags & MF_LEGACY) {
+            struct gfx_op op;
+            init_gfx_op(&op, &CBmodeinfo);
+            op.x = op.y = 0;
+            op.xlen = GET_GLOBAL(CBmodeinfo.width);
+            op.ylen = GET_GLOBAL(CBmodeinfo.height);
+            op.op = GO_MEMSET;
+            handle_gfx_op(&op);
+        }
     }
     return 0;
 }
