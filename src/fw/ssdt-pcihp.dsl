@@ -1,6 +1,6 @@
 ACPI_EXTRACT_ALL_CODE ssdp_pcihp_aml
 
-DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPCIHP", 0x1)
+DefinitionBlock ("ssdt-pcihp.aml", "SSDT", 0x01, "BXPC", "BXSSDTPC", 0x1)
 {
 
 /****************************************************************
