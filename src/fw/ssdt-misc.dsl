@@ -1,6 +1,6 @@
 ACPI_EXTRACT_ALL_CODE ssdp_misc_aml
 
-DefinitionBlock ("ssdt-misc.aml", "SSDT", 0x01, "BXPC", "BXSSDTSUSP", 0x1)
+DefinitionBlock ("ssdt-misc.aml", "SSDT", 0x01, "BXPC", "BXSSDTSU", 0x1)
 {
 
 /****************************************************************
