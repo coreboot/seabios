@@ -22,6 +22,6 @@ Released versions
 
 Released versions of the source code are available at:
 
-<https://code.coreboot.org/p/seabios/downloads/>
+<https://www.seabios.org/downloads/>
 
 Please see [releases](Releases) for information on each release.
