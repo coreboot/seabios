@@ -525,30 +525,38 @@ static void pci_bios_init_platform(void)
 
 static u8 pci_find_resource_reserve_capability(u16 bdf)
 {
-    if (pci_config_readw(bdf, PCI_VENDOR_ID) == PCI_VENDOR_ID_REDHAT &&
-        pci_config_readw(bdf, PCI_DEVICE_ID) ==
-                PCI_DEVICE_ID_REDHAT_ROOT_PORT) {
-        u8 cap = 0;
-        do {
-            cap = pci_find_capability(bdf, PCI_CAP_ID_VNDR, cap);
-        } while (cap &&
-                 pci_config_readb(bdf, cap + PCI_CAP_REDHAT_TYPE_OFFSET) !=
-                        REDHAT_CAP_RESOURCE_RESERVE);
-        if (cap) {
-            u8 cap_len = pci_config_readb(bdf, cap + PCI_CAP_FLAGS);
-            if (cap_len < RES_RESERVE_CAP_SIZE) {
-                dprintf(1, "PCI: QEMU resource reserve cap length %d is invalid\n",
-                        cap_len);
-                return 0;
-            }
-        } else {
-            dprintf(1, "PCI: QEMU resource reserve cap not found\n");
-        }
-        return cap;
-    } else {
-        dprintf(1, "PCI: QEMU resource reserve cap VID or DID doesn't match.\n");
+    u16 device_id;
+
+    if (pci_config_readw(bdf, PCI_VENDOR_ID) != PCI_VENDOR_ID_REDHAT) {
+        dprintf(3, "PCI: This is non-QEMU bridge.\n");
         return 0;
     }
+
+    device_id = pci_config_readw(bdf, PCI_DEVICE_ID);
+
+    if (device_id != PCI_DEVICE_ID_REDHAT_ROOT_PORT &&
+        device_id != PCI_DEVICE_ID_REDHAT_BRIDGE) {
+        dprintf(1, "PCI: QEMU resource reserve cap device ID doesn't match.\n");
+        return 0;
+    }
+    u8 cap = 0;
+
+    do {
+        cap = pci_find_capability(bdf, PCI_CAP_ID_VNDR, cap);
+    } while (cap &&
+             pci_config_readb(bdf, cap + PCI_CAP_REDHAT_TYPE_OFFSET) !=
+                              REDHAT_CAP_RESOURCE_RESERVE);
+    if (cap) {
+        u8 cap_len = pci_config_readb(bdf, cap + PCI_CAP_FLAGS);
+        if (cap_len < RES_RESERVE_CAP_SIZE) {
+            dprintf(1, "PCI: QEMU resource reserve cap length %d is invalid\n",
+                    cap_len);
+            return 0;
+        }
+    } else {
+        dprintf(1, "PCI: QEMU resource reserve cap not found\n");
+    }
+    return cap;
 }
 
 /****************************************************************
