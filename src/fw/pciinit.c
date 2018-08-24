@@ -541,10 +541,12 @@ static u8 pci_find_resource_reserve_capability(u16 bdf)
                         cap_len);
                 return 0;
             }
+        } else {
+            dprintf(1, "PCI: QEMU resource reserve cap not found\n");
         }
         return cap;
     } else {
-        dprintf(1, "PCI: QEMU resource reserve cap not found\n");
+        dprintf(1, "PCI: QEMU resource reserve cap VID or DID doesn't match.\n");
         return 0;
     }
 }
