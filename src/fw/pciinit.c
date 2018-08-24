@@ -539,6 +539,7 @@ static u8 pci_find_resource_reserve_capability(u16 bdf)
             if (cap_len < RES_RESERVE_CAP_SIZE) {
                 dprintf(1, "PCI: QEMU resource reserve cap length %d is invalid\n",
                         cap_len);
+                return 0;
             }
         }
         return cap;
