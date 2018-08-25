@@ -273,7 +273,7 @@ boot_init(void)
         DefaultFloppyPrio = DefaultCDPrio = DefaultHDPrio
             = DefaultBEVPrio = DEFAULT_PRIO;
         int i;
-        for (i=101; i<104; i++) {
+        for (i=101; i<=104; i++) {
             u32 val = bootorder & 0x0f;
             bootorder >>= 4;
             switch (val) {
