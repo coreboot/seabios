@@ -128,7 +128,7 @@ struct sdhci_s {
 
 // SDHCI timeouts
 #define SDHCI_POWER_OFF_TIME   1
-#define SDHCI_POWER_ON_TIME    1
+#define SDHCI_POWER_ON_TIME    5
 #define SDHCI_CLOCK_ON_TIME    1 // 74 clock cycles
 #define SDHCI_POWERUP_TIMEOUT  1000
 #define SDHCI_PIO_TIMEOUT      1000  // XXX - this is just made up
