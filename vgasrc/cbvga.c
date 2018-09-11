@@ -312,11 +312,17 @@ cbvga_setup(void)
     }
 
     u64 addr = GET_FARVAR(0, cbfb->physical_address);
-    u8 bpp = cbfb->blue_mask_size + cbfb->green_mask_size
-             + cbfb->red_mask_size + cbfb->reserved_mask_size;
+    u8 bpp = GET_FARVAR(0, cbfb->blue_mask_size)
+             + GET_FARVAR(0, cbfb->green_mask_size)
+             + GET_FARVAR(0, cbfb->red_mask_size)
+             + GET_FARVAR(0, cbfb->reserved_mask_size);
     u32 xlines = GET_FARVAR(0, cbfb->x_resolution);
     u32 ylines = GET_FARVAR(0, cbfb->y_resolution);
     u32 linelength = GET_FARVAR(0, cbfb->bytes_per_line);
+    //fall back to coreboot reported bpp if calculated value invalid
+    if (bpp != 15 && bpp != 16 && bpp != 24 && bpp != 32)
+        bpp = GET_FARVAR(0, cbfb->bits_per_pixel);
+
     dprintf(1, "Found FB @ %llx %dx%d with %d bpp (%d stride)\n"
             , addr, xlines, ylines, bpp, linelength);
 
