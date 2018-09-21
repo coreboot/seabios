@@ -274,3 +274,49 @@ cdrom_boot(struct drive_s *drive)
 
     return 0;
 }
+
+// check if media is present and the drive is bootable.
+// in case it is return the volume label.
+char*
+cdrom_media_info(struct drive_s *drive)
+{
+    ASSERT32FLAT();
+
+    struct disk_op_s dop;
+    memset(&dop, 0, sizeof(dop));
+    dop.drive_fl = drive;
+
+    int ret = scsi_is_ready(&dop);
+    if (ret)
+        return NULL;
+
+    // Read the Boot Record Volume Descriptor
+    u8 buffer[CDROM_SECTOR_SIZE];
+    dop.command = CMD_READ;
+    dop.lba = 0x11;
+    dop.count = 1;
+    dop.buf_fl = buffer;
+    ret = process_op(&dop);
+    if (ret)
+        return NULL;
+
+    // Is it bootable?
+    if (buffer[0])
+        return NULL;
+    if (strcmp((char*)&buffer[1], "CD001\001EL TORITO SPECIFICATION") != 0)
+        return NULL;
+
+    // Read the Primary Volume Descriptor
+    dop.command = CMD_READ;
+    dop.lba = 0x10;
+    dop.count = 1;
+    dop.buf_fl = buffer;
+    ret = process_op(&dop);
+    if (ret)
+        return NULL;
+
+    // Read volume id, trim trailing spaces
+    char *volume = znprintf(30, "%s", buffer + 40);
+    nullTrailingSpace(volume);
+    return volume;
+}

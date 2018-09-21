@@ -50,6 +50,7 @@ struct disk_op_s;
 int cdemu_process_op(struct disk_op_s *op);
 void cdrom_prepboot(void);
 int cdrom_boot(struct drive_s *drive_g);
+char *cdrom_media_info(struct drive_s *drive_g);
 
 // clock.c
 void clock_setup(void);

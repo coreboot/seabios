@@ -395,6 +395,16 @@ boot_add_hd(struct drive_s *drive, const char *desc, int prio)
 void
 boot_add_cd(struct drive_s *drive, const char *desc, int prio)
 {
+    if (GET_GLOBAL(PlatformRunningOn) & PF_QEMU) {
+        // We want short boot times.  But on physical hardware even
+        // the test unit ready can take several seconds.  So do media
+        // access on qemu only, where we know it will be fast.
+        char *extra = cdrom_media_info(drive);
+        if (extra) {
+            desc = znprintf(MAXDESCSIZE, "%s (%s)", desc, extra);
+            free(extra);
+        }
+    }
     bootentry_add(IPL_TYPE_CDROM, defPrio(prio, DefaultCDPrio)
                   , (u32)drive, desc);
 }
