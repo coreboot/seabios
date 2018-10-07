@@ -669,7 +669,7 @@ boot_cdrom(struct drive_s *drive)
 {
     if (! CONFIG_CDROM_BOOT)
         return;
-    printf("Booting from DVD/CD...\n");
+    printf("Booting from BD/DVD/CD...\n");
 
     int status = cdrom_boot(drive);
     if (status) {
