@@ -310,7 +310,7 @@ init_pvscsi(void *data)
     struct pvscsi_ring_dsc_s *ring_dsc = NULL;
     pvscsi_init_rings(iobase, &ring_dsc);
     int i;
-    for (i = 0; i < 7; i++)
+    for (i = 0; i < 64; i++)
         pvscsi_scan_target(pci, iobase, ring_dsc, i);
 }
 
