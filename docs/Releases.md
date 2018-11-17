@@ -1,6 +1,17 @@
 History of SeaBIOS releases. Please see [download](Download) for
 information on obtaining these releases.
 
+SeaBIOS 1.12.0
+==============
+
+Available on 20181117. Major changes in this release:
+
+* Initial support for "TPM CRB" hardware
+* Improved cdrom media reporting in the boot menu on QEMU
+* Improved floppy support on real floppy hardware
+* SeaVGABIOS support for QEMU "bochs-display" and QEMU "ramfb" displays
+* Several bug fixes and code cleanups
+
 SeaBIOS 1.11.0
 ==============
 
@@ -13,6 +24,16 @@ Available on 20171110. Major changes in this release:
 * Support for boot-to-boot persistent coreboot cbmem logs
 * Improved coreboot vga (cbvga) mode setting compatibility
 * Several bug fixes and code cleanups
+
+SeaBIOS 1.11.1
+--------------
+
+Available on 20180319. Stable release containing only bug fixes.
+
+SeaBIOS 1.11.2
+--------------
+
+Available on 20180702. Stable release containing only bug fixes.
 
 SeaBIOS 1.10.0
 ==============
