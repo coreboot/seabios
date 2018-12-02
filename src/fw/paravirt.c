@@ -75,6 +75,9 @@ static void qemu_detect(void)
     if (!CONFIG_QEMU_HARDWARE)
         return;
 
+    // Setup QEMU debug output port
+    qemu_debug_preinit();
+
     // check northbridge @ 00:00.0
     u16 v = pci_config_readw(0, PCI_VENDOR_ID);
     if (v == 0x0000 || v == 0xffff)
