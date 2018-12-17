@@ -74,6 +74,9 @@ static struct putcinfo debuginfo = { debug_putc };
 static void
 screenc(char c)
 {
+    if (!MODESEGMENT && GET_IVT(0x10).segoff == FUNC16(entry_10).segoff)
+        // No need to thunk to 16bit mode if vgabios is not present
+        return;
     struct bregs br;
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
