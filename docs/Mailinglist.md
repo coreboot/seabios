@@ -8,7 +8,7 @@ A mailing list archive is available at:
 <https://mail.coreboot.org/hyperkitty/list/seabios@seabios.org/>
 
 Messages prior to January 2019 are archived at:
-<http://www.seabios.org/mailman/listinfo/seabios/>
+<http://www.seabios.org/pipermail/seabios/>
 
 An unofficial archive is also available at:
 <https://www.mail-archive.com/seabios@seabios.org/>
