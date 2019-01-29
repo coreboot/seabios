@@ -56,10 +56,9 @@ typedef struct tagRGBQUAD {
 *   arrange horizontal pixel data, add extra space in the dest buffer
 *       for every line
 */
-static void raw_data_format_adjust_24bpp(u8 *src, u8 *dest, int width,
-                                        int height, int bytes_per_line_dest)
+static void raw_data_format_adjust(u8 *src, u8 *dest, int width,
+		int height, int bytes_per_line_src, int bytes_per_line_dest)
 {
-    int bytes_per_line_src = 3 * width;
     int i;
     for (i = 0 ; i < height ; i++) {
         memcpy(dest + i * bytes_per_line_dest,
@@ -95,22 +94,22 @@ int bmp_decode(struct bmp_decdata *bmp, unsigned char *data, int data_size)
 }
 
 /* get bmp properties */
-void bmp_get_size(struct bmp_decdata *bmp, int *width, int *height)
+void bmp_get_info(struct bmp_decdata *bmp, int *width, int *height, int *bpp)
 {
     *width = bmp->width;
     *height = bmp->height;
+    *bpp = bmp->bpp;
 }
 
 /* flush flat picture data to *pc */
-int bmp_show(struct bmp_decdata *bmp, unsigned char *pic, int width
-             , int height, int depth, int bytes_per_line_dest)
+int bmp_show(struct bmp_decdata *bmp, unsigned char *pic, int width,
+             int height, int depth, int bytes_per_line_dest)
 {
     if (bmp->datap == pic)
         return 0;
-    /* now only support 24bpp bmp file */
-    if ((depth == 24) && (bmp->bpp == 24)) {
-        raw_data_format_adjust_24bpp(bmp->datap, pic, width, height,
-                                        bytes_per_line_dest);
+    if ((depth == bmp->bpp) && (bmp->bpp%8 == 0)) {
+        raw_data_format_adjust(bmp->datap, pic, width, height,
+			(bmp->bpp/8)*width, bytes_per_line_dest);
         return 0;
     }
     return 1;
