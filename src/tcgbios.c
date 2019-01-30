@@ -161,23 +161,38 @@ struct tpm_log_entry {
            + SHA512_BUFSIZE + SM3_256_BUFSIZE];
 } PACKED;
 
+static const struct hash_parameters {
+    u16 hashalg;
+    u8  hash_buffersize;
+} hash_parameters[] = {
+    {
+        .hashalg = TPM2_ALG_SHA1,
+        .hash_buffersize = SHA1_BUFSIZE,
+    }, {
+        .hashalg = TPM2_ALG_SHA256,
+        .hash_buffersize = SHA256_BUFSIZE,
+    }, {
+        .hashalg = TPM2_ALG_SHA384,
+        .hash_buffersize = SHA384_BUFSIZE,
+    }, {
+        .hashalg = TPM2_ALG_SHA512,
+        .hash_buffersize = SHA512_BUFSIZE,
+    }, {
+        .hashalg = TPM2_ALG_SM3_256,
+        .hash_buffersize = SM3_256_BUFSIZE,
+    }
+};
+
 static int
 tpm20_get_hash_buffersize(u16 hashAlg)
 {
-    switch (hashAlg) {
-    case TPM2_ALG_SHA1:
-        return SHA1_BUFSIZE;
-    case TPM2_ALG_SHA256:
-        return SHA256_BUFSIZE;
-    case TPM2_ALG_SHA384:
-        return SHA384_BUFSIZE;
-    case TPM2_ALG_SHA512:
-        return SHA512_BUFSIZE;
-    case TPM2_ALG_SM3_256:
-        return SM3_256_BUFSIZE;
-    default:
-        return -1;
+    unsigned i;
+
+    for (i = 0; i < ARRAY_SIZE(hash_parameters); i++) {
+        if (hash_parameters[i].hashalg == hashAlg)
+            return hash_parameters[i].hash_buffersize;
     }
+    return -1;
 }
 
 // Add an entry at the start of the log describing digest formats
