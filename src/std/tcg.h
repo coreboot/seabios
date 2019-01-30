@@ -336,6 +336,12 @@ struct tpm_res_sha1complete {
 #define TPM2_ALG_SHA512             0x000d
 #define TPM2_ALG_SM3_256            0x0012
 
+#define TPM2_ALG_SHA1_FLAG          (1 << 0)
+#define TPM2_ALG_SHA256_FLAG        (1 << 1)
+#define TPM2_ALG_SHA384_FLAG        (1 << 2)
+#define TPM2_ALG_SHA512_FLAG        (1 << 3)
+#define TPM2_ALG_SM3_256_FLAG       (1 << 4)
+
 /* TPM 2 command tags */
 #define TPM2_ST_NO_SESSIONS         0x8001
 #define TPM2_ST_SESSIONS            0x8002
@@ -345,8 +351,10 @@ struct tpm_res_sha1complete {
 #define TPM2_CC_Clear               0x126
 #define TPM2_CC_ClearControl        0x127
 #define TPM2_CC_HierarchyChangeAuth 0x129
+#define TPM2_CC_PCR_Allocate        0x12b
 #define TPM2_CC_SelfTest            0x143
 #define TPM2_CC_Startup             0x144
+#define TPM2_CC_Shutdown            0x145
 #define TPM2_CC_StirRandom          0x146
 #define TPM2_CC_GetCapability       0x17a
 #define TPM2_CC_GetRandom           0x17b
@@ -440,6 +448,15 @@ struct tpm2_res_getcapability {
     u8 moreData;
     u32 capability;
     u8 data[0]; /* capability dependent data */
+} PACKED;
+
+struct tpm2_req_pcr_allocate {
+    struct tpm_req_header hdr;
+    u32 authhandle;
+    u32 authblocksize;
+    struct tpm2_authblock authblock;
+    u32 count;
+    u8 tpms_pcr_selections[4];
 } PACKED;
 
 struct tpms_pcr_selection {
