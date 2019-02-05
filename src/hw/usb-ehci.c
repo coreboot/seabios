@@ -467,6 +467,7 @@ ehci_realloc_pipe(struct usbdevice_s *usbdev, struct usb_pipe *upipe
         // Use previously allocated pipe.
         struct ehci_pipe *pipe = container_of(usbpipe, struct ehci_pipe, pipe);
         ehci_desc2pipe(pipe, usbdev, epdesc);
+        pipe->qh.token = 0;
         return usbpipe;
     }
 
