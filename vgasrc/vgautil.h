@@ -42,6 +42,12 @@ struct bregs;
 void clext_1012(struct bregs *regs);
 int clext_setup(void);
 
+// atiext.c
+struct vgamode_s *ati_find_mode(int mode);
+void ati_list_modes(u16 seg, u16 *dest, u16 *last);
+int ati_set_mode(struct vgamode_s *vmode_g, int flags);
+int ati_setup(void);
+
 // stdvgaio.c
 u8 stdvga_pelmask_read(void);
 void stdvga_pelmask_write(u8 val);

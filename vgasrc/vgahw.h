@@ -12,6 +12,8 @@
 static inline struct vgamode_s *vgahw_find_mode(int mode) {
     if (CONFIG_VGA_CIRRUS)
         return clext_find_mode(mode);
+    if (CONFIG_VGA_ATI)
+        return ati_find_mode(mode);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_find_mode(mode);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -22,6 +24,8 @@ static inline struct vgamode_s *vgahw_find_mode(int mode) {
 static inline int vgahw_set_mode(struct vgamode_s *vmode_g, int flags) {
     if (CONFIG_VGA_CIRRUS)
         return clext_set_mode(vmode_g, flags);
+    if (CONFIG_VGA_ATI)
+        return ati_set_mode(vmode_g, flags);
     if (CONFIG_VGA_BOCHS)
         return bochsvga_set_mode(vmode_g, flags);
     if (CONFIG_VGA_EMULATE_TEXT)
@@ -32,6 +36,8 @@ static inline int vgahw_set_mode(struct vgamode_s *vmode_g, int flags) {
 static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
     if (CONFIG_VGA_CIRRUS)
         clext_list_modes(seg, dest, last);
+    if (CONFIG_VGA_ATI)
+        ati_list_modes(seg, dest, last);
     else if (CONFIG_VGA_BOCHS)
         bochsvga_list_modes(seg, dest, last);
     else if (CONFIG_VGA_EMULATE_TEXT)
@@ -43,6 +49,8 @@ static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
 static inline int vgahw_setup(void) {
     if (CONFIG_VGA_CIRRUS)
         return clext_setup();
+    if (CONFIG_VGA_ATI)
+        return ati_setup();
     if (CONFIG_VGA_BOCHS)
         return bochsvga_setup();
     if (CONFIG_VGA_GEODEGX2 || CONFIG_VGA_GEODELX)
