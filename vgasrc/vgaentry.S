@@ -40,6 +40,9 @@ _rom_header_other2:
 _rom_header_signature:
         .asciz "IBM"
 
+#if CONFIG_VGA_ATI
+#include "ati-tables.S"
+#endif
 
 /****************************************************************
  * Entry points
