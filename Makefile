@@ -212,7 +212,7 @@ SRCVGA=src/output.c src/string.c src/hw/pci.c src/hw/serialio.c \
     vgasrc/vgainit.c vgasrc/vgabios.c vgasrc/vgafb.c vgasrc/swcursor.c \
     vgasrc/vgafonts.c vgasrc/vbe.c \
     vgasrc/stdvga.c vgasrc/stdvgamodes.c vgasrc/stdvgaio.c \
-    vgasrc/clext.c vgasrc/bochsvga.c vgasrc/geodevga.c \
+    vgasrc/clext.c vgasrc/svgamodes.c vgasrc/bochsvga.c vgasrc/geodevga.c \
     src/fw/coreboot.c vgasrc/cbvga.c vgasrc/bochsdisplay.c vgasrc/ramfb.c
 
 ifeq "$(CONFIG_VGA_FIXUP_ASM)" "y"
