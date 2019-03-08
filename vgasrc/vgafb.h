@@ -29,6 +29,7 @@ struct carattr {
 };
 
 // vgafb.c
+void memcpy_high(void *dest, void *src, u32 len);
 void init_gfx_op(struct gfx_op *op, struct vgamode_s *vmode_g);
 void handle_gfx_op(struct gfx_op *op);
 void *text_address(struct cursorpos cp);

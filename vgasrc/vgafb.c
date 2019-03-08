@@ -187,8 +187,7 @@ gfx_packed(struct gfx_op *op)
  ****************************************************************/
 
 // Use int 1587 call to copy memory to/from the framebuffer.
-static void
-memcpy_high(void *dest, void *src, u32 len)
+void memcpy_high(void *dest, void *src, u32 len)
 {
     u64 gdt[6];
     gdt[2] = GDT_DATA | GDT_LIMIT(0xfffff) | GDT_BASE((u32)src);
