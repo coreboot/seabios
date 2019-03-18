@@ -19,6 +19,8 @@
 #define MM_DATA                                 0x0004
 #define CRTC_GEN_CNTL                           0x0050
 #define CRTC_EXT_CNTL                           0x0054
+#define GPIO_VGA_DDC                            0x0060
+#define GPIO_DVI_DDC                            0x0064
 #define CRTC_H_TOTAL_DISP                       0x0200
 #define CRTC_V_TOTAL_DISP                       0x0208
 #define CRTC_OFFSET                             0x0224
@@ -106,6 +108,20 @@ static inline void ati_write(u32 reg, u32 val)
     }
 }
 
+static inline u32 ati_read(u32 reg)
+{
+    u32 io_addr = GET_GLOBAL(ati_io_addr);
+    u32 val;
+
+    if (reg < 0x100) {
+        val = inl(io_addr + reg);
+    } else {
+        outl(reg, io_addr + MM_INDEX);
+        reg = inl(io_addr + MM_DATA);
+    }
+    return val;
+}
+
 static void ati_clear(u32 offset, u32 size)
 {
     u8 data[64];
@@ -181,6 +197,97 @@ ati_set_mode(struct vgamode_s *vmode_g, int flags)
 }
 
 /****************************************************************
+ * edid
+ ****************************************************************/
+
+static void
+ati_i2c_set_scl_sda(int scl, int sda)
+{
+    u32 data = 0;
+
+    if (!scl)
+        data |= (1 << 17);
+    if (!sda)
+        data |= (1 << 16);
+    ati_write(GPIO_DVI_DDC, data);
+}
+
+static int
+ati_i2c_get_sda(void)
+{
+    u32 data = ati_read(GPIO_DVI_DDC);
+
+    return data & (1 << 8) ? 1 : 0;
+}
+
+static void ati_i2c_start(void)
+{
+    ati_i2c_set_scl_sda(1, 1);
+    ati_i2c_set_scl_sda(1, 0);
+    ati_i2c_set_scl_sda(0, 0);
+}
+
+static void ati_i2c_ack(void)
+{
+    ati_i2c_set_scl_sda(0, 0);
+    ati_i2c_set_scl_sda(1, 0);
+    ati_i2c_set_scl_sda(0, 0);
+}
+
+static void ati_i2c_stop(void)
+{
+    ati_i2c_set_scl_sda(0, 0);
+    ati_i2c_set_scl_sda(1, 0);
+    ati_i2c_set_scl_sda(1, 1);
+}
+
+static void ati_i2c_send_byte(u8 byte)
+{
+    int i, bit;
+
+    for (i = 0; i < 8; i++) {
+        bit = (1 << (7-i)) & byte ? 1 : 0;
+        ati_i2c_set_scl_sda(0, bit);
+        ati_i2c_set_scl_sda(1, bit);
+        ati_i2c_set_scl_sda(0, bit);
+    }
+}
+
+static u8 ati_i2c_recv_byte(void)
+{
+    u8 byte = 0;
+    int i, bit;
+
+    for (i = 0; i < 8; i++) {
+        ati_i2c_set_scl_sda(0, 1);
+        ati_i2c_set_scl_sda(1, 1);
+        bit = ati_i2c_get_sda();
+        ati_i2c_set_scl_sda(0, 1);
+        if (bit)
+            byte |= (1 << (7-i));
+    }
+
+    return byte;
+}
+
+static void ati_i2c_edid(void)
+{
+    u8 byte;
+    int i;
+
+    dprintf(1, "ati: reading edid blob\n");
+    ati_i2c_start();
+    ati_i2c_send_byte(0x50 << 1 | 1);
+    ati_i2c_ack();
+    for (i = 0; i < 128; i++) {
+        byte = ati_i2c_recv_byte();
+        ati_i2c_ack();
+        SET_VGA(VBE_edid[i], byte);
+    }
+    ati_i2c_stop();
+}
+
+/****************************************************************
  * init
  ****************************************************************/
 
@@ -239,6 +346,13 @@ ati_setup(void)
             dprintf(1, "ati: removing mode 0x%x\n", GET_GLOBAL(m->mode));
             SET_VGA(m->mode, 0xffff);
         }
+    }
+
+    u16 device = pci_config_readw(bdf, PCI_DEVICE_ID);
+    switch (device) {
+    case 0x5159:
+        ati_i2c_edid();
+        break;
     }
 
     return 0;
