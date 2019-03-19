@@ -325,19 +325,25 @@ bochsvga_setup(void)
         return 0;
 
     u32 lfb_addr = VBE_DISPI_LFB_PHYSICAL_ADDRESS;
+    u32 io_addr = 0;
     int bdf = GET_GLOBAL(VgaBDF);
     if (CONFIG_VGA_PCI && bdf >= 0) {
         u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
-        int barid;
+        int barid, bar;
         switch (vendor) {
         case 0x15ad: /* qemu vmware vga */
             barid = 1;
             break;
-        default: /* stdvga, qxl, virtio */
+        case 0x1234: /* stdvga */
+            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_2);
+            io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
+            barid = 0;
+            break;
+        default: /* qxl, virtio */
             barid = 0;
             break;
         }
-        u32 bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0 + barid * 4);
+        bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_0 + barid * 4);
         lfb_addr = bar & PCI_BASE_ADDRESS_MEM_MASK;
         dprintf(1, "VBE DISPI: bdf %02x:%02x.%x, bar %d\n", pci_bdf_to_bus(bdf)
                 , pci_bdf_to_dev(bdf), pci_bdf_to_fn(bdf), barid);
@@ -371,6 +377,13 @@ bochsvga_setup(void)
             dprintf(1, "Removing mode %x\n", GET_GLOBAL(m->mode));
             SET_VGA(m->mode, 0xffff);
         }
+    }
+
+    if (io_addr) {
+        int i;
+        u8 *edid = (void*)(io_addr);
+        for (i = 0; i < sizeof(VBE_edid); i++)
+            SET_VGA(VBE_edid[i], readb(edid + i));
     }
 
     return 0;
