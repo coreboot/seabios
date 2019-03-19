@@ -10,8 +10,6 @@
 #define FRAMEBUFFER_WIDTH      1024
 #define FRAMEBUFFER_HEIGHT     768
 #define FRAMEBUFFER_BPP        4
-#define FRAMEBUFFER_STRIDE     (FRAMEBUFFER_BPP * FRAMEBUFFER_WIDTH)
-#define FRAMEBUFFER_SIZE       (FRAMEBUFFER_STRIDE * FRAMEBUFFER_HEIGHT)
 
 int
 bochs_display_setup(void)
@@ -46,16 +44,26 @@ bochs_display_setup(void)
     for (i = 0; i < sizeof(VBE_edid); i++)
         SET_VGA(VBE_edid[i], readb(edid + i));
 
+    int fb_width  = FRAMEBUFFER_WIDTH;
+    int fb_height = FRAMEBUFFER_HEIGHT;
+    if (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+        GET_GLOBAL(VBE_edid[1]) == 0xff) {
+        fb_width = GET_GLOBAL(VBE_edid[54 + 2]);
+        fb_width |= (GET_GLOBAL(VBE_edid[54 + 4]) & 0xf0) << 4;
+        fb_height = GET_GLOBAL(VBE_edid[54 + 5]);
+        fb_height |= (GET_GLOBAL(VBE_edid[54 + 7]) & 0xf0) << 4;
+    }
+    int fb_stride = FRAMEBUFFER_BPP * fb_width;
+
     dprintf(1, "bochs-display: using %dx%d, %d bpp (%d stride)\n"
-            , FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT
-            , FRAMEBUFFER_BPP * 8, FRAMEBUFFER_STRIDE);
+            , fb_width, fb_height
+            , FRAMEBUFFER_BPP * 8, fb_stride);
 
     cbvga_setup_modes(lfb_addr, FRAMEBUFFER_BPP * 8,
-                      FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT,
-                      FRAMEBUFFER_STRIDE);
+                      fb_width, fb_height, fb_stride);
 
-    writew(dispi + VBE_DISPI_INDEX_XRES,   FRAMEBUFFER_WIDTH);
-    writew(dispi + VBE_DISPI_INDEX_YRES,   FRAMEBUFFER_HEIGHT);
+    writew(dispi + VBE_DISPI_INDEX_XRES,   fb_width);
+    writew(dispi + VBE_DISPI_INDEX_YRES,   fb_height);
     writew(dispi + VBE_DISPI_INDEX_BPP,    FRAMEBUFFER_BPP * 8);
     writew(dispi + VBE_DISPI_INDEX_ENABLE, VBE_DISPI_ENABLED);
 
