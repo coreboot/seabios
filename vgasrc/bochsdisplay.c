@@ -4,6 +4,7 @@
 #include "bochsvga.h" // VBE_BOCHS_*
 #include "hw/pci.h" // pci_config_readl
 #include "hw/pci_regs.h" // PCI_BASE_ADDRESS_0
+#include "vgabios.h" // SET_VGA
 #include "vgautil.h" // VBE_total_memory
 
 #define FRAMEBUFFER_WIDTH      1024
@@ -40,7 +41,12 @@ bochs_display_setup(void)
     if (id != VBE_DISPI_ID5)
         return -1;
 
-     dprintf(1, "bochs-display: using %dx%d, %d bpp (%d stride)\n"
+    int i;
+    u8 *edid = (void*)(io_addr);
+    for (i = 0; i < sizeof(VBE_edid); i++)
+        SET_VGA(VBE_edid[i], readb(edid + i));
+
+    dprintf(1, "bochs-display: using %dx%d, %d bpp (%d stride)\n"
             , FRAMEBUFFER_WIDTH, FRAMEBUFFER_HEIGHT
             , FRAMEBUFFER_BPP * 8, FRAMEBUFFER_STRIDE);
 
