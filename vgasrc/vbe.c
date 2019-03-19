@@ -25,6 +25,7 @@ u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;
 u32 VBE_framebuffer VAR16;
 u16 VBE_win_granularity VAR16;
+u8 VBE_edid[256] VAR16;
 
 static void
 vbe_104f00(struct bregs *regs)
@@ -401,6 +402,34 @@ vbe_104f10(struct bregs *regs)
 }
 
 static void
+vbe_104f15(struct bregs *regs)
+{
+    int offset;
+
+    switch (regs->bl) {
+    case 0x00:
+        if (GET_GLOBAL(VBE_edid[0]) != 0x00 ||
+            GET_GLOBAL(VBE_edid[1]) != 0xff)
+            goto err;
+        regs->bx = 0x0103;
+        break;
+    case 0x01:
+        offset = regs->dx * 128;
+        if (offset >= sizeof(VBE_edid))
+            goto err;
+        memcpy_far(regs->es, (void*)(regs->di+0),
+                   get_global_seg(), VBE_edid + offset,
+                   128);
+        break;
+    err:
+    default:
+        regs->ax = 0x014f;
+        return;
+    }
+    regs->ax = 0x004f;
+}
+
+static void
 vbe_104fXX(struct bregs *regs)
 {
     debug_stub(regs);
@@ -427,6 +456,7 @@ handle_104f(struct bregs *regs)
     case 0x08: vbe_104f08(regs); break;
     case 0x0a: vbe_104f0a(regs); break;
     case 0x10: vbe_104f10(regs); break;
+    case 0x15: vbe_104f15(regs); break;
     default:   vbe_104fXX(regs); break;
     }
 }

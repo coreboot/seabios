@@ -89,6 +89,7 @@ extern u32 VBE_total_memory;
 extern u32 VBE_capabilities;
 extern u32 VBE_framebuffer;
 extern u16 VBE_win_granularity;
+extern u8 VBE_edid[256];
 void handle_104f(struct bregs *regs);
 
 // vgafonts.c
