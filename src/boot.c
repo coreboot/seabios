@@ -477,6 +477,14 @@ get_keystroke(int msec)
 
 #define DEFAULT_BOOTMENU_WAIT 2500
 
+static const char menuchars[] = {
+    '1', '2', '3', '4', '5', '6', '7', '8', '9',
+    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+    'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+    's', /* skip t (tpm menu) */
+    'u', 'v', 'w', 'x', 'y', 'z'
+};
+
 // Show IPL option menu.
 void
 interactive_bootmenu(void)
@@ -509,12 +517,15 @@ interactive_bootmenu(void)
 
     // Show menu items
     int maxmenu = 0;
-    struct bootentry_s *pos;
+    struct bootentry_s *pos, *boot = NULL;
     hlist_for_each_entry(pos, &BootList, node) {
         char desc[77];
-        maxmenu++;
-        printf("%d. %s\n", maxmenu
+        if (maxmenu >= ARRAY_SIZE(menuchars)) {
+            break;
+        }
+        printf("%c. %s\n", menuchars[maxmenu]
                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
+        maxmenu++;
     }
     if (tpm_can_show_menu()) {
         printf("\nt. TPM Configuration\n");
@@ -526,30 +537,43 @@ interactive_bootmenu(void)
     // multiple times and immediately booting the primary boot device.
     int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
     for (;;) {
-        scan_code = get_keystroke(1000);
-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+        int keystroke = get_keystroke_full(1000);
+        if (keystroke == 0x011b && !irqtimer_check(esc_accepted_time))
             continue;
-        if (tpm_can_show_menu() && scan_code == 20 /* t */) {
+        if (keystroke < 0) // timeout
+            continue;
+
+        scan_code = keystroke >> 8;
+        int key_ascii = keystroke & 0xff;
+        if (tpm_can_show_menu() && key_ascii == 't') {
             printf("\n");
             tpm_menu();
         }
-        if (scan_code >= 1 && scan_code <= maxmenu+1)
+        if (scan_code == 1) {
+            // ESC
+            printf("\n");
+            return;
+        }
+
+        maxmenu = 0;
+        hlist_for_each_entry(pos, &BootList, node) {
+            if (maxmenu >= ARRAY_SIZE(menuchars))
+                break;
+            if (key_ascii == menuchars[maxmenu]) {
+                boot = pos;
+                break;
+            }
+            maxmenu++;
+        }
+        if (boot)
             break;
     }
     printf("\n");
-    if (scan_code == 0x01)
-        // ESC
-        return;
 
     // Find entry and make top priority.
-    int choice = scan_code - 1;
-    hlist_for_each_entry(pos, &BootList, node) {
-        if (! --choice)
-            break;
-    }
-    hlist_del(&pos->node);
-    pos->priority = 0;
-    hlist_add_head(&pos->node, &BootList);
+    hlist_del(&boot->node);
+    boot->priority = 0;
+    hlist_add_head(&boot->node, &BootList);
 }
 
 // BEV (Boot Execution Vector) list
