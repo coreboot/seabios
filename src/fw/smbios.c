@@ -205,6 +205,10 @@ smbios_init_type_0(void *start)
 
     *end = 0;
     end++;
+    if (!str_index) {
+        *end = 0;
+        end++;
+    }
 
     return end;
 }
