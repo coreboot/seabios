@@ -441,12 +441,13 @@ get_raw_keystroke(void)
     memset(&br, 0, sizeof(br));
     br.flags = F_IF;
     call16_int(0x16, &br);
-    return br.ah;
+    return br.ax;
 }
 
 // Read a keystroke - waiting up to 'msec' milliseconds.
+// returns both scancode and ascii code.
 int
-get_keystroke(int msec)
+get_keystroke_full(int msec)
 {
     u32 end = irqtimer_calc(msec);
     for (;;) {
@@ -458,6 +459,17 @@ get_keystroke(int msec)
     }
 }
 
+// Read a keystroke - waiting up to 'msec' milliseconds.
+// returns scancode only.
+int
+get_keystroke(int msec)
+{
+    int keystroke = get_keystroke_full(msec);
+
+    if (keystroke < 0)
+        return keystroke;
+    return keystroke >> 8;
+}
 
 /****************************************************************
  * Boot menu and BCV execution
