@@ -417,9 +417,8 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
             vp->device.cfg = cap;
             vp->device.bdf = pci->bdf;
             vp_cap = NULL;
-            dprintf(1, "pci dev %x:%x virtio cap at 0x%x type %d [pci cfg access]\n",
-                    pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                    cap, type);
+            dprintf(1, "pci dev %pP virtio cap at 0x%x type %d"
+                    " [pci cfg access]\n", pci, cap, type);
             break;
         default:
             vp_cap = NULL;
@@ -473,10 +472,9 @@ void vp_init_simple(struct vp_device *vp, struct pci_device *pci)
                 mode = "Huh?";
                 break;
             }
-            dprintf(1, "pci dev %x:%x virtio cap at 0x%x type %d "
+            dprintf(1, "pci dev %pP virtio cap at 0x%x type %d "
                     "bar %d at 0x%08llx off +0x%04x [%s]\n",
-                    pci_bdf_to_bus(pci->bdf), pci_bdf_to_dev(pci->bdf),
-                    vp_cap->cap, type, vp_cap->bar, addr, offset, mode);
+                    pci, vp_cap->cap, type, vp_cap->bar, addr, offset, mode);
         }
 
         cap = pci_find_capability(pci->bdf, PCI_CAP_ID_VNDR, cap);
