@@ -95,6 +95,9 @@ static int BootDeviceCount;
 static void
 loadBootDevices(void)
 {
+    if (!CONFIG_BOOTDEVICES)
+        return;
+
     BootDeviceCount = 0;
     int fsize;
     char *f = romfile_loadfile("bootdevices", &fsize);
@@ -172,6 +175,8 @@ bootdevice_find(const char *glob)
 static BootDevice *
 bootdevice_find_pci_device(struct pci_device *pci)
 {
+    if (!CONFIG_BOOTDEVICES)
+        return NULL;
     // Find pci device - for example: /pci@i0cf8/ethernet@5
     char desc[256];
     build_pci_path(desc, sizeof(desc), "*", pci);
@@ -181,6 +186,8 @@ bootdevice_find_pci_device(struct pci_device *pci)
 static BootDevice *
 bootdevice_find_scsi_device(struct pci_device *pci, int target, int lun)
 {
+    if (!CONFIG_BOOTDEVICES)
+        return NULL;
     if (!pci)
         // support only pci machine for now
         return NULL;
@@ -194,6 +201,8 @@ bootdevice_find_scsi_device(struct pci_device *pci, int target, int lun)
 static BootDevice *
 bootdevice_find_ata_device(struct pci_device *pci, int chanid, int slave)
 {
+    if (!CONFIG_BOOTDEVICES)
+        return NULL;
     if (!pci)
         // support only pci machine for now
         return NULL;
