@@ -22,6 +22,55 @@
 #include "util.h" // irqtimer_calc
 #include "tcgbios.h" // tpm_*
 
+/****************************************************************
+ * Helper search functions
+ ****************************************************************/
+
+// See if 'str' starts with 'glob' - if glob contains an '*' character
+// it will match any number of characters in str that aren't a '/' or
+// the next glob character.
+static char *
+glob_prefix(const char *glob, const char *str)
+{
+    for (;;) {
+        if (!*glob && (!*str || *str == '/'))
+            return (char*)str;
+        if (*glob == '*') {
+            if (!*str || *str == '/' || *str == glob[1])
+                glob++;
+            else
+                str++;
+            continue;
+        }
+        if (*glob != *str)
+            return NULL;
+        glob++;
+        str++;
+    }
+}
+
+#define FW_PCI_DOMAIN "/pci@i0cf8"
+
+static char *
+build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
+{
+    // Build the string path of a bdf - for example: /pci@i0cf8/isa@1,2
+    char *p = buf;
+    if (pci->parent) {
+        p = build_pci_path(p, max, "pci-bridge", pci->parent);
+    } else {
+        p += snprintf(p, buf+max-p, "%s", FW_PCI_DOMAIN);
+        if (pci->rootbus)
+            p += snprintf(p, buf+max-p, ",%x", pci->rootbus);
+    }
+
+    int dev = pci_bdf_to_dev(pci->bdf), fn = pci_bdf_to_fn(pci->bdf);
+    p += snprintf(p, buf+max-p, "/%s@%x", devname, dev);
+    if (fn)
+        p += snprintf(p, buf+max-p, ",%x", fn);
+    return p;
+}
+
 
 /****************************************************************
  * Boot device parameters
@@ -154,29 +203,6 @@ loadBootOrder(void)
     } while (f);
 }
 
-// See if 'str' starts with 'glob' - if glob contains an '*' character
-// it will match any number of characters in str that aren't a '/' or
-// the next glob character.
-static char *
-glob_prefix(const char *glob, const char *str)
-{
-    for (;;) {
-        if (!*glob && (!*str || *str == '/'))
-            return (char*)str;
-        if (*glob == '*') {
-            if (!*str || *str == '/' || *str == glob[1])
-                glob++;
-            else
-                str++;
-            continue;
-        }
-        if (*glob != *str)
-            return NULL;
-        glob++;
-        str++;
-    }
-}
-
 // Search the bootorder list for the given glob pattern.
 static int
 find_prio(const char *glob)
@@ -187,28 +213,6 @@ find_prio(const char *glob)
         if (glob_prefix(glob, Bootorder[i]))
             return i+1;
     return -1;
-}
-
-#define FW_PCI_DOMAIN "/pci@i0cf8"
-
-static char *
-build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
-{
-    // Build the string path of a bdf - for example: /pci@i0cf8/isa@1,2
-    char *p = buf;
-    if (pci->parent) {
-        p = build_pci_path(p, max, "pci-bridge", pci->parent);
-    } else {
-        p += snprintf(p, buf+max-p, "%s", FW_PCI_DOMAIN);
-        if (pci->rootbus)
-            p += snprintf(p, buf+max-p, ",%x", pci->rootbus);
-    }
-
-    int dev = pci_bdf_to_dev(pci->bdf), fn = pci_bdf_to_fn(pci->bdf);
-    p += snprintf(p, buf+max-p, "/%s@%x", devname, dev);
-    if (fn)
-        p += snprintf(p, buf+max-p, ",%x", fn);
-    return p;
 }
 
 int bootprio_find_pci_device(struct pci_device *pci)
