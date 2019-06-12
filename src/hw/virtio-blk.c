@@ -183,6 +183,8 @@ init_virtio_blk(void *data)
 
     status |= VIRTIO_CONFIG_S_DRIVER_OK;
     vp_set_status(&vdrive->vp, status);
+
+    boot_lchs_find_pci_device(pci, &vdrive->drive.lchs);
     return;
 
 fail:

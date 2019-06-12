@@ -221,6 +221,8 @@ mpt_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
     mpt_scsi_init_lun(llun, tmpl_llun->pci, tmpl_llun->iobase,
                       tmpl_llun->target, lun);
 
+    boot_lchs_find_scsi_device(llun->pci, llun->target, llun->lun,
+                               &(llun->drive.lchs));
     char *name = znprintf(MAXDESCSIZE, "mpt %pP %d:%d",
                           llun->pci, llun->target, llun->lun);
     int prio = bootprio_find_scsi_device(llun->pci, llun->target, llun->lun);
