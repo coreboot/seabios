@@ -24,6 +24,92 @@
 
 
 /****************************************************************
+ * Boot device parameters
+ ****************************************************************/
+
+typedef struct BootDeviceSerialized {
+    u32 lcyls;
+    u32 lheads;
+    u32 lsecs;
+} PACKED BootDeviceSerialized;
+
+typedef struct BootDevice {
+    char *name;
+    u32 lcyls;
+    u32 lheads;
+    u32 lsecs;
+} BootDevice;
+
+static BootDevice *BootDevices VARVERIFY32INIT;
+static int BootDeviceCount;
+
+static void
+loadBootDevices(void)
+{
+    BootDeviceCount = 0;
+    int fsize;
+    char *f = romfile_loadfile("bootdevices", &fsize);
+    if (!f)
+        return;
+
+    if (fsize < sizeof(u32))
+        return;
+
+    u32 struct_size = *((u32 *)f);
+    if (struct_size < sizeof(BootDeviceSerialized))
+        return;
+
+    fsize -= sizeof(u32);
+    f += sizeof(u32);
+
+    int i;
+    int str_found = 0;
+
+    for (i = 0; i < fsize; i++) {
+        if (f[i] != '\0')
+            str_found = 1;
+        else if (f[i] == '\0' && str_found) {
+            str_found = 0;
+            i++;
+            if (i + struct_size > fsize)
+                break;
+            i += struct_size - 1;
+            BootDeviceCount++;
+        } else
+            break;
+    }
+
+    BootDevices = malloc_tmphigh(BootDeviceCount * sizeof(BootDevice));
+    if (!BootDevices) {
+        warn_noalloc();
+        free(f);
+        BootDeviceCount = 0;
+        return;
+    }
+
+    dprintf(1, "boot devices:\n");
+
+    BootDeviceSerialized *blk;
+    BootDevice *d;
+
+    for (i = 0; i < BootDeviceCount; i++) {
+        d = &BootDevices[i];
+        d->name = f;
+        f += strlen(f) + 1;
+
+        blk = (BootDeviceSerialized *)f;
+        d->lcyls = blk->lcyls;
+        d->lheads = blk->lheads;
+        d->lsecs = blk->lsecs;
+        f += struct_size;
+
+        dprintf(1, "%s: (%u, %u, %u)\n",
+                d->name, d->lcyls, d->lheads, d->lsecs);
+    }
+}
+
+
+/****************************************************************
  * Boot priority ordering
  ****************************************************************/
 
@@ -288,6 +374,7 @@ boot_init(void)
     BootRetryTime = romfile_loadint("etc/boot-fail-wait", 60*1000);
 
     loadBootOrder();
+    loadBootDevices();
 }
 
 
