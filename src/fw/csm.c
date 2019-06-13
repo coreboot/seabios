@@ -258,11 +258,21 @@ handle_csm_0006(struct bregs *regs)
     u16 region = regs->bx; // (1 for F000 seg, 2 for E000 seg, 0 for either)
     void *chunk = NULL;
 
+    dprintf(3, "Legacy16GetTableAddress size %x align %x region %d\n",
+        size, align, region);
+
     if (!region)
         region = 3;
 
-    dprintf(3, "Legacy16GetTableAddress size %x align %x region %d\n",
-        size, align, region);
+    // DX = Required address alignment. Bit mapped.
+    // First non-zero bit from the right is the alignment.*/
+    if (align) {
+        align = 1 << __ffs(align);
+        if (align < MALLOC_MIN_ALIGN)
+            align = MALLOC_MIN_ALIGN;
+    } else {
+        align = MALLOC_MIN_ALIGN;
+    }
 
     if (region & 2)
         chunk = _malloc(&ZoneLow, size, align);
