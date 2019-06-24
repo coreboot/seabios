@@ -21,6 +21,7 @@
 #define CRTC_EXT_CNTL                           0x0054
 #define GPIO_VGA_DDC                            0x0060
 #define GPIO_DVI_DDC                            0x0064
+#define GPIO_MONID                              0x0068
 #define CRTC_H_TOTAL_DISP                       0x0200
 #define CRTC_V_TOTAL_DISP                       0x0208
 #define CRTC_OFFSET                             0x0224
@@ -47,6 +48,7 @@ static u32 ati_i2c_reg VAR16;
 static u32 ati_i2c_bit_scl_out VAR16;
 static u32 ati_i2c_bit_sda_out VAR16;
 static u32 ati_i2c_bit_sda_in VAR16;
+static u32 ati_i2c_bit_enable VAR16 = -1;
 
 
 int
@@ -208,8 +210,11 @@ ati_set_mode(struct vgamode_s *vmode_g, int flags)
 static void
 ati_i2c_set_scl_sda(int scl, int sda)
 {
+    u32 enable = GET_GLOBAL(ati_i2c_bit_enable);
     u32 data = 0;
 
+    if (enable != -1)
+        data |= (1 << enable);
     if (!scl)
         data |= (1 << GET_GLOBAL(ati_i2c_bit_scl_out));
     if (!sda)
@@ -316,6 +321,23 @@ static void ati_i2c_edid_radeon(void)
     dprintf(1, "ati: ... %s\n", valid ? "good" : "invalid");
 }
 
+static void ati_i2c_edid_rage128(void)
+{
+    int valid;
+
+    SET_VGA(ati_i2c_bit_enable, 25);
+    SET_VGA(ati_i2c_bit_scl_out, 18);
+    SET_VGA(ati_i2c_bit_sda_out, 17);
+    SET_VGA(ati_i2c_bit_sda_in, 9);
+    SET_VGA(ati_i2c_reg, GPIO_MONID);
+
+    dprintf(1, "ati: reading edid blob (rage128) ... \n");
+    ati_i2c_edid();
+    valid = (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+             GET_GLOBAL(VBE_edid[1]) == 0xff);
+    dprintf(1, "ati: ... %s\n", valid ? "good" : "invalid");
+}
+
 /****************************************************************
  * init
  ****************************************************************/
@@ -379,6 +401,9 @@ ati_setup(void)
 
     u16 device = pci_config_readw(bdf, PCI_DEVICE_ID);
     switch (device) {
+    case 0x5046:
+        ati_i2c_edid_rage128();
+        break;
     case 0x5159:
         ati_i2c_edid_radeon();
         break;
