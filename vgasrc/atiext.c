@@ -299,6 +299,15 @@ static void ati_i2c_edid_radeon(void)
     SET_VGA(ati_i2c_bit_sda_out, 16);
     SET_VGA(ati_i2c_bit_sda_in, 8);
 
+    dprintf(1, "ati: reading edid blob (radeon vga) ... \n");
+    SET_VGA(ati_i2c_reg, GPIO_VGA_DDC);
+    ati_i2c_edid();
+    valid = (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+             GET_GLOBAL(VBE_edid[1]) == 0xff);
+    dprintf(1, "ati: ... %s\n", valid ? "good" : "invalid");
+    if (valid)
+        return;
+
     dprintf(1, "ati: reading edid blob (radeon dvi) ... \n");
     SET_VGA(ati_i2c_reg, GPIO_DVI_DDC);
     ati_i2c_edid();
