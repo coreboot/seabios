@@ -343,7 +343,7 @@ ati_setup(void)
             height > 0xfff ||
             mem > totalmem ||
             memmodel != MM_DIRECT) {
-            dprintf(1, "ati: removing mode 0x%x\n", GET_GLOBAL(m->mode));
+            dprintf(3, "ati: removing mode 0x%x\n", GET_GLOBAL(m->mode));
             SET_VGA(m->mode, 0xffff);
         }
     }
