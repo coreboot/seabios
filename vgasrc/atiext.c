@@ -117,7 +117,7 @@ static inline u32 ati_read(u32 reg)
         val = inl(io_addr + reg);
     } else {
         outl(reg, io_addr + MM_INDEX);
-        reg = inl(io_addr + MM_DATA);
+        val = inl(io_addr + MM_DATA);
     }
     return val;
 }
