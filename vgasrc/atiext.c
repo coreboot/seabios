@@ -43,6 +43,11 @@
 #define CRT_CRTC_ON                             0x00008000
 
 static u32 ati_io_addr VAR16 = 0;
+static u32 ati_i2c_reg VAR16;
+static u32 ati_i2c_bit_scl_out VAR16;
+static u32 ati_i2c_bit_sda_out VAR16;
+static u32 ati_i2c_bit_sda_in VAR16;
+
 
 int
 is_ati_mode(struct vgamode_s *vmode_g)
@@ -206,18 +211,18 @@ ati_i2c_set_scl_sda(int scl, int sda)
     u32 data = 0;
 
     if (!scl)
-        data |= (1 << 17);
+        data |= (1 << GET_GLOBAL(ati_i2c_bit_scl_out));
     if (!sda)
-        data |= (1 << 16);
-    ati_write(GPIO_DVI_DDC, data);
+        data |= (1 << GET_GLOBAL(ati_i2c_bit_sda_out));
+    ati_write(GET_GLOBAL(ati_i2c_reg), data);
 }
 
 static int
 ati_i2c_get_sda(void)
 {
-    u32 data = ati_read(GPIO_DVI_DDC);
+    u32 data = ati_read(GET_GLOBAL(ati_i2c_reg));
 
-    return data & (1 << 8) ? 1 : 0;
+    return data & (1 << GET_GLOBAL(ati_i2c_bit_sda_in)) ? 1 : 0;
 }
 
 static void ati_i2c_start(void)
@@ -275,7 +280,6 @@ static void ati_i2c_edid(void)
     u8 byte;
     int i;
 
-    dprintf(1, "ati: reading edid blob\n");
     ati_i2c_start();
     ati_i2c_send_byte(0x50 << 1 | 1);
     ati_i2c_ack();
@@ -285,6 +289,22 @@ static void ati_i2c_edid(void)
         SET_VGA(VBE_edid[i], byte);
     }
     ati_i2c_stop();
+}
+
+static void ati_i2c_edid_radeon(void)
+{
+    int valid;
+
+    SET_VGA(ati_i2c_bit_scl_out, 17);
+    SET_VGA(ati_i2c_bit_sda_out, 16);
+    SET_VGA(ati_i2c_bit_sda_in, 8);
+
+    dprintf(1, "ati: reading edid blob (radeon dvi) ... \n");
+    SET_VGA(ati_i2c_reg, GPIO_DVI_DDC);
+    ati_i2c_edid();
+    valid = (GET_GLOBAL(VBE_edid[0]) == 0x00 &&
+             GET_GLOBAL(VBE_edid[1]) == 0xff);
+    dprintf(1, "ati: ... %s\n", valid ? "good" : "invalid");
 }
 
 /****************************************************************
@@ -351,7 +371,7 @@ ati_setup(void)
     u16 device = pci_config_readw(bdf, PCI_DEVICE_ID);
     switch (device) {
     case 0x5159:
-        ati_i2c_edid();
+        ati_i2c_edid_radeon();
         break;
     }
 
