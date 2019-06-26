@@ -71,6 +71,30 @@ build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
     return p;
 }
 
+static char *
+build_scsi_path(char *buf, int max,
+                struct pci_device *pci, int target, int lun)
+{
+    // Build the string path of a scsi drive - for example:
+    // /pci@i0cf8/scsi@5/channel@0/disk@1,0
+    char *p;
+    p = build_pci_path(buf, max, "*", pci);
+    p += snprintf(p, buf+max-p, "/*@0/*@%x,%x", target, lun);
+    return p;
+}
+
+static char *
+build_ata_path(char *buf, int max,
+               struct pci_device *pci, int chanid, int slave)
+{
+    // Build the string path of an ata drive - for example:
+    // /pci@i0cf8/ide@1,1/drive@1/disk@0
+    char *p;
+    p = build_pci_path(buf, max, "*", pci);
+    p += snprintf(p, buf+max-p, "/drive@%x/disk@%x", chanid, slave);
+    return p;
+}
+
 
 /****************************************************************
  * Boot device logical geometry
@@ -221,10 +245,8 @@ int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun)
     if (!pci)
         // support only pci machine for now
         return -1;
-    // Find scsi drive - for example: /pci@i0cf8/scsi@5/channel@0/disk@1,0
-    char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "*", pci);
-    snprintf(p, desc+sizeof(desc)-p, "/*@0/*@%x,%x", target, lun);
+    char desc[256];
+    build_scsi_path(desc, sizeof(desc), pci, target, lun);
     return find_prio(desc);
 }
 
@@ -237,10 +259,8 @@ int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave)
     if (!pci)
         // support only pci machine for now
         return -1;
-    // Find ata drive - for example: /pci@i0cf8/ide@1,1/drive@1/disk@0
-    char desc[256], *p;
-    p = build_pci_path(desc, sizeof(desc), "*", pci);
-    snprintf(p, desc+sizeof(desc)-p, "/drive@%x/disk@%x", chanid, slave);
+    char desc[256];
+    build_ata_path(desc, sizeof(desc), pci, chanid, slave);
     return find_prio(desc);
 }
 
