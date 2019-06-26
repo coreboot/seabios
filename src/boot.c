@@ -129,6 +129,8 @@ parse_u32(char *cur, u32 *n)
 static void
 loadBiosGeometry(void)
 {
+    if (!CONFIG_HOST_BIOS_GEOMETRY)
+        return;
     char *f = romfile_loadfile("bios-geometry", NULL);
     if (!f)
         return;
@@ -166,6 +168,73 @@ loadBiosGeometry(void)
                 d->name, d->lcyls, d->lheads, d->lsecs);
         i++;
     } while (f);
+}
+
+// Search the bios-geometry list for the given glob pattern.
+static BootDeviceLCHS *
+boot_lchs_find(const char *glob)
+{
+    dprintf(1, "Searching bios-geometry for: %s\n", glob);
+    int i;
+    for (i = 0; i < BiosGeometryCount; i++)
+        if (glob_prefix(glob, BiosGeometry[i].name))
+            return &BiosGeometry[i];
+    return NULL;
+}
+
+int boot_lchs_find_pci_device(struct pci_device *pci, struct chs_s *chs)
+{
+    if (!CONFIG_HOST_BIOS_GEOMETRY)
+        return -1;
+    char desc[256];
+    build_pci_path(desc, sizeof(desc), "*", pci);
+    BootDeviceLCHS *b = boot_lchs_find(desc);
+    if (!b)
+        return -1;
+    chs->cylinder = (u16)b->lcyls;
+    chs->head = (u16)b->lheads;
+    chs->sector = (u16)b->lsecs;
+    return 0;
+}
+
+int boot_lchs_find_scsi_device(struct pci_device *pci, int target, int lun,
+                               struct chs_s *chs)
+{
+    if (!CONFIG_HOST_BIOS_GEOMETRY)
+        return -1;
+    if (!pci)
+        // support only pci machine for now
+        return -1;
+    // Find scsi drive - for example: /pci@i0cf8/scsi@5/channel@0/disk@1,0
+    char desc[256];
+    build_scsi_path(desc, sizeof(desc), pci, target, lun);
+    BootDeviceLCHS *b = boot_lchs_find(desc);
+    if (!b)
+        return -1;
+    chs->cylinder = (u16)b->lcyls;
+    chs->head = (u16)b->lheads;
+    chs->sector = (u16)b->lsecs;
+    return 0;
+}
+
+int boot_lchs_find_ata_device(struct pci_device *pci, int chanid, int slave,
+                              struct chs_s *chs)
+{
+    if (!CONFIG_HOST_BIOS_GEOMETRY)
+        return -1;
+    if (!pci)
+        // support only pci machine for now
+        return -1;
+    // Find ata drive - for example: /pci@i0cf8/ide@1,1/drive@1/disk@0
+    char desc[256];
+    build_ata_path(desc, sizeof(desc), pci, chanid, slave);
+    BootDeviceLCHS *b = boot_lchs_find(desc);
+    if (!b)
+        return -1;
+    chs->cylinder = (u16)b->lcyls;
+    chs->head = (u16)b->lheads;
+    chs->sector = (u16)b->lsecs;
+    return 0;
 }
 
 
