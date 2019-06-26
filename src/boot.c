@@ -73,6 +73,79 @@ build_pci_path(char *buf, int max, const char *devname, struct pci_device *pci)
 
 
 /****************************************************************
+ * Boot device logical geometry
+ ****************************************************************/
+
+typedef struct BootDeviceLCHS {
+    char *name;
+    u32 lcyls;
+    u32 lheads;
+    u32 lsecs;
+} BootDeviceLCHS;
+
+static BootDeviceLCHS *BiosGeometry VARVERIFY32INIT;
+static int BiosGeometryCount;
+
+static char *
+parse_u32(char *cur, u32 *n)
+{
+    u32 m = 0;
+    if (cur) {
+        while ('0' <= *cur && *cur <= '9') {
+            m = 10 * m + (*cur - '0');
+            cur++;
+        }
+        if (*cur != '\0')
+            cur++;
+    }
+    *n = m;
+    return cur;
+}
+
+static void
+loadBiosGeometry(void)
+{
+    char *f = romfile_loadfile("bios-geometry", NULL);
+    if (!f)
+        return;
+
+    int i = 0;
+    BiosGeometryCount = 1;
+    while (f[i]) {
+        if (f[i] == '\n')
+            BiosGeometryCount++;
+        i++;
+    }
+    BiosGeometry = malloc_tmphigh(BiosGeometryCount * sizeof(BootDeviceLCHS));
+    if (!BiosGeometry) {
+        warn_noalloc();
+        free(f);
+        BiosGeometryCount = 0;
+        return;
+    }
+
+    dprintf(1, "bios geometry:\n");
+    i = 0;
+    do {
+        BootDeviceLCHS *d = &BiosGeometry[i];
+        d->name = f;
+        f = strchr(f, '\n');
+        if (f)
+            *(f++) = '\0';
+        char *chs_values = strchr(d->name, ' ');
+        if (chs_values)
+            *(chs_values++) = '\0';
+        chs_values = parse_u32(chs_values, &d->lcyls);
+        chs_values = parse_u32(chs_values, &d->lheads);
+        chs_values = parse_u32(chs_values, &d->lsecs);
+        dprintf(1, "%s: (%u, %u, %u)\n",
+                d->name, d->lcyls, d->lheads, d->lsecs);
+        i++;
+    } while (f);
+}
+
+
+/****************************************************************
  * Boot priority ordering
  ****************************************************************/
 
@@ -292,6 +365,7 @@ boot_init(void)
     BootRetryTime = romfile_loadint("etc/boot-fail-wait", 60*1000);
 
     loadBootOrder();
+    loadBiosGeometry();
 }
 
 
