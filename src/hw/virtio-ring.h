@@ -20,7 +20,7 @@
 #define VIRTIO_F_VERSION_1              32
 #define VIRTIO_F_IOMMU_PLATFORM         33
 
-#define MAX_QUEUE_NUM      (128)
+#define MAX_QUEUE_NUM      (256)
 
 #define VRING_DESC_F_NEXT  1
 #define VRING_DESC_F_WRITE 2
