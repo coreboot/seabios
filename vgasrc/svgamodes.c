@@ -76,5 +76,13 @@ struct generic_svga_mode svga_modes[] VAR16 = {
     { 0x190, { MM_DIRECT, 1920, 1080, 16, 8, 16, SEG_GRAPH } },
     { 0x191, { MM_DIRECT, 1920, 1080, 24, 8, 16, SEG_GRAPH } },
     { 0x192, { MM_DIRECT, 1920, 1080, 32, 8, 16, SEG_GRAPH } },
+
+    /* custom resolutions for 16:9 displays */
+    { 0x193, { MM_DIRECT, 1600,  900, 16, 8, 16, SEG_GRAPH } },
+    { 0x194, { MM_DIRECT, 1600,  900, 24, 8, 16, SEG_GRAPH } },
+    { 0x195, { MM_DIRECT, 1600,  900, 32, 8, 16, SEG_GRAPH } },
+    { 0x196, { MM_DIRECT, 2560, 1440, 16, 8, 16, SEG_GRAPH } },
+    { 0x197, { MM_DIRECT, 2560, 1440, 24, 8, 16, SEG_GRAPH } },
+    { 0x198, { MM_DIRECT, 2560, 1440, 32, 8, 16, SEG_GRAPH } },
 };
 unsigned int svga_mcount VAR16 = ARRAY_SIZE(svga_modes);
