@@ -13,75 +13,12 @@
 #include "vgabios.h" // SET_VGA
 #include "vgafb.h" // handle_gfx_op
 #include "vgautil.h" // VBE_total_memory
+#include "svgamodes.h" // svga_modes
 
 static int CBmode VAR16;
 static struct vgamode_s CBmodeinfo VAR16;
 static struct vgamode_s CBemulinfo VAR16;
 static u32 CBlinelength VAR16;
-
-static struct cbvga_mode_s
-{
-    u16 mode;
-    struct vgamode_s info;
-} cbvesa_modes[] VAR16 = {
-    /* VESA 1.0 modes */
-    { 0x110, { MM_DIRECT, 640,  480,  15, 8, 16, SEG_GRAPH } },
-    { 0x111, { MM_DIRECT, 640,  480,  16, 8, 16, SEG_GRAPH } },
-    { 0x112, { MM_DIRECT, 640,  480,  24, 8, 16, SEG_GRAPH } },
-    { 0x113, { MM_DIRECT, 800,  600,  15, 8, 16, SEG_GRAPH } },
-    { 0x114, { MM_DIRECT, 800,  600,  16, 8, 16, SEG_GRAPH } },
-    { 0x115, { MM_DIRECT, 800,  600,  24, 8, 16, SEG_GRAPH } },
-    { 0x116, { MM_DIRECT, 1024, 768,  15, 8, 16, SEG_GRAPH } },
-    { 0x117, { MM_DIRECT, 1024, 768,  16, 8, 16, SEG_GRAPH } },
-    { 0x118, { MM_DIRECT, 1024, 768,  24, 8, 16, SEG_GRAPH } },
-    { 0x119, { MM_DIRECT, 1280, 1024, 15, 8, 16, SEG_GRAPH } },
-    { 0x11A, { MM_DIRECT, 1280, 1024, 16, 8, 16, SEG_GRAPH } },
-    { 0x11B, { MM_DIRECT, 1280, 1024, 24, 8, 16, SEG_GRAPH } },
-    { 0x11D, { MM_DIRECT, 1600, 1200, 15, 8, 16, SEG_GRAPH } },
-    { 0x11E, { MM_DIRECT, 1600, 1200, 16, 8, 16, SEG_GRAPH } },
-    { 0x11F, { MM_DIRECT, 1600, 1200, 24, 8, 16, SEG_GRAPH } },
-    /* VESA 2.0 modes */
-    { 0x141, { MM_DIRECT, 640,  400,  32, 8, 16, SEG_GRAPH } },
-    { 0x142, { MM_DIRECT, 640,  480,  32, 8, 16, SEG_GRAPH } },
-    { 0x143, { MM_DIRECT, 800,  600,  32, 8, 16, SEG_GRAPH } },
-    { 0x144, { MM_DIRECT, 1024, 768,  32, 8, 16, SEG_GRAPH } },
-    { 0x145, { MM_DIRECT, 1280, 1024, 32, 8, 16, SEG_GRAPH } },
-    { 0x147, { MM_DIRECT, 1600, 1200, 32, 8, 16, SEG_GRAPH } },
-    { 0x149, { MM_DIRECT, 1152, 864,  15, 8, 16, SEG_GRAPH } },
-    { 0x14a, { MM_DIRECT, 1152, 864,  16, 8, 16, SEG_GRAPH } },
-    { 0x14b, { MM_DIRECT, 1152, 864,  24, 8, 16, SEG_GRAPH } },
-    { 0x14c, { MM_DIRECT, 1152, 864,  32, 8, 16, SEG_GRAPH } },
-    { 0x175, { MM_DIRECT, 1280, 768,  16, 8, 16, SEG_GRAPH } },
-    { 0x176, { MM_DIRECT, 1280, 768,  24, 8, 16, SEG_GRAPH } },
-    { 0x177, { MM_DIRECT, 1280, 768,  32, 8, 16, SEG_GRAPH } },
-    { 0x178, { MM_DIRECT, 1280, 800,  16, 8, 16, SEG_GRAPH } },
-    { 0x179, { MM_DIRECT, 1280, 800,  24, 8, 16, SEG_GRAPH } },
-    { 0x17a, { MM_DIRECT, 1280, 800,  32, 8, 16, SEG_GRAPH } },
-    { 0x17b, { MM_DIRECT, 1280, 960,  16, 8, 16, SEG_GRAPH } },
-    { 0x17c, { MM_DIRECT, 1280, 960,  24, 8, 16, SEG_GRAPH } },
-    { 0x17d, { MM_DIRECT, 1280, 960,  32, 8, 16, SEG_GRAPH } },
-    { 0x17e, { MM_DIRECT, 1440, 900,  16, 8, 16, SEG_GRAPH } },
-    { 0x17f, { MM_DIRECT, 1440, 900,  24, 8, 16, SEG_GRAPH } },
-    { 0x180, { MM_DIRECT, 1440, 900,  32, 8, 16, SEG_GRAPH } },
-    { 0x181, { MM_DIRECT, 1400, 1050, 16, 8, 16, SEG_GRAPH } },
-    { 0x182, { MM_DIRECT, 1400, 1050, 24, 8, 16, SEG_GRAPH } },
-    { 0x183, { MM_DIRECT, 1400, 1050, 32, 8, 16, SEG_GRAPH } },
-    { 0x184, { MM_DIRECT, 1680, 1050, 16, 8, 16, SEG_GRAPH } },
-    { 0x185, { MM_DIRECT, 1680, 1050, 24, 8, 16, SEG_GRAPH } },
-    { 0x186, { MM_DIRECT, 1680, 1050, 32, 8, 16, SEG_GRAPH } },
-    { 0x187, { MM_DIRECT, 1920, 1200, 16, 8, 16, SEG_GRAPH } },
-    { 0x188, { MM_DIRECT, 1920, 1200, 24, 8, 16, SEG_GRAPH } },
-    { 0x189, { MM_DIRECT, 1920, 1200, 32, 8, 16, SEG_GRAPH } },
-    { 0x18a, { MM_DIRECT, 2560, 1600, 16, 8, 16, SEG_GRAPH } },
-    { 0x18b, { MM_DIRECT, 2560, 1600, 24, 8, 16, SEG_GRAPH } },
-    { 0x18c, { MM_DIRECT, 2560, 1600, 32, 8, 16, SEG_GRAPH } },
-    { 0x18d, { MM_DIRECT, 1280, 720,  16, 8, 16, SEG_GRAPH } },
-    { 0x18e, { MM_DIRECT, 1280, 720,  24, 8, 16, SEG_GRAPH } },
-    { 0x18f, { MM_DIRECT, 1280, 720,  32, 8, 16, SEG_GRAPH } },
-    { 0x190, { MM_DIRECT, 1920, 1080, 16, 8, 16, SEG_GRAPH } },
-    { 0x191, { MM_DIRECT, 1920, 1080, 24, 8, 16, SEG_GRAPH } },
-    { 0x192, { MM_DIRECT, 1920, 1080, 32, 8, 16, SEG_GRAPH } },
-};
 
 struct vgamode_s *cbvga_find_mode(int mode)
 {
@@ -91,8 +28,8 @@ struct vgamode_s *cbvga_find_mode(int mode)
         return &CBemulinfo;
 
     int i;
-    for (i = 0; i < ARRAY_SIZE(cbvesa_modes); i++) {
-        struct cbvga_mode_s *cbmode_g = &cbvesa_modes[i];
+    for (i = 0; i < GET_GLOBAL(svga_mcount); i++) {
+        struct generic_svga_mode *cbmode_g = &svga_modes[i];
         if (GET_GLOBAL(cbmode_g->mode) == 0xffff)
             continue;
         if (GET_GLOBAL(cbmode_g->mode) == mode)
@@ -114,8 +51,8 @@ cbvga_list_modes(u16 seg, u16 *dest, u16 *last)
          * + 24 Bpp and 32 Bpp are supported
          */
         int i;
-        for (i = 0; i < ARRAY_SIZE(cbvesa_modes) && dest < last; i++) {
-            struct cbvga_mode_s *cbmode_g = &cbvesa_modes[i];
+        for (i = 0; i < GET_GLOBAL(svga_mcount) && dest < last; i++) {
+            struct generic_svga_mode *cbmode_g = &svga_modes[i];
             u16 mode = GET_GLOBAL(cbmode_g->mode);
             if (mode == 0xffff)
                 continue;
@@ -265,10 +202,11 @@ cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength)
                , get_global_seg(), &CBmodeinfo, sizeof(CBemulinfo));
 
     // Validate modes
-    for (i = 0; i < ARRAY_SIZE(cbvesa_modes); i++) {
-        struct cbvga_mode_s *cbmode_g = &cbvesa_modes[i];
+    for (i = 0; i < GET_GLOBAL(svga_mcount); i++) {
+        struct generic_svga_mode *cbmode_g = &svga_modes[i];
         /* Skip VBE modes that doesn't fit into coreboot's framebuffer */
-        if ((GET_GLOBAL(cbmode_g->info.height) > ylines)
+        if ((GET_GLOBAL(cbmode_g->info.memmodel) != MM_DIRECT)
+            || (GET_GLOBAL(cbmode_g->info.height) > ylines)
             || (GET_GLOBAL(cbmode_g->info.width) > xlines)
             || (GET_GLOBAL(cbmode_g->info.depth) != bpp)) {
             dprintf(3, "Removing mode %x\n", GET_GLOBAL(cbmode_g->mode));
