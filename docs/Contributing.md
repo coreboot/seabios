@@ -18,3 +18,8 @@ submit patches. The SeaBIOS C code does follow a slightly different
 coding style from QEMU (eg, mixed code and C99 style variable
 declarations are encouraged, braces are not required around single
 statement blocks), however patches in the QEMU style are acceptable.
+
+As with QEMU, commits must contain a "Signed-off-by" line using your
+real name (sorry, no pseudonyms or anonymous contributions) and a
+current email address. It indicates agreement with the terms of the
+[developer certificate of origin](developer-certificate-of-origin).
