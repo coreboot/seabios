@@ -1,3 +1,11 @@
+// Common svga mode definitions
+//
+// Copyright (C) 2012  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2011  Julian Pidancet <julian.pidancet@citrix.com>
+//  Copyright (C) 2002 Jeroen Janssen
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
 #include "stdvga.h" // SEG_GRAPH
 #include "vgabios.h" // VAR16
 
