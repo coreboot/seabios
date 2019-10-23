@@ -1,3 +1,9 @@
+// Simple framebuffer vgabios for use with qemu ramfb device
+//
+// Copyright (C) 2019 Gerd Hoffmann <kraxel@redhat.com>
+//
+// This file may be distributed under the terms of the GNU LGPLv3 license.
+
 #include "biosvar.h" // GET_BDA
 #include "output.h" // dprintf
 #include "string.h" // memset16_far
