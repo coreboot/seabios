@@ -1,5 +1,7 @@
 /*
  * code page 437 to unicode map
+ *
+ * This file may be distributed under the terms of the GNU LGPLv3 license.
  */
 
 #include "types.h"
