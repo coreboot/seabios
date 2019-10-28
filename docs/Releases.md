@@ -12,6 +12,11 @@ Available on 20181117. Major changes in this release:
 * SeaVGABIOS support for QEMU "bochs-display" and QEMU "ramfb" displays
 * Several bug fixes and code cleanups
 
+SeaBIOS 1.12.1
+--------------
+
+Available on 20190314. Stable release containing only bug fixes.
+
 SeaBIOS 1.11.0
 ==============
 
