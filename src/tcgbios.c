@@ -481,8 +481,17 @@ tpm20_get_pcrbanks(void)
     if (ret)
         return ret;
 
-    u32 size = be32_to_cpu(trg->hdr.totlen) -
-                           offsetof(struct tpm2_res_getcapability, data);
+    /* defend against (broken) TPM sending packets that are too short */
+    u32 resplen = be32_to_cpu(trg->hdr.totlen);
+    if (resplen <= offsetof(struct tpm2_res_getcapability, data))
+        return -1;
+
+    u32 size = resplen - offsetof(struct tpm2_res_getcapability, data);
+    /* we need a valid tpml_pcr_selection up to and including sizeOfSelect */
+    if (size < offsetof(struct tpml_pcr_selection, selections) +
+               offsetof(struct tpms_pcr_selection, pcrSelect))
+        return -1;
+
     tpm20_pcr_selection = malloc_high(size);
     if (tpm20_pcr_selection) {
         memcpy(tpm20_pcr_selection, &trg->data, size);
