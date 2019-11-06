@@ -620,7 +620,8 @@ tpmhw_transmit(u8 locty, struct tpm_req_header *req,
         return -1;
 
     irc = td->readresp(respbuffer, respbufferlen);
-    if (irc != 0)
+    if (irc != 0 ||
+        *respbufferlen < sizeof(struct tpm_rsp_header))
         return -1;
 
     td->ready();
