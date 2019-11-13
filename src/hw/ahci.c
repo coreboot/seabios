@@ -345,6 +345,7 @@ ahci_port_alloc(struct ahci_ctrl_s *ctrl, u32 pnr)
         warn_noalloc();
         return NULL;
     }
+    memset(port, 0, sizeof(*port));
     port->pnr = pnr;
     port->ctrl = ctrl;
     port->list = memalign_tmp(1024, 1024);
