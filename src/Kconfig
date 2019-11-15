@@ -72,13 +72,6 @@ endchoice
         help
             Support controlling of the boot order via the fw_cfg/CBFS
             "bootorder" file.
-    config BOOTDEVICES
-        depends on BOOT
-        bool "Boot device information"
-        default y
-        help
-            Support boot device information via the fw_cfg/CBFS
-            "bootdevices" file.
 
     config COREBOOT_FLASH
         depends on COREBOOT
