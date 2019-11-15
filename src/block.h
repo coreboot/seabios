@@ -90,7 +90,6 @@ struct drive_s {
 #define TRANSLATION_LBA   1
 #define TRANSLATION_LARGE 2
 #define TRANSLATION_RECHS 3
-#define TRANSLATION_MACHINE 4
 
 #define EXTTYPE_FLOPPY 0
 #define EXTTYPE_HD 1

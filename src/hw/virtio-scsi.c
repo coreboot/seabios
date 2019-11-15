@@ -121,8 +121,6 @@ virtio_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
     virtio_scsi_init_lun(vlun, tmpl_vlun->pci, tmpl_vlun->vp, tmpl_vlun->vq,
                          tmpl_vlun->target, lun);
 
-    boot_lchs_find_scsi_device(vlun->pci, vlun->target, vlun->lun,
-                               &(vlun->drive.lchs));
     int prio = bootprio_find_scsi_device(vlun->pci, vlun->target, vlun->lun);
     int ret = scsi_drive_setup(&vlun->drive, "virtio-scsi", prio);
     if (ret)

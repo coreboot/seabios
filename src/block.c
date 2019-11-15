@@ -69,17 +69,9 @@ int create_bounce_buf(void)
  * Disk geometry translation
  ****************************************************************/
 
-static int
-overriden_lchs_supplied(struct drive_s *drive)
-{
-    return drive->lchs.cylinder || drive->lchs.head || drive->lchs.sector;
-}
-
 static u8
 get_translation(struct drive_s *drive)
 {
-    if (overriden_lchs_supplied(drive))
-        return TRANSLATION_MACHINE;
     u8 type = drive->type;
     if (CONFIG_QEMU && type == DTYPE_ATA) {
         // Emulators pass in the translation info via nvram.
@@ -166,16 +158,6 @@ setup_translation(struct drive_s *drive)
             if (heads > 127)
                 break;
         }
-        break;
-    case TRANSLATION_MACHINE:
-        desc = "overriden";
-        cylinders = drive->lchs.cylinder;
-        heads = drive->lchs.head;
-        if (heads > 255)
-            heads = 255;
-        spt = drive->lchs.sector;
-        if (spt > 63)
-            spt = 63;
         break;
     }
     // clip to 1024 cylinders in lchs
@@ -441,8 +423,7 @@ fill_ata_edd(struct segoff_s edd, struct drive_s *drive_gf)
     u16 options = 0;
     if (GET_GLOBALFLAT(drive_gf->type) == DTYPE_ATA) {
         u8 translation = GET_GLOBALFLAT(drive_gf->translation);
-        if ((translation != TRANSLATION_NONE) &&
-            (translation != TRANSLATION_MACHINE)) {
+        if (translation != TRANSLATION_NONE) {
             options |= 1<<3; // CHS translation
             if (translation == TRANSLATION_LBA)
                 options |= 1<<9;
