@@ -82,7 +82,7 @@ usb_kbd_setup(struct usbdevice_s *usbdev
     // Periodically send reports to enable key repeat.
     ret = set_idle(usbdev->defpipe, KEYREPEATMS);
     if (ret)
-        return -1;
+        dprintf(3, "Warning: Failed to set key repeat rate\n");
 
     keyboard_pipe = usb_alloc_pipe(usbdev, epdesc);
     if (!keyboard_pipe)
