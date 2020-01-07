@@ -295,6 +295,11 @@ find_prio(const char *glob)
     return -1;
 }
 
+u8 is_bootprio_strict(void)
+{
+    return find_prio("HALT") >= 0;
+}
+
 int bootprio_find_pci_device(struct pci_device *pci)
 {
     if (CONFIG_CSM)

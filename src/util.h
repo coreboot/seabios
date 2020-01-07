@@ -27,6 +27,7 @@ void boot_add_cd(struct drive_s *drive_g, const char *desc, int prio);
 void boot_add_cbfs(void *data, const char *desc, int prio);
 void interactive_bootmenu(void);
 void bcv_prepboot(void);
+u8 is_bootprio_strict(void);
 struct pci_device;
 int bootprio_find_pci_device(struct pci_device *pci);
 int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun);
