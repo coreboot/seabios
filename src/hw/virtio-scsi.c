@@ -18,7 +18,7 @@
 #include "stacks.h" // run_thread
 #include "std/disk.h" // DISK_RET_SUCCESS
 #include "string.h" // memset
-#include "util.h" // usleep
+#include "util.h" // usleep, bootprio_find_pci_device, is_bootprio_strict
 #include "virtio-pci.h"
 #include "virtio-ring.h"
 #include "virtio-scsi.h"
@@ -205,6 +205,8 @@ fail:
 void
 virtio_scsi_setup(void)
 {
+    u8 skip_nonbootable = is_bootprio_strict();
+
     ASSERT32FLAT();
     if (! CONFIG_VIRTIO_SCSI)
         return;
@@ -217,6 +219,13 @@ virtio_scsi_setup(void)
             (pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_09 &&
              pci->device != PCI_DEVICE_ID_VIRTIO_SCSI_10))
             continue;
+
+        if (skip_nonbootable && bootprio_find_pci_device(pci) < 0) {
+            dprintf(1, "skipping init of a non-bootable virtio-scsi at %pP\n",
+                    pci);
+            continue;
+        }
+
         run_thread(init_virtio_scsi, pci);
     }
 }
