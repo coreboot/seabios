@@ -586,7 +586,14 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
 static void
 nvme_controller_setup(void *opaque)
 {
+    u8 skip_nonbootable = is_bootprio_strict();
     struct pci_device *pci = opaque;
+
+    if (skip_nonbootable && bootprio_find_pci_device(pci) < 0) {
+        dprintf(1, "skipping init of a non-bootable NVMe at %pP\n",
+                pci);
+        goto err;
+    }
 
     struct nvme_reg volatile *reg = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
     if (!reg)
