@@ -111,8 +111,18 @@ virtio_scsi_init_lun(struct virtio_lun_s *vlun, struct pci_device *pci,
 static int
 virtio_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
 {
+    u8 skip_nonbootable = is_bootprio_strict();
     struct virtio_lun_s *tmpl_vlun =
         container_of(tmpl_drv, struct virtio_lun_s, drive);
+    int prio = bootprio_find_scsi_device(tmpl_vlun->pci, tmpl_vlun->target, tmpl_vlun->lun);
+
+    if (skip_nonbootable && prio < 0) {
+        dprintf(1, "skipping init of a non-bootable virtio-scsi dev at %pP,"
+                " target %d, lun %d\n",
+                tmpl_vlun->pci, tmpl_vlun->target, tmpl_vlun->lun);
+        return -1;
+    }
+
     struct virtio_lun_s *vlun = malloc_low(sizeof(*vlun));
     if (!vlun) {
         warn_noalloc();
@@ -123,7 +133,6 @@ virtio_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
 
     boot_lchs_find_scsi_device(vlun->pci, vlun->target, vlun->lun,
                                &(vlun->drive.lchs));
-    int prio = bootprio_find_scsi_device(vlun->pci, vlun->target, vlun->lun);
     int ret = scsi_drive_setup(&vlun->drive, "virtio-scsi", prio);
     if (ret)
         goto fail;
