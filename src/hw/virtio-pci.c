@@ -23,6 +23,7 @@
 #include "pci_regs.h" // PCI_BASE_ADDRESS_0
 #include "string.h" // memset
 #include "virtio-pci.h"
+#include "virtio-mmio.h"
 #include "virtio-ring.h"
 
 u64 _vp_read(struct vp_cap *cap, u32 offset, u8 size)
@@ -189,7 +190,11 @@ u64 vp_get_features(struct vp_device *vp)
 {
     u32 f0, f1;
 
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        vp_write(&vp->common, virtio_mmio_cfg, device_feature_select, 0);
+        f0 = vp_read(&vp->common, virtio_mmio_cfg, device_feature);
+        f1 = 0;
+    } else if (vp->use_modern) {
         vp_write(&vp->common, virtio_pci_common_cfg, device_feature_select, 0);
         f0 = vp_read(&vp->common, virtio_pci_common_cfg, device_feature);
         vp_write(&vp->common, virtio_pci_common_cfg, device_feature_select, 1);
@@ -208,7 +213,10 @@ void vp_set_features(struct vp_device *vp, u64 features)
     f0 = features;
     f1 = features >> 32;
 
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        vp_write(&vp->common, virtio_mmio_cfg, guest_feature_select, f0);
+        vp_write(&vp->common, virtio_mmio_cfg, guest_feature, f0);
+    } else if (vp->use_modern) {
         vp_write(&vp->common, virtio_pci_common_cfg, guest_feature_select, 0);
         vp_write(&vp->common, virtio_pci_common_cfg, guest_feature, f0);
         vp_write(&vp->common, virtio_pci_common_cfg, guest_feature_select, 1);
@@ -220,7 +228,9 @@ void vp_set_features(struct vp_device *vp, u64 features)
 
 u8 vp_get_status(struct vp_device *vp)
 {
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        return vp_read(&vp->common, virtio_mmio_cfg, device_status);
+    } else if (vp->use_modern) {
         return vp_read(&vp->common, virtio_pci_common_cfg, device_status);
     } else {
         return vp_read(&vp->legacy, virtio_pci_legacy, status);
@@ -231,7 +241,9 @@ void vp_set_status(struct vp_device *vp, u8 status)
 {
     if (status == 0)        /* reset */
         return;
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        vp_write(&vp->common, virtio_mmio_cfg, device_status, status);
+    } else if (vp->use_modern) {
         vp_write(&vp->common, virtio_pci_common_cfg, device_status, status);
     } else {
         vp_write(&vp->legacy, virtio_pci_legacy, status, status);
@@ -240,7 +252,9 @@ void vp_set_status(struct vp_device *vp, u8 status)
 
 u8 vp_get_isr(struct vp_device *vp)
 {
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        return vp_read(&vp->common, virtio_mmio_cfg, irq_status);
+    } else if (vp->use_modern) {
         return vp_read(&vp->isr, virtio_pci_isr, isr);
     } else {
         return vp_read(&vp->legacy, virtio_pci_legacy, isr);
@@ -249,7 +263,10 @@ u8 vp_get_isr(struct vp_device *vp)
 
 void vp_reset(struct vp_device *vp)
 {
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        vp_write(&vp->common, virtio_mmio_cfg, device_status, 0);
+        vp_read(&vp->common, virtio_mmio_cfg, irq_status);
+    } else if (vp->use_modern) {
         vp_write(&vp->common, virtio_pci_common_cfg, device_status, 0);
         vp_read(&vp->isr, virtio_pci_isr, isr);
     } else {
@@ -260,7 +277,9 @@ void vp_reset(struct vp_device *vp)
 
 void vp_notify(struct vp_device *vp, struct vring_virtqueue *vq)
 {
-    if (vp->use_modern) {
+    if (vp->use_mmio) {
+        vp_write(&vp->common, virtio_mmio_cfg, queue_notify, vq->queue_index);
+    } else if (vp->use_modern) {
         u32 offset = vq->queue_notify_off * vp->notify_off_multiplier;
         switch (vp->notify.mode) {
         case VP_ACCESS_IO:
@@ -305,14 +324,21 @@ int vp_find_vq(struct vp_device *vp, int queue_index,
 
 
    /* select the queue */
-   if (vp->use_modern) {
+   if (vp->use_mmio) {
+       vp_write(&vp->common, virtio_mmio_cfg, queue_select, queue_index);
+   } else if (vp->use_modern) {
        vp_write(&vp->common, virtio_pci_common_cfg, queue_select, queue_index);
    } else {
        vp_write(&vp->legacy, virtio_pci_legacy, queue_sel, queue_index);
    }
 
    /* check if the queue is available */
-   if (vp->use_modern) {
+   if (vp->use_mmio) {
+       num = vp_read(&vp->common, virtio_mmio_cfg, queue_num_max);
+       if (num > MAX_QUEUE_NUM)
+           num = MAX_QUEUE_NUM;
+       vp_write(&vp->common, virtio_mmio_cfg, queue_num, num);
+   } else if (vp->use_modern) {
        num = vp_read(&vp->common, virtio_pci_common_cfg, queue_size);
        if (num > MAX_QUEUE_NUM) {
            vp_write(&vp->common, virtio_pci_common_cfg, queue_size,
@@ -332,7 +358,9 @@ int vp_find_vq(struct vp_device *vp, int queue_index,
    }
 
    /* check if the queue is already active */
-   if (vp->use_modern) {
+   if (vp->use_mmio) {
+       /* TODO */;
+   } else if (vp->use_modern) {
        if (vp_read(&vp->common, virtio_pci_common_cfg, queue_enable)) {
            dprintf(1, "ERROR: queue already active\n");
            goto fail;
@@ -354,7 +382,25 @@ int vp_find_vq(struct vp_device *vp, int queue_index,
     * NOTE: vr->desc is initialized by vring_init()
     */
 
-   if (vp->use_modern) {
+   if (vp->use_mmio) {
+       if (vp_read(&vp->common, virtio_mmio_cfg, version) == 2) {
+           vp_write(&vp->common, virtio_mmio_cfg, queue_desc_lo,
+                    (unsigned long)virt_to_phys(vr->desc));
+           vp_write(&vp->common, virtio_mmio_cfg, queue_desc_hi, 0);
+           vp_write(&vp->common, virtio_mmio_cfg, queue_driver_lo,
+                    (unsigned long)virt_to_phys(vr->avail));
+           vp_write(&vp->common, virtio_mmio_cfg, queue_driver_hi, 0);
+           vp_write(&vp->common, virtio_mmio_cfg, queue_device_lo,
+                    (unsigned long)virt_to_phys(vr->used));
+           vp_write(&vp->common, virtio_mmio_cfg, queue_device_hi, 0);
+           vp_write(&vp->common, virtio_mmio_cfg, queue_ready, 1);
+       } else {
+           vp_write(&vp->common, virtio_mmio_cfg, legacy_guest_page_size,
+                    (unsigned long)1 << PAGE_SHIFT);
+           vp_write(&vp->common, virtio_mmio_cfg, legacy_queue_pfn,
+                    (unsigned long)virt_to_phys(vr->desc) >> PAGE_SHIFT);
+       }
+   } else if (vp->use_modern) {
        vp_write(&vp->common, virtio_pci_common_cfg, queue_desc_lo,
                 (unsigned long)virt_to_phys(vr->desc));
        vp_write(&vp->common, virtio_pci_common_cfg, queue_desc_hi, 0);
