@@ -111,6 +111,7 @@ struct vp_device {
     struct vp_cap common, notify, isr, device, legacy;
     u32 notify_off_multiplier;
     u8 use_modern;
+    u8 use_mmio;
 };
 
 u64 _vp_read(struct vp_cap *cap, u32 offset, u8 size);
