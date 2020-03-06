@@ -49,6 +49,15 @@ set_idle(struct usb_pipe *pipe, int ms)
 #define KEYREPEATWAITMS 500
 #define KEYREPEATMS 33
 
+// Format of USB keyboard event data
+struct keyevent {
+    u8 modifiers;
+    u8 reserved;
+    u8 keys[6];
+};
+
+#define MAX_KBD_EVENT 10
+
 static int
 usb_kbd_setup(struct usbdevice_s *usbdev
               , struct usb_endpoint_descriptor *epdesc)
@@ -59,8 +68,12 @@ usb_kbd_setup(struct usbdevice_s *usbdev
         // XXX - this enables the first found keyboard (could be random)
         return -1;
 
-    if (epdesc->wMaxPacketSize != 8)
+    if (epdesc->wMaxPacketSize < sizeof(struct keyevent)
+        || epdesc->wMaxPacketSize > MAX_KBD_EVENT) {
+        dprintf(1, "USB keyboard wMaxPacketSize=%d; aborting\n"
+                , epdesc->wMaxPacketSize);
         return -1;
+    }
 
     // Enable "boot" protocol.
     int ret = set_protocol(usbdev->defpipe, 0);
@@ -79,6 +92,14 @@ usb_kbd_setup(struct usbdevice_s *usbdev
     return 0;
 }
 
+// Format of USB mouse event data
+struct mouseevent {
+    u8 buttons;
+    u8 x, y;
+};
+
+#define MAX_MOUSE_EVENT 8
+
 static int
 usb_mouse_setup(struct usbdevice_s *usbdev
                 , struct usb_endpoint_descriptor *epdesc)
@@ -89,8 +110,12 @@ usb_mouse_setup(struct usbdevice_s *usbdev
         // XXX - this enables the first found mouse (could be random)
         return -1;
 
-    if (epdesc->wMaxPacketSize < 3 || epdesc->wMaxPacketSize > 8)
+    if (epdesc->wMaxPacketSize < sizeof(struct mouseevent)
+        || epdesc->wMaxPacketSize > MAX_MOUSE_EVENT) {
+        dprintf(1, "USB mouse wMaxPacketSize=%d; aborting\n"
+                , epdesc->wMaxPacketSize);
         return -1;
+    }
 
     // Enable "boot" protocol.
     int ret = set_protocol(usbdev->defpipe, 0);
@@ -162,13 +187,6 @@ static u16 ModifierToScanCode[] VAR16 = {
 };
 
 #define RELEASEBIT 0x80
-
-// Format of USB keyboard event data
-struct keyevent {
-    u8 modifiers;
-    u8 reserved;
-    u8 keys[6];
-};
 
 // Translate data from KeyToScanCode[] to calls to process_key().
 static void
@@ -309,11 +327,11 @@ usb_check_key(void)
         return;
 
     for (;;) {
-        struct keyevent data;
-        int ret = usb_poll_intr(pipe, &data);
+        u8 data[MAX_KBD_EVENT];
+        int ret = usb_poll_intr(pipe, data);
         if (ret)
             break;
-        handle_key(&data);
+        handle_key((void*)data);
     }
 }
 
@@ -349,13 +367,6 @@ usb_kbd_command(int command, u8 *param)
  * Mouse events
  ****************************************************************/
 
-// Format of USB mouse event data
-struct mouseevent {
-    u8 buttons;
-    u8 x, y;
-    u8 reserved[5];
-};
-
 // Process USB mouse data.
 static void
 handle_mouse(struct mouseevent *data)
@@ -381,11 +392,11 @@ usb_check_mouse(void)
         return;
 
     for (;;) {
-        struct mouseevent data;
-        int ret = usb_poll_intr(pipe, &data);
+        u8 data[MAX_MOUSE_EVENT];
+        int ret = usb_poll_intr(pipe, data);
         if (ret)
             break;
-        handle_mouse(&data);
+        handle_mouse((void*)data);
     }
 }
 
