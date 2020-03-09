@@ -20,6 +20,7 @@
 #include "string.h" // memset
 #include "util.h" // usleep, bootprio_find_pci_device, is_bootprio_strict
 #include "virtio-pci.h"
+#include "virtio-mmio.h"
 #include "virtio-ring.h"
 #include "virtio-blk.h"
 
@@ -185,6 +186,76 @@ init_virtio_blk(void *data)
     vp_set_status(&vdrive->vp, status);
 
     boot_lchs_find_pci_device(pci, &vdrive->drive.lchs);
+    return;
+
+fail:
+    vp_reset(&vdrive->vp);
+    free(vdrive->vq);
+    free(vdrive);
+}
+
+void
+init_virtio_blk_mmio(void *mmio)
+{
+    u8 status = VIRTIO_CONFIG_S_ACKNOWLEDGE | VIRTIO_CONFIG_S_DRIVER;
+    dprintf(1, "found virtio-blk-mmio at %p\n", mmio);
+    struct virtiodrive_s *vdrive = malloc_low(sizeof(*vdrive));
+    if (!vdrive) {
+        warn_noalloc();
+        return;
+    }
+    memset(vdrive, 0, sizeof(*vdrive));
+    vdrive->drive.type = DTYPE_VIRTIO_BLK;
+    vdrive->drive.cntl_id = (u32)mmio;
+
+    vp_init_mmio(&vdrive->vp, mmio);
+    if (vp_find_vq(&vdrive->vp, 0, &vdrive->vq) < 0 ) {
+        dprintf(1, "fail to find vq for virtio-blk-mmio %p\n", mmio);
+        goto fail;
+    }
+
+    struct vp_device *vp = &vdrive->vp;
+    u64 features = vp_get_features(vp);
+    u64 version1 = 1ull << VIRTIO_F_VERSION_1;
+    u64 blk_size = 1ull << VIRTIO_BLK_F_BLK_SIZE;
+
+    features = features & (version1 | blk_size);
+    vp_set_features(vp, features);
+    status |= VIRTIO_CONFIG_S_FEATURES_OK;
+    vp_set_status(vp, status);
+    if (!(vp_get_status(vp) & VIRTIO_CONFIG_S_FEATURES_OK)) {
+        dprintf(1, "device didn't accept features: %p\n", mmio);
+        goto fail;
+    }
+
+    vdrive->drive.sectors =
+        vp_read(&vp->device, struct virtio_blk_config, capacity);
+    if (features & blk_size) {
+        vdrive->drive.blksize =
+            vp_read(&vp->device, struct virtio_blk_config, blk_size);
+    } else {
+        vdrive->drive.blksize = DISK_SECTOR_SIZE;
+    }
+    if (vdrive->drive.blksize != DISK_SECTOR_SIZE) {
+        dprintf(1, "virtio-blk-mmio %p block size %d is unsupported\n",
+                mmio, vdrive->drive.blksize);
+        goto fail;
+    }
+    dprintf(1, "virtio-blk-mmio %p blksize=%d sectors=%u\n",
+            mmio, vdrive->drive.blksize, (u32)vdrive->drive.sectors);
+
+    vdrive->drive.pchs.cylinder =
+        vp_read(&vp->device, struct virtio_blk_config, cylinders);
+    vdrive->drive.pchs.head =
+        vp_read(&vp->device, struct virtio_blk_config, heads);
+    vdrive->drive.pchs.sector =
+        vp_read(&vp->device, struct virtio_blk_config, sectors);
+
+    char *desc = znprintf(MAXDESCSIZE, "Virtio disk mmio:%p", mmio);
+    boot_add_hd(&vdrive->drive, desc, bootprio_find_mmio_device(mmio));
+
+    status |= VIRTIO_CONFIG_S_DRIVER_OK;
+    vp_set_status(&vdrive->vp, status);
     return;
 
 fail:

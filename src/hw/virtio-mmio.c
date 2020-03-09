@@ -4,6 +4,7 @@
 #include "stacks.h" // run_thread
 #include "string.h" // memset
 #include "virtio-pci.h"
+#include "virtio-blk.h"
 #include "virtio-scsi.h"
 #include "virtio-ring.h"
 #include "virtio-mmio.h"
@@ -35,7 +36,7 @@ void virtio_mmio_setup_one(u64 addr)
             addr, devid, version == 1 ? " (legacy)" : "");
     switch (devid) {
     case 2: /* blk */
-        /* TODO */
+        run_thread(init_virtio_blk_mmio, mmio);
         break;
     case 8: /* scsi */
         run_thread(init_virtio_scsi_mmio, mmio);

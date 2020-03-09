@@ -30,6 +30,7 @@ void bcv_prepboot(void);
 u8 is_bootprio_strict(void);
 struct pci_device;
 int bootprio_find_pci_device(struct pci_device *pci);
+int bootprio_find_mmio_device(void *mmio);
 int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun);
 int bootprio_find_scsi_mmio_device(void *mmio, int target, int lun);
 int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave);
