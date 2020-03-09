@@ -43,5 +43,6 @@ struct virtio_scsi_resp_cmd {
 struct disk_op_s;
 int virtio_scsi_process_op(struct disk_op_s *op);
 void virtio_scsi_setup(void);
+void init_virtio_scsi_mmio(void *data);
 
 #endif /* _VIRTIO_SCSI_H */

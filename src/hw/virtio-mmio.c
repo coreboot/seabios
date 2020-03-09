@@ -4,6 +4,7 @@
 #include "stacks.h" // run_thread
 #include "string.h" // memset
 #include "virtio-pci.h"
+#include "virtio-scsi.h"
 #include "virtio-ring.h"
 #include "virtio-mmio.h"
 
@@ -37,7 +38,7 @@ void virtio_mmio_setup_one(u64 addr)
         /* TODO */
         break;
     case 8: /* scsi */
-        /* TODO */
+        run_thread(init_virtio_scsi_mmio, mmio);
         break;
     default:
         break;

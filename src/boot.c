@@ -328,6 +328,16 @@ int bootprio_find_scsi_device(struct pci_device *pci, int target, int lun)
     return find_prio(desc);
 }
 
+int bootprio_find_scsi_mmio_device(void *mmio, int target, int lun)
+{
+    if (!CONFIG_BOOTORDER)
+        return -1;
+    char desc[256];
+    snprintf(desc, sizeof(desc), "/virtio-mmio@%016x/*@0/*@%x,%x",
+             (u32)mmio, target, lun);
+    return find_prio(desc);
+}
+
 int bootprio_find_ata_device(struct pci_device *pci, int chanid, int slave)
 {
     if (CONFIG_CSM)
