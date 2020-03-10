@@ -5,6 +5,18 @@
 #include "biosvar.h" // GET_GLOBAL
 #include "romfile.h" // struct romfile_s
 
+// kvmclock
+struct pvclock_vcpu_time_info {
+	u32   version;
+	u32   pad0;
+	u64   tsc_timestamp;
+	u64   system_time;
+	u32   tsc_to_system_mul;
+	s8    tsc_shift;
+	u8    flags;
+	u8    pad[2];
+} __attribute__((__packed__)); /* 32 bytes */
+
 // Types of paravirtualized platforms.
 #define PF_QEMU     (1<<0)
 #define PF_XEN      (1<<1)

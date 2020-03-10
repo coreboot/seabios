@@ -75,6 +75,48 @@ static void kvm_detect(void)
     }
 }
 
+#define KVM_FEATURE_CLOCKSOURCE           0
+#define KVM_FEATURE_CLOCKSOURCE2          3
+
+#define MSR_KVM_SYSTEM_TIME            0x12
+#define MSR_KVM_SYSTEM_TIME_NEW  0x4b564d01
+
+#define PVCLOCK_TSC_STABLE_BIT     (1 << 0)
+
+struct pvclock_vcpu_time_info *kvmclock;
+
+static void kvmclock_init(void)
+{
+    unsigned int eax, ebx, ecx, edx, msr;
+
+    if (!runningOnKVM())
+        return;
+
+    cpuid(KVM_CPUID_SIGNATURE + 0x01, &eax, &ebx, &ecx, &edx);
+    if (eax & (1 <<  KVM_FEATURE_CLOCKSOURCE2))
+        msr = MSR_KVM_SYSTEM_TIME_NEW;
+    else if (eax & (1 <<  KVM_FEATURE_CLOCKSOURCE))
+        msr = MSR_KVM_SYSTEM_TIME;
+    else
+        return;
+
+    kvmclock = memalign_low(sizeof(*kvmclock), 32);
+    memset(kvmclock, 0, sizeof(*kvmclock));
+    u32 value = (u32)(kvmclock);
+    dprintf(1, "kvmclock: at 0x%x (msr 0x%x)\n", value, msr);
+    wrmsr(msr, value | 0x01);
+
+    if (!(kvmclock->flags & PVCLOCK_TSC_STABLE_BIT))
+        return;
+    u32 MHz = (1000 << 16) / (kvmclock->tsc_to_system_mul >> 16);
+    if (kvmclock->tsc_shift < 0)
+        MHz <<= -kvmclock->tsc_shift;
+    else
+        MHz >>= kvmclock->tsc_shift;
+    dprintf(1, "kvmclock: stable tsc, %d MHz\n", MHz);
+    tsctimer_setfreq(MHz * 1000, "kvmclock");
+}
+
 static void qemu_detect(void)
 {
     if (!CONFIG_QEMU_HARDWARE)
@@ -162,6 +204,8 @@ qemu_platform_setup(void)
         xen_biostable_setup();
         return;
     }
+
+    kvmclock_init();
 
     // Initialize pci
     pci_setup();
