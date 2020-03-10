@@ -171,6 +171,7 @@ void sdcard_setup(void);
 // hw/timer.c
 void timer_setup(void);
 void pmtimer_setup(u16 ioport);
+void tsctimer_setfreq(u32 khz, const char *src);
 u32 timer_calc(u32 msecs);
 u32 timer_calc_usec(u32 usecs);
 int timer_check(u32 end);
