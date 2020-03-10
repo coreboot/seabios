@@ -67,6 +67,11 @@ static void kvm_detect(void)
     if (strcmp(signature, "KVMKVMKVM") == 0) {
         dprintf(1, "Running on KVM\n");
         PlatformRunningOn |= PF_KVM;
+        if (eax >= KVM_CPUID_SIGNATURE + 0x10) {
+            cpuid(KVM_CPUID_SIGNATURE + 0x10, &eax, &ebx, &ecx, &edx);
+            dprintf(1, "kvm: have invtsc, freq %u kHz\n", eax);
+            tsctimer_setfreq(eax, "invtsc");
+        }
     }
 }
 
