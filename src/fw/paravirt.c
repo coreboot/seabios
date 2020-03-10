@@ -102,13 +102,13 @@ static void qemu_detect(void)
         dprintf(1, "Running on QEMU (unknown nb: %04x:%04x)\n", v, d);
         break;
     }
-    kvm_detect();
 }
 
 void
 qemu_preinit(void)
 {
     qemu_detect();
+    kvm_detect();
 
     if (!CONFIG_QEMU)
         return;
@@ -116,12 +116,6 @@ qemu_preinit(void)
     if (runningOnXen()) {
         xen_ramsize_preinit();
         return;
-    }
-
-    if (!runningOnQEMU()) {
-        dprintf(1, "Warning: No QEMU Northbridge found (isapc?)\n");
-        PlatformRunningOn |= PF_QEMU;
-        kvm_detect();
     }
 
     // On emulators, get memory size from nvram.
