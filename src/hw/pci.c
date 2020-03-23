@@ -14,39 +14,44 @@
 #define PORT_PCI_CMD           0x0cf8
 #define PORT_PCI_DATA          0x0cfc
 
+static u32 ioconfig_cmd(u16 bdf, u32 addr)
+{
+    return 0x80000000 | (bdf << 8) | (addr & 0xfc);
+}
+
 void pci_config_writel(u16 bdf, u32 addr, u32 val)
 {
-    outl(0x80000000 | (bdf << 8) | (addr & 0xfc), PORT_PCI_CMD);
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
     outl(val, PORT_PCI_DATA);
 }
 
 void pci_config_writew(u16 bdf, u32 addr, u16 val)
 {
-    outl(0x80000000 | (bdf << 8) | (addr & 0xfc), PORT_PCI_CMD);
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
     outw(val, PORT_PCI_DATA + (addr & 2));
 }
 
 void pci_config_writeb(u16 bdf, u32 addr, u8 val)
 {
-    outl(0x80000000 | (bdf << 8) | (addr & 0xfc), PORT_PCI_CMD);
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
     outb(val, PORT_PCI_DATA + (addr & 3));
 }
 
 u32 pci_config_readl(u16 bdf, u32 addr)
 {
-    outl(0x80000000 | (bdf << 8) | (addr & 0xfc), PORT_PCI_CMD);
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
     return inl(PORT_PCI_DATA);
 }
 
 u16 pci_config_readw(u16 bdf, u32 addr)
 {
-    outl(0x80000000 | (bdf << 8) | (addr & 0xfc), PORT_PCI_CMD);
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
     return inw(PORT_PCI_DATA + (addr & 2));
 }
 
 u8 pci_config_readb(u16 bdf, u32 addr)
 {
-    outl(0x80000000 | (bdf << 8) | (addr & 0xfc), PORT_PCI_CMD);
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
     return inb(PORT_PCI_DATA + (addr & 3));
 }
 
