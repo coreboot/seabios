@@ -480,6 +480,7 @@ static void mch_mmconfig_setup(u16 bdf)
     pci_config_writel(bdf, Q35_HOST_BRIDGE_PCIEXBAR, 0);
     pci_config_writel(bdf, Q35_HOST_BRIDGE_PCIEXBAR + 4, upper);
     pci_config_writel(bdf, Q35_HOST_BRIDGE_PCIEXBAR, lower);
+    pci_enable_mmconfig(Q35_HOST_BRIDGE_PCIEXBAR_ADDR, "q35");
 }
 
 static void mch_mem_addr_setup(struct pci_device *dev, void *arg)

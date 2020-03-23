@@ -39,6 +39,7 @@ u32 pci_config_readl(u16 bdf, u32 addr);
 u16 pci_config_readw(u16 bdf, u32 addr);
 u8 pci_config_readb(u16 bdf, u32 addr);
 void pci_config_maskw(u16 bdf, u32 addr, u16 off, u16 on);
+void pci_enable_mmconfig(u64 addr, const char *name);
 u8 pci_find_capability(u16 bdf, u8 cap_id, u8 cap);
 int pci_next(int bdf, int bus);
 int pci_probe_host(void);
