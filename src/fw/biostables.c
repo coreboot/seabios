@@ -256,6 +256,7 @@ find_acpi_features(void)
         void *p = fadt;
         acpi_set_reset_reg(p + 116, *(u8 *)(p + 128));
     }
+    acpi_dsdt_parse();
 }
 
 

@@ -237,9 +237,10 @@ qemu_platform_setup(void)
 
         RsdpAddr = find_acpi_rsdp();
 
-        if (RsdpAddr)
+        if (RsdpAddr) {
+            acpi_dsdt_parse();
             return;
-
+        }
         /* If present, loader should have installed an RSDP.
          * Not installed? We might still be able to continue
          * using the builtin RSDP.

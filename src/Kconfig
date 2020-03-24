@@ -524,6 +524,13 @@ menu "BIOS Tables"
             This option can be disabled for QEMU 1.6 and older
             to save some space in the ROM file.
             If unsure, say Y.
+    config ACPI_PARSE
+        bool "Include ACPI DSDT parser."
+        default y
+        help
+            Support parsing ACPI DSDT for device probing.
+            Needed to find virtio-mmio devices.
+            If unsure, say Y.
 endmenu
 
 source vgasrc/Kconfig

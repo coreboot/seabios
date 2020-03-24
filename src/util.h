@@ -94,6 +94,17 @@ void display_uuid(void);
 void copy_table(void *pos);
 void smbios_setup(void);
 
+// fw/dsdt_parser.c
+struct acpi_device;
+void acpi_dsdt_parse(void);
+struct acpi_device *acpi_dsdt_find_string(struct acpi_device *prev, const char *hid);
+struct acpi_device *acpi_dsdt_find_eisaid(struct acpi_device *prev, u16 eisaid);
+char *acpi_dsdt_name(struct acpi_device *dev);
+int acpi_dsdt_present_eisaid(u16 eisaid);
+int acpi_dsdt_find_io(struct acpi_device *dev, u64 *min, u64 *max);
+int acpi_dsdt_find_mem(struct acpi_device *dev, u64 *min, u64 *max);
+int acpi_dsdt_find_irq(struct acpi_device *dev, u64 *irq);
+
 // fw/coreboot.c
 extern const char *CBvendor, *CBpart;
 struct cbfs_file;
