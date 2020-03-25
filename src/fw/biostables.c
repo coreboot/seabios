@@ -141,18 +141,38 @@ find_acpi_table(u32 signature)
     if (!RsdpAddr || RsdpAddr->signature != RSDP_SIGNATURE)
         return NULL;
     struct rsdt_descriptor_rev1 *rsdt = (void*)RsdpAddr->rsdt_physical_address;
+    struct xsdt_descriptor_rev2 *xsdt =
+        RsdpAddr->xsdt_physical_address >= 0x100000000
+        ? NULL : (void*)(u32)(RsdpAddr->xsdt_physical_address);
     dprintf(4, "rsdt=%p\n", rsdt);
-    if (!rsdt || rsdt->signature != RSDT_SIGNATURE)
-        return NULL;
-    void *end = (void*)rsdt + rsdt->length;
-    int i;
-    for (i=0; (void*)&rsdt->table_offset_entry[i] < end; i++) {
-        struct acpi_table_header *tbl = (void*)rsdt->table_offset_entry[i];
-        if (!tbl || tbl->signature != signature)
-            continue;
-        dprintf(4, "table(%x)=%p\n", signature, tbl);
-        return tbl;
+    dprintf(4, "xsdt=%p\n", xsdt);
+
+    if (xsdt && xsdt->signature == XSDT_SIGNATURE) {
+        void *end = (void*)xsdt + xsdt->length;
+        int i;
+        for (i=0; (void*)&xsdt->table_offset_entry[i] < end; i++) {
+            if (xsdt->table_offset_entry[i] >= 0x100000000)
+                continue; /* above 4G */
+            struct acpi_table_header *tbl = (void*)(u32)xsdt->table_offset_entry[i];
+            if (!tbl || tbl->signature != signature)
+                continue;
+            dprintf(1, "table(%x)=%p (via xsdt)\n", signature, tbl);
+            return tbl;
+        }
     }
+
+    if (rsdt && rsdt->signature == RSDT_SIGNATURE) {
+        void *end = (void*)rsdt + rsdt->length;
+        int i;
+        for (i=0; (void*)&rsdt->table_offset_entry[i] < end; i++) {
+            struct acpi_table_header *tbl = (void*)rsdt->table_offset_entry[i];
+            if (!tbl || tbl->signature != signature)
+                continue;
+            dprintf(1, "table(%x)=%p (via rsdt)\n", signature, tbl);
+            return tbl;
+        }
+    }
+
     dprintf(4, "no table %x found\n", signature);
     return NULL;
 }

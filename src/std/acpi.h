@@ -133,6 +133,17 @@ struct rsdt_descriptor_rev1
 } PACKED;
 
 /*
+ * ACPI 2.0 eXtended System Description Table (XSDT)
+ */
+#define XSDT_SIGNATURE 0x54445358 // XSDT
+struct xsdt_descriptor_rev2
+{
+    ACPI_TABLE_HEADER_DEF       /* ACPI common table header */
+    u64 table_offset_entry[0];  /* Array of pointers to other */
+    /* ACPI tables */
+} PACKED;
+
+/*
  * ACPI 1.0 Firmware ACPI Control Structure (FACS)
  */
 #define FACS_SIGNATURE 0x53434146 // FACS
