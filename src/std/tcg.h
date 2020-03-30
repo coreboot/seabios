@@ -8,6 +8,9 @@
 #define SHA384_BUFSIZE              48
 #define SHA512_BUFSIZE              64
 #define SM3_256_BUFSIZE             32
+#define SHA3_256_BUFSIZE            32
+#define SHA3_384_BUFSIZE            48
+#define SHA3_512_BUFSIZE            64
 
 
 /****************************************************************
@@ -335,12 +338,18 @@ struct tpm_res_sha1complete {
 #define TPM2_ALG_SHA384             0x000c
 #define TPM2_ALG_SHA512             0x000d
 #define TPM2_ALG_SM3_256            0x0012
+#define TPM2_ALG_SHA3_256           0x0027
+#define TPM2_ALG_SHA3_384           0x0028
+#define TPM2_ALG_SHA3_512           0x0029
 
 #define TPM2_ALG_SHA1_FLAG          (1 << 0)
 #define TPM2_ALG_SHA256_FLAG        (1 << 1)
 #define TPM2_ALG_SHA384_FLAG        (1 << 2)
 #define TPM2_ALG_SHA512_FLAG        (1 << 3)
 #define TPM2_ALG_SM3_256_FLAG       (1 << 4)
+#define TPM2_ALG_SHA3_256_FLAG      (1 << 5)
+#define TPM2_ALG_SHA3_384_FLAG      (1 << 6)
+#define TPM2_ALG_SHA3_512_FLAG      (1 << 7)
 
 /* TPM 2 command tags */
 #define TPM2_ST_NO_SESSIONS         0x8001
