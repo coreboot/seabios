@@ -265,13 +265,18 @@ tpm20_write_EfiSpecIdEventStruct(void)
     struct tpms_pcr_selection *sel = tpm20_pcr_selection->selections;
     void *nsel, *end = (void*)tpm20_pcr_selection + tpm20_pcr_selection_size;
 
-    u32 count;
+    u32 count, numAlgs = 0;
     for (count = 0; count < be32_to_cpu(tpm20_pcr_selection->count); count++) {
         u8 sizeOfSelect = sel->sizeOfSelect;
 
         nsel = (void*)sel + sizeof(*sel) + sizeOfSelect;
         if (nsel > end)
             break;
+
+        if (!sizeOfSelect || sel->pcrSelect[0] == 0) {
+            sel = nsel;
+            continue;
+        }
 
         int hsize = tpm20_get_hash_buffersize(be16_to_cpu(sel->hashAlg));
         if (hsize < 0) {
@@ -287,8 +292,9 @@ tpm20_write_EfiSpecIdEventStruct(void)
             return -1;
         }
 
-        event.hdr.digestSizes[count].algorithmId = be16_to_cpu(sel->hashAlg);
-        event.hdr.digestSizes[count].digestSize = hsize;
+        event.hdr.digestSizes[numAlgs].algorithmId = be16_to_cpu(sel->hashAlg);
+        event.hdr.digestSizes[numAlgs].digestSize = hsize;
+        numAlgs++;
 
         sel = nsel;
     }
@@ -298,9 +304,9 @@ tpm20_write_EfiSpecIdEventStruct(void)
         return -1;
     }
 
-    event.hdr.numberOfAlgorithms = count;
+    event.hdr.numberOfAlgorithms = numAlgs;
     int event_size = offsetof(struct TCG_EfiSpecIdEventStruct
-                              , digestSizes[count]);
+                              , digestSizes[numAlgs]);
     u32 *vendorInfoSize = (void*)&event + event_size;
     *vendorInfoSize = 0;
     event_size += sizeof(*vendorInfoSize);
@@ -336,13 +342,19 @@ tpm20_build_digest(struct tpm_log_entry *le, const u8 *sha1, int bigEndian)
     void *nsel, *end = (void*)tpm20_pcr_selection + tpm20_pcr_selection_size;
     void *dest = le->hdr.digest + sizeof(struct tpm2_digest_values);
 
-    u32 count;
+    u32 count, numAlgs = 0;
     for (count = 0; count < be32_to_cpu(tpm20_pcr_selection->count); count++) {
         u8 sizeOfSelect = sel->sizeOfSelect;
 
         nsel = (void*)sel + sizeof(*sel) + sizeOfSelect;
         if (nsel > end)
             break;
+
+        /* PCR 0-7 unused? -- skip */
+        if (!sizeOfSelect || sel->pcrSelect[0] == 0) {
+            sel = nsel;
+            continue;
+        }
 
         int hsize = tpm20_get_hash_buffersize(be16_to_cpu(sel->hashAlg));
         if (hsize < 0) {
@@ -368,6 +380,8 @@ tpm20_build_digest(struct tpm_log_entry *le, const u8 *sha1, int bigEndian)
 
         dest += sizeof(*v) + hsize;
         sel = nsel;
+
+        numAlgs++;
     }
 
     if (sel != end) {
@@ -377,9 +391,9 @@ tpm20_build_digest(struct tpm_log_entry *le, const u8 *sha1, int bigEndian)
 
     struct tpm2_digest_values *v = (void*)le->hdr.digest;
     if (bigEndian)
-        v->count = cpu_to_be32(count);
+        v->count = cpu_to_be32(numAlgs);
     else
-        v->count = count;
+        v->count = numAlgs;
 
     return dest - (void*)le->hdr.digest;
 }
