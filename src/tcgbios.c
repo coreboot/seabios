@@ -287,7 +287,7 @@ tpm20_write_EfiSpecIdEventStruct(void)
 
         int event_size = offsetof(struct TCG_EfiSpecIdEventStruct
                                   , digestSizes[count+1]);
-        if (event_size > sizeof(event) - sizeof(u32)) {
+        if (event_size > sizeof(event) - sizeof(u8)) {
             dprintf(DEBUG_tcg, "EfiSpecIdEventStruct pad too small\n");
             return -1;
         }
@@ -307,7 +307,7 @@ tpm20_write_EfiSpecIdEventStruct(void)
     event.hdr.numberOfAlgorithms = numAlgs;
     int event_size = offsetof(struct TCG_EfiSpecIdEventStruct
                               , digestSizes[numAlgs]);
-    u32 *vendorInfoSize = (void*)&event + event_size;
+    u8 *vendorInfoSize = (void*)&event + event_size;
     *vendorInfoSize = 0;
     event_size += sizeof(*vendorInfoSize);
 
