@@ -16,6 +16,7 @@
 #include "hw/pci_regs.h" // PCI_DEVICE_ID
 #include "hw/serialio.h" // PORT_SERIAL1
 #include "hw/rtc.h" // CMOS_*
+#include "hw/virtio-mmio.h" // virtio_mmio_acpi
 #include "malloc.h" // malloc_tmp
 #include "output.h" // dprintf
 #include "paravirt.h" // qemu_cfg_preinit
@@ -239,6 +240,7 @@ qemu_platform_setup(void)
 
         if (RsdpAddr) {
             acpi_dsdt_parse();
+            virtio_mmio_setup_acpi();
             return;
         }
         /* If present, loader should have installed an RSDP.

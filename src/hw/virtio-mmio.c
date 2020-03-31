@@ -3,11 +3,31 @@
 #include "output.h" // dprintf
 #include "stacks.h" // run_thread
 #include "string.h" // memset
+#include "util.h" // acpi_dsdt_*
 #include "virtio-pci.h"
 #include "virtio-blk.h"
 #include "virtio-scsi.h"
 #include "virtio-ring.h"
 #include "virtio-mmio.h"
+
+void virtio_mmio_setup_acpi(void)
+{
+    static const char *virtio_hid = "LNRO0005";
+    struct acpi_device *dev;
+    u64 mem, irq, unused;
+
+    for (dev = acpi_dsdt_find_string(NULL, virtio_hid);
+         dev != NULL;
+         dev = acpi_dsdt_find_string(dev, virtio_hid)) {
+        if (acpi_dsdt_find_mem(dev, &mem, &unused) < 0)
+            continue;
+        if (acpi_dsdt_find_irq(dev, &irq) < 0)
+            continue;
+        dprintf(1, "ACPI: virtio-mmio device %s at 0x%llx, irq %lld\n",
+                acpi_dsdt_name(dev), mem, irq);
+        virtio_mmio_setup_one(mem);
+    }
+}
 
 void virtio_mmio_setup_one(u64 addr)
 {
