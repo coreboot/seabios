@@ -11,6 +11,19 @@
 
 void virtio_mmio_setup_one(u64 addr)
 {
+    static const char *names[] = {
+        [  1 ] = "net",
+        [  2 ] = "blk",
+        [  3 ] = "console",
+        [  4 ] = "rng",
+        [  8 ] = "scsi",
+        [  9 ] = "9p",
+        [ 16 ] = "gpu",
+        [ 19 ] = "vsock",
+        [ 18 ] = "input",
+        [ 26 ] = "fs",
+    };
+    const char *name;
     u32 magic, version, devid;
     void *mmio;
 
@@ -32,8 +45,12 @@ void virtio_mmio_setup_one(u64 addr)
         return;
     }
     devid = readl(mmio+8);
-    dprintf(1, "virtio-mmio: %llx: device id %x%s\n",
-            addr, devid, version == 1 ? " (legacy)" : "");
+
+    name = (devid < ARRAY_SIZE(names) && names[devid] != NULL)
+        ? names[devid] : "unknown";
+    dprintf(1, "virtio-mmio: %llx: device id %x (%s%s)\n",
+            addr, devid, name, version == 1 ? ", legacy" : "");
+
     switch (devid) {
     case 2: /* blk */
         run_thread(init_virtio_blk_mmio, mmio);
