@@ -447,6 +447,11 @@ qemu_get_romfile_key(struct romfile_s *file)
     return qfile->select;
 }
 
+static int rtc_present(void)
+{
+    return rtc_read(CMOS_RTC_MONTH) != 0xff;
+}
+
 u16
 qemu_get_present_cpus_count(void)
 {
@@ -454,9 +459,11 @@ qemu_get_present_cpus_count(void)
     if (qemu_cfg_enabled()) {
         qemu_cfg_read_entry(&smp_count, QEMU_CFG_NB_CPUS, sizeof(smp_count));
     }
-    u16 cmos_cpu_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
-    if (smp_count < cmos_cpu_count) {
-        smp_count = cmos_cpu_count;
+    if (rtc_present()) {
+        u16 cmos_cpu_count = rtc_read(CMOS_BIOS_SMP_COUNT) + 1;
+        if (smp_count < cmos_cpu_count) {
+            smp_count = cmos_cpu_count;
+        }
     }
     return smp_count;
 }
