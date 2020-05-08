@@ -151,6 +151,8 @@ static void qemu_detect(void)
     }
 }
 
+static int qemu_early_e820(void);
+
 void
 qemu_preinit(void)
 {
@@ -165,22 +167,24 @@ qemu_preinit(void)
         return;
     }
 
-    // On emulators, get memory size from nvram.
-    u32 rs = ((rtc_read(CMOS_MEM_EXTMEM2_LOW) << 16)
-              | (rtc_read(CMOS_MEM_EXTMEM2_HIGH) << 24));
-    if (rs)
-        rs += 16 * 1024 * 1024;
-    else
-        rs = (((rtc_read(CMOS_MEM_EXTMEM_LOW) << 10)
-               | (rtc_read(CMOS_MEM_EXTMEM_HIGH) << 18))
-              + 1 * 1024 * 1024);
-    RamSize = rs;
-    e820_add(0, rs, E820_RAM);
+    // try read e820 table first
+    if (!qemu_early_e820()) {
+        // when it fails get memory size from nvram.
+        u32 rs = ((rtc_read(CMOS_MEM_EXTMEM2_LOW) << 16)
+                  | (rtc_read(CMOS_MEM_EXTMEM2_HIGH) << 24));
+        if (rs)
+            rs += 16 * 1024 * 1024;
+        else
+            rs = (((rtc_read(CMOS_MEM_EXTMEM_LOW) << 10)
+                   | (rtc_read(CMOS_MEM_EXTMEM_HIGH) << 18))
+                  + 1 * 1024 * 1024);
+        RamSize = rs;
+        e820_add(0, rs, E820_RAM);
+        dprintf(1, "RamSize: 0x%08x [cmos]\n", RamSize);
+    }
 
     /* reserve 256KB BIOS area at the end of 4 GB */
     e820_add(0xfffc0000, 256*1024, E820_RESERVED);
-
-    dprintf(1, "RamSize: 0x%08x [cmos]\n", RamSize);
 }
 
 #define MSR_IA32_FEATURE_CONTROL 0x0000003a
@@ -476,47 +480,11 @@ struct qemu_smbios_header {
 static void
 qemu_cfg_e820(void)
 {
-    struct e820_reservation *table;
-    int i, size;
-
     if (!CONFIG_QEMU)
         return;
 
-    // "etc/e820" has both ram and reservations
-    table = romfile_loadfile("etc/e820", &size);
-    if (table) {
-        for (i = 0; i < size / sizeof(struct e820_reservation); i++) {
-            switch (table[i].type) {
-            case E820_RAM:
-                dprintf(1, "RamBlock: addr 0x%016llx len 0x%016llx [e820]\n",
-                        table[i].address, table[i].length);
-                if (table[i].address < RamSize)
-                    // ignore, preinit got it from cmos already and
-                    // adding this again would ruin any reservations
-                    // done so far
-                    continue;
-                if (table[i].address < 0x100000000LL) {
-                    // below 4g -- adjust RamSize to mark highest lowram addr
-                    if (RamSize < table[i].address + table[i].length)
-                        RamSize = table[i].address + table[i].length;
-                } else {
-                    // above 4g -- adjust RamSizeOver4G to mark highest ram addr
-                    if (0x100000000LL + RamSizeOver4G < table[i].address + table[i].length)
-                        RamSizeOver4G = table[i].address + table[i].length - 0x100000000LL;
-                }
-                /* fall through */
-            case E820_RESERVED:
-                e820_add(table[i].address, table[i].length, table[i].type);
-                break;
-            default:
-                /*
-                 * Qemu 1.7 uses RAM + RESERVED only.  Ignore
-                 * everything else, so we have the option to
-                 * extend this in the future without breakage.
-                 */
-                break;
-            }
-        }
+    if (romfile_find("etc/e820")) {
+        // qemu_early_e820() has handled everything
         return;
     }
 
@@ -677,4 +645,67 @@ void qemu_cfg_init(void)
     if (nogfx && !romfile_find("etc/sercon-port")
         && !romfile_find("vgaroms/sgabios.bin"))
         const_romfile_add_int("etc/sercon-port", PORT_SERIAL1);
+}
+
+/*
+ * This runs before malloc and romfile are ready, so we have to work
+ * with stack allocations and read from fw_cfg in chunks.
+ */
+static int qemu_early_e820(void)
+{
+    struct e820_reservation table;
+    struct QemuCfgFile qfile;
+    u32 select = 0, size = 0;
+    u32 count, i;
+
+    if (!qemu_cfg_detect())
+        return 0;
+
+    // find e820 table
+    qemu_cfg_read_entry(&count, QEMU_CFG_FILE_DIR, sizeof(count));
+    count = be32_to_cpu(count);
+    for (i = 0; i < count; i++) {
+        qemu_cfg_read(&qfile, sizeof(qfile));
+        if (memcmp(qfile.name, "etc/e820", 9) != 0)
+            continue;
+        select = be16_to_cpu(qfile.select);
+        size = be32_to_cpu(qfile.size);
+        break;
+    }
+    if (select == 0) {
+        // may happen on old qemu
+        dprintf(1, "qemu/e820: fw_cfg file etc/e820 not found\n");
+        return 0;
+    }
+
+    // walk e820 table
+    qemu_cfg_select(select);
+    count = size/sizeof(table);
+    for (i = 0, select = 0; i < count; i++) {
+        qemu_cfg_read(&table, sizeof(table));
+        switch (table.type) {
+        case E820_RESERVED:
+            e820_add(table.address, table.length, table.type);
+            dprintf(3, "qemu/e820: addr 0x%016llx len 0x%016llx [reserved]\n",
+                    table.address, table.length);
+            break;
+        case E820_RAM:
+            e820_add(table.address, table.length, table.type);
+            dprintf(1, "qemu/e820: addr 0x%016llx len 0x%016llx [RAM]\n",
+                    table.address, table.length);
+            if (table.address < 0x100000000LL) {
+                // below 4g
+                if (RamSize < table.address + table.length)
+                    RamSize = table.address + table.length;
+            } else {
+                // above 4g
+                if (RamSizeOver4G < table.address + table.length - 0x100000000LL)
+                    RamSizeOver4G = table.address + table.length - 0x100000000LL;
+            }
+        }
+    }
+
+    dprintf(3, "qemu/e820: RamSize: 0x%08x\n", RamSize);
+    dprintf(3, "qemu/e820: RamSizeOver4G: 0x%016llx\n", RamSizeOver4G);
+    return 1;
 }
