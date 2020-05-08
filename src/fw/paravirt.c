@@ -614,10 +614,10 @@ struct QemuCfgFile {
     char name[56];
 };
 
-void qemu_cfg_init(void)
+static int qemu_cfg_detect(void)
 {
-    if (!runningOnQEMU())
-        return;
+    if (cfg_enabled)
+        return 1;
 
     // Detect fw_cfg interface.
     qemu_cfg_select(QEMU_CFG_SIGNATURE);
@@ -625,7 +625,7 @@ void qemu_cfg_init(void)
     int i;
     for (i = 0; i < 4; i++)
         if (inb(PORT_QEMU_CFG_DATA) != sig[i])
-            return;
+            return 0;
 
     dprintf(1, "Found QEMU fw_cfg\n");
     cfg_enabled = 1;
@@ -638,6 +638,16 @@ void qemu_cfg_init(void)
         dprintf(1, "QEMU fw_cfg DMA interface supported\n");
         cfg_dma_enabled = 1;
     }
+    return 1;
+}
+
+void qemu_cfg_init(void)
+{
+    if (!runningOnQEMU())
+        return;
+
+    if (!qemu_cfg_detect())
+        return;
 
     // Populate romfiles for legacy fw_cfg entries
     qemu_cfg_legacy();
