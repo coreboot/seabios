@@ -173,7 +173,7 @@ There are several additional configuration options available in the
 
 | Filename            | Description
 |---------------------|---------------------------------------------------
-| show-boot-menu      | Controls the display of the boot menu. Set to 0 to disable the boot menu.
+| show-boot-menu      | Controls the display of the boot menu. Valid values are 0: Disable the boot menu, 1: Display boot menu unconditionally, 2: Skip boot menu if only one device is present. The default is 1.
 | boot-menu-message   | Customize the text boot menu message. Normally, when in text mode SeaBIOS will report the string "\\nPress ESC for boot menu.\\n\\n". This field allows the string to be changed. (This is a string field, and is added as a file containing the raw string.)
 | boot-menu-key       | Controls which key activates the boot menu. The value stored is the DOS scan code (eg, 0x86 for F12, 0x01 for Esc). If this field is set, be sure to also customize the **boot-menu-message** field above.
 | boot-menu-wait      | Amount of time (in milliseconds) to wait at the boot menu prompt before selecting the default boot.
