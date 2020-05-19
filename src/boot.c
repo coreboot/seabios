@@ -692,6 +692,7 @@ interactive_bootmenu(void)
 
     // skip menu if only one boot device and no TPM
     if ((show_boot_menu == 2) && (NULL == BootList.first->next) && !tpm_can_show_menu()) {
+       dprintf(1, "Only one boot device present. Skip boot menu.\n");
        printf("\n");
        return;
     }
