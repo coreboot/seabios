@@ -28,7 +28,7 @@ static u32 ioconfig_cmd(u16 bdf, u32 addr)
 
 void pci_config_writel(u16 bdf, u32 addr, u32 val)
 {
-    if (MODESEGMENT && mmconfig) {
+    if (!MODESEGMENT && mmconfig) {
         writel(mmconfig_addr(bdf, addr), val);
     } else {
         outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
@@ -38,7 +38,7 @@ void pci_config_writel(u16 bdf, u32 addr, u32 val)
 
 void pci_config_writew(u16 bdf, u32 addr, u16 val)
 {
-    if (MODESEGMENT && mmconfig) {
+    if (!MODESEGMENT && mmconfig) {
         writew(mmconfig_addr(bdf, addr), val);
     } else {
         outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
@@ -48,7 +48,7 @@ void pci_config_writew(u16 bdf, u32 addr, u16 val)
 
 void pci_config_writeb(u16 bdf, u32 addr, u8 val)
 {
-    if (MODESEGMENT && mmconfig) {
+    if (!MODESEGMENT && mmconfig) {
         writeb(mmconfig_addr(bdf, addr), val);
     } else {
         outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
@@ -58,7 +58,7 @@ void pci_config_writeb(u16 bdf, u32 addr, u8 val)
 
 u32 pci_config_readl(u16 bdf, u32 addr)
 {
-    if (MODESEGMENT && mmconfig) {
+    if (!MODESEGMENT && mmconfig) {
         return readl(mmconfig_addr(bdf, addr));
     } else {
         outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
@@ -68,7 +68,7 @@ u32 pci_config_readl(u16 bdf, u32 addr)
 
 u16 pci_config_readw(u16 bdf, u32 addr)
 {
-    if (MODESEGMENT && mmconfig) {
+    if (!MODESEGMENT && mmconfig) {
         return readw(mmconfig_addr(bdf, addr));
     } else {
         outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
@@ -78,7 +78,7 @@ u16 pci_config_readw(u16 bdf, u32 addr)
 
 u8 pci_config_readb(u16 bdf, u32 addr)
 {
-    if (MODESEGMENT && mmconfig) {
+    if (!MODESEGMENT && mmconfig) {
         return readb(mmconfig_addr(bdf, addr));
     } else {
         outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
