@@ -684,17 +684,18 @@ static const char menuchars[] = {
 void
 interactive_bootmenu(void)
 {
-    // XXX - show available drives?
-    u64 show_boot_menu = romfile_loadint("etc/show-boot-menu", 1);
-
-    if (! CONFIG_BOOTMENU || show_boot_menu == 0)
+    if (! CONFIG_BOOTMENU)
+        return;
+    int show_boot_menu = romfile_loadint("etc/show-boot-menu", 1);
+    if (!show_boot_menu)
         return;
 
     // skip menu if only one boot device and no TPM
-    if ((show_boot_menu == 2) && (NULL == BootList.first->next) && !tpm_can_show_menu()) {
-       dprintf(1, "Only one boot device present. Skip boot menu.\n");
-       printf("\n");
-       return;
+    if (show_boot_menu == 2 && !tpm_can_show_menu()
+        && !hlist_empty(&BootList) && !BootList.first->next) {
+        dprintf(1, "Only one boot device present. Skip boot menu.\n");
+        printf("\n");
+        return;
     }
 
     while (get_keystroke(0) >= 0)
