@@ -36,7 +36,7 @@ static inline int vgahw_set_mode(struct vgamode_s *vmode_g, int flags) {
 static inline void vgahw_list_modes(u16 seg, u16 *dest, u16 *last) {
     if (CONFIG_VGA_CIRRUS)
         clext_list_modes(seg, dest, last);
-    if (CONFIG_VGA_ATI)
+    else if (CONFIG_VGA_ATI)
         ati_list_modes(seg, dest, last);
     else if (CONFIG_VGA_BOCHS)
         bochsvga_list_modes(seg, dest, last);
