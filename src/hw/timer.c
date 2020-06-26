@@ -180,7 +180,7 @@ timer_read(void)
     // Read from PIT.
     outb(PM_SEL_READBACK | PM_READ_VALUE | PM_READ_COUNTER0, PORT_PIT_MODE);
     u16 v = inb(PORT_PIT_COUNTER0) | (inb(PORT_PIT_COUNTER0) << 8);
-    return timer_adjust_bits(v, 0xffff);
+    return timer_adjust_bits(-v, 0xffff);
 }
 
 // Return the TSC value that is 'msecs' time in the future.
