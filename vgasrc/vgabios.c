@@ -336,6 +336,9 @@ static void
 handle_1000(struct bregs *regs)
 {
     int mode = regs->al & 0x7f;
+    int flags = MF_LEGACY | (GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM));
+    if (regs->al & 0x80)
+        flags |= MF_NOCLEARMEM;
 
     // Set regs->al
     if (mode > 7)
@@ -344,10 +347,6 @@ handle_1000(struct bregs *regs)
         regs->al = 0x3f;
     else
         regs->al = 0x30;
-
-    int flags = MF_LEGACY | (GET_BDA(modeset_ctl) & (MF_NOPALETTE|MF_GRAYSUM));
-    if (regs->al & 0x80)
-        flags |= MF_NOCLEARMEM;
 
     vga_set_mode(mode, flags);
 }
