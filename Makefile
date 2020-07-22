@@ -127,9 +127,10 @@ $(Q)printf '$(foreach i,$2,#include "$i"\n)' > $3.tmp.c
 $(Q)$(CC) -I. $1 $(CFLAGSWHOLE) -c $3.tmp.c -o $3
 endef
 
-%.strip.o: %.o
+%.noexec.o: %.o
 	@echo "  Stripping $@"
-	$(Q)$(STRIP) $< -o $@
+	$(Q)$(STRIP) $< -o $<.strip.o
+	$(Q)$(PYTHON) ./scripts/ldnoexec.py $<.strip.o $@
 
 $(OUT)%.s: %.c
 	@echo "  Compiling to assembler $@"
@@ -185,9 +186,9 @@ $(OUT)rom32seg.o: $(OUT)code32seg.o $(OUT)romlayout32seg.lds
 	@echo "  Linking $@"
 	$(Q)$(LD) -T $(OUT)romlayout32seg.lds $< -o $@
 
-$(OUT)rom.o: $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o $(OUT)romlayout32flat.lds
+$(OUT)rom.o: $(OUT)rom16.noexec.o $(OUT)rom32seg.noexec.o $(OUT)code32flat.o $(OUT)romlayout32flat.lds
 	@echo "  Linking $@"
-	$(Q)$(LD) -N -T $(OUT)romlayout32flat.lds $(OUT)rom16.strip.o $(OUT)rom32seg.strip.o $(OUT)code32flat.o -o $@
+	$(Q)$(LD) -N -T $(OUT)romlayout32flat.lds $(OUT)rom16.noexec.o $(OUT)rom32seg.noexec.o $(OUT)code32flat.o -o $@
 
 $(OUT)bios.bin.prep: $(OUT)rom.o scripts/checkrom.py
 	@echo "  Prepping $@"
