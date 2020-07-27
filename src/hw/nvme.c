@@ -669,7 +669,7 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
         }
 
         res = nvme_io_readwrite(ns, op->lba + i, ns->dma_buffer, blocks, write);
-        dprintf(3, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
+        dprintf(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
                                                                   : "read",
                 op->lba + i, blocks, res);
 
