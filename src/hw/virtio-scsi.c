@@ -126,14 +126,14 @@ virtio_scsi_add_lun(u32 lun, struct drive_s *tmpl_drv)
     int prio = -1;
 
     if (tmpl_vlun->pci)
-        prio = bootprio_find_scsi_device(tmpl_vlun->pci, tmpl_vlun->target, tmpl_vlun->lun);
+        prio = bootprio_find_scsi_device(tmpl_vlun->pci, tmpl_vlun->target, lun);
     if (tmpl_vlun->mmio)
-        prio = bootprio_find_scsi_mmio_device(tmpl_vlun->mmio, tmpl_vlun->target, tmpl_vlun->lun);
+        prio = bootprio_find_scsi_mmio_device(tmpl_vlun->mmio, tmpl_vlun->target, lun);
 
     if (skip_nonbootable && prio < 0) {
         dprintf(1, "skipping init of a non-bootable virtio-scsi dev at %s,"
                 " target %d, lun %d\n",
-                tmpl_vlun->name, tmpl_vlun->target, tmpl_vlun->lun);
+                tmpl_vlun->name, tmpl_vlun->target, lun);
         return -1;
     }
 
