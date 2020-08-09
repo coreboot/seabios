@@ -467,9 +467,9 @@ configure_xhci(void *data)
 
     dprintf(3, "%s: resetting\n", __func__);
     writel(&xhci->op->usbcmd, XHCI_CMD_HCRST);
-    if (wait_bit(&xhci->op->usbcmd, XHCI_CMD_HCRST, 0, 100) != 0)
+    if (wait_bit(&xhci->op->usbcmd, XHCI_CMD_HCRST, 0, 1000) != 0)
         goto fail;
-    if (wait_bit(&xhci->op->usbsts, XHCI_STS_CNR, 0, 100) != 0)
+    if (wait_bit(&xhci->op->usbsts, XHCI_STS_CNR, 0, 1000) != 0)
         goto fail;
 
     writel(&xhci->op->config, xhci->slots);
