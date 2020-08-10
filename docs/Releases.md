@@ -1,6 +1,19 @@
 History of SeaBIOS releases. Please see [download](Download) for
 information on obtaining these releases.
 
+SeaBIOS 1.14.0
+==============
+
+Available on 20200810. Major changes in this release:
+
+* New virtio MMIO support. Support for finding virtio MMIO devices via
+  an ACPI DSDT parser. Support for handling a large number of virtio
+  devices.
+* Improved handling of USB keyboards with non-standard packet size.
+* Improved KVM CPU frequency detection.
+* Support for PCI mmconfig support on QEMU.
+* Several bug fixes and code cleanups.
+
 SeaBIOS 1.13.0
 ==============
 
