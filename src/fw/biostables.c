@@ -462,10 +462,16 @@ smbios_romfile_setup(void)
         /* common case: add our own type 0, with 3 strings and 4 '\0's */
         u16 t0_len = sizeof(struct smbios_type_0) + strlen(BIOS_NAME) +
                      strlen(VERSION) + strlen(BIOS_DATE) + 4;
-        ep.structure_table_length += t0_len;
-        if (t0_len > ep.max_structure_size)
-            ep.max_structure_size = t0_len;
-        ep.number_of_structures++;
+        if (t0_len > (0xffff - ep.structure_table_length)) {
+            dprintf(1, "Insufficient space (%d bytes) to add SMBIOS type 0 table (%d bytes)\n",
+                    0xffff - ep.structure_table_length, t0_len);
+            need_t0 = 0;
+        } else {
+            ep.structure_table_length += t0_len;
+            if (t0_len > ep.max_structure_size)
+                ep.max_structure_size = t0_len;
+            ep.number_of_structures++;
+        }
     }
 
     /* allocate final blob and record its address in the entry point */
