@@ -248,14 +248,14 @@ get_device_config(struct usb_pipe *pipe)
     if (ret)
         return NULL;
 
-    void *config = malloc_tmphigh(cfg.wTotalLength);
+    struct usb_config_descriptor *config = malloc_tmphigh(cfg.wTotalLength);
     if (!config) {
         warn_noalloc();
         return NULL;
     }
     req.wLength = cfg.wTotalLength;
     ret = usb_send_default_control(pipe, &req, config);
-    if (ret) {
+    if (ret || config->wTotalLength != cfg.wTotalLength) {
         free(config);
         return NULL;
     }
@@ -367,13 +367,24 @@ configure_usb_device(struct usbdevice_s *usbdev)
         return 0;
 
     // Determine if a driver exists for this device - only look at the
-    // first interface of the first configuration.
+    // interfaces of the first configuration.
+    int num_iface = config->bNumInterfaces;
+    void *config_end = (void*)config + config->wTotalLength;
     struct usb_interface_descriptor *iface = (void*)(&config[1]);
-    if (iface->bInterfaceClass != USB_CLASS_HID
-        && iface->bInterfaceClass != USB_CLASS_MASS_STORAGE
-        && iface->bInterfaceClass != USB_CLASS_HUB)
-        // Not a supported device.
-        goto fail;
+    for (;;) {
+        if (!num_iface-- || (void*)iface + iface->bLength > config_end)
+            // Not a supported device.
+            goto fail;
+        if (iface->bDescriptorType == USB_DT_INTERFACE
+            && (iface->bInterfaceClass == USB_CLASS_HUB
+                || (iface->bInterfaceClass == USB_CLASS_MASS_STORAGE
+                    && (iface->bInterfaceProtocol == US_PR_BULK
+                        || iface->bInterfaceProtocol == US_PR_UAS))
+                || (iface->bInterfaceClass == USB_CLASS_HID
+                    && iface->bInterfaceSubClass == USB_INTERFACE_SUBCLASS_BOOT)))
+            break;
+        iface = (void*)iface + iface->bLength;
+    }
 
     // Set the configuration.
     ret = set_configuration(usbdev->defpipe, config->bConfigurationValue);
