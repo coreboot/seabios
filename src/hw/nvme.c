@@ -152,7 +152,7 @@ nvme_wait(struct nvme_sq *sq)
 /* Returns the next submission queue entry (or NULL if the queue is full). It
    also fills out Command Dword 0 and clears the rest. */
 static struct nvme_sqe *
-nvme_get_next_sqe(struct nvme_sq *sq, u8 opc, void *metadata, void *data)
+nvme_get_next_sqe(struct nvme_sq *sq, u8 opc, void *metadata, void *data, void *data2)
 {
     if (((sq->head + 1) & sq->common.mask) == sq->tail) {
         dprintf(3, "submission queue is full");
@@ -166,6 +166,7 @@ nvme_get_next_sqe(struct nvme_sq *sq, u8 opc, void *metadata, void *data)
     sqe->cdw0 = opc | (sq->tail << 16 /* CID */);
     sqe->mptr = (u32)metadata;
     sqe->dptr_prp1 = (u32)data;
+    sqe->dptr_prp2 = (u32)data2;
 
     if (sqe->dptr_prp1 & (NVME_PAGE_SIZE - 1)) {
         /* Data buffer not page aligned. */
@@ -200,7 +201,7 @@ nvme_admin_identify(struct nvme_ctrl *ctrl, u8 cns, u32 nsid)
     struct nvme_sqe *cmd_identify;
     cmd_identify = nvme_get_next_sqe(&ctrl->admin_sq,
                                      NVME_SQE_OPC_ADMIN_IDENTIFY, NULL,
-                                     identify_buf);
+                                     identify_buf, NULL);
 
     if (!cmd_identify) {
         warn_internalerror();
@@ -338,7 +339,7 @@ nvme_create_io_cq(struct nvme_ctrl *ctrl, struct nvme_cq *cq, u16 q_idx)
 
     cmd_create_cq = nvme_get_next_sqe(&ctrl->admin_sq,
                                       NVME_SQE_OPC_ADMIN_CREATE_IO_CQ, NULL,
-                                      cq->cqe);
+                                      cq->cqe, NULL);
     if (!cmd_create_cq) {
         goto err_destroy_cq;
     }
@@ -382,7 +383,7 @@ nvme_create_io_sq(struct nvme_ctrl *ctrl, struct nvme_sq *sq, u16 q_idx, struct 
 
     cmd_create_sq = nvme_get_next_sqe(&ctrl->admin_sq,
                                       NVME_SQE_OPC_ADMIN_CREATE_IO_SQ, NULL,
-                                      sq->sqe);
+                                      sq->sqe, NULL);
     if (!cmd_create_sq) {
         goto err_destroy_sq;
     }
@@ -429,7 +430,7 @@ nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
     struct nvme_sqe *io_read = nvme_get_next_sqe(&ns->ctrl->io_sq,
                                                  write ? NVME_SQE_OPC_IO_WRITE
                                                        : NVME_SQE_OPC_IO_READ,
-                                                 NULL, buf);
+                                                 NULL, buf, NULL);
     io_read->nsid = ns->ns_id;
     io_read->dword[10] = (u32)lba;
     io_read->dword[11] = (u32)(lba >> 32);
