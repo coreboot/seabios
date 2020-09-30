@@ -637,6 +637,29 @@ xhci_controller_setup_pci(struct pci_device *pci)
     run_thread(configure_xhci, xhci);
 }
 
+static void
+xhci_controller_setup_acpi(struct acpi_device *dev)
+{
+    struct usb_xhci_s *xhci;
+    u64 mem, unused;
+    void *baseaddr;
+
+    if (acpi_dsdt_find_mem(dev, &mem, &unused) < 0)
+        return;
+    if (mem >= 0x100000000ll)
+        return;
+
+    baseaddr = (void*)(u32)mem;
+    dprintf(1, "ACPI: XHCI at mmio %p\n", baseaddr);
+
+    xhci = xhci_controller_setup(baseaddr);
+    if (!xhci)
+        return;
+
+    xhci->usb.mmio = baseaddr;
+    run_thread(configure_xhci, xhci);
+}
+
 void
 xhci_setup(void)
 {
@@ -647,6 +670,14 @@ xhci_setup(void)
     foreachpci(pci) {
         if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_XHCI)
             xhci_controller_setup_pci(pci);
+    }
+
+    u16 xhci_eisaid = 0x0d10;
+    struct acpi_device *dev;
+    for (dev = acpi_dsdt_find_eisaid(NULL, xhci_eisaid);
+         dev != NULL;
+         dev = acpi_dsdt_find_eisaid(dev, xhci_eisaid)) {
+        xhci_controller_setup_acpi(dev);
     }
 }
 
