@@ -727,6 +727,22 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
     u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
     u16 i;
 
+    /* Split up requests that are larger than the device can handle */
+    if (op->count > ns->max_req_size) {
+        u16 count = op->count;
+
+        /* Handle the first max_req_size elements */
+        op->count = ns->max_req_size;
+        if (nvme_cmd_readwrite(ns, op, write))
+            return res;
+
+        /* Handle the remainder of the request */
+        op->count = count - ns->max_req_size;
+        op->lba += ns->max_req_size;
+        op->buf_fl += (ns->max_req_size * ns->block_size);
+        return nvme_cmd_readwrite(ns, op, write);
+    }
+
     if (!nvme_build_prpl(ns, op)) {
         /* Request goes via PRP List logic */
         return nvme_io_readwrite(ns, op->lba, ns->prp1, op->count, write);
