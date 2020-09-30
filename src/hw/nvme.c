@@ -168,11 +168,6 @@ nvme_get_next_sqe(struct nvme_sq *sq, u8 opc, void *metadata, void *data, void *
     sqe->dptr_prp1 = (u32)data;
     sqe->dptr_prp2 = (u32)data2;
 
-    if (sqe->dptr_prp1 & (NVME_PAGE_SIZE - 1)) {
-        /* Data buffer not page aligned. */
-        warn_internalerror();
-    }
-
     return sqe;
 }
 
@@ -418,19 +413,29 @@ nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
                   int write)
 {
     u32 buf_addr = (u32)buf;
+    void *prp2;
 
-    if ((buf_addr & 0x3) ||
-        ((buf_addr & ~(NVME_PAGE_SIZE - 1)) !=
-         ((buf_addr + ns->block_size * count - 1) & ~(NVME_PAGE_SIZE - 1)))) {
-        /* Buffer is misaligned or crosses page boundary */
+    if (buf_addr & 0x3) {
+        /* Buffer is misaligned */
         warn_internalerror();
         return DISK_RET_EBADTRACK;
+    }
+
+    if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
+        /* We need to describe more than 2 pages, rely on PRP List */
+        prp2 = ns->prpl;
+    } else if ((ns->block_size * count) > NVME_PAGE_SIZE) {
+        /* Directly embed the 2nd page if we only need 2 pages */
+        prp2 = (void *)(long)ns->prpl[0];
+    } else {
+        /* One page is enough, don't expose anything else */
+        prp2 = NULL;
     }
 
     struct nvme_sqe *io_read = nvme_get_next_sqe(&ns->ctrl->io_sq,
                                                  write ? NVME_SQE_OPC_IO_WRITE
                                                        : NVME_SQE_OPC_IO_READ,
-                                                 NULL, buf, NULL);
+                                                 NULL, buf, prp2);
     io_read->nsid = ns->ns_id;
     io_read->dword[10] = (u32)lba;
     io_read->dword[11] = (u32)(lba >> 32);
@@ -448,6 +453,60 @@ nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
     }
 
     return DISK_RET_SUCCESS;
+}
+
+static void nvme_reset_prpl(struct nvme_namespace *ns)
+{
+    ns->prpl_len = 0;
+}
+
+static int nvme_add_prpl(struct nvme_namespace *ns, u64 base)
+{
+    if (ns->prpl_len >= NVME_MAX_PRPL_ENTRIES)
+        return -1;
+
+    ns->prpl[ns->prpl_len++] = base;
+
+    return 0;
+}
+
+int nvme_build_prpl(struct nvme_namespace *ns, struct disk_op_s *op)
+{
+    int first_page = 1;
+    u32 base = (long)op->buf_fl;
+    s32 size = op->count * ns->block_size;
+
+    if (op->count > ns->max_req_size)
+        return -1;
+
+    nvme_reset_prpl(ns);
+
+    /* Special case for transfers that fit into PRP1, but are unaligned */
+    if (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE)) {
+        ns->prp1 = op->buf_fl;
+        return 0;
+    }
+
+    /* Every request has to be page aligned */
+    if (base & ~NVME_PAGE_MASK)
+        return -1;
+
+    /* Make sure a full block fits into the last chunk */
+    if (size & (ns->block_size - 1ULL))
+        return -1;
+
+    for (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) {
+        if (first_page) {
+            /* First page is special */
+            ns->prp1 = (void*)base;
+            first_page = 0;
+            continue;
+        }
+        if (nvme_add_prpl(ns, base))
+            return -1;
+    }
+
+    return 0;
 }
 
 static int
@@ -667,6 +726,11 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
     int res = DISK_RET_SUCCESS;
     u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
     u16 i;
+
+    if (!nvme_build_prpl(ns, op)) {
+        /* Request goes via PRP List logic */
+        return nvme_io_readwrite(ns, op->lba, ns->prp1, op->count, write);
+    }
 
     for (i = 0; i < op->count && res == DISK_RET_SUCCESS;) {
         u16 blocks_remaining = op->count - i;
