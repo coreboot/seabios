@@ -117,6 +117,7 @@ struct nvme_namespace {
 
     u32 block_size;
     u32 metadata_size;
+    u32 max_req_size;
 
     /* Page aligned buffer of size NVME_PAGE_SIZE. */
     char *dma_buffer;
@@ -131,7 +132,12 @@ struct nvme_identify_ctrl {
     char mn[40];
     char fr[8];
 
-    char _boring[516 - 72];
+    u8 rab;
+    u8 ieee[3];
+    u8 cmic;
+    u8 mdts;
+
+    char _boring[516 - 78];
 
     u32 nn;                     /* number of namespaces */
 };

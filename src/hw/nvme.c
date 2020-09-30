@@ -238,7 +238,8 @@ nvme_admin_identify_ns(struct nvme_ctrl *ctrl, u32 ns_id)
 }
 
 static void
-nvme_probe_ns(struct nvme_ctrl *ctrl, struct nvme_namespace *ns, u32 ns_id)
+nvme_probe_ns(struct nvme_ctrl *ctrl, struct nvme_namespace *ns, u32 ns_id,
+              u8 mdts)
 {
     ns->ctrl  = ctrl;
     ns->ns_id = ns_id;
@@ -280,6 +281,14 @@ nvme_probe_ns(struct nvme_ctrl *ctrl, struct nvme_namespace *ns, u32 ns_id)
     ns->drive.type      = DTYPE_NVME;
     ns->drive.blksize   = ns->block_size;
     ns->drive.sectors   = ns->lba_count;
+
+    if (mdts) {
+        ns->max_req_size = ((1U << mdts) * NVME_PAGE_SIZE) / ns->block_size;
+        dprintf(3, "NVME NS %u max request size: %d sectors\n",
+                ns_id, ns->max_req_size);
+    } else {
+        ns->max_req_size = -1U;
+    }
 
     ns->dma_buffer = zalloc_page_aligned(&ZoneHigh, NVME_PAGE_SIZE);
 
@@ -567,7 +576,7 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
     /* Populate namespace IDs */
     int ns_idx;
     for (ns_idx = 0; ns_idx < ctrl->ns_count; ns_idx++) {
-        nvme_probe_ns(ctrl, &ctrl->ns[ns_idx], ns_idx + 1);
+        nvme_probe_ns(ctrl, &ctrl->ns[ns_idx], ns_idx + 1, identify->mdts);
     }
 
     dprintf(3, "NVMe initialization complete!\n");
