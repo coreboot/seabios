@@ -534,17 +534,13 @@ fail:
     free(xhci);
 }
 
-static void
-xhci_controller_setup(struct pci_device *pci)
+static struct usb_xhci_s*
+xhci_controller_setup(void *baseaddr)
 {
-    void *baseaddr = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
-    if (!baseaddr)
-        return;
-
     struct usb_xhci_s *xhci = malloc_high(sizeof(*xhci));
     if (!xhci) {
         warn_noalloc();
-        return;
+        return NULL;
     }
     memset(xhci, 0, sizeof(*xhci));
     xhci->caps  = baseaddr;
@@ -559,13 +555,11 @@ xhci_controller_setup(struct pci_device *pci)
     xhci->slots = hcs1         & 0xff;
     xhci->xcap  = ((hcc >> 16) & 0xffff) << 2;
     xhci->context64 = (hcc & 0x04) ? 1 : 0;
-
-    xhci->usb.pci = pci;
     xhci->usb.type = USB_TYPE_XHCI;
 
-    dprintf(1, "XHCI init on dev %pP: regs @ %p, %d ports, %d slots"
+    dprintf(1, "XHCI init: regs @ %p, %d ports, %d slots"
             ", %d byte contexts\n"
-            , pci, xhci->caps, xhci->ports, xhci->slots
+            , xhci->caps, xhci->ports, xhci->slots
             , xhci->context64 ? 64 : 32);
 
     if (xhci->xcap) {
@@ -616,11 +610,30 @@ xhci_controller_setup(struct pci_device *pci)
         dprintf(1, "XHCI driver does not support page size code %d\n"
                 , pagesize<<12);
         free(xhci);
-        return;
+        return NULL;
     }
 
+    return xhci;
+}
+
+static void
+xhci_controller_setup_pci(struct pci_device *pci)
+{
+    struct usb_xhci_s *xhci;
+    void *baseaddr;
+
+    baseaddr = pci_enable_membar(pci, PCI_BASE_ADDRESS_0);
+    if (!baseaddr)
+        return;
+
+    dprintf(1, "PCI: XHCI at %pP (mmio %p)\n", pci, baseaddr);
     pci_enable_busmaster(pci);
 
+    xhci = xhci_controller_setup(baseaddr);
+    if (!xhci)
+        return;
+
+    xhci->usb.pci = pci;
     run_thread(configure_xhci, xhci);
 }
 
@@ -629,10 +642,11 @@ xhci_setup(void)
 {
     if (! CONFIG_USB_XHCI)
         return;
+
     struct pci_device *pci;
     foreachpci(pci) {
         if (pci_classprog(pci) == PCI_CLASS_SERIAL_USB_XHCI)
-            xhci_controller_setup(pci);
+            xhci_controller_setup_pci(pci);
     }
 }
 
