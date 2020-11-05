@@ -470,30 +470,31 @@ static int nvme_add_prpl(struct nvme_namespace *ns, u64 base)
     return 0;
 }
 
-int nvme_build_prpl(struct nvme_namespace *ns, struct disk_op_s *op)
+static int nvme_build_prpl(struct nvme_namespace *ns, void *op_buf, u16 count)
 {
     int first_page = 1;
-    u32 base = (long)op->buf_fl;
-    s32 size = op->count * ns->block_size;
+    u32 base = (long)op_buf;
+    s32 size;
 
-    if (op->count > ns->max_req_size)
-        return -1;
+    if (count > ns->max_req_size)
+        count = ns->max_req_size;
 
     nvme_reset_prpl(ns);
 
+    size = count * ns->block_size;
     /* Special case for transfers that fit into PRP1, but are unaligned */
     if (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE)) {
-        ns->prp1 = op->buf_fl;
-        return 0;
+        ns->prp1 = op_buf;
+        return count;
     }
 
     /* Every request has to be page aligned */
     if (base & ~NVME_PAGE_MASK)
-        return -1;
+        return 0;
 
     /* Make sure a full block fits into the last chunk */
     if (size & (ns->block_size - 1ULL))
-        return -1;
+        return 0;
 
     for (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) {
         if (first_page) {
@@ -503,10 +504,10 @@ int nvme_build_prpl(struct nvme_namespace *ns, struct disk_op_s *op)
             continue;
         }
         if (nvme_add_prpl(ns, base))
-            return -1;
+            return 0;
     }
 
-    return 0;
+    return count;
 }
 
 static int
@@ -725,46 +726,34 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
 {
     int res = DISK_RET_SUCCESS;
     u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
-    u16 i;
-
-    /* Split up requests that are larger than the device can handle */
-    if (op->count > ns->max_req_size) {
-        u16 count = op->count;
-
-        /* Handle the first max_req_size elements */
-        op->count = ns->max_req_size;
-        if (nvme_cmd_readwrite(ns, op, write))
-            return res;
-
-        /* Handle the remainder of the request */
-        op->count = count - ns->max_req_size;
-        op->lba += ns->max_req_size;
-        op->buf_fl += (ns->max_req_size * ns->block_size);
-        return nvme_cmd_readwrite(ns, op, write);
-    }
-
-    if (!nvme_build_prpl(ns, op)) {
-        /* Request goes via PRP List logic */
-        return nvme_io_readwrite(ns, op->lba, ns->prp1, op->count, write);
-    }
+    u16 i, blocks;
 
     for (i = 0; i < op->count && res == DISK_RET_SUCCESS;) {
         u16 blocks_remaining = op->count - i;
-        u16 blocks = blocks_remaining < max_blocks ? blocks_remaining
-                                                   : max_blocks;
         char *op_buf = op->buf_fl + i * ns->block_size;
 
-        if (write) {
-            memcpy(ns->dma_buffer, op_buf, blocks * ns->block_size);
-        }
+        blocks = nvme_build_prpl(ns, op_buf, blocks_remaining);
+        if (blocks) {
+            res = nvme_io_readwrite(ns, op->lba + i, ns->prp1, blocks, write);
+            dprintf(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
+                                                                      : "read",
+                    op->lba, blocks, res);
+        } else {
+            blocks = blocks_remaining < max_blocks ? blocks_remaining
+                                                   : max_blocks;
 
-        res = nvme_io_readwrite(ns, op->lba + i, ns->dma_buffer, blocks, write);
-        dprintf(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
-                                                                  : "read",
-                op->lba + i, blocks, res);
+            if (write) {
+                memcpy(ns->dma_buffer, op_buf, blocks * ns->block_size);
+            }
 
-        if (!write && res == DISK_RET_SUCCESS) {
-            memcpy(op_buf, ns->dma_buffer, blocks * ns->block_size);
+            res = nvme_io_readwrite(ns, op->lba + i, ns->dma_buffer, blocks, write);
+            dprintf(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
+                                                                      : "read",
+                    op->lba + i, blocks, res);
+
+            if (!write && res == DISK_RET_SUCCESS) {
+                memcpy(op_buf, ns->dma_buffer, blocks * ns->block_size);
+            }
         }
 
         i += blocks;
