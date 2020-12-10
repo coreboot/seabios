@@ -324,6 +324,24 @@ void *smbios_get_tables(u32 *length)
     return NULL;
 }
 
+static int
+smbios_major_version(void)
+{
+    if (SMBios21Addr)
+        return SMBios21Addr->smbios_major_version;
+    else
+        return 0;
+}
+
+static int
+smbios_minor_version(void)
+{
+    if (SMBios21Addr)
+        return SMBios21Addr->smbios_minor_version;
+    else
+        return 0;
+}
+
 void
 display_uuid(void)
 {
@@ -344,9 +362,9 @@ display_uuid(void)
              * the encoding, but we follow dmidecode and assume big-endian
              * encoding.
              */
-            if (SMBios21Addr->smbios_major_version > 2 ||
-                (SMBios21Addr->smbios_major_version == 2 &&
-                 SMBios21Addr->smbios_minor_version >= 6)) {
+            if (smbios_major_version() > 2 ||
+                (smbios_major_version() == 2 &&
+                 smbios_minor_version() >= 6)) {
                 printf("Machine UUID"
                        " %02x%02x%02x%02x"
                        "-%02x%02x"
