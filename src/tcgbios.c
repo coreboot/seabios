@@ -1058,15 +1058,15 @@ tpm_smbios_measure(void)
         .eventid = 1,
         .eventdatasize = SHA1_BUFSIZE,
     };
-    struct smbios_21_entry_point *sep = SMBios21Addr;
+    u32 smbios_len;
+    void *smbios_tables = smbios_get_tables(&smbios_len);
 
-    dprintf(DEBUG_tcg, "TCGBIOS: SMBIOS at %p\n", sep);
+    dprintf(DEBUG_tcg, "TCGBIOS: SMBIOS tables at %p\n", smbios_tables);
 
-    if (!sep)
+    if (!smbios_tables)
         return;
 
-    sha1((const u8 *)sep->structure_table_address,
-         sep->structure_table_length, pcctes.digest);
+    sha1((const u8 *)smbios_tables, smbios_len, pcctes.digest);
     tpm_add_measurement_to_log(1,
                                EV_EVENT_TAG,
                                (const char *)&pcctes, sizeof(pcctes),
