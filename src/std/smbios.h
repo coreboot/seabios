@@ -25,6 +25,19 @@ struct smbios_21_entry_point {
     u8 smbios_bcd_revision;
 } PACKED;
 
+struct smbios_30_entry_point {
+    char signature[5];
+    u8 checksum;
+    u8 length;
+    u8 smbios_major_version;
+    u8 smbios_minor_version;
+    u8 smbios_docrev;
+    u8 entry_point_revision;
+    u8 reserved;
+    u32 structure_table_max_size;
+    u64 structure_table_address;
+} PACKED;
+
 /* This goes at the beginning of every SMBIOS structure. */
 struct smbios_structure_header {
     u8 type;

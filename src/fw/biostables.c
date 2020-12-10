@@ -315,8 +315,36 @@ copy_smbios_21(void *pos)
     SMBios21Addr = copy_fseg_table("SMBIOS", pos, p->length);
 }
 
+static struct smbios_30_entry_point *SMBios30Addr;
+
+static int
+valid_smbios_30_signature(struct smbios_30_entry_point *p)
+{
+    return !memcmp(p->signature, "_SM3_", 5);
+}
+
+void
+copy_smbios_30(void *pos)
+{
+    if (SMBios30Addr)
+        return;
+    struct smbios_30_entry_point *p = pos;
+    if (!valid_smbios_30_signature(p))
+        return;
+    if (checksum(pos, p->length) != 0)
+        return;
+    SMBios30Addr = copy_fseg_table("SMBIOS 3.0", pos, p->length);
+}
+
 void *smbios_get_tables(u32 *length)
 {
+    if (SMBios30Addr) {
+        u32 addr32 = SMBios30Addr->structure_table_address;
+        if (addr32 == SMBios30Addr->structure_table_address) {
+            *length = SMBios30Addr->structure_table_max_size;
+            return (void *)addr32;
+        }
+    }
     if (SMBios21Addr) {
         *length = SMBios21Addr->structure_table_length;
         return (void *)SMBios21Addr->structure_table_address;
@@ -327,7 +355,9 @@ void *smbios_get_tables(u32 *length)
 static int
 smbios_major_version(void)
 {
-    if (SMBios21Addr)
+    if (SMBios30Addr)
+        return SMBios30Addr->smbios_major_version;
+    else if (SMBios21Addr)
         return SMBios21Addr->smbios_major_version;
     else
         return 0;
@@ -336,7 +366,9 @@ smbios_major_version(void)
 static int
 smbios_minor_version(void)
 {
-    if (SMBios21Addr)
+    if (SMBios30Addr)
+        return SMBios30Addr->smbios_minor_version;
+    else if (SMBios21Addr)
         return SMBios21Addr->smbios_minor_version;
     else
         return 0;
