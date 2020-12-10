@@ -453,22 +453,19 @@ smbios_new_type_0(void *start,
 #define BIOS_NAME "SeaBIOS"
 #define BIOS_DATE "04/01/2014"
 
+/*
+ * Build tables using qtables as input, adding additional type 0
+ * table if necessary.
+ */
 static int
-smbios_romfile_setup(void)
+smbios_build_tables(struct romfile_s *f_tables,
+                    struct smbios_21_entry_point *ep)
 {
-    struct romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
-    struct romfile_s *f_tables = romfile_find("etc/smbios/smbios-tables");
-    struct smbios_21_entry_point ep;
     struct smbios_type_0 *t0;
     u16 qtables_len, need_t0 = 1;
     u8 *qtables, *tables;
 
-    if (!f_anchor || !f_tables || f_anchor->size != sizeof(ep))
-        return 0;
-
-    f_anchor->copy(f_anchor, &ep, f_anchor->size);
-
-    if (f_tables->size != ep.structure_table_length)
+    if (f_tables->size != ep->structure_table_length)
         return 0;
 
     qtables = malloc_tmphigh(f_tables->size);
@@ -492,35 +489,52 @@ smbios_romfile_setup(void)
         /* common case: add our own type 0, with 3 strings and 4 '\0's */
         u16 t0_len = sizeof(struct smbios_type_0) + strlen(BIOS_NAME) +
                      strlen(VERSION) + strlen(BIOS_DATE) + 4;
-        if (t0_len > (0xffff - ep.structure_table_length)) {
+        if (t0_len > (0xffff - ep->structure_table_length)) {
             dprintf(1, "Insufficient space (%d bytes) to add SMBIOS type 0 table (%d bytes)\n",
-                    0xffff - ep.structure_table_length, t0_len);
+                    0xffff - ep->structure_table_length, t0_len);
             need_t0 = 0;
         } else {
-            ep.structure_table_length += t0_len;
-            if (t0_len > ep.max_structure_size)
-                ep.max_structure_size = t0_len;
-            ep.number_of_structures++;
+            ep->structure_table_length += t0_len;
+            if (t0_len > ep->max_structure_size)
+                ep->max_structure_size = t0_len;
+            ep->number_of_structures++;
         }
     }
 
     /* allocate final blob and record its address in the entry point */
-    if (ep.structure_table_length > BUILD_MAX_SMBIOS_FSEG)
-        tables = malloc_high(ep.structure_table_length);
+    if (ep->structure_table_length > BUILD_MAX_SMBIOS_FSEG)
+        tables = malloc_high(ep->structure_table_length);
     else
-        tables = malloc_fseg(ep.structure_table_length);
+        tables = malloc_fseg(ep->structure_table_length);
     if (!tables) {
         warn_noalloc();
         free(qtables);
         return 0;
     }
-    ep.structure_table_address = (u32)tables;
+    ep->structure_table_address = (u32)tables;
 
     /* populate final blob */
     if (need_t0)
         tables = smbios_new_type_0(tables, BIOS_NAME, VERSION, BIOS_DATE);
     memcpy(tables, qtables, qtables_len);
     free(qtables);
+    return 1;
+}
+
+static int
+smbios_romfile_setup(void)
+{
+    struct romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
+    struct romfile_s *f_tables = romfile_find("etc/smbios/smbios-tables");
+    struct smbios_21_entry_point ep;
+
+    if (!f_anchor || !f_tables || f_anchor->size != sizeof(ep))
+        return 0;
+
+    f_anchor->copy(f_anchor, &ep, f_anchor->size);
+
+    if (!smbios_build_tables(f_tables, &ep))
+        return 0;
 
     /* finalize entry point */
     ep.checksum -= checksum(&ep, 0x10);
