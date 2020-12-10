@@ -172,7 +172,7 @@ handle_csm_0002(struct bregs *regs)
 
     // SMBIOS table needs to be copied into the f-seg
     // XX: OVMF doesn't seem to set SmbiosTableLength so don't check it
-    if (csm_boot_table->SmbiosTable && !SMBios21Addr)
+    if (csm_boot_table->SmbiosTable)
         copy_smbios_21((void *)csm_boot_table->SmbiosTable);
 
     // MPTABLE is just there; we don't care where.
