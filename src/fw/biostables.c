@@ -315,6 +315,15 @@ copy_smbios_21(void *pos)
     SMBios21Addr = copy_fseg_table("SMBIOS", pos, p->length);
 }
 
+void *smbios_get_tables(u32 *length)
+{
+    if (SMBios21Addr) {
+        *length = SMBios21Addr->structure_table_length;
+        return (void *)SMBios21Addr->structure_table_address;
+    }
+    return NULL;
+}
+
 void
 display_uuid(void)
 {

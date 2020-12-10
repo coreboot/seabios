@@ -88,6 +88,7 @@ u32 find_resume_vector(void);
 void acpi_reboot(void);
 void find_acpi_features(void);
 extern struct smbios_21_entry_point *SMBios21Addr;
+void *smbios_get_tables(u32 *length);
 void copy_smbios_21(void *pos);
 void display_uuid(void);
 void copy_table(void *pos);
