@@ -3,12 +3,12 @@
 
 #include "types.h" // u32
 
-#define SMBIOS_SIGNATURE 0x5f4d535f // "_SM_"
+#define SMBIOS_21_SIGNATURE 0x5f4d535f // "_SM_"
 
 /* SMBIOS entry point -- must be written to a 16-bit aligned address
    between 0xf0000 and 0xfffff.
  */
-struct smbios_entry_point {
+struct smbios_21_entry_point {
     u32 signature;
     u8 checksum;
     u8 length;

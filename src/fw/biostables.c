@@ -14,7 +14,7 @@
 #include "std/acpi.h" // struct rsdp_descriptor
 #include "std/mptable.h" // MPTABLE_SIGNATURE
 #include "std/pirtable.h" // struct pir_header
-#include "std/smbios.h" // struct smbios_entry_point
+#include "std/smbios.h" // struct smbios_21_entry_point
 #include "string.h" // memcpy
 #include "util.h" // copy_table
 #include "x86.h" // outb
@@ -265,7 +265,7 @@ find_acpi_features(void)
 
 // Iterator for each sub-table in the smbios blob.
 void *
-smbios_next(struct smbios_entry_point *smbios, void *prev)
+smbios_21_next(struct smbios_21_entry_point *smbios, void *prev)
 {
     if (!smbios)
         return NULL;
@@ -288,15 +288,15 @@ smbios_next(struct smbios_entry_point *smbios, void *prev)
     return prev;
 }
 
-struct smbios_entry_point *SMBiosAddr;
+struct smbios_21_entry_point *SMBios21Addr;
 
 void
-copy_smbios(void *pos)
+copy_smbios_21(void *pos)
 {
-    if (SMBiosAddr)
+    if (SMBios21Addr)
         return;
-    struct smbios_entry_point *p = pos;
-    if (p->signature != SMBIOS_SIGNATURE)
+    struct smbios_21_entry_point *p = pos;
+    if (p->signature != SMBIOS_21_SIGNATURE)
         return;
     if (checksum(pos, 0x10) != 0)
         return;
@@ -304,15 +304,15 @@ copy_smbios(void *pos)
         return;
     if (checksum(pos+0x10, p->length-0x10) != 0)
         return;
-    SMBiosAddr = copy_fseg_table("SMBIOS", pos, p->length);
+    SMBios21Addr = copy_fseg_table("SMBIOS", pos, p->length);
 }
 
 void
 display_uuid(void)
 {
-    struct smbios_type_1 *tbl = smbios_next(SMBiosAddr, NULL);
+    struct smbios_type_1 *tbl = smbios_21_next(SMBios21Addr, NULL);
     int minlen = offsetof(struct smbios_type_1, uuid) + sizeof(tbl->uuid);
-    for (; tbl; tbl = smbios_next(SMBiosAddr, tbl))
+    for (; tbl; tbl = smbios_21_next(SMBios21Addr, tbl))
         if (tbl->header.type == 1 && tbl->header.length >= minlen) {
             u8 *uuid = tbl->uuid;
             u8 empty_uuid[sizeof(tbl->uuid)] = { 0 };
@@ -325,9 +325,9 @@ display_uuid(void)
              * the encoding, but we follow dmidecode and assume big-endian
              * encoding.
              */
-            if (SMBiosAddr->smbios_major_version > 2 ||
-                (SMBiosAddr->smbios_major_version == 2 &&
-                 SMBiosAddr->smbios_minor_version >= 6)) {
+            if (SMBios21Addr->smbios_major_version > 2 ||
+                (SMBios21Addr->smbios_major_version == 2 &&
+                 SMBios21Addr->smbios_minor_version >= 6)) {
                 printf("Machine UUID"
                        " %02x%02x%02x%02x"
                        "-%02x%02x"
@@ -421,7 +421,7 @@ smbios_romfile_setup(void)
 {
     struct romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
     struct romfile_s *f_tables = romfile_find("etc/smbios/smbios-tables");
-    struct smbios_entry_point ep;
+    struct smbios_21_entry_point ep;
     struct smbios_type_0 *t0;
     u16 qtables_len, need_t0 = 1;
     u8 *qtables, *tables;
@@ -440,10 +440,10 @@ smbios_romfile_setup(void)
         return 0;
     }
     f_tables->copy(f_tables, qtables, f_tables->size);
-    ep.structure_table_address = (u32)qtables; /* for smbios_next(), below */
+    ep.structure_table_address = (u32)qtables; /* for smbios_21_next(), below */
 
     /* did we get a type 0 structure ? */
-    for (t0 = smbios_next(&ep, NULL); t0; t0 = smbios_next(&ep, t0))
+    for (t0 = smbios_21_next(&ep, NULL); t0; t0 = smbios_21_next(&ep, t0))
         if (t0->header.type == 0) {
             need_t0 = 0;
             break;
@@ -488,7 +488,7 @@ smbios_romfile_setup(void)
     ep.checksum -= checksum(&ep, 0x10);
     ep.intermediate_checksum -= checksum((void *)&ep + 0x10, ep.length - 0x10);
 
-    copy_smbios(&ep);
+    copy_smbios_21(&ep);
     return 1;
 }
 
@@ -506,5 +506,5 @@ copy_table(void *pos)
     copy_pir(pos);
     copy_mptable(pos);
     copy_acpi_rsdp(pos);
-    copy_smbios(pos);
+    copy_smbios_21(pos);
 }

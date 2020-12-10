@@ -19,7 +19,7 @@
 #include "std/acpi.h" // RSDP_SIGNATURE
 #include "std/bda.h" // struct bios_data_area_s
 #include "std/optionrom.h" // struct rom_header
-#include "util.h" // copy_smbios
+#include "util.h" // copy_smbios_21
 
 #define UINT8 u8
 #define UINT16 u16
@@ -172,8 +172,8 @@ handle_csm_0002(struct bregs *regs)
 
     // SMBIOS table needs to be copied into the f-seg
     // XX: OVMF doesn't seem to set SmbiosTableLength so don't check it
-    if (csm_boot_table->SmbiosTable && !SMBiosAddr)
-        copy_smbios((void *)csm_boot_table->SmbiosTable);
+    if (csm_boot_table->SmbiosTable && !SMBios21Addr)
+        copy_smbios_21((void *)csm_boot_table->SmbiosTable);
 
     // MPTABLE is just there; we don't care where.
 

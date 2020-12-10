@@ -11,13 +11,13 @@
 #include "output.h" // dprintf
 #include "paravirt.h" // RamSize
 #include "romfile.h" // romfile_findprefix
-#include "std/smbios.h" // struct smbios_entry_point
+#include "std/smbios.h" // struct smbios_21_entry_point
 #include "string.h" // memset
 #include "util.h" // MaxCountCPUs
 #include "x86.h" // cpuid
 
 static void
-smbios_entry_point_setup(u16 max_structure_size,
+smbios_21_entry_point_setup(u16 max_structure_size,
                          u16 structure_table_length,
                          void *structure_table_address,
                          u16 number_of_structures)
@@ -35,9 +35,9 @@ smbios_entry_point_setup(u16 max_structure_size,
     }
     memcpy(finaltable, structure_table_address, structure_table_length);
 
-    struct smbios_entry_point ep;
+    struct smbios_21_entry_point ep;
     memset(&ep, 0, sizeof(ep));
-    ep.signature = SMBIOS_SIGNATURE;
+    ep.signature = SMBIOS_21_SIGNATURE;
     ep.length = 0x1f;
     ep.smbios_major_version = 2;
     ep.smbios_minor_version = 4;
@@ -53,7 +53,7 @@ smbios_entry_point_setup(u16 max_structure_size,
 
     ep.intermediate_checksum -= checksum((void*)&ep + 0x10, ep.length - 0x10);
 
-    copy_smbios(&ep);
+    copy_smbios_21(&ep);
 }
 
 static int
@@ -584,6 +584,6 @@ smbios_legacy_setup(void)
 
 #undef add_struct
 
-    smbios_entry_point_setup(max_struct_size, p - start, start, nr_structs);
+    smbios_21_entry_point_setup(max_struct_size, p - start, start, nr_structs);
     free(start);
 }
