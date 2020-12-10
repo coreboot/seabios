@@ -524,6 +524,25 @@ smbios_build_tables(struct romfile_s *f_tables,
 }
 
 static int
+smbios_21_setup_entry_point(struct romfile_s *f_tables,
+                            struct smbios_21_entry_point *ep)
+{
+    if (!smbios_build_tables(f_tables,
+                             &ep->structure_table_address,
+                             &ep->structure_table_length,
+                             &ep->max_structure_size,
+                             &ep->number_of_structures))
+        return 0;
+
+    /* finalize entry point */
+    ep->checksum -= checksum(ep, 0x10);
+    ep->intermediate_checksum -= checksum((void *)ep + 0x10, ep->length - 0x10);
+
+    copy_smbios_21(ep);
+    return 1;
+}
+
+static int
 smbios_romfile_setup(void)
 {
     struct romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
@@ -535,19 +554,7 @@ smbios_romfile_setup(void)
 
     f_anchor->copy(f_anchor, &ep, f_anchor->size);
 
-    if (!smbios_build_tables(f_tables,
-                             &ep.structure_table_address,
-                             &ep.structure_table_length,
-                             &ep.max_structure_size,
-                             &ep.number_of_structures))
-        return 0;
-
-    /* finalize entry point */
-    ep.checksum -= checksum(&ep, 0x10);
-    ep.intermediate_checksum -= checksum((void *)&ep + 0x10, ep.length - 0x10);
-
-    copy_smbios_21(&ep);
-    return 1;
+    return smbios_21_setup_entry_point(f_tables, &ep);
 }
 
 void
