@@ -477,16 +477,17 @@ smbios_romfile_setup(void)
         return 0;
     }
     f_tables->copy(f_tables, qtables, f_tables->size);
-    ep.structure_table_address = (u32)qtables; /* for smbios_21_next(), below */
+    qtables_len = f_tables->size;
 
     /* did we get a type 0 structure ? */
-    for (t0 = smbios_21_next(&ep, NULL); t0; t0 = smbios_21_next(&ep, t0))
+    for (t0 = smbios_next(qtables, qtables_len, NULL); t0;
+         t0 = smbios_next(qtables, qtables_len, t0)) {
         if (t0->header.type == 0) {
             need_t0 = 0;
             break;
         }
+    }
 
-    qtables_len = ep.structure_table_length;
     if (need_t0) {
         /* common case: add our own type 0, with 3 strings and 4 '\0's */
         u16 t0_len = sizeof(struct smbios_type_0) + strlen(BIOS_NAME) +
