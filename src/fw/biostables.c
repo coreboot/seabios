@@ -459,13 +459,15 @@ smbios_new_type_0(void *start,
  */
 static int
 smbios_build_tables(struct romfile_s *f_tables,
-                    struct smbios_21_entry_point *ep)
+                    u32 *address, u16 *length,
+                    u16 *max_structure_size,
+                    u16 *number_of_structures)
 {
     struct smbios_type_0 *t0;
     u16 qtables_len, need_t0 = 1;
     u8 *qtables, *tables;
 
-    if (f_tables->size != ep->structure_table_length)
+    if (f_tables->size != *length)
         return 0;
 
     qtables = malloc_tmphigh(f_tables->size);
@@ -489,29 +491,29 @@ smbios_build_tables(struct romfile_s *f_tables,
         /* common case: add our own type 0, with 3 strings and 4 '\0's */
         u16 t0_len = sizeof(struct smbios_type_0) + strlen(BIOS_NAME) +
                      strlen(VERSION) + strlen(BIOS_DATE) + 4;
-        if (t0_len > (0xffff - ep->structure_table_length)) {
+        if (t0_len > (0xffff - *length)) {
             dprintf(1, "Insufficient space (%d bytes) to add SMBIOS type 0 table (%d bytes)\n",
-                    0xffff - ep->structure_table_length, t0_len);
+                    0xffff - *length, t0_len);
             need_t0 = 0;
         } else {
-            ep->structure_table_length += t0_len;
-            if (t0_len > ep->max_structure_size)
-                ep->max_structure_size = t0_len;
-            ep->number_of_structures++;
+            *length += t0_len;
+            if (t0_len > *max_structure_size)
+                *max_structure_size = t0_len;
+            (*number_of_structures)++;
         }
     }
 
     /* allocate final blob and record its address in the entry point */
-    if (ep->structure_table_length > BUILD_MAX_SMBIOS_FSEG)
-        tables = malloc_high(ep->structure_table_length);
+    if (*length > BUILD_MAX_SMBIOS_FSEG)
+        tables = malloc_high(*length);
     else
-        tables = malloc_fseg(ep->structure_table_length);
+        tables = malloc_fseg(*length);
     if (!tables) {
         warn_noalloc();
         free(qtables);
         return 0;
     }
-    ep->structure_table_address = (u32)tables;
+    *address = (u32)tables;
 
     /* populate final blob */
     if (need_t0)
@@ -533,7 +535,11 @@ smbios_romfile_setup(void)
 
     f_anchor->copy(f_anchor, &ep, f_anchor->size);
 
-    if (!smbios_build_tables(f_tables, &ep))
+    if (!smbios_build_tables(f_tables,
+                             &ep.structure_table_address,
+                             &ep.structure_table_length,
+                             &ep.max_structure_size,
+                             &ep.number_of_structures))
         return 0;
 
     /* finalize entry point */
