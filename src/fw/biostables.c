@@ -265,12 +265,11 @@ find_acpi_features(void)
 
 // Iterator for each sub-table in the smbios blob.
 void *
-smbios_21_next(struct smbios_21_entry_point *smbios, void *prev)
+smbios_next(void *start, u32 length, void *prev)
 {
-    if (!smbios)
+    if (!start)
         return NULL;
-    void *start = (void*)smbios->structure_table_address;
-    void *end = start + smbios->structure_table_length;
+    void *end = start + length;
 
     if (!prev) {
         prev = start;
@@ -286,6 +285,15 @@ smbios_21_next(struct smbios_21_entry_point *smbios, void *prev)
     if (prev >= end || prev + sizeof(*hdr) >= end || prev + hdr->length >= end)
         return NULL;
     return prev;
+}
+
+void *
+smbios_21_next(struct smbios_21_entry_point *smbios, void *prev)
+{
+    if (!smbios)
+        return NULL;
+    return smbios_next((void*)smbios->structure_table_address,
+                       smbios->structure_table_length, prev);
 }
 
 struct smbios_21_entry_point *SMBios21Addr;
