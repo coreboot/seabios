@@ -462,7 +462,7 @@ smbios_new_type_0(void *start,
  */
 static int
 smbios_build_tables(struct romfile_s *f_tables,
-                    u32 *address, u16 *length,
+                    u64 *address, u32 *length,
                     u16 *max_structure_size,
                     u16 *number_of_structures)
 {
@@ -531,14 +531,24 @@ static int
 smbios_21_setup_entry_point(struct romfile_s *f_tables,
                             struct smbios_21_entry_point *ep)
 {
+    u64 address = ep->structure_table_address;
+    u32 length = ep->structure_table_length;
+
     if (!smbios_build_tables(f_tables,
-                             &ep->structure_table_address,
-                             &ep->structure_table_length,
+                             &address,
+                             &length,
                              &ep->max_structure_size,
                              &ep->number_of_structures))
         return 0;
 
+    if ((u32)address != address || (u16)length != length) {
+        warn_internalerror();
+        return 0;
+    }
+
     /* finalize entry point */
+    ep->structure_table_address = address;
+    ep->structure_table_length = length;
     ep->checksum -= checksum(ep, 0x10);
     ep->intermediate_checksum -= checksum((void *)ep + 0x10, ep->length - 0x10);
 
