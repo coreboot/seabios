@@ -296,7 +296,7 @@ smbios_21_next(struct smbios_21_entry_point *smbios, void *prev)
                        smbios->structure_table_length, prev);
 }
 
-struct smbios_21_entry_point *SMBios21Addr;
+static struct smbios_21_entry_point *SMBios21Addr;
 
 void
 copy_smbios_21(void *pos)
