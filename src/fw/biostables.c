@@ -21,6 +21,19 @@
 
 struct pir_header *PirAddr VARFSEG;
 
+static void *
+copy_fseg_table(const char *name, void *pos, u32 size)
+{
+    void *newpos = malloc_fseg(size);
+    if (!newpos) {
+        warn_noalloc();
+        return NULL;
+    }
+    dprintf(1, "Copying %s from %p to %p\n", name, pos, newpos);
+    memcpy(newpos, pos, size);
+    return newpos;
+}
+
 void
 copy_pir(void *pos)
 {
@@ -33,14 +46,7 @@ copy_pir(void *pos)
         return;
     if (checksum(pos, p->size) != 0)
         return;
-    void *newpos = malloc_fseg(p->size);
-    if (!newpos) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(1, "Copying PIR from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, p->size);
-    PirAddr = newpos;
+    PirAddr = copy_fseg_table("PIR", pos, p->size);
 }
 
 void
@@ -111,14 +117,7 @@ copy_acpi_rsdp(void *pos)
     int length = get_acpi_rsdp_length(pos, -1);
     if (length < 0)
         return;
-    void *newpos = malloc_fseg(length);
-    if (!newpos) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(1, "Copying ACPI RSDP from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, length);
-    RsdpAddr = newpos;
+    RsdpAddr = copy_fseg_table("ACPI RSDP", pos, length);
 }
 
 void *find_acpi_rsdp(void)
@@ -305,14 +304,7 @@ copy_smbios(void *pos)
         return;
     if (checksum(pos+0x10, p->length-0x10) != 0)
         return;
-    struct smbios_entry_point *newpos = malloc_fseg(p->length);
-    if (!newpos) {
-        warn_noalloc();
-        return;
-    }
-    dprintf(1, "Copying SMBIOS entry point from %p to %p\n", pos, newpos);
-    memcpy(newpos, pos, p->length);
-    SMBiosAddr = newpos;
+    SMBiosAddr = copy_fseg_table("SMBIOS", pos, p->length);
 }
 
 void
