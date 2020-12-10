@@ -618,4 +618,5 @@ copy_table(void *pos)
     copy_mptable(pos);
     copy_acpi_rsdp(pos);
     copy_smbios_21(pos);
+    copy_smbios_30(pos);
 }
