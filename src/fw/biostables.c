@@ -327,9 +327,11 @@ void *smbios_get_tables(u32 *length)
 void
 display_uuid(void)
 {
-    struct smbios_type_1 *tbl = smbios_21_next(SMBios21Addr, NULL);
+    u32 smbios_len = 0;
+    void *smbios_tables = smbios_get_tables(&smbios_len);
+    struct smbios_type_1 *tbl = smbios_next(smbios_tables, smbios_len, NULL);
     int minlen = offsetof(struct smbios_type_1, uuid) + sizeof(tbl->uuid);
-    for (; tbl; tbl = smbios_21_next(SMBios21Addr, tbl))
+    for (; tbl; tbl = smbios_next(smbios_tables, smbios_len, tbl))
         if (tbl->header.type == 1 && tbl->header.length >= minlen) {
             u8 *uuid = tbl->uuid;
             u8 empty_uuid[sizeof(tbl->uuid)] = { 0 };
