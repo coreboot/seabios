@@ -456,6 +456,9 @@ smbios_new_type_0(void *start,
 /*
  * Build tables using qtables as input, adding additional type 0
  * table if necessary.
+ *
+ * @address and @length can't be NULL.  @max_structure_size and
+ * @number_of_structures are optional and can be NULL.
  */
 static int
 smbios_build_tables(struct romfile_s *f_tables,
@@ -497,9 +500,10 @@ smbios_build_tables(struct romfile_s *f_tables,
             need_t0 = 0;
         } else {
             *length += t0_len;
-            if (t0_len > *max_structure_size)
+            if (max_structure_size && t0_len > *max_structure_size)
                 *max_structure_size = t0_len;
-            (*number_of_structures)++;
+            if (number_of_structures)
+                (*number_of_structures)++;
         }
     }
 
