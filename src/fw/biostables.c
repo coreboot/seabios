@@ -589,18 +589,45 @@ smbios_21_setup_entry_point(struct romfile_s *f_tables,
 }
 
 static int
+smbios_30_setup_entry_point(struct romfile_s *f_tables,
+                            struct smbios_30_entry_point *ep)
+{
+    if (!smbios_build_tables(f_tables,
+                             &ep->structure_table_address,
+                             &ep->structure_table_max_size,
+                             NULL, NULL))
+        return 0;
+
+    ep->checksum -= checksum(ep, sizeof(*ep));
+    copy_smbios_30(ep);
+    return 1;
+}
+
+static int
 smbios_romfile_setup(void)
 {
     struct romfile_s *f_anchor = romfile_find("etc/smbios/smbios-anchor");
     struct romfile_s *f_tables = romfile_find("etc/smbios/smbios-tables");
-    struct smbios_21_entry_point ep;
+    union {
+        struct smbios_21_entry_point ep21;
+        struct smbios_30_entry_point ep30;
+    } ep;
 
-    if (!f_anchor || !f_tables || f_anchor->size != sizeof(ep))
+    if (!f_anchor || !f_tables || f_anchor->size > sizeof(ep))
         return 0;
 
     f_anchor->copy(f_anchor, &ep, f_anchor->size);
 
-    return smbios_21_setup_entry_point(f_tables, &ep);
+    if (f_anchor->size == sizeof(ep.ep21) &&
+        ep.ep21.signature == SMBIOS_21_SIGNATURE) {
+        return smbios_21_setup_entry_point(f_tables, &ep.ep21);
+    } else if (f_anchor->size == sizeof(ep.ep30) &&
+               valid_smbios_30_signature(&ep.ep30)) {
+        return smbios_30_setup_entry_point(f_tables, &ep.ep30);
+    } else {
+        dprintf(1, "Invalid SMBIOS signature at etc/smbios/smbios-anchor\n");
+        return 0;
+    }
 }
 
 void
