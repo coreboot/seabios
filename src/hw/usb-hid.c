@@ -56,7 +56,7 @@ struct keyevent {
     u8 keys[6];
 };
 
-#define MAX_KBD_EVENT 10
+#define MAX_KBD_EVENT 16
 
 static int
 usb_kbd_setup(struct usbdevice_s *usbdev
