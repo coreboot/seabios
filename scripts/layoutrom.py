@@ -651,6 +651,10 @@ def main():
     # Read kconfig config file
     config = scanconfig(cfgfile)
 
+    # larger roms have more room in the f-segment due to moving out 32bit code
+    if config.get('CONFIG_ROM_SIZE') >= 256:
+        BUILD_MIN_BIOSTABLE = 8192
+
     # Figure out which sections to keep.
     allsections = info16[0] + info32seg[0] + info32flat[0]
     symbols = {'16': info16[1], '32seg': info32seg[1], '32flat': info32flat[1]}
