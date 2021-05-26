@@ -103,7 +103,6 @@ struct nvme_ctrl {
     struct nvme_cq admin_cq;
 
     u32 ns_count;
-    struct nvme_namespace *ns;
 
     struct nvme_sq io_sq;
     struct nvme_cq io_cq;
