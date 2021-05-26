@@ -297,11 +297,11 @@ nvme_probe_ns(struct nvme_ctrl *ctrl, u32 ns_idx, u8 mdts)
     ns->dma_buffer = zalloc_page_aligned(&ZoneHigh, NVME_PAGE_SIZE);
 
     char *desc = znprintf(MAXDESCSIZE, "NVMe NS %u: %llu MiB (%llu %u-byte "
-                          "blocks + %u-byte metadata)\n",
+                          "blocks + %u-byte metadata)",
                           ns_id, (ns->lba_count * ns->block_size) >> 20,
                           ns->lba_count, ns->block_size, ns->metadata_size);
 
-    dprintf(3, "%s", desc);
+    dprintf(3, "%s\n", desc);
     boot_add_hd(&ns->drive, desc, bootprio_find_pci_device(ctrl->pci));
 
 free_buffer:
