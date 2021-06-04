@@ -629,12 +629,11 @@ yield(void)
         return;
     }
     struct thread_info *cur = getCurThread();
+    // Switch to the next thread
+    switch_next(cur);
     if (cur == &MainThread)
         // Permit irqs to fire
         check_irqs();
-
-    // Switch to the next thread
-    switch_next(cur);
 }
 
 void VISIBLE16
