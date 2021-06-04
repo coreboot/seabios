@@ -549,6 +549,8 @@ __end_thread(struct thread_info *old)
         dprintf(1, "All threads complete.\n");
 }
 
+void VISIBLE16 check_irqs(void);
+
 // Create a new thread and start executing 'func' in it.
 void
 run_thread(void (*func)(void*), void *data)
@@ -564,6 +566,7 @@ run_thread(void (*func)(void*), void *data)
     dprintf(DEBUG_thread, "/%08x\\ Start thread\n", (u32)thread);
     thread->stackpos = (void*)thread + THREADSTACKSIZE;
     struct thread_info *cur = getCurThread();
+    struct thread_info *edx = cur;
     hlist_add_after(&thread->node, &cur->node);
     asm volatile(
         // Start thread
@@ -582,9 +585,12 @@ run_thread(void (*func)(void*), void *data)
         "  popl %%ebp\n"                // restore %ebp
         "  retl\n"                      // restore pc
         "1:\n"
-        : "+a"(data), "+c"(func), "+b"(thread), "+d"(cur)
+        : "+a"(data), "+c"(func), "+b"(thread), "+d"(edx)
         : "m"(*(u8*)__end_thread), "m"(MainThread)
         : "esi", "edi", "cc", "memory");
+    if (cur == &MainThread)
+        // Permit irqs to fire
+        check_irqs();
     return;
 
 fail:
