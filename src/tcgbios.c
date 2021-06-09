@@ -274,7 +274,7 @@ tpm20_write_EfiSpecIdEventStruct(void)
         .hdr.platformClass = TPM_TCPA_ACPI_CLASS_CLIENT,
         .hdr.specVersionMinor = 0,
         .hdr.specVersionMajor = 2,
-        .hdr.specErrata = 0,
+        .hdr.specErrata = 2,
         .hdr.uintnSize = 2,
     };
 
@@ -1016,7 +1016,8 @@ tpm_add_event_separators(void)
     u32 pcrIndex;
     for (pcrIndex = 0; pcrIndex <= 7; pcrIndex++)
         tpm_add_measurement_to_log(pcrIndex, EV_SEPARATOR,
-                                   NULL, 0,
+                                   (const char *)evt_separator,
+                                   sizeof(evt_separator),
                                    evt_separator,
                                    sizeof(evt_separator));
 }
