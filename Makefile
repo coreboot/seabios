@@ -46,7 +46,7 @@ SRC32FLAT=$(SRCBOTH) post.c e820map.c malloc.c romfile.c x86.c		\
     fw/mtrr.c fw/xen.c fw/acpi.c fw/mptable.c fw/pirtable.c		\
     fw/smbios.c fw/romfile_loader.c fw/dsdt_parser.c hw/virtio-ring.c	\
     hw/virtio-pci.c hw/virtio-mmio.c hw/virtio-blk.c hw/virtio-scsi.c	\
-    hw/tpm_drivers.c hw/nvme.c
+    hw/tpm_drivers.c hw/nvme.c sha256.c sha512.c
 SRC32SEG=string.c output.c pcibios.c apm.c stacks.c hw/pci.c hw/serialio.c
 DIRS=src src/hw src/fw vgasrc
 

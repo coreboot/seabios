@@ -16,7 +16,7 @@
 #include "fw/paravirt.h" // runningOnXen
 #include "hw/tpm_drivers.h" // tpm_drivers[]
 #include "output.h" // dprintf
-#include "sha1.h" // sha1
+#include "sha.h" // sha1, sha256, ...
 #include "std/acpi.h"  // RSDP_SIGNATURE, rsdt_descriptor
 #include "std/smbios.h" // struct smbios_entry_point
 #include "std/tcg.h" // TCG_PC_LOGOVERFLOW

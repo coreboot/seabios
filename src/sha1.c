@@ -13,7 +13,7 @@
 
 #include "config.h"
 #include "byteorder.h" // cpu_to_*, __swab64
-#include "sha1.h" // sha1
+#include "sha.h" // sha1
 #include "string.h" // memcpy
 #include "x86.h" // rol
 
@@ -126,11 +126,11 @@ sha1_do(sha1_ctx *ctx, const u8 *data32, u32 length)
 }
 
 
-u32
+void
 sha1(const u8 *data, u32 length, u8 *hash)
 {
     if (!CONFIG_TCGBIOS)
-        return 0;
+        return;
 
     sha1_ctx ctx = {
         .h[0] = 0x67452301,
@@ -143,5 +143,5 @@ sha1(const u8 *data, u32 length, u8 *hash)
     sha1_do(&ctx, data, length);
     memcpy(hash, &ctx.h[0], 20);
 
-    return 0;
+    return;
 }

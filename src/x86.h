@@ -140,6 +140,13 @@ static inline u32 rol(u32 val, u16 rol) {
     return res;
 }
 
+static inline u32 ror(u32 val, u16 ror) {
+    u32 res;
+    asm volatile("rorl %%cl, %%eax"
+                 : "=a" (res) : "a" (val), "c" (ror));
+    return res;
+}
+
 static inline void outb(u8 value, u16 port) {
     __asm__ __volatile__("outb %b0, %w1" : : "a"(value), "Nd"(port));
 }
