@@ -155,7 +155,7 @@ static struct nvme_sqe *
 nvme_get_next_sqe(struct nvme_sq *sq, u8 opc, void *metadata, void *data, void *data2)
 {
     if (((sq->head + 1) & sq->common.mask) == sq->tail) {
-        dprintf(3, "submission queue is full");
+        dprintf(3, "submission queue is full\n");
         return NULL;
     }
 
