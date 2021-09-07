@@ -983,6 +983,7 @@ tpm_set_failure(void)
     case TPM_VERSION_2:
         tpm20_hierarchycontrol(TPM2_RH_ENDORSEMENT, TPM2_NO);
         tpm20_hierarchycontrol(TPM2_RH_OWNER, TPM2_NO);
+        tpm20_hierarchycontrol(TPM2_RH_PLATFORM, TPM2_NO);
         break;
     }
 
