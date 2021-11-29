@@ -793,7 +793,13 @@ pci_region_create_entry(struct pci_bus *bus, struct pci_device *dev,
     return entry;
 }
 
-static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
+typedef enum hotplug_type_t {
+    HOTPLUG_NO_SUPPORTED = 0,
+    HOTPLUG_PCIE,
+    HOTPLUG_SHPC
+} hotplug_type_t;
+
+static hotplug_type_t pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
 {
     u8 shpc_cap;
 
@@ -819,12 +825,13 @@ static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
          */
         u16 slot_implemented = pcie_flags & PCI_EXP_FLAGS_SLOT;
 
-        return downstream_port && slot_implemented;
+        return downstream_port && slot_implemented ?
+            HOTPLUG_PCIE : HOTPLUG_NO_SUPPORTED;
     }
 
 check_shpc:
     shpc_cap = pci_find_capability(bus->bus_dev->bdf, PCI_CAP_ID_SHPC, 0);
-    return !!shpc_cap;
+    return !!shpc_cap ? HOTPLUG_SHPC : HOTPLUG_NO_SUPPORTED;
 }
 
 /* Test whether bridge support forwarding of transactions
@@ -909,7 +916,7 @@ static int pci_bios_check_devices(struct pci_bus *busses)
         u8 pcie_cap = pci_find_capability(bdf, PCI_CAP_ID_EXP, 0);
         u8 qemu_cap = pci_find_resource_reserve_capability(bdf);
 
-        int hotplug_support = pci_bus_hotplug_support(s, pcie_cap);
+        hotplug_type_t hotplug_support = pci_bus_hotplug_support(s, pcie_cap);
         for (type = 0; type < PCI_REGION_TYPE_COUNT; type++) {
             u64 align = (type == PCI_REGION_TYPE_IO) ?
                 PCI_BRIDGE_IO_MIN : PCI_BRIDGE_MEM_MIN;
@@ -953,7 +960,9 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             if (pci_region_align(&s->r[type]) > align)
                  align = pci_region_align(&s->r[type]);
             u64 sum = pci_region_sum(&s->r[type]);
-            int resource_optional = pcie_cap && (type == PCI_REGION_TYPE_IO);
+            int resource_optional = 0;
+            if (hotplug_support == HOTPLUG_PCIE)
+                resource_optional = pcie_cap && (type == PCI_REGION_TYPE_IO);
             if (!sum && hotplug_support && !resource_optional)
                 sum = align; /* reserve min size for hot-plug */
             if (size > sum) {
