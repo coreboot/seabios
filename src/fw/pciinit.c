@@ -802,6 +802,10 @@ static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
                                           pcie_cap + PCI_EXP_FLAGS);
         u8 port_type = ((pcie_flags & PCI_EXP_FLAGS_TYPE) >>
                        (__builtin_ffs(PCI_EXP_FLAGS_TYPE) - 1));
+
+        if (port_type == PCI_EXP_TYPE_PCI_BRIDGE)
+            goto check_shpc;
+
         u8 downstream_port = (port_type == PCI_EXP_TYPE_DOWNSTREAM) ||
                              (port_type == PCI_EXP_TYPE_ROOT_PORT);
         /*
@@ -818,6 +822,7 @@ static int pci_bus_hotplug_support(struct pci_bus *bus, u8 pcie_cap)
         return downstream_port && slot_implemented;
     }
 
+check_shpc:
     shpc_cap = pci_find_capability(bus->bus_dev->bdf, PCI_CAP_ID_SHPC, 0);
     return !!shpc_cap;
 }
