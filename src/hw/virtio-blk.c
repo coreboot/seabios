@@ -24,6 +24,11 @@
 #include "virtio-ring.h"
 #include "virtio-blk.h"
 
+#define min(a, b) ({\
+		typeof(a) _a = a;\
+		typeof(b) _b = b;\
+		_a < _b ? _a : _b; })
+
 struct virtiodrive_s {
     struct drive_s drive;
     struct vring_virtqueue *vq;
@@ -82,8 +87,36 @@ virtio_blk_op(struct disk_op_s *op, int write)
             .length     = sizeof(status),
         },
     };
+    u32 max_io_size =
+        vdrive->drive.max_segment_size * vdrive->drive.max_segments;
+    u16 blk_num_max;
 
-    virtio_blk_op_one_segment(vdrive, write, sg);
+    if (vdrive->drive.blksize != 0 && max_io_size != 0)
+        blk_num_max = (u16)max_io_size / vdrive->drive.blksize;
+    else
+        /* default blk_num_max if hardware doesnot advise a proper value */
+        blk_num_max = 8;
+
+    if (op->count <= blk_num_max) {
+        virtio_blk_op_one_segment(vdrive, write, sg);
+    } else {
+        void *p  = op->buf_fl;
+        u16 count = op->count;
+
+        while (count > 0) {
+            u16 blk_num = min(count, blk_num_max);
+            sg[1].length = vdrive->drive.blksize * blk_num;
+            sg[1].addr = p;
+            virtio_blk_op_one_segment(vdrive, write, sg);
+            if (status == VIRTIO_BLK_S_OK) {
+                hdr.sector += blk_num;
+                p += sg[1].length;
+                count -= blk_num;
+            } else {
+                break;
+            }
+        }
+    }
     return status == VIRTIO_BLK_S_OK ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
 }
 
