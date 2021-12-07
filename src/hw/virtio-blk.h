@@ -16,6 +16,9 @@ struct virtio_blk_config
     u32 opt_io_size;
 } __attribute__((packed));
 
+/* Feature bits */
+#define VIRTIO_BLK_F_SIZE_MAX 1  /* Maximum size of any single segment */
+#define VIRTIO_BLK_F_SEG_MAX 2   /* Maximum number of segments in a request */
 #define VIRTIO_BLK_F_BLK_SIZE 6
 
 /* These two define direction. */

@@ -57,6 +57,8 @@ struct drive_s {
     u8 translation;     // type of translation
     u16 blksize;        // block size
     struct chs_s pchs;  // Physical CHS
+    u32 max_segment_size; //max_segment_size
+    u32 max_segments;   //max_segments
 };
 
 #define DISK_SECTOR_SIZE  512
