@@ -30,12 +30,38 @@ struct virtiodrive_s {
     struct vp_device vp;
 };
 
+void
+virtio_blk_op_one_segment(struct virtiodrive_s *vdrive,
+    int write, struct vring_list sg[])
+{
+    struct vring_virtqueue *vq = vdrive->vq;
+
+    /* Add to virtqueue and kick host */
+    if (write)
+        vring_add_buf(vq, sg, 2, 1, 0, 0);
+    else
+        vring_add_buf(vq, sg, 1, 2, 0, 0);
+    vring_kick(&vdrive->vp, vq, 1);
+
+    /* Wait for reply */
+    while (!vring_more_used(vq))
+        usleep(5);
+
+    /* Reclaim virtqueue element */
+        vring_get_buf(vq, NULL);
+
+    /**
+    ** Clear interrupt status register. Avoid leaving interrupts stuck
+    ** if VRING_AVAIL_F_NO_INTERRUPT was ignored and interrupts were raised.
+    **/
+    vp_get_isr(&vdrive->vp);
+}
+
 static int
 virtio_blk_op(struct disk_op_s *op, int write)
 {
     struct virtiodrive_s *vdrive =
         container_of(op->drive_fl, struct virtiodrive_s, drive);
-    struct vring_virtqueue *vq = vdrive->vq;
     struct virtio_blk_outhdr hdr = {
         .type = write ? VIRTIO_BLK_T_OUT : VIRTIO_BLK_T_IN,
         .ioprio = 0,
@@ -57,25 +83,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
         },
     };
 
-    /* Add to virtqueue and kick host */
-    if (write)
-        vring_add_buf(vq, sg, 2, 1, 0, 0);
-    else
-        vring_add_buf(vq, sg, 1, 2, 0, 0);
-    vring_kick(&vdrive->vp, vq, 1);
-
-    /* Wait for reply */
-    while (!vring_more_used(vq))
-        usleep(5);
-
-    /* Reclaim virtqueue element */
-    vring_get_buf(vq, NULL);
-
-    /* Clear interrupt status register.  Avoid leaving interrupts stuck if
-     * VRING_AVAIL_F_NO_INTERRUPT was ignored and interrupts were raised.
-     */
-    vp_get_isr(&vdrive->vp);
-
+    virtio_blk_op_one_segment(vdrive, write, sg);
     return status == VIRTIO_BLK_S_OK ? DISK_RET_SUCCESS : DISK_RET_EBADTRACK;
 }
 
