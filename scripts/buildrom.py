@@ -7,8 +7,6 @@
 
 import sys, struct
 
-from python23compat import as_bytes
-
 def alignpos(pos, alignbytes):
     mask = alignbytes - 1
     return (pos + mask) & ~mask
@@ -31,7 +29,7 @@ def main():
     count = len(data)
 
     # Pad to a 512 byte boundary
-    data += as_bytes("\0") * (alignpos(count, 512) - count)
+    data += b"\0" * (alignpos(count, 512) - count)
     count = len(data)
 
     # Check if a pci header is present
@@ -42,7 +40,7 @@ def main():
 
     # Fill in size field; clear checksum field
     blocks = struct.pack('<B', int(count/512))
-    data = data[:2] + blocks + data[3:6] + as_bytes("\0") + data[7:]
+    data = data[:2] + blocks + data[3:6] + b"\0" + data[7:]
 
     # Checksum rom
     data = data[:6] + checksum(data) + data[7:]

@@ -8,8 +8,6 @@
 import sys, struct
 import layoutrom, buildrom
 
-from python23compat import as_bytes
-
 def subst(data, offset, new):
     return data[:offset] + new + data[offset + len(new):]
 
@@ -88,7 +86,7 @@ def main():
 
     # Write final file
     f = open(outfile, 'wb')
-    f.write((as_bytes("\0") * (finalsize - datasize)) + rawdata)
+    f.write((b"\0" * (finalsize - datasize)) + rawdata)
     f.close()
 
 if __name__ == '__main__':
