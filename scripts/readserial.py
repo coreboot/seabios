@@ -10,8 +10,6 @@
 
 import sys, os, time, select, optparse
 
-from python23compat import as_bytes
-
 # Reset time counter after this much idle time.
 RESTARTINTERVAL = 60
 # Number of bits in a transmitted byte - 8N1 is 1 start bit + 8 data
@@ -20,11 +18,11 @@ BITSPERBYTE = 10
 
 def calibrateserialwrite(outfile, byteadjust):
     # Build 4000 bytes of dummy data.
-    data = "0123456789" * 4 + "012345678" + "\n"
+    data = b"0123456789" * 4 + b"012345678" + b"\n"
     data = data * 80
     while 1:
         st = time.time()
-        outfile.write(as_bytes(data))
+        outfile.write(data)
         outfile.flush()
         et = time.time()
         sys.stdout.write(
@@ -84,38 +82,34 @@ def readserial(infile, logfile, byteadjust):
             msg = "\n\n======= %s (adjust=%.1fus)\n" % (
                 time.asctime(time.localtime(datatime)), byteadjust * 1000000)
             sys.stdout.write(msg)
-            logfile.write(as_bytes(msg))
+            logfile.write(msg.encode())
         lasttime = datatime
 
         # Translate unprintable chars; add timestamps
-        out = as_bytes("")
-        for c in d:
+        out = bytearray()
+        for oc in bytearray(d):
             if isnewline:
                 delta = datatime - starttime - (charcount * byteadjust)
-                out += "%06.3f: " % delta
+                out += b"%06.3f: " % delta
                 isnewline = 0
-            oc = ord(c)
             charcount += 1
             datatime += byteadjust
             if oc == 0x0d:
                 continue
             if oc == 0x00:
-                out += "<00>\n"
+                out += b"<00>\n"
                 isnewline = 1
                 continue
             if oc == 0x0a:
-                out += "\n"
+                out += b"\n"
                 isnewline = 1
                 continue
             if oc < 0x20 or oc >= 0x7f and oc != 0x09:
-                out += "<%02x>" % oc
+                out += b"<%02x>" % oc
                 continue
-            out += c
+            out.append(oc)
 
-        if (sys.version_info > (3, 0)):
-            sys.stdout.buffer.write(out)
-        else:
-            sys.stdout.write(out)
+        sys.stdout.write(out.decode())
         sys.stdout.flush()
         logfile.write(out)
         logfile.flush()
