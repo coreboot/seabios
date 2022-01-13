@@ -59,6 +59,14 @@ struct smm_layout {
     struct smm_state cpu;
 };
 
+// Hack to supress some gcc array-bounds warnings
+static void
+memcpy_nowarn(void *d, const void *s, size_t len)
+{
+    asm("" : "+r"(d), "+r"(s));
+    memcpy(d, s, len);
+}
+
 void VISIBLE32FLAT
 handle_smi(u16 cs)
 {
@@ -85,8 +93,8 @@ handle_smi(u16 cs)
         if (CONFIG_CALL32_SMM) {
             // Backup current cpu state for SMM trampolining
             struct smm_layout *newsmm = (void*)BUILD_SMM_ADDR;
-            memcpy(&newsmm->backup1, &smm->cpu, sizeof(newsmm->backup1));
-            memcpy(&newsmm->backup2, &smm->cpu, sizeof(newsmm->backup2));
+            memcpy_nowarn(&newsmm->backup1, &smm->cpu, sizeof(newsmm->backup1));
+            memcpy_nowarn(&newsmm->backup2, &smm->cpu, sizeof(newsmm->backup2));
             HaveSmmCall32 = 1;
         }
 
@@ -145,8 +153,8 @@ smm_save_and_copy(void)
     // save original memory content
     struct smm_layout *initsmm = (void*)BUILD_SMM_INIT_ADDR;
     struct smm_layout *smm = (void*)BUILD_SMM_ADDR;
-    memcpy(&smm->cpu, &initsmm->cpu, sizeof(smm->cpu));
-    memcpy(&smm->codeentry, &initsmm->codeentry, sizeof(smm->codeentry));
+    memcpy_nowarn(&smm->cpu, &initsmm->cpu, sizeof(smm->cpu));
+    memcpy_nowarn(&smm->codeentry, &initsmm->codeentry, sizeof(smm->codeentry));
 
     // Setup code entry point.
     initsmm->codeentry = SMI_INSN;
@@ -168,8 +176,9 @@ smm_relocate_and_restore(void)
     /* restore original memory content */
     struct smm_layout *initsmm = (void*)BUILD_SMM_INIT_ADDR;
     struct smm_layout *smm = (void*)BUILD_SMM_ADDR;
-    memcpy(&initsmm->cpu, &smm->cpu, sizeof(initsmm->cpu));
-    memcpy(&initsmm->codeentry, &smm->codeentry, sizeof(initsmm->codeentry));
+    memcpy_nowarn(&initsmm->cpu, &smm->cpu, sizeof(initsmm->cpu));
+    memcpy_nowarn(&initsmm->codeentry, &smm->codeentry
+                  , sizeof(initsmm->codeentry));
 
     // Setup code entry point.
     smm->codeentry = SMI_INSN;
