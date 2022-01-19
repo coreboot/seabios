@@ -20,6 +20,9 @@
 #include "nvme.h"
 #include "nvme-int.h"
 
+// Page aligned "dma bounce buffer" of size NVME_PAGE_SIZE in high memory
+static void *nvme_dma_buffer;
+
 static void *
 zalloc_page_aligned(struct zone_s *zone, u32 size)
 {
@@ -257,6 +260,14 @@ nvme_probe_ns(struct nvme_ctrl *ctrl, u32 ns_idx, u8 mdts)
         goto free_buffer;
     }
 
+    if (!nvme_dma_buffer) {
+        nvme_dma_buffer = zalloc_page_aligned(&ZoneHigh, NVME_PAGE_SIZE);
+        if (!nvme_dma_buffer) {
+            warn_noalloc();
+            goto free_buffer;
+        }
+    }
+
     struct nvme_namespace *ns = malloc_fseg(sizeof(*ns));
     if (!ns) {
         warn_noalloc();
@@ -293,8 +304,6 @@ nvme_probe_ns(struct nvme_ctrl *ctrl, u32 ns_idx, u8 mdts)
     } else {
         ns->max_req_size = -1U;
     }
-
-    ns->dma_buffer = zalloc_page_aligned(&ZoneHigh, NVME_PAGE_SIZE);
 
     char *desc = znprintf(MAXDESCSIZE, "NVMe NS %u: %llu MiB (%llu %u-byte "
                           "blocks + %u-byte metadata)",
@@ -459,12 +468,12 @@ nvme_bounce_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     u16 blocks = count < max_blocks ? count : max_blocks;
 
     if (write)
-        memcpy(ns->dma_buffer, buf, blocks * ns->block_size);
+        memcpy(nvme_dma_buffer, buf, blocks * ns->block_size);
 
-    int res = nvme_io_xfer(ns, lba, ns->dma_buffer, NULL, blocks, write);
+    int res = nvme_io_xfer(ns, lba, nvme_dma_buffer, NULL, blocks, write);
 
     if (!write && res >= 0)
-        memcpy(buf, ns->dma_buffer, res * ns->block_size);
+        memcpy(buf, nvme_dma_buffer, res * ns->block_size);
 
     return res;
 }
@@ -498,7 +507,7 @@ nvme_prpl_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     /* Build PRP list if we need to describe more than 2 pages */
     if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
         u32 prpl_len = 0;
-        u64 *prpl = (void*)ns->dma_buffer;
+        u64 *prpl = nvme_dma_buffer;
         int first_page = 1;
         for (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) {
             if (first_page) {
