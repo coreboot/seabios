@@ -414,11 +414,10 @@ err:
     return -1;
 }
 
-/* Reads count sectors into buf. Returns DISK_RET_*. The buffer cannot cross
-   page boundaries. */
+/* Reads count sectors into buf. The buffer cannot cross page boundaries. */
 static int
-nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
-                  int write)
+nvme_io_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
+             int write)
 {
     u32 buf_addr = (u32)buf;
     void *prp2;
@@ -426,7 +425,7 @@ nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
     if (buf_addr & 0x3) {
         /* Buffer is misaligned */
         warn_internalerror();
-        return DISK_RET_EBADTRACK;
+        return -1;
     }
 
     if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
@@ -457,10 +456,12 @@ nvme_io_readwrite(struct nvme_namespace *ns, u64 lba, char *buf, u16 count,
         dprintf(2, "read io: %08x %08x %08x %08x\n",
                 cqe.dword[0], cqe.dword[1], cqe.dword[2], cqe.dword[3]);
 
-        return DISK_RET_EBADTRACK;
+        return -1;
     }
 
-    return DISK_RET_SUCCESS;
+    dprintf(5, "ns %u %s lba %llu+%u\n", ns->ns_id, write ? "write" : "read",
+            lba, count);
+    return count;
 }
 
 static void nvme_reset_prpl(struct nvme_namespace *ns)
@@ -716,20 +717,18 @@ nvme_scan(void)
 static int
 nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
 {
-    int res = DISK_RET_SUCCESS;
     u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
     u16 i, blocks;
 
-    for (i = 0; i < op->count && res == DISK_RET_SUCCESS;) {
+    for (i = 0; i < op->count;) {
         u16 blocks_remaining = op->count - i;
         char *op_buf = op->buf_fl + i * ns->block_size;
 
         blocks = nvme_build_prpl(ns, op_buf, blocks_remaining);
         if (blocks) {
-            res = nvme_io_readwrite(ns, op->lba + i, ns->prp1, blocks, write);
-            dprintf(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
-                                                                      : "read",
-                    op->lba, blocks, res);
+            int res = nvme_io_xfer(ns, op->lba + i, ns->prp1, blocks, write);
+            if (res < 0)
+                return DISK_RET_EBADTRACK;
         } else {
             blocks = blocks_remaining < max_blocks ? blocks_remaining
                                                    : max_blocks;
@@ -738,12 +737,12 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
                 memcpy(ns->dma_buffer, op_buf, blocks * ns->block_size);
             }
 
-            res = nvme_io_readwrite(ns, op->lba + i, ns->dma_buffer, blocks, write);
-            dprintf(5, "ns %u %s lba %llu+%u: %d\n", ns->ns_id, write ? "write"
-                                                                      : "read",
-                    op->lba + i, blocks, res);
+            int res = nvme_io_xfer(ns, op->lba + i, ns->dma_buffer,
+                                   blocks, write);
+            if (res < 0)
+                return DISK_RET_EBADTRACK;
 
-            if (!write && res == DISK_RET_SUCCESS) {
+            if (!write) {
                 memcpy(op_buf, ns->dma_buffer, blocks * ns->block_size);
             }
         }
@@ -751,7 +750,7 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
         i += blocks;
     }
 
-    return res;
+    return DISK_RET_SUCCESS;
 }
 
 int
