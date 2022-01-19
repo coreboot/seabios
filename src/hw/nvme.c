@@ -498,10 +498,13 @@ static int nvme_add_prpl(struct nvme_namespace *ns, u64 base)
     return 0;
 }
 
-static int nvme_build_prpl(struct nvme_namespace *ns, void *op_buf, u16 count)
+// Transfer data using page list (if applicable)
+static int
+nvme_prpl_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
+               int write)
 {
     int first_page = 1;
-    u32 base = (long)op_buf;
+    u32 base = (long)buf;
     s32 size;
 
     if (count > ns->max_req_size)
@@ -511,31 +514,32 @@ static int nvme_build_prpl(struct nvme_namespace *ns, void *op_buf, u16 count)
 
     size = count * ns->block_size;
     /* Special case for transfers that fit into PRP1, but are unaligned */
-    if (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE)) {
-        ns->prp1 = op_buf;
-        return count;
-    }
+    if (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE))
+        return nvme_io_xfer(ns, lba, buf, count, write);
 
     /* Every request has to be page aligned */
     if (base & ~NVME_PAGE_MASK)
-        return 0;
+        goto bounce;
 
     /* Make sure a full block fits into the last chunk */
     if (size & (ns->block_size - 1ULL))
-        return 0;
+        goto bounce;
 
     for (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) {
         if (first_page) {
             /* First page is special */
-            ns->prp1 = (void*)base;
             first_page = 0;
             continue;
         }
         if (nvme_add_prpl(ns, base))
-            return 0;
+            goto bounce;
     }
 
-    return count;
+    return nvme_io_xfer(ns, lba, buf, count, write);
+
+bounce:
+    /* Use bounce buffer to make transfer */
+    return nvme_bounce_xfer(ns, lba, buf, count, write);
 }
 
 static int
@@ -736,24 +740,14 @@ nvme_scan(void)
 static int
 nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
 {
-    u16 i, blocks;
-
+    int i;
     for (i = 0; i < op->count;) {
         u16 blocks_remaining = op->count - i;
         char *op_buf = op->buf_fl + i * ns->block_size;
-
-        blocks = nvme_build_prpl(ns, op_buf, blocks_remaining);
-        if (blocks) {
-            int res = nvme_io_xfer(ns, op->lba + i, ns->prp1, blocks, write);
-            if (res < 0)
-                return DISK_RET_EBADTRACK;
-        } else {
-            int res = nvme_bounce_xfer(ns, op->lba + i, op_buf, blocks, write);
-            if (res < 0)
-                return DISK_RET_EBADTRACK;
-            blocks = res;
-        }
-
+        int blocks = nvme_prpl_xfer(ns, op->lba + i, op_buf,
+                                    blocks_remaining, write);
+        if (blocks < 0)
+            return DISK_RET_EBADTRACK;
         i += blocks;
     }
 

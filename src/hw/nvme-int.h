@@ -125,7 +125,6 @@ struct nvme_namespace {
 
     /* Page List */
     u32 prpl_len;
-    void *prp1;
     u64 prpl[NVME_MAX_PRPL_ENTRIES];
 };
 
