@@ -464,6 +464,25 @@ nvme_io_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     return count;
 }
 
+// Transfer up to one page of data using the internal dma bounce buffer
+static int
+nvme_bounce_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
+                 int write)
+{
+    u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
+    u16 blocks = count < max_blocks ? count : max_blocks;
+
+    if (write)
+        memcpy(ns->dma_buffer, buf, blocks * ns->block_size);
+
+    int res = nvme_io_xfer(ns, lba, ns->dma_buffer, blocks, write);
+
+    if (!write && res >= 0)
+        memcpy(buf, ns->dma_buffer, res * ns->block_size);
+
+    return res;
+}
+
 static void nvme_reset_prpl(struct nvme_namespace *ns)
 {
     ns->prpl_len = 0;
@@ -717,7 +736,6 @@ nvme_scan(void)
 static int
 nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
 {
-    u16 const max_blocks = NVME_PAGE_SIZE / ns->block_size;
     u16 i, blocks;
 
     for (i = 0; i < op->count;) {
@@ -730,21 +748,10 @@ nvme_cmd_readwrite(struct nvme_namespace *ns, struct disk_op_s *op, int write)
             if (res < 0)
                 return DISK_RET_EBADTRACK;
         } else {
-            blocks = blocks_remaining < max_blocks ? blocks_remaining
-                                                   : max_blocks;
-
-            if (write) {
-                memcpy(ns->dma_buffer, op_buf, blocks * ns->block_size);
-            }
-
-            int res = nvme_io_xfer(ns, op->lba + i, ns->dma_buffer,
-                                   blocks, write);
+            int res = nvme_bounce_xfer(ns, op->lba + i, op_buf, blocks, write);
             if (res < 0)
                 return DISK_RET_EBADTRACK;
-
-            if (!write) {
-                memcpy(op_buf, ns->dma_buffer, blocks * ns->block_size);
-            }
+            blocks = res;
         }
 
         i += blocks;
