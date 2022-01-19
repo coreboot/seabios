@@ -469,39 +469,23 @@ nvme_bounce_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     return res;
 }
 
-static void nvme_reset_prpl(struct nvme_namespace *ns)
-{
-    ns->prpl_len = 0;
-}
-
-static int nvme_add_prpl(struct nvme_namespace *ns, u64 base)
-{
-    if (ns->prpl_len >= NVME_MAX_PRPL_ENTRIES)
-        return -1;
-
-    ns->prpl[ns->prpl_len++] = base;
-
-    return 0;
-}
+#define NVME_MAX_PRPL_ENTRIES 15 /* Allows requests up to 64kb */
 
 // Transfer data using page list (if applicable)
 static int
 nvme_prpl_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
                int write)
 {
-    int first_page = 1;
     u32 base = (long)buf;
     s32 size;
 
     if (count > ns->max_req_size)
         count = ns->max_req_size;
 
-    nvme_reset_prpl(ns);
-
     size = count * ns->block_size;
     /* Special case for transfers that fit into PRP1, but are unaligned */
     if (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE))
-        return nvme_io_xfer(ns, lba, buf, NULL, count, write);
+        goto single;
 
     /* Every request has to be page aligned */
     if (base & ~NVME_PAGE_MASK)
@@ -511,28 +495,31 @@ nvme_prpl_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     if (size & (ns->block_size - 1ULL))
         goto bounce;
 
-    for (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) {
-        if (first_page) {
-            /* First page is special */
-            first_page = 0;
-            continue;
+    /* Build PRP list if we need to describe more than 2 pages */
+    if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
+        u32 prpl_len = 0;
+        u64 *prpl = (void*)ns->dma_buffer;
+        int first_page = 1;
+        for (; size > 0; base += NVME_PAGE_SIZE, size -= NVME_PAGE_SIZE) {
+            if (first_page) {
+                /* First page is special */
+                first_page = 0;
+                continue;
+            }
+            if (prpl_len >= NVME_MAX_PRPL_ENTRIES)
+                goto bounce;
+            prpl[prpl_len++] = base;
         }
-        if (nvme_add_prpl(ns, base))
-            goto bounce;
+        return nvme_io_xfer(ns, lba, buf, prpl, count, write);
     }
 
-    void *prp2;
-    if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
-        /* We need to describe more than 2 pages, rely on PRP List */
-        prp2 = ns->prpl;
-    } else if ((ns->block_size * count) > NVME_PAGE_SIZE) {
-        /* Directly embed the 2nd page if we only need 2 pages */
-        prp2 = (void *)(long)ns->prpl[0];
-    } else {
-        /* One page is enough, don't expose anything else */
-        prp2 = NULL;
-    }
-    return nvme_io_xfer(ns, lba, buf, prp2, count, write);
+    /* Directly embed the 2nd page if we only need 2 pages */
+    if ((ns->block_size * count) > NVME_PAGE_SIZE)
+        return nvme_io_xfer(ns, lba, buf, buf + NVME_PAGE_SIZE, count, write);
+
+single:
+    /* One page is enough, don't expose anything else */
+    return nvme_io_xfer(ns, lba, buf, NULL, count, write);
 
 bounce:
     /* Use bounce buffer to make transfer */
