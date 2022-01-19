@@ -416,33 +416,19 @@ err:
 
 /* Reads count sectors into buf. The buffer cannot cross page boundaries. */
 static int
-nvme_io_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
-             int write)
+nvme_io_xfer(struct nvme_namespace *ns, u64 lba, void *prp1, void *prp2,
+             u16 count, int write)
 {
-    u32 buf_addr = (u32)buf;
-    void *prp2;
-
-    if (buf_addr & 0x3) {
+    if (((u32)prp1 & 0x3) || ((u32)prp2 & 0x3)) {
         /* Buffer is misaligned */
         warn_internalerror();
         return -1;
     }
 
-    if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
-        /* We need to describe more than 2 pages, rely on PRP List */
-        prp2 = ns->prpl;
-    } else if ((ns->block_size * count) > NVME_PAGE_SIZE) {
-        /* Directly embed the 2nd page if we only need 2 pages */
-        prp2 = (void *)(long)ns->prpl[0];
-    } else {
-        /* One page is enough, don't expose anything else */
-        prp2 = NULL;
-    }
-
     struct nvme_sqe *io_read = nvme_get_next_sqe(&ns->ctrl->io_sq,
                                                  write ? NVME_SQE_OPC_IO_WRITE
                                                        : NVME_SQE_OPC_IO_READ,
-                                                 NULL, buf, prp2);
+                                                 NULL, prp1, prp2);
     io_read->nsid = ns->ns_id;
     io_read->dword[10] = (u32)lba;
     io_read->dword[11] = (u32)(lba >> 32);
@@ -475,7 +461,7 @@ nvme_bounce_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     if (write)
         memcpy(ns->dma_buffer, buf, blocks * ns->block_size);
 
-    int res = nvme_io_xfer(ns, lba, ns->dma_buffer, blocks, write);
+    int res = nvme_io_xfer(ns, lba, ns->dma_buffer, NULL, blocks, write);
 
     if (!write && res >= 0)
         memcpy(buf, ns->dma_buffer, res * ns->block_size);
@@ -515,7 +501,7 @@ nvme_prpl_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
     size = count * ns->block_size;
     /* Special case for transfers that fit into PRP1, but are unaligned */
     if (((size + (base & ~NVME_PAGE_MASK)) <= NVME_PAGE_SIZE))
-        return nvme_io_xfer(ns, lba, buf, count, write);
+        return nvme_io_xfer(ns, lba, buf, NULL, count, write);
 
     /* Every request has to be page aligned */
     if (base & ~NVME_PAGE_MASK)
@@ -535,7 +521,18 @@ nvme_prpl_xfer(struct nvme_namespace *ns, u64 lba, void *buf, u16 count,
             goto bounce;
     }
 
-    return nvme_io_xfer(ns, lba, buf, count, write);
+    void *prp2;
+    if ((ns->block_size * count) > (NVME_PAGE_SIZE * 2)) {
+        /* We need to describe more than 2 pages, rely on PRP List */
+        prp2 = ns->prpl;
+    } else if ((ns->block_size * count) > NVME_PAGE_SIZE) {
+        /* Directly embed the 2nd page if we only need 2 pages */
+        prp2 = (void *)(long)ns->prpl[0];
+    } else {
+        /* One page is enough, don't expose anything else */
+        prp2 = NULL;
+    }
+    return nvme_io_xfer(ns, lba, buf, prp2, count, write);
 
 bounce:
     /* Use bounce buffer to make transfer */
