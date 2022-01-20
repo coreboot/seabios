@@ -626,7 +626,7 @@ sercon_check_event(void)
     u16 addr = GET_LOW(sercon_port);
     u16 keycode;
     u8 byte, count = 0;
-    int seq, chr;
+    int seq;
 
     // check to see if there is a active serial port
     if (!addr)
@@ -640,20 +640,23 @@ sercon_check_event(void)
     // read all available data
     while (inb(addr + SEROFF_LSR) & 0x01) {
         byte = inb(addr + SEROFF_DATA);
-        if (GET_LOW(rx_bytes) < sizeof(rx_buf)) {
-            SET_LOW(rx_buf[rx_bytes], byte);
-            SET_LOW(rx_bytes, GET_LOW(rx_bytes) + 1);
+        u8 rb = GET_LOW(rx_bytes);
+        if (rb < sizeof(rx_buf)) {
+            SET_LOW(rx_buf[rb], byte);
+            SET_LOW(rx_bytes, rb + 1);
             count++;
         }
     }
 
     for (;;) {
         // no (more) input data
-        if (!GET_LOW(rx_bytes))
+        u8 rb = GET_LOW(rx_bytes);
+        if (!rb)
             return;
 
         // lookup escape sequences
-        if (GET_LOW(rx_bytes) > 1 && GET_LOW(rx_buf[0]) == 0x1b) {
+        u8 next_char = GET_LOW(rx_buf[0]);
+        if (rb > 1 && next_char == 0x1b) {
             seq = findseq();
             if (seq >= 0) {
                 enqueue_key(GET_GLOBAL(termseq[seq].keycode));
@@ -664,12 +667,11 @@ sercon_check_event(void)
 
         // Seems we got a escape sequence we didn't recognise.
         //  -> If we received data wait for more, maybe it is just incomplete.
-        if (GET_LOW(rx_buf[0]) == 0x1b && count)
+        if (next_char == 0x1b && count)
             return;
 
         // Handle input as individual char.
-        chr = GET_LOW(rx_buf[0]);
-        keycode = ascii_to_keycode(chr);
+        keycode = ascii_to_keycode(next_char);
         if (keycode)
             enqueue_key(keycode);
         shiftbuf(1);
