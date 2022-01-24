@@ -637,6 +637,7 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
             identify->nn, (identify->nn == 1) ? "" : "s");
 
     ctrl->ns_count = identify->nn;
+    u8 mdts = identify->mdts;
     free(identify);
 
     if ((ctrl->ns_count == 0) || nvme_create_io_queues(ctrl)) {
@@ -648,7 +649,7 @@ nvme_controller_enable(struct nvme_ctrl *ctrl)
     /* Populate namespace IDs */
     int ns_idx;
     for (ns_idx = 0; ns_idx < ctrl->ns_count; ns_idx++) {
-        nvme_probe_ns(ctrl, ns_idx, identify->mdts);
+        nvme_probe_ns(ctrl, ns_idx, mdts);
     }
 
     dprintf(3, "NVMe initialization complete!\n");
