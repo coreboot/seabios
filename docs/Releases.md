@@ -1,6 +1,14 @@
 History of SeaBIOS releases. Please see [download](Download) for
 information on obtaining these releases.
 
+SeaBIOS 1.16.0
+==============
+
+Available on 20220301. Major changes in this release:
+
+* SMBIOS v3.0 support on QEMU
+* Several bug fixes and code cleanups.
+
 SeaBIOS 1.15.0
 ==============
 
