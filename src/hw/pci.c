@@ -157,6 +157,33 @@ u8 pci_find_capability(u16 bdf, u8 cap_id, u8 cap)
     return 0;
 }
 
+// Helper function for pci_ioconfig_foreachbdf() macro - return next device
+int pci_ioconfig_next(int bdf, int bus)
+{
+    if (pci_bdf_to_fn(bdf) == 0
+        && (pci_ioconfig_readb(bdf, PCI_HEADER_TYPE) & 0x80) == 0)
+        // Last found device wasn't a multi-function device - skip to
+        // the next device.
+        bdf += 8;
+    else
+        bdf += 1;
+
+    for (;;) {
+        if (pci_bdf_to_bus(bdf) != bus)
+            return -1;
+
+        u16 v = pci_ioconfig_readw(bdf, PCI_VENDOR_ID);
+        if (v != 0x0000 && v != 0xffff)
+            // Device is present.
+            return bdf;
+
+        if (pci_bdf_to_fn(bdf) == 0)
+            bdf += 8;
+        else
+            bdf += 1;
+    }
+}
+
 // Helper function for foreachbdf() macro - return next device
 int
 pci_next(int bdf, int bus)
