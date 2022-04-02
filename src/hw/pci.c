@@ -26,14 +26,25 @@ static u32 ioconfig_cmd(u16 bdf, u32 addr)
     return 0x80000000 | (bdf << 8) | (addr & 0xfc);
 }
 
+void pci_ioconfig_writel(u16 bdf, u32 addr, u32 val)
+{
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+    outl(val, PORT_PCI_DATA);
+}
+
 void pci_config_writel(u16 bdf, u32 addr, u32 val)
 {
     if (!MODESEGMENT && mmconfig) {
         writel(mmconfig_addr(bdf, addr), val);
     } else {
-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
-        outl(val, PORT_PCI_DATA);
+        pci_ioconfig_writel(bdf, addr, val);
     }
+}
+
+void pci_ioconfig_writew(u16 bdf, u32 addr, u16 val)
+{
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+    outw(val, PORT_PCI_DATA + (addr & 2));
 }
 
 void pci_config_writew(u16 bdf, u32 addr, u16 val)
@@ -41,9 +52,14 @@ void pci_config_writew(u16 bdf, u32 addr, u16 val)
     if (!MODESEGMENT && mmconfig) {
         writew(mmconfig_addr(bdf, addr), val);
     } else {
-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
-        outw(val, PORT_PCI_DATA + (addr & 2));
+        pci_ioconfig_writew(bdf, addr, val);
     }
+}
+
+void pci_ioconfig_writeb(u16 bdf, u32 addr, u8 val)
+{
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+    outb(val, PORT_PCI_DATA + (addr & 3));
 }
 
 void pci_config_writeb(u16 bdf, u32 addr, u8 val)
@@ -51,9 +67,14 @@ void pci_config_writeb(u16 bdf, u32 addr, u8 val)
     if (!MODESEGMENT && mmconfig) {
         writeb(mmconfig_addr(bdf, addr), val);
     } else {
-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
-        outb(val, PORT_PCI_DATA + (addr & 3));
+        pci_ioconfig_writeb(bdf, addr, val);
     }
+}
+
+u32 pci_ioconfig_readl(u16 bdf, u32 addr)
+{
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+    return inl(PORT_PCI_DATA);
 }
 
 u32 pci_config_readl(u16 bdf, u32 addr)
@@ -61,9 +82,14 @@ u32 pci_config_readl(u16 bdf, u32 addr)
     if (!MODESEGMENT && mmconfig) {
         return readl(mmconfig_addr(bdf, addr));
     } else {
-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
-        return inl(PORT_PCI_DATA);
+        return pci_ioconfig_readl(bdf, addr);
     }
+}
+
+u16 pci_ioconfig_readw(u16 bdf, u32 addr)
+{
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+    return inw(PORT_PCI_DATA + (addr & 2));
 }
 
 u16 pci_config_readw(u16 bdf, u32 addr)
@@ -71,9 +97,14 @@ u16 pci_config_readw(u16 bdf, u32 addr)
     if (!MODESEGMENT && mmconfig) {
         return readw(mmconfig_addr(bdf, addr));
     } else {
-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
-        return inw(PORT_PCI_DATA + (addr & 2));
+        return pci_ioconfig_readw(bdf, addr);
     }
+}
+
+u8 pci_ioconfig_readb(u16 bdf, u32 addr)
+{
+    outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
+    return inb(PORT_PCI_DATA + (addr & 3));
 }
 
 u8 pci_config_readb(u16 bdf, u32 addr)
@@ -81,8 +112,7 @@ u8 pci_config_readb(u16 bdf, u32 addr)
     if (!MODESEGMENT && mmconfig) {
         return readb(mmconfig_addr(bdf, addr));
     } else {
-        outl(ioconfig_cmd(bdf, addr), PORT_PCI_CMD);
-        return inb(PORT_PCI_DATA + (addr & 3));
+        return pci_ioconfig_readb(bdf, addr);
     }
 }
 
