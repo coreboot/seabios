@@ -423,7 +423,7 @@ malloc_preinit(void)
 
     // Populate temp high ram
     u32 highram_start = 0;
-    u32 highram_size = BUILD_MAX_HIGHTABLE;
+    u32 highram_size = 0;
     int i;
     for (i=e820_count-1; i>=0; i--) {
         struct e820entry *en = &e820_list[i];
@@ -434,10 +434,14 @@ malloc_preinit(void)
             continue;
         u32 s = en->start, e = end;
         if (!highram_start) {
-            u32 newe = ALIGN_DOWN(e - highram_size, MALLOC_MIN_ALIGN);
-            if (newe <= e && newe >= s) {
-                highram_start = newe;
-                e = newe;
+            u32 new_max = ALIGN_DOWN(e - BUILD_MAX_HIGHTABLE, MALLOC_MIN_ALIGN);
+            u32 new_min = ALIGN_DOWN(e - BUILD_MIN_HIGHTABLE, MALLOC_MIN_ALIGN);
+            if (new_max <= e && new_max >= s + BUILD_MAX_HIGHTABLE) {
+                highram_start = e = new_max;
+                highram_size = BUILD_MAX_HIGHTABLE;
+            } else if (new_min <= e && new_min >= s) {
+                highram_start = e = new_min;
+                highram_size = BUILD_MIN_HIGHTABLE;
             }
         }
         alloc_add(&ZoneTmpHigh, s, e);
