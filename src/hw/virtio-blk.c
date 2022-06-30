@@ -95,7 +95,7 @@ virtio_blk_op(struct disk_op_s *op, int write)
         blk_num_max = (u16)max_io_size / vdrive->drive.blksize;
     else
         /* default blk_num_max if hardware doesnot advise a proper value */
-        blk_num_max = 8;
+        blk_num_max = 64;
 
     if (op->count <= blk_num_max) {
         virtio_blk_op_one_segment(vdrive, write, sg);
