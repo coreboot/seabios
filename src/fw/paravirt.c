@@ -32,6 +32,10 @@
 u32 RamSize;
 // Amount of continuous ram >4Gig
 u64 RamSizeOver4G;
+// physical address space bits
+u8 CPUPhysBits;
+// 64bit processor
+u8 CPULongMode;
 // Type of emulator platform.
 int PlatformRunningOn VARFSEG;
 // cfg enabled
@@ -130,6 +134,58 @@ static void kvmclock_init(void)
     tsctimer_setfreq(MHz * 1000, "kvmclock");
 }
 
+static void physbits(int qemu_quirk)
+{
+    unsigned int max, eax, ebx, ecx, edx;
+    unsigned int physbits;
+    char signature[13];
+    int pae = 0, valid = 0;
+
+    cpuid(0, &eax, &ebx, &ecx, &edx);
+    memcpy(signature + 0, &ebx, 4);
+    memcpy(signature + 4, &edx, 4);
+    memcpy(signature + 8, &ecx, 4);
+    signature[12] = 0;
+    if (eax >= 1) {
+        cpuid(1, &eax, &ebx, &ecx, &edx);
+        pae = (edx & (1 << 6));
+    }
+
+    cpuid(0x80000000, &eax, &ebx, &ecx, &edx);
+    max = eax;
+
+    if (max >= 0x80000001) {
+        cpuid(0x80000001, &eax, &ebx, &ecx, &edx);
+        CPULongMode = !!(edx & (1 << 29));
+    }
+
+    if (pae && CPULongMode && max >= 0x80000008) {
+        cpuid(0x80000008, &eax, &ebx, &ecx, &edx);
+        physbits = (u8)eax;
+        if (!qemu_quirk) {
+            valid = 1;
+        } else if (physbits >= 41) {
+            valid = 1;
+        } else if (strcmp(signature, "GenuineIntel") == 0) {
+            if ((physbits == 36) || (physbits == 39))
+                valid = 1;
+        } else if (strcmp(signature, "AuthenticAMD") == 0) {
+            if (physbits == 40)
+                valid = 1;
+        }
+    } else {
+        physbits = pae ? 36 : 32;
+        valid = 1;
+    }
+
+    dprintf(1, "%s: signature=\"%s\", pae=%s, lm=%s, phys-bits=%d, valid=%s\n",
+            __func__, signature, pae ? "yes" : "no", CPULongMode ? "yes" : "no",
+            physbits, valid ? "yes" : "no");
+
+    if (valid)
+        CPUPhysBits = physbits;
+}
+
 static void qemu_detect(void)
 {
     if (!CONFIG_QEMU_HARDWARE)
@@ -162,6 +218,7 @@ static void qemu_detect(void)
         dprintf(1, "Running on QEMU (unknown nb: %04x:%04x)\n", v, d);
         break;
     }
+    physbits(1);
 }
 
 static int qemu_early_e820(void);
