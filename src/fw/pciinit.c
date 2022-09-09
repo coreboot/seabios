@@ -51,6 +51,7 @@ u64 pcimem_end     = BUILD_PCIMEM_END;
 u64 pcimem64_start = BUILD_PCIMEM64_START;
 u64 pcimem64_end   = BUILD_PCIMEM64_END;
 u64 pci_io_low_end = 0xa000;
+u32 pci_use_64bit  = 0;
 
 struct pci_region_entry {
     struct pci_device *dev;
@@ -960,10 +961,14 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             if (pci_region_align(&s->r[type]) > align)
                  align = pci_region_align(&s->r[type]);
             u64 sum = pci_region_sum(&s->r[type]);
+            int is64 = pci_bios_bridge_region_is64(&s->r[type],
+                                                   s->bus_dev, type);
             int resource_optional = 0;
             if (hotplug_support == HOTPLUG_PCIE)
                 resource_optional = pcie_cap && (type == PCI_REGION_TYPE_IO);
-            if (!sum && hotplug_support && !resource_optional)
+            if (hotplug_support && pci_use_64bit && is64 && (type == PCI_REGION_TYPE_PREFMEM))
+                align = (u64)1 << (CPUPhysBits - 11);
+            if (align > sum && hotplug_support && !resource_optional)
                 sum = align; /* reserve min size for hot-plug */
             if (size > sum) {
                 dprintf(1, "PCI: QEMU resource reserve cap: "
@@ -975,8 +980,6 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             } else {
                 size = ALIGN(sum, align);
             }
-            int is64 = pci_bios_bridge_region_is64(&s->r[type],
-                                            s->bus_dev, type);
             // entry->bar is -1 if the entry represents a bridge region
             struct pci_region_entry *entry = pci_region_create_entry(
                 parent, s->bus_dev, -1, size, align, type, is64);
@@ -1108,7 +1111,7 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         panic("PCI: out of I/O address space\n");
 
     dprintf(1, "PCI: 32: %016llx - %016llx\n", pcimem_start, pcimem_end);
-    if (pci_bios_init_root_regions_mem(busses)) {
+    if (pci_use_64bit || pci_bios_init_root_regions_mem(busses)) {
         struct pci_region r64_mem, r64_pref;
         r64_mem.list.first = NULL;
         r64_pref.list.first = NULL;
@@ -1132,6 +1135,8 @@ static void pci_bios_map_devices(struct pci_bus *busses)
             u64 top = 1LL << CPUPhysBits;
             u64 size = (ALIGN(sum_mem, (1LL<<30)) +
                         ALIGN(sum_pref, (1LL<<30)));
+            if (pci_use_64bit)
+                size = ALIGN(size, (1LL<<(CPUPhysBits-3)));
             if (r64_mem.base < top - size) {
                 r64_mem.base = top - size;
             }
@@ -1173,6 +1178,9 @@ pci_setup(void)
         return;
 
     dprintf(3, "pci setup\n");
+
+    if (CPUPhysBits >= 36 && CPULongMode && RamSizeOver4G)
+        pci_use_64bit = 1;
 
     dprintf(1, "=== PCI bus & bridge init ===\n");
     if (pci_probe_host() != 0) {
