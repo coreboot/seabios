@@ -104,6 +104,42 @@ enable_bootsplash(void)
     u8 type = 0; /* 0 means jpg, 1 means bmp, default is 0=jpg */
     int filesize;
     u8 *filedata = romfile_loadfile("bootsplash.jpg", &filesize);
+    
+    //start of custom code
+    
+    u8 i=frame, j=0;
+    if (frame<10){
+       filename[11]=(frame+48); 
+    }
+    else{
+        j=0;
+        while(i>=10){
+                i= i-10; 
+                ++j;
+        }
+        filename[10]=(j+48);
+        filename[11]=(i+48);
+        
+    }
+    dprintf(1,"loading image: ");
+    dprintf(1, filename);
+    dprintf(1,"\n");
+    
+    filedata = romfile_loadfile(filename, &filesize);
+    
+    dprintf(1,"start");
+
+    //this code is terrible but it gets the job done for now
+    //keeps the cpu busy for ~15ms
+        for (u32 i=0; i<500000;){
+                i=i+1;
+                dprintf(1,"");
+        }
+    
+    dprintf(1,"\nstop\n");
+
+    //end of custom code
+
     if (!filedata) {
         filedata = romfile_loadfile("bootsplash.bmp", &filesize);
         if (!filedata)

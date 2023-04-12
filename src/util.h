@@ -49,6 +49,14 @@ int boot_lchs_find_ata_device(struct pci_device *pci, int chanid, int slave,
                               struct chs_s *chs);
 
 // bootsplash.c
+
+//start of custom code
+
+//using global variables for this isn't a good practice but for now it works
+u8 frame;
+char filename[]={'b','o','o','t','s','p','l','a','s','h','0','0','.','j','p','g','\0'};
+//end of custom code
+
 void enable_vga_console(void);
 void enable_bootsplash(void);
 void disable_bootsplash(void);

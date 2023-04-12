@@ -717,7 +717,17 @@ interactive_bootmenu(void)
     free(bootmsg);
 
     u32 menutime = romfile_loadint("etc/boot-menu-wait", DEFAULT_BOOTMENU_WAIT);
-    enable_bootsplash();
+    
+    //start of custom code
+    u8 default_n_of_img=1; //default number of frames
+    u8 n_of_img = romfile_loadint("etc/n-of-img", default_n_of_img);
+    //loop through set number of frames
+    for (u8 i=0; i<n_of_img; i++){
+        enable_bootsplash();
+        ++frame;
+    }
+    //end of custom code
+
     int scan_code = get_keystroke(menutime);
     disable_bootsplash();
     if (scan_code != menukey)
