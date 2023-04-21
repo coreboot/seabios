@@ -765,7 +765,7 @@ static int qemu_early_e820(void)
         switch (table.type) {
         case E820_RESERVED:
             e820_add(table.address, table.length, table.type);
-            dprintf(3, "qemu/e820: addr 0x%016llx len 0x%016llx [reserved]\n",
+            dprintf(1, "qemu/e820: addr 0x%016llx len 0x%016llx [reserved]\n",
                     table.address, table.length);
             break;
         case E820_RAM:
