@@ -1140,6 +1140,8 @@ static void pci_bios_map_devices(struct pci_bus *busses)
             if (r64_mem.base < top - size) {
                 r64_mem.base = top - size;
             }
+            if (e820_is_used(r64_mem.base, size))
+                r64_mem.base -= size;
         }
         r64_mem.base = ALIGN(r64_mem.base, align_mem);
         r64_mem.base = ALIGN(r64_mem.base, (1LL<<30));    // 1G hugepage
