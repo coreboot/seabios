@@ -57,6 +57,8 @@
 #define ESP_STAT_MSG     0x04
 #define ESP_STAT_TC      0x10
 
+#define ESP_INTR_FC      0x08
+#define ESP_INTR_BS      0x10
 #define ESP_INTR_DC      0x20
 
 struct esp_lun_s {
@@ -97,8 +99,9 @@ esp_scsi_process_op(struct disk_op_s *op)
 
     outb(target, iobase + ESP_WBUSID);
 
-    /* Clear FIFO before sending command.  */
+    /* Clear FIFO and interrupts before sending command.  */
     outb(ESP_CMD_FLUSH, iobase + ESP_CMD);
+    inb(iobase + ESP_RINTR);
 
     /*
      * We need to pass the LUN at the beginning of the command, and the FIFO
@@ -115,21 +118,26 @@ esp_scsi_process_op(struct disk_op_s *op)
 
     for (state = 0;;) {
         u8 stat = inb(iobase + ESP_RSTAT);
+        u8 intr;
 
-        /* Detect disconnected device.  */
-        if (state == 0 && (inb(iobase + ESP_RINTR) & ESP_INTR_DC)) {
-            return DISK_RET_ENOTREADY;
-        }
+        if (state == 0) {
+            intr = inb(iobase + ESP_RINTR);
 
-        /* HBA reads command, clears CD, sets TC -> do DMA if needed.  */
-        if (state == 0 && (stat & ESP_STAT_TC)) {
-            state++;
-            if (op->count && blocksize) {
-                /* Data phase.  */
-                u32 count = (u32)op->count * blocksize;
-                esp_scsi_dma(iobase, (u32)op->buf_fl, count, scsi_is_read(op));
-                outb(ESP_CMD_TI | ESP_CMD_DMA, iobase + ESP_CMD);
-                continue;
+            /* Detect disconnected device.  */
+            if (intr & ESP_INTR_DC) {
+                return DISK_RET_ENOTREADY;
+            }
+
+            /* HBA reads command, executes it, sets BS/FC -> do DMA if needed.  */
+            if (intr & (ESP_INTR_BS | ESP_INTR_FC)) {
+                state++;
+                if (op->count && blocksize) {
+                    /* Data phase.  */
+                    u32 count = (u32)op->count * blocksize;
+                    esp_scsi_dma(iobase, (u32)op->buf_fl, count, scsi_is_read(op));
+                    outb(ESP_CMD_TI | ESP_CMD_DMA, iobase + ESP_CMD);
+                    continue;
+                }
             }
         }
 
