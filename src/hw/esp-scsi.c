@@ -46,6 +46,7 @@
 #define ESP_DMA_WMAC  0x58c
 
 #define ESP_CMD_DMA      0x80
+#define ESP_CMD_FLUSH    0x01
 #define ESP_CMD_RESET    0x02
 #define ESP_CMD_TI       0x10
 #define ESP_CMD_ICCS     0x11
@@ -95,6 +96,9 @@ esp_scsi_process_op(struct disk_op_s *op)
     u8 status;
 
     outb(target, iobase + ESP_WBUSID);
+
+    /* Clear FIFO before sending command.  */
+    outb(ESP_CMD_FLUSH, iobase + ESP_CMD);
 
     /*
      * We need to pass the LUN at the beginning of the command, and the FIFO
