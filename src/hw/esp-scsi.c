@@ -137,6 +137,9 @@ esp_scsi_process_op(struct disk_op_s *op)
                     esp_scsi_dma(iobase, (u32)op->buf_fl, count, scsi_is_read(op));
                     outb(ESP_CMD_TI | ESP_CMD_DMA, iobase + ESP_CMD);
                     continue;
+                } else {
+                    /* No data phase.  */
+                    state++;
                 }
             }
         }
@@ -144,12 +147,18 @@ esp_scsi_process_op(struct disk_op_s *op)
         /* At end of DMA TC is set again -> complete command.  */
         if (state == 1 && (stat & ESP_STAT_TC)) {
             state++;
+            continue;
+        }
+
+        /* Request message in data.  */
+        if (state == 2) {
+            state++;
             outb(ESP_CMD_ICCS, iobase + ESP_CMD);
             continue;
         }
 
         /* Finally read data from the message in phase.  */
-        if (state == 2 && (stat & ESP_STAT_MSG)) {
+        if (state == 3 && (stat & ESP_STAT_MSG)) {
             state++;
             status = inb(iobase + ESP_FIFO);
             inb(iobase + ESP_FIFO);
