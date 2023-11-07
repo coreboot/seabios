@@ -46,12 +46,16 @@ static const char *region_type_name[] = {
     [ PCI_REGION_TYPE_PREFMEM ] = "prefmem",
 };
 
+// Memory ranges exported to legacy ACPI type table generation
 u64 pcimem_start   = BUILD_PCIMEM_START;
 u64 pcimem_end     = BUILD_PCIMEM_END;
 u64 pcimem64_start = BUILD_PCIMEM64_START;
 u64 pcimem64_end   = BUILD_PCIMEM64_END;
-u64 pci_io_low_end = 0xa000;
-u32 pci_use_64bit  = 0;
+
+// Resource allocation limits
+static u64 pci_io_low_end = 0xa000;
+static u64 pci_mem64_top  = 0;
+static u32 pci_pad_mem64  = 0;
 
 struct pci_region_entry {
     struct pci_device *dev;
@@ -966,8 +970,9 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             int resource_optional = 0;
             if (hotplug_support == HOTPLUG_PCIE)
                 resource_optional = pcie_cap && (type == PCI_REGION_TYPE_IO);
-            if (hotplug_support && pci_use_64bit && is64 && (type == PCI_REGION_TYPE_PREFMEM))
-                align = (u64)1 << (CPUPhysBits - 11);
+            if (hotplug_support && pci_pad_mem64 && is64
+                && (type == PCI_REGION_TYPE_PREFMEM))
+                align = pci_mem64_top >> 11;
             if (align > sum && hotplug_support && !resource_optional)
                 sum = align; /* reserve min size for hot-plug */
             if (size > sum) {
@@ -1111,7 +1116,7 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         panic("PCI: out of I/O address space\n");
 
     dprintf(1, "PCI: 32: %016llx - %016llx\n", pcimem_start, pcimem_end);
-    if (pci_use_64bit || pci_bios_init_root_regions_mem(busses)) {
+    if (pci_pad_mem64 || pci_bios_init_root_regions_mem(busses)) {
         struct pci_region r64_mem, r64_pref;
         r64_mem.list.first = NULL;
         r64_pref.list.first = NULL;
@@ -1131,14 +1136,13 @@ static void pci_bios_map_devices(struct pci_bus *busses)
         r64_mem.base = le64_to_cpu(romfile_loadint("etc/reserved-memory-end", 0));
         if (r64_mem.base < 0x100000000LL + RamSizeOver4G)
             r64_mem.base = 0x100000000LL + RamSizeOver4G;
-        if (CPUPhysBits) {
-            u64 top = 1LL << CPUPhysBits;
+        if (pci_mem64_top) {
             u64 size = (ALIGN(sum_mem, (1LL<<30)) +
                         ALIGN(sum_pref, (1LL<<30)));
-            if (pci_use_64bit)
-                size = ALIGN(size, (1LL<<(CPUPhysBits-3)));
-            if (r64_mem.base < top - size) {
-                r64_mem.base = top - size;
+            if (pci_pad_mem64)
+                size = ALIGN(size, pci_mem64_top >> 3);
+            if (r64_mem.base < pci_mem64_top - size) {
+                r64_mem.base = pci_mem64_top - size;
             }
             if (e820_is_used(r64_mem.base, size))
                 r64_mem.base -= size;
@@ -1181,8 +1185,18 @@ pci_setup(void)
 
     dprintf(3, "pci setup\n");
 
+    if (CPUPhysBits) {
+        pci_mem64_top = 1LL << CPUPhysBits;
+        if (CPUPhysBits > 46) {
+            // Old linux kernels have trouble dealing with more than 46
+            // phys-bits, so avoid that for now.  Seems to be a bug in the
+            // virtio-pci driver.  Reported: centos-7, ubuntu-18.04
+            pci_mem64_top = 1LL << 46;
+        }
+    }
+
     if (CPUPhysBits >= 36 && CPULongMode && RamSizeOver4G)
-        pci_use_64bit = 1;
+        pci_pad_mem64 = 1;
 
     dprintf(1, "=== PCI bus & bridge init ===\n");
     if (pci_probe_host() != 0) {
