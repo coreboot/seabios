@@ -147,6 +147,8 @@ esp_scsi_process_op(struct disk_op_s *op)
         /* At end of DMA TC is set again -> complete command.  */
         if (state == 1 && (stat & ESP_STAT_TC)) {
             state++;
+            /* Terminate esp_scsi_dma() command */
+            outb(0, iobase + ESP_DMA_CMD);
             continue;
         }
 
