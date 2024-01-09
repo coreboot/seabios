@@ -444,7 +444,8 @@ static int ahci_port_setup(struct ahci_port_s *port)
     ahci_port_writel(ctrl, pnr, PORT_CMD, cmd);
 
     /* spin up */
-    cmd |= PORT_CMD_SPIN_UP;
+    cmd &= ~PORT_CMD_ICC_MASK;
+    cmd |= PORT_CMD_SPIN_UP | PORT_CMD_POWER_ON | PORT_CMD_ICC_ACTIVE;
     ahci_port_writel(ctrl, pnr, PORT_CMD, cmd);
     u32 end = timer_calc(AHCI_LINK_TIMEOUT);
     for (;;) {
