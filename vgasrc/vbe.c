@@ -32,16 +32,18 @@ vbe_104f00(struct bregs *regs)
 {
     u16 seg = regs->es;
     struct vbe_info *info = (void*)(regs->di+0);
+    size_t info_size = offsetof(struct vbe_info, oem_data);
 
     if (GET_FARVAR(seg, info->signature) == VBE2_SIGNATURE) {
         dprintf(4, "Get VBE Controller: VBE2 Signature found\n");
+        info_size = sizeof(*info);
     } else if (GET_FARVAR(seg, info->signature) == VESA_SIGNATURE) {
         dprintf(4, "Get VBE Controller: VESA Signature found\n");
     } else {
         dprintf(4, "Get VBE Controller: Invalid Signature\n");
     }
 
-    memset_far(seg, info, 0, sizeof(*info));
+    memset_far(seg, info, 0, info_size);
 
     SET_FARVAR(seg, info->signature, VESA_SIGNATURE);
 

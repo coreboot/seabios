@@ -18,6 +18,8 @@ struct vbe_info {
     struct segoff_s oem_product_string;
     struct segoff_s oem_revision_string;
     u8 reserved[222];
+    /* VBE 2.0 */
+    u8 oem_data[256];
 } PACKED;
 
 struct vbe_mode_info {
