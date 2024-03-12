@@ -1081,7 +1081,7 @@ handle_101c(struct bregs *regs)
     if (ret < 0)
         goto fail;
     if (cmd == 0)
-        regs->bx = ret / 64;
+        regs->bx = DIV_ROUND_UP(ret, 64);
     regs->al = 0x1c;
 fail:
     return;

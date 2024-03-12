@@ -244,7 +244,7 @@ vbe_104f04(struct bregs *regs)
     if (ret < 0)
         goto fail;
     if (cmd == 0)
-        regs->bx = ret / 64;
+        regs->bx = DIV_ROUND_UP(ret, 64);
     regs->ax = 0x004f;
     return;
 fail:
