@@ -275,6 +275,14 @@ stdvga_set_window(struct vgamode_s *curmode_g, int window, int val)
     return -1;
 }
 
+// Minimum framebuffer bytes between each vertical line for given mode
+int
+stdvga_minimum_linelength(struct vgamode_s *vmode_g)
+{
+    return DIV_ROUND_UP(GET_GLOBAL(vmode_g->width) * vga_bpp(vmode_g), 8);
+}
+
+// Return number of framebuffer bytes between start of each vertical line
 int
 stdvga_get_linelength(struct vgamode_s *curmode_g)
 {
@@ -282,6 +290,7 @@ stdvga_get_linelength(struct vgamode_s *curmode_g)
     return val * 8 / stdvga_vram_ratio(curmode_g);
 }
 
+// Set number of framebuffer bytes between start of each vertical line
 int
 stdvga_set_linelength(struct vgamode_s *curmode_g, int val)
 {
@@ -290,6 +299,7 @@ stdvga_set_linelength(struct vgamode_s *curmode_g, int val)
     return 0;
 }
 
+// Return framebuffer offset of first byte of displayed content
 int
 stdvga_get_displaystart(struct vgamode_s *curmode_g)
 {
@@ -299,6 +309,7 @@ stdvga_get_displaystart(struct vgamode_s *curmode_g)
     return addr * 4 / stdvga_vram_ratio(curmode_g);
 }
 
+// Set framebuffer offset of first byte of displayed content
 int
 stdvga_set_displaystart(struct vgamode_s *curmode_g, int val)
 {
@@ -321,11 +332,6 @@ stdvga_set_dacformat(struct vgamode_s *curmode_g, int val)
     return -1;
 }
 
-int
-stdvga_get_linesize(struct vgamode_s *vmode_g)
-{
-    return DIV_ROUND_UP(GET_GLOBAL(vmode_g->width) * vga_bpp(vmode_g), 8);
-}
 
 /****************************************************************
  * Save/Restore state

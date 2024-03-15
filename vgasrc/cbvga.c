@@ -82,6 +82,13 @@ cbvga_set_window(struct vgamode_s *curmode_g, int window, int val)
 }
 
 int
+cbvga_minimum_linelength(struct vgamode_s *vmode_g)
+{
+    /* Can't change mode, always report active pitch. */
+    return GET_GLOBAL(CBlinelength);
+}
+
+int
 cbvga_get_linelength(struct vgamode_s *curmode_g)
 {
     return GET_GLOBAL(CBlinelength);
@@ -154,13 +161,6 @@ cbvga_set_mode(struct vgamode_s *vmode_g, int flags)
         }
     }
     return 0;
-}
-
-int
-cbvga_get_linesize(struct vgamode_s *vmode_g)
-{
-    /* Can't change mode, always report active pitch. */
-    return GET_GLOBAL(CBlinelength);
 }
 
 #define CB_TAG_FRAMEBUFFER      0x0012

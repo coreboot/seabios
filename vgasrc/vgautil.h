@@ -9,6 +9,7 @@ struct vgamode_s *cbvga_find_mode(int mode);
 void cbvga_list_modes(u16 seg, u16 *dest, u16 *last);
 int cbvga_get_window(struct vgamode_s *curmode_g, int window);
 int cbvga_set_window(struct vgamode_s *curmode_g, int window, int val);
+int cbvga_minimum_linelength(struct vgamode_s *vmode_g);
 int cbvga_get_linelength(struct vgamode_s *curmode_g);
 int cbvga_set_linelength(struct vgamode_s *curmode_g, int val);
 int cbvga_get_displaystart(struct vgamode_s *curmode_g);
@@ -17,7 +18,6 @@ int cbvga_get_dacformat(struct vgamode_s *curmode_g);
 int cbvga_set_dacformat(struct vgamode_s *curmode_g, int val);
 int cbvga_save_restore(int cmd, u16 seg, void *data);
 int cbvga_set_mode(struct vgamode_s *vmode_g, int flags);
-int cbvga_get_linesize(struct vgamode_s *vmode_g);
 void cbvga_setup_modes(u64 addr, u8 bpp, u32 xlines, u32 ylines, u32 linelength);
 int cbvga_setup(void);
 
@@ -77,7 +77,6 @@ void stdvga_list_modes(u16 seg, u16 *dest, u16 *last);
 void stdvga_build_video_param(void);
 void stdvga_override_crtc(int mode, u8 *crtc);
 int stdvga_set_mode(struct vgamode_s *vmode_g, int flags);
-int stdvga_get_linesize(struct vgamode_s *vmode_g);
 void stdvga_set_packed_palette(void);
 
 // swcursor.c

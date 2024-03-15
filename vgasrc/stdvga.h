@@ -68,6 +68,7 @@ void stdvga_set_scan_lines(u8 lines);
 u16 stdvga_get_vde(void);
 int stdvga_get_window(struct vgamode_s *curmode_g, int window);
 int stdvga_set_window(struct vgamode_s *curmode_g, int window, int val);
+int stdvga_minimum_linelength(struct vgamode_s *vmode_g);
 int stdvga_get_linelength(struct vgamode_s *curmode_g);
 int stdvga_set_linelength(struct vgamode_s *curmode_g, int val);
 int stdvga_get_displaystart(struct vgamode_s *curmode_g);

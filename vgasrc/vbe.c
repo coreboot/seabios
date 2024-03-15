@@ -110,7 +110,7 @@ vbe_104f01(struct bregs *regs)
     // Basic information about mode.
     int width = GET_GLOBAL(vmode_g->width);
     int height = GET_GLOBAL(vmode_g->height);
-    int linesize = vgahw_get_linesize(vmode_g);
+    int linesize = vgahw_minimum_linelength(vmode_g);
     SET_FARVAR(seg, info->bytes_per_scanline, linesize);
     SET_FARVAR(seg, info->xres, width);
     SET_FARVAR(seg, info->yres, height);

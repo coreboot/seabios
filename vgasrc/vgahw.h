@@ -95,6 +95,12 @@ static inline int vgahw_get_linelength(struct vgamode_s *curmode_g) {
     return stdvga_get_linelength(curmode_g);
 }
 
+static inline int vgahw_minimum_linelength(struct vgamode_s *vmode_g) {
+    if (CONFIG_VGA_EMULATE_TEXT)
+        return cbvga_minimum_linelength(vmode_g);
+    return stdvga_minimum_linelength(vmode_g);
+}
+
 static inline int vgahw_set_linelength(struct vgamode_s *curmode_g, int val) {
     if (CONFIG_VGA_CIRRUS)
         return clext_set_linelength(curmode_g, val);
@@ -149,12 +155,6 @@ static inline int vgahw_save_restore(int cmd, u16 seg, void *data) {
     if (CONFIG_VGA_EMULATE_TEXT)
         return cbvga_save_restore(cmd, seg, data);
     return stdvga_save_restore(cmd, seg, data);
-}
-
-static inline int vgahw_get_linesize(struct vgamode_s *vmode_g) {
-    if (CONFIG_VGA_EMULATE_TEXT)
-        return cbvga_get_linesize(vmode_g);
-    return stdvga_get_linesize(vmode_g);
 }
 
 #endif // vgahw.h
