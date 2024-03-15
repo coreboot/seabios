@@ -431,19 +431,17 @@ stdvga_override_crtc(int mode, u8 *crtc)
 }
 
 static void
-clear_screen(struct vgamode_s *vmode_g)
+clear_screen(struct vgamode_s *curmode_g)
 {
-    switch (GET_GLOBAL(vmode_g->memmodel)) {
+    switch (GET_GLOBAL(curmode_g->memmodel)) {
     case MM_TEXT:
-        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0720, 32*1024);
+        memset16_far(GET_GLOBAL(curmode_g->sstart), 0, 0x0720, 32*1024);
         break;
     case MM_CGA:
-        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 32*1024);
+        memset16_far(GET_GLOBAL(curmode_g->sstart), 0, 0x0000, 32*1024);
         break;
     default:
-        // XXX - old code gets/sets/restores sequ register 2 to 0xf -
-        // but it should always be 0xf anyway.
-        memset16_far(GET_GLOBAL(vmode_g->sstart), 0, 0x0000, 64*1024);
+        memset16_far(GET_GLOBAL(curmode_g->sstart), 0, 0x0000, 64*1024);
     }
 }
 
