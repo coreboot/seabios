@@ -88,6 +88,13 @@ struct vbe_crtc_info {
     u8 reserved[40];
 } PACKED;
 
+struct vbe_palette_entry {
+    u8 blue;
+    u8 green;
+    u8 red;
+    u8 align;
+} PACKED;
+
 /* VBE Return Status Info */
 /* AL */
 #define VBE_RETURN_STATUS_SUPPORTED                      0x4F

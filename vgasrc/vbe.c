@@ -403,26 +403,20 @@ vbe_104f09(struct bregs *regs)
     if (start + count > max_colors)
         goto fail;
     u16 seg = regs->es;
-    u8 *data_far = (void*)(regs->di+0);
-    u8 rgb[3];
+    struct vbe_palette_entry *data_far = (void*)(regs->di+0);
     int i;
     switch (regs->bl) {
     case 0x80:
     case 0x00:
         for (i = 0; i < count; i++) {
-            rgb[0] = GET_FARVAR(seg, data_far[i*4 + 2]);
-            rgb[1] = GET_FARVAR(seg, data_far[i*4 + 1]);
-            rgb[2] = GET_FARVAR(seg, data_far[i*4 + 0]);
-            stdvga_dac_write(GET_SEG(SS), rgb, start + i, 1);
+            struct vbe_palette_entry rgb = GET_FARVAR(seg, data_far[i]);
+            stdvga_dac_write(start + i, rgb);
         }
         break;
     case 0x01:
         for (i = 0; i < count; i++) {
-            stdvga_dac_read(GET_SEG(SS), rgb, start + i, 1);
-            SET_FARVAR(seg, data_far[i*4 + 0], rgb[2]);
-            SET_FARVAR(seg, data_far[i*4 + 1], rgb[1]);
-            SET_FARVAR(seg, data_far[i*4 + 2], rgb[0]);
-            SET_FARVAR(seg, data_far[i*4 + 3], 0);
+            struct vbe_palette_entry rgb = stdvga_dac_read(start + i);
+            SET_FARVAR(seg, data_far[i], rgb);
         }
         break;
     default:

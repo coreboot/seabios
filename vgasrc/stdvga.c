@@ -10,7 +10,6 @@
 #include "stdvga.h" // stdvga_setup
 #include "string.h" // memset_far
 #include "vgabios.h" // struct vgamode_s
-#include "vgautil.h" // stdvga_attr_write
 #include "x86.h" // outb
 
 
@@ -128,6 +127,41 @@ stdvga_get_palette_page(u8 *pal_pagesize, u8 *pal_page)
  * DAC control
  ****************************************************************/
 
+// Store dac colors into memory in 3-byte rgb format
+void
+stdvga_dac_read_many(u16 seg, u8 *data_far, u8 start, int count)
+{
+    while (count) {
+        struct vbe_palette_entry rgb = stdvga_dac_read(start);
+        SET_FARVAR(seg, *data_far, rgb.red);
+        data_far++;
+        SET_FARVAR(seg, *data_far, rgb.green);
+        data_far++;
+        SET_FARVAR(seg, *data_far, rgb.blue);
+        data_far++;
+        start++;
+        count--;
+    }
+}
+
+// Load dac colors from memory in 3-byte rgb format
+void
+stdvga_dac_write_many(u16 seg, u8 *data_far, u8 start, int count)
+{
+    while (count) {
+        u8 r = GET_FARVAR(seg, *data_far);
+        data_far++;
+        u8 g = GET_FARVAR(seg, *data_far);
+        data_far++;
+        u8 b = GET_FARVAR(seg, *data_far);
+        data_far++;
+        struct vbe_palette_entry rgb = { .red=r, .green=g, .blue=b };
+        stdvga_dac_write(start, rgb);
+        start++;
+        count--;
+    }
+}
+
 // Convert all loaded colors to shades of gray
 void
 stdvga_perform_gray_scale_summing(u16 start, u16 count)
@@ -135,16 +169,16 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
     stdvga_attrindex_write(0x00);
     int i;
     for (i = start; i < start+count; i++) {
-        u8 rgb[3];
-        stdvga_dac_read(GET_SEG(SS), rgb, i, 1);
+        struct vbe_palette_entry rgb = stdvga_dac_read(i);
 
         // intensity = ( 0.3 * Red ) + ( 0.59 * Green ) + ( 0.11 * Blue )
-        u16 intensity = ((77 * rgb[0] + 151 * rgb[1] + 28 * rgb[2]) + 0x80) >> 8;
+        u16 intensity = ((77 * rgb.red + 151 * rgb.green
+                          + 28 * rgb.blue) + 0x80) >> 8;
         if (intensity > 0x3f)
             intensity = 0x3f;
-        rgb[0] = rgb[1] = rgb[2] = intensity;
+        rgb.red = rgb.green = rgb.blue = intensity;
 
-        stdvga_dac_write(GET_SEG(SS), rgb, i, 1);
+        stdvga_dac_write(i, rgb);
     }
     stdvga_attrindex_write(0x20);
 }
@@ -474,7 +508,7 @@ stdvga_save_dac_state(u16 seg, struct saveDACcolors *info)
     SET_FARVAR(seg, info->rwmode, inb(VGAREG_DAC_STATE));
     SET_FARVAR(seg, info->peladdr, inb(VGAREG_DAC_WRITE_ADDRESS));
     SET_FARVAR(seg, info->pelmask, stdvga_pelmask_read());
-    stdvga_dac_read(seg, info->dac, 0, 256);
+    stdvga_dac_read_many(seg, info->dac, 0, 256);
     SET_FARVAR(seg, info->color_select, 0);
 }
 
@@ -482,7 +516,7 @@ static void
 stdvga_restore_dac_state(u16 seg, struct saveDACcolors *info)
 {
     stdvga_pelmask_write(GET_FARVAR(seg, info->pelmask));
-    stdvga_dac_write(seg, info->dac, 0, 256);
+    stdvga_dac_write_many(seg, info->dac, 0, 256);
     outb(GET_FARVAR(seg, info->peladdr), VGAREG_DAC_WRITE_ADDRESS);
 }
 

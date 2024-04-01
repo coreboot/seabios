@@ -471,11 +471,11 @@ stdvga_set_mode(struct vgamode_s *vmode_g, int flags)
         u16 palsize = GET_GLOBAL(stdmode_g->dacsize) / 3;
 
         // Always 256*3 values
-        stdvga_dac_write(get_global_seg(), palette_g, 0, palsize);
+        stdvga_dac_write_many(get_global_seg(), palette_g, 0, palsize);
         int i;
         for (i = palsize; i < 0x0100; i++) {
-            static u8 rgb[3] VAR16;
-            stdvga_dac_write(get_global_seg(), rgb, i, 1);
+            struct vbe_palette_entry rgb = { };
+            stdvga_dac_write(i, rgb);
         }
 
         if (flags & MF_GRAYSUM)
@@ -535,5 +535,5 @@ stdvga_set_mode(struct vgamode_s *vmode_g, int flags)
 void
 stdvga_set_packed_palette(void)
 {
-    stdvga_dac_write(get_global_seg(), pal_vga, 0, sizeof(pal_vga) / 3);
+    stdvga_dac_write_many(get_global_seg(), pal_vga, 0, sizeof(pal_vga) / 3);
 }

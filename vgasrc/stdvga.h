@@ -2,6 +2,7 @@
 #define __STDVGA_H
 
 #include "types.h" // u8
+#include "std/vbe.h" // struct vbe_palette_entry
 
 // VGA registers
 #define VGAREG_ACTL_ADDRESS            0x3c0
@@ -55,6 +56,8 @@ void stdvga_set_palette_blinking(u8 enable_blink);
 void stdvga_set_palette_pagesize(u8 pal_pagesize);
 void stdvga_set_palette_page(u8 pal_page);
 void stdvga_get_palette_page(u8 *pal_pagesize, u8 *pal_page);
+void stdvga_dac_read_many(u16 seg, u8 *data_far, u8 start, int count);
+void stdvga_dac_write_many(u16 seg, u8 *data_far, u8 start, int count);
 void stdvga_perform_gray_scale_summing(u16 start, u16 count);
 void stdvga_planar4_plane(int plane);
 void stdvga_set_font_location(u8 spec);
@@ -80,5 +83,28 @@ int stdvga_set_dacformat(struct vgamode_s *curmode_g, int val);
 int stdvga_save_restore(int cmd, u16 seg, void *data);
 void stdvga_enable_video_addressing(u8 disable);
 int stdvga_setup(void);
+
+// stdvgaio.c
+u8 stdvga_pelmask_read(void);
+void stdvga_pelmask_write(u8 val);
+u8 stdvga_misc_read(void);
+void stdvga_misc_write(u8 value);
+void stdvga_misc_mask(u8 off, u8 on);
+u8 stdvga_sequ_read(u8 index);
+void stdvga_sequ_write(u8 index, u8 value);
+void stdvga_sequ_mask(u8 index, u8 off, u8 on);
+u8 stdvga_grdc_read(u8 index);
+void stdvga_grdc_write(u8 index, u8 value);
+void stdvga_grdc_mask(u8 index, u8 off, u8 on);
+u8 stdvga_crtc_read(u16 crtc_addr, u8 index);
+void stdvga_crtc_write(u16 crtc_addr, u8 index, u8 value);
+void stdvga_crtc_mask(u16 crtc_addr, u8 index, u8 off, u8 on);
+u8 stdvga_attr_read(u8 index);
+void stdvga_attr_write(u8 index, u8 value);
+void stdvga_attr_mask(u8 index, u8 off, u8 on);
+u8 stdvga_attrindex_read(void);
+void stdvga_attrindex_write(u8 value);
+struct vbe_palette_entry stdvga_dac_read(u8 color);
+void stdvga_dac_write(u8 color, struct vbe_palette_entry rgb);
 
 #endif // stdvga.h

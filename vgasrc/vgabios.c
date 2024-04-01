@@ -567,17 +567,18 @@ handle_101009(struct bregs *regs)
     stdvga_get_all_palette_reg(regs->es, (u8*)(regs->dx + 0));
 }
 
-static void noinline
+static void
 handle_101010(struct bregs *regs)
 {
-    u8 rgb[3] = {regs->dh, regs->ch, regs->cl};
-    stdvga_dac_write(GET_SEG(SS), rgb, regs->bx, 1);
+    struct vbe_palette_entry rgb = {
+        .red=regs->dh, .green=regs->ch, .blue=regs->cl };
+    stdvga_dac_write(regs->bx, rgb);
 }
 
 static void
 handle_101012(struct bregs *regs)
 {
-    stdvga_dac_write(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+    stdvga_dac_write_many(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
@@ -589,20 +590,19 @@ handle_101013(struct bregs *regs)
         stdvga_set_palette_page(regs->bh);
 }
 
-static void noinline
+static void
 handle_101015(struct bregs *regs)
 {
-    u8 rgb[3];
-    stdvga_dac_read(GET_SEG(SS), rgb, regs->bx, 1);
-    regs->dh = rgb[0];
-    regs->ch = rgb[1];
-    regs->cl = rgb[2];
+    struct vbe_palette_entry rgb = stdvga_dac_read(regs->bx);
+    regs->dh = rgb.red;
+    regs->ch = rgb.green;
+    regs->cl = rgb.blue;
 }
 
 static void
 handle_101017(struct bregs *regs)
 {
-    stdvga_dac_read(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
+    stdvga_dac_read_many(regs->es, (u8*)(regs->dx + 0), regs->bx, regs->cx);
 }
 
 static void
