@@ -686,7 +686,7 @@ handle_101102(struct bregs *regs)
 static void
 handle_101103(struct bregs *regs)
 {
-    stdvga_set_text_block_specifier(regs->bl);
+    stdvga_set_font_location(regs->bl);
 }
 
 static void

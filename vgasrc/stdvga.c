@@ -154,13 +154,6 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
  * Memory control
  ****************************************************************/
 
-// Set the video memory location of the start of character fonts
-void
-stdvga_set_text_block_specifier(u8 spec)
-{
-    stdvga_sequ_write(0x03, spec);
-}
-
 // Enable reads and writes to the given "plane" when in planar4 mode.
 void
 stdvga_planar4_plane(int plane)
@@ -179,6 +172,13 @@ stdvga_planar4_plane(int plane)
 /****************************************************************
  * Font loading
  ****************************************************************/
+
+// Set the video memory location of the start of character fonts
+void
+stdvga_set_font_location(u8 spec)
+{
+    stdvga_sequ_write(0x03, spec);
+}
 
 static void
 get_font_access(void)

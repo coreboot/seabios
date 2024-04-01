@@ -56,8 +56,8 @@ void stdvga_set_palette_pagesize(u8 pal_pagesize);
 void stdvga_set_palette_page(u8 pal_page);
 void stdvga_get_palette_page(u8 *pal_pagesize, u8 *pal_page);
 void stdvga_perform_gray_scale_summing(u16 start, u16 count);
-void stdvga_set_text_block_specifier(u8 spec);
 void stdvga_planar4_plane(int plane);
+void stdvga_set_font_location(u8 spec);
 void stdvga_load_font(u16 seg, void *src_far, u16 count
                       , u16 start, u8 destflags, u8 fontsize);
 u16 stdvga_get_crtc(void);
