@@ -138,8 +138,8 @@ set_character_height(u8 lines)
 {
     stdvga_set_character_height(lines);
     SET_BDA(char_height, lines);
-    u16 vde = stdvga_get_vde();
-    u8 rows = vde / lines;
+    u16 vertical_size = stdvga_get_vertical_size();
+    u8 rows = vertical_size / lines;
     SET_BDA(video_rows, rows - 1);
     u16 cols = GET_BDA(video_cols);
     SET_BDA(video_pagesize, calc_page_size(MM_TEXT, cols, rows));

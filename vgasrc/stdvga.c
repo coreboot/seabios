@@ -275,15 +275,15 @@ stdvga_set_character_height(u8 lines)
     stdvga_crtc_mask(stdvga_get_crtc(), 0x09, 0x1f, lines - 1);
 }
 
-// Get vertical display end
+// Get vertical screen size (number of horizontal lines in the display)
 u16
-stdvga_get_vde(void)
+stdvga_get_vertical_size(void)
 {
     u16 crtc_addr = stdvga_get_crtc();
     u16 vde = stdvga_crtc_read(crtc_addr, 0x12);
     u8 ovl = stdvga_crtc_read(crtc_addr, 0x07);
-    vde += (((ovl & 0x02) << 7) + ((ovl & 0x40) << 3) + 1);
-    return vde;
+    vde += ((ovl & 0x02) << 7) + ((ovl & 0x40) << 3);
+    return vde + 1;
 }
 
 // Get offset into framebuffer accessible from real-mode 64K segment
