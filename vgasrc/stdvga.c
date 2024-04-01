@@ -270,7 +270,7 @@ stdvga_set_cursor_pos(int address)
 
 // Set the character height (when in text mode)
 void
-stdvga_set_scan_lines(u8 lines)
+stdvga_set_character_height(u8 lines)
 {
     stdvga_crtc_mask(stdvga_get_crtc(), 0x09, 0x1f, lines - 1);
 }

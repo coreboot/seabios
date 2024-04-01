@@ -134,9 +134,9 @@ set_active_page(u8 page)
 }
 
 static void
-set_scan_lines(u8 lines)
+set_character_height(u8 lines)
 {
-    stdvga_set_scan_lines(lines);
+    stdvga_set_character_height(lines);
     SET_BDA(char_height, lines);
     u16 vde = stdvga_get_vde();
     u8 rows = vde / lines;
@@ -700,28 +700,28 @@ handle_101110(struct bregs *regs)
 {
     stdvga_load_font(regs->es, (void*)(regs->bp+0), regs->cx
                      , regs->dx, regs->bl, regs->bh);
-    set_scan_lines(regs->bh);
+    set_character_height(regs->bh);
 }
 
 static void
 handle_101111(struct bregs *regs)
 {
     stdvga_load_font(get_global_seg(), vgafont14, 0x100, 0, regs->bl, 14);
-    set_scan_lines(14);
+    set_character_height(14);
 }
 
 static void
 handle_101112(struct bregs *regs)
 {
     stdvga_load_font(get_global_seg(), vgafont8, 0x100, 0, regs->bl, 8);
-    set_scan_lines(8);
+    set_character_height(8);
 }
 
 static void
 handle_101114(struct bregs *regs)
 {
     stdvga_load_font(get_global_seg(), vgafont16, 0x100, 0, regs->bl, 16);
-    set_scan_lines(16);
+    set_character_height(16);
 }
 
 static void

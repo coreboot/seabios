@@ -65,7 +65,7 @@ struct vgamode_s;
 int stdvga_vram_ratio(struct vgamode_s *vmode_g);
 void stdvga_set_cursor_shape(u16 cursor_type);
 void stdvga_set_cursor_pos(int address);
-void stdvga_set_scan_lines(u8 lines);
+void stdvga_set_character_height(u8 lines);
 u16 stdvga_get_vde(void);
 int stdvga_get_window(struct vgamode_s *curmode_g, int window);
 int stdvga_set_window(struct vgamode_s *curmode_g, int window, int val);
