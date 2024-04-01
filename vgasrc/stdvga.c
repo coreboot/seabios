@@ -1,6 +1,6 @@
 // Standard VGA driver code
 //
-// Copyright (C) 2009  Kevin O'Connor <kevin@koconnor.net>
+// Copyright (C) 2009-2024  Kevin O'Connor <kevin@koconnor.net>
 // Copyright (C) 2001-2008 the LGPL VGABios developers Team
 //
 // This file may be distributed under the terms of the GNU LGPLv3 license.
@@ -44,29 +44,35 @@ stdvga_set_cga_palette(u8 palid)
         stdvga_attr_mask(i, 0x01, palid & 0x01);
 }
 
+// Set the VGA palette index register for the "overscan" area
 void
 stdvga_set_overscan_border_color(u8 color)
 {
     stdvga_attr_write(0x11, color);
 }
 
+// Get the VGA palette index register for the "overscan" area
 u8
 stdvga_get_overscan_border_color(void)
 {
     return stdvga_attr_read(0x11);
 }
 
+// Set the VGA palette index registers
 void
 stdvga_set_all_palette_reg(u16 seg, u8 *data_far)
 {
+    // Set palette indexes (offset into DAC colors)
     int i;
     for (i = 0; i < 0x10; i++) {
         stdvga_attr_write(i, GET_FARVAR(seg, *data_far));
         data_far++;
     }
+    // Set "overscan" palette index (offset into DAC colors)
     stdvga_attr_write(0x11, GET_FARVAR(seg, *data_far));
 }
 
+// Get the VGA palette index registers
 void
 stdvga_get_all_palette_reg(u16 seg, u8 *data_far)
 {
@@ -78,6 +84,7 @@ stdvga_get_all_palette_reg(u16 seg, u8 *data_far)
     SET_FARVAR(seg, *data_far, stdvga_attr_read(0x11));
 }
 
+// Set blinking mode (when enabled, palette index bit 0x08 indicates blinking)
 void
 stdvga_toggle_intensity(u8 flag)
 {
@@ -116,6 +123,7 @@ stdvga_read_video_dac_state(u8 *pmode, u8 *curpage)
  * DAC control
  ****************************************************************/
 
+// Convert all loaded colors to shades of gray
 void
 stdvga_perform_gray_scale_summing(u16 start, u16 count)
 {
@@ -141,6 +149,7 @@ stdvga_perform_gray_scale_summing(u16 start, u16 count)
  * Memory control
  ****************************************************************/
 
+// Set the video memory location of the start of character fonts
 void
 stdvga_set_text_block_specifier(u8 spec)
 {
@@ -210,6 +219,7 @@ stdvga_load_font(u16 seg, void *src_far, u16 count
  * CRTC registers
  ****************************************************************/
 
+// Return the IO port used to access the CRTC register
 u16
 stdvga_get_crtc(void)
 {
@@ -234,6 +244,7 @@ stdvga_vram_ratio(struct vgamode_s *vmode_g)
     }
 }
 
+// Set cursor shape (when in text mode)
 void
 stdvga_set_cursor_shape(u16 cursor_type)
 {
@@ -242,6 +253,7 @@ stdvga_set_cursor_shape(u16 cursor_type)
     stdvga_crtc_write(crtc_addr, 0x0b, cursor_type);
 }
 
+// Set the position of the text cursor (as offset into system framebuffer)
 void
 stdvga_set_cursor_pos(int address)
 {
@@ -251,6 +263,7 @@ stdvga_set_cursor_pos(int address)
     stdvga_crtc_write(crtc_addr, 0x0f, address);
 }
 
+// Set the character height (when in text mode)
 void
 stdvga_set_scan_lines(u8 lines)
 {
@@ -268,15 +281,19 @@ stdvga_get_vde(void)
     return vde;
 }
 
+// Get offset into framebuffer accessible from real-mode 64K segment
 int
 stdvga_get_window(struct vgamode_s *curmode_g, int window)
 {
     return -1;
 }
 
+// Set offset into framebuffer that is accessible from real-mode 64K
+// segment (in units of VBE_win_granularity windows)
 int
 stdvga_set_window(struct vgamode_s *curmode_g, int window, int val)
 {
+    // Stdvga does not support changing window offset
     return -1;
 }
 
@@ -325,15 +342,18 @@ stdvga_set_displaystart(struct vgamode_s *curmode_g, int val)
     return 0;
 }
 
+// Report if using 8bit per rgb (24bit total) or 6bit per rgb (18bit total)
 int
 stdvga_get_dacformat(struct vgamode_s *curmode_g)
 {
     return -1;
 }
 
+// Set 8bit per rgb (24bit total) or 6bit per rgb (18bit total)
 int
 stdvga_set_dacformat(struct vgamode_s *curmode_g, int val)
 {
+    // Stdvga only supports 6bits for each color channel
     return -1;
 }
 
@@ -477,6 +497,7 @@ stdvga_save_restore(int cmd, u16 seg, void *data)
  * Misc
  ****************************************************************/
 
+// Enable/disable system access to the video memory
 void
 stdvga_enable_video_addressing(u8 disable)
 {
