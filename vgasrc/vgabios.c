@@ -544,7 +544,7 @@ handle_101002(struct bregs *regs)
 static void
 handle_101003(struct bregs *regs)
 {
-    stdvga_toggle_intensity(regs->bl);
+    stdvga_set_palette_blinking(regs->bl);
 }
 
 static void

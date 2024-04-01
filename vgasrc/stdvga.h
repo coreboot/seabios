@@ -51,7 +51,7 @@ void stdvga_set_overscan_border_color(u8 color);
 u8 stdvga_get_overscan_border_color(void);
 void stdvga_set_all_palette_reg(u16 seg, u8 *data_far);
 void stdvga_get_all_palette_reg(u16 seg, u8 *data_far);
-void stdvga_toggle_intensity(u8 flag);
+void stdvga_set_palette_blinking(u8 enable_blink);
 void stdvga_select_video_dac_color_page(u8 flag, u8 data);
 void stdvga_read_video_dac_state(u8 *pmode, u8 *curpage);
 void stdvga_perform_gray_scale_summing(u16 start, u16 count);

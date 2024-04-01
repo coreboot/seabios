@@ -86,9 +86,9 @@ stdvga_get_all_palette_reg(u16 seg, u8 *data_far)
 
 // Set blinking mode (when enabled, palette index bit 0x08 indicates blinking)
 void
-stdvga_toggle_intensity(u8 flag)
+stdvga_set_palette_blinking(u8 enable_blink)
 {
-    stdvga_attr_mask(0x10, 0x08, (flag & 0x01) << 3);
+    stdvga_attr_mask(0x10, 0x08, (enable_blink & 0x01) << 3);
 }
 
 void
