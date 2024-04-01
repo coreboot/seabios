@@ -263,7 +263,6 @@ struct stdvga_mode_s {
     u16 mode;
     struct vgamode_s info;
 
-    u8 pelmask;
     u8 *dac;
     u16 dacsize;
     u8 *sequ_regs;
@@ -275,39 +274,39 @@ struct stdvga_mode_s {
 
 static struct stdvga_mode_s vga_modes[] VAR16 = {
     //mode { model       tx   ty bpp cw ch  sstart    }
-    // pelm  dac            sequ     misc  crtc     actl     grdc
+    // dac            sequ     misc  crtc     actl     grdc
     {0x00, { MM_TEXT,    40,  25, 4, 9, 16, SEG_CTEXT }
-     , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
+     , PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
     {0x01, { MM_TEXT,    40,  25, 4, 9, 16, SEG_CTEXT }
-     , 0xFF, PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
+     , PAL(palette2), sequ_01, 0x67, crtc_01, actl_01, grdc_01},
     {0x02, { MM_TEXT,    80,  25, 4, 9, 16, SEG_CTEXT }
-     , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
+     , PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
     {0x03, { MM_TEXT,    80,  25, 4, 9, 16, SEG_CTEXT }
-     , 0xFF, PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
+     , PAL(palette2), sequ_03, 0x67, crtc_03, actl_01, grdc_01},
     {0x04, { MM_CGA,    320, 200, 2, 8,  8, SEG_CTEXT }
-     , 0xFF, PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
+     , PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
     {0x05, { MM_CGA,    320, 200, 2, 8,  8, SEG_CTEXT }
-     , 0xFF, PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
+     , PAL(palette1), sequ_04, 0x63, crtc_04, actl_04, grdc_04},
     {0x06, { MM_CGA,    640, 200, 1, 8,  8, SEG_CTEXT }
-     , 0xFF, PAL(palette1), sequ_06, 0x63, crtc_06, actl_06, grdc_06},
+     , PAL(palette1), sequ_06, 0x63, crtc_06, actl_06, grdc_06},
     {0x07, { MM_TEXT,    80,  25, 4, 9, 16, SEG_MTEXT }
-     , 0xFF, PAL(palette0), sequ_03, 0x66, crtc_07, actl_07, grdc_07},
+     , PAL(palette0), sequ_03, 0x66, crtc_07, actl_07, grdc_07},
     {0x0D, { MM_PLANAR, 320, 200, 4, 8,  8, SEG_GRAPH }
-     , 0xFF, PAL(palette1), sequ_0d, 0x63, crtc_0d, actl_0d, grdc_0d},
+     , PAL(palette1), sequ_0d, 0x63, crtc_0d, actl_0d, grdc_0d},
     {0x0E, { MM_PLANAR, 640, 200, 4, 8,  8, SEG_GRAPH }
-     , 0xFF, PAL(palette1), sequ_0e, 0x63, crtc_0e, actl_0d, grdc_0d},
+     , PAL(palette1), sequ_0e, 0x63, crtc_0e, actl_0d, grdc_0d},
     {0x0F, { MM_PLANAR, 640, 350, 1, 8, 14, SEG_GRAPH }
-     , 0xFF, PAL(palette0), sequ_0e, 0xa3, crtc_0f, actl_0f, grdc_0d},
+     , PAL(palette0), sequ_0e, 0xa3, crtc_0f, actl_0f, grdc_0d},
     {0x10, { MM_PLANAR, 640, 350, 4, 8, 14, SEG_GRAPH }
-     , 0xFF, PAL(palette2), sequ_0e, 0xa3, crtc_0f, actl_10, grdc_0d},
+     , PAL(palette2), sequ_0e, 0xa3, crtc_0f, actl_10, grdc_0d},
     {0x11, { MM_PLANAR, 640, 480, 1, 8, 16, SEG_GRAPH }
-     , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_11, grdc_0d},
+     , PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_11, grdc_0d},
     {0x12, { MM_PLANAR, 640, 480, 4, 8, 16, SEG_GRAPH }
-     , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_10, grdc_0d},
+     , PAL(palette2), sequ_0e, 0xe3, crtc_11, actl_10, grdc_0d},
     {0x13, { MM_PACKED, 320, 200, 8, 8,  8, SEG_GRAPH }
-     , 0xFF, PAL(palette3), sequ_13, 0x63, crtc_13, actl_13, grdc_13},
+     , PAL(palette3), sequ_13, 0x63, crtc_13, actl_13, grdc_13},
     {0x6A, { MM_PLANAR, 800, 600, 4, 8, 16, SEG_GRAPH }
-     , 0xFF, PAL(palette2), sequ_0e, 0xe3, crtc_6A, actl_10, grdc_0d},
+     , PAL(palette2), sequ_0e, 0xe3, crtc_6A, actl_10, grdc_0d},
 };
 
 
@@ -457,7 +456,7 @@ stdvga_set_mode(struct vgamode_s *vmode_g, int flags)
 
     // if palette loading (bit 3 of modeset ctl = 0)
     if (!(flags & MF_NOPALETTE)) {    // Set the PEL mask
-        stdvga_pelmask_write(GET_GLOBAL(stdmode_g->pelmask));
+        stdvga_pelmask_write(0xff);
 
         // From which palette
         u8 *palette_g = GET_GLOBAL(stdmode_g->dac);
