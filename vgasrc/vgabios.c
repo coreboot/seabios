@@ -457,13 +457,13 @@ handle_100a(struct bregs *regs)
 static void
 handle_100b00(struct bregs *regs)
 {
-    stdvga_set_border_color(regs->bl);
+    stdvga_set_cga_background_color(regs->bl);
 }
 
 static void
 handle_100b01(struct bregs *regs)
 {
-    stdvga_set_palette(regs->bl);
+    stdvga_set_cga_palette(regs->bl);
 }
 
 static void

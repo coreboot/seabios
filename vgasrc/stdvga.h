@@ -45,10 +45,10 @@
 #define SEG_MTEXT 0xB000
 
 // stdvga.c
-void stdvga_set_border_color(u8 color);
+void stdvga_set_cga_background_color(u8 color);
+void stdvga_set_cga_palette(u8 palid);
 void stdvga_set_overscan_border_color(u8 color);
 u8 stdvga_get_overscan_border_color(void);
-void stdvga_set_palette(u8 palid);
 void stdvga_set_all_palette_reg(u16 seg, u8 *data_far);
 void stdvga_get_all_palette_reg(u16 seg, u8 *data_far);
 void stdvga_toggle_intensity(u8 flag);

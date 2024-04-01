@@ -18,17 +18,30 @@
  * Attribute control
  ****************************************************************/
 
+// Emulate CGA background setting via VGA palette index registers
 void
-stdvga_set_border_color(u8 color)
+stdvga_set_cga_background_color(u8 color)
 {
+    // Set the background color (via palette index 0)
     u8 v1 = color & 0x0f;
     if (v1 & 0x08)
         v1 += 0x08;
     stdvga_attr_write(0x00, v1);
 
+    // Dim/brighten foreground (see pal_cga[] in stdvgamodes.c)
     int i;
     for (i = 1; i < 4; i++)
         stdvga_attr_mask(i, 0x10, color & 0x10);
+}
+
+// Emulate CGA palette setting by altering VGA palette index registers
+void
+stdvga_set_cga_palette(u8 palid)
+{
+    // Switch foreground colors (see pal_cga[] in stdvgamodes.c)
+    int i;
+    for (i = 1; i < 4; i++)
+        stdvga_attr_mask(i, 0x01, palid & 0x01);
 }
 
 void
@@ -41,14 +54,6 @@ u8
 stdvga_get_overscan_border_color(void)
 {
     return stdvga_attr_read(0x11);
-}
-
-void
-stdvga_set_palette(u8 palid)
-{
-    int i;
-    for (i = 1; i < 4; i++)
-        stdvga_attr_mask(i, 0x01, palid & 0x01);
 }
 
 void
