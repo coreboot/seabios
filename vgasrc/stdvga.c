@@ -91,31 +91,36 @@ stdvga_set_palette_blinking(u8 enable_blink)
     stdvga_attr_mask(0x10, 0x08, (enable_blink & 0x01) << 3);
 }
 
+// Select 4-bit or 6-bit palette indexes (for "page" switching of colors)
 void
-stdvga_select_video_dac_color_page(u8 flag, u8 data)
+stdvga_set_palette_pagesize(u8 pal_pagesize)
 {
-    if (!(flag & 0x01)) {
-        // select paging mode
-        stdvga_attr_mask(0x10, 0x80, data << 7);
-        return;
-    }
-    // select page
-    u8 val = stdvga_attr_read(0x10);
-    if (!(val & 0x80))
-        data <<= 2;
-    data &= 0x0f;
-    stdvga_attr_write(0x14, data);
+    stdvga_attr_mask(0x10, 0x80, pal_pagesize << 7);
 }
 
+// Set palette index offset (enables color switching via "pages")
 void
-stdvga_read_video_dac_state(u8 *pmode, u8 *curpage)
+stdvga_set_palette_page(u8 pal_page)
+{
+    // Check if using 4-bit or 6-bit "palette index pages"
+    u8 val = stdvga_attr_read(0x10);
+    if (!(val & 0x80))
+        pal_page <<= 2;
+    // select page
+    pal_page &= 0x0f;
+    stdvga_attr_write(0x14, pal_page);
+}
+
+// Report current palette index pagesize and current page
+void
+stdvga_get_palette_page(u8 *pal_pagesize, u8 *pal_page)
 {
     u8 val1 = stdvga_attr_read(0x10) >> 7;
     u8 val2 = stdvga_attr_read(0x14) & 0x0f;
     if (!(val1 & 0x01))
         val2 >>= 2;
-    *pmode = val1;
-    *curpage = val2;
+    *pal_pagesize = val1;
+    *pal_page = val2;
 }
 
 

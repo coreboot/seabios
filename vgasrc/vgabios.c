@@ -583,7 +583,10 @@ handle_101012(struct bregs *regs)
 static void
 handle_101013(struct bregs *regs)
 {
-    stdvga_select_video_dac_color_page(regs->bl, regs->bh);
+    if (!(regs->bl & 0x01))
+        stdvga_set_palette_pagesize(regs->bh);
+    else
+        stdvga_set_palette_page(regs->bh);
 }
 
 static void noinline
@@ -617,7 +620,7 @@ handle_101019(struct bregs *regs)
 static void
 handle_10101a(struct bregs *regs)
 {
-    stdvga_read_video_dac_state(&regs->bl, &regs->bh);
+    stdvga_get_palette_page(&regs->bl, &regs->bh);
 }
 
 static void
