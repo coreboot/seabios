@@ -286,6 +286,17 @@ stdvga_get_vertical_size(void)
     return vde + 1;
 }
 
+// Set vertical screen size (number of horizontal lines in the display)
+void
+stdvga_set_vertical_size(int lines)
+{
+    u16 crtc_addr = stdvga_get_crtc();
+    u16 vde = lines - 1;
+    stdvga_crtc_write(crtc_addr, 0x12, vde);
+    u8 ovl = ((vde >> 7) & 0x02) + ((vde >> 3) & 0x40);
+    stdvga_crtc_mask(crtc_addr, 0x07, 0x42, ovl);
+}
+
 // Get offset into framebuffer accessible from real-mode 64K segment
 int
 stdvga_get_window(struct vgamode_s *curmode_g, int window)

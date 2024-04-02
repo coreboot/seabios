@@ -67,6 +67,7 @@ void stdvga_set_cursor_shape(u16 cursor_type);
 void stdvga_set_cursor_pos(int address);
 void stdvga_set_character_height(u8 lines);
 u16 stdvga_get_vertical_size(void);
+void stdvga_set_vertical_size(int lines);
 int stdvga_get_window(struct vgamode_s *curmode_g, int window);
 int stdvga_set_window(struct vgamode_s *curmode_g, int window, int val);
 int stdvga_minimum_linelength(struct vgamode_s *vmode_g);

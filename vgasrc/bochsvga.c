@@ -275,13 +275,7 @@ bochsvga_set_mode(struct vgamode_s *vmode_g, int flags)
     stdvga_crtc_write(crtc_addr, 0x11, 0x00);
     stdvga_crtc_write(crtc_addr, 0x01, width / 8 - 1);
     stdvga_set_linelength(vmode_g, width);
-    stdvga_crtc_write(crtc_addr, 0x12, height - 1);
-    u8 v = 0;
-    if ((height - 1) & 0x0100)
-        v |= 0x02;
-    if ((height - 1) & 0x0200)
-        v |= 0x40;
-    stdvga_crtc_mask(crtc_addr, 0x07, 0x42, v);
+    stdvga_set_vertical_size(height);
 
     stdvga_crtc_write(crtc_addr, 0x09, 0x00);
     stdvga_crtc_mask(crtc_addr, 0x17, 0x00, 0x03);
