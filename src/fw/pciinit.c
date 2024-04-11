@@ -970,9 +970,11 @@ static int pci_bios_check_devices(struct pci_bus *busses)
             int resource_optional = 0;
             if (hotplug_support == HOTPLUG_PCIE)
                 resource_optional = pcie_cap && (type == PCI_REGION_TYPE_IO);
+
+            u64 top_align = pci_mem64_top >> 11;
             if (hotplug_support && pci_pad_mem64 && is64
-                && (type == PCI_REGION_TYPE_PREFMEM))
-                align = pci_mem64_top >> 11;
+                && (type == PCI_REGION_TYPE_PREFMEM) && (top_align > align))
+                align = top_align;
             if (align > sum && hotplug_support && !resource_optional)
                 sum = align; /* reserve min size for hot-plug */
             if (size > sum) {
