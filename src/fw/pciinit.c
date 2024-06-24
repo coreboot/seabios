@@ -1189,11 +1189,16 @@ pci_setup(void)
 
     if (CPUPhysBits) {
         pci_mem64_top = 1LL << CPUPhysBits;
-        if (CPUPhysBits > 46) {
-            // Old linux kernels have trouble dealing with more than 46
-            // phys-bits, so avoid that for now.  Seems to be a bug in the
-            // virtio-pci driver.  Reported: centos-7, ubuntu-18.04
-            pci_mem64_top = 1LL << 46;
+        if (CPUPhysBits > 44) {
+            // Old linux kernels have trouble dealing with more than 44 (i386
+            // kernels) or 46 (x86_64 kernels) phys-bits. Seems to be a bug in
+            // the virtio-pci driver.
+            // Reported: centos-7, ubuntu-18.04
+            // Limit the used address space to mitigate the bug, except we are
+            // running in a huge guest with more than 1TB of memory installed.
+            if (RamSizeOver4G < (1LL << 40)) {
+                pci_mem64_top = 1LL << 44;
+            }
         }
     }
 
