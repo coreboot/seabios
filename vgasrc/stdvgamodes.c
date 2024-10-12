@@ -419,9 +419,9 @@ stdvga_build_video_param(void)
     // Fill available legacy modes in video_func_static table
     u32 modes = 0;
     for (i = 0; i < ARRAY_SIZE(vga_modes); i++) {
-        u16 mode = vga_modes[i].mode;
+        u16 mode = GET_GLOBAL(vga_modes[i].mode);
         if (mode <= 0x13)
-            modes |= 1<<i;
+            modes |= 1<<mode;
     }
     SET_VGA(static_functionality.modes, modes);
 }
