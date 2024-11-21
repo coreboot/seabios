@@ -55,7 +55,7 @@ u64 pcimem64_end   = BUILD_PCIMEM64_END;
 // Resource allocation limits
 static u64 pci_io_low_end = 0xa000;
 static u64 pci_mem64_top  = 0;
-static u32 pci_pad_mem64  = 0;
+static u32 pci_pad_mem64  = -1;
 
 struct pci_region_entry {
     struct pci_device *dev;
@@ -1202,8 +1202,15 @@ pci_setup(void)
         }
     }
 
-    if (CPUPhysBits >= 36 && CPULongMode && RamSizeOver4G)
-        pci_pad_mem64 = 1;
+    pci_pad_mem64 = romfile_loadbool("opt/org.seabios/pci64", -1);
+
+    if (pci_pad_mem64 == -1)
+        // when not set enable in case memory over 4G is present
+        pci_pad_mem64 = RamSizeOver4G ? 1 : 0;
+
+    if (!CPULongMode)
+        // force off for 32-bit CPUs
+        pci_pad_mem64 = 0;
 
     dprintf(1, "=== PCI bus & bridge init ===\n");
     if (pci_probe_host() != 0) {
