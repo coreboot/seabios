@@ -637,7 +637,7 @@ static void
 ahci_controller_setup(struct pci_device *pci)
 {
     struct ahci_port_s *port;
-    u32 val, pnr, max;
+    u32 pnr, max;
 
     if (create_bounce_buf() < 0)
         return;
@@ -660,8 +660,8 @@ ahci_controller_setup(struct pci_device *pci)
 
     pci_enable_busmaster(pci);
 
-    val = ahci_ctrl_readl(ctrl, HOST_CTL);
-    ahci_ctrl_writel(ctrl, HOST_CTL, val | HOST_CTL_AHCI_EN);
+    ahci_ctrl_writel(ctrl, HOST_CTL, HOST_CTL_RESET);
+    ahci_ctrl_writel(ctrl, HOST_CTL, HOST_CTL_AHCI_EN);
 
     ctrl->caps = ahci_ctrl_readl(ctrl, HOST_CAP);
     ctrl->ports = ahci_ctrl_readl(ctrl, HOST_PORTS_IMPL);
