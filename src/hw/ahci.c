@@ -660,8 +660,23 @@ ahci_controller_setup(struct pci_device *pci)
 
     pci_enable_busmaster(pci);
 
-    ahci_ctrl_writel(ctrl, HOST_CTL, HOST_CTL_RESET);
-    ahci_ctrl_writel(ctrl, HOST_CTL, HOST_CTL_AHCI_EN);
+    u32 val = ahci_ctrl_readl(ctrl, HOST_CTL);
+    ahci_ctrl_writel(ctrl, HOST_CTL, val | HOST_CTL_RESET);
+    u32 end = timer_calc(AHCI_RESET_TIMEOUT);
+    for (;;) {
+        val = ahci_ctrl_readl(ctrl, HOST_CTL);
+        if (!(val & HOST_CTL_RESET))
+            break;
+        if (timer_check(end)) {
+            warn_timeout();
+            dprintf(1, "AHCI: controller reset failed\n");
+            free(ctrl);
+            return;
+        }
+        yield();
+    }
+    ahci_ctrl_writel(ctrl, HOST_CTL, val | HOST_CTL_AHCI_EN);
+    (void)ahci_ctrl_readl(ctrl, HOST_CTL); /* Flush */
 
     ctrl->caps = ahci_ctrl_readl(ctrl, HOST_CAP);
     ctrl->ports = ahci_ctrl_readl(ctrl, HOST_PORTS_IMPL);
