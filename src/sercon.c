@@ -567,8 +567,8 @@ static VAR16 struct {
     { .seq = "[19~", .len = 4, .keycode = 0x4200 },    // F8
     { .seq = "[20~", .len = 4, .keycode = 0x4300 },    // F9
     { .seq = "[21~", .len = 4, .keycode = 0x4400 },    // F10
-    { .seq = "[23~", .len = 4, .keycode = 0x5700 },    // F11
-    { .seq = "[24~", .len = 4, .keycode = 0x5800 },    // F12
+    { .seq = "[23~", .len = 4, .keycode = 0x8500 },    // F11
+    { .seq = "[24~", .len = 4, .keycode = 0x8600 },    // F12
 
     { .seq = "[2~",  .len = 3, .keycode = 0x52e0 },    // insert
     { .seq = "[3~",  .len = 3, .keycode = 0x53e0 },    // delete
