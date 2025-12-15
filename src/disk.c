@@ -295,7 +295,14 @@ disk_1308(struct bregs *regs, struct drive_s *drive_fl)
     } else if (regs->dl < EXTSTART_CD) {
         // Hard drive
         count = GET_BDA(hdcount);
-        nlc--;  // last sector reserved
+        
+		//is [nlc--] actually needed in an emulator?
+		//when emulated CYL=1 Hard drive then double decrement causes ff to be returned by int 13h ah=08h
+			
+		// if(nlc > 0) 
+        	// nlc--;  
+
+		
     } else {
         // Not supported on CDROM
         disk_ret(regs, DISK_RET_EPARAM);
