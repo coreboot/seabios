@@ -257,7 +257,7 @@ vbe_104f05(struct bregs *regs)
     if (regs->bh > 1 || regs->bl > 1)
         goto fail;
     if (GET_BDA_EXT(vbe_mode) & MF_LINEARFB) {
-        regs->ah = VBE_RETURN_STATUS_INVALID;
+        regs->ax = 0x034f;
         return;
     }
     struct vgamode_s *curmode_g = get_current_mode();
