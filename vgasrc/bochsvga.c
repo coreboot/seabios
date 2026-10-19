@@ -116,6 +116,14 @@ bochsvga_set_window(struct vgamode_s *curmode_g, int window, int val)
 }
 
 int
+bochsvga_get_win_granularity(struct vgamode_s *vmode_g)
+{
+    if (!GET_GLOBAL(dispi_found))
+        return stdvga_get_win_granularity(vmode_g);
+    return 64;
+}
+
+int
 bochsvga_get_linelength(struct vgamode_s *curmode_g)
 {
     if (!bochsvga_dispi_enabled())
@@ -346,7 +354,6 @@ bochsvga_setup(void)
     SET_VGA(VBE_framebuffer, lfb_addr);
     u32 totalmem = dispi_read(VBE_DISPI_INDEX_VIDEO_MEMORY_64K) * 64 * 1024;
     SET_VGA(VBE_total_memory, totalmem);
-    SET_VGA(VBE_win_granularity, 64);
     SET_VGA(VBE_capabilities, VBE_CAPABILITY_8BIT_DAC);
 
     dprintf(1, "VBE DISPI: lfb_addr=%x, size %d MB\n",

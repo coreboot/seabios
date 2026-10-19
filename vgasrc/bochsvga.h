@@ -44,6 +44,7 @@ struct vgamode_s *bochsvga_find_mode(int mode);
 void bochsvga_list_modes(u16 seg, u16 *dest, u16 *last);
 int bochsvga_get_window(struct vgamode_s *curmode_g, int window);
 int bochsvga_set_window(struct vgamode_s *curmode_g, int window, int val);
+int bochsvga_get_win_granularity(struct vgamode_s *vmode_g);
 int bochsvga_get_linelength(struct vgamode_s *curmode_g);
 int bochsvga_set_linelength(struct vgamode_s *curmode_g, int val);
 int bochsvga_get_displaystart(struct vgamode_s *curmode_g);

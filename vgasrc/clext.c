@@ -324,6 +324,12 @@ clext_set_window(struct vgamode_s *curmode_g, int window, int val)
 }
 
 int
+clext_get_win_granularity(struct vgamode_s *vmode_g)
+{
+    return 16;
+}
+
+int
 clext_get_linelength(struct vgamode_s *curmode_g)
 {
     u16 crtc_addr = stdvga_get_crtc();
@@ -626,7 +632,6 @@ clext_setup(void)
     SET_VGA(VBE_framebuffer, lfb_addr);
     u16 totalmem = cirrus_get_memsize();
     SET_VGA(VBE_total_memory, totalmem * 64 * 1024);
-    SET_VGA(VBE_win_granularity, 16);
     SET_VGA(cirrus_chip_id, stdvga_crtc_read(stdvga_get_crtc(), 0x27));
 
     return 0;

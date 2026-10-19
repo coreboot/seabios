@@ -24,7 +24,6 @@
 u32 VBE_total_memory VAR16 = 256 * 1024;
 u32 VBE_capabilities VAR16;
 u32 VBE_framebuffer VAR16;
-u16 VBE_win_granularity VAR16;
 u8 VBE_edid[256] VAR16;
 
 static void
@@ -94,7 +93,7 @@ vbe_104f01(struct bregs *regs)
     memset_far(seg, info, 0, sizeof(*info));
 
     // Basic information about video controller.
-    u32 win_granularity = GET_GLOBAL(VBE_win_granularity);
+    u32 win_granularity = vgahw_get_win_granularity(vmode_g);
     SET_FARVAR(seg, info->winA_attributes,
                (win_granularity ? VBE_WINDOW_ATTRIBUTE_RELOCATABLE : 0) |
                VBE_WINDOW_ATTRIBUTE_READABLE |

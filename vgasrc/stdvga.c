@@ -339,12 +339,20 @@ stdvga_get_window(struct vgamode_s *curmode_g, int window)
 }
 
 // Set offset into framebuffer that is accessible from real-mode 64K
-// segment (in units of VBE_win_granularity windows)
+// segment (in units of the window granularity)
 int
 stdvga_set_window(struct vgamode_s *curmode_g, int window, int val)
 {
     // Stdvga does not support changing window offset
     return -1;
+}
+
+// Return window offset granularity (in KB) for given mode, or 0 if the
+// window offset can not be changed
+int
+stdvga_get_win_granularity(struct vgamode_s *vmode_g)
+{
+    return 0;
 }
 
 // Minimum framebuffer bytes between each vertical line for given mode

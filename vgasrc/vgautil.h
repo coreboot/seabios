@@ -32,6 +32,7 @@ struct vgamode_s *clext_find_mode(int mode);
 void clext_list_modes(u16 seg, u16 *dest, u16 *last);
 int clext_get_window(struct vgamode_s *curmode_g, int window);
 int clext_set_window(struct vgamode_s *curmode_g, int window, int val);
+int clext_get_win_granularity(struct vgamode_s *vmode_g);
 int clext_get_linelength(struct vgamode_s *curmode_g);
 int clext_set_linelength(struct vgamode_s *curmode_g, int val);
 int clext_get_displaystart(struct vgamode_s *curmode_g);
@@ -64,7 +65,6 @@ void swcursor_check_event(void);
 extern u32 VBE_total_memory;
 extern u32 VBE_capabilities;
 extern u32 VBE_framebuffer;
-extern u16 VBE_win_granularity;
 extern u8 VBE_edid[256];
 void handle_104f(struct bregs *regs);
 

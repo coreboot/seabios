@@ -85,6 +85,14 @@ static inline int vgahw_set_window(struct vgamode_s *curmode_g, int window
     return stdvga_set_window(curmode_g, window, val);
 }
 
+static inline int vgahw_get_win_granularity(struct vgamode_s *vmode_g) {
+    if (CONFIG_VGA_CIRRUS)
+        return clext_get_win_granularity(vmode_g);
+    if (CONFIG_VGA_BOCHS)
+        return bochsvga_get_win_granularity(vmode_g);
+    return stdvga_get_win_granularity(vmode_g);
+}
+
 static inline int vgahw_get_linelength(struct vgamode_s *curmode_g) {
     if (CONFIG_VGA_CIRRUS)
         return clext_get_linelength(curmode_g);
