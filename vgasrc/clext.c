@@ -326,7 +326,11 @@ clext_set_window(struct vgamode_s *curmode_g, int window, int val)
 int
 clext_get_win_granularity(struct vgamode_s *vmode_g)
 {
-    return 16;
+    if (!is_cirrus_mode(vmode_g))
+        return 16;
+    u32 size = (u32)GET_GLOBAL(vmode_g->width) * GET_GLOBAL(vmode_g->height)
+               * DIV_ROUND_UP(GET_GLOBAL(vmode_g->depth), 8);
+    return size > 1024 * 1024 ? 16 : 4;
 }
 
 int
@@ -427,15 +431,15 @@ cirrus_switch_mode(struct cirrus_mode_s *table)
 }
 
 static void
-cirrus_enable_16k_granularity(void)
+cirrus_set_granularity(int kb)
 {
-    stdvga_grdc_mask(0x0b, 0x00, 0x20);
+    stdvga_grdc_mask(0x0b, 0x20, kb == 16 ? 0x20 : 0x00);
 }
 
 static void
 cirrus_clear_vram(u16 fill)
 {
-    cirrus_enable_16k_granularity();
+    cirrus_set_granularity(16);
     int count = GET_GLOBAL(VBE_total_memory) / (16 * 1024);
     int i;
     for (i=0; i<count; i++) {
@@ -458,11 +462,10 @@ clext_set_mode(struct vgamode_s *vmode_g, int flags)
     cirrus_switch_mode(table_g);
     if (GET_GLOBAL(vmode_g->memmodel) == MM_PACKED && !(flags & MF_NOPALETTE))
         stdvga_set_packed_palette();
-    if (!(flags & MF_LINEARFB))
-        cirrus_enable_16k_granularity();
     if (!(flags & MF_NOCLEARMEM))
         // fill with 0xff to keep win 2K happy
         cirrus_clear_vram(flags & MF_LEGACY ? 0xffff : 0x0000);
+    cirrus_set_granularity(clext_get_win_granularity(vmode_g));
     return 0;
 }
 
