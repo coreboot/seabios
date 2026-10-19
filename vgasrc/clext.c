@@ -465,10 +465,15 @@ clext_set_mode(struct vgamode_s *vmode_g, int flags)
  * extbios
  ****************************************************************/
 
+// Chip id (CR27), read once in clext_setup().  A DOS session under
+// OS/2 can call int 10h with the VGA ports virtualized, so a later read
+// of CR27 may not return the chip id.
+static u8 cirrus_chip_id VAR16;
+
 static void
 clext_101280(struct bregs *regs)
 {
-    u8 v = stdvga_crtc_read(stdvga_get_crtc(), 0x27);
+    u8 v = GET_GLOBAL(cirrus_chip_id);
     if (v == 0xa0)
         // 5430
         regs->ax = 0x0032;
@@ -622,6 +627,7 @@ clext_setup(void)
     u16 totalmem = cirrus_get_memsize();
     SET_VGA(VBE_total_memory, totalmem * 64 * 1024);
     SET_VGA(VBE_win_granularity, 16);
+    SET_VGA(cirrus_chip_id, stdvga_crtc_read(stdvga_get_crtc(), 0x27));
 
     return 0;
 }
